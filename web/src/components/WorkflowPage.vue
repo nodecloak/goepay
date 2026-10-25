@@ -12,6 +12,8 @@ import {
 import FundsAvailabilitySummary from "./FundsAvailabilitySummary.vue";
 import SettlementRecipientPanel from "./SettlementRecipientPanel.vue";
 import SettlementPayoutPanel from "./SettlementPayoutPanel.vue";
+import SettlementListTable from "./SettlementListTable.vue";
+import { hasOriginalSettlementProjection } from "../settlement-list";
 import { payoutFundingLabel, payoutStateLabel } from "../settlement-payout";
 import {
   settlementSnapshotLabel,
@@ -162,6 +164,9 @@ const columns = [
   { key: "created_at", label: "申请时间" },
 ];
 async function load() {
+  checked.value = [];
+  items.value = [];
+  total.value = 0;
   if (routeContext.error) {
     error.value = routeContext.error;
     items.value = [];
@@ -400,7 +405,7 @@ onBeforeUnmount(() => {
       </div>
       <button
         v-if="area === 'admin' && workflow === 'settlements'"
-        :disabled="!checked.length || busy"
+        :disabled="!checked.length || busy || loading"
         @click="
           batchMode = true;
           dialog = 'approve';
@@ -423,6 +428,20 @@ onBeforeUnmount(() => {
       >
     </div>
     <div v-if="loading" class="loading-row" role="status">正在加载申请…</div>
+    <SettlementListTable
+      v-else-if="
+        !application &&
+        workflow === 'settlements' &&
+        hasOriginalSettlementProjection(items)
+      "
+      :items="items"
+      :area="area"
+      :checked="checked"
+      :busy="busy"
+      @check="check"
+      @decision="openDecision"
+      @payout="(id) => (payoutRequestId = id)"
+    />
     <div v-else-if="!application" class="table-scroll">
       <table>
         <thead>

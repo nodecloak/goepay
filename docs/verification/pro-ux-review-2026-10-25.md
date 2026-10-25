@@ -2,7 +2,7 @@
 
 用户给出的订单截图仅是示例，范围为管理后台和商户后台全部页面。已经实际核对82个原菜单→组件→JS来源，并在当前固定98部署逐页读取全部82页DOM及截图。原始本机证据：`E:\GOEPAY\.tools\all-ux-live-b4a190cbaa5947109037346b579bf481`。没有触发业务写入、真实资金或外部请求。
 
-最新独立模拟预览为148（8187/API8186、schema89/203表），见[148验收记录](local-preview-ux148-2026-10-26.md)。全部82页已重新读取DOM/截图，0业务写入、外部请求、页面/HTTP错误和页面溢出。下表保留98观察基线并另列148实机；观察通过不代表全部条件动作已经对齐。
+最新独立模拟预览为149（8187/API8186、schema89/203表），见[149验收记录](local-preview-ux149-2026-10-26.md)。全部82页已重新读取DOM/截图，0业务写入、外部请求、页面/HTTP错误和页面溢出。下表保留98观察基线并另列149实机；观察通过不代表全部条件动作已经对齐。
 
 **结论：当前界面与原Pro仍有实质差异，不能称全部功能或UX一致。** 0页面错误、0HTTP错误只能说明页面能运行，不能说明按钮、状态和业务已齐全。本记录区分已观察的页面职责错配、入口缺口与尚需按状态验证的功能，不用统一partial或菜单总数代替验收。
 
@@ -21,14 +21,14 @@
 | UX-009 | admin/transfer/list<br>merchant/transfer | 原付款列表缺少已实现批次功能入口。 | batch entry deployed in preview109 in both areas; remaining product filters/actions pending。两个原列表均已链接真实持久批次页，继续复核原产品专属筛选、余额及行操作；不以入口恢复代替全部付款UX一致。 |
 | UX-010 | merchant/settle/apply<br>merchant/applyments/create<br>admin/applyments/form<br>merchant/applyments/form | 固定98把专用申请路由映射为列表。 | direct forms deployed in preview109; component and desktop/mobile checks passed; real onboarding plugin deferred。提现直接呈现资金/收款/费用表单；三个本地进件资料入口直接新增或按query.id读取编辑，规范ID/上下文切换有保护。保存后不自动重复新增。真实进件插件仍按用户范围暂缓，不能把本地草稿宣称为上游进件。 |
 | UX-011 | merchant/account/settings<br>admin/system/cron<br>admin/system/runtime-log<br>admin/system/update<br>admin/system/log | 账户设置的绑定/通知、任务和日志等原交互与当前页面职责/布局仍有差异。 | original account same-page cards and verified own login-log deployed in preview122; remaining bindings and administrator tools pending。账户/密码/TOTP、消息推送、小票打印在原设置页组合现有真实组件；本人日志原四列、只读快照分页、核实主体、真实时间排序、未知方式/地域、代登录拒绝、375布局/关闭回焦通过。原手机/邮箱验证、第三方绑定、云设备专属连接与管理员任务/日志/更新动作仍需逐项核对，不显示无后端的空页签。 133已部署独立运行日志三列、日期查询、带预览/稳定请求号的清理，保留业务审计；异常内容脱敏与只归档原范围有真实PG测试。系统操作日志已随136部署，定时任务和版本更新继续。 136另恢复系统操作日志原五列、UID/IP筛选、管理员/商户核实归属、大ID和原始登录审计入口。删除归属取最后可信历史审计，未知不猜账号或当前记录owner；原super/operator菜单权限、无外查/读取不写均通过。 |
-| UX-012 | admin/profitsharing/receiver<br>admin/profitsharing/order<br>merchant/profitsharing/receiver<br>merchant/profitsharing/order<br>admin/settle/list<br>merchant/settle/list | 原规则/记录列表和操作布局，与当前专用资金流程存在入口和状态表达差异。 | original settlement1/2/3 semantics deployed in preview122 with new-intent and historical-proof checks; other per-state flows pending。原组1自动/2手动/3两者、继承和普通全局0关闭均被新报价/预留和普通计划消费；阈值分支按原独立规则，会员到期重查，旧意图/历史HMAC保留。继续核对原费用、周期、组覆盖及分账列表/规则状态，不能把本项代表全部结算或渠道分账UX。 |
+| UX-012 | admin/profitsharing/receiver<br>admin/profitsharing/order<br>merchant/profitsharing/receiver<br>merchant/profitsharing/order<br>admin/settle/list<br>merchant/settle/list | 原规则/记录列表和操作布局，与当前专用资金流程存在入口和状态表达差异。 | original settlement1/2/3 semantics deployed in preview122 with new-intent and historical-proof checks; other per-state flows pending。原组1自动/2手动/3两者、继承和普通全局0关闭均被新报价/预留和普通计划消费；阈值分支按原独立规则，会员到期重查，旧意图/历史HMAC保留。继续核对原费用、周期、组覆盖及分账列表/规则状态，不能把本项代表全部结算或渠道分账UX。 149恢复管理员原九数据列及选择框、商户六列，原申请脱敏快照、预计与核实到账/完成时间、只读详情；翻页清除旧选择，加载不能批量核准。统计页签相邻布局及关联商户迟到响应已验证。原结算筛选和手动状态/收款修改仍继续。 |
 | UX-013 | admin/trade/refund<br>merchant/trade/refund | 原退款列表的六项退款统计弹窗缺失。 | original refund identifiers, search, dual-line amount/time and associated-order detail deployed through preview130; scoped dual-platform and actual checks passed。恢复退款总笔数/金额、成功笔数/金额、处理中笔数/金额，当前筛选全部记录，不受分页限制；金额/计数精确字符串，处理中含待核实，不把失败算作成功。双角色租户、日期/方式/状态/搜索、失败清空、迟到账号响应、375布局/关闭回焦通过。实机预览为空退款，非零混合状态由隔离真实PG合同验证；129已恢复三个原搜索字段、原column/value/uid链接、大ID和原双行编号表头，列表/统计/CSV同范围；130进一步恢复管理员商户号、原六列/商户五列、退款与扣减金额、申请与不可变终态记录时间、关联订单详情及关闭回焦；未记录时间不猜测，CSV旧12列保持，完成时间最后追加。原其它条件分支仍需继续核对。 |
 
 ## 全部页面复核索引
 
-原字段/动作与98基线及148实机的按钮/表头/表单均在同名JSON中保存；原静态字段含表单和筛选，不等同全部表格列。空表不能证明没有行操作，条件动作另按源码/专项/实机核对。其它业务插件按用户指定暂缓。
+原字段/动作与98基线及149实机的按钮/表头/表单均在同名JSON中保存；原静态字段含表单和筛选，不等同全部表格列。空表不能证明没有行操作，条件动作另按源码/专项/实机核对。其它业务插件按用户指定暂缓。
 
-| 页面 | 原模块 | 98页面类型 | 98基线入口 | 148实机入口 |
+| 页面 | 原模块 | 98页面类型 | 98基线入口 | 149实机入口 |
 |---|---|---|---|---|
 | admin/dashboard · 仪表盘 | index-BayLJ6d8.js | dashboard | 刷新数据 | 刷新数据、查看趋势明细 |
 | admin/trade/order · 订单管理 | index-lAIAtQd1.js | orders | 刷新数据、查询、清空筛选、导出筛选结果 CSV、详情、申请退款、上一页、下一页 | 刷新数据、查询、清空筛选、自动刷新、导出筛选结果 CSV、执行批量操作、拉黑IP、详情、···、上一页、下一页 |
@@ -115,7 +115,7 @@
 
 ## 验证口径
 
-- 保留固定98观察和148最新实机两套入口；后续增量按109/114/116/117/122/124/126/127/129验收记录区分。不得将专项或82页观察通过写成全部条件功能/UX对齐。
+- 保留固定98观察和149最新实机两套入口；后续增量按109/114/116/117/122/124/126/127/129验收记录区分。不得将专项或82页观察通过写成全部条件功能/UX对齐。
 - 新操作保留角色/本人权限、CSRF、稳定原请求号、资金授权、审计与未知结果保护。原直接改状态/物理删流水与当前账务保护的差异，须在对应确认交互中明确。
 - 原服务端控制器大量加密，前端存在按钮不证明其全部业务规则已恢复；同一支付插件的未实现分支不能归为其它插件暂缓。
 - 后续按本表逐项修复并记录实际测试及部署范围；未完成项保留，不以“全部本地测试通过”替代功能验收。

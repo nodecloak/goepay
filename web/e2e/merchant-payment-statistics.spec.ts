@@ -77,6 +77,14 @@ for (const width of [1280, 375]) {
     await expect(dialog.locator("tfoot")).toContainText("¥90071992547409.94");
     await expect(dialog.locator("tfoot")).toContainText("66.67%");
     await expect(dialog.getByRole("tab")).toHaveText(["今日数据", "昨日数据"]);
+    const dateTabs = dialog.getByRole("tab");
+    await expect
+      .poll(async () => {
+        const a = await dateTabs.nth(0).boundingBox(),
+          b = await dateTabs.nth(1).boundingBox();
+        return b!.x - (a!.x + a!.width);
+      })
+      .toBeLessThanOrEqual(16);
     const graph = dialog.getByRole("group", {
       name: "近7日支付金额趋势",
       exact: true,

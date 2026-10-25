@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-25T21:18:45.212Z",
+  "generated_at": "2026-10-25T21:42:49.757Z",
   "scope": "Source snapshot only; not a claim of complete compatibility or a replacement for test results.",
   "files": [
     {
@@ -20,7 +20,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "7929b67d1e457677ed65f8ee0dcaeebe562cff2f3ce7cd5746b3eb2010e0fb0e"
+      "sha256": "bf6cac57ff20bc47d0bf59bb10b61a414dd1f9ff8c066beef450dce937a1b50d"
     },
     {
       "path": "api/README.md",
@@ -671,6 +671,10 @@
       "sha256": "a57b593c73580dff7e51656dc76f7dcd58f5cb456996e24db5142308f1da7e59"
     },
     {
+      "path": "docs/plans/2026-10-26-original-settlement-list-layout.md",
+      "sha256": "c89106d240dc6f4f26404eb433514a5167ce4c950fff6f747530eb3e37576d0d"
+    },
+    {
       "path": "docs/superpowers/plans/2026-10-24-admin-business-notices-83.md",
       "sha256": "879a8b7c0acb3fa01f2e2df07c843c03b79e4a4e3bde12157722ee771c637d55"
     },
@@ -872,11 +876,11 @@
     },
     {
       "path": "docs/tools/source-manifest.mjs",
-      "sha256": "1b0f889d1932a5982cdaba66bb2823be35a826ec7fa1418754990860bcb844f1"
+      "sha256": "4111234d8626427a6f8b50916946669e98dc8adff70e710a42d27fff39a9a975"
     },
     {
       "path": "docs/tools/summarize-pro-ux-review.mjs",
-      "sha256": "8f94bc2429f5ed7ce8a4454e1f55ca11f0b7239aba26c1b14a33b657fa9a8182"
+      "sha256": "a8c4acb2bbe8630dcc78622f54acdcbf6d06d5c17d5676e8ff23392e3c5e4915"
     },
     {
       "path": "docs/verification/admin-notice-transports-77-2026-10-24.md",
@@ -889,6 +893,10 @@
     {
       "path": "docs/verification/local-preview-ux146-2026-10-26.md",
       "sha256": "a470bec0bd9516763f80cd4bb0f33a312326ee85a344604af704e5068a200e09"
+    },
+    {
+      "path": "docs/verification/local-preview-ux148-2026-10-26.md",
+      "sha256": "efd30ee99b4e9711e27a30c2d9a0e9449b2220aa043031ec5eec42ca86235c39"
     },
     {
       "path": "docs/verification/merchant-notice-80-foundation-2026-10-24.md",
@@ -5291,6 +5299,10 @@
       "sha256": "e1ebdea5530f727cc7346fcfef99b3e473eee4e875a5815c5f4671b94642e04c"
     },
     {
+      "path": "web/e2e/linked-records-late-response.spec.ts",
+      "sha256": "424821411e64c47001e7d2bea503905f71e3dbb1749890e55207fedfb8d0c400"
+    },
+    {
       "path": "web/e2e/list-filters.spec.ts",
       "sha256": "a91968588abe9a1e7ded31fc2165974f8e46e6b274a5e60979f2f5fcf44f3c30"
     },
@@ -5368,7 +5380,7 @@
     },
     {
       "path": "web/e2e/merchant-payment-statistics.spec.ts",
-      "sha256": "2831649b44d368387f2965820b50cba33bbe2efda106217ec52a0eaed35fe04f"
+      "sha256": "fb86886f0466899e72ce5c63e75a5e271c980c32810ffca89248730399aba97b"
     },
     {
       "path": "web/e2e/notification-resend.spec.ts",
@@ -5493,6 +5505,10 @@
     {
       "path": "web/e2e/settlement-batches.spec.ts",
       "sha256": "bd861bfab9c4198939e140705d7b4049f5d2ed21c99ebd458b357b5f5b6c1e9d"
+    },
+    {
+      "path": "web/e2e/settlement-list-ux.spec.ts",
+      "sha256": "d7e63eb940aca381099f74d098a9d0e43bd7985d582cac08a2068bed84c137d4"
     },
     {
       "path": "web/e2e/settlement-payout.spec.ts",
@@ -5808,7 +5824,7 @@
     },
     {
       "path": "web/src/components/PaymentStatisticsDialog.vue",
-      "sha256": "61430b3d8e07e94a128d0123c38c0f5c8d79b7207d045b63447d5fb570f20a07"
+      "sha256": "7c2a34699998838c255c36d824cf101f7f0eb8d923fb9fe6f4084ec76e25b762"
     },
     {
       "path": "web/src/components/PreauthorizationObservation.vue",
@@ -5883,6 +5899,10 @@
       "sha256": "a9636ae2109dcbfd994d2c38caaadf8967bd044b92fc077b51581f70729c302f"
     },
     {
+      "path": "web/src/components/SettlementListTable.vue",
+      "sha256": "6199c32f09e2a749fca664136790f89313505eca1adea15108a6a2f950767ac9"
+    },
+    {
       "path": "web/src/components/SettlementPayoutPanel.vue",
       "sha256": "5e5ea944bc1153f4bf6733bfd23c66a6e3ae6fc47698ed9ad4102c3cc601e158"
     },
@@ -5897,6 +5917,10 @@
     {
       "path": "web/src/components/SettlementRecipientPanel.vue",
       "sha256": "1a3244878c69c6a91f54a8c9d62fcad40c57d61df5ba8c3c15ea9647ce5423c1"
+    },
+    {
+      "path": "web/src/components/SettlementRecordDetails.vue",
+      "sha256": "31162d55d0c98ac848b8c19a6714c926a1dce339e3600f8805d5b5e5f0eaea3c"
     },
     {
       "path": "web/src/components/SettlementSchedulePage.vue",
@@ -5940,7 +5964,7 @@
     },
     {
       "path": "web/src/components/WorkflowPage.vue",
-      "sha256": "aede5cde56a615ae7f785024cb17eb237ec11cb00a3a98b6e311e7cbe1343885"
+      "sha256": "cc14dab9dad3619f4c97d2feed63af8820a79b35b8e8d2316aaf89b01ffda724"
     },
     {
       "path": "web/src/console-datetime.ts",
@@ -6097,6 +6121,10 @@
     {
       "path": "web/src/settlement-batches.ts",
       "sha256": "56c92b5dc4347e2f7a4b0f4a84d98a5cbe2abac1367ae5f9d0ea09fdfd00ab17"
+    },
+    {
+      "path": "web/src/settlement-list.ts",
+      "sha256": "e9ced70b19be7f87f8a2351afe21c90bd9895d22d15721bdb64f74f3830233eb"
     },
     {
       "path": "web/src/settlement-payout.ts",
@@ -6265,6 +6293,10 @@
     {
       "path": "web/tests/fixtures/merchant-payment-statistics.ts",
       "sha256": "8b39639bb381ebceb6c1fcadc403d0bf3a717fb0c710aec1fc9c740242deed12"
+    },
+    {
+      "path": "web/tests/fixtures/settlement-list.ts",
+      "sha256": "8e864bfb91341eab11f699006396bdefd20190b15b5c67ba76ee7d84e76fc866"
     },
     {
       "path": "web/tests/funds-authorization-modal.test.ts",
@@ -6525,6 +6557,10 @@
     {
       "path": "web/tests/settlement-batches.test.ts",
       "sha256": "56391d74a86e0a519c8c91c2531755e8aac52175d2aff8b802623fd9096eaada"
+    },
+    {
+      "path": "web/tests/settlement-list.test.ts",
+      "sha256": "3f832b80589864cc12922f4236b0b6a9f6d3f0d10d8e45fd4c11a4aa7ead18db"
     },
     {
       "path": "web/tests/settlement-payout-panel.test.ts",

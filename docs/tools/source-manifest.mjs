@@ -32,6 +32,8 @@ walk('docs/plans/2026-10-26-original-group-editor-layout.md');
 walk('docs/plans/2026-10-26-original-merchant-payment-statistics.md');
 walk('docs/plans/2026-10-26-original-merchant-related-records.md');
 walk('docs/verification/local-preview-ux146-2026-10-26.md');
+walk('docs/plans/2026-10-26-original-settlement-list-layout.md');
+walk('docs/verification/local-preview-ux148-2026-10-26.md');
 // Native mini clients: enumerate source roots only, never generated packages or
 // developer-tool local/private configuration.
 for (const name of ['clients/mini/src','clients/mini/templates','clients/mini/tests','clients/mini/build.mjs','clients/mini/README.md','docs/design/mini-client-81.md','docs/superpowers/plans/2026-10-24-mini-client-81.md']) walk(name);

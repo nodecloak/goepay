@@ -185,7 +185,7 @@ onBeforeUnmount(() => {
       <div
         role="tablist"
         aria-label="统计日期"
-        class="toolbar"
+        class="toolbar statistics-tabs"
         @keydown="tabKey"
       >
         <button
@@ -257,6 +257,10 @@ onBeforeUnmount(() => {
 }
 .merchant-statistics {
   width: min(100%, 800px);
+}
+.group-statistics .statistics-tabs {
+  justify-content: flex-start;
+  gap: 8px;
 }
 .group-statistics h2 {
   overflow-wrap: anywhere;
