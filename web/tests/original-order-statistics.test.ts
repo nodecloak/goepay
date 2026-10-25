@@ -5,6 +5,44 @@ import {
   statisticsTrend,
 } from "../src/original-order-statistics";
 describe("original order statistics", () => {
+  it("keeps original merchant daily filters within the current session", () => {
+    const filters = { type: "wxpay", channel: "", uid: "", from: "", to: "" };
+    expect(
+      originalStatisticsQuery("daily", filters, "merchant").query?.toString(),
+    ).toBe("view=original&type=wxpay");
+    expect(
+      originalStatisticsQuery("daily", { ...filters, uid: "1" }, "merchant")
+        .error,
+    ).toBeTruthy();
+    expect(
+      originalStatisticsQuery("daily", { ...filters, channel: "7" }, "merchant")
+        .error,
+    ).toBeTruthy();
+    expect(
+      originalStatisticsQuery("channels", filters, "merchant").error,
+    ).toBeTruthy();
+  });
+  it("uses merchant original income as the second trend series without private profit", () => {
+    const series = statisticsTrend(
+      [
+        {
+          day: "2026-10-25",
+          realmoney: "90071992547409.93",
+          getmoney: "81064793292668.94",
+          refundmoney: "1.00",
+          profitmoney: "123.00",
+        },
+      ],
+      "merchant",
+    );
+    expect(series.map((s) => s.name)).toEqual([
+      "订单金额",
+      "分成金额",
+      "退款金额",
+    ]);
+    expect(series[1].points[0].value).toBe("81064793292668.94");
+    expect(series.some((s) => s.key === "profitmoney")).toBe(false);
+  });
   it("preserves original dimensions and canonical large IDs without implicit date scope", () => {
     const q = originalStatisticsQuery("daily", {
       type: "alipay",

@@ -78,6 +78,18 @@ describe("original province statistics", () => {
   it("uses the supplied original local geometry without fetching a map", () => {
     const paths = provincePaths();
     expect(paths.length).toBe(35);
+    expect(paths.filter((p) => p.label)).toHaveLength(34);
+    expect(
+      paths
+        .filter((p) => p.label)
+        .every(
+          (p) =>
+            p.label!.x >= 0 &&
+            p.label!.x <= 720 &&
+            p.label!.y >= 0 &&
+            p.label!.y <= 540,
+        ),
+    ).toBe(true);
     expect(paths.find((p) => p.name === "广东省")?.path).toMatch(/^M/);
     expect(
       paths.every(

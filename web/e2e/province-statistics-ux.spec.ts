@@ -64,6 +64,14 @@ for (const width of [1280, 375]) {
       await expect(
         page.getByRole("group", { name: "地区交易分布地图" }),
       ).toBeVisible();
+      const labels = page.locator(".province-map svg text");
+      await expect(labels).toHaveCount(34);
+      await expect(labels.filter({ hasText: /^广东省$/ })).toBeVisible();
+      expect(
+        await labels.evaluateAll((nodes) =>
+          nodes.every((n) => getComputedStyle(n).pointerEvents === "none"),
+        ),
+      ).toBe(true);
       await expect(
         page.getByRole("heading", { name: "Top 10 省份" }),
       ).toBeVisible();

@@ -30,7 +30,38 @@ const items = ref<Record<string, unknown>[]>([]),
   error = ref(""),
   missing = ref("0");
 const daily = computed(() => props.report === "daily"),
-  series = computed(() => statisticsTrend(items.value));
+  merchant = computed(() => props.client.area === "merchant"),
+  series = computed(() => statisticsTrend(items.value, props.client.area));
+const columns = computed(() =>
+  merchant.value
+    ? [
+        { key: "day", label: "日期" },
+        { key: "realmoney", label: "订单金额" },
+        { key: "getmoney", label: "分成金额" },
+        { key: "refundmoney", label: "退款金额" },
+        { key: "orderCount", label: "总订单数" },
+        { key: "successCount", label: "成功订单数" },
+        { key: "successRate", label: "支付成功率" },
+      ]
+    : [
+        {
+          key: daily.value ? "day" : "channelName",
+          label: daily.value ? "日期" : "支付通道",
+        },
+        { key: "realmoney", label: "支付金额" },
+        { key: "refundmoney", label: "退款金额" },
+        { key: "profitmoney", label: "手续费利润" },
+        { key: "orderCount", label: "总订单数" },
+        { key: "successCount", label: "成功订单数" },
+        { key: "successRate", label: "支付成功率" },
+      ],
+);
+function cell(row: Record<string, unknown>, key: string) {
+  if (["realmoney", "getmoney", "refundmoney", "profitmoney"].includes(key))
+    return statisticsMoney(row[key]);
+  if (key === "successRate") return row[key] == null ? "—" : row[key] + "%";
+  return row[key];
+}
 const hiddenSeries = ref<string[]>([]),
   visibleSeries = computed(() =>
     series.value.filter((s) => !hiddenSeries.value.includes(s.key)),
@@ -52,14 +83,22 @@ function clear() {
 }
 watch(() => ({ ...filter }), clear, { flush: "sync" });
 const csvPath = computed(() => {
-  const parsed = originalStatisticsQuery(props.report, filter);
+  const parsed = originalStatisticsQuery(
+    props.report,
+    filter,
+    props.client.area,
+  );
   if (!parsed.query) return "";
   parsed.query.set("format", "csv");
   return "/reports/" + props.report + "?" + parsed.query;
 });
 async function load() {
   clear();
-  const parsed = originalStatisticsQuery(props.report, filter);
+  const parsed = originalStatisticsQuery(
+    props.report,
+    filter,
+    props.client.area,
+  );
   if (!parsed.query) {
     error.value = parsed.error ?? "统计筛选不正确";
     return;
@@ -68,24 +107,26 @@ async function load() {
   const c = controller,
     client = props.client,
     csrf = client.csrfToken,
-    report = props.report;
+    report = props.report,
+    area = client.area;
   loading.value = true;
   try {
     const data = await client.request<{
       items: Record<string, unknown>[];
       summary: Record<string, unknown>;
-      missing_costs: string;
+      missing_costs?: string;
     }>("/reports/" + report + "?" + parsed.query, { signal: c.signal });
     if (
       alive &&
       !c.signal.aborted &&
       props.client === client &&
       client.csrfToken === csrf &&
+      client.area === area &&
       props.report === report
     ) {
       items.value = data.items;
-      summary.value = daily.value ? null : data.summary;
-      missing.value = data.missing_costs;
+      summary.value = !daily.value || merchant.value ? data.summary : null;
+      missing.value = data.missing_costs ?? "0";
     }
   } catch (e) {
     if (alive && !c.signal.aborted)
@@ -96,6 +137,7 @@ async function load() {
 }
 function reset() {
   clear();
+  hiddenSeries.value = [];
   Object.assign(filter, {
     type: "",
     channel: "",
@@ -105,14 +147,19 @@ function reset() {
   });
   void load();
 }
-watch(() => [props.client, props.client.csrfToken, props.report], reset);
+watch(
+  () => [props.client, props.client.area, props.client.csrfToken, props.report],
+  reset,
+);
 onMounted(load);
 onBeforeUnmount(() => {
   alive = false;
   clear();
 });
 const visibleRows = computed(() =>
-  summary.value ? [summary.value, ...items.value] : items.value,
+  summary.value && !merchant.value
+    ? [summary.value, ...items.value]
+    : items.value,
 );
 </script>
 <template>
@@ -138,7 +185,7 @@ const visibleRows = computed(() =>
           <option value="sandbox">本地模拟</option>
         </select></label
       >
-      <label v-if="daily"
+      <label v-if="daily && !merchant"
         >通道ID<input
           v-model="filter.channel"
           aria-label="通道ID"
@@ -146,7 +193,7 @@ const visibleRows = computed(() =>
           maxlength="19"
           placeholder="请输入通道ID"
       /></label>
-      <label
+      <label v-if="!merchant"
         >商户号<input
           v-model="filter.uid"
           aria-label="商户号"
@@ -169,7 +216,10 @@ const visibleRows = computed(() =>
         daily ? "近7天" : ""
       }}，金额单位为元。退款金额为该批订单已成功退款的累计金额；成功率按保留的全部订单计算。
     </p>
-    <p class="muted">
+    <p v-if="merchant" class="muted">
+      分成金额为已支付订单的原商户净额，退款另列；原分成合计不等于当前可用余额。
+    </p>
+    <p v-else class="muted">
       手续费利润为原订单成本快照的估算值；{{
         missing !== "0"
           ? missing + "笔已支付订单缺少成本，相关利润显示未知。"
@@ -238,13 +288,9 @@ const visibleRows = computed(() =>
         <table>
           <thead>
             <tr>
-              <th scope="col">{{ daily ? "日期" : "支付通道" }}</th>
-              <th scope="col">支付金额</th>
-              <th scope="col">退款金额</th>
-              <th scope="col">手续费利润</th>
-              <th scope="col">总订单数</th>
-              <th scope="col">成功订单数</th>
-              <th scope="col">支付成功率</th>
+              <th v-for="column in columns" :key="column.key" scope="col">
+                {{ column.label }}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -253,20 +299,21 @@ const visibleRows = computed(() =>
               :key="String(daily ? row.day : row.channel)"
               :class="{ 'statistics-total': row.channelName === '总计' }"
             >
-              <td>{{ daily ? row.day : row.channelName }}</td>
-              <td>{{ statisticsMoney(row.realmoney) }}</td>
-              <td>{{ statisticsMoney(row.refundmoney) }}</td>
-              <td>{{ statisticsMoney(row.profitmoney) }}</td>
-              <td>{{ row.orderCount }}</td>
-              <td>{{ row.successCount }}</td>
-              <td>
-                {{ row.successRate == null ? "—" : row.successRate + "%" }}
+              <td v-for="column in columns" :key="column.key">
+                {{ cell(row, column.key) }}
               </td>
             </tr>
             <tr v-if="!visibleRows.length">
               <td colspan="7" class="empty">暂无数据</td>
             </tr>
           </tbody>
+          <tfoot v-if="merchant && summary">
+            <tr class="statistics-total">
+              <td v-for="column in columns" :key="column.key">
+                {{ cell(summary, column.key) }}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </template>

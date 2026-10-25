@@ -9,8 +9,14 @@ export interface OriginalStatisticsFilters {
 export function originalStatisticsQuery(
   report: string,
   f: OriginalStatisticsFilters,
+  area: "admin" | "merchant" = "admin",
 ): { query?: URLSearchParams; error?: string } {
   const bad = (error: string) => ({ error });
+  if (
+    area === "merchant" &&
+    (report !== "daily" || f.uid !== "" || f.channel !== "")
+  )
+    return bad("商户统计范围只能来自当前会话");
   if (
     !["daily", "channels"].includes(report) ||
     !["", "alipay", "wxpay", "sandbox"].includes(f.type)
@@ -44,12 +50,22 @@ function cents(value: unknown): bigint | null {
 export function statisticsMoney(value: unknown): string {
   return cents(value) === null ? "未知" : String(value);
 }
-export function statisticsTrend(rows: Record<string, unknown>[]) {
-  const definitions = [
-    { key: "realmoney", name: "支付金额", color: "#1677ff" },
-    { key: "refundmoney", name: "退款金额", color: "#e6a23c" },
-    { key: "profitmoney", name: "手续费利润", color: "#18a058" },
-  ];
+export function statisticsTrend(
+  rows: Record<string, unknown>[],
+  area: "admin" | "merchant" = "admin",
+) {
+  const definitions =
+    area === "merchant"
+      ? [
+          { key: "realmoney", name: "订单金额", color: "#1677ff" },
+          { key: "getmoney", name: "分成金额", color: "#18a058" },
+          { key: "refundmoney", name: "退款金额", color: "#e6a23c" },
+        ]
+      : [
+          { key: "realmoney", name: "支付金额", color: "#1677ff" },
+          { key: "refundmoney", name: "退款金额", color: "#e6a23c" },
+          { key: "profitmoney", name: "手续费利润", color: "#18a058" },
+        ];
   let low = 0n,
     high = 1n;
   for (const row of rows)

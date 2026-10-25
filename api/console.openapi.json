@@ -15975,7 +15975,7 @@
       "get": {
         "operationId": "console_109_get",
         "summary": "读取 daily 报表",
-        "description": "日期按 UTC+8，包含 from/to 当天；不传时最近30天，最多367天。商户仅可读取 daily/provinces 且仅含自己数据；其他报表仅管理员。没有 merchant_id 任意切换身份的参数。金额保留十进制字符串。 管理员可显式view=original读取原每日/通道七列；未指定view仍保持旧接口。original分支严格单值且拒绝未知参数、q/page/limit，不允许商户（403）。每日固定北京时间今天及前6天，只接受view/type/channel/uid/format；通道默认今天，可from/to含首尾最多367天，只接受view/type/uid/from/to/format。type为本地alipay/wxpay/sandbox或空，商户/通道号为规范正int64字符串或空；通道最多5000组，超限422，不截断。count/amount以字符串返回。items使用day或channel+channelName、realmoney、refundmoney、profitmoney、orderCount、successCount、successRate和missing_costs；summary为全范围总计。成功率精确四舍五入两位，无订单时null。按订单创建业务日群汇总，已付金额取原gross，退款为该群全部已成功退款；不会把多个退款连接乘积计数。利润为原不可变成本快照估算值，有已付缺成本则该组及总计null；不查当前配置补价或以零代替。通道仅按已记录ID展示，通道未分配明确标示，不将通用通道资料ID当作真实上游映射。format=csv返回相同范围原中文七列、未知利润为未知，通道总计首行，仅成功导出增加一次下载审计。只读聚合快照、4并发、12秒超时，无外部调用或资金写入。",
+        "description": "日期按 UTC+8，包含 from/to 当天；不传时最近30天，最多367天。商户仅可读取 daily/provinces 且仅含自己数据；其他报表仅管理员。没有 merchant_id 任意切换身份的参数。金额保留十进制字符串。 显式view=original读取原每日七列，支持管理员及当前商户；未指定view仍保持旧接口。original分支严格单值且拒绝未知参数、q/page/limit；商户仅自身daily原视图，禁止uid/channel（包括空值或自己，403）。每日固定北京时间今天及前6天，只接受view/type/channel/uid/format；通道默认今天，可from/to含首尾最多367天，只接受view/type/uid/from/to/format。type为本地alipay/wxpay/sandbox或空，商户/通道号为规范正int64字符串或空；通道最多5000组，超限422，不截断。count/amount以字符串返回。items使用day或channel+channelName、realmoney、refundmoney、profitmoney、orderCount、successCount、successRate和missing_costs；summary为全范围总计。成功率精确四舍五入两位，无订单时null。按订单创建业务日群汇总，已付金额取原gross，退款为该群全部已成功退款；不会把多个退款连接乘积计数。利润为原不可变成本快照估算值，有已付缺成本则该组及总计null；不查当前配置补价或以零代替。通道仅按已记录ID展示，通道未分配明确标示，不将通用通道资料ID当作真实上游映射。format=csv返回相同范围原中文七列、未知利润为未知，通道总计首行，仅成功导出增加一次下载审计。只读聚合快照、4并发、12秒超时，无外部调用或资金写入。 商户original视图只接受view/type/format，固定北京时间七天，身份仅取会话。原七列day/realmoney/getmoney/refundmoney/orderCount/successCount/successRate；getmoney是原已支付订单merchant_amount之和，退款另列，不是当前可用余额。summary.day=合计且成功率按所有成功笔数/所有订单笔数精确四舍五入，不能平均每日百分比。商户查询不连接私有referral_profit_costs，不返回profitmoney/missing_costs或成本估计源字段，DTO为独立七字段白名单。CSV七列、七日期及末尾合计（含表头共9行），与type相同，正常GET不写，成功CSV仅一次下载审计。原未指定view的商户默认接口与CSV保持兼容。管理员原视图行为保留。",
         "parameters": [
           {
             "name": "role",
@@ -34646,7 +34646,7 @@
       },
       "ResourceFields": {
         "type": "object",
-        "description": "字段和写权限由同身份 GET /resources/{resource}/schema 返回。只提交允许的字段；read_only 不可写，create_only 更新时省略，write_only 不回显。密钥及密码不得从列表补全。"
+        "description": "字段和写权限由同身份 GET /resources/{resource}/schema 返回。只提交允许的字段；read_only 不可写，create_only 更新时省略，write_only 不回显。密钥及密码不得从列表补全。 groups 新增原字段 pay_minmoney/pay_maxmoney，字符串金额单位元，空继承系统、0不限制，新订单应用有效会员组及商户额外限制。拒绝负数/小数分/指数/溢出和矛盾组上下界；全局两个设置保存时串行校验，防并发形成矛盾范围。已有同号同参订单重放不受后改限制重新定价；旧异常配置拒绝新单。 groups.info 支持 alipay/wxpay/sandbox 的 {rate:字符串百分数}：原商户保留比例，0或空继承既有统一费率；100表示全额保留。新单把该比例转换为平台费率并冻结原入账/手续费，历史重放和退款消费原快照。拒绝重复/未知类型、非字符串、超过100、小数基点和未接入的channel/type路由字段；原PHP数字类型ID需要显式映射，不冒认运行通道。"
       },
       "SettlementRecipient": {
         "type": "object",

@@ -308,6 +308,20 @@ function choose(name: string, click = false) {
                   元，{{ regions.get(boundary.name)?.count }} 笔
                 </title>
               </path>
+              <template
+                v-for="boundary in paths"
+                :key="'label-' + boundary.name"
+              >
+                <text
+                  v-if="boundary.label"
+                  :x="boundary.label.x"
+                  :y="boundary.label.y"
+                  class="province-label"
+                  aria-hidden="true"
+                >
+                  {{ boundary.name }}
+                </text>
+              </template>
             </g>
           </svg>
           <p
@@ -429,6 +443,17 @@ function choose(name: string, click = false) {
   stroke-width: 0.8;
   cursor: pointer;
   vector-effect: non-scaling-stroke;
+}
+.province-label {
+  pointer-events: none;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  font-size: 10px;
+  fill: #303133;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 2px;
+  stroke-linejoin: round;
 }
 .province-map path:hover,
 .province-map path:focus,

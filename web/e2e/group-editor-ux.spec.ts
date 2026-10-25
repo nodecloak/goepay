@@ -18,6 +18,9 @@ for (const width of [1280, 375])
       user_transfer: "0",
       settle_open: "3",
       settle_rate: "1.25",
+      pay_minmoney: "",
+      pay_maxmoney: "90071992547409.93",
+      info: { alipay: { rate: "99.50" }, wxpay: { rate: "98.75" } },
     };
     const fields = [
       {
@@ -56,6 +59,19 @@ for (const width of [1280, 375])
         ],
       },
       { name: "settle_rate", label: "余额自动转账比例（%）", type: "money" },
+      {
+        name: "pay_maxmoney",
+        label: "最大支付金额（元）",
+        type: "string",
+        max_length: 32,
+      },
+      {
+        name: "pay_minmoney",
+        label: "最小支付金额（元）",
+        type: "string",
+        max_length: 32,
+      },
+      { name: "info", label: "支付方式分成比例", type: "json" },
     ];
     await page.route("**/console/v1/**", (route) => {
       const request = route.request(),
@@ -102,6 +118,23 @@ for (const width of [1280, 375])
     await expect(
       dialog.getByLabel("费率（万分比）", { exact: true }),
     ).toHaveValue("38");
+    await expect(
+      dialog.getByLabel("最大支付金额（元）", { exact: true }),
+    ).toHaveValue("90071992547409.93");
+    await expect(
+      dialog.getByLabel("最小支付金额（元）", { exact: true }),
+    ).toHaveValue("");
+    await dialog.getByLabel("最小支付金额（元）", { exact: true }).fill("0");
+    await expect(dialog).toContainText("0不限制");
+    await expect(
+      dialog.getByLabel("支付宝分成比例（%）", { exact: true }),
+    ).toHaveValue("99.50");
+    await expect(
+      dialog.getByLabel("微信支付分成比例（%）", { exact: true }),
+    ).toHaveValue("98.75");
+    await dialog
+      .getByLabel("支付宝分成比例（%）", { exact: true })
+      .fill("100.01");
     await dialog.getByRole("tab", { name: "结算配置", exact: true }).click();
     await expect(
       dialog.getByRole("combobox", { name: "结算开关", exact: true }),
@@ -117,6 +150,13 @@ for (const width of [1280, 375])
     );
     expect(writes).toHaveLength(0);
     await dialog.getByRole("button", { name: "保存", exact: true }).click();
+    await expect(
+      dialog.getByRole("tab", { name: "支付配置", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(dialog.getByRole("alert")).toContainText("不得大于100%");
+    expect(writes).toHaveLength(0);
+    await dialog.getByLabel("支付宝分成比例（%）", { exact: true }).fill("100");
+    await dialog.getByRole("button", { name: "保存", exact: true }).click();
     await expect.poll(() => writes.length).toBe(1);
     expect(writes[0].path).toBe("/console/v1/admin/resources/groups/" + id);
     expect(writes[0].body).toEqual({
@@ -129,6 +169,9 @@ for (const width of [1280, 375])
       user_transfer: "0",
       settle_open: "2",
       settle_rate: "1.25",
+      pay_minmoney: "0",
+      pay_maxmoney: "90071992547409.93",
+      info: { alipay: { rate: "100" }, wxpay: { rate: "98.75" } },
     });
     await expect(dialog).toHaveCount(0);
     await expect(

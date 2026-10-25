@@ -361,42 +361,42 @@ describe("Pro console field presentation", () => {
     wrapper.unmount();
   });
 
-  it("aligns report columns and derives an exact success percentage without dividing yuan", async () => {
-    const client = new ApiClient("merchant");
+  it("aligns generic transfer report columns and derives an exact success percentage without dividing yuan", async () => {
+    const client = new ApiClient("admin");
     vi.spyOn(client, "request").mockResolvedValue({
       columns: [
-        { key: "dimension", label: "日期" },
+        { key: "dimension", label: "通道ID" },
         { key: "orders", label: "总笔数" },
         { key: "paid_orders", label: "成功笔数" },
         { key: "paid_money", label: "成功金额（元）" },
-        { key: "net_money", label: "商户净额（元）" },
+        { key: "net_money", label: "成功出款扣款（元）" },
         { key: "fee_money", label: "平台手续费（元）" },
       ],
       items: [
         {
-          dimension: "2026-10-24",
+          dimension: "9007199254740993123",
           orders: "3",
           paid_orders: "2",
           paid_money: "1.23",
-          net_money: "1.00",
+          net_money: "1.46",
           fee_money: "0.23",
         },
       ],
       total: 1,
     });
     const wrapper = mount(ReportPage, {
-      props: { client, report: "daily" },
+      props: { client, report: "transfer-channels" },
       global: { stubs: { CsvExportButton: true } },
     });
     await flushPromises();
     expect(wrapper.findAll("thead th").map((h) => h.text())).toEqual([
-      "日期",
+      "通道ID",
       "成功金额（元）",
-      "商户净额（元）",
+      "成功出款扣款（元）",
       "平台手续费（元）",
       "总笔数",
       "成功笔数",
-      "支付成功率",
+      "成功率",
     ]);
     expect(wrapper.text()).toContain("66.67%");
     expect(wrapper.text()).toContain("1.23");
@@ -481,16 +481,16 @@ describe("Pro console field presentation", () => {
     wrapper.unmount();
   });
 
-  it("queries Beijing calendar shortcuts as exact server dates", async () => {
+  it("queries generic transfer report Beijing shortcuts as exact server dates", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-23T16:30:00Z"));
     try {
-      const client = new ApiClient("merchant");
+      const client = new ApiClient("admin");
       const request = vi
         .spyOn(client, "request")
         .mockResolvedValue({ columns: [], items: [], total: 0 });
       const wrapper = mount(ReportPage, {
-        props: { client, report: "daily" },
+        props: { client, report: "transfer-channels" },
         global: { stubs: { CsvExportButton: true } },
       });
       await flushPromises();

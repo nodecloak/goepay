@@ -24,7 +24,7 @@ type feeSnapshot struct {
 	Rate, GroupID, Net, Fee int64
 }
 
-func feePolicy(ctx context.Context, tx pgx.Tx, group string, gross int64) (feeSnapshot, error) {
+func feePolicy(ctx context.Context, tx pgx.Tx, group, kind string, gross int64) (feeSnapshot, error) {
 	f := feeSnapshot{Policy: "none", Payer: "platform", Net: gross}
 	enabled := false
 	rows, e := tx.Query(ctx, "SELECT body->>'key',body->>'value' FROM backoffice_records WHERE resource='settings' AND body->>'key' IN ('payment_fee_enabled','refund_fee_payer') FOR SHARE")
@@ -69,7 +69,8 @@ func feePolicy(ctx context.Context, tx pgx.Tx, group string, gross int64) (feeSn
 		return f, ErrInvalid
 	}
 	var raw string
-	e = tx.QueryRow(ctx, "SELECT COALESCE(body->>'rate_bps','0') FROM backoffice_records WHERE resource='groups' AND id=$1 AND body->>'enabled'='true' FOR SHARE", f.GroupID).Scan(&raw)
+	var typeRates []byte
+	e = tx.QueryRow(ctx, "SELECT COALESCE(body->>'rate_bps','0'),COALESCE(body->'info','{}'::jsonb) FROM backoffice_records WHERE resource='groups' AND id=$1 AND body->>'enabled'='true' FOR SHARE", f.GroupID).Scan(&raw, &typeRates)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return f, ErrState
 	}
@@ -79,6 +80,13 @@ func feePolicy(ctx context.Context, tx pgx.Tx, group string, gross int64) (feeSn
 	f.Rate, e = strconv.ParseInt(raw, 10, 64)
 	if e != nil {
 		return f, ErrInvalid
+	}
+	rates, e := ParseGroupRetainedRates(typeRates)
+	if e != nil {
+		return f, ErrState
+	}
+	if retained, ok := rates[kind]; ok {
+		f.Rate = 10000 - retained
 	}
 	f.Net, f.Fee, e = calculateFee(gross, f.Rate)
 	return f, e
@@ -184,7 +192,10 @@ func (s *Store) createOrderWithPrintOrigin(ctx context.Context, in CreateOrderIn
 	} else if !errors.Is(e, pgx.ErrNoRows) {
 		return Order{}, e
 	}
-	f, e := feePolicy(ctx, tx, group, in.Amount)
+	if e = validateOriginalOrderAmount(ctx, tx, group, in.MerchantID, in.Amount); e != nil {
+		return Order{}, e
+	}
+	f, e := feePolicy(ctx, tx, group, in.Type, in.Amount)
 	if e != nil {
 		return Order{}, e
 	}

@@ -47,6 +47,8 @@ const labels: Record<
   user_review: ["merchant", "新商户审核", "select"],
   enforce_domains: ["pay", "校验授权域名", "select"],
   payment_fee_enabled: ["pay", "支付手续费", "select"],
+  pay_maxmoney: ["pay", "最大支付金额（元）", "money"],
+  pay_minmoney: ["pay", "最小支付金额（元）", "money"],
   refund_fee_payer: ["pay", "退款手续费承担方", "select"],
   settlement_minimum_cents: ["settle", "最低结算金额（元）", "money", "cents"],
   settlement_maximum_cents: ["settle", "结算申请上限（元）", "money", "cents"],
@@ -205,6 +207,8 @@ export function settingDefinition(
     d.hint = "兼容原消息模板的网站名称；已配置时提醒内容优先使用此值。";
   if (key === "user_transfer")
     d.hint = "用于代付日报提醒条件，转账权限由转账付款开关和商户设置控制。";
+  if (["pay_maxmoney", "pay_minmoney"].includes(key))
+    d.hint = "0表示不限制；用户组可覆盖，修改后仅约束新订单。";
   if (key === "admin_funds_authorization_enabled")
     d.hint = "开启后相关资金操作需要独立资金授权；高风险动作始终保持强制验证。";
   if (

@@ -8,6 +8,7 @@ import {
   nextTick,
 } from "vue";
 import { ApiClient, displayValue } from "../api";
+import { groupPaymentRatesError } from "../group-payment-rates";
 import {
   resourceListFields,
   isCredentialField,
@@ -468,6 +469,10 @@ async function save() {
     values.value,
     mode.value === "edit",
   );
+  if (props.resource === "groups") {
+    const rateError = groupPaymentRatesError(values.value.info);
+    if (rateError) fieldErrors.value.info = rateError;
+  }
   if (props.resource === "merchants") {
     const key = String(values.value.api_key || "");
     if (

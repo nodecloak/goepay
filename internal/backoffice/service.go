@@ -214,6 +214,12 @@ func validate(p Principal, d definition, raw map[string]json.RawMessage, current
 func validateSpecific(resource string, v map[string]any) error {
 	switch resource {
 	case "groups":
+		if err := validateGroupPaymentRates(v); err != nil {
+			return err
+		}
+		if err := validateOriginalPaymentLimits(v); err != nil {
+			return err
+		}
 		if raw, ok := v["settle_rate"]; ok && raw != nil && fmt.Sprint(raw) != "" {
 			n, e := ledger.Parse(fmt.Sprint(raw))
 			if e != nil || n < 0 || n > 10000 {
@@ -283,7 +289,7 @@ func validateSpecific(resource string, v map[string]any) error {
 			if value != "0" && value != "1" && value != "2" && value != "3" {
 				return ErrInvalid
 			}
-		case "transfer_minmoney", "transfer_maxmoney":
+		case "pay_minmoney", "pay_maxmoney", "transfer_minmoney", "transfer_maxmoney":
 			if _, e := ledger.Parse(value); e != nil {
 				return ErrInvalid
 			}
@@ -387,6 +393,11 @@ func (s *Service) Create(ctx context.Context, p Principal, r string, in map[stri
 			return Item{}, e
 		}
 	}
+	if r == "groups" {
+		if e = validateGroupPaymentRatesRaw(in); e != nil {
+			return Item{}, e
+		}
+	}
 	v, e := validate(p, d, in, nil, true)
 	if e != nil {
 		return Item{}, e
@@ -407,6 +418,12 @@ func (s *Service) Create(ctx context.Context, p Principal, r string, in map[stri
 		return Item{}, e
 	}
 	defer tx.Rollback(ctx)
+	if e = lockPaymentLimitSettings(ctx, tx, r); e != nil {
+		return Item{}, e
+	}
+	if e = validatePaymentLimitSetting(ctx, tx, r, 0, v); e != nil {
+		return Item{}, e
+	}
 	if e = validateRelations(ctx, tx, r, 0, ownerID, v); e != nil {
 		return Item{}, e
 	}
@@ -508,11 +525,19 @@ func (s *Service) update(ctx context.Context, p Principal, r string, id int64, i
 	if r == "admin-users" {
 		return s.updateAdministrator(ctx, p, d, id, in)
 	}
+	if r == "groups" {
+		if e = validateGroupPaymentRatesRaw(in); e != nil {
+			return Item{}, e
+		}
+	}
 	tx, e := s.pool.Begin(ctx)
 	if e != nil {
 		return Item{}, e
 	}
 	defer tx.Rollback(ctx)
+	if e = lockPaymentLimitSettings(ctx, tx, r); e != nil {
+		return Item{}, e
+	}
 	var raw []byte
 	e = tx.QueryRow(ctx, "SELECT body FROM backoffice_records WHERE resource=$1 AND id=$2 AND ($3::text='admin' OR owner_id=$4) FOR UPDATE", r, id, p.Role, p.SubjectID).Scan(&raw)
 	if e != nil {
@@ -562,6 +587,9 @@ func (s *Service) update(ctx context.Context, p Principal, r string, id int64, i
 		return Item{}, ErrConflict
 	}
 	if e = validateSpecific(r, v); e != nil {
+		return Item{}, e
+	}
+	if e = validatePaymentLimitSetting(ctx, tx, r, id, v); e != nil {
 		return Item{}, e
 	}
 	// Approval applies to the reviewed hostname, not to this mutable record ID.

@@ -1,4 +1,5 @@
 import boundaries from "./data/province-boundaries.json";
+import labelCoordinates from "./data/province-labels.json";
 export function provinceRange(
   preset: string,
   now = new Date(),
@@ -135,7 +136,13 @@ export function provinceStatisticsData(rows: Record<string, unknown>[]) {
     unmapped,
   };
 }
-let cachedPaths: ReadonlyArray<{ name: string; path: string }> | undefined;
+let cachedPaths:
+  | ReadonlyArray<{
+      name: string;
+      path: string;
+      label?: { x: number; y: number };
+    }>
+  | undefined;
 export function provincePaths() {
   if (cachedPaths) return cachedPaths;
   const project = (p: number[]) => [
@@ -162,6 +169,15 @@ export function provincePaths() {
     boundaries.map((b) =>
       Object.freeze({
         name: b.name,
+        label: (() => {
+          const coordinate = labelCoordinates.find((l) => l.name === b.name);
+          if (!coordinate) return undefined;
+          const [x, y] = project(coordinate.point);
+          return Object.freeze({
+            x: left + (x - minX) * scale,
+            y: top + (maxY - y) * scale,
+          });
+        })(),
         path: b.rings
           .map(
             (ring) =>

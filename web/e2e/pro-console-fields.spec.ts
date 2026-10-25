@@ -298,58 +298,62 @@ for (const area of ["admin", "merchant"] as const)
       ).toHaveCount(0);
   });
 
-test("merchant daily report uses Beijing shortcuts and already-yuan values with derived success rate", async ({
+test("merchant original daily preserves yuan fields and weighted summary without date controls", async ({
   page,
 }) => {
   await page.clock.setFixedTime(new Date("2026-10-23T16:30:00Z"));
   const queries: URL[] = [];
+  const row = {
+    day: "2026-10-24",
+    realmoney: "1.23",
+    getmoney: "1.11",
+    refundmoney: "0.10",
+    orderCount: "3",
+    successCount: "2",
+    successRate: "66.67",
+  };
   await page.route("**/console/v1/**", (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith("/session"))
       return route.fulfill(
         ok({ ...session, user: { ...session.user, role: "merchant" } }),
       );
-    queries.push(url);
-    return route.fulfill(
-      ok({
-        columns: [
-          { key: "dimension", label: "日期" },
-          { key: "orders", label: "订单数" },
-          { key: "paid_orders", label: "成功订单数" },
-          { key: "paid_money", label: "成功金额（元）" },
-        ],
-        items: [
-          {
-            dimension: "2026-10-24",
-            orders: "3",
-            paid_orders: "2",
-            paid_money: "1.23",
-          },
-        ],
-        total: 1,
-      }),
-    );
+    if (url.pathname.endsWith("/reports/daily")) {
+      queries.push(url);
+      return route.fulfill(
+        ok({ items: [row], summary: { ...row, day: "合计" }, total: 1 }),
+      );
+    }
+    return route.fulfill(ok({ items: [], total: 0 }));
   });
   await page.goto("/merchant/trade/daily-stat");
-  await page
-    .getByLabel("统计日期快捷范围", { exact: true })
-    .selectOption("today");
+  await page.getByLabel("支付方式", { exact: true }).selectOption("wxpay");
+  await page.getByRole("button", { name: "查询", exact: true }).click();
   await expect
-    .poll(() => queries.at(-1)?.searchParams.get("from"))
-    .toBe("2026-10-24");
+    .poll(() => queries.at(-1)?.searchParams.get("type"))
+    .toBe("wxpay");
+  expect(queries.at(-1)?.searchParams.get("view")).toBe("original");
+  expect(queries.at(-1)?.searchParams.has("from")).toBe(false);
+  expect(queries.at(-1)?.searchParams.has("to")).toBe(false);
   await expect(page.getByRole("columnheader")).toHaveText([
     "日期",
-    "成功金额（元）",
-    "订单数",
+    "订单金额",
+    "分成金额",
+    "退款金额",
+    "总订单数",
     "成功订单数",
     "支付成功率",
   ]);
   await expect(
-    page.getByRole("cell", { name: "1.23", exact: true }),
+    page.locator("tbody").getByRole("cell", { name: "1.23", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("cell", { name: "66.67%", exact: true }),
+    page.locator("tbody").getByRole("cell", { name: "1.11", exact: true }),
   ).toBeVisible();
+  await expect(page.locator("tfoot")).toContainText("66.67%");
+  await expect(
+    page.getByLabel("统计日期快捷范围", { exact: true }),
+  ).toHaveCount(0);
   await page.screenshot({
     path: test.info().outputPath("report-fields.png"),
     fullPage: true,

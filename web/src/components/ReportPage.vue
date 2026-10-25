@@ -42,8 +42,8 @@ const summary = ref<Record<string, unknown> | null>(null);
 const complaintOverview = computed(() => props.report === "complaints");
 const originalStatistics = computed(
   () =>
-    props.client.area === "admin" &&
-    ["daily", "channels"].includes(props.report),
+    props.report === "daily" ||
+    (props.client.area === "admin" && props.report === "channels"),
 );
 const merchantMatrix = computed(() =>
   ["merchants", "transfer-merchants"].includes(props.report),

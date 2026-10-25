@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-25T17:31:52.659Z",
+  "generated_at": "2026-10-25T19:03:28.494Z",
   "scope": "Source snapshot only; not a claim of complete compatibility or a replacement for test results.",
   "files": [
     {
@@ -20,7 +20,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "74c68e7fe13bfc4faface9a6bde07cdad89ef7a261da3428bccc23079dc3202c"
+      "sha256": "5db4a3cca48e43e561a92b68a247ec2f82e7b1117d98e1a2dfba7463335a80f1"
     },
     {
       "path": "api/README.md",
@@ -28,7 +28,7 @@
     },
     {
       "path": "api/console.openapi.json",
-      "sha256": "951a582d8ce4e6c9b9b801c82b89f937237bc8a403b448246a6e88ea405d6daf"
+      "sha256": "e934157be87980dde32709ad837b8eeab682caed633e39c4e91f762704bd8749"
     },
     {
       "path": "clients/mini/README.md",
@@ -691,8 +691,28 @@
       "sha256": "b8b46e6b166f4ca0969c34fd48a712726d8de07c1f3af3500d59ceadd0374703"
     },
     {
+      "path": "docs/superpowers/plans/2026-10-26-original-group-payment-limits.md",
+      "sha256": "95782aec358cf33bca00afbc2c6ddd2f014c5e9ad3bcacb5a617e86e53858b32"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-26-original-group-payment-type-rates.md",
+      "sha256": "7de3b8b7791c56f0d6eec7bbccbe36036a108d8a422123d27594208df21b6123"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-26-original-merchant-daily-statistics.md",
+      "sha256": "bbf855a587c3b476b80504e3d3503c7b9396f234f39721edcec96021d13fe8a7"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-26-original-province-labels.md",
+      "sha256": "1a2846224fb1521335281749a9f93215374ecebc5a31eec2ddb00dc52baa69f4"
+    },
+    {
       "path": "docs/superpowers/plans/2026-10-26-original-province-statistics.md",
       "sha256": "dc6449ec8ac0a6da80218b669f17c7d4a3f9987e2e1eb0912b31fe8fc87cdcce"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-26-original-trade-table-readability.md",
+      "sha256": "f3564e791a7e7a10be55e8cd1ef5de68eee2812934261a9a9514ebbb5018589f"
     },
     {
       "path": "docs/tools/application-authorization-openapi.mjs",
@@ -820,11 +840,11 @@
     },
     {
       "path": "docs/tools/source-manifest.mjs",
-      "sha256": "cd1a6c18e5931688e22fdbc34b27f79e77f49e2ea5f0bd9225555f8f898a98f3"
+      "sha256": "96e83b8e15eba7f8e61e2d149cd0379b50d7db7ffb5aed845ba83e8d6cc226ae"
     },
     {
       "path": "docs/tools/summarize-pro-ux-review.mjs",
-      "sha256": "a263f6992ef0fc1732f0302bfdcd19532bdf4f3c29fd92276420a67e7710fd0e"
+      "sha256": "6ccbde9359c18e029ef0ac84c4d3a59ad8d9c3a1387fdb24546c6cf828f6d3c3"
     },
     {
       "path": "docs/verification/admin-notice-transports-77-2026-10-24.md",
@@ -1399,6 +1419,14 @@
       "sha256": "57fbf2aeec01def8209024e6f89dc5fca987ed39d9c41a159b67eff9e73b00b8"
     },
     {
+      "path": "internal/backoffice/group_payment_rates.go",
+      "sha256": "40646ec23d0761a35c367da3551bf967bfe8ff8b9cbf1c4fc41b7d24aea130ec"
+    },
+    {
+      "path": "internal/backoffice/group_payment_rates_test.go",
+      "sha256": "0b2d9f45b06db6f3e8fcde512baae5dcd79ef975b2edd10883c1dbc416c6e295"
+    },
+    {
       "path": "internal/backoffice/handler.go",
       "sha256": "7c76f630c78cbf163db4f48ff391914b3b784bde90ad9c27196a4b1bb401e3a1"
     },
@@ -1487,6 +1515,14 @@
       "sha256": "ace6972c4426c632ec713bd7670044e81d5753c609259d2ef065d1eff06f723b"
     },
     {
+      "path": "internal/backoffice/payment_limits.go",
+      "sha256": "86096f1d202f4026b87209d75668ab961dfbd9a0afe06a7e120ac49966b3c2f7"
+    },
+    {
+      "path": "internal/backoffice/payment_limits_test.go",
+      "sha256": "42e5b0f58ef0050127b2a56d89c71654ec3c650cb0f6f59d25328eea1a34f81b"
+    },
+    {
       "path": "internal/backoffice/payment_review.go",
       "sha256": "370e94672cebcf1150fec0cb917869279ed836638e12c9e34e12c37883e2999f"
     },
@@ -1512,7 +1548,7 @@
     },
     {
       "path": "internal/backoffice/service.go",
-      "sha256": "2be6a93e10b1b0f962abd2d7bcb16d3f5de94d5a92f98d6b0049bb850c19d036"
+      "sha256": "7f4be72b11f3c1809f896bf036c6dfbc4a48e66ea54ed3490a156bd04aabaa0f"
     },
     {
       "path": "internal/backoffice/service_test.go",
@@ -2476,7 +2512,7 @@
     },
     {
       "path": "internal/payment/fees.go",
-      "sha256": "eeae28c732a20983bed452c8c1f4bb33c4e7bdf437bc36ca1c6415ac5c925e48"
+      "sha256": "e8ac07c8214ae8a5818b573cc46b3fe4e271a8aee5a1ebe935c29679ee122274"
     },
     {
       "path": "internal/payment/fees_test.go",
@@ -2517,6 +2553,14 @@
     {
       "path": "internal/payment/funds_availability_test.go",
       "sha256": "9fb9d10ded83f7deceb3c44590407dab6805c3cb59bcb7026558880bb54a76c5"
+    },
+    {
+      "path": "internal/payment/group_payment_rates.go",
+      "sha256": "8cba5a44c932a5c7b1363c82175aaada2a2a9b8a4129833df7b11c333a8bf274"
+    },
+    {
+      "path": "internal/payment/group_payment_rates_test.go",
+      "sha256": "e5e25421129c25db9967f135b69c611fec1146fb634f72bef85de013af943951"
     },
     {
       "path": "internal/payment/identity_lookup.go",
@@ -2733,6 +2777,14 @@
     {
       "path": "internal/payment/oauth_state_test.go",
       "sha256": "b2ad9d545553df563998d7e6d027662bcdfa037f7e210edc51c969eeff043994"
+    },
+    {
+      "path": "internal/payment/order_amount_limits.go",
+      "sha256": "98cdba9d68b91c6f7bc51a194f20939196fe7dba1d3db1e884ec752da803023b"
+    },
+    {
+      "path": "internal/payment/order_amount_limits_test.go",
+      "sha256": "f8f0757bf7593e87b4c22085e3036ba614af0956e90089811c5bebfd209d05bd"
     },
     {
       "path": "internal/payment/order_income_channel_sharing_guard_test.go",
@@ -4176,7 +4228,7 @@
     },
     {
       "path": "internal/server/original_order_statistics.go",
-      "sha256": "7d9c53b4882431fc152995e299a28a39200f90b8c4278057431086172000a096"
+      "sha256": "68ecf9f15adc53462adf41b3b3a0e1d5783286e035f510abf139acb53c608df0"
     },
     {
       "path": "internal/server/payment_query.go",
@@ -4623,6 +4675,10 @@
       "sha256": "ae9a7a00a998b03c0d5ec2e11c0c625f47a8d01ca9ad02524f4015b6e4b5809c"
     },
     {
+      "path": "tests/contract/group_payment_rates_http_test.go",
+      "sha256": "55eed85154c6c678f73fc2acfc295a0cf2f7b9293ec1e5d6080568089d50d5d7"
+    },
+    {
       "path": "tests/contract/http_test.go",
       "sha256": "b18141a7b4db8877fc95ad6821119b46fffa129752a8a9199b5ac7cda9bc70bb"
     },
@@ -4681,6 +4737,10 @@
     {
       "path": "tests/contract/merchant_api_test.go",
       "sha256": "ee1b102e84d2387d4543dc7764e1f4233aa57bdd0d7932dc9916ce34754e1ac9"
+    },
+    {
+      "path": "tests/contract/merchant_daily_statistics_ux_test.go",
+      "sha256": "99278316c960bb6532833544817447d242d6813ddf5199e9b6dc225e55980eca"
     },
     {
       "path": "tests/contract/merchant_directory_ux_test.go",
@@ -4761,6 +4821,10 @@
     {
       "path": "tests/contract/payment_ip_policy_test.go",
       "sha256": "8a56d4e252b5e1876a416c17429f9b5dbf2083a1def65ffa4b8c06bbef01f922"
+    },
+    {
+      "path": "tests/contract/payment_limits_http_test.go",
+      "sha256": "30ef8bed07988e70998fc31788086866b249eaaca306577200821eb4b1a83a1b"
     },
     {
       "path": "tests/contract/payment_query_metadata_test.go",
@@ -5084,7 +5148,7 @@
     },
     {
       "path": "web/e2e/csv-export.spec.ts",
-      "sha256": "cf0344f8a85ca980897d4cf765e68497b31137546534b679e3b450989a2f9680"
+      "sha256": "067a9920d2c98e3a922659c7591373cb8bb4ee49d195fdb083769bd49f9558de"
     },
     {
       "path": "web/e2e/dashboard-ux.spec.ts",
@@ -5108,7 +5172,7 @@
     },
     {
       "path": "web/e2e/group-editor-ux.spec.ts",
-      "sha256": "2a8d6897561b771ae7230aa9fe106fddd61843717dac1ab37547c8e51d3640e8"
+      "sha256": "2e371dfdd62d33843131b55adfca0d7bd82c550e32bafe5339550d7a47674bb9"
     },
     {
       "path": "web/e2e/identity-lookup.spec.ts",
@@ -5187,6 +5251,10 @@
       "sha256": "32c27a397f643d7503b0404a063e684e49ebe2031ad4aa2349cb23672a77ec6c"
     },
     {
+      "path": "web/e2e/merchant-daily-statistics-ux.spec.ts",
+      "sha256": "47ff07a7df96e6f68965279a76543f215e5eb84fa75c36d8eea1dd921ce6eeab"
+    },
+    {
       "path": "web/e2e/merchant-directory-ux.spec.ts",
       "sha256": "bfbe3c401ff32376ffbb6b5ca8e3d5f4d6d434926d12a35b1b5981fdbd5ecf1a"
     },
@@ -5256,7 +5324,7 @@
     },
     {
       "path": "web/e2e/pro-console-fields.spec.ts",
-      "sha256": "fbeeb53214aa97bb99fe6cfbbef3c158d234fc240917b51fb7af5ea39c4793ce"
+      "sha256": "30f0de8f231f044bcc64e7d91133a6348a0431ae2876783d246735903fab94e5"
     },
     {
       "path": "web/e2e/pro-order-search.spec.ts",
@@ -5264,7 +5332,7 @@
     },
     {
       "path": "web/e2e/province-statistics-ux.spec.ts",
-      "sha256": "39fa3970ca38b4415ff4b976c57d43db8f45784bcf6d9e43b8003399c57a629c"
+      "sha256": "208d986c014de9671c0d5f422fb1c503ad77a4a882e235f9de4da9890361b6c1"
     },
     {
       "path": "web/e2e/referral-daily.spec.ts",
@@ -5359,6 +5427,10 @@
       "sha256": "db94044beef36d69e0e0e513004ec4a91ae13f1edcd1793573ea8ef5a677e2f2"
     },
     {
+      "path": "web/e2e/trade-table-readability.spec.ts",
+      "sha256": "ca4c389c76f4cd3d7bc3d3ddc809040f631ab591483813531d7d187ffb89291c"
+    },
+    {
       "path": "web/e2e/transfer-batch-import.spec.ts",
       "sha256": "d25956f71ef9fdf8847e9a881dd12294daa460d2f99ac9301e5cf9d158b4c27c"
     },
@@ -5372,7 +5444,7 @@
     },
     {
       "path": "web/e2e/workflows.spec.ts",
-      "sha256": "dfb99e12311bbf068d8ddfc7cbf487295614e7881239cdcf87ee5bfab87b3607"
+      "sha256": "a8a3c66094cacdd6b304c085f64705bd9b1bb8c7d239bfe4e727a2ea8586eb0c"
     },
     {
       "path": "web/index.html",
@@ -5508,7 +5580,7 @@
     },
     {
       "path": "web/src/components/DataTable.vue",
-      "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
+      "sha256": "ff73f96d733803fb6039219eee8d5f595bfb738f6eba9e31a68ef19d1aca64d4"
     },
     {
       "path": "web/src/components/FundsAuthorizationModal.vue",
@@ -5520,7 +5592,7 @@
     },
     {
       "path": "web/src/components/GroupEditorFields.vue",
-      "sha256": "a516360a7bf3ffb51d5c1411e36bbd7affeb8c72b6098082a60a2be82e699a0a"
+      "sha256": "c9ec1b9ae9845a5757f387db5ba76fd973114ef69e13bbf3b9bf4e9824f93d46"
     },
     {
       "path": "web/src/components/GroupSalesPage.vue",
@@ -5624,7 +5696,7 @@
     },
     {
       "path": "web/src/components/OriginalOrderStatistics.vue",
-      "sha256": "42146a2aed3f0b5b022b08e1411f2562530c461a6c1b0e359c6fc15f7b0bbede"
+      "sha256": "bad6537efdaa05787ec48a4ce666086a54cda2c4fed21f23a56442a95021584a"
     },
     {
       "path": "web/src/components/PaymentPasswordSettings.vue",
@@ -5640,7 +5712,7 @@
     },
     {
       "path": "web/src/components/ProvinceStatisticsReport.vue",
-      "sha256": "07a2de9f414db38d4ca9963df85ff1980360633901234dff602f016584dbcb00"
+      "sha256": "70033bbdf5cd2d169363d6d5dd9848878f75bedc886e475bdfd5c93952d6a969"
     },
     {
       "path": "web/src/components/PublicEnrollment.vue",
@@ -5664,7 +5736,7 @@
     },
     {
       "path": "web/src/components/ReportPage.vue",
-      "sha256": "46ddb05b88a30324220dfda6fc4ce65bdc332185497e48765c21bc05b2163b79"
+      "sha256": "de408224b7ae34ca638a66210b60410a4fb7e0296df53b96ad2f6b2cd01be9ad"
     },
     {
       "path": "web/src/components/ResourceFields.vue",
@@ -5672,7 +5744,7 @@
     },
     {
       "path": "web/src/components/ResourcePage.vue",
-      "sha256": "42451db7d1a076dda23c2356539bf89f97c00d552d254d50ef69ba5d6cf58772"
+      "sha256": "88b7a29f59ab6026bd61b6c26b1955e7979ed2f9e31ab0c79f329fbb952ce71f"
     },
     {
       "path": "web/src/components/RuleExecutionPanel.vue",
@@ -5779,6 +5851,10 @@
       "sha256": "294a312c5f3049a476345bead226322dcc18e3e3963af684d382892797556e14"
     },
     {
+      "path": "web/src/data/province-labels.json",
+      "sha256": "c959badcb1a1eb90082716d491c59f2b2c1241b7d4cfe0d3ac4497c08f9b46a0"
+    },
+    {
       "path": "web/src/data/wechat-bank-codes.json",
       "sha256": "8f6ea9f887f0537c9eb0be16e9057f0fd9b35dbced0f54902ebb2cb9c1aa1af5"
     },
@@ -5801,6 +5877,10 @@
     {
       "path": "web/src/funds-availability.ts",
       "sha256": "44ac18c6a536a3f2d25cd4e89452b3cf6bc7e3b2e03e9d11ad7b53b8c31e2d1e"
+    },
+    {
+      "path": "web/src/group-payment-rates.ts",
+      "sha256": "783cfe311b71c5de13eddb04f64850523e8e251a5014ae7bd2be21db2b66e5a4"
     },
     {
       "path": "web/src/identity-profile.ts",
@@ -5844,7 +5924,7 @@
     },
     {
       "path": "web/src/original-order-statistics.ts",
-      "sha256": "5806db9bff14501fcced2d5de3797b34af09d09844d7408730ef7d3ecf6a589d"
+      "sha256": "0a66a01a34735148af158109fb7b34be6ca0dc8890c99f060f48500d13fb4ea4"
     },
     {
       "path": "web/src/page-template.ts",
@@ -5860,7 +5940,7 @@
     },
     {
       "path": "web/src/province-statistics.ts",
-      "sha256": "8d935cae8c9954d16a22c64292e93cfa217761e6e5c83e7262c672dba1ca1927"
+      "sha256": "fd52aea6f1bdee2b83c1df2acf258f4766e8b2fd061f1493c596d8879a3ab8e7"
     },
     {
       "path": "web/src/referral.ts",
@@ -5884,7 +5964,7 @@
     },
     {
       "path": "web/src/settings.ts",
-      "sha256": "a8ec79a5401f7abfeea5f7f10fe2c1fb56a6565342d31859cb73799e44aff826"
+      "sha256": "a4e689add31234d4812743eb8ec76c1ebec92dda0da59f5777586971e05586c4"
     },
     {
       "path": "web/src/settlement-auto.ts",
@@ -6072,7 +6152,11 @@
     },
     {
       "path": "web/tests/group-editor-ux.test.ts",
-      "sha256": "3649760dfdf8b4408ea857deb0bf57e7b05c13fe658a8237cba4085fd1d60fb2"
+      "sha256": "ecb94c781328c98396d5754593959273de4da88a42636a3d52c51276177493f1"
+    },
+    {
+      "path": "web/tests/group-payment-rates.test.ts",
+      "sha256": "5633e15838362f58023f2b09736ef7488e53a0977eaa2c3f44b06d133d619982"
     },
     {
       "path": "web/tests/group-sales-ux.test.ts",
@@ -6172,7 +6256,7 @@
     },
     {
       "path": "web/tests/original-order-statistics.test.ts",
-      "sha256": "5065857abd93278def2751dfcda10435b67c3585b36bf31867a920acb3dc5978"
+      "sha256": "9feb430cb0d2e1ec683f79f4b6d3f4da562e0a5ae95b793938f542fa7cc859b3"
     },
     {
       "path": "web/tests/page-template-console.test.ts",
@@ -6204,7 +6288,7 @@
     },
     {
       "path": "web/tests/pro-console-components.test.ts",
-      "sha256": "7db6cfbe29ce63fe2a1188d962043b45c4580c499b9d8aa5e12c2b818cc7af1f"
+      "sha256": "1d9094500601a9bc04d279f5bacd4a7c0ead760562ec70e7067587f1fdd168e7"
     },
     {
       "path": "web/tests/pro-console-fields.test.ts",
@@ -6220,7 +6304,7 @@
     },
     {
       "path": "web/tests/province-statistics.test.ts",
-      "sha256": "8f96824b48e0f7692738f643db56f64329369c7ebfea067a81f6a29eb69fe13b"
+      "sha256": "e4df170ebaeba30fd8e1fb0dbc72ea9b0bf0106cc7441f9c4e0d7b366d5943b4"
     },
     {
       "path": "web/tests/referral-console.test.ts",
@@ -6276,7 +6360,7 @@
     },
     {
       "path": "web/tests/settings-values.test.ts",
-      "sha256": "edc1cc78a91853926ef148cf81588fd127409a28836dd97d4755a39758e6d656"
+      "sha256": "9aa8b4155c29a6547f8c0232b09748a698b853ef4e42e1eaf179e493565a9eee"
     },
     {
       "path": "web/tests/settlement-auto-components.test.ts",

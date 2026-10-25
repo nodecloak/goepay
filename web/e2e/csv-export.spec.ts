@@ -58,7 +58,7 @@ test("filtered orders export includes all active filters, rejects JSON failure a
   expect((await download).suggestedFilename()).toBe("orders-filtered.csv");
   await expect(page.getByText(/50,000/)).toBeVisible();
 });
-test("report server export shares date filters and cancels a pending export on filter change", async ({
+test("transfer report server export shares date filters and cancels a pending export on filter change", async ({
   page,
 }) => {
   let exports = 0;
@@ -67,7 +67,7 @@ test("report server export shares date filters and cancels a pending export on f
     if (url.pathname.endsWith("/session"))
       return route.fulfill(
         ok({
-          user: { id: "1000", name: "Merchant", role: "merchant" },
+          user: { id: "1", name: "Admin", role: "admin", admin_class: "super" },
           csrf_token: "csrf",
         }),
       );
@@ -95,7 +95,7 @@ test("report server export shares date filters and cancels a pending export on f
   });
   let downloads = 0;
   page.on("download", () => downloads++);
-  await page.goto("/merchant/trade/daily-stat");
+  await page.goto("/admin/transfer/channel-stat");
   await page.getByLabel("开始日期", { exact: true }).fill("2026-10-01");
   await page.getByLabel("结束日期", { exact: true }).fill("2026-10-22");
   await expect(

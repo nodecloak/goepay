@@ -4,6 +4,17 @@ import {
   settingDisplay,
   settingStorage,
 } from "../src/settings";
+it("keeps original payment amount settings in yuan with exact limits", () => {
+  for (const key of ["pay_minmoney", "pay_maxmoney"]) {
+    const d = settingDefinition(key);
+    expect(d.tab).toBe("pay");
+    expect(d.kind).toBe("money");
+    expect(settingStorage(d, "90071992547409.93")).toBe("90071992547409.93");
+    expect(settingStorage(d, "0")).toBe("0.00");
+    for (const invalid of ["-1", "1e2", "0.001", "92233720368547758.08"])
+      expect(() => settingStorage(d, invalid)).toThrow();
+  }
+});
 it("offers the original four global settlement modes in the settlement tab", () => {
   const d = settingDefinition("settle_open");
   expect(d.tab).toBe("settle");

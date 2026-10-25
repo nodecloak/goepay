@@ -62,7 +62,7 @@ function associatedOrder(value: unknown): boolean {
 }
 </script>
 <template>
-  <div class="table-scroll">
+  <div class="table-scroll" :class="{ 'trade-table': orders || refunds }">
     <table>
       <thead>
         <tr>
@@ -98,7 +98,13 @@ function associatedOrder(value: unknown): boolean {
               >完成时间（北京时间）</small
             >
           </th>
-          <th v-if="orders || $slots.actions" scope="col">操作</th>
+          <th
+            v-if="orders || $slots.actions"
+            scope="col"
+            class="operation-cell"
+          >
+            操作
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -112,7 +118,16 @@ function associatedOrder(value: unknown): boolean {
               @change="select(row, ($event.target as HTMLInputElement).checked)"
             />
           </td>
-          <td v-for="c in visibleColumns" :key="c.key">
+          <td
+            v-for="c in visibleColumns"
+            :key="c.key"
+            :class="{
+              'identifier-cell':
+                (orders || refunds) &&
+                ['trade_no', 'refund_no'].includes(c.key),
+              'money-cell': c.key.includes('money') || c.key.includes('amount'),
+            }"
+          >
             <template v-if="refunds && c.key === 'refund_no'">
               <span class="cell">{{
                 String(row.platform_refund_no ?? row.refund_no ?? "—")
@@ -255,7 +270,7 @@ function associatedOrder(value: unknown): boolean {
               >通道 ID：{{ String(row.channel_id) }}</small
             >
           </td>
-          <td v-if="orders || $slots.actions">
+          <td v-if="orders || $slots.actions" class="operation-cell">
             <slot name="actions" :row="row"
               ><button
                 v-if="orders"
@@ -303,6 +318,33 @@ function associatedOrder(value: unknown): boolean {
   </div>
 </template>
 <style scoped>
+.trade-table .identifier-cell {
+  min-width: 216px;
+  width: 280px;
+}
+.trade-table .cell:not(.badge):not(.numeric) {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.trade-table .money-cell .cell {
+  white-space: nowrap;
+}
+.trade-table .operation-cell {
+  position: sticky;
+  right: 0;
+  min-width: 80px;
+  width: 80px;
+  background: #fff;
+  z-index: 1;
+  box-shadow: -4px 0 5px -5px #909399;
+}
+.trade-table th.operation-cell {
+  background: #f9fafb;
+  z-index: 2;
+}
+.trade-table tbody tr:hover .operation-cell {
+  background: #f5f7fa;
+}
 .badge[data-state="paid"],
 .badge[data-state="succeeded"],
 .badge[data-state="released"] {

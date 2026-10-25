@@ -119,10 +119,19 @@ test("internal transfer sends exact money string and preserves idempotency numbe
     external_no: "stable-test-request",
   });
 });
-test("merchant reports send date interval and export actual response fields safely", async ({
+test("merchant original report exports the same payment type and original field names safely", async ({
   page,
 }) => {
-  const queries: string[] = [];
+  const queries: URL[] = [];
+  const row = {
+    day: "2026-10-23",
+    realmoney: "0.01",
+    getmoney: "0.01",
+    refundmoney: "0.00",
+    orderCount: "1",
+    successCount: "1",
+    successRate: "100.00",
+  };
   await page.route("**/console/v1/**", (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith("/session"))
@@ -132,31 +141,39 @@ test("merchant reports send date interval and export actual response fields safe
           csrf_token: "token",
         }),
       );
-    queries.push(url.search);
-    return route.fulfill(
-      ok({
-        columns: [
-          { key: "day", label: "日期" },
-          { key: "paid_money", label: "实收金额（元）" },
-        ],
-        items: [{ day: "2026-10-23", paid_money: "0.01" }],
-        total: 1,
-      }),
-    );
+    if (url.pathname.endsWith("/reports/daily")) {
+      queries.push(url);
+      if (url.searchParams.get("format") === "csv")
+        return route.fulfill({
+          contentType: "text/csv;charset=utf-8",
+          headers: {
+            "Content-Disposition": "attachment; filename=merchant-daily.csv",
+          },
+          body: "﻿日期,订单金额,分成金额,退款金额,总订单数,成功订单数,支付成功率\n合计,0.01,0.01,0.00,1,1,100.00\n",
+        });
+      return route.fulfill(
+        ok({ items: [row], summary: { ...row, day: "合计" }, total: 1 }),
+      );
+    }
+    return route.fulfill(ok({ items: [], total: 0 }));
   });
   await page.goto("/merchant/trade/daily-stat");
-  await page.getByLabel("开始日期").fill("2026-10-22");
-  await page.getByLabel("结束日期").fill("2026-10-23");
-  await page.getByRole("button", { name: "查询统计" }).click();
+  await page.getByLabel("支付方式", { exact: true }).selectOption("alipay");
+  await page.getByRole("button", { name: "查询", exact: true }).click();
   await expect(
-    page.getByRole("cell", { name: "0.01", exact: true }),
-  ).toBeVisible();
-  expect(queries.at(-1)).toContain("from=2026-10-22");
-  expect(queries.at(-1)).toContain("to=2026-10-23");
+    page.locator("tbody").getByRole("cell", { name: "0.01", exact: true }),
+  ).toHaveCount(2);
+  expect(queries.at(-1)?.searchParams.get("type")).toBe("alipay");
   const promise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "导出本页 CSV" }).click();
+  await page
+    .getByRole("button", { name: "导出筛选结果 CSV", exact: true })
+    .click();
   const download = await promise;
-  expect(download.suggestedFilename()).toBe(
-    "daily-2026-10-22-2026-10-23-page1.csv",
-  );
+  expect(download.suggestedFilename()).toBe("daily-original-statistics.csv");
+  await expect
+    .poll(() => queries.at(-1)?.searchParams.get("format"))
+    .toBe("csv");
+  expect(queries.at(-1)?.searchParams.get("type")).toBe("alipay");
+  expect(queries.at(-1)?.searchParams.get("view")).toBe("original");
+  expect(queries.at(-1)?.searchParams.has("uid")).toBe(false);
 });

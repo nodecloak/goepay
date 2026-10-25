@@ -80,11 +80,11 @@ func parseOriginalStatisticsQuery(values url.Values, daily bool) (originalStatis
 }
 
 type originalStatisticsGroup struct {
-	paid, refunded, profit     matrixAmount
-	orders, successes, missing big.Int
+	paid, refunded, profit, retained matrixAmount
+	orders, successes, missing       big.Int
 }
 
-func (g *originalStatisticsGroup) add(paid, refunded, profit string, orders, successes, missing string) error {
+func (g *originalStatisticsGroup) add(paid, refunded, profit string, orders, successes, missing, retained string) error {
 	var m big.Int
 	if _, ok := m.SetString(missing, 10); !ok {
 		return fmt.Errorf("invalid report missing count")
@@ -93,7 +93,7 @@ func (g *originalStatisticsGroup) add(paid, refunded, profit string, orders, suc
 		target  *matrixAmount
 		raw     string
 		unknown bool
-	}{{&g.paid, paid, false}, {&g.refunded, refunded, false}, {&g.profit, profit, m.Sign() > 0}} {
+	}{{&g.paid, paid, false}, {&g.refunded, refunded, false}, {&g.profit, profit, m.Sign() > 0}, {&g.retained, retained, false}} {
 		if e := v.target.add(&v.raw, v.unknown); e != nil {
 			return e
 		}
@@ -138,8 +138,17 @@ func (g *originalStatisticsGroup) row(key string, daily bool) map[string]any {
 	return row
 }
 
+// Keep the merchant response an explicit allowlist. Future administrator-only
+// report fields must never appear merely because the aggregate is shared.
+func (g *originalStatisticsGroup) merchantRow(day string) map[string]any {
+	row := g.row(day, true)
+	return map[string]any{"day": day, "realmoney": g.paid.value(), "getmoney": g.retained.value(), "refundmoney": g.refunded.value(), "orderCount": g.orders.String(), "successCount": g.successes.String(), "successRate": row["successRate"]}
+}
+
 func (s *Server) originalOrderStatistics(w http.ResponseWriter, r *http.Request, role string, session identity.Session, name string) {
-	if role != "admin" {
+	daily := name == "daily"
+	merchant := role == "merchant"
+	if role != "admin" && !(merchant && daily) {
 		response(w, 403, -1, "administrator report", nil)
 		return
 	}
@@ -148,11 +157,21 @@ func (s *Server) originalOrderStatistics(w http.ResponseWriter, r *http.Request,
 		response(w, 400, -1, "invalid statistics query", nil)
 		return
 	}
-	daily := name == "daily"
+	if merchant && (values.Has("uid") || values.Has("channel")) {
+		response(w, 403, -1, "merchant report scope comes only from the session", nil)
+		return
+	}
 	q, e := parseOriginalStatisticsQuery(values, daily)
 	if e != nil {
 		response(w, 400, -1, e.Error(), nil)
 		return
+	}
+	if merchant {
+		q.merchant = session.User.ID
+		if q.merchant <= 0 {
+			response(w, 403, -1, "merchant identity required", nil)
+			return
+		}
 	}
 	select {
 	case originalOrderStatisticsSlots <- struct{}{}:
@@ -186,12 +205,19 @@ func (s *Server) originalOrderStatistics(w http.ResponseWriter, r *http.Request,
 	}
 	// Every join is one-to-one. Aggregate successful refunds within each order
 	// before grouping, so two partial refunds cannot multiply payment/counts.
+	profit := "COALESCE(sum(o.platform_fee::numeric-c.cost_whole-CASE WHEN c.cost_remainder>50000000 THEN 1 ELSE 0 END) FILTER(WHERE o.status='paid' AND c.order_id IS NOT NULL),0)::text"
+	missing := "count(*) FILTER(WHERE o.status='paid' AND c.order_id IS NULL)::text"
+	costJoin := " LEFT JOIN referral_profit_costs c ON c.order_id=o.id"
+	if merchant {
+		// Merchant income is its original retained amount, never the private
+		// upstream expense estimate. Do not even join that source for this role.
+		profit, missing, costJoin = "'0'::text", "'0'::text", ""
+	}
 	query := `SELECT ` + dimension + `,COALESCE(sum(o.amount::numeric) FILTER(WHERE o.status='paid'),0)::text,
  COALESCE(sum(refunded.amount) FILTER(WHERE o.status='paid'),0)::text,
- COALESCE(sum(o.platform_fee::numeric-c.cost_whole-CASE WHEN c.cost_remainder>50000000 THEN 1 ELSE 0 END) FILTER(WHERE o.status='paid' AND c.order_id IS NOT NULL),0)::text,
- count(*)::text,count(*) FILTER(WHERE o.status='paid')::text,count(*) FILTER(WHERE o.status='paid' AND c.order_id IS NULL)::text
- FROM orders o LEFT JOIN provider_attempts p ON p.order_id=o.id
- LEFT JOIN referral_profit_costs c ON c.order_id=o.id
+ ` + profit + `,count(*)::text,count(*) FILTER(WHERE o.status='paid')::text,` + missing + `,
+ COALESCE(sum(o.merchant_amount::numeric) FILTER(WHERE o.status='paid'),0)::text
+ FROM orders o LEFT JOIN provider_attempts p ON p.order_id=o.id` + costJoin + `
  LEFT JOIN LATERAL(SELECT COALESCE(sum(r.amount::numeric),0) AS amount FROM refunds r WHERE r.order_id=o.id AND r.status='succeeded') refunded ON true
  WHERE o.created_at>=$1 AND o.created_at<$2 AND ($3::bigint=0 OR o.merchant_id=$3) AND ($4::text='' OR o.type=$4) AND ($5::bigint=0 OR p.channel_id=$5)
  GROUP BY 1 ORDER BY 1 LIMIT 5001`
@@ -218,8 +244,8 @@ func (s *Server) originalOrderStatistics(w http.ResponseWriter, r *http.Request,
 			response(w, 422, -1, "statistics exceed 5000 groups; narrow filters", nil)
 			return
 		}
-		var key, paid, refund, profit, orders, successes, missing string
-		if e = rows.Scan(&key, &paid, &refund, &profit, &orders, &successes, &missing); e != nil {
+		var key, paid, refund, profit, orders, successes, missing, retained string
+		if e = rows.Scan(&key, &paid, &refund, &profit, &orders, &successes, &missing, &retained); e != nil {
 			break
 		}
 		g := groups[key]
@@ -228,10 +254,10 @@ func (s *Server) originalOrderStatistics(w http.ResponseWriter, r *http.Request,
 			groups[key] = g
 			keys = append(keys, key)
 		}
-		if e = g.add(paid, refund, profit, orders, successes, missing); e != nil {
+		if e = g.add(paid, refund, profit, orders, successes, missing, retained); e != nil {
 			break
 		}
-		if e = summary.add(paid, refund, profit, orders, successes, missing); e != nil {
+		if e = summary.add(paid, refund, profit, orders, successes, missing, retained); e != nil {
 			break
 		}
 	}
@@ -262,7 +288,11 @@ func (s *Server) originalOrderStatistics(w http.ResponseWriter, r *http.Request,
 	}
 	items := make([]map[string]any, 0, len(keys))
 	for _, key := range keys {
-		items = append(items, groups[key].row(key, daily))
+		if merchant {
+			items = append(items, groups[key].merchantRow(key))
+		} else {
+			items = append(items, groups[key].row(key, daily))
+		}
 	}
 	first := reportColumn{"channelName", "支付通道"}
 	if daily {
@@ -270,6 +300,10 @@ func (s *Server) originalOrderStatistics(w http.ResponseWriter, r *http.Request,
 	}
 	columns := []reportColumn{first, {"realmoney", "支付金额"}, {"refundmoney", "退款金额"}, {"profitmoney", "手续费利润"}, {"orderCount", "总订单数"}, {"successCount", "成功订单数"}, {"successRate", "支付成功率"}}
 	total := summary.row("total", false)
+	if merchant {
+		columns = []reportColumn{{"day", "日期"}, {"realmoney", "订单金额"}, {"getmoney", "分成金额"}, {"refundmoney", "退款金额"}, {"orderCount", "总订单数"}, {"successCount", "成功订单数"}, {"successRate", "支付成功率"}}
+		total = summary.merchantRow("合计")
+	}
 	if q.csv {
 		b := &csvBoundedBuffer{}
 		_, _ = b.Write([]byte("\xef\xbb\xbf"))
@@ -282,6 +316,8 @@ func (s *Server) originalOrderStatistics(w http.ResponseWriter, r *http.Request,
 		csvRows := items
 		if !daily {
 			csvRows = append([]map[string]any{total}, items...)
+		} else if merchant {
+			csvRows = append(append([]map[string]any{}, items...), total)
 		}
 		for _, row := range csvRows {
 			if e != nil {
@@ -308,5 +344,12 @@ func (s *Server) originalOrderStatistics(w http.ResponseWriter, r *http.Request,
 		s.finishCSVExport(ctx, w, session, "reports/"+name+"-original", b, len(csvRows))
 		return
 	}
-	response(w, 200, 0, "", map[string]any{"columns": columns, "items": items, "summary": total, "total": len(items), "from": q.from.Format("2006-01-02"), "to": q.until.AddDate(0, 0, -1).Format("2006-01-02"), "timezone": "Asia/Shanghai", "source": "created_order_cohort_with_successful_refunds_and_original_cost_estimates", "missing_costs": summary.missing.String()})
+	data := map[string]any{"columns": columns, "items": items, "summary": total, "total": len(items), "from": q.from.Format("2006-01-02"), "to": q.until.AddDate(0, 0, -1).Format("2006-01-02"), "timezone": "Asia/Shanghai"}
+	if merchant {
+		data["source"] = "merchant_paid_created_order_cohort_with_original_retained_amounts"
+	} else {
+		data["source"] = "created_order_cohort_with_successful_refunds_and_original_cost_estimates"
+		data["missing_costs"] = summary.missing.String()
+	}
+	response(w, 200, 0, "", data)
 }

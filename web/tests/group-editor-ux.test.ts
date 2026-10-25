@@ -26,6 +26,36 @@ const fields: ResourceField[] = [
     options: ["0", "1"],
   },
 ];
+it("original per-payment retained rates use exact strings and preserve the other payment type", async () => {
+  const w = mount(GroupEditorFields, {
+    props: {
+      fields: [
+        ...fields,
+        { name: "info", label: "支付方式分成比例", type: "json" },
+      ],
+      values: {
+        name: "本地组",
+        info: '{"alipay":{"rate":"99.50"},"wxpay":{"rate":"98.75"}}',
+      },
+      errors: {},
+      editing: true,
+      disabled: false,
+    },
+  });
+  await w.get('[role="tab"][data-group="payment"]').trigger("click");
+  expect(w.text()).toContain("分成比例");
+  const input = w.get('input[aria-label="支付宝分成比例（%）"]');
+  expect((input.element as HTMLInputElement).value).toBe("99.50");
+  await input.setValue("100");
+  const event = w.emitted("change")!.at(-1)!;
+  expect(event[0]).toBe("info");
+  expect(JSON.parse(String(event[1]))).toEqual({
+    alipay: { rate: "100" },
+    wxpay: { rate: "98.75" },
+  });
+  expect(w.find("textarea").exists()).toBe(false);
+  w.unmount();
+});
 it("group lists retain only the original group name while other schemas retain their columns", () => {
   expect(
     resourceListFields("groups", fields).map((f) => [f.name, f.label]),
