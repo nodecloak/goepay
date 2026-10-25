@@ -1,0 +1,148 @@
+name: goepay
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: goepay
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: goepay_final
+    ports: ["127.0.0.1:55433:5432"]
+    volumes: ["pgdata:/var/lib/postgresql"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U goepay"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgres://goepay:${POSTGRES_PASSWORD}@postgres:5432/goepay_final?sslmode=disable
+      GOEPAY_MASTER_KEY: ${GOEPAY_MASTER_KEY:?required}
+      GOEPAY_SANDBOX: "true"
+      GOEPAY_PROVIDER_MODE: simulation
+      GOEPAY_ENABLE_SCAN_RECOVERY: "false"
+      GOEPAY_ENABLE_AUTHORIZATION_OBSERVATION: "${GOEPAY_ENABLE_AUTHORIZATION_OBSERVATION:-false}"
+      GOEPAY_ENABLE_EMAIL_VERIFICATION: "${GOEPAY_ENABLE_EMAIL_VERIFICATION:-false}"
+      GOEPAY_SMTP_HOST: "${GOEPAY_SMTP_HOST:-}"
+      GOEPAY_SMTP_PORT: "${GOEPAY_SMTP_PORT:-}"
+      GOEPAY_SMTP_SECURITY: "${GOEPAY_SMTP_SECURITY:-}"
+      GOEPAY_SMTP_USERNAME: "${GOEPAY_SMTP_USERNAME:-}"
+      GOEPAY_SMTP_PASSWORD: "${GOEPAY_SMTP_PASSWORD:-}"
+      GOEPAY_SMTP_FROM: "${GOEPAY_SMTP_FROM:-}"
+      GOEPAY_PUBLIC_ORIGIN: http://127.0.0.1:8180
+      GOEPAY_CONSOLE_ORIGIN: http://127.0.0.1:8181
+      GOEPAY_TRUSTED_PROXY_CIDRS: ${GOEPAY_TRUSTED_PROXY_CIDRS:-}
+      COOKIE_SECURE: "false"
+      HTTP_ADDR: ":8080"
+      GOEPAY_SEED_PASSWORD: ${GOEPAY_SEED_PASSWORD:?required}
+      GOEPAY_SEED_API_KEY: ${GOEPAY_SEED_API_KEY:?required}
+    ports: ["127.0.0.1:8180:8080"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate:
+    build: .
+    entrypoint: /app/cli
+    command: ["migrate"]
+    environment:
+      DATABASE_URL: postgres://goepay:${POSTGRES_PASSWORD}@postgres:5432/goepay_final?sslmode=disable
+      GOEPAY_MASTER_KEY: ${GOEPAY_MASTER_KEY:?required}
+    depends_on:
+      postgres: {condition: service_healthy}
+  web:
+    build: ./web
+    ports: ["127.0.0.1:8181:80"]
+    depends_on: [api]
+  worker:
+    build: .
+    entrypoint: /app/worker
+    environment:
+      GOEPAY_ENABLE_SCAN_RECOVERY: "false"
+      GOEPAY_ENABLE_ADMIN_CHANNEL_NOTICES: "false"
+      GOEPAY_ENABLE_MERCHANT_NOTICES: "false"
+      GOEPAY_ENABLE_ADMIN_BUSINESS_NOTICES: "false"
+      DATABASE_URL: postgres://goepay:${POSTGRES_PASSWORD}@postgres:5432/goepay_final?sslmode=disable
+      GOEPAY_MASTER_KEY: ${GOEPAY_MASTER_KEY:?required}
+    depends_on:
+      postgres: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+  settlement-scheduler:
+    build: .
+    entrypoint: /app/settlement-scheduler
+    environment:
+      DATABASE_URL: postgres://goepay:${POSTGRES_PASSWORD}@postgres:5432/goepay_final?sslmode=disable
+      GOEPAY_MASTER_KEY: ${GOEPAY_MASTER_KEY:?required}
+      GOEPAY_SETTLEMENT_SCHEDULER_ENABLED: "${GOEPAY_SETTLEMENT_SCHEDULER_ENABLED:-false}"
+    depends_on:
+      postgres: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+  settlement-auto-worker:
+    profiles: ["automatic-settlements"]
+    build: .
+    entrypoint: /app/settlement-auto-worker
+    environment:
+      GOEPAY_ENABLE_CHANNEL_AUTO_STOP: "false"
+      DATABASE_URL: postgres://goepay:${POSTGRES_PASSWORD}@postgres:5432/goepay_final?sslmode=disable
+      GOEPAY_MASTER_KEY: ${GOEPAY_MASTER_KEY:?required}
+      GOEPAY_SETTLEMENT_AUTO_ENABLED: "false"
+      GOEPAY_SANDBOX: "true"
+      GOEPAY_PROVIDER_MODE: simulation
+      GOEPAY_ENABLE_PROVIDER_WRITES: "false"
+    depends_on:
+      postgres: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+  referral-scheduler:
+    profiles: ["daily-referrals"]
+    build: .
+    entrypoint: /app/referral-scheduler
+    environment:
+      DATABASE_URL: postgres://goepay:${POSTGRES_PASSWORD}@postgres:5432/goepay_final?sslmode=disable
+      GOEPAY_MASTER_KEY: ${GOEPAY_MASTER_KEY:?required}
+      GOEPAY_REFERRAL_SCHEDULER_ENABLED: "${GOEPAY_REFERRAL_SCHEDULER_ENABLED:-false}"
+    depends_on:
+      postgres: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+  merchant-notice-scheduler:
+    profiles: ["merchant-notices"]
+    build: .
+    entrypoint: /app/merchant-notice-scheduler
+    environment:
+      DATABASE_URL: postgres://goepay:${POSTGRES_PASSWORD}@postgres:5432/goepay_final?sslmode=disable
+      GOEPAY_MASTER_KEY: ${GOEPAY_MASTER_KEY:?required}
+      GOEPAY_MERCHANT_NOTICE_SCHEDULER_ENABLED: "${GOEPAY_MERCHANT_NOTICE_SCHEDULER_ENABLED:-false}"
+      GOEPAY_MERCHANT_NOTICE_SEND_HOUR: "${GOEPAY_MERCHANT_NOTICE_SEND_HOUR:-9}"
+    depends_on:
+      postgres: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+  printing-worker:
+    profiles: ["local-printing-fake"]
+    build: .
+    entrypoint: /app/printing-worker
+    environment:
+      DATABASE_URL: postgres://goepay:${POSTGRES_PASSWORD}@postgres:5432/goepay_final?sslmode=disable
+      GOEPAY_MASTER_KEY: ${GOEPAY_MASTER_KEY:?required}
+      GOEPAY_LOCAL_PRINTING_FAKE_ENABLED: "${GOEPAY_LOCAL_PRINTING_FAKE_ENABLED:-false}"
+      GOEPAY_SANDBOX: "true"
+    depends_on:
+      postgres: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+  printing-external-worker:
+    profiles: ["external-printing"]
+    build: .
+    entrypoint: /app/printing-worker
+    environment:
+      DATABASE_URL: postgres://goepay:${POSTGRES_PASSWORD}@postgres:5432/goepay_final?sslmode=disable
+      GOEPAY_MASTER_KEY: ${GOEPAY_MASTER_KEY:?required}
+      GOEPAY_PRINTING_EXTERNAL_ENABLED: "${GOEPAY_PRINTING_EXTERNAL_ENABLED:-false}"
+      GOEPAY_LOCAL_PRINTING_FAKE_ENABLED: "false"
+      GOEPAY_SANDBOX: "false"
+    depends_on:
+      postgres: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+volumes:
+  pgdata:

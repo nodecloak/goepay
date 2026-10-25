@@ -1,0 +1,129 @@
+[
+  {
+    "area": "admin",
+    "path": "/settle/plans",
+    "title": "结算计划",
+    "status": "partial",
+    "capabilities": [
+      "super-own-session-typed-disabled-plan-definition-cas",
+      "mandatory-exact-body-funds-authorization-even-global-off",
+      "current-due-slot-scan-and-original-run-evidence",
+      "emergency-authorization-revocation-without-funds-grant"
+    ],
+    "limitations": "补充入口不计原82项；仅generate_only生成待审核申请并冻结，hour/day/once与最多100个显式商户，不开放threshold/percent retention/group daycut/auto payout；原审批及出款仍独立"
+  },
+  {
+    "area": "merchant",
+    "path": "/account/settlement-schedule",
+    "title": "自动结算参与设置",
+    "status": "partial",
+    "capabilities": [
+      "own-session-default-disabled-explicit-opt-in",
+      "preference-revision-and-current-recipient-config-cas",
+      "masked-previous-binding-versus-current-recipient"
+    ],
+    "limitations": "补充入口不计原82项；参与仅允许符合授权的计划生成待审核申请，不授权自动审批/付款；更换收款配置须重新明确确认"
+  },
+  {
+    "area": "admin",
+    "path": "/transfer/batches",
+    "title": "批量付款",
+    "status": "partial",
+    "capabilities": [
+      "atomic-prepare",
+      "separate-confirmed-execute-unsent-only",
+      "query-original-claimed-items",
+      "cancel-proven-unsent",
+      "recover-by-original-external-number",
+      "owned-five-column-csv-xlsx-preview-no-fund-side-effect"
+    ],
+    "limitations": "额外入口，不计入原82项；最多100项，不是自动结算或全部Pro批次格式兼容"
+  },
+  {
+    "area": "merchant",
+    "path": "/transfer/batches",
+    "title": "批量付款",
+    "status": "partial",
+    "capabilities": [
+      "owned-atomic-prepare",
+      "separate-confirmed-execute-unsent-only",
+      "query-original-claimed-items",
+      "cancel-proven-unsent",
+      "recover-by-original-external-number",
+      "owned-five-column-csv-xlsx-preview-no-fund-side-effect"
+    ],
+    "limitations": "额外入口，不计入原82项；最多100项，未知/已发送项不重发，不是自动结算"
+  },
+  {
+    "area": "admin",
+    "path": "/system/order-subject-policies",
+    "title": "订单名称限制策略",
+    "status": "partial",
+    "capabilities": [
+      "superadmin-only-schema-resource-crud"
+    ],
+    "limitations": "额外配置入口，不计入原版82项覆盖；仅新的上游发送应用快照，不改变历史资金签名原名；后端策略执行独立验收"
+  },
+  {
+    "area": "admin",
+    "path": "/merchant/deposit-review",
+    "title": "保证金审批",
+    "status": "partial",
+    "capabilities": [
+      "list-deposit-actions",
+      "read-deposit-balances",
+      "confirm-release-approval",
+      "confirm-release-rejection"
+    ],
+    "limitations": "仅为站内账务保证金处理，不涉及外部出款"
+  },
+  {
+    "area": "admin",
+    "path": "/profitsharing/internal-orders",
+    "title": "站内分账审批",
+    "status": "partial",
+    "capabilities": [
+      "list-internal-profitsharing-requests",
+      "confirm-request-approval",
+      "confirm-request-rejection"
+    ],
+    "limitations": "站内账户分配，不代表上游渠道分账"
+  },
+  {
+    "area": "admin",
+    "path": "/system/referral-policies",
+    "title": "邀请返现政策",
+    "status": "partial",
+    "capabilities": [
+      "super-only-typed-global-group-cas-policy",
+      "explicit-inherit-vs-zero-bps",
+      "existing-action-bound-funds-authorization",
+      "fee-or-gross-basis-original-fee-capped-budget",
+      "capability-gated-immediate-or-daily-mode"
+    ],
+    "limitations": "额外入口不计原82项；immediate/daily与fee/gross均受原手续费预算封顶，组null继承、0明确覆盖，仅影响新订单快照。daily按原订单条款次日入账，独立调度默认关闭；不等同Pro按当前组费率重新日汇总。利润和会员推广奖励未开放。"
+  },
+  {
+    "area": "admin",
+    "path": "/system/printing",
+    "title": "订单打印配置",
+    "status": "partial",
+    "capabilities": [
+      "own-super-cas-encrypted-printing-credential-configuration",
+      "default-disabled-fixed-connector-external-print-worker"
+    ],
+    "limitations": "补充入口不计原82项；支持本地fake及默认关闭的固定外部打印连接器，需独立配置和worker。accepted仅表示服务受理，不表示纸张完成；unknown不自动重发，mode2为普通支付与聚合，不对充值自动打印作兼容承诺"
+  },
+  {
+    "area": "merchant",
+    "path": "/account/printing",
+    "title": "订单打印设置",
+    "status": "partial",
+    "capabilities": [
+      "own-merchant-cas-encrypted-device-configuration",
+      "verified-paid-receipt-no-buyer-or-secrets",
+      "immutable-idempotent-print-intent-and-original-task-recovery"
+    ],
+    "limitations": "补充入口不计原82项；支持本地fake及默认关闭的固定外部打印连接器，需独立配置和worker。accepted仅表示服务受理，不表示纸张完成；unknown不自动重发，mode2为普通支付与聚合，不对充值自动打印作兼容承诺"
+  }
+]

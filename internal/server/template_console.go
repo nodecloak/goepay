@@ -1,0 +1,227 @@
+package server
+
+import (
+	"bytes"
+	"context"
+	"crypto/subtle"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"goepay/internal/identity"
+	"goepay/internal/pagetemplate"
+	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+	"time"
+)
+
+var templateImageSlots = make(chan struct{}, 2)
+
+func templateFail(w http.ResponseWriter, e error) {
+	status, message := 500, "template service unavailable"
+	switch {
+	case errors.Is(e, pagetemplate.ErrForbidden):
+		status, message = 403, "own super administrator required"
+	case errors.Is(e, pagetemplate.ErrInvalid):
+		status, message = 422, "invalid typed template settings or image"
+	case errors.Is(e, pagetemplate.ErrConflict):
+		status, message = 409, "template revision conflict; reload original settings"
+	case errors.Is(e, pagetemplate.ErrNotFound):
+		status, message = 404, "template or image not found"
+	}
+	response(w, status, -1, message, nil)
+}
+func templateRevision(text string) (int64, bool) {
+	v, e := strconv.ParseInt(text, 10, 64)
+	return v, e == nil && v >= 0 && strconv.FormatInt(v, 10) == text
+}
+func (s *Server) templateConsole(w http.ResponseWriter, r *http.Request, role string, session identity.Session, parts []string) bool {
+	if len(parts) < 2 || parts[1] != "templates" {
+		return false
+	}
+	if role != "admin" || session.User.Role != "admin" || session.User.AdminClass != "super" || session.User.ID <= 0 || session.User.Username == "" || session.Issuer != nil {
+		response(w, 403, -1, "own super administrator required", nil)
+		return true
+	}
+	if r.Method != "GET" && r.Method != "HEAD" && (session.CSRF == "" || subtle.ConstantTimeCompare([]byte(session.CSRF), []byte(r.Header.Get("X-CSRF-Token"))) != 1) {
+		response(w, 403, -1, "invalid CSRF token", nil)
+		return true
+	}
+	if s.Pool == nil {
+		response(w, 503, -1, "template service unavailable", nil)
+		return true
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+	defer cancel()
+	store := pagetemplate.New(s.Pool)
+	actor := pagetemplate.Actor{Role: "admin", Class: "super", ID: session.User.ID, Name: session.User.Username}
+	if len(parts) == 2 {
+		if r.Method != "GET" {
+			response(w, 405, -1, "GET required", nil)
+			return true
+		}
+		q, e := url.ParseQuery(r.URL.RawQuery)
+		if e != nil || len(q) != 1 || len(q["type"]) != 1 {
+			response(w, 400, -1, "one supported template type required", nil)
+			return true
+		}
+		out, e := store.List(ctx, q.Get("type"), actor)
+		if e != nil {
+			templateFail(w, e)
+		} else {
+			response(w, 200, 0, "built-in templates only", out)
+		}
+		return true
+	}
+	if r.URL.RawQuery != "" {
+		response(w, 400, -1, "query parameters not accepted", nil)
+		return true
+	}
+	if parts[2] == "images" {
+		if len(parts) == 4 && r.Method == "GET" {
+			a, e := store.Asset(ctx, parts[3], actor)
+			if e != nil {
+				templateFail(w, e)
+			} else {
+				writeTemplateAsset(w, r, a)
+			}
+			return true
+		}
+		if len(parts) != 3 || r.Method != "POST" {
+			response(w, 405, -1, "image POST or exact private GET required", nil)
+			return true
+		}
+		if !s.allowLogin(r.RemoteAddr, "template-image", fmt.Sprint(actor.ID), time.Now()) {
+			w.Header().Set("Retry-After", "900")
+			response(w, 429, -1, "template image upload rate limited", nil)
+			return true
+		}
+		select {
+		case templateImageSlots <- struct{}{}:
+			defer func() { <-templateImageSlots }()
+		default:
+			response(w, 429, -1, "template image processing busy", nil)
+			return true
+		}
+		reader, e := r.MultipartReader()
+		if e != nil {
+			response(w, 415, -1, "one multipart image file required", nil)
+			return true
+		}
+		part, e := reader.NextPart()
+		if e != nil || part.FormName() != "file" {
+			response(w, 422, -1, "one image file required", nil)
+			return true
+		}
+		raw, e := io.ReadAll(io.LimitReader(part, pagetemplate.MaxImageInput+1))
+		part.Close()
+		if e != nil || len(raw) > pagetemplate.MaxImageInput {
+			response(w, 413, -1, "image exceeds 512KiB limit", nil)
+			return true
+		}
+		if extra, e := reader.NextPart(); e != io.EOF {
+			if extra != nil {
+				extra.Close()
+			}
+			response(w, 422, -1, "only one file part is allowed", nil)
+			return true
+		}
+		a, e := store.Upload(ctx, raw, actor)
+		if e != nil {
+			templateFail(w, e)
+		} else {
+			response(w, 201, 0, "private image uploaded; becomes public only while referenced by the selected template", a)
+		}
+		return true
+	}
+	if len(parts) == 4 && parts[3] == "selection" {
+		if r.Method != "PUT" {
+			response(w, 405, -1, "PUT required", nil)
+			return true
+		}
+		var in struct {
+			Expected string `json:"expected_revision"`
+			Name     string `json:"name"`
+		}
+		if !decodeFundsJSON(w, r, &in) {
+			return true
+		}
+		expected, ok := templateRevision(in.Expected)
+		if !ok {
+			response(w, 422, -1, "canonical expected revision required", nil)
+			return true
+		}
+		out, e := store.Select(ctx, parts[2], in.Name, expected, actor)
+		if e != nil {
+			templateFail(w, e)
+		} else {
+			response(w, 200, 0, "selected built-in template now affects page appearance only", out)
+		}
+		return true
+	}
+	if len(parts) == 5 && (parts[4] == "config" || parts[4] == "preview") {
+		if parts[4] == "preview" {
+			if r.Method != "GET" {
+				response(w, 405, -1, "GET required", nil)
+				return true
+			}
+			v, e := store.Config(ctx, parts[2], parts[3], actor)
+			if e != nil {
+				templateFail(w, e)
+				return true
+			}
+			raw, _ := json.Marshal(v.Config)
+			cfg, e := pagetemplate.ParseConfig(v.Type, v.Name, raw)
+			if e != nil {
+				templateFail(w, e)
+				return true
+			}
+			var b bytes.Buffer
+			if e = pagetemplate.Open(&b, pagetemplate.Resolved{Type: v.Type, Name: v.Name, Revision: v.Revision, Config: cfg}, pagetemplate.Page{Title: "模板预览", TradeNo: "PREVIEW-ONLY", Amount: "1.00", OrderName: "模板演示订单", Preview: true}); e != nil {
+				templateFail(w, e)
+				return true
+			}
+			io.WriteString(&b, "<p>演示材料：没有支付按钮，不创建订单。</p>")
+			pagetemplate.Close(&b)
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; script-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'; sandbox allow-same-origin")
+			w.Write(b.Bytes())
+			return true
+		}
+		switch r.Method {
+		case "GET":
+			out, e := store.Config(ctx, parts[2], parts[3], actor)
+			if e != nil {
+				templateFail(w, e)
+			} else {
+				response(w, 200, 0, "typed built-in configuration; revision covers this template type", out)
+			}
+		case "PUT":
+			var in struct {
+				Expected string          `json:"expected_revision"`
+				Config   json.RawMessage `json:"config"`
+			}
+			if !decodeFundsJSON(w, r, &in) {
+				return true
+			}
+			expected, ok := templateRevision(in.Expected)
+			if !ok {
+				response(w, 422, -1, "canonical expected revision required", nil)
+				return true
+			}
+			out, e := store.SaveConfig(ctx, parts[2], parts[3], expected, in.Config, actor)
+			if e != nil {
+				templateFail(w, e)
+			} else {
+				response(w, 200, 0, "template configuration saved; selected template appearance updates immediately", out)
+			}
+		default:
+			response(w, 405, -1, "GET or PUT required", nil)
+		}
+		return true
+	}
+	response(w, 404, -1, "template operation not found", nil)
+	return true
+}

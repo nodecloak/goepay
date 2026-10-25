@@ -1,0 +1,11 @@
+# 44 付款账户身份绑定
+
+现有批次与钱包结算固定provider/AppID，但微信配置另有独立MerchantID（mchid）。同AppID换mchid不能继承原TF。普通单笔原号查询/凭证此前也缺固定付款应用的持久证明。此增量将所有新普通付款、批次准备及结算准备的付款账户摘要与原attempt在同一事务绑定，发送/领取/查询/凭证在外呼前比较当前身份。
+
+公开适配器接口TransferAccountIdentity只包含稳定公开账户身份：WechatV2为provider+AppID+MerchantID；Alipay当前实现只有直接应用AppID，不虚构未实现的授权子商户。APIKey、私钥、公钥证书序列及access token不进入身份，合法密钥轮换不改变账户绑定。simulation使用独立明确合成身份。其它内部测试provider可回退既有ApplicationIdentity/provider ID范围，不把该测试回退说成真实微信商户绑定。
+
+迁移44独立provider_transfer_accounts表，FK原provider_transfer_attempts，域隔离HMAC32字节摘要不可变。只在新attempt持久化事务插入，不把当前配置补成历史付款账户。已有真实适配器但无该证明的历史转账必须人工核对，查询/凭证失败关闭并保留资金；列表与本地未发送取消仍可读/释放，原号不能产生再次发送。此项为安全收紧，不声称历史身份已自动恢复。
+
+动作授权指纹同时包含当前付款账户scope，管理员确认后更换mchid要求重新核对；旧付款意图仍不能改绑。付款发送规则、金额、净额/费用及可信银行退票证据保持现有实现，不新增真实外呼。
+
+范围：本增量覆盖付款/批次/结算，不把它等同支付订单所有OAuth、下单及通知账户绑定已全量验收。后续支付账户身份需沿原订单attempt独立推进。

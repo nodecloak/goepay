@@ -1,0 +1,15 @@
+page { background: #f5f7f9; color: #17233d; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.page { padding: 48rpx 28rpx; }
+.card { max-width: 680rpx; margin: 0 auto; padding: 40rpx 32rpx; background: #fff; border: 1rpx solid #e8eaec; border-radius: 8rpx; }
+.heading { padding-bottom: 28rpx; border-bottom: 1rpx solid #e8eaec; font-size: 36rpx; font-weight: 600; }
+.caption { margin-top: 36rpx; text-align: center; font-size: 28rpx; color: #515a6e; }
+.amount { margin: 16rpx 0 36rpx; text-align: center; font-size: 64rpx; font-weight: 600; word-break: break-all; }
+.currency { margin-right: 8rpx; font-size: 36rpx; }
+.order { padding: 24rpx 0; border-top: 1rpx solid #e8eaec; border-bottom: 1rpx solid #e8eaec; font-size: 26rpx; }
+.label { display: block; margin-bottom: 12rpx; color: #515a6e; }
+.number { word-break: break-all; }
+.message { margin: 32rpx 0; font-size: 28rpx; line-height: 1.7; overflow-wrap: break-word; }
+.primary { min-height: 88rpx; line-height: 88rpx; background: #2d8cf0; color: #fff; font-size: 30rpx; border-radius: 8rpx; }
+.primary[disabled] { background: #e8eaec; color: #606a7b; }
+.primary::after { border: none; }
+.hint { margin-top: 24rpx; color: #515a6e; font-size: 24rpx; line-height: 1.7; }

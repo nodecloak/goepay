@@ -1,0 +1,9 @@
+# 46 支付订单收款商户身份绑定
+
+44固定的是对外付款账户，订单provider_attempt也必须在首次下单事务保存原provider/AppID/稳定公开商户身份摘要。微信同AppID换MchID后，新的合法签名不能作为原旧商户订单付款证据。支付宝当前直接应用以AppID固定；密钥、证书serial轮换不改账户。
+
+新增46 provider_attempt_accounts不可变HMAC表，原attempt与账户proof同事务提交后才允许外呼。普通、付款码和预授权首次提交都使用同一账户绑定入口；相同原号的重放比较原账户，不能后补历史真实订单。查单、回调、退款/查退款、关单和预授权通知/查询/扣款/解除沿原attempt校验后才调用provider。缺真实历史proof失败关闭，原本地订单/列表仍可读，不能推断资金失败或放弃未知预留。
+
+内部弱测试provider未声明真实账户身份时保留其实际provider/application范围，不能将此回退说成真实商户已验证。旧内部BeginProviderAttempt/WithIdentity用于原测试和本地导入，不自动给历史真实通道伪造账户证明。生产ProviderFlow新增显式account参数入口。
+
+不把本增量当作pre-attempt网页/小程序OAuth意图已经固定付款MchID；这些意图尚无资金发送，须在后续独立state语义中补范围。新47独立用户标识不得借支付订单来占位。全程临时PGschema/TLS，不访问生产、不读真实密钥、不发真实资金交易。

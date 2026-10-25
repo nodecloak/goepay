@@ -1,0 +1,46 @@
+package payment
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	adapter "goepay/internal/adapters/payment"
+)
+
+// sendClaimedTransfer shares the original verified result/ledger rules for
+// single and batch transfers. The caller already owns a durable send barrier.
+func (g ProviderFlow) sendClaimedTransfer(ctx context.Context, t Transfer, tp adapter.TransferProvider) (Transfer, error) {
+	if e := g.Store.checkChannelWrite(ctx, t.ChannelID); e != nil {
+		return t, e
+	}
+	result, e := tp.Transfer(ctx, transferRequest(t))
+	if e != nil {
+		state := "unknown"
+		if t.Type != "bank" && definiteAuthenticatedTransferRejection(e, g.Providers[t.ChannelID], t.Type) {
+			state = "failed"
+		}
+		if save := g.Store.resolveProviderTransfer(ctx, t.ID, state, "", ""); save != nil {
+			return t, errors.Join(e, save)
+		}
+		current, _ := g.Store.Transfer(ctx, t.MerchantID, t.TransferNo)
+		return current, e
+	}
+	if result.TransferNo != fmt.Sprintf("TF%d", t.ID) || result.Amount != t.Amount {
+		g.Store.resolveProviderTransfer(ctx, t.ID, "unknown", "", "")
+		return t, &adapter.UnknownOutcome{Operation: "transfer response", Cause: adapter.ErrAuthentication}
+	}
+	if t.Type == "bank" {
+		if e = g.Store.resolveBankResult(ctx, t, result, true); e != nil {
+			return t, &adapter.UnknownOutcome{Operation: "persist bank transfer", Cause: e}
+		}
+		return g.Store.Transfer(ctx, t.MerchantID, t.TransferNo)
+	}
+	state := transferProviderState(result.State)
+	if state == "succeeded" && result.ProviderTransferNo == "" {
+		state = "unknown"
+	}
+	if e = g.Store.resolveProviderTransfer(ctx, t.ID, state, result.ProviderTransferNo, result.PayDate); e != nil {
+		return t, &adapter.UnknownOutcome{Operation: "persist transfer", Cause: e}
+	}
+	return g.Store.Transfer(ctx, t.MerchantID, t.TransferNo)
+}

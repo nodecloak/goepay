@@ -1,0 +1,2240 @@
+{
+  "version": 1,
+  "source": "local plaintext public Pro assets; no encrypted controller or credentials read",
+  "inventory": "pro-console-field-inventory.json",
+  "boundaries": {
+    "backend_authorization_unchanged": true,
+    "ids": "decimal strings; no Number coercion",
+    "money": "integer minor strings -> exact BigInt yuan; existing *_money yuan strings unchanged",
+    "credentials": "write-only inputs remain write-only; generic list/detail never displays credential columns"
+  },
+  "pages": [
+    {
+      "page": "admin orders /trade/order",
+      "source_table_column_order": [
+        "trade_no",
+        "uid",
+        "name",
+        "realmoney",
+        "type",
+        "ip",
+        "param",
+        "addtime",
+        "status",
+        "notify",
+        "operation"
+      ],
+      "evidence": {
+        "file": "epay_pro/public/static/assets/index-lAIAtQd1.js",
+        "sha256": "f04fad0154c41b875db3d9e9603d4631ee6b58171f228461780b665b48e980e3",
+        "columns": [
+          {
+            "field": "column",
+            "label": "搜索字段",
+            "offset": 2302
+          },
+          {
+            "field": "value",
+            "label": "搜索内容",
+            "offset": 2858
+          },
+          {
+            "field": "uid",
+            "label": "商户号",
+            "offset": 2938
+          },
+          {
+            "field": "paytype",
+            "label": "支付方式",
+            "offset": 3014
+          },
+          {
+            "field": "channel",
+            "label": "通道ID",
+            "offset": 3115
+          },
+          {
+            "field": "dstatus",
+            "label": "订单状态",
+            "offset": 3197
+          },
+          {
+            "field": "dateRange",
+            "label": "时间范围",
+            "offset": 3237
+          },
+          {
+            "field": "sub_trade_no",
+            "label": "系统订单号",
+            "offset": 11847
+          },
+          {
+            "field": "api_trade_no",
+            "label": "接口订单号",
+            "offset": 11907
+          },
+          {
+            "field": "money",
+            "label": "订单金额",
+            "offset": 11967
+          },
+          {
+            "field": "status",
+            "label": "订单状态",
+            "offset": 12071
+          },
+          {
+            "field": "settle",
+            "label": "结算状态",
+            "offset": 12257
+          },
+          {
+            "field": "trade_no",
+            "label": "系统订单号",
+            "offset": 17689
+          },
+          {
+            "field": "uid",
+            "label": "商户号",
+            "offset": 17759
+          },
+          {
+            "field": "name",
+            "label": "商品名称",
+            "offset": 17822
+          },
+          {
+            "field": "realmoney",
+            "label": "实际支付",
+            "offset": 17890
+          },
+          {
+            "field": "type",
+            "label": "支付方式",
+            "offset": 17960
+          },
+          {
+            "field": "ip",
+            "label": "支付IP",
+            "offset": 18025
+          },
+          {
+            "field": "param",
+            "label": "扩展参数",
+            "offset": 18099
+          },
+          {
+            "field": "addtime",
+            "label": "创建时间",
+            "offset": 18148
+          },
+          {
+            "field": "status",
+            "label": "支付状态",
+            "offset": 18216
+          },
+          {
+            "field": "notify",
+            "label": "通知状态",
+            "offset": 18266
+          },
+          {
+            "field": "operation",
+            "label": "操作",
+            "offset": 18327
+          }
+        ],
+        "routes": [
+          "/merchant/merchant-list",
+          "/payapi/pay-channel",
+          "/trade/refund"
+        ],
+        "endpoints": [],
+        "labels": [
+          "获取支付方式失败:",
+          "搜索字段",
+          "请选择搜索字段",
+          "系统订单号",
+          "商户订单号",
+          "接口订单号",
+          "渠道商户单号",
+          "渠道交易单号",
+          "商品名称",
+          "订单金额",
+          "实付金额",
+          "分成金额",
+          "网站域名",
+          "支付账号",
+          "支付IP",
+          "手机号码",
+          "扩展参数",
+          "搜索内容",
+          "商户号",
+          "支付方式",
+          "选择支付方式",
+          "通道ID",
+          "订单状态",
+          "时间范围",
+          "开始日期",
+          "结束日期",
+          "全部状态",
+          "未支付",
+          "已支付",
+          "已退款",
+          "已冻结",
+          "预授权",
+          "结算状态",
+          "待结算",
+          "结算成功",
+          "结算失败",
+          "通知状态",
+          "通知成功",
+          "通知失败",
+          "处理中",
+          "未知错误",
+          "提示信息",
+          "未知",
+          "未结算",
+          "已结算",
+          "正在发送通知请求...",
+          "后续处理已重新执行",
+          "请求失败",
+          "正在获取子订单列表...",
+          "获取子订单失败",
+          "修改成功",
+          "修改失败",
+          "添加黑名单成功",
+          "添加失败",
+          "订单详细信息",
+          "关闭",
+          "商户ID",
+          "支付通道",
+          "自定义子通道",
+          "实际支付金额",
+          "商户分成金额",
+          "手续费利润",
+          "创建时间",
+          "完成时间",
+          "退款时间",
+          "拉黑",
+          "支付IP所在地",
+          "用户信息",
+          "实名信息",
+          "渠道子商户ID",
+          "查看失败原因",
+          "重新通知(异步)",
+          "重新通知(同步)",
+          "查看子订单",
+          "合单支付 - 子订单列表",
+          "编辑接口订单号",
+          "取消",
+          "确定",
+          "请输入接口订单号",
+          "异步通知详情",
+          "通知地址",
+          "响应内容",
+          "添加黑名单 - ",
+          "IP地址",
+          "提交",
+          "有效期",
+          "0为永久",
+          "天",
+          "备注",
+          "选填",
+          "实际支付",
+          "支付状态",
+          "操作",
+          "待转账",
+          "转账成功",
+          "转账失败",
+          "正在加载统计数据...",
+          "要处理的订单数量为 0",
+          "警告",
+          "提示",
+          "操作完成",
+          "订单未支付",
+          "不支持自动查单",
+          "操作成功",
+          "处理完成",
+          "请输入退款金额",
+          "正在执行API退款...",
+          "API退款成功",
+          "请输入支付密码",
+          "请先选择时间范围",
+          "刷新间隔不能小于3秒",
+          "统计 ",
+          "导出 ",
+          "自动刷新 ",
+          "改未完成 (可执行 ",
+          " 条)",
+          "改已完成 (可执行 ",
+          "API退款 (可执行 ",
+          "冻结订单 (可执行 ",
+          "解冻订单 (可执行 ",
+          "删除订单 (可执行 ",
+          "重新通知 (可执行 ",
+          "确认结算 (可执行 ",
+          "手动补单 (可执行 ",
+          " 批量操作",
+          "商户分成",
+          "插件名称",
+          "拉黑IP",
+          "拉黑账号",
+          "元) ",
+          "你确实要删除此订单吗？",
+          "正在修改订单状态...",
+          "正在发送通知...",
+          "正在冻结订单...",
+          "正在解冻订单...",
+          "正在查询订单支付状态...",
+          "查单成功，订单已支付，补单完成",
+          "查单结果：订单未支付",
+          "查单失败",
+          "强制补单",
+          "正在手动补单...",
+          "此操作将不管该订单是否真的支付，直接改为已支付状态并给商户分成，是否确定？",
+          "正在确认结算...",
+          "正在执行资金支付...",
+          "正在执行资金解冻...",
+          "正在重试转账...",
+          "正在获取退款信息...",
+          "此操作将从该商户扣除订单分成金额，你需要手动退款给购买者。",
+          "手动退款确认",
+          "正在执行手动退款...",
+          "手动退款成功",
+          "确认结算",
+          "红包转账重试",
+          "改未完成",
+          "API退款",
+          "手动退款",
+          "冻结订单",
+          "重新通知",
+          "删除订单",
+          "改已完成",
+          "退款记录",
+          "解冻订单",
+          "授权资金支付",
+          "授权资金解冻",
+          "手动补单",
+          "订单统计概况",
+          "金额统计",
+          "订单总金额",
+          "已支付金额",
+          "未支付金额",
+          "已退款金额",
+          "总收入利润",
+          "数量统计",
+          "订单总数",
+          "已支付订单",
+          "未支付订单",
+          "已退款订单",
+          "订单成功率",
+          "批量API退款确认",
+          "API退款确认",
+          "确认退款",
+          " 此操作将直接原路退款选中的 ",
+          " 条可退款订单，退款金额均为订单实际支付金额。 ",
+          " 此操作将直接原路退款该订单，退款金额不能大于订单金额。 ",
+          "退款金额",
+          "支付密码",
+          "自动刷新",
+          "停止",
+          "更新",
+          "开始",
+          "刷新间隔",
+          "秒"
+        ]
+      },
+      "api": "/console/v1/admin/orders",
+      "fields": [
+        {
+          "pro": "trade_no",
+          "current": "trade_no",
+          "unit": "string",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "out_trade_no",
+          "current": "out_trade_no",
+          "unit": "string",
+          "status": "mapped",
+          "note": "stacked below original system order"
+        },
+        {
+          "pro": "api_trade_no",
+          "current": "api_trade_no",
+          "unit": "string",
+          "status": "readonly projection",
+          "note": ""
+        },
+        {
+          "pro": "uid",
+          "current": "merchant_id",
+          "unit": "string",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "name",
+          "current": "name",
+          "unit": "string",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "money",
+          "current": "amount",
+          "unit": "minor integer -> yuan",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "realmoney",
+          "current": null,
+          "unit": null,
+          "status": "semantic gap",
+          "note": "Do not alias merchant_amount to actual paid money; show order amount under its explicit name"
+        },
+        {
+          "pro": "商户分成",
+          "current": "merchant_amount",
+          "unit": "minor integer -> yuan",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "手续费利润",
+          "current": "platform_fee",
+          "unit": "minor integer -> yuan",
+          "status": "different semantics",
+          "note": "label platform fee; no claim of profit after channel costs"
+        },
+        {
+          "pro": "type",
+          "current": "type",
+          "unit": "enum",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "channel",
+          "current": "channel_id",
+          "unit": "string",
+          "status": "readonly projection",
+          "note": ""
+        },
+        {
+          "pro": "ip",
+          "current": "client_ip",
+          "unit": "string",
+          "status": "readonly projection",
+          "note": ""
+        },
+        {
+          "pro": "支付账号",
+          "current": "buyer",
+          "unit": "server-authorized string",
+          "status": "readonly projection",
+          "note": ""
+        },
+        {
+          "pro": "param",
+          "current": "param",
+          "unit": "string",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "addtime",
+          "current": "created_at",
+          "unit": "timestamp",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "完成时间",
+          "current": "paid_at",
+          "unit": "timestamp",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "status",
+          "current": "status",
+          "unit": "enum",
+          "status": "mapped",
+          "note": "paid/unknown/closed distinct; refunded amount and held income are separate"
+        },
+        {
+          "pro": "notify",
+          "current": "notification_state",
+          "unit": "job enum",
+          "status": "readonly projection",
+          "note": "none/pending/running/succeeded/dead"
+        },
+        {
+          "pro": "已退款金额",
+          "current": "refunded_amount",
+          "unit": "minor integer -> yuan",
+          "status": "readonly projection",
+          "note": ""
+        },
+        {
+          "pro": "网站域名/手机号码/实名信息/渠道商户单号/渠道交易单号/退款时间",
+          "current": null,
+          "unit": null,
+          "status": "missing",
+          "note": ""
+        }
+      ],
+      "filters": {
+        "supported": [
+          "q (combined system order/merchant order/product)",
+          "merchant_id admin only",
+          "type",
+          "channel_id",
+          "status",
+          "from",
+          "to",
+          "buyer",
+          "client_ip",
+          "income_status"
+        ],
+        "missing": [
+          "exact search_field selector",
+          "domain",
+          "phone",
+          "upstream submerchant/order identifiers",
+          "notify-state filter",
+          "settlement-state filter",
+          "minor-amount exact filter"
+        ]
+      },
+      "actions": {
+        "preserved": [
+          "detail",
+          "server-verified query/close",
+          "refund intent/preview",
+          "audited notification resend",
+          "income hold operations with existing permission flags",
+          "preauthorization actions with existing permission flags"
+        ],
+        "not_inferred": [
+          "force paid/unpaid",
+          "edit provider receipt",
+          "batch refunds",
+          "delete financial order",
+          "trust unverified unknown as success",
+          "synchronous notification redirect",
+          "arbitrary old status enums"
+        ]
+      }
+    },
+    {
+      "page": "merchant orders /trade/order",
+      "source_table_column_order": [
+        "trade_no",
+        "name",
+        "money",
+        "realmoney",
+        "type",
+        "addtime",
+        "status",
+        "notify",
+        "operation"
+      ],
+      "evidence": {
+        "file": "epay_pro/public/static/assets/index-Dk-66xD5.js",
+        "sha256": "31d3e1a48d123a176fb2da740eb07a911b41145f0de1b4865fc6eec3dd2be332",
+        "columns": [
+          {
+            "field": "column",
+            "label": "搜索字段",
+            "offset": 1988
+          },
+          {
+            "field": "value",
+            "label": "搜索内容",
+            "offset": 2541
+          },
+          {
+            "field": "paytype",
+            "label": "支付方式",
+            "offset": 2621
+          },
+          {
+            "field": "dstatus",
+            "label": "订单状态",
+            "offset": 2720
+          },
+          {
+            "field": "dateRange",
+            "label": "时间范围",
+            "offset": 2760
+          },
+          {
+            "field": "sub_trade_no",
+            "label": "系统订单号",
+            "offset": 8940
+          },
+          {
+            "field": "api_trade_no",
+            "label": "接口订单号",
+            "offset": 9000
+          },
+          {
+            "field": "money",
+            "label": "订单金额",
+            "offset": 9060
+          },
+          {
+            "field": "status",
+            "label": "订单状态",
+            "offset": 9164
+          },
+          {
+            "field": "settle",
+            "label": "结算状态",
+            "offset": 9348
+          },
+          {
+            "field": "trade_no",
+            "label": "系统订单号",
+            "offset": 12816
+          },
+          {
+            "field": "name",
+            "label": "商品名称",
+            "offset": 12886
+          },
+          {
+            "field": "money",
+            "label": "订单金额",
+            "offset": 12954
+          },
+          {
+            "field": "realmoney",
+            "label": "实际支付",
+            "offset": 13020
+          },
+          {
+            "field": "type",
+            "label": "支付方式",
+            "offset": 13090
+          },
+          {
+            "field": "addtime",
+            "label": "创建时间",
+            "offset": 13155
+          },
+          {
+            "field": "status",
+            "label": "支付状态",
+            "offset": 13223
+          },
+          {
+            "field": "notify",
+            "label": "通知状态",
+            "offset": 13273
+          },
+          {
+            "field": "operation",
+            "label": "操作",
+            "offset": 13334
+          }
+        ],
+        "routes": [
+          "/record",
+          "/trade/refund"
+        ],
+        "endpoints": [],
+        "labels": [
+          "搜索字段",
+          "系统订单号",
+          "商户订单号",
+          "接口订单号",
+          "渠道商户单号",
+          "渠道交易单号",
+          "商品名称",
+          "订单金额",
+          "实付金额",
+          "分成金额",
+          "网站域名",
+          "支付账号",
+          "支付IP",
+          "手机号码",
+          "扩展参数",
+          "搜索内容",
+          "支付方式",
+          "订单状态",
+          "时间范围",
+          "开始日期",
+          "结束日期",
+          "全部状态",
+          "未支付",
+          "已支付",
+          "已退款",
+          "已冻结",
+          "预授权",
+          "获取订单详情失败",
+          "未知",
+          "通知成功",
+          "处理中",
+          "通知失败",
+          "正在发送通知...",
+          "后续处理已重新执行",
+          "正在获取子订单...",
+          "获取子订单失败",
+          "订单详细信息",
+          "关闭",
+          "自定义子通道",
+          "实际支付金额",
+          "商户分成金额",
+          "创建时间",
+          "完成时间",
+          "退款时间",
+          "支付IP所在地",
+          "渠道子商户ID",
+          "通知状态",
+          "查看失败原因",
+          "重新通知(异步)",
+          "重新通知(同步)",
+          "查看子订单",
+          "合单支付 - 子订单列表",
+          "结算状态",
+          "已结算",
+          "未结算",
+          "异步通知详情",
+          "确定",
+          "通知地址",
+          "响应内容",
+          "实际支付",
+          "支付状态",
+          "操作",
+          "待转账",
+          "转账成功",
+          "转账失败",
+          "待结算",
+          "结算成功",
+          "结算失败",
+          "正在加载统计数据...",
+          "获取统计数据失败",
+          "请先选择时间范围",
+          "要处理的订单数量为 0",
+          "重新通知",
+          "手动补单",
+          "操作失败",
+          "批量操作完成",
+          "处理完成",
+          "未知错误",
+          "批量退款中止",
+          "退款成功！",
+          "退款失败",
+          "提示信息",
+          "登录密码不能为空",
+          "金额或密码不能为空",
+          "刷新间隔不能小于3秒",
+          "统计 ",
+          "导出 ",
+          "自动刷新 ",
+          " 批量退款 (可执行 ",
+          " 条) ",
+          " 重新通知 (可执行 ",
+          " 手动补单 (可执行 ",
+          " 批量操作",
+          "商户分成",
+          "元) ",
+          "正在查询订单支付状态...",
+          "查单成功，订单已支付，补单完成",
+          "查单失败",
+          "正在补单...",
+          "补单失败",
+          "正在查询...",
+          "查询退款信息失败",
+          "是否重新打印此订单小票？",
+          "打印小票",
+          "正在发送打印指令...",
+          "打印指令已发送到打印机",
+          "打印失败",
+          "查看详情",
+          "资金明细",
+          "退款",
+          "退款记录",
+          "订单统计概况",
+          "金额统计",
+          "订单总金额",
+          "已支付金额",
+          "未支付金额",
+          "已退款金额",
+          "数量统计",
+          "订单总数",
+          "已支付订单",
+          "未支付订单",
+          "已退款订单",
+          "订单成功率",
+          "自动刷新",
+          "取消",
+          "停止",
+          "更新",
+          "开始",
+          "刷新间隔",
+          "秒",
+          "批量退款确认",
+          "退款确认",
+          "确认退款",
+          " 此操作将直接原路退款选中的 ",
+          " 条可退款订单，退款金额为各订单当前可退金额。 ",
+          " 此操作将直接原路退款该订单，每个订单只能操作一次退款，退款金额不能大于订单金额。 ",
+          "退款金额",
+          "请输入退款金额",
+          "登录密码",
+          "请输入登录密码"
+        ]
+      },
+      "api": "/console/v1/merchant/orders",
+      "inherits": "admin order field meanings",
+      "differences": [
+        "owner override hidden and never sent",
+        "system/merchant/receipt numbers grouped",
+        "amount/net/fee/refund detail grouped",
+        "payment type/channel grouped",
+        "sensitive reporting detail is exactly what original own-session API returns",
+        "no new backend privilege inferred from Pro buttons"
+      ]
+    },
+    {
+      "page": "admin merchants /merchant/merchant-list",
+      "source_table_column_order": [
+        "uid",
+        "money",
+        "account",
+        "contact",
+        "addtime",
+        "status",
+        "operation"
+      ],
+      "evidence": {
+        "file": "epay_pro/public/static/assets/index-DzbjAsrt.js",
+        "sha256": "4b73332cab4d0ce778c395711e4ec451050815a853697fee75cd95927008165d",
+        "columns": [
+          {
+            "field": "id",
+            "label": "ID",
+            "offset": 23901
+          },
+          {
+            "field": "name",
+            "label": "子通道备注",
+            "offset": 24246
+          },
+          {
+            "field": "showname",
+            "label": "支付方式",
+            "offset": 35269
+          },
+          {
+            "field": "money",
+            "label": "订单金额",
+            "offset": 35324
+          },
+          {
+            "field": "count",
+            "label": "订单数量",
+            "offset": 35443
+          },
+          {
+            "field": "rate",
+            "label": "成功率",
+            "offset": 35508
+          },
+          {
+            "field": "showname",
+            "label": "支付方式",
+            "offset": 35796
+          },
+          {
+            "field": "money",
+            "label": "订单金额",
+            "offset": 35851
+          },
+          {
+            "field": "count",
+            "label": "订单数量",
+            "offset": 35970
+          },
+          {
+            "field": "rate",
+            "label": "成功率",
+            "offset": 36035
+          },
+          {
+            "field": "column",
+            "label": "搜索",
+            "offset": 37244
+          },
+          {
+            "field": "value",
+            "label": "内容",
+            "offset": 37540
+          },
+          {
+            "field": "dstatus",
+            "label": "状态",
+            "offset": 37618
+          },
+          {
+            "field": "order",
+            "label": "排序",
+            "offset": 37999
+          },
+          {
+            "field": "dateRange",
+            "label": "注册时间",
+            "offset": 38245
+          },
+          {
+            "field": "gid",
+            "label": "用户组",
+            "offset": 38389
+          },
+          {
+            "field": "upid",
+            "label": "上级商户",
+            "offset": 38521
+          },
+          {
+            "field": "uid",
+            "label": "商户号/用户组",
+            "offset": 39084
+          },
+          {
+            "field": "money",
+            "label": "余额",
+            "offset": 39134
+          },
+          {
+            "field": "account",
+            "label": "结算账号/姓名",
+            "offset": 39181
+          },
+          {
+            "field": "contact",
+            "label": "联系方式",
+            "offset": 39238
+          },
+          {
+            "field": "addtime",
+            "label": "注册时间/域名",
+            "offset": 39292
+          },
+          {
+            "field": "status",
+            "label": "状态",
+            "offset": 39349
+          },
+          {
+            "field": "operation",
+            "label": "操作",
+            "offset": 39397
+          }
+        ],
+        "routes": [
+          "/trade/order",
+          "/trade/order",
+          "/transfer/list",
+          "/settle/list",
+          "/merchant/record",
+          "/system/log",
+          "/merchant/domain",
+          "/applyments/merchant",
+          "/complain/list"
+        ],
+        "endpoints": [],
+        "labels": [
+          "请输入登录密码",
+          "成功",
+          "修改商户信息成功！",
+          "保存失败",
+          "是否确认重置该商户的MD5密钥？",
+          "提示",
+          "重置密钥成功！",
+          "操作失败",
+          "是否确定生成该商户的RSA密钥对？",
+          "商户RSA密钥对生成成功",
+          "修改成功！",
+          "获取子通道列表失败",
+          "获取商户信息失败",
+          "获取通道列表失败",
+          "新增子通道成功！",
+          "修改子通道成功！",
+          "请选择支付通道！",
+          "请选择支付方式！",
+          "请确保各项不能为空！",
+          "修改自定义支付参数成功！",
+          "保存成功",
+          "支付测试",
+          "测试支付失败",
+          "添加商户",
+          "关闭",
+          "确定添加",
+          "确定修改",
+          "基本信息",
+          "手机号(登录账号)",
+          "和邮箱不能同时为空",
+          "邮箱(登录账号)",
+          "和手机号不能同时为空",
+          "登录密码",
+          "必填",
+          "随机",
+          "用户组",
+          "可留空",
+          "网站域名",
+          "结算信息",
+          "结算方式",
+          "支付宝",
+          "微信",
+          "QQ钱包",
+          "银行卡",
+          "结算账号",
+          "不使用平台代收可留空",
+          "结算账号姓名",
+          "功能开关",
+          "手续费扣除模式",
+          "余额扣费",
+          "订单加费",
+          "商户状态",
+          "1_正常",
+          "0_封禁",
+          "支付权限",
+          "1_开启",
+          "0_关闭",
+          "2_未审核",
+          "结算权限",
+          "手机号",
+          "邮箱",
+          "商户余额",
+          "商品名称自定义",
+          "默认以系统设置里面的为准",
+          " 支持变量值：[name]原商品名称，[order]支付订单号，[outorder]商户订单号，[time]时间戳，[qq]当前商户的联系QQ ",
+          "根据订单金额匹配商品名称",
+          "商户保证金余额",
+          "开启商户保证金功能后使用",
+          "预留余额",
+          "可设置预留部分商户余额不参与每日自动结算，数字后加%即为百分比",
+          "实名信息",
+          "是否实名认证",
+          "0_未实名",
+          "1_已实名",
+          "认证类型",
+          "个人实名认证",
+          "企业实名认证",
+          "认证方式",
+          "支付宝快捷认证",
+          "微信快捷认证",
+          "手机号三要素认证",
+          "人工审核认证",
+          "真实姓名",
+          "身份证号",
+          "公司名称",
+          "营业执照号码",
+          "聚合收款码",
+          "缺省（与系统设置一致）",
+          "开启",
+          "TOTP二次验证",
+          " 关闭TOTP后，该商户需要自行重新绑定 ",
+          "邀请方商户ID",
+          "用于邀请返现",
+          "密码修改",
+          "重置登录密码",
+          "不重置密码请留空",
+          "密钥信息",
+          "接口地址",
+          "复制",
+          "商户ID",
+          "V1接口（MD5签名方式）",
+          "商户MD5密钥",
+          "重置商户MD5密钥",
+          "V2接口（RSA签名方式）",
+          "平台公钥",
+          "商户公钥",
+          "重置商户RSA密钥对",
+          "生成商户RSA密钥对",
+          "签名方式开关设置",
+          "签名方式开关",
+          "开启MD5+RSA签名（兼容模式）",
+          "仅开启RSA签名（安全模式）",
+          "自定义接口信息",
+          "自定义子通道",
+          "共 ",
+          " 个",
+          "搜索备注或ID",
+          "新增 ",
+          "支付通道",
+          "子通道备注",
+          "自定义支付参数",
+          "获取参数失败",
+          "点击设置",
+          "状态",
+          "已开启",
+          "已关闭",
+          "操作",
+          "获取子通道信息失败",
+          "编辑",
+          "你确实要删除此子通道吗？",
+          "删除子通道成功！",
+          "删除失败",
+          "删除",
+          "订单",
+          "测试",
+          "新增子通道",
+          "修改子通道",
+          "保存",
+          "支付方式",
+          "请选择支付方式",
+          "请选择支付通道",
+          "备注",
+          "仅显示使用，不要与其他备注重复",
+          "暂无可配置的参数",
+          "取消",
+          "新增一行",
+          "订单金额落在[最小金额, 最大金额]区间内则使用该商品名称；多条同时匹配时随机取一条。",
+          "商品名称",
+          "最小金额",
+          "最大金额",
+          "商户私钥查看窗口",
+          " 请及时复制保存商户私钥！当前窗口关闭后，无法再次查询商户私钥，本站也不会保存。如遗失商户私钥，可重新生成进行替换。 ",
+          "商户私钥",
+          "复制私钥",
+          "测试支付",
+          "确定",
+          "订单名称",
+          "订单金额",
+          "总计",
+          "获取图表数据失败",
+          "获取统计数据失败",
+          "今日数据",
+          "订单数量",
+          "成功率",
+          "昨日数据",
+          "一键登录",
+          "支付统计",
+          "授权域名",
+          "订单管理",
+          "代付记录",
+          "结算记录",
+          "手动提现",
+          "资金明细",
+          "登录日志",
+          "进件商户",
+          "交易投诉",
+          "搜索",
+          "搜索字段",
+          "商户号",
+          "密钥",
+          "结算姓名",
+          "域名",
+          "手机号码",
+          "内容",
+          "搜索内容",
+          "全部用户",
+          "待审核用户",
+          "用户状态正常",
+          "用户状态封禁",
+          "支付状态正常",
+          "支付状态关闭",
+          "结算状态正常",
+          "结算状态关闭",
+          "已实名认证",
+          "未实名认证",
+          "排序",
+          "商户号倒序",
+          "余额倒序",
+          "余额正序",
+          "登录时间倒序",
+          "登录时间正序",
+          "注册时间",
+          "开始日期",
+          "结束日期",
+          "全部用户组",
+          "上级商户",
+          "输入上级商户号",
+          "商户号/用户组",
+          "余额",
+          "结算账号/姓名",
+          "联系方式",
+          "注册时间/域名",
+          "修改用户成功！",
+          "修改余额成功",
+          "请输入金额",
+          "请输入天数！",
+          "修改用户组成功！",
+          "请输入有效的提现金额",
+          "提现成功",
+          "提现失败",
+          "添加商户 ",
+          "高级搜索",
+          "导出",
+          "未设置",
+          "正常",
+          "封禁",
+          "获取认证信息失败",
+          "已实名",
+          "未实名",
+          "未审核",
+          "支付",
+          "结算",
+          "你确实要删除此商户吗？",
+          "删除商户成功！",
+          " 更多",
+          "余额充值与扣除",
+          "充值",
+          "扣除",
+          "金额",
+          "输入金额",
+          "元",
+          "查找",
+          "超过",
+          "输入天数",
+          "天无订单的用户",
+          "导出用户",
+          "至",
+          "用户状态",
+          "全部状态",
+          "正常状态",
+          "修改用户组",
+          "有效期",
+          "永久",
+          "设置日期",
+          "选择日期",
+          "查看实名认证信息",
+          "企业认证",
+          "个人认证",
+          "法人姓名",
+          "法人身份证号",
+          "认证时间",
+          "暂无认证信息",
+          "提现金额",
+          "输入提现金额"
+        ]
+      },
+      "api": "/console/v1/admin/resources/merchants",
+      "fields": [
+        {
+          "pro": "uid",
+          "current": "id",
+          "unit": "string",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "groupname/gid",
+          "current": "effective_group_id/effective_group_name",
+          "unit": "string",
+          "status": "readonly projection",
+          "note": "effective membership/base group from dedicated source; unknown never falls back to mutable profile.group_id"
+        },
+        {
+          "pro": "endtime",
+          "current": "membership_expires_at/group_membership_active",
+          "unit": "timestamp/boolean",
+          "status": "readonly projection",
+          "note": "retains original expired membership time; does not imply a new grant"
+        },
+        {
+          "pro": "money",
+          "current": "available_minor",
+          "unit": "minor integer -> yuan",
+          "status": "readonly projection",
+          "note": "available account balance only; never profile text or a sum with income-held funds"
+        },
+        {
+          "pro": "冻结预留",
+          "current": "frozen_minor",
+          "unit": "minor integer -> yuan",
+          "status": "readonly projection",
+          "note": "reserved + settlement_reserve + channel_sharing_reserve; excludes income_held_minor"
+        },
+        {
+          "pro": "待解冻收入",
+          "current": "income_held_minor",
+          "unit": "minor integer -> yuan",
+          "status": "readonly projection",
+          "note": "order_income_reserve shown separately; not included twice in frozen funds"
+        },
+        {
+          "pro": "account / username",
+          "current": "settlement_recipient",
+          "unit": "masked",
+          "status": "readonly projection",
+          "note": "configured/missing/unavailable masked AEAD source; unavailable never falls back to legacy plaintext account/name"
+        },
+        {
+          "pro": "contact",
+          "current": "email",
+          "unit": "server-authorized string",
+          "status": "partial",
+          "note": "Pro slot reads qq and phone||email; no phone/QQ data fabricated"
+        },
+        {
+          "pro": "addtime",
+          "current": "created_at",
+          "unit": "timestamp",
+          "status": "readonly projection",
+          "note": "original merchant registration time; never submitted by create/edit"
+        },
+        {
+          "pro": "url",
+          "current": "approved_domains",
+          "unit": "string[]",
+          "status": "readonly projection",
+          "note": "owner-scoped approved/enabled records only; sorted/deduplicated text, never an external navigation target"
+        },
+        {
+          "pro": "status",
+          "current": "enabled",
+          "unit": "boolean",
+          "status": "partial",
+          "note": "account enabled does not imply separate payment or settlement privilege"
+        },
+        {
+          "pro": "pay / settle / auth status",
+          "current": null,
+          "unit": null,
+          "status": "missing",
+          "note": ""
+        },
+        {
+          "pro": "name",
+          "current": "name",
+          "unit": "string",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "MD5密钥 / 私钥",
+          "current": null,
+          "unit": null,
+          "status": "deliberately not displayed",
+          "note": "new/reset write-only fields and dedicated one-time secrets remain separate"
+        }
+      ],
+      "interactions": {
+        "preserved": [
+          "schema validation",
+          "create/edit/detail permission gates",
+          "super-admin own-session delegation gate",
+          "existing group settings",
+          "credential fields write-only and blank on edit"
+        ],
+        "missing": [
+          "phone/QQ projection (current contact is email only)",
+          "structured merchant state/group/date/order filters",
+          "safe filtered export API"
+        ],
+        "not_inferred": [
+          "direct balance overwrite",
+          "delete merchant with financial data",
+          "search plaintext secret",
+          "export plaintext recipient/name/phone"
+        ]
+      }
+    },
+    {
+      "page": "admin merchant records /merchant/record",
+      "source_table_column_order": [
+        "uid",
+        "type",
+        "money",
+        "oldmoney",
+        "newmoney",
+        "date",
+        "trade_no",
+        "action"
+      ],
+      "evidence": {
+        "file": "epay_pro/public/static/assets/index-WFOFLbSD.js",
+        "sha256": "f21548e5f7a14500cfebcc69cf25e39b8ae759d395c80edd36e5f401b5ab6845",
+        "columns": [
+          {
+            "field": "column",
+            "label": "搜索字段",
+            "offset": 1629
+          },
+          {
+            "field": "value",
+            "label": "搜索内容",
+            "offset": 1800
+          },
+          {
+            "field": "uid",
+            "label": "商户号",
+            "offset": 1880
+          },
+          {
+            "field": "dateRange",
+            "label": "日期范围",
+            "offset": 1956
+          },
+          {
+            "field": "uid",
+            "label": "商户号",
+            "offset": 2525
+          },
+          {
+            "field": "type",
+            "label": "操作类型",
+            "offset": 2573
+          },
+          {
+            "field": "money",
+            "label": "变更金额",
+            "offset": 2624
+          },
+          {
+            "field": "oldmoney",
+            "label": "变更前金额",
+            "offset": 2676
+          },
+          {
+            "field": "newmoney",
+            "label": "变更后金额",
+            "offset": 2721
+          },
+          {
+            "field": "date",
+            "label": "时间",
+            "offset": 2766
+          },
+          {
+            "field": "trade_no",
+            "label": "关联订单号",
+            "offset": 2804
+          },
+          {
+            "field": "action",
+            "label": "操作",
+            "offset": 2860
+          }
+        ],
+        "routes": [
+          "/merchant/merchant-list",
+          "/transfer/list",
+          "/trade/order"
+        ],
+        "endpoints": [],
+        "labels": [
+          "搜索字段",
+          "选择搜索字段",
+          "操作类型",
+          "变更金额",
+          "关联订单号",
+          "搜索内容",
+          "商户号",
+          "日期范围",
+          "开始日期",
+          "结束日期",
+          "变更前金额",
+          "变更后金额",
+          "时间",
+          "操作",
+          "统计失败",
+          "时间范围是必填的",
+          "统计 ",
+          "导出 ",
+          "代付",
+          "代付退回",
+          "无",
+          "确定要删除该条资金明细记录吗？",
+          "提示",
+          "删除成功",
+          "删除失败",
+          " 删除 ",
+          "资金明细统计",
+          "关闭",
+          "增加金额：",
+          "减少金额：",
+          "总计金额：",
+          "导出资金明细",
+          "取消",
+          "导出",
+          "时间范围",
+          "至",
+          "留空为全部商户",
+          "留空为全部类型"
+        ]
+      },
+      "api": "/console/v1/admin/ledger",
+      "fields": [
+        {
+          "pro": "uid",
+          "current": "merchant_id",
+          "unit": "string",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "type",
+          "current": "description",
+          "unit": "string",
+          "status": "partial",
+          "note": "account kind is not the original operation type"
+        },
+        {
+          "pro": "money",
+          "current": "amount",
+          "unit": "signed minor integer -> yuan",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "oldmoney",
+          "current": "balance_before",
+          "unit": "signed minor integer -> yuan",
+          "status": "readonly projection; narrower semantics",
+          "note": "original physical account_id complete immutable history before this entry; not combined merchant wallet or page-local total"
+        },
+        {
+          "pro": "newmoney",
+          "current": "balance_after",
+          "unit": "signed minor integer -> yuan",
+          "status": "readonly projection; narrower semantics",
+          "note": "same original physical account after this entry; preserve account kind and account_id"
+        },
+        {
+          "pro": "date",
+          "current": "created_at",
+          "unit": "timestamp",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "trade_no",
+          "current": "event_key",
+          "unit": "string",
+          "status": "partial",
+          "note": "event key is a business request reference, not always an order number"
+        }
+      ],
+      "filters": {
+        "supported": [
+          "q",
+          "merchant_id admin only",
+          "from",
+          "to"
+        ],
+        "missing": [
+          "exact original operation type",
+          "associated trade filter"
+        ]
+      },
+      "not_inferred": [
+        "delete immutable ledger entry"
+      ]
+    },
+    {
+      "page": "merchant records /record",
+      "source_table_column_order": [
+        "type",
+        "money",
+        "oldmoney",
+        "newmoney",
+        "date",
+        "trade_no"
+      ],
+      "evidence": {
+        "file": "epay_pro/public/static/assets/index-ChSQvhrR.js",
+        "sha256": "b88313750f16ec3dbc68b386c92d65d170ffc0520b59aadb33c56dd48fada748",
+        "columns": [
+          {
+            "field": "column",
+            "label": "搜索字段",
+            "offset": 1303
+          },
+          {
+            "field": "value",
+            "label": "搜索内容",
+            "offset": 1474
+          },
+          {
+            "field": "dateRange",
+            "label": "日期范围",
+            "offset": 1554
+          },
+          {
+            "field": "type",
+            "label": "操作类型",
+            "offset": 2114
+          },
+          {
+            "field": "money",
+            "label": "变更金额",
+            "offset": 2165
+          },
+          {
+            "field": "oldmoney",
+            "label": "变更前金额",
+            "offset": 2217
+          },
+          {
+            "field": "newmoney",
+            "label": "变更后金额",
+            "offset": 2262
+          },
+          {
+            "field": "date",
+            "label": "时间",
+            "offset": 2307
+          },
+          {
+            "field": "trade_no",
+            "label": "关联订单号",
+            "offset": 2345
+          }
+        ],
+        "routes": [
+          "/transfer/list",
+          "/trade/order"
+        ],
+        "endpoints": [],
+        "labels": [
+          "搜索字段",
+          "选择搜索字段",
+          "操作类型",
+          "变更金额",
+          "关联订单号",
+          "搜索内容",
+          "日期范围",
+          "开始日期",
+          "结束日期",
+          "变更前金额",
+          "变更后金额",
+          "时间",
+          "统计失败",
+          "统计 ",
+          "代付",
+          "代付退回",
+          "无",
+          "资金明细统计",
+          "关闭",
+          "增加金额：",
+          "减少金额：",
+          "总计金额："
+        ]
+      },
+      "api": "/console/v1/merchant/ledger",
+      "inherits": "admin records",
+      "differences": [
+        "owner derived from original session; no merchant override"
+      ]
+    },
+    {
+      "page": "statistics daily/channel/merchant/buyer",
+      "evidence": [
+        {
+          "file": "epay_pro/public/static/assets/index-hT-pj3fY.js",
+          "sha256": "af594f6abe2e933f770ad2d5fd0e64b371c1e6fd1051ab327fae58e3f070aaf6",
+          "columns": [
+            {
+              "field": "dateRange",
+              "label": "查询日期",
+              "offset": 1341
+            },
+            {
+              "field": "type",
+              "label": "支付方式",
+              "offset": 1485
+            },
+            {
+              "field": "uid",
+              "label": "商户号",
+              "offset": 1583
+            },
+            {
+              "field": "channelName",
+              "label": "支付通道",
+              "offset": 2848
+            },
+            {
+              "field": "realmoney",
+              "label": "支付金额",
+              "offset": 3013
+            },
+            {
+              "field": "refundmoney",
+              "label": "退款金额",
+              "offset": 3138
+            },
+            {
+              "field": "profitmoney",
+              "label": "手续费利润",
+              "offset": 3267
+            },
+            {
+              "field": "orderCount",
+              "label": "总订单数",
+              "offset": 3397
+            },
+            {
+              "field": "successCount",
+              "label": "成功订单数",
+              "offset": 3521
+            },
+            {
+              "field": "successRate",
+              "label": "支付成功率",
+              "offset": 3650
+            }
+          ],
+          "routes": [],
+          "endpoints": [],
+          "labels": [
+            "查询日期",
+            "开始日期",
+            "结束日期",
+            "支付方式",
+            "所有支付方式",
+            "商户号",
+            "请输入商户号",
+            "查询失败",
+            "请选择查询日期范围",
+            "共 ",
+            " 条记录",
+            "支付通道",
+            "总计",
+            "支付金额",
+            "退款金额",
+            "手续费利润",
+            "总订单数",
+            "成功订单数",
+            "支付成功率"
+          ]
+        },
+        {
+          "file": "epay_pro/public/static/assets/index-CylHtmhC.js",
+          "sha256": "6cf8f913b444d62a33aaf7a605d04879890c56fdcff64f7309b55210d171f47a",
+          "columns": [
+            {
+              "field": "dateRange",
+              "label": "查询日期",
+              "offset": 1253
+            },
+            {
+              "field": "method",
+              "label": "查看方式",
+              "offset": 1397
+            },
+            {
+              "field": "type",
+              "label": "统计类型",
+              "offset": 1544
+            },
+            {
+              "field": "uid",
+              "label": "商户ID",
+              "offset": 4252
+            },
+            {
+              "field": "total",
+              "label": "总计",
+              "offset": 4620
+            }
+          ],
+          "routes": [
+            "/merchant/merchant-list"
+          ],
+          "endpoints": [],
+          "labels": [
+            "查询日期",
+            "开始日期",
+            "结束日期",
+            "查看方式",
+            "请选择查看方式",
+            "以支付方式查看",
+            "以支付通道查看",
+            "统计类型",
+            "请选择统计类型",
+            "订单金额统计",
+            "支付金额统计",
+            "分成金额统计",
+            "手续费利润统计",
+            "查询失败",
+            "请选择查询日期范围",
+            "暂无数据可导出",
+            "商户ID",
+            "总计",
+            "管理员",
+            "导出成功",
+            "共 ",
+            " 条记录",
+            " 导出 "
+          ]
+        },
+        {
+          "file": "epay_pro/public/static/assets/index-_M2b8ir_.js",
+          "sha256": "a32b9d1eaec57b4e479ddfa714793db84feb4877e220abba731baaf77dd36da9",
+          "columns": [
+            {
+              "field": "dateRange",
+              "label": "查询日期",
+              "offset": 1661
+            },
+            {
+              "field": "type",
+              "label": "支付方式",
+              "offset": 1805
+            },
+            {
+              "field": "method",
+              "label": "统计方式",
+              "offset": 1903
+            },
+            {
+              "field": "order_count",
+              "label": "付款笔数",
+              "offset": 2246
+            },
+            {
+              "field": "pay_money",
+              "label": "付款金额",
+              "offset": 2313
+            },
+            {
+              "field": "trade_no",
+              "label": "最新订单号",
+              "offset": 2378
+            },
+            {
+              "field": "is_black",
+              "label": "是否拉黑",
+              "offset": 2434
+            },
+            {
+              "field": "operation",
+              "label": "操作",
+              "offset": 2486
+            }
+          ],
+          "routes": [
+            "/trade/order",
+            "/trade/order"
+          ],
+          "endpoints": [],
+          "labels": [
+            "获取支付方式失败: ",
+            "查询日期",
+            "开始日期",
+            "结束日期",
+            "支付方式",
+            "所有支付方式",
+            "统计方式",
+            "请选择统计方式",
+            "支付账号统计",
+            "支付IP统计",
+            "支付手机号统计",
+            "付款笔数",
+            "付款金额",
+            "最新订单号",
+            "是否拉黑",
+            "操作",
+            "支付IP",
+            "手机号",
+            "支付账号",
+            "查询失败",
+            "请选择查询日期范围",
+            "IP地址",
+            "添加黑名单成功",
+            "添加失败",
+            "共 ",
+            " 条记录",
+            "获取付款金额失败",
+            "[刷新]",
+            "否",
+            "是",
+            " 拉黑 ",
+            "取消",
+            " 提交 ",
+            "有效期",
+            "0为永久",
+            "天",
+            "备注",
+            "选填"
+          ]
+        },
+        {
+          "file": "epay_pro/public/static/assets/index-DNfqr2Hp.js",
+          "sha256": "08e17ab6832f15b2c952827f865ecc04a7e6cd505021c58913faef43906555c8",
+          "columns": [
+            {
+              "field": "label",
+              "label": "日期",
+              "offset": 26087
+            },
+            {
+              "field": "realmoney",
+              "label": "支付金额",
+              "offset": 26145
+            },
+            {
+              "field": "refundmoney",
+              "label": "退款金额",
+              "offset": 26315
+            },
+            {
+              "field": "profitmoney",
+              "label": "手续费利润",
+              "offset": 26489
+            },
+            {
+              "field": "orderCount",
+              "label": "总订单数",
+              "offset": 26664
+            },
+            {
+              "field": "successCount",
+              "label": "成功订单数",
+              "offset": 26743
+            },
+            {
+              "field": "successRate",
+              "label": "支付成功率",
+              "offset": 26826
+            },
+            {
+              "field": "kw",
+              "label": "搜索",
+              "offset": 36933
+            },
+            {
+              "field": "plugin",
+              "label": "插件",
+              "offset": 37011
+            },
+            {
+              "field": "type",
+              "label": "支付方式",
+              "offset": 37090
+            },
+            {
+              "field": "dstatus",
+              "label": "状态",
+              "offset": 37175
+            },
+            {
+              "field": "id",
+              "label": "ID",
+              "offset": 37701
+            },
+            {
+              "field": "name",
+              "label": "显示名称",
+              "offset": 37744
+            },
+            {
+              "field": "mode",
+              "label": "通道模式",
+              "offset": 37784
+            },
+            {
+              "field": "rate",
+              "label": "分成比例",
+              "offset": 37831
+            },
+            {
+              "field": "costrate",
+              "label": "通道成本",
+              "offset": 37867
+            },
+            {
+              "field": "typeshowname",
+              "label": "支付方式",
+              "offset": 37918
+            },
+            {
+              "field": "plugin",
+              "label": "支付插件",
+              "offset": 37977
+            },
+            {
+              "field": "daytop",
+              "label": "单日限额",
+              "offset": 38030
+            },
+            {
+              "field": "daymaxorder",
+              "label": "单日限笔",
+              "offset": 38090
+            },
+            {
+              "field": "paymin",
+              "label": "单笔最小",
+              "offset": 38155
+            },
+            {
+              "field": "paymax",
+              "label": "单笔最大",
+              "offset": 38204
+            },
+            {
+              "field": "opentime",
+              "label": "开放时间",
+              "offset": 38253
+            },
+            {
+              "field": "status",
+              "label": "状态",
+              "offset": 38316
+            },
+            {
+              "field": "operation",
+              "label": "操作",
+              "offset": 38363
+            }
+          ],
+          "routes": [
+            "/trade/order",
+            "/transfer/list"
+          ],
+          "endpoints": [],
+          "labels": [
+            "新增支付通道",
+            "请先到应用市场下载支付插件",
+            "刷新插件列表成功！",
+            "刷新失败",
+            "新增支付通道成功！",
+            "复制支付通道成功！",
+            "修改支付通道成功！",
+            "保存失败",
+            "请选择支付插件！",
+            "请选择支付方式！",
+            "请确保各项不能为空！",
+            "修改支付通道",
+            "快速复制支付通道",
+            "获取通道信息失败",
+            "关闭",
+            "保存",
+            "显示名称",
+            "仅显示使用，不要与其他通道名称重复",
+            "分成比例",
+            "在没配置用户组的情况下以此费率为准",
+            "通道成本",
+            "仅用于统计利润，可留空，默认为0",
+            "通道模式",
+            "支付金额扣除手续费后加入商户余额（默认）",
+            "支付完成后不给商户加余额，同时需扣手续费",
+            "【第一种模式】资金由平台代收，然后结算给商户，手续费从每笔订单直接扣除。",
+            " 【第二种模式】资金由上游直接结算给商户，手续费从商户余额扣除，商户需先充值余额否则无法支付。 ",
+            "支付方式",
+            "请选择支付方式",
+            "支付插件",
+            "请选择支付插件",
+            "刷新本地插件列表",
+            "获取配置信息失败",
+            "保存成功！",
+            "上传成功",
+            "上传失败",
+            "请选择可用的接口：",
+            "下载",
+            "已上传文件",
+            "删除",
+            "继续上传",
+            "点击上传",
+            "绑定微信公众号：",
+            " 在\"",
+            "公众号小程序",
+            "\"页面添加微信公众号 ",
+            "不绑定",
+            "绑定微信小程序：",
+            "\"页面添加微信小程序 ",
+            "绑定QQ互联应用：",
+            "\"页面添加QQ互联应用 ",
+            "今日",
+            "昨日",
+            "获取统计数据失败",
+            "日期",
+            "支付金额",
+            "退款金额",
+            "手续费利润",
+            "总订单数",
+            "成功订单数",
+            "支付成功率",
+            "保存高级设置成功！",
+            "单日限额",
+            "0或留空为没有单日限额，超出限额会暂停使用该通道",
+            "单日限笔",
+            "0或留空为没有单日支付订单数量限制",
+            "频率限制",
+            "时间窗口",
+            "秒内",
+            "发起订单数",
+            "笔",
+            "单笔最小",
+            "留空无限额",
+            "单笔最大",
+            "开放时间",
+            "开始时间0~23小时",
+            "结束时间0~23小时",
+            "最低手续费",
+            "手续费低于多少元时",
+            "元",
+            "最低扣除多少元",
+            "留空则使用系统设置中的手续费最低扣除",
+            "商品名称",
+            "默认使用原商品名称，支付通道配置优先级高于系统设置和商户设置",
+            " 根据订单金额匹配商品名称 ",
+            "根据订单金额匹配商品名称",
+            "取消",
+            "确定",
+            "新增一行",
+            " 订单金额落在[最小金额, 最大金额]区间内则使用该商品名称；多条同时匹配时随机取一条。 ",
+            "最小金额",
+            "必填",
+            "最大金额",
+            "操作",
+            "所有支付方式",
+            "搜索",
+            "通道ID/名称",
+            "插件",
+            "状态",
+            "全部状态",
+            "状态已开启",
+            "状态已关闭",
+            "未选择记录",
+            "批量操作",
+            "操作中...",
+            "操作失败",
+            "获取公众号/小程序列表失败",
+            "所选通道中没有微信支付通道",
+            "处理中...",
+            "支付测试",
+            "测试支付失败",
+            "新增 ",
+            "开启",
+            "绑定微信公众号",
+            "绑定微信小程序",
+            " 编辑 ",
+            " 批量操作 ",
+            "商户直清",
+            "平台代收",
+            "获取插件详情失败",
+            "已开启",
+            "已关闭",
+            "配置密钥",
+            "编辑",
+            "你确实要删除此支付通道吗？",
+            "提示",
+            "正在删除...",
+            "删除支付通道成功！",
+            "删除失败",
+            "测试",
+            "订单 ",
+            "付款 ",
+            "复制 ",
+            "统计 ",
+            "高级 ",
+            "支付插件详情",
+            "插件标识",
+            "插件名称",
+            "插件链接",
+            "版本号",
+            "插件路径",
+            "测试支付",
+            "订单名称",
+            "订单金额",
+            "批量绑定微信公众号",
+            "批量绑定微信小程序",
+            "微信公众号",
+            "微信小程序"
+          ]
+        }
+      ],
+      "api": "/console/v1/{area}/reports/{dimension}",
+      "fields": [
+        {
+          "pro": "日期/通道/商户/省份/买家",
+          "current": "dimension",
+          "unit": "string",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "realmoney",
+          "current": "paid_money",
+          "unit": "yuan string",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "商户分成",
+          "current": "net_money",
+          "unit": "yuan string",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "profitmoney",
+          "current": "fee_money",
+          "unit": "yuan string",
+          "status": "different semantics",
+          "note": "existing fee total; no invented channel-cost profit"
+        },
+        {
+          "pro": "orderCount",
+          "current": "orders",
+          "unit": "integer string",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "successCount",
+          "current": "paid_orders",
+          "unit": "integer string",
+          "status": "mapped",
+          "note": ""
+        },
+        {
+          "pro": "successRate",
+          "current": "success_rate",
+          "unit": "exact decimal percent",
+          "status": "derived",
+          "note": "rounded half-up to2 decimals from paid_orders/orders via BigInt; zero/invalid denominator stays unknown"
+        },
+        {
+          "pro": "refundmoney",
+          "current": null,
+          "unit": "yuan",
+          "status": "missing",
+          "note": ""
+        },
+        {
+          "pro": "latest trade / blacklist state / phone-IP grouping",
+          "current": null,
+          "unit": null,
+          "status": "missing",
+          "note": ""
+        }
+      ],
+      "filters": {
+        "supported": [
+          "from",
+          "to",
+          "page",
+          "limit",
+          "CSV server export"
+        ],
+        "implemented": [
+          "Beijing today/yesterday/last7/last30 shortcuts",
+          "max367-day inclusive window"
+        ],
+        "missing": [
+          "type filter",
+          "admin target merchant filter",
+          "statistics method switch",
+          "refund amount",
+          "verified channel cost/profit"
+        ]
+      },
+      "exports": "page CSV includes derived rate; full filtered CSV remains the existing server contract without inventing extra server fields"
+    }
+  ]
+}

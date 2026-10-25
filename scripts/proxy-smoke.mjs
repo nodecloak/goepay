@@ -1,0 +1,22 @@
+// Local proxy checks; no login, payment, credentials, or real provider access.
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { randomUUID, randomBytes } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+const base = process.env.GOEPAY_WEB_URL ?? 'http://127.0.0.1:8181';
+assert.match(base, /^http:\/\/(127\.0\.0\.1|localhost):\d+$/);
+const cwd = fileURLToPath(new URL('../', import.meta.url));
+execFileSync('docker',['compose','exec','-T','web','nginx','-t'],{cwd,stdio:'pipe'});
+const marker = `nonsecret-query-probe-${randomUUID()}`;
+const health = await fetch(`${base}/healthz?probe=${marker}`);
+assert.equal(health.status,200);
+const invalidCollection = await fetch(`${base}/collect/1?expires=1&token=${marker}`);
+assert.equal(invalidCollection.status,403,'collection route must reach Go authorization through proxy');
+const identityProbe=randomBytes(32).toString('hex');
+const invalidIdentity=await fetch(`${base}/identity/authorize/${identityProbe}?probe=${marker}`,{redirect:'manual'});
+assert.ok([400,403,404,409,503].includes(invalidIdentity.status),'identity route must reach Go validation instead of returning the SPA');
+const logs = execFileSync('docker',['compose','logs','--since','1m','web'],{cwd,encoding:'utf8'});
+assert.ok(logs.includes('GET /healthz HTTP/'),'expected access log was not observed');
+assert.ok(!logs.includes(marker),'access log disclosed a query token');
+assert.ok(!logs.includes(identityProbe),'access log disclosed an identity authorization capability');
+console.log(JSON.stringify({nginx_config:true,proxy_health:true,collection_authorization:true,identity_authorization:true,query_tokens_redacted:true,identity_paths_redacted:true,result:'passed'}));

@@ -1,0 +1,31 @@
+{
+  "menus": {
+    "admin": {
+      "nodes": 66,
+      "leaves": 54,
+      "hiddenLeaves": 3
+    },
+    "user": {
+      "nodes": 33,
+      "leaves": 28,
+      "hiddenLeaves": 1
+    }
+  },
+  "routes": {
+    "admin": 344,
+    "user": 173,
+    "api": 22,
+    "app": 33
+  },
+  "encrypted": {
+    "epay_pro": 99,
+    "epay_release": 0
+  },
+  "tables": {
+    "pro": 38,
+    "release": 29
+  },
+  "plugins": 67,
+  "releasePlugins": 60,
+  "documents": 24
+}

@@ -1,0 +1,19 @@
+# 40 结算专属资金与收款快照
+
+40只建立本地申请、审批和拒绝闭环，不绑定TF、不提交上游、不添加首次发送Worker。41另行提供二级资金密码和显式钱包出款。依据Release user/apply.php：申请固定收款类型/账号/姓名与gross/net，原admin/ajax_settle.php转账传net；普通Transfer::add的额外transfer_rate不能重复应用于结算。
+
+所有新结算（含未配置收款资料的兼容申请）把gross从available转到本申请独有settlement_reserve账户。accounts新增scope_id=0默认；旧kind只能scope0，settlement_reserve必须owner>0、scope=request_id>0。settlement_fundings唯一绑定request/account/原reserve journal/gross，并用数据库延迟约束核对账户归属、journal双边与pending/approved/rejected余额。拒绝从该原账户返还gross，不能从其它申请或普通reserved垫款。余额摘要reserved包含专属余额，T+1可出账仍只取available，不重扣gross或留存。原历史申请不补写funding和收款身份，拒绝仍走已存在的旧预占规则。
+
+收款配置通过独立workflow settlement-recipient设置，真实merchant/admin归属和审计在本地事务中检查。每次配置为不可变版本、当前指针在商户锁内更新；输入type/account/name/bank_code/app_id，支持alipay/wxpay/bank，wxpay必须有绑定AppID，bank不能冒充微信/支付宝产品配置。纯本地字段校验不是账户真实性认证。配置和申请快照都复用Store AEAD与indexKey，使用独立域和记录ID附加数据，绝不明文存储或审计。GET仅返回masked账号/姓名、类型、AppID和版本，界面不据此重建原始身份。
+
+新申请在同商户锁内固定当时current配置：settlement_recipients保存独立request AEAD快照及配置版本。可选recipient_config_id给调用方确认版本：新申请必须是当前配置，旧同号必须匹配原版本；省略时旧同号返回原快照、不随当前配置变化。无配置仍允许原本地申请，快照状态missing且不可用于未来出款。历史无funding显示legacy_unscoped，禁止自动接管。收款配置变化不会迁移旧申请或允许覆盖其快照。
+
+新增postByAccountIDs复用原journal平衡/非负/规范ID锁序，post只查scope0旧账户再调用；禁止普通旧入口用kind命中专属账户。DB限制专属账户不可改归属/作用域或删掉，funding与recipient不可变，配置变更只追加。CheckLedger增加专属资金证据不一致计数，可检测共享余额掩盖某申请不足。
+
+接口：GET/POST /console/v1/{role}/workflows/settlement-recipient；admin必须merchant_id，merchant仅自己。POST允许expected_config_id（0表示未配置）作并发版本保护。现POST settlements另可传recipient_config_id。申请/列表/审批响应新增settlement_funding和settlement_recipient；external_payout始终false。无新增权限的外部接口或资金密码假壳。
+
+前端原merchant/settle/settings菜单已切到专用AEAD/CAS页面，generic settlement-settings资源的新增/修改/删除全部拒绝，schema也不宣称有写权限；历史plain records保留，只作旧数据，不自动作为新快照。新申请UI必须读取configured版本并显式传recipient_config_id，配置缺失/读取失败/正在编辑阻断UI提交；服务端保留无配置的旧本地调用兼容。修改收款资料只在明确输入框中接收完整新值，不回填mask，不写LocalStorage/SessionStorage。配置变化清除费用确认，版本409只刷新核对不自动重发。管理员仍按真实merchant_id读配置，旧列表显示missing与legacy_unscoped，不把批准当到账。
+
+迁移40冻结SHA256：`6D98783AA1E5595D5DDE121A8EB5122AB92CDEE521C361B3CD49F6B5AC5FA9D7`。41授权等待可能跨日，因此申请在requireOutgoingFunds与requireFundsAction之后取得一次clock_timestamp，再检查日次数并固定created_at；后续日限制拒绝会连授权消费一起回滚。43钱包出款必须另行升级40的funding invariant与来源分派，不能省掉专属证据检查或直接扣普通reserved。
+
+测试仅独立本地PG schema、临时密钥；覆盖gross隔离、并发幂等/拒绝、无余额不垫资、配置/快照不可变和AEAD上下文、审计/快照失败整事务回滚、历史不接管、reserved汇总、账本对账、API归属与CSRF。不得改1..39 SQL，不读取.secrets、不访问真实上游。

@@ -1,0 +1,1250 @@
+[
+  {
+    "area": "admin",
+    "id": "Dashboard",
+    "path": "/dashboard",
+    "title": "仪表盘",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-dashboard"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "OrderList",
+    "path": "/trade/order",
+    "title": "交易管理 / 订单管理",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-list",
+      "export-filtered-server-csv-with-bounded-download-and-abort",
+      "read-order-provider-detail",
+      "read-preauthorization-capture-and-release-states",
+      "confirmed-server-permitted-full-authorization-release",
+      "query-original-authorization-release-without-new-intent",
+      "confirmed-server-permitted-authorization-capture-with-query-only-unknown-state",
+      "paid-order-notification-resend-with-stable-uuid-and-cooldown",
+      "verified-provider-query",
+      "confirmed-provider-close",
+      "submit-refund-with-unknown-result-handling",
+      "read-platform-income-hold-and-filter-status",
+      "confirmed-platform-income-freeze-with-stable-uuid",
+      "confirmed-unfreeze-original-hold-cycle"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "RefundList",
+    "path": "/trade/refund",
+    "title": "交易管理 / 退款记录",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-list",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "BlackList",
+    "path": "/trade/blacklist",
+    "title": "交易管理 / 黑名单管理",
+    "hidden": false,
+    "status": "partial",
+    "resource": "blacklist",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "DailyStat",
+    "path": "/trade/stat/daily",
+    "title": "交易管理 / 交易统计 / 每日交易统计",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-report",
+      "filter-business-dates",
+      "export-current-page-csv",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "UserTradeStat",
+    "path": "/trade/stat/user",
+    "title": "交易管理 / 交易统计 / 商户交易统计",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-report",
+      "filter-business-dates",
+      "export-current-page-csv",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "ChannelStat",
+    "path": "/trade/stat/channel",
+    "title": "交易管理 / 交易统计 / 通道数据统计",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-report",
+      "filter-business-dates",
+      "export-current-page-csv",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "ProvinceStat",
+    "path": "/trade/stat/province",
+    "title": "交易管理 / 交易统计 / 地区数据统计",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-report",
+      "filter-business-dates",
+      "export-current-page-csv",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "BuyerStat",
+    "path": "/trade/stat/buyer",
+    "title": "交易管理 / 交易统计 / 支付用户统计",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-report",
+      "filter-business-dates",
+      "export-current-page-csv",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "PsReceiver",
+    "path": "/profitsharing/receiver",
+    "title": "分账管理 / 分账规则",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "encrypted_receiver_draft",
+      "masked_receiver_list",
+      "remote_bind_unbind",
+      "versioned_channel_rules",
+      "funds_authorization"
+    ],
+    "limitations": "支持直连微信V3/支付宝指定产品的加密接收方、绑定/解绑和规则版本；未知关系操作恢复、其它产品及别名映射仍待补齐。"
+  },
+  {
+    "area": "admin",
+    "id": "PsOrder",
+    "path": "/profitsharing/order",
+    "title": "分账管理 / 分账记录",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "original_payment_declaration",
+      "channel_sharing_submit",
+      "original_request_query",
+      "per_receiver_result",
+      "verified_remainder_release",
+      "original_receiver_return",
+      "verified_direct_wechat_finish",
+      "funds_authorization"
+    ],
+    "limitations": "已接原声明、PS逐接收方结果、原号查询、原成功接收方回退与可验证微信独立完结；支付宝独立完结、未知关系恢复及其它产品仍不开放，尚未宣称完整兼容。"
+  },
+  {
+    "area": "admin",
+    "id": "PsInternal",
+    "path": "/profitsharing/internal",
+    "title": "分账管理 / 站内分账规则",
+    "hidden": false,
+    "status": "partial",
+    "resource": "profitsharing-rules",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "TransferList",
+    "path": "/transfer/list",
+    "title": "转账付款 / 付款记录",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-list",
+      "export-filtered-server-csv-with-bounded-download-and-abort",
+      "read-owned-recipient-detail",
+      "read-server-transfer-capabilities",
+      "confirmed-capable-wallet-or-explicit-bank-transfer",
+      "strict-alipay-private-bank-and-wechat-bank-product-capabilities",
+      "separate-estimated-and-verified-bank-fees",
+      "server-transfer-policy-display-and-exact-limit-validation",
+      "separate-bank-return-lifecycle-and-immutable-ledger-history",
+      "verified-transfer-query",
+      "confirmed-alipay-proof-application-and-query"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "TransferStat",
+    "path": "/transfer/stat",
+    "title": "转账付款 / 付款账号统计",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-report",
+      "filter-business-dates",
+      "export-current-page-csv",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "TransferChannelStat",
+    "path": "/transfer/channel-stat",
+    "title": "转账付款 / 通道数据统计",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-report",
+      "filter-business-dates",
+      "export-current-page-csv",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "UserTransferStat",
+    "path": "/transfer/user-stat",
+    "title": "转账付款 / 商户代付统计",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-report",
+      "filter-business-dates",
+      "export-current-page-csv",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "SettleList",
+    "path": "/settle/list",
+    "title": "结算管理 / 结算管理",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "list-ledger-workflows",
+      "read-authoritative-funds-availability",
+      "create-reservation",
+      "admin-review",
+      "admin-selected-batch-review",
+      "read-original-settlement-payout-and-masked-recipient",
+      "query-original-claimed-settlement-payout",
+      "confirmed-wallet-channel-binding-without-second-reserve",
+      "funds-authorized-original-settlement-execute-or-proof-unsent-cancel"
+    ],
+    "limitations": "审批与出款结果分离；仅有费用、独立资金、收款快照且服务端明确许可的钱包或明确产品银行卡可准备；银行保留原结算费待确定退回，缺失快照历史申请不可出款；完整原版行为仍待验收"
+  },
+  {
+    "area": "admin",
+    "id": "BatchSettle",
+    "path": "/settle/batch",
+    "title": "结算管理 / 批量结算",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "independent-original-settlement-batches",
+      "original-batch-allmoney-count-time-status",
+      "frozen-net-and-original-recipient",
+      "idempotent-single-group-per-request",
+      "snapshot-cursor-batch-status-filter",
+      "audit-preserving-archive",
+      "complete-only-trusted-original-payments",
+      "super-only-original-common-mybank-alipay-wxpay-files",
+      "funds-authorized-original-settlement-payout-panel"
+    ],
+    "limitations": "需先核准原申请；未知付款结果待查原号，银行后续退票保留；缺少可信原收款快照无法导出或准备出款。"
+  },
+  {
+    "area": "admin",
+    "id": "MerchantList",
+    "path": "/merchant/merchant-list",
+    "title": "商户管理 / 商户列表",
+    "hidden": false,
+    "status": "partial",
+    "resource": "merchants",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete",
+      "confirmed-superadmin-schema-permitted-merchant-delegation",
+      "verify-merchant-session-after-unknown-delegation"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "GroupList",
+    "path": "/merchant/group-list",
+    "title": "商户管理 / 用户组设置",
+    "hidden": false,
+    "status": "partial",
+    "resource": "groups",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "GroupBuy",
+    "path": "/merchant/group-buy",
+    "title": "商户管理 / 用户组购买",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "list-membership-purchases",
+      "purchase-configured-group-with-balance"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "Record",
+    "path": "/merchant/record",
+    "title": "商户管理 / 资金明细",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-list",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "InternalTransfer",
+    "path": "/merchant/internal-transfer",
+    "title": "商户管理 / 站内转账",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "list-ledger-workflows",
+      "read-authoritative-funds-availability",
+      "create-reservation",
+      "admin-review"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "Domain",
+    "path": "/merchant/domain",
+    "title": "商户管理 / 授权域名",
+    "hidden": false,
+    "status": "partial",
+    "resource": "domains",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "InviteCode",
+    "path": "/merchant/invite-code",
+    "title": "商户管理 / 邀请码管理",
+    "hidden": false,
+    "status": "partial",
+    "resource": "invitation-codes",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "PayChannel",
+    "path": "/payapi/pay-channel",
+    "title": "支付接口 / 支付通道",
+    "hidden": false,
+    "status": "partial",
+    "resource": "channels",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "PayType",
+    "path": "/payapi/pay-type",
+    "title": "支付接口 / 支付方式",
+    "hidden": false,
+    "status": "partial",
+    "resource": "pay-types",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "PayRoll",
+    "path": "/payapi/pay-roll",
+    "title": "支付接口 / 支付通道轮询",
+    "hidden": false,
+    "status": "partial",
+    "resource": "pay-rolls",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "PayWeixin",
+    "path": "/payapi/pay-weixin",
+    "title": "支付接口 / 公众号小程序",
+    "hidden": false,
+    "status": "partial",
+    "resource": "weixin-apps",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "ApplyChannel",
+    "path": "/applyments/channel",
+    "title": "进件管理 / 进件渠道配置",
+    "hidden": false,
+    "status": "partial",
+    "resource": "onboarding-channels",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "ApplyMerchant",
+    "path": "/applyments/merchant",
+    "title": "进件管理 / 进件商户管理",
+    "hidden": false,
+    "status": "partial",
+    "resource": "onboarding-applications",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "SubChannelManage",
+    "path": "/applyments/subchannel",
+    "title": "进件管理 / 子通道管理",
+    "hidden": false,
+    "status": "partial",
+    "resource": "subchannels",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "MchRisk",
+    "path": "/applyments/mchrisk",
+    "title": "进件管理 / 商户管控记录",
+    "hidden": false,
+    "status": "partial",
+    "resource": "merchant-risk",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "ApplyForm",
+    "path": "/applyments/form",
+    "title": "进件管理 / 商户进件表单",
+    "hidden": true,
+    "status": "partial",
+    "resource": "onboarding-applications",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "ComplainList",
+    "path": "/complain/list",
+    "title": "交易投诉 / 投诉记录",
+    "hidden": false,
+    "status": "partial",
+    "resource": "complaints",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "ComplainCharts",
+    "path": "/complain/charts",
+    "title": "交易投诉 / 投诉统计",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-report",
+      "filter-business-dates",
+      "export-current-page-csv",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "ComplainTask",
+    "path": "/complain/task",
+    "title": "交易投诉 / 同步任务",
+    "hidden": false,
+    "status": "partial",
+    "resource": "complaint-tasks",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "Risk",
+    "path": "/other/risk",
+    "title": "其他功能 / 风控记录",
+    "hidden": false,
+    "status": "partial",
+    "resource": "risk-records",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "GetToken",
+    "path": "/other/get-token",
+    "title": "其他功能 / 获取用户标识",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-session-bound-web-oauth-capabilities",
+      "create-application-scoped-identity-authorization",
+      "query-status-without-subject",
+      "explicit-once-only-session-bound-reveal",
+      "clear-sensitive-display-on-expiry-or-merchant-change",
+      "explicit-independent-web-and-mini-application-profile",
+      "super-own-once-only-alipay-application-authorization"
+    ],
+    "limitations": "已接入直连微信/支付宝网页和小程序独立标识，以及super本人支付宝应用授权；均须显式应用档案与独立开关，本地simulation明确不可用。服务商/子商户、电商及原版加密行为仍未全量验收"
+  },
+  {
+    "area": "admin",
+    "id": "OnecodeStyle",
+    "path": "/other/onecode",
+    "title": "其他功能 / 聚合收款码样式",
+    "hidden": false,
+    "status": "partial",
+    "resource": "collection-styles",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "OnecodeStyleEdit",
+    "path": "/other/onecode/edit",
+    "title": "其他功能 / 编辑收款码样式",
+    "hidden": true,
+    "status": "partial",
+    "resource": "collection-styles",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "AppStore",
+    "path": "/app/app-store",
+    "title": "应用管理 / 应用市场",
+    "hidden": false,
+    "status": "deferred",
+    "capabilities": [],
+    "limitations": "应用市场依赖外部市场服务及插件授权，本轮按约定暂缓接入。本地扩展资料与实际运行能力可在“本地插件”中查看。"
+  },
+  {
+    "area": "admin",
+    "id": "PluginList",
+    "path": "/app/plugin-list",
+    "title": "应用管理 / 本地插件",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-operation-information"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "TemplateConfig",
+    "path": "/app/template",
+    "title": "应用管理 / 模板配置",
+    "hidden": false,
+    "status": "partial",
+    "resource": "page-templates",
+    "capabilities": [
+      "own-super-typed-builtin-template-registry",
+      "per-type-selection-and-config-cas",
+      "current-template-config-consumed-after-payment-identity-verification",
+      "reencoded-png-jpeg-private-upload-and-reference-only-publication",
+      "sandboxed-static-preview",
+      "legacy-generic-records-read-only"
+    ],
+    "limitations": "内置home/pay/qrpay各default/compact两模板；新Go类型化外观字段，不接受PHP/HTML/script上传或eval/show表达式，不声称原加密控制器与任意第三方模板兼容"
+  },
+  {
+    "area": "admin",
+    "id": "AddonConfig",
+    "path": "/app/addon",
+    "title": "应用管理 / 扩展配置",
+    "hidden": false,
+    "status": "partial",
+    "resource": "addon-configs",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "SystemSettings",
+    "path": "/system/settings",
+    "title": "系统管理 / 系统设置",
+    "hidden": false,
+    "status": "partial",
+    "resource": "settings",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "SystemCron",
+    "path": "/system/cron",
+    "title": "系统管理 / 计划任务",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-operation-information",
+      "retry-known-dead-notification-and-readonly-reconciliation"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "Anounce",
+    "path": "/system/anounce",
+    "title": "系统管理 / 公告配置",
+    "hidden": false,
+    "status": "partial",
+    "resource": "announcements",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "AdminUser",
+    "path": "/system/admin-user",
+    "title": "系统管理 / 管理员列表",
+    "hidden": false,
+    "status": "partial",
+    "resource": "admin-users",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "admin",
+    "id": "SystemLog",
+    "path": "/system/log",
+    "title": "系统管理 / 登录日志",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-operation-information"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "RuntimeLog",
+    "path": "/system/runtime-log",
+    "title": "系统管理 / 运行日志",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-operation-information"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "SystemClean",
+    "path": "/system/clean",
+    "title": "系统管理 / 数据清理",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-operation-information",
+      "preview-expired-session-cleanup",
+      "confirmed-expired-session-cleanup"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "SystemUpdate",
+    "path": "/system/update",
+    "title": "系统管理 / 系统更新",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-operation-information"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "admin",
+    "id": "ChangePassword",
+    "path": "/system/change-password",
+    "title": "修改密码",
+    "hidden": true,
+    "status": "partial",
+    "capabilities": [
+      "change-password-reauthenticate",
+      "totp-binding-and-disable",
+      "per-administrator-payment-password-settings"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "merchant",
+    "id": "Dashboard",
+    "path": "/dashboard",
+    "title": "仪表盘",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-dashboard"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "merchant",
+    "id": "ApiInfo",
+    "path": "/account/api-info",
+    "title": "账户中心 / API 信息",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-masked-api-info",
+      "confirmed-api-key-rotation"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "merchant",
+    "id": "AccountSettings",
+    "path": "/account/settings",
+    "title": "账户中心 / 账户设置",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-profile",
+      "update-profile",
+      "change-password-reauthenticate",
+      "totp-binding-and-disable"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "merchant",
+    "id": "Certificate",
+    "path": "/account/certificate",
+    "title": "账户中心 / 实名认证",
+    "hidden": false,
+    "status": "deferred",
+    "capabilities": [],
+    "limitations": "实名认证依赖身份核验服务插件，本轮按约定暂缓接入。"
+  },
+  {
+    "area": "merchant",
+    "id": "Recharge",
+    "path": "/account/recharge",
+    "title": "账户中心 / 余额充值",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "list-recharge-orders",
+      "create-payment-order",
+      "open-validated-http-payment-url"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "merchant",
+    "id": "GroupBuy",
+    "path": "/account/groupbuy",
+    "title": "账户中心 / 购买会员",
+    "hidden": false,
+    "status": "partial",
+    "resource": "groups",
+    "capabilities": [
+      "list-membership-purchases",
+      "purchase-configured-group-with-balance"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "merchant",
+    "id": "Deposit",
+    "path": "/account/deposit",
+    "title": "账户中心 / 保证金",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-deposit-balance",
+      "deposit-hold",
+      "request-reviewed-deposit-release"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "merchant",
+    "id": "InternalTransfer",
+    "path": "/account/internal-transfer",
+    "title": "账户中心 / 站内转账",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "list-ledger-workflows",
+      "read-authoritative-funds-availability",
+      "create-reservation"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "merchant",
+    "id": "OrderList",
+    "path": "/trade/order",
+    "title": "交易管理 / 订单管理",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-list",
+      "export-filtered-server-csv-with-bounded-download-and-abort",
+      "read-order-provider-detail",
+      "read-preauthorization-capture-and-release-states",
+      "confirmed-server-permitted-full-authorization-release",
+      "query-original-authorization-release-without-new-intent",
+      "confirmed-server-permitted-authorization-capture-with-query-only-unknown-state",
+      "paid-order-notification-resend-with-stable-uuid-and-cooldown",
+      "verified-provider-query",
+      "confirmed-provider-close",
+      "submit-refund-with-unknown-result-handling",
+      "read-platform-income-hold-and-filter-status"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "merchant",
+    "id": "RefundList",
+    "path": "/trade/refund",
+    "title": "交易管理 / 退款记录",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-list",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "merchant",
+    "id": "DailyStat",
+    "path": "/trade/daily-stat",
+    "title": "交易管理 / 每日交易统计",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-report",
+      "filter-business-dates",
+      "export-current-page-csv",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "merchant",
+    "id": "ProvinceStat",
+    "path": "/trade/province-stat",
+    "title": "交易管理 / 地区数据统计",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-report",
+      "filter-business-dates",
+      "export-current-page-csv",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "merchant",
+    "id": "SettleList",
+    "path": "/settle/list",
+    "title": "结算管理 / 结算记录",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "list-ledger-workflows",
+      "read-authoritative-funds-availability",
+      "create-reservation",
+      "read-original-settlement-payout-and-masked-recipient",
+      "query-original-claimed-settlement-payout"
+    ],
+    "limitations": "审批与出款结果分离；仅有费用、独立资金、收款快照且服务端明确许可的钱包或明确产品银行卡可准备；银行保留原结算费待确定退回，缺失快照历史申请不可出款；完整原版行为仍待验收"
+  },
+  {
+    "area": "merchant",
+    "id": "SettleSettings",
+    "path": "/settle/settings",
+    "title": "结算管理 / 结算设置",
+    "hidden": false,
+    "status": "partial",
+    "resource": "settlement-settings",
+    "capabilities": [
+      "read-masked-encrypted-recipient-version",
+      "confirmed-recipient-configuration-with-version-cas",
+      "clear-plaintext-draft-after-save-or-leave"
+    ],
+    "limitations": "使用专属加密收款配置接口；旧通用资料不自动接管；保存不等于上游认证或外部出款"
+  },
+  {
+    "area": "merchant",
+    "id": "SettleApply",
+    "path": "/settle/apply",
+    "title": "结算管理 / 申请提现",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "list-ledger-workflows",
+      "read-authoritative-funds-availability",
+      "create-reservation",
+      "read-original-settlement-payout-and-masked-recipient",
+      "query-original-claimed-settlement-payout"
+    ],
+    "limitations": "审批与出款结果分离；仅有费用、独立资金、收款快照且服务端明确许可的钱包或明确产品银行卡可准备；银行保留原结算费待确定退回，缺失快照历史申请不可出款；完整原版行为仍待验收"
+  },
+  {
+    "area": "merchant",
+    "id": "Transfer",
+    "path": "/transfer",
+    "title": "代付管理",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-list",
+      "export-filtered-server-csv-with-bounded-download-and-abort",
+      "read-owned-recipient-detail",
+      "read-server-transfer-capabilities",
+      "confirmed-capable-wallet-or-explicit-bank-transfer",
+      "strict-alipay-private-bank-and-wechat-bank-product-capabilities",
+      "separate-estimated-and-verified-bank-fees",
+      "server-transfer-policy-display-and-exact-limit-validation",
+      "separate-bank-return-lifecycle-and-immutable-ledger-history",
+      "verified-transfer-query",
+      "confirmed-alipay-proof-application-and-query"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "merchant",
+    "id": "Record",
+    "path": "/record",
+    "title": "资金明细",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "read-list",
+      "export-filtered-server-csv-with-bounded-download-and-abort"
+    ],
+    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+  },
+  {
+    "area": "merchant",
+    "id": "Domain",
+    "path": "/domain",
+    "title": "授权域名",
+    "hidden": false,
+    "status": "partial",
+    "resource": "domains",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "merchant",
+    "id": "Complain",
+    "path": "/complain",
+    "title": "交易投诉",
+    "hidden": false,
+    "status": "partial",
+    "resource": "complaints",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "merchant",
+    "id": "ApplyMerchant",
+    "path": "/applyments/merchant",
+    "title": "商户进件 / 进件商户管理",
+    "hidden": false,
+    "status": "partial",
+    "resource": "onboarding-applications",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "merchant",
+    "id": "ApplyCreate",
+    "path": "/applyments/create",
+    "title": "商户进件 / 新增商户进件",
+    "hidden": false,
+    "status": "partial",
+    "resource": "onboarding-applications",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "merchant",
+    "id": "MchRisk",
+    "path": "/applyments/mchrisk",
+    "title": "商户进件 / 商户管控记录",
+    "hidden": false,
+    "status": "partial",
+    "resource": "merchant-risk",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "merchant",
+    "id": "ApplyForm",
+    "path": "/applyments/form",
+    "title": "商户进件 / 商户进件表单",
+    "hidden": true,
+    "status": "partial",
+    "resource": "onboarding-applications",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "merchant",
+    "id": "PsReceiver",
+    "path": "/profitsharing/receiver",
+    "title": "订单分账 / 分账规则",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "encrypted_receiver_draft",
+      "masked_receiver_list",
+      "remote_bind_unbind",
+      "versioned_channel_rules",
+      "funds_authorization"
+    ],
+    "limitations": "支持直连微信V3/支付宝指定产品的加密接收方、绑定/解绑和规则版本；未知关系操作恢复、其它产品及别名映射仍待补齐。"
+  },
+  {
+    "area": "merchant",
+    "id": "PsOrder",
+    "path": "/profitsharing/order",
+    "title": "订单分账 / 分账记录",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "original_payment_declaration",
+      "channel_sharing_submit",
+      "original_request_query",
+      "per_receiver_result",
+      "verified_remainder_release",
+      "original_receiver_return",
+      "verified_direct_wechat_finish",
+      "funds_authorization"
+    ],
+    "limitations": "已接原声明、PS逐接收方结果、原号查询、原成功接收方回退与可验证微信独立完结；支付宝独立完结、未知关系恢复及其它产品仍不开放，尚未宣称完整兼容。"
+  },
+  {
+    "area": "merchant",
+    "id": "SubChannel",
+    "path": "/subchannel",
+    "title": "支付通道",
+    "hidden": false,
+    "status": "partial",
+    "resource": "subchannels",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "merchant",
+    "id": "Onecode",
+    "path": "/onecode",
+    "title": "聚合收款",
+    "hidden": false,
+    "status": "partial",
+    "resource": "collection-codes",
+    "capabilities": [
+      "resource-list",
+      "resource-detail",
+      "schema-permitted-create-update-delete"
+    ],
+    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+  },
+  {
+    "area": "merchant",
+    "id": "Invite",
+    "path": "/invite",
+    "title": "邀请返现",
+    "hidden": false,
+    "status": "partial",
+    "capabilities": [
+      "owned-masked-promotion-token-and-expiry",
+      "explicit-cas-rotate-and-revoke-once",
+      "registration-bound-invitee-cursor-list",
+      "original-fee-funded-reward-and-refund-derived-state",
+      "issued-voided-refund-pending-statistics-not-balance",
+      "promotion-prefill-stripped-before-router-explicit-otp-submit",
+      "fee-capped-gross-basis-original-order-reward",
+      "owned-proof-verified-daily-liability-cursor-queue"
+    ],
+    "limitations": "支持手续费或毛额基数、原手续费封顶的即时奖励，以及原订单固定条款的次日入账队列；日结调度须独立显式启动，成功退款撤销整笔原奖励。利润基数、会员推广奖励与Pro按日重新汇总语义尚未恢复，不冒称原加密JSON完全兼容。"
+  }
+]

@@ -1,0 +1,15 @@
+# 43 人工钱包结算出款
+
+只支持已批准且具备39terms、40原gross专属资金和请求时recipient快照的alipay/wxpay结算。银行明确unsupported，不能借钱包规则实现退票。原批准记录保留批准状态；独立payout及其TF展示实际资金结果。37批次不领取这些转账。
+
+PrepareSettlementPayout(ctx,requestID,channelID,actor TransferBatchActor,check TransferBatchCheck)仅作本地准备。原gross必须完整留存在专属scope账户，immutable recipient解密后核对HMAC、类型/AppID/渠道；微信AppID必须相同。真实管理员super/operator操作，商户/平台transfer开关、AllowLive、白名单check、TransferProvider/capability/本地validator全部通过才创建唯一TF。Transfer.amount=cost=net，fee=0，收款AEAD复用原transfer加密，唯一settlement_payouts绑定request/transfer/channel/provider/AppID。无reserveTransferTx、无第二笔available扣款、无首次发送job。
+
+ExecuteSettlementPayout(ctx,requestID,actor,check)在merchant→request→transfer锁序下唯一unsent→claimed；同Tx requireFundsAction('settlement-payout',fmt.Sprint(requestID))、操作者审计、只读query job提交后才sendClaimedTransfer。外呼前再核对check/AllowLive/current provider。claim后崩溃或撤权保持claimed，只查原TF，绝不恢复unsent；failed也不能建新TF或重发。
+
+QuerySettlementPayout只核对claimed原TF，停写仍可用，但原AppID/provider不匹配拒绝向新配置查询。unsent/cancelled从单笔Query与worker访问仍本地返回。CancelUnsentSettlementPayout只有原锁下unsent证明可将gross从原scope返还available，并同Tx取消证明/审计；与execute竞争最多一方胜。取消不伪造provider失败。
+
+resolveProviderTransfer入口先按immutablebinding锁merchant/request再transfer；resolveTransferTx对结算funding分派，所有普通入口和worker都不能绕开。success将原scope的net→clearing、独立settlementfee→fees，同时transfer/attempt状态提交；definitefailure或proof-unsent取消将原gross→available。43重建40invariantview，逐一核对原reserve双边、TF零普通费、原金额/绑定、claim/取消证明、scope余额及净额/fee/release journal双方，非仅放宽余额检查。外部可信结果入账后result audit失败不能回滚真实状态或重启发送。
+
+受款快照、渠道和AppID均不可覆盖，同一申请只一条TF。Query/Store返回所有IDs和分金额string；响应不含账号姓名。原API签名、Exact节点验签、公钥/证书模式全部复用已有adapter，不重复RSA实现。receipt/proof继续走原TF。
+
+所有测试仅本地PG独立schema/临时密钥/mock TLS，不读.secrets不连生产。40SHA不变，43新迁移；server/list/frontend由root收到接口ready后接线。二级密码由41上下文guard提供，此处只原子消费真实资金授权，不自造票据。

@@ -1,0 +1,12 @@
+FROM golang:1.27.3@sha256:f20d83a83e18dbd2a4714b8ffd4b30b287b6243962dd75608e86abcc63ba4efc
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd ./cmd
+COPY db ./db
+COPY internal ./internal
+COPY tests ./tests
+# Only source is copied. Production/configured keys and the original PHP tree
+# are excluded by .dockerignore and are not mounted into this test container.
+# PHP interoperability runs separately on the host with a network-none fixture.
+CMD ["sh", "-c", "go test -race -timeout 40m -p 2 ./... -count=1 && go vet -p 2 ./..."]
