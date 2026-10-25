@@ -100,7 +100,7 @@ func (g ProviderFlow) claimBatchItem(ctx context.Context, mid, batchID int64, it
 	if json.Unmarshal(raw, &cfg) != nil || !active || !cfg.Enabled {
 		return Transfer{}, false, ErrState
 	}
-	policy, e := readTransferPolicy(ctx, tx)
+	policy, e := readManualTransferPolicy(ctx, tx, mid)
 	if e != nil {
 		return Transfer{}, false, e
 	}

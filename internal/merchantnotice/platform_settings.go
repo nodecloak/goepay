@@ -59,7 +59,7 @@ func PlatformSettings() []PlatformSetting {
 		key := "msgconfig_" + scene.key
 		out = append(out, PlatformSetting{key, scene.label + " 邮件/机器人开关（0/1） " + key})
 	}
-	for _, pair := range []PlatformSetting{{"telegramnotice", "Telegram 提醒开关（0/1）"}, {"qqbotnotice", "QQ Bot 提醒开关（0/1）"}, {"voicenotice", "语音提醒开关（0/1）"}, {"user_transfer", "原用户代付开关（0/1，日报条件）"}, {"sitename", "原网站名称"}} {
+	for _, pair := range []PlatformSetting{{"telegramnotice", "Telegram 提醒开关（0/1）"}, {"qqbotnotice", "QQ Bot 提醒开关（0/1）"}, {"voicenotice", "语音提醒开关（0/1）"}, {"user_transfer", "原用户代付开关（0/1）"}, {"sitename", "原网站名称"}} {
 		out = append(out, pair)
 	}
 	for _, scene := range wechatSettingFields {

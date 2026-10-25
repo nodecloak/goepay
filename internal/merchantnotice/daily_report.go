@@ -2,8 +2,7 @@ package merchantnotice
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
+	"goepay/internal/merchantpolicy"
 	"math"
 	"time"
 
@@ -75,69 +74,9 @@ func (s *Store) dailyReport(ctx context.Context, tx pgx.Tx, mid int64, at time.T
 }
 
 func noticeTransferEnabled(ctx context.Context, tx pgx.Tx, mid int64, at time.Time) (bool, error) {
-	var gid int64
-	var unresolved bool
-	if err := tx.QueryRow(ctx, `SELECT COALESCE((SELECT group_id FROM memberships WHERE merchant_id=m.id AND expires_at>$2),m.base_group_id),m.group_baseline_unresolved FROM merchants m WHERE m.id=$1`, mid, at).Scan(&gid, &unresolved); err != nil {
-		return false, err
-	}
-	if unresolved {
-		return false, ErrState
-	}
-	if gid > 0 {
-		var raw []byte
-		err := tx.QueryRow(ctx, `SELECT body->'user_transfer' FROM backoffice_records WHERE resource='groups' AND id=$1`, gid).Scan(&raw)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, ErrConflict
-		}
-		if err != nil {
-			return false, err
-		}
-		if len(raw) > 0 && string(raw) != "null" && string(raw) != `""` {
-			var value string
-			if json.Unmarshal(raw, &value) != nil {
-				value = string(raw)
-			}
-			if value != "0" && value != "1" {
-				return false, ErrState
-			}
-			return value == "1", nil
-		}
-	}
-	rows, err := tx.Query(ctx, `SELECT body->>'key',body->'value' FROM backoffice_records WHERE resource='settings' AND body->>'key' IN('user_transfer','transfer_enabled') ORDER BY id`)
+	access, err := merchantpolicy.ReadTransferAccessAt(ctx, tx, mid, at)
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
-	values := map[string]bool{}
-	for rows.Next() {
-		var key, value string
-		var raw []byte
-		if err = rows.Scan(&key, &raw); err != nil {
-			return false, err
-		}
-		if _, exists := values[key]; exists {
-			return false, ErrConflict
-		}
-		if json.Unmarshal(raw, &value) != nil {
-			return false, ErrState
-		}
-		if key == "user_transfer" {
-			if value != "0" && value != "1" {
-				return false, ErrState
-			}
-			values[key] = value == "1"
-		} else {
-			if value != "true" && value != "false" {
-				return false, ErrState
-			}
-			values[key] = value == "true"
-		}
-	}
-	if err = rows.Err(); err != nil {
-		return false, err
-	}
-	if value, ok := values["user_transfer"]; ok {
-		return value, nil
-	}
-	return values["transfer_enabled"], nil
+	return access.Enabled, nil
 }

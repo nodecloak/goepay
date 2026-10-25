@@ -43,7 +43,7 @@ for (const width of [1280, 375])
       { name: "enabled", label: "启用", type: "boolean" },
       {
         name: "user_transfer",
-        label: "用户代付（日报代付统计）",
+        label: "代付功能",
         type: "select",
         options: ["0", "1"],
       },
@@ -104,6 +104,7 @@ for (const width of [1280, 375])
     await expect(page.getByRole("columnheader")).toHaveText([
       "GID",
       "用户组名称",
+      "通道与费率",
       "操作",
     ]);
     await expect(
@@ -142,8 +143,14 @@ for (const width of [1280, 375])
     await dialog
       .getByRole("combobox", { name: "结算开关", exact: true })
       .selectOption("2");
-    await dialog.getByRole("tab", { name: "通知配置", exact: true }).click();
-    await expect(dialog).toContainText("不等于开通商户代付权限");
+    await dialog.getByRole("tab", { name: "代付配置", exact: true }).click();
+    await expect(dialog).toContainText("商户自身权限");
+    await expect(
+      dialog.getByRole("combobox", { name: "代付功能", exact: true }),
+    ).toHaveValue("0");
+    await dialog
+      .getByRole("combobox", { name: "代付功能", exact: true })
+      .selectOption("1");
     await dialog.getByRole("tab", { name: "基本信息", exact: true }).click();
     await expect(dialog.getByLabel("用户组名称", { exact: false })).toHaveValue(
       "已修改本地组",
@@ -166,7 +173,7 @@ for (const width of [1280, 375])
       price_cents: 1234,
       duration_days: 30,
       enabled: true,
-      user_transfer: "0",
+      user_transfer: "1",
       settle_open: "2",
       settle_rate: "1.25",
       pay_minmoney: "0",
@@ -178,21 +185,24 @@ for (const width of [1280, 375])
       page.getByRole("cell", { name: "已修改本地组", exact: true }),
     ).toBeVisible();
     const configure = page.getByRole("button", {
-      name: "用户组配置 " + id,
+      name: "编辑",
       exact: true,
     });
     await configure.click();
-    await page.getByRole("menuitem", { name: "支付配置", exact: true }).click();
+    await expect(
+      dialog.getByLabel("用户组名称", { exact: false }),
+    ).toBeFocused();
+    await dialog.getByRole("tab", { name: "支付配置", exact: true }).click();
     await expect(
       dialog.getByRole("tab", { name: "支付配置", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
     await expect(
       dialog.getByLabel("费率（万分比）", { exact: true }),
-    ).toBeFocused();
+    ).toHaveValue("38");
     await dialog.getByRole("button", { name: "取消", exact: true }).click();
     await expect(configure).toBeFocused();
     await configure.click();
-    await page.getByRole("menuitem", { name: "结算配置", exact: true }).click();
+    await dialog.getByRole("tab", { name: "结算配置", exact: true }).click();
     await expect(
       dialog.getByRole("tab", { name: "结算配置", exact: true }),
     ).toHaveAttribute("aria-selected", "true");

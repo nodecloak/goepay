@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/ledger"
+	"goepay/internal/merchantpolicy"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -27,8 +28,15 @@ func (s *Store) TransferPolicy(ctx context.Context) (TransferPolicy, error) {
 	return readTransferPolicy(ctx, s.pool)
 }
 func readTransferPolicy(ctx context.Context, q transferPolicyReader) (TransferPolicy, error) {
+	return readTransferPolicyMode(ctx, q, true)
+}
+func readTransferPolicyMode(ctx context.Context, q transferPolicyReader, lock bool) (TransferPolicy, error) {
 	var p TransferPolicy
-	rows, e := q.Query(ctx, "SELECT body->>'key',body->>'value' FROM backoffice_records WHERE resource='settings' AND body->>'key' IN ('transfer_enabled','transfer_minmoney','transfer_maxmoney','transfer_maxlimit','transfer_desc','transfer_name') ORDER BY id FOR SHARE")
+	suffix := ""
+	if lock {
+		suffix = " FOR SHARE"
+	}
+	rows, e := q.Query(ctx, "SELECT body->>'key',body->>'value' FROM backoffice_records WHERE resource='settings' AND body->>'key' IN ('transfer_enabled','transfer_minmoney','transfer_maxmoney','transfer_maxlimit','transfer_desc','transfer_name') ORDER BY id"+suffix)
 	if e != nil {
 		return p, e
 	}
@@ -78,6 +86,42 @@ func readTransferPolicy(ctx context.Context, q transferPolicyReader) (TransferPo
 		return p, ErrInvalid
 	}
 	return p, nil
+}
+
+func readManualTransferPolicy(ctx context.Context, tx pgx.Tx, mid int64) (TransferPolicy, error) {
+	p, e := readTransferPolicy(ctx, tx)
+	if e != nil {
+		return p, e
+	}
+	a, e := merchantpolicy.ReadTransferAccess(ctx, tx, mid, true)
+	if e != nil {
+		return p, fmt.Errorf("%w: ordinary transfer permission unavailable: %v", ErrState, e)
+	}
+	p.Enabled = a.Enabled
+	return p, nil
+}
+
+// Keep effective ordinary access separate from the historical policy struct:
+// adding fields there would change authenticated settlement intent JSON/HMACs.
+func (s *Store) ManualTransferPolicy(ctx context.Context, mid int64) (TransferPolicy, merchantpolicy.TransferAccess, error) {
+	var p TransferPolicy
+	var a merchantpolicy.TransferAccess
+	tx, e := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if e != nil {
+		return p, a, e
+	}
+	defer tx.Rollback(ctx)
+	p, e = readTransferPolicyMode(ctx, tx, false)
+	if e != nil {
+		return p, a, e
+	}
+	a, e = merchantpolicy.ReadTransferAccess(ctx, tx, mid, false)
+	if e != nil {
+		return p, a, fmt.Errorf("%w: ordinary transfer permission unavailable: %v", ErrState, e)
+	}
+	p.Enabled = a.Enabled
+	e = tx.Commit(ctx)
+	return p, a, e
 }
 func (s *Store) transferPolicyHashes(mid int64, r adapter.TransferRequest) ([]byte, []byte, error) {
 	if len(s.indexKey) != 32 {

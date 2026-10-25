@@ -33,7 +33,7 @@ export function groupPaymentRatesError(raw: unknown): string {
     for (const value of Object.values(rates)) {
       const rate = value.rate ?? "";
       if (rate === "") continue;
-      if (!/^(0|[1-9]\d{0,2})(\.\d{1,2})?$/.test(rate))
+      if (!/^\d+(\.\d{1,2})?$/.test(rate))
         return "分成比例请输入0至100的百分数，最多两位小数";
       const [whole, fraction = ""] = rate.split(".");
       if (BigInt(whole!) * 100n + BigInt(fraction.padEnd(2, "0")) > 10000n)

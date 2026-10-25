@@ -51,7 +51,7 @@ const definitions = [
     label: "会员配置",
     keys: ["price_cents", "duration_days"],
   },
-  { name: "notice", label: "通知配置", keys: ["user_transfer"] },
+  { name: "transfer", label: "代付配置", keys: ["user_transfer"] },
 ];
 const known = new Set(definitions.flatMap((group) => group.keys));
 const typeRates = computed(() => {
@@ -78,7 +78,26 @@ const groups = computed(() =>
       fields: group.fields
         .filter((field) => !readonly(field, props.editing))
         .map((field) =>
-          field.name === "name" ? { ...field, label: "用户组名称" } : field,
+          field.name === "name"
+            ? { ...field, label: "用户组名称" }
+            : field.name === "user_transfer"
+              ? {
+                  ...field,
+                  label: "代付功能",
+                  options: [
+                    { value: "", label: "缺省（与系统设置一致）" },
+                    ...(["0", "_"].includes(String(props.values.user_transfer))
+                      ? [
+                          {
+                            value: String(props.values.user_transfer),
+                            label: "缺省（保留原值，与系统设置一致）",
+                          },
+                        ]
+                      : []),
+                    { value: "1", label: "开启" },
+                  ],
+                }
+              : field,
         ),
     }))
     .filter((group) => group.fields.length),
@@ -189,8 +208,8 @@ onBeforeUnmount(() => {
         <p v-if="selected.name === 'settlement'" class="muted">
           结算开关按原选项生效；余额自动转账比例按现有规则单独配置，留空继承。修改组配置不会自动创建出款。
         </p>
-        <p v-if="selected.name === 'notice'" class="muted">
-          此开关控制日报代付统计，不等于开通商户代付权限。
+        <p v-if="selected.name === 'transfer'" class="muted">
+          缺省继承系统设置，旧值0同样继承；开启用于该组普通代付。仍需商户自身权限、可用通道和执行开关，修改不会自动发起付款。
         </p>
         <ResourceFields
           :fields="selected.fields.filter((field) => field.name !== 'info')"

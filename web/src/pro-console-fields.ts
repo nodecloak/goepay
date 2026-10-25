@@ -194,6 +194,31 @@ export function canRefundListOrder(row: Record<string, unknown>): boolean {
     return false;
   return true;
 }
+export function hasOriginalMerchantListFields(
+  fields: ResourceField[],
+): boolean {
+  const names = new Set(
+    fields
+      .filter(
+        (f) =>
+          !f.write_only && f.type !== "password" && !isCredentialField(f.name),
+      )
+      .map((f) => f.name),
+  );
+  return (
+    [
+      "name",
+      "effective_group_id",
+      "effective_group_name",
+      "available_minor",
+      "settlement_recipient",
+      "created_at",
+      "pay",
+      "enabled",
+    ].every((name) => names.has(name)) &&
+    ["email", "phone", "qq"].some((name) => names.has(name))
+  );
+}
 export function resourceListFields(
   resource: string,
   fields: ResourceField[],
@@ -216,6 +241,26 @@ export function resourceListFields(
   const contact =
     visible.find((f) => f.name === "email") ||
     visible.find((f) => ["phone", "qq"].includes(f.name));
+  if (hasOriginalMerchantListFields(visible)) {
+    const labels: Record<string, string> = {
+      available_minor: "余额",
+      settlement_recipient: "结算账号/姓名",
+      created_at: "注册时间/域名",
+      pay: "状态",
+      [contact!.name]: "联系方式",
+    };
+    return [
+      "available_minor",
+      "settlement_recipient",
+      contact!.name,
+      "created_at",
+      "pay",
+    ].flatMap((name) =>
+      visible
+        .filter((f) => f.name === name)
+        .map((f) => ({ ...f, label: labels[name]! })),
+    );
+  }
   const names = [
     "name",
     ...(hasEffectiveGroup ? [] : ["group_id"]),

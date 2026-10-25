@@ -38,13 +38,12 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 			}
 		}
 		var enabled, merchantEnabled bool
-		var platform, rate string
+		var rate string
 		e := s.Pool.QueryRow(r.Context(), "SELECT enabled,COALESCE(profile->>'transfer_api_enabled','false')='true',COALESCE(profile->>'transfer_rate','0') FROM merchants WHERE id=$1", mid).Scan(&enabled, &merchantEnabled, &rate)
 		if e != nil {
 			response(w, 404, -1, "merchant not found", nil)
 			return true
 		}
-		s.Pool.QueryRow(r.Context(), "SELECT body->>'value' FROM backoffice_records WHERE resource='settings' AND body->>'key'='transfer_enabled'").Scan(&platform)
 		channels := []map[string]any{}
 		if s.ProviderFlow != nil {
 			for _, id := range s.MerchantChannels[mid] {
@@ -76,13 +75,13 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 			s.fail(w, e)
 			return true
 		}
-		policy, e := s.Store.TransferPolicy(r.Context())
+		policy, access, e := s.Store.ManualTransferPolicy(r.Context(), mid)
 		if e != nil {
 			s.fail(w, e)
 			return true
 		}
-		writes := s.ProviderFlow != nil && s.ProviderFlow.AllowLive && enabled && merchantEnabled && platform == "true" && len(channels) > 0
-		response(w, 200, 0, "", map[string]any{"merchant_id": fmt.Sprint(mid), "writes_enabled": writes, "platform_enabled": platform == "true", "merchant_enabled": merchantEnabled && enabled, "transfer_rate": rate, "channels": channels, "available_money": ledger.Format(b.Available), "ledger_available_money": ledger.Format(b.LedgerAvailable), "today_blocked_money": ledger.Format(b.Blocked), "settle_type": b.SettleType, "minimum_money": ledger.Format(policy.MinimumAmount), "maximum_money": ledger.Format(policy.MaximumAmount), "daily_recipient_limit": policy.DailyRecipientLimit, "default_remark": policy.DefaultRemark, "default_title": policy.DefaultTitle})
+		writes := s.ProviderFlow != nil && s.ProviderFlow.AllowLive && enabled && merchantEnabled && access.Enabled && len(channels) > 0
+		response(w, 200, 0, "", map[string]any{"merchant_id": fmt.Sprint(mid), "writes_enabled": writes, "platform_enabled": access.PlatformEnabled, "effective_enabled": access.Enabled, "permission_source": access.Source, "effective_group_id": fmt.Sprint(access.GroupID), "merchant_enabled": merchantEnabled && enabled, "transfer_rate": rate, "channels": channels, "available_money": ledger.Format(b.Available), "ledger_available_money": ledger.Format(b.LedgerAvailable), "today_blocked_money": ledger.Format(b.Blocked), "settle_type": b.SettleType, "minimum_money": ledger.Format(policy.MinimumAmount), "maximum_money": ledger.Format(policy.MaximumAmount), "daily_recipient_limit": policy.DailyRecipientLimit, "default_remark": policy.DefaultRemark, "default_title": policy.DefaultTitle})
 		return true
 	}
 	if len(parts) == 2 && r.Method == "POST" {

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-25T19:03:28.494Z",
+  "generated_at": "2026-10-25T20:27:07.372Z",
   "scope": "Source snapshot only; not a claim of complete compatibility or a replacement for test results.",
   "files": [
     {
@@ -20,7 +20,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "5db4a3cca48e43e561a92b68a247ec2f82e7b1117d98e1a2dfba7463335a80f1"
+      "sha256": "bf0669598a4578670156448135bebc2ff63fa4be9ef5ca9eadb25a6504870413"
     },
     {
       "path": "api/README.md",
@@ -28,7 +28,7 @@
     },
     {
       "path": "api/console.openapi.json",
-      "sha256": "e934157be87980dde32709ad837b8eeab682caed633e39c4e91f762704bd8749"
+      "sha256": "9ecab8ec8e879f8dc39ff3aea78dcc2ee78bf118d30e15493b320e9da4e6f621"
     },
     {
       "path": "clients/mini/README.md",
@@ -687,8 +687,16 @@
       "sha256": "d9a5125f4f106d82ed0392b7b33a47720ff9c76867de16c71d1e1b2238e44c2c"
     },
     {
+      "path": "docs/superpowers/plans/2026-10-26-disabled-group-transfer-access.md",
+      "sha256": "86b429136d4adad93d5a2c2c2ca50eef6bed07096641ef9f376a5b2587eab00c"
+    },
+    {
       "path": "docs/superpowers/plans/2026-10-26-original-daily-channel-statistics.md",
       "sha256": "b8b46e6b166f4ca0969c34fd48a712726d8de07c1f3af3500d59ceadd0374703"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-26-original-group-directory.md",
+      "sha256": "02b023e3637f52c15381fe49cf39e42ec7d8eb89975318bf3130180effa8df25"
     },
     {
       "path": "docs/superpowers/plans/2026-10-26-original-group-payment-limits.md",
@@ -699,8 +707,20 @@
       "sha256": "7de3b8b7791c56f0d6eec7bbccbe36036a108d8a422123d27594208df21b6123"
     },
     {
+      "path": "docs/superpowers/plans/2026-10-26-original-group-statistics.md",
+      "sha256": "035a577d7c204d0ceec614db1386fbdbccb8bd7dd60a4abc806663328b662cc0"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-26-original-group-transfer-access.md",
+      "sha256": "22967f0b60dd7cde2ce06df942666d2df5eed6c4b036107cde50c6f8dc61e9eb"
+    },
+    {
       "path": "docs/superpowers/plans/2026-10-26-original-merchant-daily-statistics.md",
       "sha256": "bbf855a587c3b476b80504e3d3503c7b9396f234f39721edcec96021d13fe8a7"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-26-original-merchant-list-columns.md",
+      "sha256": "7610cfd3c9121b3340c9fbb21a2cd89a0e70aa37a5e8f252f944a4f4edc4e695"
     },
     {
       "path": "docs/superpowers/plans/2026-10-26-original-province-labels.md",
@@ -840,11 +860,11 @@
     },
     {
       "path": "docs/tools/source-manifest.mjs",
-      "sha256": "96e83b8e15eba7f8e61e2d149cd0379b50d7db7ffb5aed845ba83e8d6cc226ae"
+      "sha256": "dfdbbfb507a22e7d33bdbca38d8de11a6e67b4bb9571a010acc841d8dbbd431c"
     },
     {
       "path": "docs/tools/summarize-pro-ux-review.mjs",
-      "sha256": "6ccbde9359c18e029ef0ac84c4d3a59ad8d9c3a1387fdb24546c6cf828f6d3c3"
+      "sha256": "36f26fcafde383fe87cdf4e681d8f4efa6ca1060c791d9a9e39ddcc25261adf0"
     },
     {
       "path": "docs/verification/admin-notice-transports-77-2026-10-24.md",
@@ -1488,7 +1508,7 @@
     },
     {
       "path": "internal/backoffice/merchant_notice_settings.go",
-      "sha256": "5226fa0b01fad87462eee194095710e95d2c067ea32e92fbf05121d373c89559"
+      "sha256": "c961c31748c359693347ba33ef4ab0ddd192a2a7278614bc678fe2edda32ed4c"
     },
     {
       "path": "internal/backoffice/merchant_notice_settings_test.go",
@@ -1992,7 +2012,7 @@
     },
     {
       "path": "internal/merchantnotice/daily_report.go",
-      "sha256": "a2503a5fae0c6aaff344aae2d9ac8931b7e0e50600b5aa810ef436b8d45b194f"
+      "sha256": "96666dff6789ffdbec9beee52a6d2b235d4f6a48b4b9739279737b6580126158"
     },
     {
       "path": "internal/merchantnotice/delivery.go",
@@ -2044,7 +2064,7 @@
     },
     {
       "path": "internal/merchantnotice/platform_settings.go",
-      "sha256": "707d347d5c2e724b0125eb86b1ac4f46d6181a60698a08db9c6ade7e4a5369d7"
+      "sha256": "7f8933bb41b6989a80f5b1bc2786306a1e9fadf43f0637ce29e67047fa74d6c4"
     },
     {
       "path": "internal/merchantnotice/preferences.go",
@@ -2117,6 +2137,14 @@
     {
       "path": "internal/merchantnotice/work.go",
       "sha256": "f9b81024bfacc74bc01da858685834d430996daedf2934086448ddc6550af830"
+    },
+    {
+      "path": "internal/merchantpolicy/transfer_access.go",
+      "sha256": "3844975df7c48ffa1585dc537fe63b0a59e66ba3b3eb11e0b04c736ace324c88"
+    },
+    {
+      "path": "internal/merchantpolicy/transfer_access_test.go",
+      "sha256": "b6025dd7ab9c389465e6c9702209a43b4b5f9cc5b391f1c3908dfa87c69a2f68"
     },
     {
       "path": "internal/migration/import.go",
@@ -2563,6 +2591,10 @@
       "sha256": "e5e25421129c25db9967f135b69c611fec1146fb634f72bef85de013af943951"
     },
     {
+      "path": "internal/payment/group_transfer_access_test.go",
+      "sha256": "b60d98190f9246133e6148c62cdccb4bde615ff6aed6e0808112cede0ef9c795"
+    },
+    {
       "path": "internal/payment/identity_lookup.go",
       "sha256": "2680a9d66b1426ce7fdf308935f466afc9fedf38756e207bd93af6718361cb7f"
     },
@@ -2728,7 +2760,7 @@
     },
     {
       "path": "internal/payment/merchant_notice_daily_test.go",
-      "sha256": "cd2a5047f2c1fdd439638a1f9f81c83ab016a0e7e67d17ccb9271d7255ab6838"
+      "sha256": "2c7d05c961a815d1cc9d2fbe636cc8cb9defe1d25214ebcfe3ee471638ef48c5"
     },
     {
       "path": "internal/payment/merchant_notice_delivery_test.go",
@@ -3020,7 +3052,7 @@
     },
     {
       "path": "internal/payment/provider_transfers.go",
-      "sha256": "61bc5c380d5207a3b23eb1a8387163616a866db3aa458a8699b3f7b94efab803"
+      "sha256": "05b952ece55e87d52fba6a8207869ed033045f164218b23e43ee4f62f8e2141e"
     },
     {
       "path": "internal/payment/provider_transfers_test.go",
@@ -3748,7 +3780,7 @@
     },
     {
       "path": "internal/payment/transfer_batch_flow.go",
-      "sha256": "37c40efc7be0879bbabc377390af44f6d6facbf74b323a04a213e1015ecbae1f"
+      "sha256": "20eb753645cf1f2318481c9668c0d1d8bb0bc1c154635046ef763cd36d04fd1e"
     },
     {
       "path": "internal/payment/transfer_batch_list.go",
@@ -3772,7 +3804,7 @@
     },
     {
       "path": "internal/payment/transfer_policy.go",
-      "sha256": "38ffa3cbb846f5eb8a12112fae0d7169c77a907da654e36e8eeda24dcf428cfa"
+      "sha256": "77cb401b241e3c3cd4d15d39eec3298d50ca8aaac1cb68653b1609f17718400d"
     },
     {
       "path": "internal/payment/transfer_policy_test.go",
@@ -4083,6 +4115,10 @@
       "sha256": "2af2365be52dd0e24342e1faf352fcd664bbad0820afc6367642f292c46db0cc"
     },
     {
+      "path": "internal/server/group_statistics.go",
+      "sha256": "17f2caa8b3c7fe0e6e31bffd3077c42777eaac1d2d64c82248e24de72358f5a3"
+    },
+    {
       "path": "internal/server/identity_lookup.go",
       "sha256": "738f19fd268a4471f423f1c5f5f68c1ef36a5b5e0005e79938793688d7dc7f30"
     },
@@ -4352,7 +4388,7 @@
     },
     {
       "path": "internal/server/reports.go",
-      "sha256": "f08c56c8453b5e99e533ebf8c2a8e38f76b3ab7ca38c6af9e3373d3e9a62a5e4"
+      "sha256": "e529aa0c1d433b8826dc9128015a9839b37c28a4f71bed78dc09f003b04ffab0"
     },
     {
       "path": "internal/server/runtime_log.go",
@@ -4448,7 +4484,7 @@
     },
     {
       "path": "internal/server/transfer_http.go",
-      "sha256": "5c55b3d76abf9a641f27b38d9a64fdaaada05deb0e9c13c4a37516eadc367c42"
+      "sha256": "2ca0bd0380b88ef994bd97cd4f5a07fdd0ee337d0da8fe1e86463fd015a2d19b"
     },
     {
       "path": "internal/server/trusted_proxy.go",
@@ -4677,6 +4713,14 @@
     {
       "path": "tests/contract/group_payment_rates_http_test.go",
       "sha256": "55eed85154c6c678f73fc2acfc295a0cf2f7b9293ec1e5d6080568089d50d5d7"
+    },
+    {
+      "path": "tests/contract/group_statistics_ux_test.go",
+      "sha256": "32b20444e1cda89e4711bc69587e4b249b79dee325d581f5d6ae4945158f441e"
+    },
+    {
+      "path": "tests/contract/group_transfer_access_http_test.go",
+      "sha256": "c7931e6ce02d6d358ac3cc0ab85134a4a29764aa7f231c078f79caa373403840"
     },
     {
       "path": "tests/contract/http_test.go",
@@ -5171,8 +5215,16 @@
       "sha256": "2577998981fa07d9f0a02d7895c8297c57b8a6cc557197ffb9de54890203654c"
     },
     {
+      "path": "web/e2e/group-directory-ux.spec.ts",
+      "sha256": "aeb349e8d4de9c2468b014f4978191649f5af492eda6f6fbfba26c336602a113"
+    },
+    {
       "path": "web/e2e/group-editor-ux.spec.ts",
-      "sha256": "2e371dfdd62d33843131b55adfca0d7bd82c550e32bafe5339550d7a47674bb9"
+      "sha256": "bf1771c8ffbcb944d5cbcca2fb5d921d3f8b80604dc15b65502c944e87f3e18d"
+    },
+    {
+      "path": "web/e2e/group-statistics-ux.spec.ts",
+      "sha256": "688dbf02eb0e73c065822777d738027178836bf5845468381267387e261578ab"
     },
     {
       "path": "web/e2e/identity-lookup.spec.ts",
@@ -5273,6 +5325,10 @@
     {
       "path": "web/e2e/merchant-notice.spec.ts",
       "sha256": "7105455f6073a76fd6af6ce72f3f392de1cc5404e6cd3bcb8b900db51931a8cb"
+    },
+    {
+      "path": "web/e2e/merchant-original-columns.spec.ts",
+      "sha256": "51e5a4b9ea371dcad8be29f8bef8be90748938747dc13a40866dc7c0f4a9e82a"
     },
     {
       "path": "web/e2e/notification-resend.spec.ts",
@@ -5440,7 +5496,7 @@
     },
     {
       "path": "web/e2e/transfer.spec.ts",
-      "sha256": "7e5412d4f5052dfdbb5dcb144ef8ab62f7e32a7954f56aadc9eb20dd63ac0900"
+      "sha256": "ec692434a0738ad7c43f78034f038239dacae3b843873ce021fc228dd051ecc6"
     },
     {
       "path": "web/e2e/workflows.spec.ts",
@@ -5592,11 +5648,15 @@
     },
     {
       "path": "web/src/components/GroupEditorFields.vue",
-      "sha256": "c9ec1b9ae9845a5757f387db5ba76fd973114ef69e13bbf3b9bf4e9824f93d46"
+      "sha256": "b7dc7f7f289e48700d58104624ebde00f4caf2484729fd5d041407be72b0a6bf"
     },
     {
       "path": "web/src/components/GroupSalesPage.vue",
       "sha256": "36f04b782321924ba229a0bf67017d520eafcce270f1acdbc19971b529edf13f"
+    },
+    {
+      "path": "web/src/components/GroupStatisticsDialog.vue",
+      "sha256": "d236b1a680791aa201ed899b987dc8afc4d769fba593e7f0e012e1f9acd836b8"
     },
     {
       "path": "web/src/components/IdentityLookupPage.vue",
@@ -5744,7 +5804,7 @@
     },
     {
       "path": "web/src/components/ResourcePage.vue",
-      "sha256": "88b7a29f59ab6026bd61b6c26b1955e7979ed2f9e31ab0c79f329fbb952ce71f"
+      "sha256": "0d40d15edda16ed0f43c5b1d696e35b66dae474b3c43af231bbaba9d31791a55"
     },
     {
       "path": "web/src/components/RuleExecutionPanel.vue",
@@ -5824,7 +5884,7 @@
     },
     {
       "path": "web/src/components/TransferPage.vue",
-      "sha256": "7521f5ef29e8c05508331839795ebda4a42858d0bb90e92629c78f360c3b2469"
+      "sha256": "b90965cf4bf14564e45c61d8fc2db8965ea69a753b10253ffe764253bacc879f"
     },
     {
       "path": "web/src/components/TransferPolicySummary.vue",
@@ -5879,8 +5939,16 @@
       "sha256": "44ac18c6a536a3f2d25cd4e89452b3cf6bc7e3b2e03e9d11ad7b53b8c31e2d1e"
     },
     {
+      "path": "web/src/group-directory.ts",
+      "sha256": "0be8f640c68942e168dbebe86ebf559bc3342bfc31f35640919a2d1fd09d6202"
+    },
+    {
       "path": "web/src/group-payment-rates.ts",
-      "sha256": "783cfe311b71c5de13eddb04f64850523e8e251a5014ae7bd2be21db2b66e5a4"
+      "sha256": "871dd930b0dbb5fd88fe6b615ce85ed5e3aac7ea4591df569055bb2908491551"
+    },
+    {
+      "path": "web/src/group-statistics.ts",
+      "sha256": "c4ae36ba67daf58f37ec3852bb5ff466f1a3bbee645113ff93b9b3c232bd3631"
     },
     {
       "path": "web/src/identity-profile.ts",
@@ -5936,7 +6004,7 @@
     },
     {
       "path": "web/src/pro-console-fields.ts",
-      "sha256": "b0d679807b5e0bf55df31eb77eda3be672445fd7a73c270053e343a289d48183"
+      "sha256": "3310d1ff3ba177d43d1598f07cbed9ec3fc3613eeeee175ec995a004f1f1e00c"
     },
     {
       "path": "web/src/province-statistics.ts",
@@ -5964,7 +6032,7 @@
     },
     {
       "path": "web/src/settings.ts",
-      "sha256": "a4e689add31234d4812743eb8ec76c1ebec92dda0da59f5777586971e05586c4"
+      "sha256": "a00abb73ab05f1d470b6536f080084596691b670e8ac029434711051e2f3fb95"
     },
     {
       "path": "web/src/settlement-auto.ts",
@@ -6151,16 +6219,24 @@
       "sha256": "133384f93a049a218e189c2f274b713a0aa69e271ff38df63a49019a2042f802"
     },
     {
+      "path": "web/tests/group-directory.test.ts",
+      "sha256": "319b9fbded924829e7909bdba105d85fea2ed64b2e68820dd4507d60ea8a48a9"
+    },
+    {
       "path": "web/tests/group-editor-ux.test.ts",
-      "sha256": "ecb94c781328c98396d5754593959273de4da88a42636a3d52c51276177493f1"
+      "sha256": "b9d8b982be55c6a84130a3488bf18654689730303df100172fe2e986ed46636f"
     },
     {
       "path": "web/tests/group-payment-rates.test.ts",
-      "sha256": "5633e15838362f58023f2b09736ef7488e53a0977eaa2c3f44b06d133d619982"
+      "sha256": "6bc87f0016fcf63c9280831f252b81e165c069fb1afa4e1ece51c201831c0c16"
     },
     {
       "path": "web/tests/group-sales-ux.test.ts",
       "sha256": "7d951f017bf5316bffa2fa56421fb0f13908934c772d9541e73ec701adbbd9cc"
+    },
+    {
+      "path": "web/tests/group-statistics.test.ts",
+      "sha256": "11bd8c1c70fb0a2eb30f920224b7555b6389db18a8c17bd08c8e9ab3db7edc21"
     },
     {
       "path": "web/tests/identity-lookup.test.ts",
@@ -6292,7 +6368,7 @@
     },
     {
       "path": "web/tests/pro-console-fields.test.ts",
-      "sha256": "eefadf750acdf24cdb5e8d150ce4fa24a4e44eeb390d7743c9b9e8c00f0aa391"
+      "sha256": "a6dc1488451367e7ab4d827d6b5298228294fa977531e0c0af3590a62f8a909a"
     },
     {
       "path": "web/tests/pro-order-search.test.ts",
@@ -6360,7 +6436,7 @@
     },
     {
       "path": "web/tests/settings-values.test.ts",
-      "sha256": "9aa8b4155c29a6547f8c0232b09748a698b853ef4e42e1eaf179e493565a9eee"
+      "sha256": "7fe84808db9aa940baf41d0b30b982db4a4d00f87bafb6d9d58a52eba04dcce6"
     },
     {
       "path": "web/tests/settlement-auto-components.test.ts",

@@ -8,9 +8,12 @@ import {
   nextTick,
 } from "vue";
 import { ApiClient, displayValue } from "../api";
+import { RouterLink } from "vue-router";
+import { groupDirectoryRates, groupUsersHref } from "../group-directory";
 import { groupPaymentRatesError } from "../group-payment-rates";
 import {
   resourceListFields,
+  hasOriginalMerchantListFields,
   isCredentialField,
   consoleValue,
   consoleColumnLabel,
@@ -22,13 +25,13 @@ import {
   validateFields,
   buildPayload,
   formValues,
-  readonly as resourceFieldReadonly,
   type ResourceSchema,
   type ResourceEntry,
 } from "../resources";
 import ResourceFields from "./ResourceFields.vue";
 import MerchantEditorFields from "./MerchantEditorFields.vue";
 import GroupEditorFields from "./GroupEditorFields.vue";
+import GroupStatisticsDialog from "./GroupStatisticsDialog.vue";
 import AccountLoginLogDialog from "./AccountLoginLogDialog.vue";
 import SettlementRecipientPanel from "./SettlementRecipientPanel.vue";
 import CasePanel from "./CasePanel.vue";
@@ -58,6 +61,39 @@ const props = defineProps<{
 const delegation = ref<Record<string, unknown> | null>(null);
 const editMerchantRecipient = ref(false);
 const merchantLogID = ref<string>();
+const groupStatisticsID = ref<string>();
+let groupStatisticsReturn: HTMLElement | undefined;
+const canReadGroupStatistics = computed(
+  () =>
+    props.resource === "groups" &&
+    props.client.area === "admin" &&
+    props.ownSession === true &&
+    ["super", "operator"].includes(props.adminClass || ""),
+);
+function openGroupStatistics(id: unknown) {
+  if (
+    !canReadGroupStatistics.value ||
+    busy.value ||
+    loading.value ||
+    mode.value !== null ||
+    !groupUsersHref(id)
+  )
+    return;
+  groupStatisticsReturn =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : undefined;
+  groupStatisticsID.value = String(id);
+}
+function closeGroupStatistics() {
+  const target = groupStatisticsReturn,
+    epoch = contextEpoch;
+  groupStatisticsID.value = undefined;
+  groupStatisticsReturn = undefined;
+  void nextTick(() => {
+    if (epoch === contextEpoch && target?.isConnected) target.focus();
+  });
+}
 let merchantLogReturn: HTMLElement | undefined;
 const canReadMerchantLogs = computed(
   () =>
@@ -213,6 +249,8 @@ function resetContext() {
   fieldErrors.value = {};
   delegation.value = null;
   merchantLogID.value = undefined;
+  groupStatisticsID.value = undefined;
+  groupStatisticsReturn = undefined;
   merchantLogReturn = undefined;
   editMerchantRecipient.value = false;
   error.value = "";
@@ -251,23 +289,13 @@ const fields = computed(
 const listFields = computed(() =>
   resourceListFields(props.resource, schema.value?.fields || []),
 );
+const isOriginalMerchantList = computed(
+  () =>
+    props.resource === "merchants" &&
+    hasOriginalMerchantListFields(schema.value?.fields || []),
+);
 const groupSection = ref("basic");
 const groupReturnFocus = ref<HTMLElement>();
-const groupConfigurationItems = computed(() => {
-  if (props.resource !== "groups" || !schema.value?.permissions.update)
-    return [];
-  const editable = new Set(
-    schema.value.fields
-      .filter((field) => !resourceFieldReadonly(field, true))
-      .map((field) => field.name),
-  );
-  return [
-    ...(editable.has("rate_bps") ? [{ id: "payment", label: "支付配置" }] : []),
-    ...(["settle_open", "settle_rate"].some((name) => editable.has(name))
-      ? [{ id: "settlement", label: "结算配置" }]
-      : []),
-  ];
-});
 const hasGroupProjection = computed(
   () =>
     props.resource === "merchants" &&
@@ -287,8 +315,14 @@ const hasContactProjection = computed(
 );
 const contactAnchor = computed(
   () =>
-    schema.value?.fields.find((f) => f.name === "email")?.name ||
-    schema.value?.fields.find((f) => ["phone", "qq"].includes(f.name))?.name,
+    (isOriginalMerchantList.value
+      ? listFields.value
+      : schema.value?.fields
+    )?.find((f) => f.name === "email")?.name ||
+    (isOriginalMerchantList.value
+      ? listFields.value
+      : schema.value?.fields
+    )?.find((f) => ["phone", "qq"].includes(f.name))?.name,
 );
 const formSchema = computed<ResourceSchema | null>(() =>
   schema.value
@@ -334,6 +368,8 @@ async function refreshCase() {
   }
 }
 async function load() {
+  groupStatisticsID.value = undefined;
+  groupStatisticsReturn = undefined;
   merchantLogID.value = undefined;
   merchantLogReturn = undefined;
   controller?.abort();
@@ -629,25 +665,41 @@ onBeforeUnmount(resetContext);
               {{
                 resource === "merchants"
                   ? hasGroupProjection
-                    ? "商户号 / 用户组"
+                    ? isOriginalMerchantList
+                      ? "商户号/用户组"
+                      : "商户号 / 用户组"
                     : "商户号"
                   : resource === "groups"
                     ? "GID"
                     : "编号"
               }}
             </th>
-            <th v-for="field in listFields" :key="field.name" scope="col">
+            <th
+              v-for="field in listFields"
+              :key="field.name"
+              scope="col"
+              :title="
+                isOriginalMerchantList && field.name === 'created_at'
+                  ? '注册时间为北京时间'
+                  : isOriginalMerchantList && field.name === 'available_minor'
+                    ? '金额单位：元'
+                    : undefined
+              "
+            >
               {{
                 resource === "merchants"
-                  ? hasContactProjection && field.name === contactAnchor
-                    ? "联系方式"
-                    : field.name === "created_at" &&
-                        schema.fields.some((f) => f.name === "url")
-                      ? "注册时间 / 域名"
-                      : consoleColumnLabel(field.name, field.label)
+                  ? isOriginalMerchantList
+                    ? field.label
+                    : hasContactProjection && field.name === contactAnchor
+                      ? "联系方式"
+                      : field.name === "created_at" &&
+                          schema.fields.some((f) => f.name === "url")
+                        ? "注册时间 / 域名"
+                        : consoleColumnLabel(field.name, field.label)
                   : field.label
               }}
             </th>
+            <th v-if="resource === 'groups'" scope="col">通道与费率</th>
             <th scope="col">操作</th>
           </tr>
         </thead>
@@ -655,6 +707,11 @@ onBeforeUnmount(resetContext);
           <tr v-for="row in items" :key="String(row.id)">
             <td>
               {{ row.id }}
+              <small
+                v-if="isOriginalMerchantList && typeof row.name === 'string'"
+                class="merchant-balance-detail"
+                >{{ row.name }}</small
+              >
               <template v-if="hasGroupProjection">
                 <small class="merchant-balance-detail muted">{{
                   merchantGroupLabel(row)
@@ -679,15 +736,28 @@ onBeforeUnmount(resetContext);
               </template>
             </td>
             <td v-for="field in listFields" :key="field.name">
+              <template v-if="isOriginalMerchantList && field.name === 'pay'">
+                <span class="cell"
+                  >收款：{{ merchantFieldValue("pay", row.pay) }}</span
+                >
+                <small class="merchant-balance-detail muted"
+                  >账户：{{ consoleValue("enabled", row.enabled) }}</small
+                >
+              </template>
               <template
-                v-if="hasContactProjection && field.name === contactAnchor"
+                v-else-if="hasContactProjection && field.name === contactAnchor"
               >
                 <small
                   v-for="contact in [
                     { key: 'phone', label: '手机' },
                     { key: 'email', label: '邮箱' },
                     { key: 'qq', label: 'QQ' },
-                  ].filter((c) => typeof row[c.key] === 'string' && row[c.key])"
+                  ].filter(
+                    (c) =>
+                      fields.some((f) => f.name === c.key) &&
+                      typeof row[c.key] === 'string' &&
+                      row[c.key],
+                  )"
                   :key="contact.key"
                   class="merchant-balance-detail"
                   >{{ contact.label }}：{{ row[contact.key] }}</small
@@ -695,15 +765,17 @@ onBeforeUnmount(resetContext);
                 <span v-if="!row.phone && !row.email && !row.qq">—</span>
               </template>
               <span v-else class="cell">{{
-                resource === "merchants"
-                  ? merchantFieldValue(field.name, row[field.name])
-                  : field.name === "enabled"
-                    ? consoleValue(field.name, row[field.name])
-                    : field.type === "boolean"
-                      ? row[field.name]
-                        ? "是"
-                        : "否"
-                      : displayValue(row[field.name])
+                isOriginalMerchantList && field.name === "available_minor"
+                  ? "¥" + merchantFieldValue(field.name, row[field.name])
+                  : resource === "merchants"
+                    ? merchantFieldValue(field.name, row[field.name])
+                    : field.name === "enabled"
+                      ? consoleValue(field.name, row[field.name])
+                      : field.type === "boolean"
+                        ? row[field.name]
+                          ? "是"
+                          : "否"
+                        : displayValue(row[field.name])
               }}</span>
               <template
                 v-if="
@@ -748,16 +820,43 @@ onBeforeUnmount(resetContext);
                 >
               </template>
             </td>
+            <td v-if="resource === 'groups'">
+              <p v-if="groupDirectoryRates(row).error" class="muted">
+                {{ groupDirectoryRates(row).error }}
+              </p>
+              <template v-else>
+                <small
+                  v-for="rate in groupDirectoryRates(row).lines"
+                  :key="rate.label"
+                  class="merchant-balance-detail"
+                  >{{ rate.label }}：{{ rate.value }}</small
+                >
+                <small class="merchant-balance-detail muted"
+                  >继承商户通道配置</small
+                >
+              </template>
+            </td>
             <td>
               <div class="row-actions">
-                <ActionDropdown
-                  v-if="groupConfigurationItems.length"
-                  :label="`用户组配置 ${row.id}`"
-                  trigger-text="配置"
-                  :items="groupConfigurationItems"
-                  :disabled="busy"
-                  @action="open('edit', row, $event)"
-                />
+                <RouterLink
+                  v-if="
+                    resource === 'groups' &&
+                    client.area === 'admin' &&
+                    groupUsersHref(row.id)
+                  "
+                  :to="groupUsersHref(row.id)!"
+                  >用户</RouterLink
+                >
+                <button
+                  v-if="canReadGroupStatistics"
+                  class="link-button"
+                  :disabled="
+                    busy || loading || mode !== null || !!groupStatisticsID
+                  "
+                  @click="openGroupStatistics(row.id)"
+                >
+                  统计
+                </button>
                 <ActionDropdown
                   v-if="resource === 'merchants' && client.area === 'admin'"
                   :label="`商户关联记录 ${row.id}`"
@@ -777,6 +876,7 @@ onBeforeUnmount(resetContext);
                   代登录商户
                 </button>
                 <button
+                  v-if="resource !== 'groups'"
                   class="link-button"
                   :disabled="busy"
                   @click="open('detail', row)"
@@ -811,7 +911,10 @@ onBeforeUnmount(resetContext);
             </td>
           </tr>
           <tr v-if="!items.length">
-            <td :colspan="listFields.length + 2" class="empty">
+            <td
+              :colspan="listFields.length + 2 + (resource === 'groups' ? 1 : 0)"
+              class="empty"
+            >
               暂无记录，可通过上方操作添加
             </td>
           </tr>
@@ -859,6 +962,13 @@ onBeforeUnmount(resetContext);
     :own-session="ownSession === true"
     :merchant-i-d="merchantLogID"
     @close="closeMerchantLogs"
+  />
+  <GroupStatisticsDialog
+    v-if="groupStatisticsID && canReadGroupStatistics"
+    :client="client"
+    :group-i-d="groupStatisticsID"
+    :own-session="ownSession === true"
+    @close="closeGroupStatistics"
   />
   <MerchantDelegationPanel
     v-if="delegation && canDelegate"

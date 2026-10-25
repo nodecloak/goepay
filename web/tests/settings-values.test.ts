@@ -4,6 +4,13 @@ import {
   settingDisplay,
   settingStorage,
 } from "../src/settings";
+it("places the original ordinary transfer permission with payment controls and explains inheritance", () => {
+  const d = settingDefinition("user_transfer");
+  expect(d.tab).toBe("transfer");
+  expect(d.label).toContain("代付功能");
+  expect(d.hint).toContain("商户自身权限");
+  expect(settingStorage(d, "1")).toBe("1");
+});
 it("keeps original payment amount settings in yuan with exact limits", () => {
   for (const key of ["pay_minmoney", "pay_maxmoney"]) {
     const d = settingDefinition(key);

@@ -13,13 +13,13 @@ it("keeps original retained percentages as strings and clears only the explicitl
     wxpay: { rate: "100.00" },
   });
   expect(readGroupPaymentRates(source).alipay.rate).toBe("99.50");
-  for (const rate of ["", "0", "99.50", "100.00"])
+  for (const rate of ["", "0", "00", "099.50", "99.50", "100.00"])
     expect(groupPaymentRatesError(JSON.stringify({ alipay: { rate } }))).toBe(
       "",
     );
 });
 it("refuses malformed and unsupported rate structures without silently dropping old configuration", () => {
-  for (const value of ["-1", "1e2", "99.999", "100.01"])
+  for (const value of ["-1", "1e2", "99.999", "100.01", "99\n"])
     expect(groupPaymentRatesError({ wxpay: { rate: value } })).not.toBe("");
   for (const invalid of [
     [],

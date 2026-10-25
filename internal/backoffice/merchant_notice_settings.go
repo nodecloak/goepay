@@ -42,10 +42,10 @@ func init() {
 	d.description += " 消息提醒开关沿用原0/1，微信模板ID和字段映射可在此配置。保存不发送消息；实际外发由独立worker开关控制。"
 	definitions["settings"] = d
 	d = definitions["groups"]
-	field := selectField("user_transfer", "用户代付（日报代付统计）", "", "0", "1")
+	field := selectField("user_transfer", "代付功能", "", "0", "_", "1")
 	field.Required = false
 	field.Default = ""
-	field.Options = []Option{{Label: "继承全局设置", Value: ""}, {Label: "关闭", Value: "0"}, {Label: "开启", Value: "1"}}
+	field.Options = []Option{{Label: "缺省（与系统设置一致）", Value: ""}, {Label: "缺省（旧值0）", Value: "0"}, {Label: "缺省（旧值_）", Value: "_"}, {Label: "开启", Value: "1"}}
 	d.fields = append(d.fields, field)
 	definitions["groups"] = d
 }

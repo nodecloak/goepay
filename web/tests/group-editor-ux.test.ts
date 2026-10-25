@@ -21,7 +21,7 @@ const fields: ResourceField[] = [
   { name: "price_cents", label: "会员价格（分）", type: "integer" },
   {
     name: "user_transfer",
-    label: "用户代付（日报代付统计）",
+    label: "代付功能",
     type: "select",
     options: ["0", "1"],
   },
@@ -64,7 +64,7 @@ it("group lists retain only the original group name while other schemas retain t
     fields.map((f) => f.name),
   );
 });
-it("group editor separates real existing fields and forwards original selector values without inventing transfer authority", async () => {
+it("group editor exposes original transfer permission, preserving legacy zero as inheritance", async () => {
   const w = mount(GroupEditorFields, {
     props: {
       fields,
@@ -85,9 +85,13 @@ it("group editor separates real existing fields and forwards original selector v
   expect(w.get("select").element.value).toBe("3");
   await w.get("select").setValue("2");
   expect(w.emitted("change")).toEqual([["settle_open", "2"]]);
-  await w.get('[role="tab"][data-group="notice"]').trigger("click");
-  expect(w.text()).toContain("日报代付统计");
-  expect(w.text()).not.toContain("代付功能");
+  await w.get('[role="tab"][data-group="transfer"]').trigger("click");
+  expect(w.text()).toContain("代付功能");
+  expect(w.text()).toContain("商户自身权限");
+  expect(w.get("select").element.value).toBe("0");
+  expect(w.get("select").text()).toContain("缺省");
+  await w.get("select").setValue("1");
+  expect(w.emitted("change")?.at(-1)).toEqual(["user_transfer", "1"]);
   w.unmount();
 });
 it("hidden validation errors reveal their real group and keyboard navigation preserves the field values", async () => {

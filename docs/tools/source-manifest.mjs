@@ -20,6 +20,11 @@ walk('docs/superpowers/plans/2026-10-26-original-trade-table-readability.md');
 walk('docs/superpowers/plans/2026-10-26-original-province-labels.md');
 walk('docs/superpowers/plans/2026-10-26-original-group-payment-limits.md');
 walk('docs/superpowers/plans/2026-10-26-original-group-payment-type-rates.md');
+walk('docs/superpowers/plans/2026-10-26-original-group-directory.md');
+walk('docs/superpowers/plans/2026-10-26-original-group-statistics.md');
+walk('docs/superpowers/plans/2026-10-26-original-group-transfer-access.md');
+walk('docs/superpowers/plans/2026-10-26-disabled-group-transfer-access.md');
+walk('docs/superpowers/plans/2026-10-26-original-merchant-list-columns.md');
 // Source-bound specifications and local map provenance for the original
 // statistics/log UX; never include the proprietary source package itself.
 for(const name of ['docs/design/province-map-source-136.md','docs/superpowers/plans/2026-10-26-original-province-statistics.md','docs/superpowers/plans/2026-10-26-original-daily-channel-statistics.md','docs/superpowers/plans/2026-10-25-original-system-operation-log.md'])walk(name);

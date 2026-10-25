@@ -24,6 +24,7 @@ const props = defineProps<{ client: ApiClient; area: Area }>();
 interface Capabilities extends FundsAvailability {
   writes_enabled: boolean;
   platform_enabled: boolean;
+  effective_enabled?: boolean;
   merchant_enabled: boolean;
   transfer_rate: string;
   channels: {
@@ -390,7 +391,9 @@ onBeforeUnmount(() => {
       >
         申请付款
       </button>
-      <a :href="`/${area}/transfer/batches`" class="button secondary">批量转账</a>
+      <a :href="`/${area}/transfer/batches`" class="button secondary"
+        >批量转账</a
+      >
       <CsvExportButton
         :client="client"
         :path="csvPath"
@@ -522,11 +525,13 @@ onBeforeUnmount(() => {
           </p>
           <p v-if="!capabilities.writes_enabled" class="alert error">
             {{
-              !capabilities.platform_enabled
-                ? "平台付款功能未启用"
+              !(capabilities.effective_enabled ?? capabilities.platform_enabled)
+                ? capabilities.platform_enabled
+                  ? "当前用户组付款功能未启用"
+                  : "平台付款功能未启用"
                 : !capabilities.merchant_enabled
                   ? "该商户付款功能未启用"
-                  : "当前通道不支持提交付款"
+                  : "当前运行环境或通道未启用付款"
             }}
           </p>
           <label

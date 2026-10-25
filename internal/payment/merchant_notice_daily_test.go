@@ -12,16 +12,19 @@ import (
 )
 
 func TestMerchantNotice80DailyTransfersUseOriginalRecipientTypeAndGroupOverride(t *testing.T) {
-	for _, groupOff := range []bool{false, true} {
-		t.Run(map[bool]string{false: "enabled", true: "group-disabled"}[groupOff], func(t *testing.T) {
+	for _, scenario := range []struct {
+		name, group     string
+		globalOff, want bool
+	}{{"enabled", "", false, true}, {"legacy-group-zero-inherits", "0", false, true}, {"group-overrides-global-off", "1", true, true}, {"inherited-global-off", "0", true, false}} {
+		t.Run(scenario.name, func(t *testing.T) {
 			s, g, _ := transferFixture(t)
 			ctx := context.Background()
 			if _, err := s.pool.Exec(ctx, `UPDATE merchants SET profile=profile||'{"email":"owner80@example.test"}'::jsonb WHERE id=501`); err != nil {
 				t.Fatal(err)
 			}
-			if groupOff {
+			if scenario.group != "" {
 				var gid int64
-				if err := s.pool.QueryRow(ctx, `INSERT INTO backoffice_records(resource,body) VALUES('groups','{"name":"local-report80","enabled":true,"user_transfer":"0"}') RETURNING id`).Scan(&gid); err != nil {
+				if err := s.pool.QueryRow(ctx, `INSERT INTO backoffice_records(resource,body) VALUES('groups',jsonb_build_object('name','local-report80','enabled',true,'user_transfer',$1::text)) RETURNING id`, scenario.group).Scan(&gid); err != nil {
 					t.Fatal(err)
 				}
 				if _, err := s.pool.Exec(ctx, `UPDATE merchants SET base_group_id=$2 WHERE id=$1`, int64(501), gid); err != nil {
@@ -34,6 +37,9 @@ func TestMerchantNotice80DailyTransfersUseOriginalRecipientTypeAndGroupOverride(
 			}
 			if _, err = g.QueryTransfer(ctx, 501, transfer.TransferNo); err != nil {
 				t.Fatal(err)
+			}
+			if scenario.globalOff {
+				transferSetting(t, s, "transfer_enabled", "false")
 			}
 			var at time.Time
 			if err = s.pool.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&at); err != nil {
@@ -62,8 +68,8 @@ func TestMerchantNotice80DailyTransfersUseOriginalRecipientTypeAndGroupOverride(
 				t.Fatal(err)
 			}
 			hasTransfer := strings.Contains(sender.text, "代付总额：¥1.00") && strings.Contains(sender.text, "微信代付：¥1.00")
-			if hasTransfer == groupOff {
-				t.Fatal("daily transfer condition/type mismatch", groupOff, sender.text)
+			if hasTransfer != scenario.want {
+				t.Fatal("daily transfer condition/type mismatch", scenario.name, sender.text)
 			}
 		})
 	}

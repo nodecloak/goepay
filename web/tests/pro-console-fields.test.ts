@@ -12,6 +12,33 @@ import {
 import { reportRows } from "../src/reports";
 import { freshListFilters, appendListFilters } from "../src/list-filters";
 describe("Pro field contracts", () => {
+  it("restores the original five merchant data columns when all safe projections exist, keeping extra fields in detail", () => {
+    const fields = [
+      "name",
+      "available_minor",
+      "settlement_recipient",
+      "email",
+      "phone",
+      "qq",
+      "created_at",
+      "pay",
+      "enabled",
+      "effective_group_id",
+      "effective_group_name",
+      "login_username",
+      "signature_algorithm",
+    ].map((name) => ({ name, label: name, type: "string" as const }));
+    expect(
+      resourceListFields("merchants", fields).map((f) => [f.name, f.label]),
+    ).toEqual([
+      ["available_minor", "余额"],
+      ["settlement_recipient", "结算账号/姓名"],
+      ["email", "联系方式"],
+      ["created_at", "注册时间/域名"],
+      ["pay", "状态"],
+    ]);
+    expect(fields.some((f) => f.name === "signature_algorithm")).toBe(true);
+  });
   it("keeps original pay0/pay1/pay2 separate from console account enabled", () => {
     expect(merchantFieldValue("pay", "2")).toBe("待审核");
     expect(merchantFieldValue("pay", "0")).toBe("禁止收款");

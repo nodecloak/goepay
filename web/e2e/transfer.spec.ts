@@ -4,6 +4,52 @@ const ok = (data: unknown, status = 200) => ({
   contentType: "application/json",
   body: JSON.stringify({ code: 0, data }),
 });
+for (const width of [1280, 375])
+  test(`group permission does not misreport global or execution state at ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    let writes = 0;
+    await page.route("**/console/v1/**", (route) => {
+      const r = route.request(),
+        p = new URL(r.url()).pathname;
+      if (r.method() !== "GET") writes++;
+      if (p.endsWith("/session"))
+        return route.fulfill(
+          ok({
+            user: { id: "1000", name: "Merchant", role: "merchant" },
+            csrf_token: "local144",
+          }),
+        );
+      if (p.endsWith("/capabilities"))
+        return route.fulfill(
+          ok({
+            writes_enabled: false,
+            platform_enabled: false,
+            effective_enabled: true,
+            permission_source: "group",
+            effective_group_id: "9007199254740993",
+            merchant_enabled: true,
+            transfer_rate: "0",
+            available_money: "10.00",
+            ledger_available_money: "10.00",
+            today_blocked_money: "0.00",
+            settle_type: 0,
+            channels: [{ id: "42", types: ["alipay"] }],
+          }),
+        );
+      return route.fulfill(ok({ items: [], total: 0 }));
+    });
+    await page.goto("/merchant/transfer");
+    await page.getByRole("button", { name: "申请付款", exact: true }).click();
+    const modal = page.getByRole("dialog", { name: "申请付款" });
+    await expect(modal).not.toContainText("平台付款功能未启用");
+    await expect(modal).toContainText("当前运行环境或通道未启用付款");
+    await expect(
+      modal.getByRole("button", { name: "核对付款信息" }),
+    ).toBeDisabled();
+    expect(writes).toBe(0);
+  });
 test("disabled transfer capability blocks submission without creating a payment", async ({
   page,
 }) => {
@@ -43,6 +89,50 @@ test("disabled transfer capability blocks submission without creating a payment"
   ).toBeDisabled();
   expect(writes).toBe(0);
 });
+for (const width of [1280, 375])
+  test(`disabled group is distinguished from global and runtime permission at ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    let writes = 0;
+    await page.route("**/console/v1/**", (route) => {
+      const r = route.request(),
+        p = new URL(r.url()).pathname;
+      if (r.method() !== "GET") writes++;
+      if (p.endsWith("/session"))
+        return route.fulfill(
+          ok({
+            user: { id: "1000", role: "merchant" },
+            csrf_token: "local145",
+          }),
+        );
+      if (p.endsWith("/capabilities"))
+        return route.fulfill(
+          ok({
+            writes_enabled: false,
+            platform_enabled: true,
+            effective_enabled: false,
+            permission_source: "group_disabled",
+            merchant_enabled: true,
+            transfer_rate: "0",
+            available_money: "10.00",
+            ledger_available_money: "10.00",
+            today_blocked_money: "0.00",
+            settle_type: 0,
+            channels: [{ id: "42", types: ["alipay"] }],
+          }),
+        );
+      return route.fulfill(ok({ items: [], total: 0 }));
+    });
+    await page.goto("/merchant/transfer");
+    await page.getByRole("button", { name: "申请付款", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "申请付款" });
+    await expect(dialog).toContainText("当前用户组付款功能未启用");
+    await expect(
+      dialog.getByRole("button", { name: "核对付款信息" }),
+    ).toBeDisabled();
+    expect(writes).toBe(0);
+  });
 test("wallet transfer keeps uncertain reservation and only queries original payment; proof requires confirmation", async ({
   page,
 }) => {

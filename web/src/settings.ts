@@ -82,7 +82,7 @@ const labels: Record<
   transfer_name: ["transfer", "支付宝转账标题", "text"],
   auto_settle_money: ["transfer", "余额自动转账阈值（元）", "money"],
   transfer_alipay: ["transfer", "支付宝自动转账通道ID", "integer"],
-  user_transfer: ["notice", "代付日报提醒", "select"],
+  user_transfer: ["transfer", "代付功能（原系统开关）", "select"],
   telegramnotice: ["notice", "Telegram提醒", "select"],
   qqbotnotice: ["notice", "QQ Bot提醒", "select"],
   voicenotice: ["notice", "语音提醒", "select"],
@@ -206,7 +206,8 @@ export function settingDefinition(
   if (key === "sitename")
     d.hint = "兼容原消息模板的网站名称；已配置时提醒内容优先使用此值。";
   if (key === "user_transfer")
-    d.hint = "用于代付日报提醒条件，转账权限由转账付款开关和商户设置控制。";
+    d.hint =
+      "普通代付兼容原系统开关；配置转账付款开关时优先使用该项。用户组开启可覆盖普通业务开关，商户自身权限和执行开关仍需满足。";
   if (["pay_maxmoney", "pay_minmoney"].includes(key))
     d.hint = "0表示不限制；用户组可覆盖，修改后仅约束新订单。";
   if (key === "admin_funds_authorization_enabled")

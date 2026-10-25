@@ -187,7 +187,7 @@ func (s *Store) beginTransferTx(ctx context.Context, tx pgx.Tx, merchantID, chan
 	if !api {
 		return Transfer{}, false, ErrState
 	}
-	policy, e := readTransferPolicy(ctx, tx)
+	policy, e := readManualTransferPolicy(ctx, tx, merchantID)
 	if e != nil {
 		return Transfer{}, false, e
 	}
