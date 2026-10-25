@@ -42,6 +42,68 @@ export const freshListFilters = () => ({
 });
 export type ListFilters = ReturnType<typeof freshListFilters>;
 
+// Immutable read context for the original merchant -> payment/settlement links.
+// These values never populate or submit a financial action form.
+export function readLinkedMerchantRoute(
+  raw: Record<string, unknown>,
+  area: Area,
+  selfID: string,
+  allowSearch = false,
+) {
+  const result = { merchantID: "", page: 1, limit: 20, search: "", error: "" };
+  const fail = () => ({
+    ...result,
+    error: "关联记录筛选参数无效，请清空后重新查询",
+  });
+  const allowed = [
+    "uid",
+    "merchant_id",
+    "page",
+    "limit",
+    ...(allowSearch ? ["q"] : []),
+  ];
+  const values: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (
+      !allowed.includes(key) ||
+      typeof value !== "string" ||
+      /[\x00\r\n]/.test(value)
+    )
+      return fail();
+    values[key] = value;
+  }
+  const id = (v: string) =>
+    /^[1-9]\d{0,18}$/.test(v) && BigInt(v) <= 9223372036854775807n;
+  for (const key of ["uid", "merchant_id"])
+    if (values[key] !== undefined && !id(values[key])) return fail();
+  if (
+    values.uid !== undefined &&
+    values.merchant_id !== undefined &&
+    values.uid !== values.merchant_id
+  )
+    return fail();
+  result.merchantID = values.uid ?? values.merchant_id ?? "";
+  if (
+    area === "merchant" &&
+    result.merchantID &&
+    (!id(selfID) || result.merchantID !== selfID)
+  )
+    return fail();
+  for (const [key, max] of [
+    ["page", 100000],
+    ["limit", 100],
+  ] as const) {
+    if (values[key] !== undefined) {
+      if (!/^[1-9]\d*$/.test(values[key]) || Number(values[key]) > max)
+        return fail();
+      result[key] = Number(values[key]);
+    }
+  }
+  result.search = values.q ?? "";
+  if (new TextEncoder().encode(result.search).length > 256) return fail();
+  return result;
+}
+
 // URL state is a typed read context. An invalid original link must never fall
 // back to an unfiltered platform query or supply a different merchant identity.
 export function readListRouteQuery(

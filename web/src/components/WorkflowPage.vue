@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { RouterLink } from "vue-router";
+import { readLinkedMerchantRoute } from "../list-filters";
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import { ApiClient, ApiError, validAmount } from "../api";
 import type { Area } from "../menu";
@@ -25,10 +27,18 @@ const props = defineProps<{
   workflow: "settlements" | "internal-transfers" | "profitsharing";
   area: Area;
   application?: boolean;
+  initialQuery?: Record<string, unknown>;
+  selfID?: string;
 }>();
+const routeContext = readLinkedMerchantRoute(
+  props.initialQuery || {},
+  props.area,
+  props.selfID || "",
+);
 const items = ref<Record<string, unknown>[]>([]),
   total = ref(0),
-  page = ref(1),
+  page = ref(routeContext.page),
+  limit = ref(routeContext.limit),
   loading = ref(false),
   busy = ref(false),
   error = ref(""),
@@ -152,6 +162,13 @@ const columns = [
   { key: "created_at", label: "申请时间" },
 ];
 async function load() {
+  if (routeContext.error) {
+    error.value = routeContext.error;
+    items.value = [];
+    total.value = 0;
+    loading.value = false;
+    return;
+  }
   controller?.abort();
   controller = new AbortController();
   const c = controller;
@@ -161,7 +178,18 @@ async function load() {
     const data = await props.client.request<{
       items: Record<string, unknown>[];
       total: number;
-    }>(endpoint + `?page=${page.value}&limit=20`, { signal: c.signal });
+    }>(
+      endpoint +
+        "?" +
+        new URLSearchParams({
+          page: String(page.value),
+          limit: String(limit.value),
+          ...(props.area === "admin" && routeContext.merchantID
+            ? { merchant_id: routeContext.merchantID }
+            : {}),
+        }),
+      { signal: c.signal },
+    );
     if (!c.signal.aborted) {
       items.value = data.items.map((row) => {
         if (props.workflow !== "settlements") return row;
@@ -332,6 +360,20 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section v-if="!application || !dialog" class="panel records">
+    <p
+      v-if="area === 'admin' && routeContext.merchantID && !routeContext.error"
+      class="resource-description"
+    >
+      商户号：{{ routeContext.merchantID }}
+    </p>
+    <RouterLink
+      v-if="
+        workflow === 'settlements' &&
+        (routeContext.merchantID || routeContext.error)
+      "
+      :to="`/${area}/settle/list`"
+      >清空筛选</RouterLink
+    >
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
     <p class="resource-description muted">
@@ -459,7 +501,7 @@ onBeforeUnmount(() => {
           上一页</button
         ><span>第 {{ page }} 页</span
         ><button
-          :disabled="page * 20 >= total || loading"
+          :disabled="page * limit >= total || loading"
           @click="
             page++;
             load();

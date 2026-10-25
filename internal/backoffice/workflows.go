@@ -119,20 +119,10 @@ func (s *Service) ServeWorkflows(w http.ResponseWriter, r *http.Request, p Princ
 		return
 	}
 	if len(parts) == 1 && r.Method == "GET" {
-		page, limit := 1, 20
-		if raw := r.URL.Query().Get("page"); raw != "" {
-			page, _ = strconv.Atoi(raw)
-		}
-		if raw := r.URL.Query().Get("limit"); raw != "" {
-			limit, _ = strconv.Atoi(raw)
-		}
-		if page < 1 || page > 100000 || limit < 1 || limit > 100 {
-			writeError(w, ErrInvalid)
+		page, limit, mid, e := workflowListFilters(r, p)
+		if e != nil {
+			writeError(w, e)
 			return
-		}
-		mid := p.SubjectID
-		if p.Role == "admin" {
-			mid = 0
 		}
 		var total int64
 		if e := s.pool.QueryRow(r.Context(), "SELECT count(*) FROM ledger_requests WHERE kind=$1 AND ($2::bigint=0 OR merchant_id=$2)", kind, mid).Scan(&total); e != nil {

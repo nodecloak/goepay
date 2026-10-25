@@ -32,6 +32,7 @@ it("original per-payment retained rates use exact strings and preserve the other
       fields: [
         ...fields,
         { name: "info", label: "支付方式分成比例", type: "json" },
+        { name: "pay_maxmoney", label: "最大支付金额", type: "string" },
       ],
       values: {
         name: "本地组",
@@ -42,7 +43,10 @@ it("original per-payment retained rates use exact strings and preserve the other
       disabled: false,
     },
   });
-  await w.get('[role="tab"][data-group="payment"]').trigger("click");
+  expect(w.findAll('[role="tab"]').map((t) => t.text())).toEqual([
+    "基本信息",
+    "其他配置",
+  ]);
   expect(w.text()).toContain("分成比例");
   const input = w.get('input[aria-label="支付宝分成比例（%）"]');
   expect((input.element as HTMLInputElement).value).toBe("99.50");
@@ -81,16 +85,16 @@ it("group editor exposes original transfer permission, preserving legacy zero as
     },
   });
   expect(w.get("input").element.value).toBe("本地组");
-  await w.get('[role="tab"][data-group="settlement"]').trigger("click");
-  expect(w.get("select").element.value).toBe("3");
-  await w.get("select").setValue("2");
+  expect(w.findAll('[role="tab"]')).toHaveLength(1);
+  expect(w.get<HTMLSelectElement>("#field-settle_open").element.value).toBe("3");
+  await w.get<HTMLSelectElement>("#field-settle_open").setValue("2");
   expect(w.emitted("change")).toEqual([["settle_open", "2"]]);
-  await w.get('[role="tab"][data-group="transfer"]').trigger("click");
+
   expect(w.text()).toContain("代付功能");
   expect(w.text()).toContain("商户自身权限");
-  expect(w.get("select").element.value).toBe("0");
-  expect(w.get("select").text()).toContain("缺省");
-  await w.get("select").setValue("1");
+  expect(w.get<HTMLSelectElement>("#field-user_transfer").element.value).toBe("0");
+  expect(w.get<HTMLSelectElement>("#field-user_transfer").text()).toContain("缺省");
+  await w.get<HTMLSelectElement>("#field-user_transfer").setValue("1");
   expect(w.emitted("change")?.at(-1)).toEqual(["user_transfer", "1"]);
   w.unmount();
 });
@@ -98,22 +102,126 @@ it("hidden validation errors reveal their real group and keyboard navigation pre
   const w = mount(GroupEditorFields, {
     attachTo: document.body,
     props: {
-      fields,
-      values: { name: "本地组", rate_bps: "38" },
+      fields: [
+        ...fields,
+        { name: "pay_maxmoney", label: "最大支付金额", type: "string" },
+      ],
+      values: {
+        name: "本地组",
+        rate_bps: "38",
+        pay_maxmoney: "90071992547409.93",
+      },
       errors: {},
       editing: true,
       disabled: false,
     },
   });
-  await w.setProps({ errors: { rate_bps: "无效费率" } });
+  await w.setProps({ errors: { pay_maxmoney: "无效限额" } });
   expect(
     w.get('[role="tab"][aria-selected="true"]').attributes("data-group"),
-  ).toBe("payment");
-  expect(w.get("input").element.value).toBe("38");
+  ).toBe("other");
+  expect(w.get<HTMLInputElement>("#field-pay_maxmoney").element.value).toBe("90071992547409.93");
+  expect(document.activeElement?.id).toBe("field-pay_maxmoney");
   await w.get('[role="tablist"]').trigger("keydown", { key: "Home" });
   expect(
     w.get('[role="tab"][aria-selected="true"]').attributes("data-group"),
   ).toBe("basic");
   expect(w.get("input").element.value).toBe("本地组");
+  w.unmount();
+});
+
+it("original basic/other layout preserves unknown fields and excludes readonly fields", async () => {
+  const w = mount(GroupEditorFields, {
+    props: {
+      fields: [
+        ...fields,
+        { name: "pay_minmoney", label: "最小支付金额", type: "string" },
+        { name: "extra", label: "新增兼容项", type: "string" },
+        {
+          name: "created_at",
+          label: "只读时间",
+          type: "string",
+          readonly: true,
+        },
+      ],
+      values: { name: "组", extra: "opaque", pay_minmoney: "0" },
+      errors: {},
+      editing: true,
+      disabled: false,
+    },
+  });
+  expect(w.findAll('[role="tab"]').map((t) => t.text())).toEqual([
+    "基本信息",
+    "其他配置",
+  ]);
+  expect(w.get('label[for="field-name"]').text()).toContain("显示名称");
+  expect(w.findAll("h3").map((h) => h.text())).toEqual([
+    "通道费率",
+    "结算配置",
+    "会员配置",
+    "代付配置",
+  ]);
+  expect(w.find("#field-pay_minmoney").exists()).toBe(false);
+  await w.get('[data-group="other"]').trigger("click");
+  expect(w.get<HTMLInputElement>("#field-extra").element.value).toBe("opaque");
+  expect(w.get<HTMLInputElement>("#field-pay_minmoney").element.value).toBe("0");
+  expect(w.find("#field-created_at").exists()).toBe(false);
+  w.unmount();
+});
+it("arrow keys navigate the tabs without intercepting input editing", async () => {
+  const w = mount(GroupEditorFields, {
+    attachTo: document.body,
+    props: {
+      fields: [
+        ...fields,
+        { name: "pay_minmoney", label: "最小支付金额", type: "string" },
+      ],
+      values: { name: "组" },
+      errors: {},
+      editing: true,
+      disabled: false,
+    },
+  });
+  const input = w.get("#field-name");
+  await input.trigger("keydown", { key: "End" });
+  expect(w.get('[aria-selected="true"]').attributes("data-group")).toBe(
+    "basic",
+  );
+  await w.get('[data-group="basic"]').trigger("keydown", { key: "End" });
+  expect(w.get('[aria-selected="true"]').attributes("data-group")).toBe(
+    "other",
+  );
+  expect(document.activeElement).toBe(w.get('[data-group="other"]').element);
+  await w.get('[data-group="other"]').trigger("keydown", { key: "ArrowRight" });
+  expect(w.get('[aria-selected="true"]').attributes("data-group")).toBe(
+    "basic",
+  );
+  w.unmount();
+});
+it("legacy internal section targeting maps to basic while other configuration stays separate", async () => {
+  const w = mount(GroupEditorFields, {
+    props: {
+      fields: [
+        ...fields,
+        { name: "pay_maxmoney", label: "最大支付金额", type: "string" },
+      ],
+      values: {},
+      errors: {},
+      editing: true,
+      disabled: false,
+      initialTab: "settlement",
+    },
+  });
+  expect(w.get('[aria-selected="true"]').attributes("data-group")).toBe(
+    "basic",
+  );
+  await w.setProps({ initialTab: "other" });
+  expect(w.get('[aria-selected="true"]').attributes("data-group")).toBe(
+    "other",
+  );
+  await w.setProps({ initialTab: "transfer" });
+  expect(w.get('[aria-selected="true"]').attributes("data-group")).toBe(
+    "basic",
+  );
   w.unmount();
 });

@@ -9999,8 +9999,10 @@
             "schema": {
               "type": "integer",
               "minimum": 1,
-              "default": 1
-            }
+              "default": 1,
+              "maximum": 100000
+            },
+            "description": "规范正十进制，不接受符号或前导0，最大100000"
           },
           {
             "name": "limit",
@@ -10010,16 +10012,17 @@
               "minimum": 1,
               "maximum": 100,
               "default": 20
-            }
+            },
+            "description": "规范正十进制，不接受符号或前导0"
           },
           {
-            "name": "q",
+            "name": "merchant_id",
             "in": "query",
             "schema": {
               "type": "string",
-              "maxLength": 256
+              "pattern": "^[1-9][0-9]{0,18}$"
             },
-            "description": "最多256个UTF-8字节；省略search_field保持系统/商户单号和商品综合字面子串搜索。指定字段时按search_field约定匹配；金额使用元十进制字符串，精确转换整数分。重复q/字段、非法金额或地址返回400；空q不启用所选字段。"
+            "description": "管理员可选商户筛选；商户仅可等于本身份，最大9223372036854775807。完整ID不转浮点。"
           }
         ],
         "responses": {
@@ -10084,7 +10087,7 @@
             }
           },
           "422": {
-            "description": "业务输入或当前状态不允许。",
+            "description": "无效、重复、未知或越界筛选参数",
             "content": {
               "application/json": {
                 "schema": {
@@ -10113,7 +10116,8 @@
               }
             }
           }
-        }
+        },
+        "description": " 148列表只接受唯一page/limit/merchant_id，未知、重复、空值、非规范十进制或越界参数422；page1–100000，limit1–100。管理员可用规范正int64 merchant_id过滤数量和分页；商户省略或等于本身份，跨商户403。GET只读，不预占资金、不创建出款，不支持q搜索。"
       },
       "post": {
         "operationId": "console_70_post",
@@ -34110,6 +34114,122 @@
           }
         }
       }
+    },
+    "/console/v1/admin/reports/merchant-payments": {
+      "get": {
+        "operationId": "adminMerchantPaymentStatistics",
+        "summary": "商户七日趋势与今日／昨日支付统计",
+        "description": "仅管理员本人super/operator可读；只接受唯一uid参数，规范正int64字符串。未知/重复/无效参数400，不存在商户404，商户身份403。北京时间订单创建日群，连续7个自然日含今日，paid订单原金额、全部订单数量、成功笔数/总笔数加权两位；金额及计数始终精确十进制字符串。固定alipay/wxpay/sandbox三方式和空日零值；不连接通道重试、退款或资金表，不查询成本或收款资料。RepeatableRead只读、与组统计共用4并发槽、12秒上限，拥塞429 Retry-After5。禁止业务/审计写入和外部调用。原Pro加密控制器未取得数值逐条等价证据，本地计算约定如上。",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "uid",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,18}$"
+            },
+            "description": "完整正int64字符串，最大9223372036854775807"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "连续七日趋势与今日/昨日原四列，精确金额和加权总计",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MerchantPaymentStatisticsEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数非法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "会话失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "无管理员权限",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "商户不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "仅GET",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "源订单类型不受支持",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "统计繁忙",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "统计不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -40528,6 +40648,85 @@
                   "yesterday": {
                     "$ref": "#/components/schemas/GroupStatisticsDay"
                   }
+                }
+              }
+            }
+          }
+        }
+      },
+      "MerchantPaymentStatisticsEnvelope": {
+        "type": "object",
+        "required": [
+          "code",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "const": 0
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "merchant_id",
+              "timezone",
+              "cohort",
+              "columns",
+              "days",
+              "trend"
+            ],
+            "properties": {
+              "timezone": {
+                "type": "string",
+                "const": "Asia/Shanghai"
+              },
+              "cohort": {
+                "type": "string",
+                "const": "merchant_orders_created"
+              },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "days": {
+                "type": "object",
+                "required": [
+                  "today",
+                  "yesterday"
+                ],
+                "properties": {
+                  "today": {
+                    "$ref": "#/components/schemas/GroupStatisticsDay"
+                  },
+                  "yesterday": {
+                    "$ref": "#/components/schemas/GroupStatisticsDay"
+                  }
+                }
+              },
+              "merchant_id": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$"
+              },
+              "trend": {
+                "type": "array",
+                "minItems": 7,
+                "maxItems": 7,
+                "description": "按北京时间日期升序，连续7日含今日；最后两项与days.yesterday/today一致",
+                "items": {
+                  "$ref": "#/components/schemas/GroupStatisticsDay"
                 }
               }
             }

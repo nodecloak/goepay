@@ -28,6 +28,10 @@ walk('docs/superpowers/plans/2026-10-26-original-merchant-list-columns.md');
 // Source-bound specifications and local map provenance for the original
 // statistics/log UX; never include the proprietary source package itself.
 for(const name of ['docs/design/province-map-source-136.md','docs/superpowers/plans/2026-10-26-original-province-statistics.md','docs/superpowers/plans/2026-10-26-original-daily-channel-statistics.md','docs/superpowers/plans/2026-10-25-original-system-operation-log.md'])walk(name);
+walk('docs/plans/2026-10-26-original-group-editor-layout.md');
+walk('docs/plans/2026-10-26-original-merchant-payment-statistics.md');
+walk('docs/plans/2026-10-26-original-merchant-related-records.md');
+walk('docs/verification/local-preview-ux146-2026-10-26.md');
 // Native mini clients: enumerate source roots only, never generated packages or
 // developer-tool local/private configuration.
 for (const name of ['clients/mini/src','clients/mini/templates','clients/mini/tests','clients/mini/build.mjs','clients/mini/README.md','docs/design/mini-client-81.md','docs/superpowers/plans/2026-10-24-mini-client-81.md']) walk(name);

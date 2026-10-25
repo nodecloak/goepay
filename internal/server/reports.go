@@ -28,6 +28,10 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request, role string, se
 		return true
 	}
 	name := parts[2]
+	if name == "merchant-payments" {
+		s.merchantPaymentStatistics(w, r, role, session)
+		return true
+	}
 	if name == "groups" {
 		s.groupStatistics(w, r, role, session)
 		return true

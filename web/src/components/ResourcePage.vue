@@ -32,6 +32,7 @@ import ResourceFields from "./ResourceFields.vue";
 import MerchantEditorFields from "./MerchantEditorFields.vue";
 import GroupEditorFields from "./GroupEditorFields.vue";
 import GroupStatisticsDialog from "./GroupStatisticsDialog.vue";
+import PaymentStatisticsDialog from "./PaymentStatisticsDialog.vue";
 import AccountLoginLogDialog from "./AccountLoginLogDialog.vue";
 import SettlementRecipientPanel from "./SettlementRecipientPanel.vue";
 import CasePanel from "./CasePanel.vue";
@@ -61,6 +62,24 @@ const props = defineProps<{
 const delegation = ref<Record<string, unknown> | null>(null);
 const editMerchantRecipient = ref(false);
 const merchantLogID = ref<string>();
+const merchantStatisticsID = ref<string>();
+let merchantStatisticsReturn: HTMLElement | undefined;
+const canReadMerchantStatistics = computed(
+  () =>
+    props.resource === "merchants" &&
+    props.client.area === "admin" &&
+    props.ownSession === true &&
+    ["super", "operator"].includes(props.adminClass || ""),
+);
+function closeMerchantStatistics() {
+  const target = merchantStatisticsReturn,
+    epoch = contextEpoch;
+  merchantStatisticsID.value = undefined;
+  merchantStatisticsReturn = undefined;
+  void nextTick(() => {
+    if (epoch === contextEpoch && target?.isConnected) target.focus();
+  });
+}
 const groupStatisticsID = ref<string>();
 let groupStatisticsReturn: HTMLElement | undefined;
 const canReadGroupStatistics = computed(
@@ -163,10 +182,23 @@ function merchantRelatedLinks(id: unknown) {
   if (!/^[1-9]\d{0,18}$/.test(value) || BigInt(value) > 9223372036854775807n)
     return [];
   return [
+    ...(canReadMerchantStatistics.value
+      ? [{ id: "payment-statistics", label: "支付统计" }]
+      : []),
     {
       id: "orders",
       label: "订单管理",
       href: `/admin/trade/order?uid=${value}`,
+    },
+    {
+      id: "transfers",
+      label: "代付记录",
+      href: `/admin/transfer/list?uid=${value}`,
+    },
+    {
+      id: "settlements",
+      label: "结算记录",
+      href: `/admin/settle/list?uid=${value}`,
     },
     {
       id: "ledger",
@@ -180,6 +212,23 @@ function merchantRelatedLinks(id: unknown) {
 }
 function merchantRelatedAction(action: string, id: unknown) {
   const value = String(id ?? "");
+  if (action === "payment-statistics") {
+    if (
+      !canReadMerchantStatistics.value ||
+      busy.value ||
+      loading.value ||
+      mode.value !== null ||
+      !/^[1-9]\d{0,18}$/.test(value) ||
+      BigInt(value) > 9223372036854775807n
+    )
+      return;
+    merchantStatisticsReturn =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : undefined;
+    merchantStatisticsID.value = value;
+    return;
+  }
   if (
     action !== "login-log" ||
     !canReadMerchantLogs.value ||
@@ -249,6 +298,8 @@ function resetContext() {
   fieldErrors.value = {};
   delegation.value = null;
   merchantLogID.value = undefined;
+  merchantStatisticsID.value = undefined;
+  merchantStatisticsReturn = undefined;
   groupStatisticsID.value = undefined;
   groupStatisticsReturn = undefined;
   merchantLogReturn = undefined;
@@ -294,6 +345,37 @@ const isOriginalMerchantList = computed(
     props.resource === "merchants" &&
     hasOriginalMerchantListFields(schema.value?.fields || []),
 );
+const isGroupEditor = computed(
+  () =>
+    props.resource === "groups" &&
+    ["create", "edit"].includes(mode.value || ""),
+);
+const groupEditorTitle = computed(() =>
+  mode.value === "create"
+    ? "新增用户组"
+    : "编辑用户组 GID:" + String(selected.value.id || ""),
+);
+function trapGroupFocus(event: KeyboardEvent) {
+  if (!isGroupEditor.value) return;
+  const root = event.currentTarget as HTMLElement;
+  const nodes = Array.from(
+    root.querySelectorAll<HTMLElement>(
+      'button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex="0"]',
+    ),
+  ).filter((el) => el.tabIndex >= 0 && el.getClientRects().length);
+  const first = nodes[0],
+    last = nodes.at(-1);
+  if (
+    first &&
+    last &&
+    (event.shiftKey
+      ? document.activeElement === first
+      : document.activeElement === last)
+  ) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+  }
+}
 const groupSection = ref("basic");
 const groupReturnFocus = ref<HTMLElement>();
 const hasGroupProjection = computed(
@@ -368,6 +450,8 @@ async function refreshCase() {
   }
 }
 async function load() {
+  merchantStatisticsID.value = undefined;
+  merchantStatisticsReturn = undefined;
   groupStatisticsID.value = undefined;
   groupStatisticsReturn = undefined;
   merchantLogID.value = undefined;
@@ -863,7 +947,11 @@ onBeforeUnmount(resetContext);
                   :items="merchantRelatedLinks(row.id)"
                   trigger-text="更多"
                   :disabled="
-                    busy || loading || mode !== null || !!merchantLogID
+                    busy ||
+                    loading ||
+                    mode !== null ||
+                    !!merchantLogID ||
+                    !!merchantStatisticsID
                   "
                   @action="(action) => merchantRelatedAction(action, row.id)"
                 />
@@ -963,6 +1051,14 @@ onBeforeUnmount(resetContext);
     :merchant-i-d="merchantLogID"
     @close="closeMerchantLogs"
   />
+  <PaymentStatisticsDialog
+    v-if="merchantStatisticsID && canReadMerchantStatistics"
+    :client="client"
+    kind="merchant"
+    :subject-id="merchantStatisticsID"
+    :own-session="ownSession === true"
+    @close="closeMerchantStatistics"
+  />
   <GroupStatisticsDialog
     v-if="groupStatisticsID && canReadGroupStatistics"
     :client="client"
@@ -983,8 +1079,13 @@ onBeforeUnmount(resetContext);
   </div>
   <div
     v-if="mode && schema"
-    :class="entry ? 'resource-entry' : 'modal-backdrop'"
+    :class="
+      entry
+        ? 'resource-entry'
+        : 'modal-backdrop' + (isGroupEditor ? ' group-edit-backdrop' : '')
+    "
     @keydown.esc="!entry && !busy && (mode = null)"
+    @keydown.tab="trapGroupFocus"
   >
     <section
       :class="
@@ -993,21 +1094,35 @@ onBeforeUnmount(resetContext);
           : 'modal panel resource-modal' +
             (resource === 'merchants' && mode === 'edit'
               ? ' merchant-edit-modal'
-              : '')
+              : '') +
+            (isGroupEditor ? ' group-edit-modal' : '')
       "
       :role="entry ? undefined : 'dialog'"
       :aria-modal="entry ? undefined : true"
       :aria-label="
-        mode === 'create'
-          ? '新增' + schema.title
-          : mode === 'edit'
-            ? '编辑' + schema.title
-            : mode === 'delete'
-              ? '删除确认'
-              : schema.title + '详情'
+        isGroupEditor
+          ? groupEditorTitle
+          : mode === 'create'
+            ? '新增' + schema.title
+            : mode === 'edit'
+              ? '编辑' + schema.title
+              : mode === 'delete'
+                ? '删除确认'
+                : schema.title + '详情'
       "
     >
-      <h2>
+      <div v-if="isGroupEditor" class="group-edit-header">
+        <h2>{{ groupEditorTitle }}</h2>
+        <button
+          type="button"
+          :disabled="busy"
+          aria-label="关闭用户组编辑"
+          @click="mode = null"
+        >
+          ×
+        </button>
+      </div>
+      <h2 v-else>
         {{
           mode === "create"
             ? "新增"
@@ -1159,6 +1274,29 @@ onBeforeUnmount(resetContext);
   display: block;
   margin-top: 4px;
   white-space: nowrap;
+}
+.group-edit-backdrop {
+  align-items: start;
+  padding-top: 4dvh;
+  padding-bottom: 4dvh;
+}
+.group-edit-modal {
+  width: min(100%, 1000px);
+  max-height: 92dvh;
+}
+.group-edit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.group-edit-header h2 {
+  margin: 0;
+}
+.group-edit-header button {
+  font-size: 24px;
+  padding: 4px 12px;
+  border: 0;
 }
 .merchant-edit-modal {
   width: min(100%, 900px);

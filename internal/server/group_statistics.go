@@ -75,7 +75,7 @@ func (s *Server) groupStatistics(w http.ResponseWriter, r *http.Request, role st
 		s.fail(w, e)
 		return
 	}
-	methods := []struct{ kind, name string }{{"alipay", "支付宝"}, {"wxpay", "微信支付"}, {"sandbox", "本地模拟"}}
+	methods := paymentStatisticsMethods
 	groups := map[string]map[string]*originalStatisticsGroup{}
 	totals := map[string]*originalStatisticsGroup{}
 	for _, day := range []string{"today", "yesterday"} {
@@ -115,24 +115,13 @@ func (s *Server) groupStatistics(w http.ResponseWriter, r *http.Request, role st
 		s.fail(w, e)
 		return
 	}
-	render := func(g *originalStatisticsGroup, kind, name string) map[string]any {
-		rate := g.row("", false)["successRate"]
-		if rate == nil {
-			rate = "0.00"
-		}
-		return map[string]any{"type": kind, "showname": name, "money": g.paid.value(), "count": g.orders.String(), "success_count": g.successes.String(), "rate": rate}
-	}
 	days := map[string]any{}
 	for _, day := range []string{"today", "yesterday"} {
-		items := []map[string]any{}
-		for _, m := range methods {
-			items = append(items, render(groups[day][m.kind], m.kind, m.name))
-		}
 		at := today
 		if day == "yesterday" {
 			at = yesterday
 		}
-		days[day] = map[string]any{"date": at.Format("2006-01-02"), "items": items, "summary": render(totals[day], "total", "总计")}
+		days[day] = paymentStatisticsDay(at, groups[day], totals[day])
 	}
 	response(w, 200, 0, "", map[string]any{"group_id": raw, "group_name": name, "timezone": "Asia/Shanghai", "cohort": "current_effective_group", "columns": []reportColumn{{"showname", "支付方式"}, {"money", "订单金额"}, {"count", "订单数量"}, {"rate", "成功率"}}, "days": days})
 }

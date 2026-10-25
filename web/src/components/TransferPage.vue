@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { RouterLink } from "vue-router";
+import { readLinkedMerchantRoute } from "../list-filters";
 import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { ApiClient, displayValue } from "../api";
 import type { Area } from "../menu";
@@ -20,7 +22,12 @@ import {
   readFundsAvailability,
   type FundsAvailability,
 } from "../funds-availability";
-const props = defineProps<{ client: ApiClient; area: Area }>();
+const props = defineProps<{
+  client: ApiClient;
+  area: Area;
+  initialQuery?: Record<string, unknown>;
+  selfID?: string;
+}>();
 interface Capabilities extends FundsAvailability {
   writes_enabled: boolean;
   platform_enabled: boolean;
@@ -40,10 +47,17 @@ interface Capabilities extends FundsAvailability {
   default_remark?: string;
   default_title?: string;
 }
+const routeContext = readLinkedMerchantRoute(
+  props.initialQuery || {},
+  props.area,
+  props.selfID || "",
+  true,
+);
 const items = ref<Record<string, unknown>[]>([]),
   total = ref(0),
-  page = ref(1),
-  query = ref(""),
+  page = ref(routeContext.page),
+  limit = ref(routeContext.limit),
+  query = ref(routeContext.search),
   loading = ref(false),
   busy = ref(false),
   error = ref(""),
@@ -71,13 +85,17 @@ const form = ref({
 let controller: AbortController | undefined,
   capEpoch = 0;
 function transferQuery() {
-  return new URLSearchParams({
+  const q = new URLSearchParams({
     page: String(page.value),
-    limit: "20",
+    limit: String(limit.value),
     q: query.value,
   });
+  if (props.area === "admin" && routeContext.merchantID)
+    q.set("merchant_id", routeContext.merchantID);
+  return q;
 }
 const csvPath = computed(() => {
+  if (routeContext.error) return "";
   const q = transferQuery();
   q.set("format", "csv");
   return `/transfers?${q}`;
@@ -160,6 +178,13 @@ const canSubmit = computed(
 const message = (e: unknown) =>
   e instanceof Error ? e.message : "请求失败，请重试";
 async function load() {
+  if (routeContext.error) {
+    error.value = routeContext.error;
+    items.value = [];
+    total.value = 0;
+    loading.value = false;
+    return;
+  }
   controller?.abort();
   controller = new AbortController();
   const c = controller;
@@ -366,6 +391,17 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="panel records">
+    <p
+      v-if="area === 'admin' && routeContext.merchantID && !routeContext.error"
+      class="resource-description"
+    >
+      商户号：{{ routeContext.merchantID }}
+    </p>
+    <RouterLink
+      v-if="routeContext.merchantID || routeContext.error"
+      :to="`/${area}/transfer/list`"
+      >清空筛选</RouterLink
+    >
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
     <form
@@ -398,7 +434,7 @@ onBeforeUnmount(() => {
         :client="client"
         :path="csvPath"
         filename="transfers-filtered.csv"
-        :disabled="loading"
+        :disabled="loading || !!routeContext.error"
       />
     </form>
     <div v-if="loading" class="loading-row" role="status">
@@ -424,7 +460,7 @@ onBeforeUnmount(() => {
           上一页</button
         ><span>第 {{ page }} 页</span
         ><button
-          :disabled="page * 20 >= total || loading"
+          :disabled="page * limit >= total || loading"
           @click="
             page++;
             load();

@@ -59,7 +59,7 @@
       ],
       "finding": "当前主要为通用详情/编辑/删除，原专用筛选、状态切换、通道绑定/测试及配置分组未逐项对齐。",
       "status": "original group list and supported configuration tabs deployed in preview133; merchant/channel branches continue",
-      "required": "phone/qq/url真实字段、基本/密钥分区、124原组名选择/分页/搜索和大ID保留已实机验证；126恢复更多→登录日志，operator/super按核实目标主体只读，未知方式/地域不猜，桌面/375、分页关闭回焦与跨商户迟到响应保护通过。联系方式不自动变成登录别名；完整组配置、专属通道/子通道与其余原动作继续。 133恢复GID/用户组名称/操作三列、配置入口和基本/支付/结算/会员/通知分组，已支持9字段原值提交、错误切页和关闭焦点恢复。原高级费率/通道绑定/更多组规则仍未齐全。 141已部署原pay_minmoney/pay_maxmoney元字段，空继承/0关闭，新单事务消费有效组与商户限制，历史同号不重价。原info逐方式商户保留比例支付宝/微信/模拟已接入，精确换算平台费率并冻结退款来源；未知channel/type路由字段拒绝，不能冒充通道绑定。组表通道与费率列、用户/统计入口及其余配置继续核对。 145已恢复原四列GID/用户组名称/通道与费率/操作及用户/统计/编辑/删除；142复核纠正133三列即原表的误判。用户链接保留完整gid；今日/昨日统计四字段与加权总计使用当前有效组及创建日群，原加密算法未取得逐条等价证据。原代付功能1开启、空/_/旧0继承已用于普通单及未发送批次；商户权限、运行开关独立，会员锁等待后重查，自动结算出款仍只读全局政策。144候选在新增停用组负例失败后未部署，145补显式enabled=false优先关闭，原单重放/查证保留。商户主表恢复原七列，名称放商户号辅行、两状态分别标注，登录账号/算法保留详情和编辑。组专属通道绑定、默认组0目录入口、组原两页签及其它原行操作继续。"
+      "required": "phone/qq/url真实字段、基本/密钥分区、124原组名选择/分页/搜索和大ID保留已实机验证；126恢复更多→登录日志，operator/super按核实目标主体只读，未知方式/地域不猜，桌面/375、分页关闭回焦与跨商户迟到响应保护通过。联系方式不自动变成登录别名；完整组配置、专属通道/子通道与其余原动作继续。 133恢复GID/用户组名称/操作三列、配置入口和基本/支付/结算/会员/通知分组，已支持9字段原值提交、错误切页和关闭焦点恢复。原高级费率/通道绑定/更多组规则仍未齐全。 141已部署原pay_minmoney/pay_maxmoney元字段，空继承/0关闭，新单事务消费有效组与商户限制，历史同号不重价。原info逐方式商户保留比例支付宝/微信/模拟已接入，精确换算平台费率并冻结退款来源；未知channel/type路由字段拒绝，不能冒充通道绑定。组表通道与费率列、用户/统计入口及其余配置继续核对。 145已恢复原四列GID/用户组名称/通道与费率/操作及用户/统计/编辑/删除；142复核纠正133三列即原表的误判。用户链接保留完整gid；今日/昨日统计四字段与加权总计使用当前有效组及创建日群，原加密算法未取得逐条等价证据。原代付功能1开启、空/_/旧0继承已用于普通单及未发送批次；商户权限、运行开关独立，会员锁等待后重查，自动结算出款仍只读全局政策。144候选在新增停用组负例失败后未部署，145补显式enabled=false优先关闭，原单重放/查证保留。商户主表恢复原七列，名称放商户号辅行、两状态分别标注，登录账号/算法保留详情和编辑。组专属通道绑定、默认组0目录入口、其它原行操作继续。146已恢复原基本/其他两页签、显示名称、基本页分区和其他页支付限额，1000px/top4vh、手机单列、关闭/焦点及隐藏错误定位已验证。 148新增原商户支付统计7日图/今日昨日四列，精确金额和比例/过期响应保护已验证。更多→代付记录/结算记录以全长uid进入真实筛选，结算数量/分页按owner限定，非法参数拒绝且付款CSV保留范围。未把读取链接自动变成资金表单，原其它动作及结算原列表继续。"
     },
     {
       "id": "UX-006",
@@ -237,7 +237,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新数据",
         "查看趋势明细"
@@ -252,7 +252,7 @@
         "趋势查看方式交易额（元）订单数",
         "支付方式全部方式支付宝微信支付"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\01-admin-_dashboard.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\01-admin-_dashboard.png"
     },
     {
       "area": "admin",
@@ -698,7 +698,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新数据",
         "查询",
@@ -751,7 +751,7 @@
         "客户 IP 筛选",
         "显示已删除订单"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\02-admin-_trade_order.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\02-admin-_trade_order.png"
     },
     {
       "area": "admin",
@@ -898,7 +898,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新数据",
         "查询",
@@ -928,7 +928,7 @@
         "创建结束日期",
         "历史所属商户ID"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\03-admin-_trade_refund.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\03-admin-_trade_refund.png"
     },
     {
       "area": "admin",
@@ -1089,7 +1089,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -1112,7 +1112,7 @@
       "latest_form_labels": [
         "搜索黑名单管理"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\04-admin-_trade_blacklist.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\04-admin-_trade_blacklist.png"
     },
     {
       "area": "admin",
@@ -1228,7 +1228,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "重置",
@@ -1252,7 +1252,7 @@
         "通道ID",
         "商户号"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\05-admin-_trade_stat_daily.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\05-admin-_trade_stat_daily.png"
     },
     {
       "area": "admin",
@@ -1349,7 +1349,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询统计",
         "重置",
@@ -1374,7 +1374,7 @@
         "查看方式以支付方式查看以支付通道查看",
         "统计类型订单金额统计支付金额统计分成金额统计手续费利润统计"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\06-admin-_trade_stat_user.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\06-admin-_trade_stat_user.png"
     },
     {
       "area": "admin",
@@ -1496,7 +1496,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "重置",
@@ -1518,7 +1518,7 @@
         "支付方式所有支付方式支付宝微信支付本地模拟",
         "商户号"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\07-admin-_trade_stat_channel.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\07-admin-_trade_stat_channel.png"
     },
     {
       "area": "admin",
@@ -1586,7 +1586,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新",
         "今天",
@@ -1611,7 +1611,7 @@
         "商户号",
         "通道ID"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\08-admin-_trade_stat_province.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\08-admin-_trade_stat_province.png"
     },
     {
       "area": "admin",
@@ -1723,7 +1723,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "重置",
@@ -1747,7 +1747,7 @@
         "支付方式所有支付方式支付宝微信支付本地模拟",
         "统计方式支付账号统计支付IP统计支付手机号统计"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\09-admin-_trade_stat_buyer.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\09-admin-_trade_stat_buyer.png"
     },
     {
       "area": "admin",
@@ -1875,7 +1875,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "读取分账数据",
         "加密保存草稿",
@@ -1898,7 +1898,7 @@
         "接收方姓名",
         "最低订单金额（分）"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\10-admin-_profitsharing_receiver.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\10-admin-_profitsharing_receiver.png"
     },
     {
       "area": "admin",
@@ -2017,7 +2017,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "读取分账数据",
         "核对原支付声明"
@@ -2027,7 +2027,7 @@
         "商户 ID",
         "平台订单号"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\11-admin-_profitsharing_order.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\11-admin-_profitsharing_order.png"
     },
     {
       "area": "admin",
@@ -2195,7 +2195,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -2215,7 +2215,7 @@
       "latest_form_labels": [
         "搜索站内分账规则"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\12-admin-_profitsharing_internal.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\12-admin-_profitsharing_internal.png"
     },
     {
       "area": "admin",
@@ -2532,7 +2532,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "申请付款",
@@ -2558,7 +2558,7 @@
       "latest_form_labels": [
         "搜索付款记录"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\13-admin-_transfer_list.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\13-admin-_transfer_list.png"
     },
     {
       "area": "admin",
@@ -2659,7 +2659,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询统计",
         "导出本页 CSV",
@@ -2681,7 +2681,7 @@
         "开始日期",
         "结束日期"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\14-admin-_transfer_stat.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\14-admin-_transfer_stat.png"
     },
     {
       "area": "admin",
@@ -2792,7 +2792,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询统计",
         "导出本页 CSV",
@@ -2814,7 +2814,7 @@
         "开始日期",
         "结束日期"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\15-admin-_transfer_channel-stat.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\15-admin-_transfer_channel-stat.png"
     },
     {
       "area": "admin",
@@ -2906,7 +2906,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询统计",
         "重置",
@@ -2930,7 +2930,7 @@
         "结束日期",
         "查看方式以付款方式查看以付款通道查看"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\16-admin-_transfer_user-stat.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\16-admin-_transfer_user-stat.png"
     },
     {
       "area": "admin",
@@ -3138,7 +3138,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新",
         "申请结算",
@@ -3162,7 +3162,7 @@
         "操作"
       ],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\17-admin-_settle_list.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\17-admin-_settle_list.png"
     },
     {
       "area": "admin",
@@ -3272,7 +3272,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新数据",
         "查询",
@@ -3294,7 +3294,7 @@
         "状态全部待完成已完成已归档",
         "请求号"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\18-admin-_settle_batch.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\18-admin-_settle_batch.png"
     },
     {
       "area": "admin",
@@ -3740,7 +3740,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "清空商户筛选",
@@ -3775,7 +3775,7 @@
         "用户组ID",
         "上级商户"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\19-admin-_merchant_merchant-list.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\19-admin-_merchant_merchant-list.png"
     },
     {
       "area": "admin",
@@ -4014,7 +4014,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -4040,7 +4040,7 @@
       "latest_form_labels": [
         "搜索用户组设置"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\20-admin-_merchant_group-list.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\20-admin-_merchant_group-list.png"
     },
     {
       "area": "admin",
@@ -4118,7 +4118,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新配置",
         "已开启",
@@ -4140,7 +4140,7 @@
         "操作"
       ],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\21-admin-_merchant_group-buy.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\21-admin-_merchant_group-buy.png"
     },
     {
       "area": "admin",
@@ -4288,7 +4288,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新数据",
         "查询",
@@ -4315,7 +4315,7 @@
         "创建开始日期",
         "创建结束日期"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\22-admin-_merchant_record.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\22-admin-_merchant_record.png"
     },
     {
       "area": "admin",
@@ -4460,7 +4460,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新",
         "发起站内转账",
@@ -4478,7 +4478,7 @@
         "操作"
       ],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\23-admin-_merchant_internal-transfer.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\23-admin-_merchant_internal-transfer.png"
     },
     {
       "area": "admin",
@@ -4644,7 +4644,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -4663,7 +4663,7 @@
       "latest_form_labels": [
         "搜索授权域名"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\24-admin-_merchant_domain.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\24-admin-_merchant_domain.png"
     },
     {
       "area": "admin",
@@ -4814,7 +4814,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "清空筛选",
@@ -4837,7 +4837,7 @@
         "邀请码",
         "状态全部状态未使用已使用"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\25-admin-_merchant_invite-code.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\25-admin-_merchant_invite-code.png"
     },
     {
       "area": "admin",
@@ -5114,7 +5114,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新状态",
         "查询",
@@ -5142,7 +5142,7 @@
       "latest_form_labels": [
         "搜索支付通道"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\26-admin-_payapi_pay-channel.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\26-admin-_payapi_pay-channel.png"
     },
     {
       "area": "admin",
@@ -5268,7 +5268,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -5286,7 +5286,7 @@
       "latest_form_labels": [
         "搜索支付方式"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\27-admin-_payapi_pay-type.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\27-admin-_payapi_pay-type.png"
     },
     {
       "area": "admin",
@@ -5462,7 +5462,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -5485,7 +5485,7 @@
       "latest_form_labels": [
         "搜索通道轮询"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\28-admin-_payapi_pay-roll.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\28-admin-_payapi_pay-roll.png"
     },
     {
       "area": "admin",
@@ -5636,7 +5636,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -5655,7 +5655,7 @@
       "latest_form_labels": [
         "搜索公众号小程序"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\29-admin-_payapi_pay-weixin.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\29-admin-_payapi_pay-weixin.png"
     },
     {
       "area": "admin",
@@ -5838,7 +5838,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -5857,7 +5857,7 @@
       "latest_form_labels": [
         "搜索进件渠道配置"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\30-admin-_applyments_channel.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\30-admin-_applyments_channel.png"
     },
     {
       "area": "admin",
@@ -6127,7 +6127,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -6148,7 +6148,7 @@
       "latest_form_labels": [
         "搜索进件商户资料"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\31-admin-_applyments_merchant.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\31-admin-_applyments_merchant.png"
     },
     {
       "area": "admin",
@@ -6361,7 +6361,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -6382,7 +6382,7 @@
       "latest_form_labels": [
         "搜索子通道资料"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\32-admin-_applyments_subchannel.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\32-admin-_applyments_subchannel.png"
     },
     {
       "area": "admin",
@@ -6570,7 +6570,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -6589,7 +6589,7 @@
       "latest_form_labels": [
         "搜索商户管控记录"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\33-admin-_applyments_mchrisk.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\33-admin-_applyments_mchrisk.png"
     },
     {
       "area": "admin",
@@ -6717,7 +6717,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "保存"
       ],
@@ -6731,7 +6731,7 @@
         "本地审核状态 *请选择draftunder_reviewaction_requiredapprovedrejected",
         "备注"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\34-admin-_applyments_form.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\34-admin-_applyments_form.png"
     },
     {
       "area": "admin",
@@ -6980,7 +6980,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -7003,7 +7003,7 @@
       "latest_form_labels": [
         "搜索交易投诉"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\35-admin-_complain_list.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\35-admin-_complain_list.png"
     },
     {
       "area": "admin",
@@ -7121,7 +7121,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新统计",
         "导出本页 CSV",
@@ -7142,7 +7142,7 @@
         "近7日投诉/支付订单（%）"
       ],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\36-admin-_complain_charts.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\36-admin-_complain_charts.png"
     },
     {
       "area": "admin",
@@ -7312,7 +7312,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -7331,7 +7331,7 @@
       "latest_form_labels": [
         "搜索投诉同步任务配置"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\37-admin-_complain_task.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\37-admin-_complain_task.png"
     },
     {
       "area": "admin",
@@ -7484,7 +7484,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -7506,7 +7506,7 @@
       "latest_form_labels": [
         "搜索风控记录"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\38-admin-_other_risk.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\38-admin-_other_risk.png"
     },
     {
       "area": "admin",
@@ -7565,7 +7565,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "原收款应用网页授权",
         "独立应用与小程序",
@@ -7578,7 +7578,7 @@
         "商户 ID",
         "应用通道请选择通道"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\39-admin-_other_get-token.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\39-admin-_other_get-token.png"
     },
     {
       "area": "admin",
@@ -7718,7 +7718,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新",
         "已启用",
@@ -7732,7 +7732,7 @@
       "latest_form_labels": [
         "搜索样式"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\40-admin-_other_onecode.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\40-admin-_other_onecode.png"
     },
     {
       "area": "admin",
@@ -7889,7 +7889,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "重新读取",
         "同步图片尺寸",
@@ -7921,7 +7921,7 @@
         "文字横坐标",
         "文字纵坐标"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\41-admin-_other_onecode_edit.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\41-admin-_other_onecode_edit.png"
     },
     {
       "area": "admin",
@@ -8011,11 +8011,11 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [],
       "latest_headers": [],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\42-admin-_app_app-store.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\42-admin-_app_app-store.png"
     },
     {
       "area": "admin",
@@ -8222,7 +8222,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -8247,7 +8247,7 @@
       "latest_form_labels": [
         "搜索本地插件配置"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\43-admin-_app_plugin-list.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\43-admin-_app_plugin-list.png"
     },
     {
       "area": "admin",
@@ -8352,7 +8352,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "首页",
         "支付收银台",
@@ -8374,7 +8374,7 @@
         "内容间距",
         "显示订单名称"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\44-admin-_app_template.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\44-admin-_app_template.png"
     },
     {
       "area": "admin",
@@ -8470,7 +8470,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -8488,7 +8488,7 @@
       "latest_form_labels": [
         "搜索扩展配置"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\45-admin-_app_addon.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\45-admin-_app_addon.png"
     },
     {
       "area": "admin",
@@ -8816,7 +8816,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新设置",
         "网站信息",
@@ -8844,7 +8844,7 @@
         "客服邮箱",
         "原网站名称"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\46-admin-_system_settings.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\46-admin-_system_settings.png"
     },
     {
       "area": "admin",
@@ -8987,7 +8987,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -9016,7 +9016,7 @@
       "latest_form_labels": [
         "搜索计划任务配置"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\47-admin-_system_cron.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\47-admin-_system_cron.png"
     },
     {
       "area": "admin",
@@ -9120,7 +9120,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -9139,7 +9139,7 @@
       "latest_form_labels": [
         "搜索公告配置"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\48-admin-_system_anounce.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\48-admin-_system_anounce.png"
     },
     {
       "area": "admin",
@@ -9531,7 +9531,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -9552,7 +9552,7 @@
       "latest_form_labels": [
         "搜索管理员列表"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\49-admin-_system_admin-user.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\49-admin-_system_admin-user.png"
     },
     {
       "area": "admin",
@@ -9644,7 +9644,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "重置",
@@ -9663,7 +9663,7 @@
         "搜索字段用户ID操作IP",
         "搜索内容"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\50-admin-_system_log.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\50-admin-_system_log.png"
     },
     {
       "area": "admin",
@@ -9740,7 +9740,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "重置",
@@ -9757,7 +9757,7 @@
       "latest_form_labels": [
         "日期"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\51-admin-_system_runtime-log.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\51-admin-_system_runtime-log.png"
     },
     {
       "area": "admin",
@@ -9795,7 +9795,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "预览清理范围"
       ],
@@ -9803,7 +9803,7 @@
       "latest_form_labels": [
         "清理截止日期（UTC+08:00）"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\52-admin-_system_clean.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\52-admin-_system_clean.png"
     },
     {
       "area": "admin",
@@ -9853,7 +9853,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新",
         "上一页",
@@ -9865,7 +9865,7 @@
         "当前值"
       ],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\53-admin-_system_update.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\53-admin-_system_update.png"
     },
     {
       "area": "admin",
@@ -9969,7 +9969,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "修改密码",
         "绑定身份验证器",
@@ -9982,7 +9982,7 @@
         "新密码",
         "再次输入新密码"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\54-admin-_system_change-password.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\54-admin-_system_change-password.png"
     },
     {
       "area": "merchant",
@@ -10036,7 +10036,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新数据",
         "查看趋势明细"
@@ -10054,7 +10054,7 @@
         "趋势查看方式交易额（元）订单数",
         "支付方式全部方式支付宝微信支付"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\55-merchant-_dashboard.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\55-merchant-_dashboard.png"
     },
     {
       "area": "merchant",
@@ -10095,14 +10095,14 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "重置 API 密钥",
         "生成 RSA 密钥对"
       ],
       "latest_headers": [],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\56-merchant-_account_api-info.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\56-merchant-_account_api-info.png"
     },
     {
       "area": "merchant",
@@ -10204,7 +10204,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "登录日志",
         "保存账户资料",
@@ -10256,7 +10256,7 @@
         "语音播报",
         "设备操作保留原设备替换设备清除设备（先停用）"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\57-merchant-_account_settings.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\57-merchant-_account_settings.png"
     },
     {
       "area": "merchant",
@@ -10325,11 +10325,11 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [],
       "latest_headers": [],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\58-merchant-_account_certificate.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\58-merchant-_account_certificate.png"
     },
     {
       "area": "merchant",
@@ -10393,7 +10393,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新",
         "余额充值",
@@ -10402,7 +10402,7 @@
       ],
       "latest_headers": [],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\59-merchant-_account_recharge.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\59-merchant-_account_recharge.png"
     },
     {
       "area": "merchant",
@@ -10453,7 +10453,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "购买此用户组",
         "购买此用户组",
@@ -10472,7 +10472,7 @@
         "业务请求号"
       ],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\60-merchant-_account_groupbuy.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\60-merchant-_account_groupbuy.png"
     },
     {
       "area": "merchant",
@@ -10542,7 +10542,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新",
         "保证金操作",
@@ -10551,7 +10551,7 @@
       ],
       "latest_headers": [],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\61-merchant-_account_deposit.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\61-merchant-_account_deposit.png"
     },
     {
       "area": "merchant",
@@ -10663,7 +10663,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新",
         "发起站内转账",
@@ -10680,7 +10680,7 @@
         "申请时间"
       ],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\62-merchant-_account_internal-transfer.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\62-merchant-_account_internal-transfer.png"
     },
     {
       "area": "merchant",
@@ -11083,7 +11083,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新数据",
         "查询",
@@ -11125,7 +11125,7 @@
         "买家标识筛选",
         "客户 IP 筛选"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\63-merchant-_trade_order.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\63-merchant-_trade_order.png"
     },
     {
       "area": "merchant",
@@ -11265,7 +11265,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新数据",
         "查询",
@@ -11292,7 +11292,7 @@
         "创建开始日期",
         "创建结束日期"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\64-merchant-_trade_refund.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\64-merchant-_trade_refund.png"
     },
     {
       "area": "merchant",
@@ -11398,7 +11398,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "重置",
@@ -11420,7 +11420,7 @@
       "latest_form_labels": [
         "支付方式所有支付方式支付宝微信支付本地模拟"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\65-merchant-_trade_daily-stat.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\65-merchant-_trade_daily-stat.png"
     },
     {
       "area": "merchant",
@@ -11488,7 +11488,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新",
         "今天",
@@ -11509,7 +11509,7 @@
         "交易笔数"
       ],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\66-merchant-_trade_province-stat.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\66-merchant-_trade_province-stat.png"
     },
     {
       "area": "merchant",
@@ -11684,7 +11684,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新",
         "申请结算",
@@ -11706,7 +11706,7 @@
         "操作"
       ],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\67-merchant-_settle_list.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\67-merchant-_settle_list.png"
     },
     {
       "area": "merchant",
@@ -11747,14 +11747,14 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "配置收款资料",
         "刷新收款版本"
       ],
       "latest_headers": [],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\68-merchant-_settle_settings.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\68-merchant-_settle_settings.png"
     },
     {
       "area": "merchant",
@@ -11868,7 +11868,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新可出账金额",
         "配置收款资料",
@@ -11880,7 +11880,7 @@
         "金额（元）",
         "业务请求号"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\69-merchant-_settle_apply.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\69-merchant-_settle_apply.png"
     },
     {
       "area": "merchant",
@@ -12155,7 +12155,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "申请付款",
@@ -12181,7 +12181,7 @@
       "latest_form_labels": [
         "搜索付款记录"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\70-merchant-_transfer.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\70-merchant-_transfer.png"
     },
     {
       "area": "merchant",
@@ -12308,7 +12308,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "刷新数据",
         "查询",
@@ -12333,7 +12333,7 @@
         "创建开始日期",
         "创建结束日期"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\71-merchant-_record.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\71-merchant-_record.png"
     },
     {
       "area": "merchant",
@@ -12482,7 +12482,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -12501,7 +12501,7 @@
       "latest_form_labels": [
         "搜索授权域名"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\72-merchant-_domain.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\72-merchant-_domain.png"
     },
     {
       "area": "merchant",
@@ -12734,7 +12734,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -12757,7 +12757,7 @@
       "latest_form_labels": [
         "搜索交易投诉"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\73-merchant-_complain.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\73-merchant-_complain.png"
     },
     {
       "area": "merchant",
@@ -12971,7 +12971,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -12992,7 +12992,7 @@
       "latest_form_labels": [
         "搜索进件商户资料"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\74-merchant-_applyments_merchant.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\74-merchant-_applyments_merchant.png"
     },
     {
       "area": "merchant",
@@ -13151,7 +13151,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "保存"
       ],
@@ -13163,7 +13163,7 @@
         "进件渠道 ID *",
         "备注"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\75-merchant-_applyments_create.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\75-merchant-_applyments_create.png"
     },
     {
       "area": "merchant",
@@ -13321,7 +13321,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -13339,7 +13339,7 @@
       "latest_form_labels": [
         "搜索商户管控记录"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\76-merchant-_applyments_mchrisk.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\76-merchant-_applyments_mchrisk.png"
     },
     {
       "area": "merchant",
@@ -13467,7 +13467,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "保存"
       ],
@@ -13479,7 +13479,7 @@
         "进件渠道 ID *",
         "备注"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\77-merchant-_applyments_form.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\77-merchant-_applyments_form.png"
     },
     {
       "area": "merchant",
@@ -13590,7 +13590,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "读取分账数据",
         "加密保存草稿",
@@ -13612,7 +13612,7 @@
         "接收方姓名",
         "最低订单金额（分）"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\78-merchant-_profitsharing_receiver.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\78-merchant-_profitsharing_receiver.png"
     },
     {
       "area": "merchant",
@@ -13740,7 +13740,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "读取分账数据",
         "核对原支付声明",
@@ -13752,7 +13752,7 @@
         "平台订单号",
         "完结平台订单号"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\79-merchant-_profitsharing_order.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\79-merchant-_profitsharing_order.png"
     },
     {
       "area": "merchant",
@@ -13943,7 +13943,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "查询",
         "刷新",
@@ -13964,7 +13964,7 @@
       "latest_form_labels": [
         "搜索子通道资料"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\80-merchant-_subchannel.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\80-merchant-_subchannel.png"
     },
     {
       "area": "merchant",
@@ -14091,7 +14091,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "重新读取",
         "历史收款码",
@@ -14104,7 +14104,7 @@
         "选择收款码风格普通二维码Synthetic collectionSynthetic collection",
         "自定义收款金额"
       ],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\81-merchant-_onecode.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\81-merchant-_onecode.png"
     },
     {
       "area": "merchant",
@@ -14213,7 +14213,7 @@
         "business equivalence",
         "complete UX parity"
       ],
-      "latest_observed_source": 145,
+      "latest_observed_source": 148,
       "latest_visible_buttons": [
         "重新读取邀请资料",
         "发行或轮换推广令牌",
@@ -14249,14 +14249,14 @@
         "时间"
       ],
       "latest_form_labels": [],
-      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\82-merchant-_invite.png"
+      "latest_screenshot": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\82-merchant-_invite.png"
     }
   ],
-  "latest_deployed_source": "E:/GOEPAY/.tools/checkpoints/145-disabled-group-and-original-merchant-columns-4a928892-ab2f-42ae-bfd8-95b562fc1b4b",
-  "latest_deployed_sha": "f845f7a74afcd442a4af39b3cb4d816e5eb8101c9c1900695f474951edf67054",
+  "latest_deployed_source": "E:/GOEPAY/.tools/checkpoints/148-original-merchant-related-records-0def5ee2-9fa1-4ac0-8074-511806f09e7c",
+  "latest_deployed_sha": "cfdf6e68f579165049568914718c99fab7637cbb46126deb501279d7db6cd9ef",
   "latest_actual_pages_visited": 82,
   "latest_passive_only": true,
-  "latest_observation_path": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\145-8fcd9cd42c2546d2bc9f7a9e66199556\\pages\\RESULT.json",
+  "latest_observation_path": "E:\\GOEPAY\\.tools\\deployment-ux103-5a97d6ad12ef4df68a7a5be53e39832a\\updates\\148-2acc3afad2ea410dab32017a39a60e39\\pages\\RESULT.json",
   "latest_business_writes": 0,
   "latest_external_requests": 0,
   "latest_page_errors": 0,

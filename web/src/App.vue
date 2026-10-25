@@ -1002,11 +1002,15 @@ onBeforeUnmount(() => {
       />
       <WorkflowPage
         v-else-if="kind === 'workflow'"
-        :key="area + path"
+        :key="area + path + JSON.stringify(route.query)"
         :client="client"
         :area="area"
         :workflow="workflowFor(area, path)"
         :application="area === 'merchant' && path === '/settle/apply'"
+        :initial-query="
+          workflowFor(area, path) === 'settlements' ? route.query : undefined
+        "
+        :self-i-d="String(session.user.id)"
       />
       <MerchantAccountSettings
         v-else-if="
@@ -1095,9 +1099,11 @@ onBeforeUnmount(() => {
       />
       <TransferPage
         v-else-if="kind === 'transfers'"
-        :key="area + path"
+        :key="area + path + JSON.stringify(route.query)"
         :client="client"
         :area="area"
+        :initial-query="route.query"
+        :self-i-d="String(session.user.id)"
       />
       <section v-else-if="kind === 'unavailable'" class="panel unavailable">
         <span class="status-dot"></span>
