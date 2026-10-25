@@ -4686,6 +4686,18 @@
             }
           },
           {
+            "name": "search_field",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "refund_no",
+                "out_refund_no",
+                "trade_no"
+              ]
+            }
+          },
+          {
             "name": "format",
             "in": "query",
             "schema": {
@@ -4794,7 +4806,8 @@
               }
             }
           }
-        }
+        },
+        "description": "原退款三个精确搜索字段search_field：refund_no按平台数字ID，out_refund_no按商户原请求号，trade_no按关联平台订单号；q原值绑定，指定精确字段不trim。无字段时保留综合搜索。列表和CSV追加platform_refund_no=id字符串、out_refund_no=商户请求号；已有控制台refund_no仍保留旧商户请求号语义以免破坏消费者，公共支付协议refund_no/out_refund_no不变。所有字段为字符串，独立租户约束和现有状态/方式/通道/日期合并。原字段顺序保留，新别名在CSV末尾追加。 列表与CSV进一步追加completed_at：仅终态与退款结果证据、账务约束一致时，读取不可变结果记录的created_at；缺少历史证据或处理中为null，不取可变updated_at，不表示上游报告的实际到账时间。旧列和两个退款号别名的位置保持，completed_at最后追加。merchant_amount为退款扣减金额的整数分字符串，与退款amount分别展示。"
       }
     },
     "/console/v1/{role}/ledger": {
@@ -11121,7 +11134,7 @@
       "get": {
         "operationId": "console_74_get",
         "summary": "按当前筛选读取原六项退款统计",
-        "description": "管理员全局或按merchant_id筛选；商户只看本人，跨商户403。仅q/merchant_id/type/status/channel_id/from/to单个参数，不接受分页/导出/未知键；规范int64ID、北京时间日期且同时指定时最多367天。单条只读聚合，无上游调用和业务写入。data原字段totalCount/totalMoney、successCount/successMoney、pendingCount/pendingMoney全部精确字符串；金额为元两位小数。总计包含筛选全部退款，成功仅succeeded，处理中含pending与unknown；failed不计成功/处理中。最多4个并发、10秒数据库期限。",
+        "description": "管理员全局或按merchant_id筛选；商户只看本人，跨商户403。仅q/search_field/merchant_id/type/status/channel_id/from/to单个参数，不接受分页/导出/未知键；规范int64ID、北京时间日期且同时指定时最多367天。单条只读聚合，无上游调用和业务写入。data原字段totalCount/totalMoney、successCount/successMoney、pendingCount/pendingMoney全部精确字符串；金额为元两位小数。总计包含筛选全部退款，成功仅succeeded，处理中含pending与unknown；failed不计成功/处理中。最多4个并发、10秒数据库期限。 同样接受search_field=refund_no/out_refund_no/trade_no，复用退款列表和CSV的精确绑定筛选；平台ID必须规范正int64，商户请求号保留原空格。",
         "parameters": [
           {
             "name": "role",
@@ -11141,6 +11154,18 @@
             "schema": {
               "type": "string",
               "maxLength": 256
+            }
+          },
+          {
+            "name": "search_field",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "refund_no",
+                "out_refund_no",
+                "trade_no"
+              ]
             }
           },
           {
@@ -15950,7 +15975,7 @@
       "get": {
         "operationId": "console_109_get",
         "summary": "读取 daily 报表",
-        "description": "日期按 UTC+8，包含 from/to 当天；不传时最近30天，最多367天。商户仅可读取 daily/provinces 且仅含自己数据；其他报表仅管理员。没有 merchant_id 任意切换身份的参数。金额保留十进制字符串。",
+        "description": "日期按 UTC+8，包含 from/to 当天；不传时最近30天，最多367天。商户仅可读取 daily/provinces 且仅含自己数据；其他报表仅管理员。没有 merchant_id 任意切换身份的参数。金额保留十进制字符串。 管理员可显式view=original读取原每日/通道七列；未指定view仍保持旧接口。original分支严格单值且拒绝未知参数、q/page/limit，不允许商户（403）。每日固定北京时间今天及前6天，只接受view/type/channel/uid/format；通道默认今天，可from/to含首尾最多367天，只接受view/type/uid/from/to/format。type为本地alipay/wxpay/sandbox或空，商户/通道号为规范正int64字符串或空；通道最多5000组，超限422，不截断。count/amount以字符串返回。items使用day或channel+channelName、realmoney、refundmoney、profitmoney、orderCount、successCount、successRate和missing_costs；summary为全范围总计。成功率精确四舍五入两位，无订单时null。按订单创建业务日群汇总，已付金额取原gross，退款为该群全部已成功退款；不会把多个退款连接乘积计数。利润为原不可变成本快照估算值，有已付缺成本则该组及总计null；不查当前配置补价或以零代替。通道仅按已记录ID展示，通道未分配明确标示，不将通用通道资料ID当作真实上游映射。format=csv返回相同范围原中文七列、未知利润为未知，通道总计首行，仅成功导出增加一次下载审计。只读聚合快照、4并发、12秒超时，无外部调用或资金写入。",
         "parameters": [
           {
             "name": "role",
@@ -16018,6 +16043,48 @@
               ]
             },
             "description": "省略返回JSON分页；csv导出同筛选的完整结果，忽略已验证的page/limit。最多50000行或8MiB，超限422且不返回截断附件。每进程并发2个，忙时429。"
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "original"
+              ]
+            },
+            "description": "仅管理员原版视图；其余参数约束见description。"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "alipay",
+                "wxpay",
+                "sandbox"
+              ]
+            }
+          },
+          {
+            "name": "uid",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^$|^[1-9][0-9]{0,18}$"
+            },
+            "description": "仅original视图的商户号，范围<=int64最大值。"
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^$|^[1-9][0-9]{0,18}$"
+            },
+            "description": "仅original每日视图的已记录通道号。"
           }
         ],
         "responses": {
@@ -16106,6 +16173,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "统计或CSV并发繁忙，Retry-After为5秒。"
           },
           "503": {
             "description": "依赖不可用、外部写入关闭或通道未启用。",
@@ -16361,7 +16431,7 @@
       "get": {
         "operationId": "console_111_get",
         "summary": "读取 channels 报表",
-        "description": "日期按 UTC+8，包含 from/to 当天；不传时最近30天，最多367天。商户仅可读取 daily/provinces 且仅含自己数据；其他报表仅管理员。没有 merchant_id 任意切换身份的参数。金额保留十进制字符串。",
+        "description": "日期按 UTC+8，包含 from/to 当天；不传时最近30天，最多367天。商户仅可读取 daily/provinces 且仅含自己数据；其他报表仅管理员。没有 merchant_id 任意切换身份的参数。金额保留十进制字符串。 管理员可显式view=original读取原每日/通道七列；未指定view仍保持旧接口。original分支严格单值且拒绝未知参数、q/page/limit，不允许商户（403）。每日固定北京时间今天及前6天，只接受view/type/channel/uid/format；通道默认今天，可from/to含首尾最多367天，只接受view/type/uid/from/to/format。type为本地alipay/wxpay/sandbox或空，商户/通道号为规范正int64字符串或空；通道最多5000组，超限422，不截断。count/amount以字符串返回。items使用day或channel+channelName、realmoney、refundmoney、profitmoney、orderCount、successCount、successRate和missing_costs；summary为全范围总计。成功率精确四舍五入两位，无订单时null。按订单创建业务日群汇总，已付金额取原gross，退款为该群全部已成功退款；不会把多个退款连接乘积计数。利润为原不可变成本快照估算值，有已付缺成本则该组及总计null；不查当前配置补价或以零代替。通道仅按已记录ID展示，通道未分配明确标示，不将通用通道资料ID当作真实上游映射。format=csv返回相同范围原中文七列、未知利润为未知，通道总计首行，仅成功导出增加一次下载审计。只读聚合快照、4并发、12秒超时，无外部调用或资金写入。",
         "parameters": [
           {
             "name": "role",
@@ -16429,6 +16499,39 @@
               ]
             },
             "description": "省略返回JSON分页；csv导出同筛选的完整结果，忽略已验证的page/limit。最多50000行或8MiB，超限422且不返回截断附件。每进程并发2个，忙时429。"
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "original"
+              ]
+            },
+            "description": "仅管理员原版视图；其余参数约束见description。"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "alipay",
+                "wxpay",
+                "sandbox"
+              ]
+            }
+          },
+          {
+            "name": "uid",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^$|^[1-9][0-9]{0,18}$"
+            },
+            "description": "仅original视图的商户号，范围<=int64最大值。"
           }
         ],
         "responses": {
@@ -16517,6 +16620,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "统计或CSV并发繁忙，Retry-After为5秒。"
           },
           "503": {
             "description": "依赖不可用、外部写入关闭或通道未启用。",
@@ -16535,7 +16641,7 @@
       "get": {
         "operationId": "console_112_get",
         "summary": "读取 provinces 报表",
-        "description": "日期按 UTC+8，包含 from/to 当天；不传时最近30天，最多367天。商户仅可读取 daily/provinces 且仅含自己数据；其他报表仅管理员。没有 merchant_id 任意切换身份的参数。金额保留十进制字符串。",
+        "description": "日期按 UTC+8，包含 from/to 当天；不传时最近30天，最多367天。商户仅可读取 daily/provinces 且仅含自己数据；其他报表仅管理员。没有 merchant_id 任意切换身份的参数。金额保留十进制字符串。 显式view=original为原地图/排行只读视图。严格单值，仅view/from/to/uid/channel/format；不接受page/limit/q或其它参数。日期为北京时间含首尾，默认今天，最多367天。管理员uid/channel为规范正int64字符串或空；商户禁止这两个参数，包括空值或自身编号，身份仅取会话。已支付订单按created_at日期范围汇总原gross和笔数，地区仅取已记录order_reporting.province，不外查IP位置。缺少/空地区归入未知，金额笔数仍计总计。只读repeatable-read，最多5000地区，超限422不截断，4并发/12秒超时。items为name、money精确元字符串、count精确笔数字符串，按金额降序/名称升序；total_money/total_count为含未知的总计，unknown_money/unknown_count为未记录地区。前端仅原省名与明确标准简称可合并；不能匹配的文字保持未匹配，不移到其它地区。format=csv返回全范围地区/交易金额（元）/交易笔数，成功下载后一次审计；普通GET无写入。无账本/订单/通道或上游调用。",
         "parameters": [
           {
             "name": "role",
@@ -16603,6 +16709,34 @@
               ]
             },
             "description": "省略返回JSON分页；csv导出同筛选的完整结果，忽略已验证的page/limit。最多50000行或8MiB，超限422且不返回截断附件。每进程并发2个，忙时429。"
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "original"
+              ]
+            }
+          },
+          {
+            "name": "uid",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^$|^[1-9][0-9]{0,18}$"
+            },
+            "description": "仅管理员original视图，规范正int64或空。"
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^$|^[1-9][0-9]{0,18}$"
+            },
+            "description": "仅管理员original视图，原始已记录通道号。"
           }
         ],
         "responses": {
@@ -16692,6 +16826,9 @@
               }
             }
           },
+          "429": {
+            "description": "地区统计或CSV并发已满，Retry-After为5秒。"
+          },
           "503": {
             "description": "依赖不可用、外部写入关闭或通道未启用。",
             "content": {
@@ -16709,7 +16846,7 @@
       "get": {
         "operationId": "console_113_get",
         "summary": "读取 buyers 报表",
-        "description": "日期按 UTC+8，包含 from/to 当天；不传时最近30天，最多367天。商户仅可读取 daily/provinces 且仅含自己数据；其他报表仅管理员。没有 merchant_id 任意切换身份的参数。金额保留十进制字符串。",
+        "description": "日期按 UTC+8，包含 from/to 当天；不传时最近30天，最多367天。商户仅可读取 daily/provinces 且仅含自己数据；其他报表仅管理员。没有 merchant_id 任意切换身份的参数。金额保留十进制字符串。 view=original恢复原支付用户统计：只读管理员，固定账号0/IP1/手机号2。仅已付款订单，订单创建业务日按北京时间，原付款笔数/金额按用户汇总，最新订单号为MAX(trade_no)；账号允许与订单详情一致的预授权buyer_id回退。缺账号/IP排除，手机号无可信采集来源时available=false且给出原因，不能当作零业务；手机号CSV拒绝422。不传日期默认为今天。所有参数单值、白名单及绑定，分页规范正整数；不接受q/merchant_id。user仅精确刷新一个原用户；金额和笔数为精确字符串，金额为元。count/list和启用黑名单资料同一只读repeatable-read快照，期限与IP/CIDR判定复用原支付拦截Go规则，异常历史期限保留有效。CSV同范围、原user/order_count/pay_money/trade_no/is_black五列，公式防护/50000行/8MiB/并发与下载审计保持；无view的旧报表不变。拉黑仍须显式调用原订单来源核对接口，本GET不执行写入或上游请求。",
         "parameters": [
           {
             "name": "role",
@@ -16765,6 +16902,74 @@
             "schema": {
               "type": "string",
               "format": "date"
+            }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "original"
+              ]
+            }
+          },
+          {
+            "name": "method",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0",
+                "1",
+                "2"
+              ],
+              "default": "0"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "alipay",
+                "wxpay",
+                "sandbox"
+              ]
+            }
+          },
+          {
+            "name": "user",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 253
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "order_count",
+                "pay_money"
+              ],
+              "default": "order_count"
+            }
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
             }
           },
           {
@@ -18178,9 +18383,402 @@
         }
       }
     },
+    "/console/v1/{role}/operations/runtime-log": {
+      "get": {
+        "operationId": "console_122_get",
+        "summary": "超级管理员读取独立运行日志",
+        "description": "仅本人admin/super，商户、operator、代登录403。单值date/page/limit，无其它参数；date为北京时间自然日，默认今天，page规范正整数<=100000，limit<=100默认30。count/list同一只读repeatable-read快照，按实际created_at DESC/id DESC。items仅id字符串/time瞬间/type日志级别/content安全纯文本/error_code安全码；不查询PHP文件路径，不代替业务审计。仅已保存的本服务运行事件，不保证部署前/数据库不可用期间终端输出存在。无外部调用或业务写入。",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "结果已返回；资金结果须检查 data.status/state，不能仅以 HTTP200 推断成功。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON、字段类型或请求参数错误。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证、会话已撤销、密码/TOTP错误。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF、角色或资源权限拒绝。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或不属于当前商户。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "业务幂等冲突、状态冲突或资金不足。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "业务输入或当前状态不允许。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "启用管理员资金授权后，缺少配置或当前具体动作授权；不创建新资金意图。原号已存在的幂等意图只返回原状态。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖不可用、外部写入关闭或通道未启用。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/v1/{role}/operations/runtime-log/cleanup": {
+      "get": {
+        "operationId": "console_123_get",
+        "summary": "预览N天前运行日志归档范围",
+        "description": "仅本人admin/super。只允许单个days规范整数1..9999；返回days、cutoff（北京时间今天00:00减days）、count精确计数字符串，不写任何业务/日志或调用机构。",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9999
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "结果已返回；资金结果须检查 data.status/state，不能仅以 HTTP200 推断成功。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON、字段类型或请求参数错误。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证、会话已撤销、密码/TOTP错误。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF、角色或资源权限拒绝。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或不属于当前商户。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "业务幂等冲突、状态冲突或资金不足。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "业务输入或当前状态不允许。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "启用管理员资金授权后，缺少配置或当前具体动作授权；不创建新资金意图。原号已存在的幂等意图只返回原状态。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖不可用、外部写入关闭或通道未启用。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "console_124_post",
+        "summary": "按原预览和稳定请求号清除运行日志显示",
+        "description": "仅本人admin/super及CSRF，拒绝query。仅归档runtime_events中created_at<原cutoff且尚未归档的记录，不删除登录、业务或资金审计。归档与原参数/摘要/数量审计同事务；同actor和external_no加锁，同号同体重放返回原count和replayed=true，不能扩大到后来新增旧记录；改变参数409。新请求预览跨北京时间自然日过期409，不自动重取或更换号。响应count精确字符串、cutoff、replayed布尔。未知响应必须核对同一原请求。",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "登录/session 返回的 csrf_token，与当前身份会话绑定。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuntimeLogCleanup"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "结果已返回；资金结果须检查 data.status/state，不能仅以 HTTP200 推断成功。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON、字段类型或请求参数错误。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证、会话已撤销、密码/TOTP错误。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF、角色或资源权限拒绝。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在或不属于当前商户。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "业务幂等冲突、状态冲突或资金不足。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "业务输入或当前状态不允许。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "启用管理员资金授权后，缺少配置或当前具体动作授权；不创建新资金意图。原号已存在的幂等意图只返回原状态。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "依赖不可用、外部写入关闭或通道未启用。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/console/v1/{role}/operations/jobs/{id}/retry": {
       "post": {
-        "operationId": "console_122_post",
+        "operationId": "console_125_post",
         "summary": "管理员重试允许的 dead 任务",
         "description": "仅通知和明确白名单内的查询任务；不会重新执行支付、转账、授权或解冻的资金写操作。",
         "parameters": [
@@ -18322,7 +18920,7 @@
     },
     "/console/v1/admin/settlement-plans": {
       "get": {
-        "operationId": "console_123_get",
+        "operationId": "console_126_get",
         "summary": "游标读取专用结算计划",
         "description": "仅本人super管理员会话，拒代登录；写操作需CSRF。仅列表接受规范after_id与limit，其他接口禁止query。返回items与next_cursor；计划不是普通cron资料。",
         "parameters": [
@@ -18446,7 +19044,7 @@
         ]
       },
       "post": {
-        "operationId": "console_124_post",
+        "operationId": "console_127_post",
         "summary": "创建默认关闭的结算计划定义",
         "description": "仅本人super管理员会话，拒代登录；写操作需CSRF。仅列表接受规范after_id与limit，其他接口禁止query。明确generate_only或balance_threshold模式；scope为1..100个显式商户。非day时分秒必须为0；day按UTC+08锚点日期。只保存定义，不冻结资金或生成申请。balance_threshold读取原auto_settle_money（元）与transfer_alipay；严格大于阈值、UID倒序最多5个、关闭组不补位，整余额超过额度时跳过。组settle_rate覆盖全局比例，仅全局fee_max；不使用fee_min/留存/普通日次数。客户端不能传金额或选择集合；生成与独立自动出款授权分离。禁止auto_payout/threshold/百分比留存等别名字段。",
         "parameters": [
@@ -18581,7 +19179,7 @@
     },
     "/console/v1/admin/settlement-plans/{id}": {
       "get": {
-        "operationId": "console_125_get",
+        "operationId": "console_128_get",
         "summary": "读取原计划定义及当前修订",
         "description": "仅本人super管理员会话，拒代登录；写操作需CSRF。仅列表接受规范after_id与limit，其他接口禁止query。包含last_authorization_id与enabled；执行资格仍由原授权快照和当前状态重新核对。",
         "parameters": [
@@ -18695,7 +19293,7 @@
         ]
       },
       "patch": {
-        "operationId": "console_126_patch",
+        "operationId": "console_129_patch",
         "summary": "CAS修改计划定义并停用旧授权",
         "description": "仅本人super管理员会话，拒代登录；写操作需CSRF。仅列表接受规范after_id与limit，其他接口禁止query。不接受enabled。修改定义后关闭，必须另行授权；历史运行与申请不改写。丢响应先读取原修订，不自动重提。",
         "parameters": [
@@ -18830,7 +19428,7 @@
     },
     "/console/v1/admin/settlement-plans/{id}/authorizations": {
       "post": {
-        "operationId": "console_127_post",
+        "operationId": "console_130_post",
         "summary": "以强制资金密码确认授权原计划与精确上限",
         "description": "仅本人super管理员会话，拒代登录；写操作需CSRF。仅列表接受规范after_id与limit，其他接口禁止query。即使全局enforced=false也必须原动作资金授权。expected_revision与expected_authorization_id双CAS，时间窗/每项每run每日毛额分/每日数量均绑定原body；原scope、政策、参与和收款配置快照变化后旧授权失效，不能用新scope继续跑。资金挑战不保证最终执行资格，事务内重新核实。授权只允许生成待审核申请并冻结，不含审批或出款。",
         "parameters": [
@@ -18987,7 +19585,7 @@
     },
     "/console/v1/admin/settlement-plan-authorizations/{id}/revoke": {
       "post": {
-        "operationId": "console_128_post",
+        "operationId": "console_131_post",
         "summary": "紧急撤销原授权并停止后续生成",
         "description": "仅本人super管理员会话，拒代登录；写操作需CSRF。仅列表接受规范after_id与limit，其他接口禁止query。无需资金grant，但仍需本人super及CSRF。空JSON，不撤回已生成申请，不执行外部资金操作。",
         "parameters": [
@@ -19122,7 +19720,7 @@
     },
     "/console/v1/admin/settlement-plans/{id}/runs": {
       "get": {
-        "operationId": "console_129_get",
+        "operationId": "console_132_get",
         "summary": "游标读取原计划运行记录",
         "description": "仅本人super管理员会话，拒代登录；写操作需CSRF。仅列表接受规范after_id与limit，其他接口禁止query。返回items/next_cursor。completed表示生成扫描完成，不表示审批或付款。金额及数量均字符串。",
         "parameters": [
@@ -19256,7 +19854,7 @@
         ]
       },
       "post": {
-        "operationId": "console_130_post",
+        "operationId": "console_133_post",
         "summary": "扫描或恢复当前合法到期时段",
         "description": "仅本人super管理员会话，拒代登录；写操作需CSRF。仅列表接受规范after_id与limit，其他接口禁止query。只接受expected_revision，返回202原run；不接受任意日期、slot或新请求号。按UTC+08固定D1资格，仅合法当前due slot，不补造过期业务日申请。运行幂等恢复，未知先查原run。生成申请仍须后续独立审批与出款授权。",
         "parameters": [
@@ -19401,7 +19999,7 @@
     },
     "/console/v1/admin/settlement-plan-runs/{id}": {
       "get": {
-        "operationId": "console_131_get",
+        "operationId": "console_134_get",
         "summary": "读取原运行及逐项生成证据",
         "description": "仅本人super管理员会话，拒代登录；写操作需CSRF。仅列表接受规范after_id与limit，其他接口禁止query。条目只含固定原因、ID和分金额，无完整收款姓名账号。无provider调用。",
         "parameters": [
@@ -19517,7 +20115,7 @@
     },
     "/console/v1/merchant/account/settlement-schedule": {
       "get": {
-        "operationId": "console_132_get",
+        "operationId": "console_135_get",
         "summary": "读取本人计划参与与当前脱敏收款配置",
         "description": "仅本人商户会话，拒代登录；写操作需CSRF。仅列表接受规范after_id与limit，其他接口禁止query。默认关闭。返回merchant_id/revision/enabled/recipient_config_id/recipient，收款配置仅掩码，非普通账户余额。",
         "parameters": [],
@@ -19620,7 +20218,7 @@
         ]
       },
       "put": {
-        "operationId": "console_133_put",
+        "operationId": "console_136_put",
         "summary": "以参与和收款配置CAS显式选择参与",
         "description": "仅本人商户会话，拒代登录；写操作需CSRF。仅列表接受规范after_id与limit，其他接口禁止query。无merchant_id选择器，enabled必须明确。绑定当前收款配置；改收款配置后重新确认。保存参与不生成申请、不授权自动审批或出款，拒代登录。",
         "parameters": [
@@ -19745,7 +20343,7 @@
     },
     "/console/v1/admin/printing/settings": {
       "get": {
-        "operationId": "console_134_get",
+        "operationId": "console_137_get",
         "summary": "读取掩码打印配置",
         "description": "仅本人且非代登录会话；不接受merchant_id/query覆盖。打印配置/意图与支付资金分离，不触发外部付款。 平台限super；默认未启用。",
         "parameters": [],
@@ -19865,7 +20463,7 @@
         ]
       },
       "put": {
-        "operationId": "console_135_put",
+        "operationId": "console_138_put",
         "summary": "CAS替换打印配置",
         "description": "仅本人且非代登录会话；不接受merchant_id/query覆盖。打印配置/意图与支付资金分离，不触发外部付款。 全字段显式提交；密钥/设备AEAD保存，仅返回掩码，不写审计明文。保存不立即打印，不补打历史。excelsecu使用固定HTTPS连接器和独立默认关闭worker；不接受自定义地址，网关受理不表示纸张完成。",
         "parameters": [
@@ -20007,7 +20605,7 @@
     },
     "/console/v1/merchant/account/printing": {
       "get": {
-        "operationId": "console_136_get",
+        "operationId": "console_139_get",
         "summary": "读取掩码打印配置",
         "description": "仅本人且非代登录会话；不接受merchant_id/query覆盖。打印配置/意图与支付资金分离，不触发外部付款。 平台限super；默认未启用。",
         "parameters": [],
@@ -20127,7 +20725,7 @@
         ]
       },
       "put": {
-        "operationId": "console_137_put",
+        "operationId": "console_140_put",
         "summary": "CAS替换打印配置",
         "description": "仅本人且非代登录会话；不接受merchant_id/query覆盖。打印配置/意图与支付资金分离，不触发外部付款。 全字段显式提交；密钥/设备AEAD保存，仅返回掩码，不写审计明文。保存不立即打印，不补打历史。excelsecu使用固定HTTPS连接器和独立默认关闭worker；不接受自定义地址，网关受理不表示纸张完成。",
         "parameters": [
@@ -20269,7 +20867,7 @@
     },
     "/console/v1/merchant/orders/{trade}/receipt": {
       "get": {
-        "operationId": "console_138_get",
+        "operationId": "console_141_get",
         "summary": "读取本人订单可信支付收据",
         "description": "仅本人且非代登录会话；不接受merchant_id/query覆盖。打印配置/意图与支付资金分离，不触发外部付款。 必须存在原可信支付HMAC事实；未支付/历史缺事实不能凭status推断。金额为原支付毛额分字符串，不含买家标识或支付凭据。",
         "parameters": [
@@ -20401,7 +20999,7 @@
     },
     "/console/v1/merchant/orders/{trade}/print-jobs": {
       "post": {
-        "operationId": "console_139_post",
+        "operationId": "console_142_post",
         "summary": "显式创建或返回原手工打印意图",
         "description": "仅本人且非代登录会话；不接受merchant_id/query覆盖。打印配置/意图与支付资金分离，不触发外部付款。 先原external_no幂等读取；未终态禁止隐式新号。unknown只在后端明确引用原job并acknowledge_duplicate时另建有限人工意图，普通页面不提供unknown重发。无HTTP dispatch端点。",
         "parameters": [
@@ -20560,7 +21158,7 @@
         ]
       },
       "get": {
-        "operationId": "console_141_get",
+        "operationId": "console_144_get",
         "summary": "按本人范围游标读取打印记录",
         "description": "仅本人且非代登录会话；不接受merchant_id/query覆盖。打印配置/意图与支付资金分离，不触发外部付款。 订单路径在数据库中按原orderID筛选，不从全商户页过滤。next_cursor空表示结束，满页可再读空页。",
         "parameters": [
@@ -20728,7 +21326,7 @@
     },
     "/console/v1/merchant/print-jobs": {
       "get": {
-        "operationId": "console_140_get",
+        "operationId": "console_143_get",
         "summary": "按本人范围游标读取打印记录",
         "description": "仅本人且非代登录会话；不接受merchant_id/query覆盖。打印配置/意图与支付资金分离，不触发外部付款。 订单路径在数据库中按原orderID筛选，不从全商户页过滤。next_cursor空表示结束，满页可再读空页。",
         "parameters": [
@@ -20887,7 +21485,7 @@
     },
     "/console/v1/merchant/print-jobs/{id}": {
       "get": {
-        "operationId": "console_142_get",
+        "operationId": "console_145_get",
         "summary": "读取本人原打印请求状态",
         "description": "仅本人且非代登录会话；不接受merchant_id/query覆盖。打印配置/意图与支付资金分离，不触发外部付款。 sending/unknown不可自动重发。local_fake受理仅为本地模拟。",
         "parameters": [
@@ -21020,7 +21618,7 @@
     },
     "/console/v1/merchant/print-jobs/{id}/recover": {
       "post": {
-        "operationId": "console_143_post",
+        "operationId": "console_146_post",
         "summary": "人工恢复原未发送dead任务",
         "description": "仅本人且非代登录会话；不接受merchant_id/query覆盖。打印配置/意图与支付资金分离，不触发外部付款。 仅can_recover=true、原expected_task_id、无任何业务claim；原dead任务不改写，恢复证明与审计同事务。原task唯一幂等，丢响应保留同expected_task_id；不换PJ/不新增打印意图，unknown/sending拒绝。",
         "parameters": [
@@ -29697,7 +30295,7 @@
     },
     "/console/v1/{role}/membership-sales": {
       "get": {
-        "operationId": "console_144_get",
+        "operationId": "console_147_get",
         "summary": "读取管理员销售配置或商户可购买目录",
         "description": "管理员data包含enabled/revision/groups，groups含组名、启用状态、每份价格、日历月或旧按天期限、上下架、排序、可见组和简介。商户data包含enabled/items，仅返回当前有效用户组可见且已上架的公开报价；关闭时items为空。不调用支付机构。",
         "parameters": [
@@ -29810,7 +30408,7 @@
     },
     "/console/v1/admin/membership-sales": {
       "post": {
-        "operationId": "console_145_post",
+        "operationId": "console_148_post",
         "summary": "本人super管理员原子保存用户组销售配置",
         "description": "全局开关与groups所有更新、configure审计同事务；版本过期409，未知结果请刷新核对，不自动重试。groups为空仅改全局；支持单组上下架或简介，不覆盖其它组。保留基础费率和名称等无关字段。通用settings接口不能更新/删除group_buy绕过本接口。",
         "parameters": [
@@ -29935,7 +30533,7 @@
     },
     "/console/v1/{role}/workflows/memberships": {
       "get": {
-        "operationId": "console_146_get",
+        "operationId": "console_149_get",
         "summary": "读取本角色会员购买记录",
         "description": "金额和ID为字符串。新购买另返回quantity、unit_price_cents、period_months、permanent；旧无条款购买保留原记录。永久用明确permanent=true显示，不把9999日期当有限会员期限。",
         "parameters": [
@@ -30074,7 +30672,7 @@
         }
       },
       "post": {
-        "operationId": "console_147_post",
+        "operationId": "console_150_post",
         "summary": "按真实销售配置和数量购买会员",
         "description": "整数分总价=每份价格×数量；启用、上下架、可见范围和当前有效组由服务端重检。显式月份按PHP日历月溢出和北京时间日期零点续期，0月永久，旧按天配置仍按天。同组未到期从原到期日续；永久同组不可重复购买。同号同体重放不再扣费。原奖励仅来自本次总价收入，数量、期限、配置与到期快照均绑定私有原资金证明。没有上游支付或真实资金请求。",
         "parameters": [
@@ -30228,7 +30826,7 @@
     },
     "/console/v1/admin/invitation-codes": {
       "get": {
-        "operationId": "console_148_get",
+        "operationId": "console_151_get",
         "summary": "读取邀请码、使用者与真实注册使用记录",
         "description": "仅本人管理员；search仅按邀请码包含匹配；status为used/unused或空。返回items/id/code/status/enabled/max_uses/use_count/created_at/used_at/used_by/uses以及total/page/limit。使用状态源自不可变注册证明；多次使用旧码保留次数和全部使用记录。归档码不在列表中。",
         "parameters": [
@@ -30374,7 +30972,7 @@
     },
     "/console/v1/admin/invitation-codes/generate": {
       "post": {
-        "operationId": "console_149_post",
+        "operationId": "console_152_post",
         "summary": "原子生成1–1000个一次性随机邀请码",
         "description": "仅本人管理员+CSRF。新码160位随机，每个max_uses=1。原请求号相同数量返回原items且replayed=true；改数量409。全部记录及批次审计同事务，失败无部分生成。",
         "parameters": [
@@ -30499,7 +31097,7 @@
     },
     "/console/v1/admin/invitation-codes/clear": {
       "post": {
-        "operationId": "console_150_post",
+        "operationId": "console_153_post",
         "summary": "明确确认后分批归档邀请码",
         "description": "仅本人管理员+CSRF。每个原请求最多1000条，返回archived/remaining/replayed，不自动处理下一批。清空为enabled=false、archived=true；不删除注册使用证明。原码不可恢复或重新分配。同号同范围返回原结果；改范围409。通用资源DELETE也执行同样归档，通用列表排除归档，更新归档码冲突。",
         "parameters": [
@@ -30624,7 +31222,7 @@
     },
     "/console/v1/{role}/collection-styles": {
       "get": {
-        "operationId": "console_151_get",
+        "operationId": "console_154_get",
         "summary": "本人读取收款码样式目录",
         "description": "管理员读取所有；商户仅读取启用样式。items包含id/revision/style/fields；style为实际消费的数字布局，旧简单颜色样式style=null。展示图片并不发起支付。",
         "parameters": [
@@ -30737,7 +31335,7 @@
     },
     "/console/v1/admin/collection-styles": {
       "post": {
-        "operationId": "console_152_post",
+        "operationId": "console_155_post",
         "summary": "本人管理员创建收款海报布局",
         "description": "原name/label/尺寸/坐标/颜色/font/word字段落库并由实际PNG渲染消费。画布64–4096px/4MP，二维码至少32px且不得越界。启用并引用素材才公开背景；只保存配置不生成支付订单。",
         "parameters": [
@@ -30872,7 +31470,7 @@
     },
     "/console/v1/admin/collection-styles/{id}": {
       "get": {
-        "operationId": "console_153_get",
+        "operationId": "console_156_get",
         "summary": "本人管理员读取原样式及版本",
         "parameters": [
           {
@@ -30985,7 +31583,7 @@
         ]
       },
       "put": {
-        "operationId": "console_154_put",
+        "operationId": "console_157_put",
         "summary": "本人管理员按原revision更新样式",
         "description": "行锁下核对版本、校验布局/素材并与审计同事务。通用资源接口不能无版本覆盖新布局。旧简单颜色样式可显式升级，不能自动捏造背景和坐标。",
         "parameters": [
@@ -31118,7 +31716,7 @@
         ]
       },
       "delete": {
-        "operationId": "console_155_delete",
+        "operationId": "console_158_delete",
         "summary": "本人管理员明确确认后删除样式",
         "description": "保留不可变上传素材和审计，失去启用样式引用的背景不再公开；原收款码及订单保留并回退普通二维码。",
         "parameters": [
@@ -31243,7 +31841,7 @@
     },
     "/console/v1/admin/collection-style-images": {
       "post": {
-        "operationId": "console_156_post",
+        "operationId": "console_159_post",
         "summary": "本人管理员上传并归一化私有背景",
         "description": "multipart单个file，PNG/JPEG最大1MiB、4MP、4096px边长；重新编码最多4MiB，拒SVG/脚本/异常图片。返回id/mime/width/height。上传与审计同事务，失败不保留素材。",
         "parameters": [
@@ -31378,7 +31976,7 @@
     },
     "/console/v1/admin/collection-style-images/{id}": {
       "get": {
-        "operationId": "console_157_get",
+        "operationId": "console_160_get",
         "summary": "本人管理员预览未公开背景",
         "description": "仅私有会话，不向其它角色开放。无缓存。",
         "parameters": [
@@ -31571,7 +32169,7 @@
     },
     "/console/v1/merchant/collection-generator": {
       "get": {
-        "operationId": "console_158_get",
+        "operationId": "console_161_get",
         "summary": "读取本人聚合收款生成页上下文",
         "description": "只读，返回recipient_name、styles、domains和latest。domains仅列出部署明确支持的收款origin；不能把商户任意审核域名当作支付站点。latest包括停用状态，不自动新建或重新启用。",
         "parameters": [],
@@ -31674,7 +32272,7 @@
         ]
       },
       "post": {
-        "operationId": "console_159_post",
+        "operationId": "console_162_post",
         "summary": "本人商户明确生成长期聚合收款码",
         "description": "不创建支付订单。配置/请求摘要/私有证明与审计同事务；同参数重试200返回原码，换参数409。返回code_id、recipient_name、origin、style_id、fixed_amount_cents、config_hash、enabled、replayed、url、expires_at=null；私有proof_hash不暴露。固定金额在公开页和下单事务内复验。公开签名mode=generated绑定配置hash，长期有效、停用即撤销。旧记录两小时链接保持兼容。",
         "parameters": [
@@ -33188,6 +33786,214 @@
           }
         }
       }
+    },
+    "/console/v1/{role}/operations/system-log": {
+      "get": {
+        "operationId": "console_system_operation_log_get",
+        "summary": "管理员读取原系统操作日志",
+        "description": "本人super/operator允许，商户及代登录403。恢复ID/商户号/操作类型/操作IP/时间。合并登录与业务审计但保留source+原物理ID。失败商户登录不能按账号名归属；管理员原生实体按不可变商户引用，注册租户create/update按当时完整已验证快照，delete/archive按最近一条早于本日志的create/update审计（最新快照未知时不回退猜测），不读取当前可变记录owner。全局资源为管理员，未知归属显式null，不暴露changes/账号名/错误正文/凭证。count/list同一只读repeatable-read；固定发生时间降序/source升序/物理数字ID降序。参数严格单值且无未知参数，uid别名不能与column/value并用。无外部调用或业务写入。",
+        "parameters": [
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          },
+          {
+            "name": "column",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "uid",
+                "ip"
+              ],
+              "default": "uid"
+            }
+          },
+          {
+            "name": "value",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 253
+            },
+            "description": "UID为0或规范正int64字符串；IP按记录原文精确匹配。空值不筛选。"
+          },
+          {
+            "name": "uid",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)$"
+            },
+            "description": "原商户号链接别名，不能与column/value并用。"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "只读查询，不改变原日志或资金记录。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "source",
+                                  "id",
+                                  "uid",
+                                  "subject_kind",
+                                  "type",
+                                  "ip",
+                                  "date"
+                                ],
+                                "properties": {
+                                  "source": {
+                                    "type": "string",
+                                    "enum": [
+                                      "login",
+                                      "business"
+                                    ]
+                                  },
+                                  "id": {
+                                    "type": "string",
+                                    "pattern": "^[1-9][0-9]*$",
+                                    "description": "原始物理审计ID，保留大整数精度；与source组成行身份。"
+                                  },
+                                  "uid": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "0表示已核实管理员全局记录，正整数为可信商户号，null表示未核实。"
+                                  },
+                                  "subject_kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "admin",
+                                      "merchant",
+                                      "unknown"
+                                    ]
+                                  },
+                                  "actor_role": {
+                                    "type": "string"
+                                  },
+                                  "type": {
+                                    "type": "string"
+                                  },
+                                  "ip": {
+                                    "type": "string",
+                                    "description": "原始已记录IP；业务审计缺来源时为空。"
+                                  },
+                                  "date": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                }
+                              }
+                            },
+                            "total": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "page": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON、字段类型或请求参数错误。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证、会话已撤销、密码/TOTP错误。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF、角色或资源权限拒绝。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "只读日志并发已满；Retry-After为5秒。"
+          },
+          "503": {
+            "description": "依赖不可用、外部写入关闭或通道未启用。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -34577,6 +35383,32 @@
           "expected_unsplit",
           "release_amount",
           "funds_released"
+        ],
+        "additionalProperties": false
+      },
+      "RuntimeLogCleanup": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9999
+          },
+          "cutoff": {
+            "type": "string",
+            "description": "原GET预览的北京时间自然日截止时刻；新请求须仍等于今天减days，过期409。",
+            "format": "date-time"
+          },
+          "external_no": {
+            "type": "string",
+            "description": "原清理请求号，未知响应后复用同一请求体；不更换号扩大范围。",
+            "pattern": "^[A-Za-z0-9_-]{8,96}$"
+          }
+        },
+        "required": [
+          "days",
+          "cutoff",
+          "external_no"
         ],
         "additionalProperties": false
       },

@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import {
+  ref,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  defineAsyncComponent,
+} from "vue";
 import { ApiClient } from "../api";
 import {
   csvExport,
@@ -12,7 +18,17 @@ import {
 import DataTable from "./DataTable.vue";
 import CsvExportButton from "./CsvExportButton.vue";
 import MerchantMatrixReport from "./MerchantMatrixReport.vue";
-const props = defineProps<{ client: ApiClient; report: string }>();
+import BuyerStatisticsReport from "./BuyerStatisticsReport.vue";
+import OriginalOrderStatistics from "./OriginalOrderStatistics.vue";
+const ProvinceStatisticsReport = defineAsyncComponent(
+  () => import("./ProvinceStatisticsReport.vue"),
+);
+const props = defineProps<{
+  client: ApiClient;
+  report: string;
+  ownSession?: boolean;
+  adminClass?: string;
+}>();
 const from = ref(""),
   to = ref(""),
   shortcut = ref(""),
@@ -24,6 +40,11 @@ const from = ref(""),
   error = ref("");
 const summary = ref<Record<string, unknown> | null>(null);
 const complaintOverview = computed(() => props.report === "complaints");
+const originalStatistics = computed(
+  () =>
+    props.client.area === "admin" &&
+    ["daily", "channels"].includes(props.report),
+);
 const merchantMatrix = computed(() =>
   ["merchants", "transfer-merchants"].includes(props.report),
 );
@@ -97,13 +118,31 @@ function download() {
   URL.revokeObjectURL(url);
 }
 onMounted(() => {
-  if (!merchantMatrix.value) void load();
+  if (props.report === "provinces") return;
+  if (
+    !originalStatistics.value &&
+    !merchantMatrix.value &&
+    props.report !== "buyers"
+  )
+    void load();
 });
 onBeforeUnmount(() => controller?.abort());
 </script>
 <template>
+  <ProvinceStatisticsReport v-if="report === 'provinces'" :client="client" />
+  <OriginalOrderStatistics
+    v-else-if="originalStatistics"
+    :client="client"
+    :report="report"
+  />
+  <BuyerStatisticsReport
+    v-else-if="report === 'buyers'"
+    :client="client"
+    :own-session="ownSession"
+    :admin-class="adminClass"
+  />
   <MerchantMatrixReport
-    v-if="merchantMatrix"
+    v-else-if="merchantMatrix"
     :client="client"
     :report="report"
   />

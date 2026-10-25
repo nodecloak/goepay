@@ -12,7 +12,7 @@ import (
 )
 
 const consoleRefundFrom = "refunds f JOIN orders o ON o.id=f.order_id"
-const consoleRefundMatching = "concat_ws(' ',f.refund_no,f.order_id,o.trade_no,o.out_trade_no)"
+const consoleRefundMatching = "concat_ws(' ',f.id,f.refund_no,f.order_id,o.trade_no,o.out_trade_no)"
 
 var refundSummarySlots = make(chan struct{}, 4)
 
@@ -33,7 +33,7 @@ func (s *Server) refundSummary(w http.ResponseWriter, r *http.Request, role stri
 		return true
 	}
 	q, err := url.ParseQuery(r.URL.RawQuery)
-	allowed := map[string]bool{"q": true, "merchant_id": true, "type": true, "status": true, "channel_id": true, "from": true, "to": true}
+	allowed := map[string]bool{"q": true, "search_field": true, "merchant_id": true, "type": true, "status": true, "channel_id": true, "from": true, "to": true}
 	if err != nil {
 		response(w, 400, -1, "invalid refund summary query", nil)
 		return true

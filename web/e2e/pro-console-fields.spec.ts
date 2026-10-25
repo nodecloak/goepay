@@ -298,14 +298,17 @@ for (const area of ["admin", "merchant"] as const)
       ).toHaveCount(0);
   });
 
-test("daily report uses Beijing shortcuts and already-yuan values with derived success rate", async ({
+test("merchant daily report uses Beijing shortcuts and already-yuan values with derived success rate", async ({
   page,
 }) => {
   await page.clock.setFixedTime(new Date("2026-10-23T16:30:00Z"));
   const queries: URL[] = [];
   await page.route("**/console/v1/**", (route) => {
     const url = new URL(route.request().url());
-    if (url.pathname.endsWith("/session")) return route.fulfill(ok(session));
+    if (url.pathname.endsWith("/session"))
+      return route.fulfill(
+        ok({ ...session, user: { ...session.user, role: "merchant" } }),
+      );
     queries.push(url);
     return route.fulfill(
       ok({
@@ -327,7 +330,7 @@ test("daily report uses Beijing shortcuts and already-yuan values with derived s
       }),
     );
   });
-  await page.goto("/admin/trade/stat/daily");
+  await page.goto("/merchant/trade/daily-stat");
   await page
     .getByLabel("统计日期快捷范围", { exact: true })
     .selectOption("today");

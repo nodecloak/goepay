@@ -226,8 +226,12 @@ paths['/console/v1/{role}/workflows/funds-availability'].get.parameters.push({ n
 add('/workflows/{kind}', 'post', '创建资金冻结申请', { body: 'FundsRequest', created: true, description: 'internal-transfers/profitsharing 必须提供 recipient_id；settlements 不执行外部付款。管理员 merchant_id 必填。' });
 for (const action of ['approve', 'reject']) add(`/workflows/{kind}/{id}/${action}`, 'post', `管理员 ${action} 资金申请`, { body: 'Empty', description: '仅管理员。结算批准仍保留冻结等待独立可验证出款；站内转账/分账只在平台内部记账。' });
 add('/account/profile', 'get', '商户个人资料');
-add('/refunds/summary','get','按当前筛选读取原六项退款统计',{description:'管理员全局或按merchant_id筛选；商户只看本人，跨商户403。仅q/merchant_id/type/status/channel_id/from/to单个参数，不接受分页/导出/未知键；规范int64ID、北京时间日期且同时指定时最多367天。单条只读聚合，无上游调用和业务写入。data原字段totalCount/totalMoney、successCount/successMoney、pendingCount/pendingMoney全部精确字符串；金额为元两位小数。总计包含筛选全部退款，成功仅succeeded，处理中含pending与unknown；failed不计成功/处理中。最多4个并发、10秒数据库期限。'});
-paths['/console/v1/{role}/refunds/summary'].get.parameters.push({name:'q',in:'query',schema:{type:'string',maxLength:256}},...['merchant_id','channel_id'].map(name=>({name,in:'query',schema:id})),...['type','status','from','to'].map(name=>({name,in:'query',schema:{type:'string'}})));
+add('/refunds/summary','get','按当前筛选读取原六项退款统计',{description:'管理员全局或按merchant_id筛选；商户只看本人，跨商户403。仅q/search_field/merchant_id/type/status/channel_id/from/to单个参数，不接受分页/导出/未知键；规范int64ID、北京时间日期且同时指定时最多367天。单条只读聚合，无上游调用和业务写入。data原字段totalCount/totalMoney、successCount/successMoney、pendingCount/pendingMoney全部精确字符串；金额为元两位小数。总计包含筛选全部退款，成功仅succeeded，处理中含pending与unknown；failed不计成功/处理中。最多4个并发、10秒数据库期限。'});
+paths['/console/v1/{role}/refunds/summary'].get.parameters.push({name:'q',in:'query',schema:{type:'string',maxLength:256}},{name:'search_field',in:'query',schema:{type:'string',enum:['refund_no','out_refund_no','trade_no']}},...['merchant_id','channel_id'].map(name=>({name,in:'query',schema:id})),...['type','status','from','to'].map(name=>({name,in:'query',schema:{type:'string'}})));
+paths['/console/v1/{role}/refunds'].get.description='原退款三个精确搜索字段search_field：refund_no按平台数字ID，out_refund_no按商户原请求号，trade_no按关联平台订单号；q原值绑定，指定精确字段不trim。无字段时保留综合搜索。列表和CSV追加platform_refund_no=id字符串、out_refund_no=商户请求号；已有控制台refund_no仍保留旧商户请求号语义以免破坏消费者，公共支付协议refund_no/out_refund_no不变。所有字段为字符串，独立租户约束和现有状态/方式/通道/日期合并。原字段顺序保留，新别名在CSV末尾追加。';
+paths['/console/v1/{role}/refunds'].get.parameters.push({name:'search_field',in:'query',schema:{type:'string',enum:['refund_no','out_refund_no','trade_no']}});
+paths['/console/v1/{role}/refunds/summary'].get.description+=' 同样接受search_field=refund_no/out_refund_no/trade_no，复用退款列表和CSV的精确绑定筛选；平台ID必须规范正int64，商户请求号保留原空格。';
+paths['/console/v1/{role}/refunds'].get.description+=' 列表与CSV进一步追加completed_at：仅终态与退款结果证据、账务约束一致时，读取不可变结果记录的created_at；缺少历史证据或处理中为null，不取可变updated_at，不表示上游报告的实际到账时间。旧列和两个退款号别名的位置保持，completed_at最后追加。merchant_amount为退款扣减金额的整数分字符串，与退款amount分别展示。';
 add('/account/login-log','get','读取商户本人已核实的成功登录日志',{description:'仅商户本人会话；管理员及代登录403。不接受merchant_id/uid/搜索参数。page/limit必须单个规范正整数字符串，page<=100000、limit<=100。仅按已核实subject_id与本人ID一致的成功审计读取，不使用用户名归属旧记录或失败冒名尝试。count/list同一只读repeatable-read快照，真实created_at DESC/id DESC。items的id是字符串，type/city未记录时为空，ip和created_at来自原审计；无业务写入或外部IP查询，Cache-Control:no-store。'});
 paths['/console/v1/{role}/account/login-log'].get.parameters.push(...structuredClone(paging.filter(p=>p.name!=='q')).map(p=>p.name==='page'?{...p,schema:{...p.schema,maximum:100000}}:p));
 add('/merchants/{merchant_id}/login-log','get','管理员读取指定商户已核实的成功登录日志',{description:'仅原始operator/super管理员；商户与代登录403。merchant_id为规范正int64路径字符串，目标不存在404。不接受uid/merchant_id等查询覆盖；仅单个规范page<=100000、limit<=100。存在性、count/list在同一只读repeatable-read快照核对，role=merchant且success且核实subject_id等于目标；不按用户名归属旧日志或失败冒名。原四列、真实时间/ID倒序和未知方式/地域保留，无业务写入或外部IP查询。'});
@@ -279,7 +283,23 @@ for (const report of ['daily', 'merchants', 'channels', 'provinces', 'buyers', '
   add(`/reports/${report}`, 'get', `读取 ${report} 报表`, { list: true, description: '日期按 UTC+8，包含 from/to 当天；不传时最近30天，最多367天。商户仅可读取 daily/provinces 且仅含自己数据；其他报表仅管理员。没有 merchant_id 任意切换身份的参数。金额保留十进制字符串。' });
   paths[`/console/v1/{role}/reports/${report}`].get.parameters.push(...['from', 'to'].map(name => ({ name, in: 'query', schema: { type: 'string', format: 'date' } })));
 }
+paths['/console/v1/{role}/reports/buyers'].get.description+=' view=original恢复原支付用户统计：只读管理员，固定账号0/IP1/手机号2。仅已付款订单，订单创建业务日按北京时间，原付款笔数/金额按用户汇总，最新订单号为MAX(trade_no)；账号允许与订单详情一致的预授权buyer_id回退。缺账号/IP排除，手机号无可信采集来源时available=false且给出原因，不能当作零业务；手机号CSV拒绝422。不传日期默认为今天。所有参数单值、白名单及绑定，分页规范正整数；不接受q/merchant_id。user仅精确刷新一个原用户；金额和笔数为精确字符串，金额为元。count/list和启用黑名单资料同一只读repeatable-read快照，期限与IP/CIDR判定复用原支付拦截Go规则，异常历史期限保留有效。CSV同范围、原user/order_count/pay_money/trade_no/is_black五列，公式防护/50000行/8MiB/并发与下载审计保持；无view的旧报表不变。拉黑仍须显式调用原订单来源核对接口，本GET不执行写入或上游请求。';
+paths['/console/v1/{role}/reports/buyers'].get.parameters.push(
+ {name:'view',in:'query',schema:{type:'string',enum:['original']}},
+ {name:'method',in:'query',schema:{type:'string',enum:['0','1','2'],default:'0'}},
+ {name:'type',in:'query',schema:{type:'string',enum:['','alipay','wxpay','sandbox']}},
+ {name:'user',in:'query',schema:{type:'string',maxLength:253}},
+ {name:'sort',in:'query',schema:{type:'string',enum:['order_count','pay_money'],default:'order_count'}},
+ {name:'direction',in:'query',schema:{type:'string',enum:['asc','desc'],default:'desc'}}
+);
 for (const op of ['jobs', 'audit-log', 'login-log', 'system-info']) add(`/operations/${op}`, 'get', `管理员读取 ${op}`, { list: op !== 'system-info' });
+schemas.RuntimeLogCleanup=object({days:{type:'integer',minimum:1,maximum:9999},cutoff:str('原GET预览的北京时间自然日截止时刻；新请求须仍等于今天减days，过期409。',{format:'date-time'}),external_no:str('原清理请求号，未知响应后复用同一请求体；不更换号扩大范围。',{pattern:'^[A-Za-z0-9_-]{8,96}$'})},['days','cutoff','external_no']);
+add('/operations/runtime-log','get','超级管理员读取独立运行日志',{list:true,description:'仅本人admin/super，商户、operator、代登录403。单值date/page/limit，无其它参数；date为北京时间自然日，默认今天，page规范正整数<=100000，limit<=100默认30。count/list同一只读repeatable-read快照，按实际created_at DESC/id DESC。items仅id字符串/time瞬间/type日志级别/content安全纯文本/error_code安全码；不查询PHP文件路径，不代替业务审计。仅已保存的本服务运行事件，不保证部署前/数据库不可用期间终端输出存在。无外部调用或业务写入。'});
+paths['/console/v1/{role}/operations/runtime-log'].get.parameters=paths['/console/v1/{role}/operations/runtime-log'].get.parameters.filter(p=>p.name!=='q').map(p=>p.name==='page'?{...p,schema:{type:'integer',minimum:1,maximum:100000}}:p.name==='limit'?{...p,schema:{type:'integer',minimum:1,maximum:100,default:30}}:p);
+paths['/console/v1/{role}/operations/runtime-log'].get.parameters.push({name:'date',in:'query',schema:{type:'string',format:'date'}});
+add('/operations/runtime-log/cleanup','get','预览N天前运行日志归档范围',{description:'仅本人admin/super。只允许单个days规范整数1..9999；返回days、cutoff（北京时间今天00:00减days）、count精确计数字符串，不写任何业务/日志或调用机构。'});
+paths['/console/v1/{role}/operations/runtime-log/cleanup'].get.parameters.push({name:'days',in:'query',required:true,schema:{type:'integer',minimum:1,maximum:9999}});
+add('/operations/runtime-log/cleanup','post','按原预览和稳定请求号清除运行日志显示',{body:'RuntimeLogCleanup',description:'仅本人admin/super及CSRF，拒绝query。仅归档runtime_events中created_at<原cutoff且尚未归档的记录，不删除登录、业务或资金审计。归档与原参数/摘要/数量审计同事务；同actor和external_no加锁，同号同体重放返回原count和replayed=true，不能扩大到后来新增旧记录；改变参数409。新请求预览跨北京时间自然日过期409，不自动重取或更换号。响应count精确字符串、cutoff、replayed布尔。未知响应必须核对同一原请求。'});
 for (const route of Object.keys(paths)) {
   if (!/^\/console\/v1\/\{role\}\/(orders|refunds|transfers|merchants|ledger|reports\/[^/]+)$/.test(route)) continue;
   const op=paths[route].get;

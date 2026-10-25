@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"goepay/internal/collectionstyle"
-	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -126,31 +125,8 @@ func (s *Service) CheckPayment(ctx context.Context, p PaymentContext) error {
 			denied = "merchant is restricted"
 			continue
 		}
-		value := fmt.Sprint(v["value"])
-		if blacklistExpired(v, time.Now()) {
-			continue
-		}
-		switch v["kind"] {
-		case "ip":
-			ip := net.ParseIP(p.ClientIP)
-			if ip != nil {
-				if other := net.ParseIP(value); other != nil && ip.Equal(other) {
-					denied = "client IP blocked"
-				} else if _, network, err := net.ParseCIDR(value); err == nil && network.Contains(ip) {
-					denied = "client network blocked"
-				}
-			}
-		case "buyer":
-			if p.Buyer != "" && p.Buyer == value {
-				denied = "buyer blocked"
-			}
-		case "domain":
-			for _, rawURL := range []string{p.NotifyURL, p.ReturnURL} {
-				u, e := url.Parse(rawURL)
-				if e == nil && domainMatches(u.Hostname(), value) {
-					denied = "callback domain blocked"
-				}
-			}
+		if reason := ActiveBlacklistReason(v, p, time.Now()); reason != "" {
+			denied = reason
 		}
 	}
 	if e = rows.Err(); e != nil {

@@ -64,6 +64,8 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 	case "refunds":
 		from = consoleRefundFrom
 		columns = "f.id::text,f.merchant_id::text,f.order_id::text,o.trade_no,f.refund_no,f.amount::text,f.merchant_amount::text,f.fee_amount::text,f.status,f.created_at"
+		columns += ",f.id::text AS platform_refund_no,f.refund_no AS out_refund_no"
+		columns += "," + consoleRefundCompletedAt
 		tenant = "f.merchant_id"
 		matching = consoleRefundMatching
 		order = "f.id DESC"

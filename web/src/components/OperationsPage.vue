@@ -3,7 +3,14 @@ import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { ApiClient, displayValue } from "../api";
 import type { Operation } from "../operations";
 import { canRetryJob } from "../operations";
-const props = defineProps<{ client: ApiClient; operation: Operation }>();
+import RuntimeLogPage from "./RuntimeLogPage.vue";
+import SystemLogPage from "./SystemLogPage.vue";
+const props = defineProps<{
+  client: ApiClient;
+  operation: Operation;
+  ownSession?: boolean;
+  adminClass?: string;
+}>();
 const items = ref<Record<string, unknown>[]>([]),
   total = ref(0),
   page = ref(1),
@@ -128,11 +135,33 @@ async function cleanup() {
     busy.value = false;
   }
 }
-onMounted(load);
+onMounted(() => {
+  if (!["runtime-log", "system-log"].includes(props.operation)) void load();
+});
 onBeforeUnmount(() => controller?.abort());
 </script>
 <template>
-  <section class="panel records">
+  <SystemLogPage v-if="operation === 'system-log'" :client="client"
+    ><template #login-audit
+      ><OperationsPage
+        :client="client"
+        operation="login-log"
+        :own-session="ownSession"
+        :admin-class="adminClass" /></template
+  ></SystemLogPage>
+  <RuntimeLogPage
+    v-else-if="operation === 'runtime-log'"
+    :client="client"
+    :own-session="ownSession"
+    :admin-class="adminClass"
+    ><template #audit
+      ><OperationsPage
+        :client="client"
+        operation="audit-log"
+        :own-session="ownSession"
+        :admin-class="adminClass" /></template
+  ></RuntimeLogPage>
+  <section v-else class="panel records">
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
     <template v-if="operation === 'cleanup'"

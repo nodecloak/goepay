@@ -12,6 +12,11 @@ export const orderSearchFields = [
   { value: "ip", label: "支付 IP" },
   { value: "param", label: "扩展参数" },
 ] as const;
+export const refundSearchFields = [
+  { value: "refund_no", label: "退款单号" },
+  { value: "out_refund_no", label: "商户退款单号" },
+  { value: "trade_no", label: "关联订单号" },
+] as const;
 export function incomeStatusLabel(value: unknown): string {
   return (
     (
@@ -71,6 +76,9 @@ export function readListRouteQuery(
   if (kind === "orders")
     for (const key of ["include_archived", "trade_no", "out_trade_no"])
       allowed.add(key);
+  if (kind === "refunds")
+    for (const key of ["refund_no", "out_refund_no", "trade_no"])
+      allowed.add(key);
   const values: Record<string, string> = {};
   for (const [key, v] of Object.entries(raw)) {
     if (!allowed.has(key) || typeof v !== "string" || /[\x00\r\n]/.test(v))
@@ -112,7 +120,9 @@ export function readListRouteQuery(
       return fail();
     filters.search_field = values.column;
   }
-  for (const field of ["trade_no", "out_trade_no"]) {
+  for (const field of kind === "refunds"
+    ? ["refund_no", "out_refund_no", "trade_no"]
+    : ["trade_no", "out_trade_no"]) {
     if (values[field] !== undefined) {
       if (
         !values[field] ||
@@ -131,7 +141,9 @@ export function readListRouteQuery(
     return fail();
   if (
     filters.search_field &&
-    !orderSearchFields.some((v) => v.value === filters.search_field)
+    !(kind === "refunds" ? refundSearchFields : orderSearchFields).some(
+      (v) => v.value === filters.search_field,
+    )
   )
     return fail();
   const statuses =
@@ -160,14 +172,24 @@ export function readListRouteQuery(
   if (
     kind !== "orders" &&
     [
-      filters.search_field,
       filters.buyer,
       filters.client_ip,
       filters.income_status,
       filters.notification_state,
-      values.column,
-      values.value,
     ].some(Boolean)
+  )
+    return fail();
+  if (
+    kind !== "orders" &&
+    kind !== "refunds" &&
+    [filters.search_field, values.column, values.value].some(Boolean)
+  )
+    return fail();
+  if (
+    kind === "refunds" &&
+    filters.search_field === "refund_no" &&
+    search &&
+    !id(search)
   )
     return fail();
   if (
@@ -228,6 +250,11 @@ export function appendListFilters(
       "notification_state",
       "search_field",
     );
+  if (
+    kind === "refunds" &&
+    refundSearchFields.some((f) => f.value === filters.search_field)
+  )
+    keys.push("search_field");
   for (const key of keys) {
     const value = filters[key].trim();
     if (value) query.set(key, value);

@@ -149,11 +149,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -543,11 +543,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           },
           {
             "file": "web/src/components/OrderActionMenu.vue",
@@ -705,11 +705,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -949,7 +949,7 @@
         "sources": [
           {
             "file": "web/src/components/ReportPage.vue",
-            "sha256": "84b16ac167c7f0d864fbad95ad394b871b24b910336da09f61959583d5d853f6"
+            "sha256": "45fcf592c121cd51b875d3d851161997e2c235b3536216718f5c42db27258775"
           }
         ],
         "declared_capabilities": [
@@ -1041,7 +1041,7 @@
         "sources": [
           {
             "file": "web/src/components/ReportPage.vue",
-            "sha256": "84b16ac167c7f0d864fbad95ad394b871b24b910336da09f61959583d5d853f6"
+            "sha256": "45fcf592c121cd51b875d3d851161997e2c235b3536216718f5c42db27258775"
           }
         ],
         "declared_capabilities": [
@@ -1152,7 +1152,7 @@
         "sources": [
           {
             "file": "web/src/components/ReportPage.vue",
-            "sha256": "84b16ac167c7f0d864fbad95ad394b871b24b910336da09f61959583d5d853f6"
+            "sha256": "45fcf592c121cd51b875d3d851161997e2c235b3536216718f5c42db27258775"
           }
         ],
         "declared_capabilities": [
@@ -1189,7 +1189,7 @@
         "sources": [
           {
             "file": "web/src/components/ReportPage.vue",
-            "sha256": "84b16ac167c7f0d864fbad95ad394b871b24b910336da09f61959583d5d853f6"
+            "sha256": "45fcf592c121cd51b875d3d851161997e2c235b3536216718f5c42db27258775"
           }
         ],
         "declared_capabilities": [
@@ -1312,7 +1312,7 @@
         "sources": [
           {
             "file": "web/src/components/ReportPage.vue",
-            "sha256": "84b16ac167c7f0d864fbad95ad394b871b24b910336da09f61959583d5d853f6"
+            "sha256": "45fcf592c121cd51b875d3d851161997e2c235b3536216718f5c42db27258775"
           }
         ],
         "declared_capabilities": [
@@ -2194,11 +2194,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -2296,7 +2296,7 @@
         "sources": [
           {
             "file": "web/src/components/ReportPage.vue",
-            "sha256": "84b16ac167c7f0d864fbad95ad394b871b24b910336da09f61959583d5d853f6"
+            "sha256": "45fcf592c121cd51b875d3d851161997e2c235b3536216718f5c42db27258775"
           }
         ],
         "declared_capabilities": [
@@ -2398,7 +2398,7 @@
         "sources": [
           {
             "file": "web/src/components/ReportPage.vue",
-            "sha256": "84b16ac167c7f0d864fbad95ad394b871b24b910336da09f61959583d5d853f6"
+            "sha256": "45fcf592c121cd51b875d3d851161997e2c235b3536216718f5c42db27258775"
           }
         ],
         "declared_capabilities": [
@@ -2479,7 +2479,7 @@
         "sources": [
           {
             "file": "web/src/components/ReportPage.vue",
-            "sha256": "84b16ac167c7f0d864fbad95ad394b871b24b910336da09f61959583d5d853f6"
+            "sha256": "45fcf592c121cd51b875d3d851161997e2c235b3536216718f5c42db27258775"
           }
         ],
         "declared_capabilities": [
@@ -3853,11 +3853,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -4312,11 +4312,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -6370,7 +6370,7 @@
         "sources": [
           {
             "file": "web/src/components/ReportPage.vue",
-            "sha256": "84b16ac167c7f0d864fbad95ad394b871b24b910336da09f61959583d5d853f6"
+            "sha256": "45fcf592c121cd51b875d3d851161997e2c235b3536216718f5c42db27258775"
           }
         ],
         "declared_capabilities": [
@@ -7080,11 +7080,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [],
@@ -7241,11 +7241,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -8578,11 +8578,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -8893,11 +8893,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -8971,11 +8971,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -9009,11 +9009,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -9049,11 +9049,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -9286,11 +9286,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -9743,11 +9743,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [],
@@ -10349,11 +10349,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -10489,11 +10489,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -10580,7 +10580,7 @@
         "sources": [
           {
             "file": "web/src/components/ReportPage.vue",
-            "sha256": "84b16ac167c7f0d864fbad95ad394b871b24b910336da09f61959583d5d853f6"
+            "sha256": "45fcf592c121cd51b875d3d851161997e2c235b3536216718f5c42db27258775"
           }
         ],
         "declared_capabilities": [
@@ -10617,7 +10617,7 @@
         "sources": [
           {
             "file": "web/src/components/ReportPage.vue",
-            "sha256": "84b16ac167c7f0d864fbad95ad394b871b24b910336da09f61959583d5d853f6"
+            "sha256": "45fcf592c121cd51b875d3d851161997e2c235b3536216718f5c42db27258775"
           }
         ],
         "declared_capabilities": [
@@ -11110,11 +11110,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [
@@ -11237,11 +11237,11 @@
         "sources": [
           {
             "file": "web/src/App.vue",
-            "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+            "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
           },
           {
             "file": "web/src/components/DataTable.vue",
-            "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+            "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
           }
         ],
         "declared_capabilities": [

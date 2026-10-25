@@ -4,6 +4,7 @@ import (
 	"goepay/internal/ledger"
 	"net"
 	"net/url"
+	"strings"
 )
 
 // Field names select fixed SQL only. The returned value is always bound as $2;
@@ -13,8 +14,14 @@ func consoleOrderSearch(q url.Values, kind, fallback string) (string, any, error
 		return "", nil, errListFilter
 	}
 	raw, field := q.Get("q"), q.Get("search_field")
+	if kind == "refunds" && strings.ContainsAny(raw, "\x00\r\n") {
+		return "", nil, errListFilter
+	}
 	if field == "" {
 		return "($2::text='' OR strpos(lower(" + fallback + "),lower($2::text))>0)", raw, nil
+	}
+	if kind == "refunds" {
+		return consoleRefundFieldSearch(field, raw)
 	}
 	if kind != "orders" {
 		return "", nil, errListFilter

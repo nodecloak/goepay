@@ -53,6 +53,14 @@ func (s *Server) operations(w http.ResponseWriter, r *http.Request, role string,
 		return true
 	}
 	name := parts[2]
+	if name == "system-log" {
+		s.systemLogConsole(w, r, session, parts)
+		return true
+	}
+	if name == "runtime-log" {
+		s.runtimeLogConsole(w, r, session, parts)
+		return true
+	}
 	if name == "cleanup" && len(parts) == 3 {
 		s.cleanup(w, r, session)
 		return true

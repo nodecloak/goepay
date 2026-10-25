@@ -60,6 +60,7 @@ import {
   freshListFilters,
   appendListFilters,
   orderSearchFields,
+  refundSearchFields,
   readListRouteQuery,
 } from "./list-filters";
 import PublicEnrollment from "./components/PublicEnrollment.vue";
@@ -267,6 +268,40 @@ const refundRow = ref<Record<string, unknown> | null>(null),
   refundExternal = ref(""),
   refundFunding = ref<Record<string, unknown> | null>(null),
   refundFundingBinding = ref("");
+let orderDetailsOpener: {
+  element: HTMLElement;
+  client: ApiClient;
+  csrf: string;
+  path: string;
+} | null = null;
+function openOrderDetails(row: Record<string, unknown>) {
+  orderDetailsOpener =
+    document.activeElement instanceof HTMLElement
+      ? {
+          element: document.activeElement,
+          client: client.value,
+          csrf: client.value.csrfToken,
+          path: route.fullPath,
+        }
+      : null;
+  orderDetails.value = row;
+}
+async function closeOrderDetails() {
+  const opener = orderDetailsOpener;
+  orderDetailsOpener = null;
+  orderDetails.value = null;
+  await nextTick();
+  if (
+    opener &&
+    !orderDetails.value &&
+    !refundRow.value &&
+    opener.element.isConnected &&
+    opener.client === client.value &&
+    opener.csrf === client.value.csrfToken &&
+    opener.path === route.fullPath
+  )
+    opener.element.focus();
+}
 watch([refundMoney, refundExternal], () => {
   refundFunding.value = null;
   refundFundingBinding.value = "";
@@ -402,7 +437,7 @@ function listQuery() {
     limit: String(listLimit.value),
   });
   const queryText =
-    kind.value === "orders" && listFilters.value.search_field
+    ["orders", "refunds"].includes(kind.value) && listFilters.value.search_field
       ? search.value
       : search.value.trim();
   if (queryText !== "") q.set("q", queryText);
@@ -950,6 +985,8 @@ onBeforeUnmount(() => {
         :key="area + path"
         :client="client"
         :report="reportFor(area, path)"
+        :own-session="!session.delegated_by"
+        :admin-class="session.user.admin_class"
       />
       <SettlementBatchesPage
         v-else-if="kind === 'settlement-batches'"
@@ -1040,6 +1077,8 @@ onBeforeUnmount(() => {
           :key="path"
           :client="client"
           :operation="operationPages[path]"
+          :own-session="!session.delegated_by"
+          :admin-class="session.user.admin_class"
         />
       </div>
       <CommercePage
@@ -1090,24 +1129,32 @@ onBeforeUnmount(() => {
         >
           <div
             class="search-group"
-            :class="{ 'order-search-group': kind === 'orders' }"
+            :class="{
+              'order-search-group': ['orders', 'refunds'].includes(kind),
+            }"
           >
             <label
-              v-if="kind === 'orders'"
+              v-if="['orders', 'refunds'].includes(kind)"
               class="sr-only"
-              for="order-search-field"
-              >订单搜索字段</label
+              :for="
+                kind === 'orders' ? 'order-search-field' : 'refund-search-field'
+              "
+              >{{ kind === "orders" ? "订单搜索字段" : "退款搜索字段" }}</label
             >
             <select
-              v-if="kind === 'orders'"
-              id="order-search-field"
+              v-if="['orders', 'refunds'].includes(kind)"
+              :id="
+                kind === 'orders' ? 'order-search-field' : 'refund-search-field'
+              "
               v-model="listFilters.search_field"
-              aria-label="订单搜索字段"
+              :aria-label="kind === 'orders' ? '订单搜索字段' : '退款搜索字段'"
               class="order-search-field"
             >
               <option value="">综合搜索</option>
               <option
-                v-for="field in orderSearchFields"
+                v-for="field in kind === 'refunds'
+                  ? refundSearchFields
+                  : orderSearchFields"
                 :key="field.value"
                 :value="field.value"
               >
@@ -1119,7 +1166,7 @@ onBeforeUnmount(() => {
               id="search"
               v-model="search"
               :placeholder="
-                kind === 'orders' && listFilters.search_field
+                ['orders', 'refunds'].includes(kind) && listFilters.search_field
                   ? ['money', 'realmoney', 'getmoney'].includes(
                       listFilters.search_field,
                     )
@@ -1205,6 +1252,7 @@ onBeforeUnmount(() => {
           :items="items"
           :columns="columns"
           :orders="kind === 'orders'"
+          :refunds="kind === 'refunds'"
           :admin-orders="kind === 'orders' && area === 'admin'"
           :selectable="kind === 'orders' && area === 'admin'"
           :selected-trades="selectedOrderTrades"
@@ -1215,7 +1263,7 @@ onBeforeUnmount(() => {
             !['super', 'operator'].includes(session?.user.admin_class || '')
           "
           @refund="openRefund"
-          @detail="(row) => (orderDetails = row)"
+          @detail="openOrderDetails"
           @order-action="(row, action) => (orderAction = { row, action })"
           @blacklist="openBlacklist"
         />
@@ -1302,7 +1350,7 @@ onBeforeUnmount(() => {
           ['super', 'operator'].includes(session.user.admin_class || '')
         "
         @blacklist="openBlacklist"
-        @close="orderDetails = null"
+        @close="closeOrderDetails"
         @refund="
           (row) => {
             orderDetails = null;

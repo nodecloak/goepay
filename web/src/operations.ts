@@ -1,8 +1,14 @@
 export type Operation =
-  "login-log" | "audit-log" | "jobs" | "system-info" | "cleanup";
+  | "login-log"
+  | "audit-log"
+  | "runtime-log"
+  | "system-log"
+  | "jobs"
+  | "system-info"
+  | "cleanup";
 export const operationPages: Record<string, Operation> = {
-  "/system/log": "login-log",
-  "/system/runtime-log": "audit-log",
+  "/system/log": "system-log",
+  "/system/runtime-log": "runtime-log",
   "/system/cron": "jobs",
   "/system/clean": "cleanup",
   "/system/update": "system-info",

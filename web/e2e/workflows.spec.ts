@@ -119,7 +119,7 @@ test("internal transfer sends exact money string and preserves idempotency numbe
     external_no: "stable-test-request",
   });
 });
-test("reports send date interval and export actual response fields safely", async ({
+test("merchant reports send date interval and export actual response fields safely", async ({
   page,
 }) => {
   const queries: string[] = [];
@@ -128,7 +128,7 @@ test("reports send date interval and export actual response fields safely", asyn
     if (url.pathname.endsWith("/session"))
       return route.fulfill(
         ok({
-          user: { id: "1", name: "Admin", role: "admin", admin_class: "super" },
+          user: { id: "1", name: "Merchant", role: "merchant" },
           csrf_token: "token",
         }),
       );
@@ -144,7 +144,7 @@ test("reports send date interval and export actual response fields safely", asyn
       }),
     );
   });
-  await page.goto("/admin/trade/stat/daily");
+  await page.goto("/merchant/trade/daily-stat");
   await page.getByLabel("开始日期").fill("2026-10-22");
   await page.getByLabel("结束日期").fill("2026-10-23");
   await page.getByRole("button", { name: "查询统计" }).click();

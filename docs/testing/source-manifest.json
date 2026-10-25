@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-25T13:50:46.713Z",
+  "generated_at": "2026-10-25T17:31:52.659Z",
   "scope": "Source snapshot only; not a claim of complete compatibility or a replacement for test results.",
   "files": [
     {
@@ -20,7 +20,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "8413a1a8e9aa734de31330e8eeb89e6a1b8561ddaedd7c69a58b541b087ad362"
+      "sha256": "74c68e7fe13bfc4faface9a6bde07cdad89ef7a261da3428bccc23079dc3202c"
     },
     {
       "path": "api/README.md",
@@ -28,7 +28,7 @@
     },
     {
       "path": "api/console.openapi.json",
-      "sha256": "b9846faf7bcc032a559a16e2ef4dc618c44b472b4979a48ffe61be2e98789227"
+      "sha256": "951a582d8ce4e6c9b9b801c82b89f937237bc8a403b448246a6e88ea405d6daf"
     },
     {
       "path": "clients/mini/README.md",
@@ -603,6 +603,10 @@
       "sha256": "f9a766a561f183b387744e679bf7bc2f98efa60d292244eb8a949af5b4e6eb13"
     },
     {
+      "path": "db/migrations/000089_runtime_events.up.sql",
+      "sha256": "4387a4df30c2af40e49486122c7917901fe35dcb074508b619edae7cb3ee503d"
+    },
+    {
       "path": "db/ready.go",
       "sha256": "6c0f3dffbe2c7aa430685a5e75088f232901a15b6d6023dd14a5f53e0d95226d"
     },
@@ -639,6 +643,10 @@
       "sha256": "26a26fe30e7737f269c4dd08f46229a9de5653166797a95a95d69fb56b8db15f"
     },
     {
+      "path": "docs/design/province-map-source-136.md",
+      "sha256": "1496dc2345cbb6c0819c569af69736bf9cf1e64a029b512662c383a6305cdf68"
+    },
+    {
       "path": "docs/design/scan-recovery-78.md",
       "sha256": "78a8b7720b773a5dde423e6af89564012a530c3ec691eb213b0d3c57d9160603"
     },
@@ -671,8 +679,20 @@
       "sha256": "81f95f0029985f214c60c912a3223ed99bd2ffd9df37c2a99543f9de6aea0ae0"
     },
     {
+      "path": "docs/superpowers/plans/2026-10-25-original-system-operation-log.md",
+      "sha256": "0d052b14811e800a3c5c599622923116d63ceb021679d009b23cbcbdd0105d0c"
+    },
+    {
       "path": "docs/superpowers/plans/2026-10-25-settlement-batches-84.md",
       "sha256": "d9a5125f4f106d82ed0392b7b33a47720ff9c76867de16c71d1e1b2238e44c2c"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-26-original-daily-channel-statistics.md",
+      "sha256": "b8b46e6b166f4ca0969c34fd48a712726d8de07c1f3af3500d59ceadd0374703"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-26-original-province-statistics.md",
+      "sha256": "dc6449ec8ac0a6da80218b669f17c7d4a3f9987e2e1eb0912b31fe8fc87cdcce"
     },
     {
       "path": "docs/tools/application-authorization-openapi.mjs",
@@ -684,7 +704,7 @@
     },
     {
       "path": "docs/tools/build-openapi.mjs",
-      "sha256": "b4185ce0513eb82b8b4e017d796be2f56d95f2db76dd3a55d53ecb6dcf24fdd2"
+      "sha256": "fcb215556029c84c4eed968f070ff7a29c6520816e68338c322854e0a899797e"
     },
     {
       "path": "docs/tools/business-notice-openapi.mjs",
@@ -780,7 +800,7 @@
     },
     {
       "path": "docs/tools/review-pro-ux.mjs",
-      "sha256": "2539c7643f5bbaa305ea1901ef02916c4f4ea2616d66c03497e9da5bd46b14b1"
+      "sha256": "8c76d625b8a398612afa78b49f82d99ebfaa7f228f9984a14cec432e30d1e0df"
     },
     {
       "path": "docs/tools/scan-recovery-openapi.mjs",
@@ -800,11 +820,11 @@
     },
     {
       "path": "docs/tools/source-manifest.mjs",
-      "sha256": "b78b25a9ee9430f10bb6fc94d100c1cf6a9fc96d865678c4f3c22f538b127cf7"
+      "sha256": "cd1a6c18e5931688e22fdbc34b27f79e77f49e2ea5f0bd9225555f8f898a98f3"
     },
     {
       "path": "docs/tools/summarize-pro-ux-review.mjs",
-      "sha256": "d1edc64aa5c610c357c90128a3e85444365e35073388c6a584e36383f1c09f76"
+      "sha256": "a263f6992ef0fc1732f0302bfdcd19532bdf4f3c29fd92276420a67e7710fd0e"
     },
     {
       "path": "docs/verification/admin-notice-transports-77-2026-10-24.md",
@@ -1311,6 +1331,18 @@
       "sha256": "ee9286f432169b278c54b48c3a576cdf84cd67f3b1d847fb66ab481bb1bb9d1d"
     },
     {
+      "path": "internal/backoffice/audit_resource_scope.go",
+      "sha256": "9b3801c07f5919e5d8d819cf3d754b6348a9d6e09892a530c2bbb57b187128d7"
+    },
+    {
+      "path": "internal/backoffice/blacklist_match.go",
+      "sha256": "aaa675655077e411135e70bc69c7f18222cfa873f2710b6851ce2b22ce0efefa"
+    },
+    {
+      "path": "internal/backoffice/blacklist_match_test.go",
+      "sha256": "312d80ef2a378488b0d115e28d625fa7ef0decd086f1f3e6c88c3444d6e91c59"
+    },
+    {
       "path": "internal/backoffice/business.go",
       "sha256": "98c5c0d012ae901b0e9fae3edc2b70d756896c8a5e847756509fe462fb158615"
     },
@@ -1464,7 +1496,7 @@
     },
     {
       "path": "internal/backoffice/policy.go",
-      "sha256": "8052d29586ba2498a2dc518b1a2ade8123ea13662110964e461c06e9e6c4cc3c"
+      "sha256": "63a60dd240d5930e32535001c16c9dccce8e248942b1f3d9a90434905a55729e"
     },
     {
       "path": "internal/backoffice/policy_regression_test.go",
@@ -3887,6 +3919,10 @@
       "sha256": "f8cd38c041993a817e15bbd3b27053987aab48373de1332126df48a930d392f8"
     },
     {
+      "path": "internal/server/buyer_statistics.go",
+      "sha256": "c2e9dd714ea8aa5719e3b4aa2f7d9080c1d1edc6cfaf2d23060601c83b51f66c"
+    },
+    {
       "path": "internal/server/channel_sharing_console.go",
       "sha256": "8da98cadd41ebf73a4b1f33f5429141fbe3f5eba5b11a7095a88263a889c6b93"
     },
@@ -4028,7 +4064,7 @@
     },
     {
       "path": "internal/server/list.go",
-      "sha256": "8ee031f87ab4004a5273e4aa96822895a2afe2026481bf421151d5cc7049b6d0"
+      "sha256": "993bcdaf167be3786d48372590e4fe5886cd53f087e9fb89ee34a7dadf5053ad"
     },
     {
       "path": "internal/server/list_filters.go",
@@ -4104,7 +4140,7 @@
     },
     {
       "path": "internal/server/operations.go",
-      "sha256": "88ff8bc8cbfad95f361051e51efade0acd2d1bd89124da2aac59fb3aabfb3ede"
+      "sha256": "0a69a1ae18c969fc7d4970d884a1c9f92c3ad95bd3d946ba8419d192fee11c91"
     },
     {
       "path": "internal/server/order_admin_actions.go",
@@ -4132,11 +4168,15 @@
     },
     {
       "path": "internal/server/order_search.go",
-      "sha256": "0a16ef3a14a1482e003c6ca05ba53cbedb62c6119c61e145a75ddd93d6b25f45"
+      "sha256": "2e8944f36371eef620dc8a750d258a7bd0cf8695d7a07ba99ab17fef0aedf34d"
     },
     {
       "path": "internal/server/order_search_test.go",
       "sha256": "a3e549338a1771174c1545ce414d3923bc91466ccc8137e416b9d6d3e84233e1"
+    },
+    {
+      "path": "internal/server/original_order_statistics.go",
+      "sha256": "7d9c53b4882431fc152995e299a28a39200f90b8c4278057431086172000a096"
     },
     {
       "path": "internal/server/payment_query.go",
@@ -4219,6 +4259,10 @@
       "sha256": "351276f0030e6c9532bf9bcf301bc6b5dae210ecd96e7002a75257291d684f48"
     },
     {
+      "path": "internal/server/province_statistics.go",
+      "sha256": "b6761bb127a314540430789b3e6bf50db64ac55fc3769066dc014de38c4be7ec"
+    },
+    {
       "path": "internal/server/referral_console.go",
       "sha256": "cb9090b8400ba5f4300f936ed7cda658e2e5f092152215ffd915e3634c2e0df6"
     },
@@ -4239,8 +4283,16 @@
       "sha256": "3657cc93889285118fe71a24ccced1544c374e6b769f5ac3368a155191c0076a"
     },
     {
+      "path": "internal/server/refund_projection.go",
+      "sha256": "819d190794e997c7f4fcdf7114e4037f1748ddb615b629907601e12c19976b8f"
+    },
+    {
+      "path": "internal/server/refund_search.go",
+      "sha256": "2350575e04e701c0bcda9c337806d4589c52729525b13881f069697a0969f722"
+    },
+    {
       "path": "internal/server/refund_summary.go",
-      "sha256": "c4483463f2e8a8d131294abc621ecfeaba4ebb8c15ac451d7b49ddc3ed4c976a"
+      "sha256": "8b3095c346efcd989b882644b816ef56c260cf424162a192780e6766cfe7e250"
     },
     {
       "path": "internal/server/refund_summary_ux_test.go",
@@ -4248,7 +4300,15 @@
     },
     {
       "path": "internal/server/reports.go",
-      "sha256": "41bbdf874f98a9872fb06d77ab1303dad80cab1073db28163151b0c3a6e6c4d4"
+      "sha256": "f08c56c8453b5e99e533ebf8c2a8e38f76b3ab7ca38c6af9e3373d3e9a62a5e4"
+    },
+    {
+      "path": "internal/server/runtime_log.go",
+      "sha256": "34aa16e1954f9646b6c7d191c0989890cd8ef454f161f8df6d1ca1ec08f1efd2"
+    },
+    {
+      "path": "internal/server/runtime_log_test.go",
+      "sha256": "a2311e9cd686cab31a3e53f3104d799c3a4c9b8d4bf93509faf2b3e24b854d19"
     },
     {
       "path": "internal/server/scan_cancellation_error_test.go",
@@ -4260,7 +4320,7 @@
     },
     {
       "path": "internal/server/server.go",
-      "sha256": "62d2c4d90ec4925a261a1f3b72668347f2cc8264f322fc3e8ddba79ff97e9fbd"
+      "sha256": "b75bcf1aea9f41a92e323a397decc1ef26efe9110e71cb111bd3130d9e66cb81"
     },
     {
       "path": "internal/server/server_test.go",
@@ -4305,6 +4365,10 @@
     {
       "path": "internal/server/sso.go",
       "sha256": "8e2beb91694d961727ac89d9db10f784fdcabd65bc37a37ee2d06321c28f2ba0"
+    },
+    {
+      "path": "internal/server/system_log.go",
+      "sha256": "0cb76a22914dddb27d7b2c0534761eee0063c4f37cce6a644c704618cd72e62e"
     },
     {
       "path": "internal/server/template_console.go",
@@ -4477,6 +4541,10 @@
     {
       "path": "tests/contract/bank_transfer_http_test.go",
       "sha256": "c4987b271d50c50659013b7723bbfa71942c9f2986b6370d3f5bba89aefb0417"
+    },
+    {
+      "path": "tests/contract/buyer_statistics_ux_test.go",
+      "sha256": "9f94e70d2ffbe7a2e68051a145ec94f800ffd1770c5f80de500e7c8002e84716"
     },
     {
       "path": "tests/contract/channel_sharing_balance_http_test.go",
@@ -4683,6 +4751,10 @@
       "sha256": "b05d2b36e233906f3b7e55c07271b94472b20948eb3d6e920dac4bde436f8b4a"
     },
     {
+      "path": "tests/contract/original_order_statistics_ux_test.go",
+      "sha256": "4b024296474273ad9406d9eab7872d41a3aa0eb6ad44a85f23a95469a5436ac2"
+    },
+    {
       "path": "tests/contract/page_template_http_test.go",
       "sha256": "be9cabca7d7eee57f2fe3012190663b7e2e27b8a1486ec985f93611461f58d3e"
     },
@@ -4775,6 +4847,10 @@
       "sha256": "2549f016a2f6a80ca073655977bc8dcde94b756bd5110fbce9c79053f5c3d1f1"
     },
     {
+      "path": "tests/contract/province_statistics_ux_test.go",
+      "sha256": "87487f570017153e4c63b5d33d086df460dce7b42b4aef13204999c2ec73f967"
+    },
+    {
       "path": "tests/contract/recharge_policy_test.go",
       "sha256": "2de221270349f1368fbc6fa1937a73d396bf8c050bb46d35f2a521fed9df26ba"
     },
@@ -4800,15 +4876,23 @@
     },
     {
       "path": "tests/contract/referral_profit_http_test.go",
-      "sha256": "c17cd230185963918503d82598b2a7c8477b65a1a4c6b1df813208fc1d5870bb"
+      "sha256": "5c143021ac6a20f396bb9103eeb568200081f2a85301b8680498936330b00b41"
     },
     {
       "path": "tests/contract/referral_profit_policy_http_test.go",
       "sha256": "3db41b3035d7f406720f2dead92157cc40c6832fe970a71815f3fa725b7f46f7"
     },
     {
+      "path": "tests/contract/refund_columns_ux_test.go",
+      "sha256": "ccfa115d929a004f640b1f5a8331c37494c6026c1658e02c089d44f61a0c3898"
+    },
+    {
       "path": "tests/contract/refund_funding_console_test.go",
       "sha256": "d7b152d763e97799c6021bd622ee0105904d541d7e2b318ee276acaab7d2d76d"
+    },
+    {
+      "path": "tests/contract/refund_search_ux_test.go",
+      "sha256": "923a9402dfe08ae633283f0bf377cca876002ea90f710f1275b58df7928a0b69"
     },
     {
       "path": "tests/contract/refund_summary_ux_test.go",
@@ -4817,6 +4901,10 @@
     {
       "path": "tests/contract/reports_test.go",
       "sha256": "26e44723c72c5a911a2583b06f0488f602b0f2d72a7ff58192147363e31a26a3"
+    },
+    {
+      "path": "tests/contract/runtime_log_ux_test.go",
+      "sha256": "d7669ecffed3a491c4a5a1a21563637069dfd81564da18f636cc29aad0e973cb"
     },
     {
       "path": "tests/contract/scan_recovery_http_test.go",
@@ -4857,6 +4945,10 @@
     {
       "path": "tests/contract/sso_test.go",
       "sha256": "1598b8e1e1ac5ac599ec01b4fb416cd51a2a499ade97c5eef13598133a3a63fe"
+    },
+    {
+      "path": "tests/contract/system_log_ux_test.go",
+      "sha256": "b75b6a1bcb0c3e79ee8e56a6cd7525f9f9c78e4dbcd965e925d5f62a4d4901cc"
     },
     {
       "path": "tests/contract/t1_funds_test.go",
@@ -4947,6 +5039,10 @@
       "sha256": "3c95fd8c578540197235572ecdfaabad4aaa3d53c49480828d321f9cd1ea888b"
     },
     {
+      "path": "web/e2e/buyer-statistics-ux.spec.ts",
+      "sha256": "f6d753a714bf572f0428d352425e2f39c59fb4162a47c242886f76827d10fcb3"
+    },
+    {
       "path": "web/e2e/cases-deposits.spec.ts",
       "sha256": "7ff983274805b0ec4e6e24e8f514d75093cc2adea211205bfb17f7130e08837e"
     },
@@ -5009,6 +5105,10 @@
     {
       "path": "web/e2e/funds-availability.spec.ts",
       "sha256": "2577998981fa07d9f0a02d7895c8297c57b8a6cc557197ffb9de54890203654c"
+    },
+    {
+      "path": "web/e2e/group-editor-ux.spec.ts",
+      "sha256": "2a8d6897561b771ae7230aa9fe106fddd61843717dac1ab37547c8e51d3640e8"
     },
     {
       "path": "web/e2e/identity-lookup.spec.ts",
@@ -5131,6 +5231,10 @@
       "sha256": "79aa8b78f97e3bf2fde2f8380a6e4d62aa1890587111ba72f1db683c50a086ec"
     },
     {
+      "path": "web/e2e/original-order-statistics-ux.spec.ts",
+      "sha256": "5143f3eebd524865657bfed7b497af18d27fd43dae7a67f774ce4dbf87a40258"
+    },
+    {
       "path": "web/e2e/page-template.spec.ts",
       "sha256": "3715ee2dee8378a38f66b45c8624b68661205e04313720cd3b7f97e7f40fd615"
     },
@@ -5152,11 +5256,15 @@
     },
     {
       "path": "web/e2e/pro-console-fields.spec.ts",
-      "sha256": "cc53f765513e8d8a7d6cf65c36e20974a4bd28973da6d244891306a7a7f28f6d"
+      "sha256": "fbeeb53214aa97bb99fe6cfbbef3c158d234fc240917b51fb7af5ea39c4793ce"
     },
     {
       "path": "web/e2e/pro-order-search.spec.ts",
       "sha256": "7c4ba7196ac79cc804596738b564f6f9e6ac448cf4a559b1bc6255062ed48e21"
+    },
+    {
+      "path": "web/e2e/province-statistics-ux.spec.ts",
+      "sha256": "39fa3970ca38b4415ff4b976c57d43db8f45784bcf6d9e43b8003399c57a629c"
     },
     {
       "path": "web/e2e/referral-daily.spec.ts",
@@ -5175,6 +5283,14 @@
       "sha256": "559383f383ffe4018eb2da079b2746d453a082ffaa71167453d979643972c2a4"
     },
     {
+      "path": "web/e2e/refund-columns-ux.spec.ts",
+      "sha256": "9e5c5066c24afe26f4785fddf2d0654b6700e52a214bb6a615a737a2333609b1"
+    },
+    {
+      "path": "web/e2e/refund-search-ux.spec.ts",
+      "sha256": "b54e12352c1dc520154d6784f86eb7510fdefc61debb4b4b2e103c17757501b6"
+    },
+    {
       "path": "web/e2e/refund-summary-ux.spec.ts",
       "sha256": "af4d77042c5a73212ebc8b683d3179a95a28864c15e434456a32a85c2e756b8d"
     },
@@ -5185,6 +5301,10 @@
     {
       "path": "web/e2e/resources.spec.ts",
       "sha256": "8db5a313656306bdc6b66818968efb74125da0f811f86158b4d15d0db74a53c9"
+    },
+    {
+      "path": "web/e2e/runtime-log-ux.spec.ts",
+      "sha256": "450fc8d3a111b30e1aa255a7201945167d3d567a1d8f4be585ac6d32fba64abd"
     },
     {
       "path": "web/e2e/scan-recovery.spec.ts",
@@ -5235,6 +5355,10 @@
       "sha256": "f06b82e5f4271bd0160d64feb299ba362c256afdb5ce201be6454b295665d493"
     },
     {
+      "path": "web/e2e/system-log-ux.spec.ts",
+      "sha256": "db94044beef36d69e0e0e513004ec4a91ae13f1edcd1793573ea8ef5a677e2f2"
+    },
+    {
       "path": "web/e2e/transfer-batch-import.spec.ts",
       "sha256": "d25956f71ef9fdf8847e9a881dd12294daa460d2f99ac9301e5cf9d158b4c27c"
     },
@@ -5248,7 +5372,7 @@
     },
     {
       "path": "web/e2e/workflows.spec.ts",
-      "sha256": "bae4cfcf9c5362436c9a7b7fd54512db8d9c7fff0a43509ff2bac1b616e4a5bf"
+      "sha256": "dfb99e12311bbf068d8ddfc7cbf487295614e7881239cdcf87ee5bfab87b3607"
     },
     {
       "path": "web/index.html",
@@ -5276,7 +5400,7 @@
     },
     {
       "path": "web/src/App.vue",
-      "sha256": "0e3ab2b873cc5c95d2b5a7e1835ba1a6bff2f1b1bc717f0eabfa204ed994c65a"
+      "sha256": "8babd1a8079c1761a1b4576d729ce650522a00e8c01581d35dbfa22513e98b73"
     },
     {
       "path": "web/src/api.ts",
@@ -5335,6 +5459,10 @@
       "sha256": "acb5f4aa0a485e29b3dc30a2779b14d7af73cbb3dd057f00997784254870d226"
     },
     {
+      "path": "web/src/components/BuyerStatisticsReport.vue",
+      "sha256": "581fbea9ba8ac6c41fe5b1a888568ae0b70e56436d00e64d1c3b53b569517941"
+    },
+    {
       "path": "web/src/components/CasePanel.vue",
       "sha256": "0dfbd701b2bd8a360d111373b4018f112b7ad28091afcca1895e9198a2175186"
     },
@@ -5380,7 +5508,7 @@
     },
     {
       "path": "web/src/components/DataTable.vue",
-      "sha256": "156400c18ed9206217c0f1880fc064366f75bc08081047199982579a1a107698"
+      "sha256": "835d5d7c2533169e4398b79d50a5927c0257a0b68f9eb3886d3904725ed84187"
     },
     {
       "path": "web/src/components/FundsAuthorizationModal.vue",
@@ -5389,6 +5517,10 @@
     {
       "path": "web/src/components/FundsAvailabilitySummary.vue",
       "sha256": "c9b41df87a86587b47982e370ab006ec3c595f232a2ef2dbd81efb1b77c4e98b"
+    },
+    {
+      "path": "web/src/components/GroupEditorFields.vue",
+      "sha256": "a516360a7bf3ffb51d5c1411e36bbd7affeb8c72b6098082a60a2be82e699a0a"
     },
     {
       "path": "web/src/components/GroupSalesPage.vue",
@@ -5464,7 +5596,7 @@
     },
     {
       "path": "web/src/components/OperationsPage.vue",
-      "sha256": "f44a508d1954ade0adc52b8e5ba3a59b009b1ab6ffdcae515b113f8a259e8306"
+      "sha256": "5852baa4d79ab24288d14b8895e9e880e149748e86ac0d8e5cac96414548bb0e"
     },
     {
       "path": "web/src/components/OrderActionMenu.vue",
@@ -5491,6 +5623,10 @@
       "sha256": "e5c620401741c7f62629648c2cd378630e7f68c4a914ab7fd67f1ffddb40c68f"
     },
     {
+      "path": "web/src/components/OriginalOrderStatistics.vue",
+      "sha256": "42146a2aed3f0b5b022b08e1411f2562530c461a6c1b0e359c6fc15f7b0bbede"
+    },
+    {
       "path": "web/src/components/PaymentPasswordSettings.vue",
       "sha256": "7a084611ed454ee780da97468ef12f559bb2c9419648525f103af8c2854441e7"
     },
@@ -5501,6 +5637,10 @@
     {
       "path": "web/src/components/PrintingSettingsPage.vue",
       "sha256": "ad3ab563c49ab99df37752dd4d962bae41249eaf55862fd1bac56cbcdf22b856"
+    },
+    {
+      "path": "web/src/components/ProvinceStatisticsReport.vue",
+      "sha256": "07a2de9f414db38d4ca9963df85ff1980360633901234dff602f016584dbcb00"
     },
     {
       "path": "web/src/components/PublicEnrollment.vue",
@@ -5524,7 +5664,7 @@
     },
     {
       "path": "web/src/components/ReportPage.vue",
-      "sha256": "84b16ac167c7f0d864fbad95ad394b871b24b910336da09f61959583d5d853f6"
+      "sha256": "46ddb05b88a30324220dfda6fc4ce65bdc332185497e48765c21bc05b2163b79"
     },
     {
       "path": "web/src/components/ResourceFields.vue",
@@ -5532,11 +5672,19 @@
     },
     {
       "path": "web/src/components/ResourcePage.vue",
-      "sha256": "5098f6cb953cee835af32cac2cecac45740a22d43a5a402d86f7a2fca6b5564e"
+      "sha256": "42451db7d1a076dda23c2356539bf89f97c00d552d254d50ef69ba5d6cf58772"
     },
     {
       "path": "web/src/components/RuleExecutionPanel.vue",
       "sha256": "5f95a03c48ad88c6809fce49b07774b55c28b3b4af0537fa91a6b549c3fb8746"
+    },
+    {
+      "path": "web/src/components/RuntimeLogCleanup.vue",
+      "sha256": "52099a204f55dc4208dd9ffca8e8f36aea0b486ecc2e8c617571b9fa89d58ff9"
+    },
+    {
+      "path": "web/src/components/RuntimeLogPage.vue",
+      "sha256": "65a2e799b5935b58431a09d613faeee94680e5b59db2afeac15fe168602467fc"
     },
     {
       "path": "web/src/components/ScanRecoveryPanel.vue",
@@ -5577,6 +5725,10 @@
     {
       "path": "web/src/components/ShellIcon.vue",
       "sha256": "3d9b366fe9f7f2dfa06e19c4ea21e4ee480791d3e7a64bb5eb08261e1a1b68c9"
+    },
+    {
+      "path": "web/src/components/SystemLogPage.vue",
+      "sha256": "e563eea0372bd0e03af83827575a47ecdc0659ab6f16f13d2bd66e3797d8e929"
     },
     {
       "path": "web/src/components/TemplatePage.vue",
@@ -5623,6 +5775,10 @@
       "sha256": "5bd2a9463609b9ce33b71f14746a7f7a9d91e2e80289f2647e0a71446a856338"
     },
     {
+      "path": "web/src/data/province-boundaries.json",
+      "sha256": "294a312c5f3049a476345bead226322dcc18e3e3963af684d382892797556e14"
+    },
+    {
       "path": "web/src/data/wechat-bank-codes.json",
       "sha256": "8f6ea9f887f0537c9eb0be16e9057f0fd9b35dbced0f54902ebb2cb9c1aa1af5"
     },
@@ -5652,7 +5808,7 @@
     },
     {
       "path": "web/src/list-filters.ts",
-      "sha256": "4bf0be77de7bb31abcfb500ad028c7aff9a197be77b5d47fc720fb086a24ac2f"
+      "sha256": "9c9def205616a5308de26c847178a9d52e7011b3a758d0237e6727d63aca7773"
     },
     {
       "path": "web/src/main.ts",
@@ -5676,7 +5832,7 @@
     },
     {
       "path": "web/src/operations.ts",
-      "sha256": "aba9325a9148fd5bed1da53c96d8756ea9979a82cf6d582ca72f4ffde4cef00f"
+      "sha256": "6b1e341531faa4c22bbd172fb5c3ee46100d8124582c647c6b39c9503c1242e5"
     },
     {
       "path": "web/src/order-actions.ts",
@@ -5685,6 +5841,10 @@
     {
       "path": "web/src/order-operations.ts",
       "sha256": "7fdf6347e438360315d245c5523d43bb960f360dff94445e9adaec30dc1a5394"
+    },
+    {
+      "path": "web/src/original-order-statistics.ts",
+      "sha256": "5806db9bff14501fcced2d5de3797b34af09d09844d7408730ef7d3ecf6a589d"
     },
     {
       "path": "web/src/page-template.ts",
@@ -5696,7 +5856,11 @@
     },
     {
       "path": "web/src/pro-console-fields.ts",
-      "sha256": "8035c65da11b87fc0e82db0cef6144c6f990367e72fe06391d1af50053548b1c"
+      "sha256": "b0d679807b5e0bf55df31eb77eda3be672445fd7a73c270053e343a289d48183"
+    },
+    {
+      "path": "web/src/province-statistics.ts",
+      "sha256": "8d935cae8c9954d16a22c64292e93cfa217761e6e5c83e7262c672dba1ca1927"
     },
     {
       "path": "web/src/referral.ts",
@@ -5749,6 +5913,10 @@
     {
       "path": "web/src/style.css",
       "sha256": "eac695c4f0b435c76f199dcc6196ba31ddd1804cb9a0c14cc9092c0b10c7f531"
+    },
+    {
+      "path": "web/src/system-log.ts",
+      "sha256": "6dfc6ba1cba32d52ec5ed974e92ba42c891327bfce236ca01d7c367ba57a24a7"
     },
     {
       "path": "web/src/transfer-batch-import.ts",
@@ -5903,6 +6071,10 @@
       "sha256": "133384f93a049a218e189c2f274b713a0aa69e271ff38df63a49019a2042f802"
     },
     {
+      "path": "web/tests/group-editor-ux.test.ts",
+      "sha256": "3649760dfdf8b4408ea857deb0bf57e7b05c13fe658a8237cba4085fd1d60fb2"
+    },
+    {
       "path": "web/tests/group-sales-ux.test.ts",
       "sha256": "7d951f017bf5316bffa2fa56421fb0f13908934c772d9541e73ec701adbbd9cc"
     },
@@ -5999,6 +6171,10 @@
       "sha256": "32e5c1915147927793aacc2f1731254db0c0086c66f4ce5ac8a868545be85812"
     },
     {
+      "path": "web/tests/original-order-statistics.test.ts",
+      "sha256": "5065857abd93278def2751dfcda10435b67c3585b36bf31867a920acb3dc5978"
+    },
+    {
       "path": "web/tests/page-template-console.test.ts",
       "sha256": "3575656c89c443341b065a0615cef1c737edd0102ae7cc7ee002d24da16acc42"
     },
@@ -6043,6 +6219,10 @@
       "sha256": "3dce47f777fccf03f0a1f8598bd22814771bd9868a0d77d3fe1735b741441c48"
     },
     {
+      "path": "web/tests/province-statistics.test.ts",
+      "sha256": "8f96824b48e0f7692738f643db56f64329369c7ebfea067a81f6a29eb69fe13b"
+    },
+    {
       "path": "web/tests/referral-console.test.ts",
       "sha256": "667975a157ad53fa6b2ce2324180c9e8a2473a362ad0f8c47f261112b90c7385"
     },
@@ -6063,8 +6243,16 @@
       "sha256": "2533adb76e96d9e18598e4df1bff65748a78a5336c7d911e33327780295681a7"
     },
     {
+      "path": "web/tests/refund-columns-ux.test.ts",
+      "sha256": "e41975e2a5cdd8ea39b0bd6317eb9e082303a6c26a3829435332fc9a7b25f6cb"
+    },
+    {
       "path": "web/tests/refund-funding.test.ts",
       "sha256": "d4010874162738f0060762dd754613cf85a35543136cc33acd583dbf6a612f26"
+    },
+    {
+      "path": "web/tests/refund-search-ux.test.ts",
+      "sha256": "6e673fff7e153fe39220bc304d65a860ac38d5d5f19f170299b81d8d7556392c"
     },
     {
       "path": "web/tests/refund-summary-ux.test.ts",
@@ -6141,6 +6329,10 @@
     {
       "path": "web/tests/supplemental-policies.test.ts",
       "sha256": "0362c190ecac1d29ba0928f9bcf7cadedde13a7bee5ae2667687f4d18b6684ab"
+    },
+    {
+      "path": "web/tests/system-log-ux.test.ts",
+      "sha256": "4791898bb68313a8c32e415ae874ae516a41257080bdcfa2c099f07b085f4807"
     },
     {
       "path": "web/tests/transfer-batch-import.test.ts",

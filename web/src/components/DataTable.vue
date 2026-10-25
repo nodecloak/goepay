@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import OrderActionMenu from "./OrderActionMenu.vue";
 import type { OrderActionID } from "../order-actions";
+import { beijingTimestamp } from "../console-datetime";
 import {
   consoleValue,
   consoleColumnLabel,
@@ -12,6 +13,7 @@ const props = defineProps<{
   items: Record<string, unknown>[];
   columns: { key: string; label: string }[];
   orders?: boolean;
+  refunds?: boolean;
   adminOrders?: boolean;
   orderActionsDisabled?: boolean;
   selectable?: boolean;
@@ -43,6 +45,21 @@ const allSelected = computed(
       props.selectedTrades?.includes(String(r.trade_no)),
     ),
 );
+function refundStatus(value: unknown): string {
+  return (
+    (
+      {
+        pending: "退款中",
+        unknown: "待核实",
+        succeeded: "退款成功",
+        failed: "退款失败",
+      } as Record<string, string>
+    )[String(value)] ?? consoleValue("status", value)
+  );
+}
+function associatedOrder(value: unknown): boolean {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(value);
+}
 </script>
 <template>
   <div class="table-scroll">
@@ -66,7 +83,20 @@ const allSelected = computed(
             />
           </th>
           <th v-for="c in visibleColumns" :key="c.key" scope="col">
-            {{ consoleColumnLabel(c.key, c.label) }}
+            {{
+              refunds && c.key === "trade_no"
+                ? "关联订单号"
+                : consoleColumnLabel(c.key, c.label)
+            }}
+            <small v-if="refunds && c.key === 'refund_no'" class="cell"
+              >商户退款单号</small
+            >
+            <small v-if="refunds && c.key === 'amount'" class="cell"
+              >扣减金额（元）</small
+            >
+            <small v-if="refunds && c.key === 'created_at'" class="cell"
+              >完成时间（北京时间）</small
+            >
           </th>
           <th v-if="orders || $slots.actions" scope="col">操作</th>
         </tr>
@@ -83,7 +113,49 @@ const allSelected = computed(
             />
           </td>
           <td v-for="c in visibleColumns" :key="c.key">
+            <template v-if="refunds && c.key === 'refund_no'">
+              <span class="cell">{{
+                String(row.platform_refund_no ?? row.refund_no ?? "—")
+              }}</span>
+              <small class="cell refund-merchant-no">{{
+                String(row.out_refund_no ?? "未记录")
+              }}</small>
+            </template>
+            <template v-else-if="refunds && c.key === 'amount'">
+              <span class="cell numeric"
+                >¥{{ consoleValue("amount", row.amount) }}</span
+              >
+              <small class="cell numeric muted">{{
+                row.merchant_amount === undefined ||
+                row.merchant_amount === null
+                  ? "未记录"
+                  : "¥" + consoleValue("merchant_amount", row.merchant_amount)
+              }}</small>
+            </template>
+            <template v-else-if="refunds && c.key === 'created_at'">
+              <span class="cell">{{ beijingTimestamp(row.created_at) }}</span>
+              <small class="cell muted">{{
+                row.completed_at ? beijingTimestamp(row.completed_at) : "未记录"
+              }}</small>
+            </template>
             <span
+              v-else-if="refunds && c.key === 'status'"
+              class="cell badge"
+              :data-state="String(row.status ?? '')"
+              >{{ refundStatus(row.status) }}</span
+            >
+            <button
+              v-else-if="
+                refunds && c.key === 'trade_no' && associatedOrder(row.trade_no)
+              "
+              class="link-button"
+              :aria-label="'查看关联订单 ' + row.trade_no"
+              @click="emit('detail', row)"
+            >
+              {{ row.trade_no }}
+            </button>
+            <span
+              v-else
               :class="[
                 'cell',
                 c.key.includes('status') || c.key.endsWith('_state')
@@ -252,5 +324,9 @@ small.cell {
   display: block;
   font-size: 12px;
   margin-top: 4px;
+}
+.refund-merchant-no {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 </style>

@@ -15,6 +15,9 @@ const walk = relative => {
 // Deliberate allowlist: never traverse .env, .secrets, reference or SDK packages.
 for (const name of ['cmd','internal','db','tests','scripts','api','web/src','web/tests','web/e2e','docs/tools','go.mod','go.sum','Dockerfile','Dockerfile.test','compose.yaml','.dockerignore','.env.example','README.md','web/.dockerignore','web/index.html','web/tsconfig.json','web/vite.config.ts','web/package.json','web/package-lock.json','web/Dockerfile','web/nginx.conf','web/playwright.config.ts','web/capabilities.json','web/supplemental-capabilities.json']) walk(name);
 walk('web/scripts');
+// Source-bound specifications and local map provenance for the original
+// statistics/log UX; never include the proprietary source package itself.
+for(const name of ['docs/design/province-map-source-136.md','docs/superpowers/plans/2026-10-26-original-province-statistics.md','docs/superpowers/plans/2026-10-26-original-daily-channel-statistics.md','docs/superpowers/plans/2026-10-25-original-system-operation-log.md'])walk(name);
 // Native mini clients: enumerate source roots only, never generated packages or
 // developer-tool local/private configuration.
 for (const name of ['clients/mini/src','clients/mini/templates','clients/mini/tests','clients/mini/build.mjs','clients/mini/README.md','docs/design/mini-client-81.md','docs/superpowers/plans/2026-10-24-mini-client-81.md']) walk(name);

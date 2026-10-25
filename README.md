@@ -2,13 +2,13 @@
 
 Go + PostgreSQL 支付平台，包含 API、Worker、迁移 CLI 与 Vue 3 管理员/商户后台。工作目录为 `E:\GOEPAY`。当前实施与限制见 [实施状态](docs/implementation-status.md)，实际验证见 [测试报告](docs/test-results.md)。
 
-当前正在复核**管理后台和商户后台全部页面的功能与UX**，订单截图只是例子。独立[8187预览](http://127.0.0.1:8187/admin/dashboard)已到127/schema88，新增原组名选择、管理员商户登录日志、统计零交易列和原六项退款统计；原8185固定98保留。402单元/247浏览器、127受影响双平台Go回归、全部82页实机观察及33项账务来源检查通过；固定120的38包双平台全仓test/vet/build也已通过，与127的898个核心文件一致。详细范围、跳过用例的独立验证和剩余差异见[127验证](docs/verification/local-preview-ux127-2026-10-25.md)及[全页面整改表](docs/verification/pro-ux-review-2026-10-25.md)，不能把页面能运行当成全部条件动作和业务已经一致。
+最新独立模拟预览为**136/schema89（8187/API8186）**，原8185固定98保留。系统操作日志原五列/筛选/历史主体，每日与通道原七列/退款/未知成本、双后台地区地图/六日期范围/排行已部署；地图仅地区页加载。422单元/278浏览器通过，9环境条件跳过；准确136双平台受影响后台及全仓vet/build通过，134准确双平台全部HTTP合同和131双平台完整38包基线另有证据，12项PHP独立正向互操作。实机6视图/34只读查询、82页巡检及最终33项账务校验通过。见[136实机与验证](docs/verification/local-preview-ux136-2026-10-26.md)。剩余原字段、操作和视觉细节继续，完整UX一致仍为否。
 
 本轮按用户要求仅接入微信、支付宝，其他业务插件暂缓。已实现支付、可信回调、查询、关单、退款及钱包转账的主要流程，并使用本地假上游验证。**尚未达到原版全部功能和所有支付产品完全兼容的验收条件**；同一插件中未实现的产品与规则也明确列在 [方法映射](docs/design/two-plugin-methods.md) 和 [转账边界](docs/design/provider-transfers.md)。
 
 ## 本地运行
 
-本轮验收的独立本地后台为 [管理员后台](http://127.0.0.1:8185/admin/dashboard) 和 [商户后台](http://127.0.0.1:8185/merchant/dashboard)，API为 `http://127.0.0.1:8184`。该项目采用Pro双后台样式、模拟支付及独立合成数据库。当前版本与完整验收证据见 [实施状态](docs/implementation-status.md)；入口信息在 `.tools/final-local-deployment-path.txt` 指向目录的 `metadata.json`，本地种子账号为admin/merchant，密码仅从该目录的合成测试配置 `GOEPAY_SEED_PASSWORD` 读取。不要用旧8181页面核对本轮界面。
+当前复核预览为 [管理员后台](http://127.0.0.1:8187/admin/dashboard) 和 [商户后台](http://127.0.0.1:8187/merchant/dashboard)，API为 `http://127.0.0.1:8186`。版本、源码及实际镜像见 `.tools/preview-current-path.txt` 指向目录的 `CURRENT.json`；本地账号admin/merchant，密码只从该目录合成配置 `GOEPAY_SEED_PASSWORD` 读取。旧8185/API8184保留为固定98比较基线，当前界面请使用8187。
 
 以下是另外新建默认Compose环境的通用方式，与本轮独立验收项目的端口分别记录：
 

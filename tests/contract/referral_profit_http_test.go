@@ -14,6 +14,7 @@ import (
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/compat"
 	"goepay/internal/enrollment"
+	"goepay/internal/identity"
 	"goepay/internal/payment"
 	"net/http"
 	"net/http/httptest"
@@ -170,6 +171,22 @@ func TestReferralProfit71PublicCreateTrustedCostAndSignedTLSCallback(t *testing.
 			}
 			if callback(100, "PROFIT71_EVENT") != 204 || callback(100, "PROFIT71_EVENT") != 204 {
 				t.Fatal("authenticated callback/replay failed")
+			}
+			// The report reads the actual immutable 10-cent fee / 5-cent cost
+			// produced above by the signed local callback, without provider I/O.
+			adminToken, _, err := s.Sessions.Create(identity.User{ID: 1, Username: "admin", Role: "admin", AdminClass: "super"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			statRequest := httptest.NewRequest("GET", "/console/v1/admin/reports/channels?view=original", nil)
+			statRequest.AddCookie(&http.Cookie{Name: "goepay_admin", Value: adminToken})
+			statResponse := httptest.NewRecorder()
+			s.Handler().ServeHTTP(statResponse, statRequest)
+			var stats struct {
+				Data struct{ Summary map[string]any }
+			}
+			if statResponse.Code != 200 || json.Unmarshal(statResponse.Body.Bytes(), &stats) != nil || stats.Data.Summary["profitmoney"] != "0.05" || stats.Data.Summary["missing_costs"] != "0" {
+				t.Fatalf("original immutable known-cost statistics %d %s", statResponse.Code, statResponse.Body.String())
 			}
 			balance, e := s.Store.Balance(ctx, 1)
 			want := int64(3)

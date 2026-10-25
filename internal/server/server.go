@@ -541,6 +541,9 @@ func (s *Server) fail(w http.ResponseWriter, e error) {
 		status = 422
 		msg = "invalid input or state"
 	}
+	if status == 500 {
+		s.recordRuntimeFailure(e)
+	}
 	response(w, status, -1, msg, nil)
 }
 func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {

@@ -28,7 +28,19 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request, role string, se
 		return true
 	}
 	name := parts[2]
+	if name == "provinces" && r.URL.Query().Get("view") == "original" {
+		s.originalProvinceStatistics(w, r, role, session)
+		return true
+	}
+	if (name == "daily" || name == "channels") && r.URL.Query().Get("view") == "original" {
+		s.originalOrderStatistics(w, r, role, session, name)
+		return true
+	}
 	if s.merchantMatrixReport(w, r, role, session, name) {
+		return true
+	}
+	if name == "buyers" && r.URL.Query().Get("view") == "original" {
+		s.originalBuyerStatistics(w, r, role, session)
 		return true
 	}
 	view := r.URL.Query()["view"]

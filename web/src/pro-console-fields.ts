@@ -131,6 +131,14 @@ const orderColumns: ConsoleColumn[] = [
   { key: "notification_state", label: "通知状态" },
   { key: "income_status", label: "订单收入状态" },
 ];
+const refundColumns: ConsoleColumn[] = [
+  { key: "refund_no", label: "退款单号" },
+  { key: "trade_no", label: "关联订单号" },
+  { key: "merchant_id", label: "商户号" },
+  { key: "amount", label: "退款金额（元）" },
+  { key: "created_at", label: "申请时间" },
+  { key: "status", label: "状态" },
+];
 const ledgerColumns: ConsoleColumn[] = [
   { key: "id", label: "流水 ID" },
   { key: "merchant_id", label: "商户号" },
@@ -152,7 +160,13 @@ export function proListColumns(
   base: ConsoleColumn[] = [],
 ): ConsoleColumn[] {
   const planned =
-    kind === "orders" ? orderColumns : kind === "ledger" ? ledgerColumns : base;
+    kind === "orders"
+      ? orderColumns
+      : kind === "refunds"
+        ? refundColumns
+        : kind === "ledger"
+          ? ledgerColumns
+          : base;
   const present = new Set(items.flatMap(Object.keys));
   return planned
     .filter(
@@ -191,6 +205,10 @@ export function resourceListFields(
       f.type !== "password" &&
       !isCredentialField(f.name),
   );
+  if (resource === "groups")
+    return visible
+      .filter((f) => f.name === "name")
+      .map((f) => ({ ...f, label: "用户组名称" }));
   if (resource !== "merchants") return visible;
   const hasEffectiveGroup = visible.some((f) =>
     ["effective_group_id", "effective_group_name"].includes(f.name),

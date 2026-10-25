@@ -1,0 +1,5 @@
+# 地区统计地图本地来源
+
+来源为用户本机提供的Pro静态地图`epay_pro/public/static/assets/china-CxOP5e91.json`，原SHA256为`99adfeded5223848bbe37a0a12f8023e11ee12161c7800521c27db42fdeac275`，582522字节、35个图形。提取各feature.properties.name及Polygon/MultiPolygon全部坐标环，原坐标点逐值保留，未另行绘制行政边界；其它元数据和所有PHP/JS代码不进入新数据文件。提取结果`web/src/data/province-boundaries.json`的SHA256为`294a312c5f3049a476345bead226322dcc18e3e3963af684d382892797556e14`。这记录用户提供材料的来源，不声称新授予地图许可。没有联网下载地图、调用地理服务或推断支付IP位置。
+
+SVG显示使用同一坐标环的Mercator投影及屏幕坐标舍入；金额、笔数和地区标签均来自本地已记录订单。标准地区名与明确简称可合并，未匹配标签保留到未知/未匹配汇总，不能移动到任意省份或用零代替其原交易金额。没有订单的地区底图为灰色，不能据地图存在声称历史地区来源已补齐。

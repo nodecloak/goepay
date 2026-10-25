@@ -21,11 +21,13 @@ import {
   validateFields,
   buildPayload,
   formValues,
+  readonly as resourceFieldReadonly,
   type ResourceSchema,
   type ResourceEntry,
 } from "../resources";
 import ResourceFields from "./ResourceFields.vue";
 import MerchantEditorFields from "./MerchantEditorFields.vue";
+import GroupEditorFields from "./GroupEditorFields.vue";
 import AccountLoginLogDialog from "./AccountLoginLogDialog.vue";
 import SettlementRecipientPanel from "./SettlementRecipientPanel.vue";
 import CasePanel from "./CasePanel.vue";
@@ -248,6 +250,23 @@ const fields = computed(
 const listFields = computed(() =>
   resourceListFields(props.resource, schema.value?.fields || []),
 );
+const groupSection = ref("basic");
+const groupReturnFocus = ref<HTMLElement>();
+const groupConfigurationItems = computed(() => {
+  if (props.resource !== "groups" || !schema.value?.permissions.update)
+    return [];
+  const editable = new Set(
+    schema.value.fields
+      .filter((field) => !resourceFieldReadonly(field, true))
+      .map((field) => field.name),
+  );
+  return [
+    ...(editable.has("rate_bps") ? [{ id: "payment", label: "支付配置" }] : []),
+    ...(["settle_open", "settle_rate"].some((name) => editable.has(name))
+      ? [{ id: "settlement", label: "结算配置" }]
+      : []),
+  ];
+});
 const hasGroupProjection = computed(
   () =>
     props.resource === "merchants" &&
@@ -387,7 +406,13 @@ async function load() {
 async function open(
   action: "create" | "edit" | "detail" | "delete",
   row: Record<string, unknown> = {},
+  section = "basic",
 ) {
+  groupReturnFocus.value =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : undefined;
+  groupSection.value = section;
   detailController?.abort();
   const c = new AbortController(),
     current = contextEpoch;
@@ -601,7 +626,9 @@ onBeforeUnmount(resetContext);
                   ? hasGroupProjection
                     ? "商户号 / 用户组"
                     : "商户号"
-                  : "编号"
+                  : resource === "groups"
+                    ? "GID"
+                    : "编号"
               }}
             </th>
             <th v-for="field in listFields" :key="field.name" scope="col">
@@ -718,6 +745,14 @@ onBeforeUnmount(resetContext);
             </td>
             <td>
               <div class="row-actions">
+                <ActionDropdown
+                  v-if="groupConfigurationItems.length"
+                  :label="`用户组配置 ${row.id}`"
+                  trigger-text="配置"
+                  :items="groupConfigurationItems"
+                  :disabled="busy"
+                  @action="open('edit', row, $event)"
+                />
                 <ActionDropdown
                   v-if="resource === 'merchants' && client.area === 'admin'"
                   :label="`商户关联记录 ${row.id}`"
@@ -951,6 +986,18 @@ onBeforeUnmount(resetContext);
           "
           @change="(name, value) => (values[name] = value)"
           @recipient="editMerchantRecipient = !editMerchantRecipient"
+        />
+        <GroupEditorFields
+          v-else-if="resource === 'groups'"
+          :key="mode + ':' + String(selected.id || 'new')"
+          :fields="formSchema!.fields"
+          :values="values"
+          :errors="fieldErrors"
+          :editing="mode === 'edit'"
+          :disabled="busy"
+          :initial-tab="groupSection"
+          :return-focus="groupReturnFocus"
+          @change="(name, value) => (values[name] = value)"
         />
         <ResourceFields
           v-else
