@@ -16,6 +16,11 @@ var errListFilterForbidden = errors.New("list filter owner forbidden")
 // Fixed SQL expressions are selected by endpoint; every filter value is bound.
 // This augments, and can never replace, the authenticated tenant predicate.
 func consoleListFilters(q url.Values, role, kind, tenant string, mid int64, args []any) (string, []any, error) {
+	if kind == "transfers" {
+		if e := validateTransferListFilters(q); e != nil {
+			return "", nil, e
+		}
+	}
 	var clauses []string
 	if len(q["include_archived"]) > 1 {
 		return "", nil, errListFilter

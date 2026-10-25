@@ -7154,7 +7154,8 @@
             "schema": {
               "type": "integer",
               "minimum": 1,
-              "default": 1
+              "default": 1,
+              "maximum": 1000000
             }
           },
           {
@@ -7174,7 +7175,7 @@
               "type": "string",
               "maxLength": 256
             },
-            "description": "最多256个UTF-8字节；省略search_field保持系统/商户单号和商品综合字面子串搜索。指定字段时按search_field约定匹配；金额使用元十进制字符串，精确转换整数分。重复q/字段、非法金额或地址返回400；空q不启用所选字段。"
+            "description": "最多256个UTF-8字节。省略/空search_field沿用商户业务付款单号transfer_no的字面子串；指定biz_no/out_biz_no/pay_order_no时分别精确匹配原系统/商户/接口交易号，不解释SQL通配符。money为元金额字符串，精确转换整数分，支持0，最多两位小数和int64分上限；空q不启用所选字段。"
           },
           {
             "name": "format",
@@ -7186,11 +7187,81 @@
               ]
             },
             "description": "省略返回JSON分页；csv导出同筛选的完整结果，忽略已验证的page/limit。最多50000行或8MiB，超限422且不返回截断附件。每进程并发2个，忙时429。"
+          },
+          {
+            "name": "search_field",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "biz_no",
+                "out_biz_no",
+                "pay_order_no",
+                "money"
+              ]
+            },
+            "description": "原公开搜索字段。column/value别名仅前端原链接接受并转换，API使用search_field/q。"
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,18}$"
+            },
+            "description": "规范正int64编号；空值不启用。管理员可筛选，商户只允许本人，否则403。"
+          },
+          {
+            "name": "channel_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,18}$"
+            },
+            "description": "原付款通道ID，规范正int64编号；空值不启用。"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "",
+                "pending",
+                "unknown",
+                "succeeded",
+                "failed",
+                "unsent",
+                "cancelled",
+                "reversed",
+                "reversal_pending"
+              ]
+            },
+            "description": "已应用发送证明与银行退票覆盖的有效状态；空值全部状态。"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "UTC+8原付款创建日期，含当天；与to最多相隔366天。"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "UTC+8原付款创建日期，含当天；必须不早于from。"
           }
         ],
         "responses": {
           "200": {
-            "description": "结果已返回；资金结果须检查 data.status/state，不能仅以 HTTP200 推断成功。",
+            "description": "JSON为相同筛选的分页记录；CSV为完整同范围且脱敏的记录。保留原字段顺序，最后追加真实时间、通道单号、方式及脱敏账号/姓名。HTTP200不等于付款成功。",
             "content": {
               "application/json": {
                 "schema": {
@@ -7285,7 +7356,8 @@
               }
             }
           }
-        }
+        },
+        "description": "按真实租户和筛选分页读取原付款。amount/fee_amount/cost_amount仍为精确整数分字符串，id/merchant_id等编号为字符串。追加created_at（原付款创建时间）、provider_transfer_no、pay_date（原上游值，可能缺失）、type、account_masked、name_masked。收款投影通过原付款意图的认证密文并校验原ID/金额，不按当前商户/通道猜测；历史无意图时后三项为空。原密文及完整收款身份不进入列表或CSV。无效原意图拒绝整个读取/导出，不输出部分附件。status使用发送证明/银行退票覆盖后的有效状态，ledger_status仅历史账本状态。 公开字段搜索使用固定SQL映射。未知查询键、重复查询键、非规范编号或分页直接400，不静默忽略后返回全范围。所有列表/数量/CSV查询仍独立保留会话租户谓词。账号、姓名、备注及付款方式的可信历史搜索索引尚未实施，不接受这些参数冒充筛选。"
       },
       "post": {
         "operationId": "console_49_post",

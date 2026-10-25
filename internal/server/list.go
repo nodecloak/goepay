@@ -74,6 +74,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 		from += " LEFT JOIN settlement_payouts settlement_payout ON settlement_payout.transfer_id=t.id"
 		columns = "t.id::text,t.merchant_id::text,t.transfer_no,t.biz_no,t.amount::text,t.cost_amount::text,t.fee_amount::text,t.fee_rate_bps,COALESCE(p.channel_id,0)::text AS channel_id," + transferEffectiveStatus + " AS status,t.status AS ledger_status,COALESCE(b.state,'') AS bank_lifecycle,COALESCE(b.bank_fee_amount,0)::text AS bank_fee_amount,(b.bank_fee_amount IS NOT NULL) AS bank_fee_known,COALESCE(b.service_fee_held,0)::text AS bank_service_fee_held,COALESCE(b.returned_principal,0)::text AS bank_returned_principal,COALESCE(b.returned_service_fee,0)::text AS bank_returned_service_fee,COALESCE(b.returned_bank_fee,0)::text AS bank_returned_fee,COALESCE(batch_item.state,'') AS batch_send_state,COALESCE(batch_item.batch_id::text,'') AS batch_id"
 		columns += ",CASE WHEN settlement_payout.request_id IS NULL THEN 'merchant_available' ELSE 'settlement' END AS funding_source,COALESCE(settlement_payout.request_id::text,'') AS settlement_request_id,COALESCE(settlement_payout.send_state,'') AS settlement_send_state"
+		columns += transferListDisplayColumns
 		tenant = "t.merchant_id"
 		matching = "t.transfer_no"
 		order = "t.id DESC"
@@ -124,6 +125,14 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 		return
 	}
 	defer rows.Close()
+	fieldNames := make([]string, len(rows.FieldDescriptions()))
+	for i, field := range rows.FieldDescriptions() {
+		fieldNames[i] = field.Name
+	}
+	publicFields := fieldNames
+	if kind == "transfers" {
+		publicFields = transferPublicColumns(fieldNames)
+	}
 	items := []map[string]any{}
 	for rows.Next() {
 		values, e := rows.Values()
@@ -131,9 +140,16 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 			s.fail(w, e)
 			return
 		}
+		if kind == "transfers" {
+			values, e = s.projectTransferListValues(fieldNames, values)
+			if e != nil {
+				s.fail(w, e)
+				return
+			}
+		}
 		v := map[string]any{}
-		for i, f := range rows.FieldDescriptions() {
-			v[f.Name] = values[i]
+		for i, field := range publicFields {
+			v[field] = values[i]
 		}
 		items = append(items, v)
 	}

@@ -88,7 +88,11 @@ func (s *Server) exportCSV(w http.ResponseWriter, r *http.Request, session ident
 	for i, f := range rows.FieldDescriptions() {
 		columns[i] = f.Name
 	}
-	e = writer.Write(columns)
+	publicColumns := columns
+	if resource == "transfers" {
+		publicColumns = transferPublicColumns(columns)
+	}
+	e = writer.Write(publicColumns)
 	count := 0
 	for e == nil && rows.Next() {
 		count++
@@ -100,6 +104,12 @@ func (s *Server) exportCSV(w http.ResponseWriter, r *http.Request, session ident
 		values, e = rows.Values()
 		if e != nil {
 			break
+		}
+		if resource == "transfers" {
+			values, e = s.projectTransferListValues(columns, values)
+			if e != nil {
+				break
+			}
 		}
 		record := make([]string, len(values))
 		for i, v := range values {

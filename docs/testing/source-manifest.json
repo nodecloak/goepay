@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-25T21:42:49.757Z",
+  "generated_at": "2026-10-25T22:13:34.745Z",
   "scope": "Source snapshot only; not a claim of complete compatibility or a replacement for test results.",
   "files": [
     {
@@ -28,7 +28,7 @@
     },
     {
       "path": "api/console.openapi.json",
-      "sha256": "30d131f77edf9e0496d32037589015f45f733a4675af825dc26089f428659ca9"
+      "sha256": "0c2433527dc1f66ee59edac9b94bccf90c5063eca8b4c094afcc24c68d934630"
     },
     {
       "path": "clients/mini/README.md",
@@ -675,6 +675,14 @@
       "sha256": "c89106d240dc6f4f26404eb433514a5167ce4c950fff6f747530eb3e37576d0d"
     },
     {
+      "path": "docs/plans/2026-10-26-original-transfer-list-layout.md",
+      "sha256": "51cb527002e756d02005aac33d29754e923cd7a8b5017c0170366699c875c3aa"
+    },
+    {
+      "path": "docs/plans/2026-10-26-original-transfer-search.md",
+      "sha256": "eb2bf375ff823df014ae47ae913ba9cd4b8cebca85ec0799821e172b4b98e06f"
+    },
+    {
       "path": "docs/superpowers/plans/2026-10-24-admin-business-notices-83.md",
       "sha256": "879a8b7c0acb3fa01f2e2df07c843c03b79e4a4e3bde12157722ee771c637d55"
     },
@@ -876,7 +884,7 @@
     },
     {
       "path": "docs/tools/source-manifest.mjs",
-      "sha256": "4111234d8626427a6f8b50916946669e98dc8adff70e710a42d27fff39a9a975"
+      "sha256": "33ac64825ba967af90189976118e5c6292d630103fc1b014ebf522f801f753c2"
     },
     {
       "path": "docs/tools/summarize-pro-ux-review.mjs",
@@ -897,6 +905,10 @@
     {
       "path": "docs/verification/local-preview-ux148-2026-10-26.md",
       "sha256": "efd30ee99b4e9711e27a30c2d9a0e9449b2220aa043031ec5eec42ca86235c39"
+    },
+    {
+      "path": "docs/verification/local-preview-ux149-2026-10-26.md",
+      "sha256": "592a2f07b42a8b340a4146f55ffe3233f2ddd0c1d5812269760b4fc079da754d"
     },
     {
       "path": "docs/verification/merchant-notice-80-foundation-2026-10-24.md",
@@ -3839,6 +3851,14 @@
       "sha256": "79f1b9759719cbeb34398331498726cdef1a2c0b6724775010e2d4594862a0ae"
     },
     {
+      "path": "internal/payment/transfer_recipient_display.go",
+      "sha256": "e88c894d9978e41026a4a79532b2cfdfb7a5ed9fa37226343786e2a2756c2880"
+    },
+    {
+      "path": "internal/payment/transfer_recipient_display_test.go",
+      "sha256": "f9f9e3626946aed87555729d477865d48632c6d605c73e80f2ea37b3f411ae52"
+    },
+    {
       "path": "internal/payment/transfer_rejection_authentication_test.go",
       "sha256": "2be357199ad83a83915200e5817653899787597c4c617c6d67d2309b31828bbe"
     },
@@ -4092,7 +4112,7 @@
     },
     {
       "path": "internal/server/csv_export.go",
-      "sha256": "a7ff7da430f83678d606c37c4304684b1007ec9d5a1ee14eefefd9c26087e74f"
+      "sha256": "83dbc2c24762cd2f35c8acf2c79f541099287abbc64d4a00469dc3895c951406"
     },
     {
       "path": "internal/server/csv_export_test.go",
@@ -4180,11 +4200,11 @@
     },
     {
       "path": "internal/server/list.go",
-      "sha256": "993bcdaf167be3786d48372590e4fe5886cd53f087e9fb89ee34a7dadf5053ad"
+      "sha256": "92c25a860c5ff7d1137a82e11ebf60c9babc9bb1aa969b944a5135247c0365eb"
     },
     {
       "path": "internal/server/list_filters.go",
-      "sha256": "36e62032b90be6ed9959272b0ffc3a2fe3030e841d2d4731e2e687f85504aaab"
+      "sha256": "184eec4c38bf0e7732505c37905821d86848d715a3426ee8d8c488f43e4e9440"
     },
     {
       "path": "internal/server/login_throttle.go",
@@ -4288,7 +4308,7 @@
     },
     {
       "path": "internal/server/order_search.go",
-      "sha256": "2e8944f36371eef620dc8a750d258a7bd0cf8695d7a07ba99ab17fef0aedf34d"
+      "sha256": "d266ce983ea3ab79dfaf0a4b4826ab416416ffc99776bff8b4b27f05e6df1e69"
     },
     {
       "path": "internal/server/order_search_test.go",
@@ -4517,6 +4537,22 @@
     {
       "path": "internal/server/transfer_http.go",
       "sha256": "2ca0bd0380b88ef994bd97cd4f5a07fdd0ee337d0da8fe1e86463fd015a2d19b"
+    },
+    {
+      "path": "internal/server/transfer_list_filters.go",
+      "sha256": "ee45d4ac3e988bee7cb0ff87b20b8eaa188873ea33a769abf0e53525f62075fc"
+    },
+    {
+      "path": "internal/server/transfer_list_projection.go",
+      "sha256": "8aff232202c9d3459d14b0228920b07b0d625b290bdfb0941cee2844ae60340a"
+    },
+    {
+      "path": "internal/server/transfer_list_projection_test.go",
+      "sha256": "41f3c5194f80dab127880b4a7a493fd12ff9aec139e3323e0f533a63e67aac28"
+    },
+    {
+      "path": "internal/server/transfer_search_ux_test.go",
+      "sha256": "ec03cb5b8c26f82d9a7d7ea545b80e008135979ee284e613999132470b47976d"
     },
     {
       "path": "internal/server/trusted_proxy.go",
@@ -5115,8 +5151,16 @@
       "sha256": "33cce0626e57a4c2e43847781c3c599641f91889c7a242e27f288c85a0f413b2"
     },
     {
+      "path": "tests/contract/transfer_list_ux_test.go",
+      "sha256": "139991c62de8c6674c036ba1e9290e1d9ae1e12d83e47efdf2dd5558b7aa54bf"
+    },
+    {
       "path": "tests/contract/transfer_matrix_ux_test.go",
       "sha256": "87929d563f1ddc34069652caf1b2088dd06e679c9b15d2093816866a07312194"
+    },
+    {
+      "path": "tests/contract/transfer_search_ux_test.go",
+      "sha256": "2861f0e51ac8a5baa1205713fc0ddabdd83182967ed974ecd740cfab2f7ca84f"
     },
     {
       "path": "tests/contract/trusted_proxy_test.go",
@@ -5551,6 +5595,22 @@
       "sha256": "c7d736310dac52ea82794b748ee23a874bc3a411e27fea3abe735d742bc9829d"
     },
     {
+      "path": "web/e2e/transfer-filter-links-ux.spec.ts",
+      "sha256": "677f85f40b142469a2012bf1d35f40d3e5a02906a5af50297e523a79ad65944b"
+    },
+    {
+      "path": "web/e2e/transfer-list-ux.spec.ts",
+      "sha256": "d08db2ec28d67ade1363f2ce2a4d85deba0bdd0bc9fa82cde2b314554987c231"
+    },
+    {
+      "path": "web/e2e/transfer-row-query-ux.spec.ts",
+      "sha256": "a77ee762cf63a3f0551a12d7f51eb24a5d6cda2cb562729f5bb5e6eeb60f9052"
+    },
+    {
+      "path": "web/e2e/transfer-search-ux.spec.ts",
+      "sha256": "139ac3a2d45248fdb88ffd93a1ef6ca97a9f75bf365ab02d9b540dbdbb6fcd2a"
+    },
+    {
       "path": "web/e2e/transfer.spec.ts",
       "sha256": "ec692434a0738ad7c43f78034f038239dacae3b843873ce021fc228dd051ecc6"
     },
@@ -5955,8 +6015,16 @@
       "sha256": "fe106dd056700e2fac86b58ebb2c86252df18e673af394f54c6ff43be03bb166"
     },
     {
+      "path": "web/src/components/TransferListFilters.vue",
+      "sha256": "601d6cd049401de0ff164c5b04cbf96d126ce06e706bc7ab363111b7aa436ec4"
+    },
+    {
+      "path": "web/src/components/TransferListTable.vue",
+      "sha256": "07aeca22a1afac684d2315318e23a9d82720fe353ee59dc62dff3ffb27e9f5f2"
+    },
+    {
       "path": "web/src/components/TransferPage.vue",
-      "sha256": "2f452411127838e7a10649d5b3b2ef4de52c014838a1abbddc4eb8bbda239148"
+      "sha256": "2bf0317019dab317f7c9731974e9c99e6335ec76625fbeaef451512fe1530b2a"
     },
     {
       "path": "web/src/components/TransferPolicySummary.vue",
@@ -6159,6 +6227,14 @@
       "sha256": "d9f8869a775a705d02d963951d34663d742b9842c4a46ecbcfb5c4fa9d7511a1"
     },
     {
+      "path": "web/src/transfer-filters.ts",
+      "sha256": "a2df836cca6d2ef44347dd84e26d9f19b105f67a59d3f844a45b93607617c0dc"
+    },
+    {
+      "path": "web/src/transfer-list.ts",
+      "sha256": "98d34eaae0484e2547ca76b135a3d6a8d4b8f866e28f1b057f9ade926fc8bbe0"
+    },
+    {
       "path": "web/src/transfers.ts",
       "sha256": "fd27c9f5ea9c73fbb713240c15bd75b033059e6c6564f3741b7e42f76216290e"
     },
@@ -6297,6 +6373,10 @@
     {
       "path": "web/tests/fixtures/settlement-list.ts",
       "sha256": "8e864bfb91341eab11f699006396bdefd20190b15b5c67ba76ee7d84e76fc866"
+    },
+    {
+      "path": "web/tests/fixtures/transfer-list.ts",
+      "sha256": "3aba695d142cdfffbaa9b4b3c72fa34142dd980f4ba5448b425f74c9ffb2e523"
     },
     {
       "path": "web/tests/funds-authorization-modal.test.ts",
@@ -6605,6 +6685,14 @@
     {
       "path": "web/tests/transfer-batches.test.ts",
       "sha256": "4fa8881ce9060c2a4fefbf3bbdee7ef69e2ac4f91727679655df9b11c9183136"
+    },
+    {
+      "path": "web/tests/transfer-filters.test.ts",
+      "sha256": "84947fc610de4728186d0e70706a0ff7be4d199e6046cbcb1be546cf5ae6f109"
+    },
+    {
+      "path": "web/tests/transfer-list.test.ts",
+      "sha256": "707613eee40a6a6cf12ae8d6a09c2108cfdf8d6ffd2ba2d65f6bcad9de79f446"
     },
     {
       "path": "web/tests/transfers.test.ts",

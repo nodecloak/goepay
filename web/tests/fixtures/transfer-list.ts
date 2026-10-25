@@ -1,0 +1,25 @@
+export function transferListFixture(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "9007199254740993",
+    merchant_id: "9223372036854775807",
+    biz_no: "1000000000000000001",
+    transfer_no: "merchant-business-number-150",
+    amount: "9007199254740993",
+    fee_amount: "3",
+    cost_amount: "9007199254740996",
+    channel_id: "7",
+    status: "pending",
+    ledger_status: "pending",
+    bank_lifecycle: "",
+    funding_source: "merchant_available",
+    settlement_request_id: "",
+    settlement_send_state: "",
+    type: "alipay",
+    account_masked: "***0150",
+    name_masked: "***",
+    created_at: "2026-10-25T15:30:00Z",
+    provider_transfer_no: "provider-original-150",
+    pay_date: "",
+    ...overrides,
+  };
+}

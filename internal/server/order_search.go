@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"strings"
+	"unicode/utf8"
 )
 
 // Field names select fixed SQL only. The returned value is always bound as $2;
@@ -17,11 +18,40 @@ func consoleOrderSearch(q url.Values, kind, fallback string) (string, any, error
 	if kind == "refunds" && strings.ContainsAny(raw, "\x00\r\n") {
 		return "", nil, errListFilter
 	}
+	if kind == "transfers" && (!utf8.ValidString(raw) || strings.ContainsAny(raw, "\x00\r\n")) {
+		return "", nil, errListFilter
+	}
 	if field == "" {
 		return "($2::text='' OR strpos(lower(" + fallback + "),lower($2::text))>0)", raw, nil
 	}
 	if kind == "refunds" {
 		return consoleRefundFieldSearch(field, raw)
+	}
+	if kind == "transfers" {
+		expression := ""
+		switch field {
+		case "biz_no":
+			expression = "t.biz_no"
+		case "out_biz_no":
+			expression = "t.transfer_no"
+		case "pay_order_no":
+			expression = "COALESCE(p.provider_transfer_no,'')"
+		case "money":
+			expression = "t.amount"
+		default:
+			return "", nil, errListFilter
+		}
+		if raw == "" {
+			return "$2::text=''", "", nil
+		}
+		if field == "money" {
+			amount, e := ledger.Parse(raw)
+			if e != nil {
+				return "", nil, errListFilter
+			}
+			return expression + "=$2::bigint", amount, nil
+		}
+		return expression + "=$2::text", raw, nil
 	}
 	if kind != "orders" {
 		return "", nil, errListFilter

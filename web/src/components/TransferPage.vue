@@ -1,11 +1,26 @@
 <script setup lang="ts">
-import { RouterLink } from "vue-router";
-import { readLinkedMerchantRoute } from "../list-filters";
-import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
+import { RouterLink, useRouter } from "vue-router";
+import {
+  readTransferRoute,
+  freshTransferFilters,
+  transferFiltersError,
+  transferFiltersQuery,
+} from "../transfer-filters";
+import TransferListFilters from "./TransferListFilters.vue";
+import {
+  computed,
+  ref,
+  watch,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+} from "vue";
 import { ApiClient, displayValue } from "../api";
 import type { Area } from "../menu";
 import { safePaymentUrl } from "../commerce";
 import DataTable from "./DataTable.vue";
+import TransferListTable from "./TransferListTable.vue";
+import { hasOriginalTransferProjection } from "../transfer-list";
 import CsvExportButton from "./CsvExportButton.vue";
 import bankCodes from "../data/wechat-bank-codes.json";
 import bankNames from "../data/wechat-bank-names.json";
@@ -47,17 +62,21 @@ interface Capabilities extends FundsAvailability {
   default_remark?: string;
   default_title?: string;
 }
-const routeContext = readLinkedMerchantRoute(
+const routeContext = readTransferRoute(
   props.initialQuery || {},
   props.area,
   props.selfID || "",
-  true,
 );
+const router = useRouter(),
+  baseRoute =
+    props.area === "admin" ? "/admin/transfer/list" : "/merchant/transfer";
+const draftFilters = ref({ ...routeContext.filters }),
+  appliedFilters = ref({ ...routeContext.filters });
+const draftError = computed(() => transferFiltersError(draftFilters.value));
 const items = ref<Record<string, unknown>[]>([]),
   total = ref(0),
   page = ref(routeContext.page),
   limit = ref(routeContext.limit),
-  query = ref(routeContext.search),
   loading = ref(false),
   busy = ref(false),
   error = ref(""),
@@ -84,18 +103,89 @@ const form = ref({
 });
 let controller: AbortController | undefined,
   capEpoch = 0;
-function transferQuery() {
-  const q = new URLSearchParams({
-    page: String(page.value),
-    limit: String(limit.value),
-    q: query.value,
+let active = true;
+const detailDialog = ref<HTMLElement>(),
+  detailClose = ref<HTMLButtonElement>();
+const recordsPanel = ref<HTMLElement>();
+let detailOpener: HTMLElement | undefined;
+let detailReturn: { id: string; label: string } | undefined;
+function closeDetails() {
+  if (busy.value) return;
+  const target = detailOpener;
+  const remembered = detailReturn;
+  selected.value = null;
+  recipient.value = {};
+  proof.value = null;
+  proofConfirm.value = false;
+  detailOpener = undefined;
+  detailReturn = undefined;
+  void nextTick(() => {
+    if (!active) return;
+    if (target?.isConnected) target.focus();
+    else {
+      const row = Array.from(
+        recordsPanel.value?.querySelectorAll<HTMLElement>(
+          "tr[data-transfer-id]",
+        ) || [],
+      ).find((node) => node.dataset.transferId === remembered?.id);
+      const rowButton = Array.from(
+        row?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") || [],
+      ).find((button) => button.textContent?.trim() === remembered?.label);
+      (
+        rowButton ||
+        recordsPanel.value?.querySelector<HTMLButtonElement>(
+          ".transfer-list-filters button:not(:disabled)",
+        )
+      )?.focus();
+    }
   });
-  if (props.area === "admin" && routeContext.merchantID)
-    q.set("merchant_id", routeContext.merchantID);
-  return q;
+}
+function detailKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    closeDetails();
+    return;
+  }
+  if (event.key !== "Tab") return;
+  const nodes = Array.from(
+      detailDialog.value?.querySelectorAll<HTMLElement>(
+        "button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled)",
+      ) || [],
+    ),
+    first = nodes[0],
+    last = nodes.at(-1);
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last?.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first?.focus();
+  }
+}
+function transferQuery() {
+  return transferFiltersQuery(appliedFilters.value, page.value, limit.value);
+}
+function applyFilters() {
+  if (busy.value || loading.value || routeContext.error || draftError.value)
+    return;
+  appliedFilters.value = { ...draftFilters.value };
+  page.value = 1;
+  void load();
+}
+function resetFilters() {
+  if (busy.value || loading.value) return;
+  if (Object.keys(props.initialQuery || {}).length) {
+    void router.replace(baseRoute);
+    return;
+  }
+  draftFilters.value = freshTransferFilters();
+  appliedFilters.value = freshTransferFilters();
+  page.value = 1;
+  void load();
 }
 const csvPath = computed(() => {
-  if (routeContext.error) return "";
+  if (routeContext.error || draftError.value) return "";
   const q = transferQuery();
   q.set("format", "csv");
   return `/transfers?${q}`;
@@ -326,6 +416,16 @@ async function details(
   row: Record<string, unknown>,
   submissionNotice?: string,
 ) {
+  detailOpener =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : undefined;
+  const label = detailOpener?.textContent?.trim() || "";
+  detailReturn =
+    detailOpener?.closest<HTMLElement>("tr[data-transfer-id]")?.dataset
+      .transferId === String(row.id) && ["付款详情", "查询状态"].includes(label)
+      ? { id: String(row.id), label }
+      : undefined;
   busy.value = true;
   error.value = "";
   try {
@@ -333,16 +433,31 @@ async function details(
       transfer: Record<string, unknown>;
       recipient: Record<string, unknown>;
     }>(`/transfers/${encodeURIComponent(String(row.id))}`);
+    if (!active) return false;
+    if (
+      String(data.transfer.id) !== String(row.id) ||
+      (row.merchant_id !== undefined &&
+        String(data.transfer.merchant_id) !== String(row.merchant_id)) ||
+      (row.amount !== undefined && data.transfer.amount !== row.amount)
+    )
+      throw Error("付款详情与原记录不一致，请刷新核对");
     selected.value = data.transfer;
     notice.value = submissionNotice ?? transferNotice(data.transfer, 200);
     recipient.value = data.recipient;
     proof.value = null;
     proofConfirm.value = false;
+    void nextTick(() => detailClose.value?.focus());
+    return true;
   } catch (e) {
-    error.value = message(e);
+    if (active) error.value = message(e);
+    return false;
   } finally {
     busy.value = false;
   }
+}
+async function queryRecord(row: Record<string, unknown>) {
+  if (busy.value) return;
+  if ((await details(row)) && active) await queryTransfer();
 }
 async function queryTransfer() {
   if (!selected.value || busy.value || !readActions.value.query) return;
@@ -385,40 +500,38 @@ async function requestProof() {
 }
 onMounted(load);
 onBeforeUnmount(() => {
+  active = false;
+  detailOpener = undefined;
+  detailReturn = undefined;
   controller?.abort();
   capEpoch++;
 });
 </script>
 <template>
-  <section class="panel records">
+  <section ref="recordsPanel" class="panel records">
     <p
-      v-if="area === 'admin' && routeContext.merchantID && !routeContext.error"
+      v-if="
+        area === 'admin' && appliedFilters.merchant_id && !routeContext.error
+      "
       class="resource-description"
     >
-      商户号：{{ routeContext.merchantID }}
+      商户号：{{ appliedFilters.merchant_id }}
     </p>
     <RouterLink
-      v-if="routeContext.merchantID || routeContext.error"
-      :to="`/${area}/transfer/list`"
+      v-if="appliedFilters.merchant_id || routeContext.error"
+      :to="baseRoute"
       >清空筛选</RouterLink
     >
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
-    <form
-      class="toolbar"
-      @submit.prevent="
-        page = 1;
-        load();
-      "
-    >
-      <div class="search-group">
-        <label class="sr-only" for="transfer-search">搜索付款记录</label
-        ><input
-          id="transfer-search"
-          v-model="query"
-          placeholder="搜索付款单号"
-        /><button :disabled="loading">查询</button>
-      </div>
+    <form class="toolbar" @submit.prevent="applyFilters">
+      <TransferListFilters
+        v-model="draftFilters"
+        :area="area"
+        :loading="loading || busy"
+        :blocked="!!routeContext.error"
+        @reset="resetFilters"
+      />
       <button
         type="button"
         class="primary"
@@ -434,12 +547,20 @@ onBeforeUnmount(() => {
         :client="client"
         :path="csvPath"
         filename="transfers-filtered.csv"
-        :disabled="loading || !!routeContext.error"
+        :disabled="loading || !!routeContext.error || !!draftError"
       />
     </form>
     <div v-if="loading" class="loading-row" role="status">
       正在读取付款记录…
     </div>
+    <TransferListTable
+      v-else-if="hasOriginalTransferProjection(items)"
+      :items="items"
+      :area="area"
+      :busy="busy"
+      @details="details"
+      @query="queryRecord"
+    />
     <DataTable v-else :columns="columns" :items="items"
       ><template #actions="{ row }"
         ><button class="link-button" :disabled="busy" @click="details(row)">
@@ -654,12 +775,18 @@ onBeforeUnmount(() => {
       </form>
     </section>
   </div>
-  <div v-if="selected && !creating" class="modal-backdrop">
+  <div
+    v-if="selected && !creating"
+    class="modal-backdrop"
+    @click.self="closeDetails"
+  >
     <section
+      ref="detailDialog"
       class="modal panel resource-modal"
       role="dialog"
       aria-modal="true"
       aria-label="付款详情"
+      @keydown="detailKeydown"
     >
       <h2>付款详情</h2>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
@@ -770,13 +897,7 @@ onBeforeUnmount(() => {
         </dd>
       </dl>
       <div class="modal-actions">
-        <button
-          :disabled="busy"
-          @click="
-            selected = null;
-            proof = null;
-          "
-        >
+        <button ref="detailClose" :disabled="busy" @click="closeDetails">
           关闭详情
         </button>
       </div>
