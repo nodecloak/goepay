@@ -1,5 +1,21 @@
 import { it, expect } from "vitest";
 import { readSettlementPreview, centsMoney } from "../src/settlement-terms";
+it("explains the original settlement-mode refusal before generic funds conditions", () => {
+  const denied = {
+    can_apply: false,
+    external_payout: false,
+    settlement_access: { mode: "1", manual_allowed: false },
+  };
+  expect(() => readSettlementPreview(denied, "1.00")).toThrow(
+    "当前结算开关不允许手动申请结算",
+  );
+  expect(() =>
+    readSettlementPreview(
+      { ...denied, settlement_access: { mode: "3", manual_allowed: "false" } },
+      "1.00",
+    ),
+  ).toThrow("结算模式响应无效");
+});
 it("keeps large financial integers exact and rejects inconsistent quotes", () => {
   const value = {
     can_apply: true,

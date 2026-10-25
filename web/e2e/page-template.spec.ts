@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { localRedBackgroundPNG } from "./local-test-images";
 const ok = (data: unknown, status = 200) => ({
   status,
   contentType: "application/json",
@@ -211,10 +212,7 @@ test("three template kinds keep typed fields and image upload stays a draft unti
   const assetID = "a".repeat(64),
     writes: unknown[] = [],
     uploads: string[] = [];
-  const image = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==",
-    "base64",
-  );
+  const image = localRedBackgroundPNG();
   await page.route("**/console/v1/**", (r) => {
     const request = r.request(),
       url = new URL(request.url()),

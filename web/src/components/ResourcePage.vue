@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
+import {
+  ref,
+  computed,
+  watch,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+} from "vue";
 import { ApiClient, displayValue } from "../api";
 import {
   resourceListFields,
@@ -15,11 +22,24 @@ import {
   buildPayload,
   formValues,
   type ResourceSchema,
+  type ResourceEntry,
 } from "../resources";
 import ResourceFields from "./ResourceFields.vue";
+import MerchantEditorFields from "./MerchantEditorFields.vue";
+import AccountLoginLogDialog from "./AccountLoginLogDialog.vue";
+import SettlementRecipientPanel from "./SettlementRecipientPanel.vue";
 import CasePanel from "./CasePanel.vue";
 import RuleExecutionPanel from "./RuleExecutionPanel.vue";
 import CollectionCodePanel from "./CollectionCodePanel.vue";
+import MerchantDirectoryFilters from "./MerchantDirectoryFilters.vue";
+import ActionDropdown from "./ActionDropdown.vue";
+import {
+  newMerchantDirectory,
+  merchantDirectoryColumns,
+  merchantDirectoryError,
+  readMerchantDirectoryQuery,
+  appendMerchantDirectory,
+} from "../merchant-directory";
 import ChannelStopPanel from "./ChannelStopPanel.vue";
 import MerchantDelegationPanel from "./MerchantDelegationPanel.vue";
 import BusinessNoticeEvents from "./BusinessNoticeEvents.vue";
@@ -29,8 +49,20 @@ const props = defineProps<{
   resource: string;
   adminClass?: string;
   ownSession?: boolean;
+  entry?: ResourceEntry;
+  merchantQuery?: Record<string, unknown>;
 }>();
 const delegation = ref<Record<string, unknown> | null>(null);
+const editMerchantRecipient = ref(false);
+const merchantLogID = ref<string>();
+let merchantLogReturn: HTMLElement | undefined;
+const canReadMerchantLogs = computed(
+  () =>
+    props.resource === "merchants" &&
+    props.client.area === "admin" &&
+    props.ownSession === true &&
+    ["super", "operator"].includes(props.adminClass || ""),
+);
 const canDelegate = computed(
   () =>
     props.client.area === "admin" &&
@@ -79,11 +111,80 @@ const schema = ref<ResourceSchema | null>(null),
   items = ref<Record<string, unknown>[]>([]),
   total = ref(0),
   page = ref(1),
+  limit = ref(20),
   query = ref(""),
   loading = ref(false),
   busy = ref(false),
   error = ref(""),
   notice = ref("");
+const merchantFilters = ref(newMerchantDirectory()),
+  merchantRouteError = ref("");
+function merchantRelatedLinks(id: unknown) {
+  const value = String(id ?? "");
+  if (!/^[1-9]\d{0,18}$/.test(value) || BigInt(value) > 9223372036854775807n)
+    return [];
+  return [
+    {
+      id: "orders",
+      label: "订单管理",
+      href: `/admin/trade/order?uid=${value}`,
+    },
+    {
+      id: "ledger",
+      label: "资金明细",
+      href: `/admin/merchant/record?uid=${value}`,
+    },
+    ...(canReadMerchantLogs.value
+      ? [{ id: "login-log", label: "登录日志" }]
+      : []),
+  ];
+}
+function merchantRelatedAction(action: string, id: unknown) {
+  const value = String(id ?? "");
+  if (
+    action !== "login-log" ||
+    !canReadMerchantLogs.value ||
+    busy.value ||
+    loading.value ||
+    mode.value !== null ||
+    !/^[1-9]\d{0,18}$/.test(value) ||
+    BigInt(value) > 9223372036854775807n
+  )
+    return;
+  merchantLogReturn =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : undefined;
+  merchantLogID.value = value;
+}
+function closeMerchantLogs() {
+  const target = merchantLogReturn,
+    epoch = contextEpoch;
+  merchantLogID.value = undefined;
+  merchantLogReturn = undefined;
+  void nextTick(() => {
+    if (epoch === contextEpoch && target?.isConnected) target.focus();
+  });
+}
+function applyMerchantQuery() {
+  merchantFilters.value = newMerchantDirectory();
+  merchantRouteError.value = "";
+  if (props.resource === "merchants") {
+    const parsed = readMerchantDirectoryQuery(props.merchantQuery);
+    merchantFilters.value = parsed.draft;
+    query.value = parsed.search;
+    page.value = parsed.page;
+    limit.value = parsed.limit;
+    merchantRouteError.value = parsed.error;
+  }
+}
+function clearMerchantFilters() {
+  merchantFilters.value = newMerchantDirectory();
+  merchantRouteError.value = "";
+  query.value = "";
+  page.value = 1;
+  void load();
+}
 const mode = ref<"create" | "edit" | "detail" | "delete" | null>(null),
   selected = ref<Record<string, unknown>>({}),
   values = ref<Record<string, unknown>>({}),
@@ -99,6 +200,7 @@ function resetContext() {
   items.value = [];
   total.value = 0;
   page.value = 1;
+  limit.value = 20;
   query.value = "";
   loading.value = false;
   busy.value = false;
@@ -107,8 +209,12 @@ function resetContext() {
   values.value = {};
   fieldErrors.value = {};
   delegation.value = null;
+  merchantLogID.value = undefined;
+  merchantLogReturn = undefined;
+  editMerchantRecipient.value = false;
   error.value = "";
   notice.value = "";
+  applyMerchantQuery();
 }
 watch(
   () => [
@@ -117,6 +223,11 @@ watch(
     props.client.csrfToken,
     props.resource,
     props.adminClass,
+    props.ownSession,
+    props.entry?.mode,
+    props.entry?.id,
+    props.entry?.returnPath,
+    props.merchantQuery,
   ],
   () => {
     resetContext();
@@ -149,6 +260,16 @@ const hasDomainProjection = computed(
     props.resource === "merchants" &&
     schema.value?.fields.some((f) => f.name === "approved_domains"),
 );
+const hasContactProjection = computed(
+  () =>
+    props.resource === "merchants" &&
+    schema.value?.fields.some((f) => ["phone", "qq"].includes(f.name)),
+);
+const contactAnchor = computed(
+  () =>
+    schema.value?.fields.find((f) => f.name === "email")?.name ||
+    schema.value?.fields.find((f) => ["phone", "qq"].includes(f.name))?.name,
+);
 const formSchema = computed<ResourceSchema | null>(() =>
   schema.value
     ? {
@@ -161,7 +282,11 @@ const formSchema = computed<ResourceSchema | null>(() =>
               f.name === "login_username") ||
               (props.resource === "admin-users" && f.name === "username"))
               ? { ...f, read_only: true }
-              : f,
+              : props.resource === "merchants" &&
+                  mode.value === "create" &&
+                  f.name === "api_key"
+                ? { ...f, required: true }
+                : f,
           ),
           props.resource === "settings" ? values.value.key : null,
         ),
@@ -189,6 +314,8 @@ async function refreshCase() {
   }
 }
 async function load() {
+  merchantLogID.value = undefined;
+  merchantLogReturn = undefined;
   controller?.abort();
   controller = new AbortController();
   const c = controller,
@@ -198,6 +325,17 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
+    if (props.resource === "merchants") {
+      const problem =
+        merchantRouteError.value ||
+        merchantDirectoryError(merchantFilters.value, query.value);
+      if (problem) {
+        items.value = [];
+        total.value = 0;
+        error.value = problem;
+        return;
+      }
+    }
     if (!schema.value) {
       const loadedSchema = await client.request<ResourceSchema>(
         path + "/schema",
@@ -206,11 +344,32 @@ async function load() {
       if (c.signal.aborted || current !== contextEpoch) return;
       schema.value = loadedSchema;
     }
+    if (props.entry) {
+      if (props.entry.mode === "edit" && !props.entry.id) {
+        error.value = "资料编号无效";
+        return;
+      }
+      if (
+        !(props.entry.mode === "create"
+          ? schema.value.permissions.create
+          : schema.value.permissions.update)
+      ) {
+        error.value = "当前身份不能打开此资料编辑表单";
+        return;
+      }
+      await open(
+        props.entry.mode,
+        props.entry.mode === "edit" ? { id: props.entry.id } : {},
+      );
+      return;
+    }
     const q = new URLSearchParams({
       page: String(page.value),
-      limit: "20",
+      limit: String(limit.value),
       q: query.value,
     });
+    if (props.resource === "merchants")
+      appendMerchantDirectory(q, merchantFilters.value);
     const data = await client.request<{
       items: Record<string, unknown>[];
       total: number;
@@ -236,6 +395,9 @@ async function open(
   error.value = "";
   notice.value = "";
   fieldErrors.value = {};
+  editMerchantRecipient.value = false;
+  mode.value = null;
+  values.value = {};
   selected.value = row;
   if (action === "create") {
     values.value = formValues(schema.value!);
@@ -259,6 +421,7 @@ async function open(
   }
 }
 async function save() {
+  if (busy.value) return;
   const current = contextEpoch;
   if (!schema.value) return;
   if (props.resource === "merchants") {
@@ -280,6 +443,17 @@ async function save() {
     values.value,
     mode.value === "edit",
   );
+  if (props.resource === "merchants") {
+    const key = String(values.value.api_key || "");
+    if (
+      formSchema.value?.fields.some(
+        (f) => f.name === "api_key" && !f.read_only && !f.readonly,
+      ) &&
+      (mode.value === "create" || key) &&
+      key.length < 24
+    )
+      fieldErrors.value.api_key = "API 密钥至少需要24个字符";
+  }
   if (Object.keys(fieldErrors.value).length) return;
   busy.value = true;
   error.value = "";
@@ -306,7 +480,7 @@ async function save() {
     if (current !== contextEpoch) return;
     notice.value = mode.value === "edit" ? "修改已保存" : "新增已保存";
     mode.value = null;
-    await load();
+    if (!props.entry) await load();
   } catch (e) {
     if (current === contextEpoch) error.value = message(e);
   } finally {
@@ -332,11 +506,14 @@ async function remove() {
     if (current === contextEpoch) busy.value = false;
   }
 }
-onMounted(load);
+onMounted(() => {
+  applyMerchantQuery();
+  void load();
+});
 onBeforeUnmount(resetContext);
 </script>
 <template>
-  <section class="panel records">
+  <section v-if="!entry || !mode" class="panel records">
     <ChannelStopPanel
       v-if="
         resource === 'channels' &&
@@ -351,6 +528,7 @@ onBeforeUnmount(resetContext);
       {{ schema.description }}
     </p>
     <form
+      v-if="!entry"
       class="toolbar"
       @submit.prevent="
         page = 1;
@@ -358,6 +536,20 @@ onBeforeUnmount(resetContext);
       "
     >
       <div class="search-group">
+        <select
+          v-if="resource === 'merchants'"
+          v-model="merchantFilters.column"
+          aria-label="商户搜索字段"
+          :disabled="loading || busy"
+        >
+          <option
+            v-for="o in merchantDirectoryColumns"
+            :key="o.value"
+            :value="o.value"
+          >
+            {{ o.label }}
+          </option>
+        </select>
         <label class="sr-only" :for="'search-' + resource"
           >搜索{{ schema?.title }}</label
         ><input
@@ -366,11 +558,29 @@ onBeforeUnmount(resetContext);
           placeholder="搜索记录"
         /><button :disabled="loading">查询</button>
       </div>
+      <MerchantDirectoryFilters
+        v-if="resource === 'merchants'"
+        v-model="merchantFilters"
+        :disabled="loading || busy"
+        @clear="clearMerchantFilters"
+      />
       <div class="toolbar-actions">
         <button type="button" :disabled="loading || busy" @click="load">
           刷新</button
+        ><a
+          v-if="
+            schema?.permissions.create && resource === 'onboarding-applications'
+          "
+          :href="
+            client.area === 'merchant'
+              ? '/merchant/applyments/create'
+              : '/admin/applyments/form'
+          "
+          >新增{{ entityLabel }}</a
         ><button
-          v-if="schema?.permissions.create"
+          v-if="
+            schema?.permissions.create && resource !== 'onboarding-applications'
+          "
           type="button"
           class="primary"
           :disabled="busy"
@@ -381,7 +591,7 @@ onBeforeUnmount(resetContext);
       </div>
     </form>
     <div v-if="loading" class="loading-row" role="status">正在加载记录…</div>
-    <div v-else-if="schema" class="table-scroll">
+    <div v-else-if="schema && !entry" class="table-scroll">
       <table>
         <thead>
           <tr>
@@ -397,7 +607,12 @@ onBeforeUnmount(resetContext);
             <th v-for="field in listFields" :key="field.name" scope="col">
               {{
                 resource === "merchants"
-                  ? consoleColumnLabel(field.name, field.label)
+                  ? hasContactProjection && field.name === contactAnchor
+                    ? "联系方式"
+                    : field.name === "created_at" &&
+                        schema.fields.some((f) => f.name === "url")
+                      ? "注册时间 / 域名"
+                      : consoleColumnLabel(field.name, field.label)
                   : field.label
               }}
             </th>
@@ -432,7 +647,22 @@ onBeforeUnmount(resetContext);
               </template>
             </td>
             <td v-for="field in listFields" :key="field.name">
-              <span class="cell">{{
+              <template
+                v-if="hasContactProjection && field.name === contactAnchor"
+              >
+                <small
+                  v-for="contact in [
+                    { key: 'phone', label: '手机' },
+                    { key: 'email', label: '邮箱' },
+                    { key: 'qq', label: 'QQ' },
+                  ].filter((c) => typeof row[c.key] === 'string' && row[c.key])"
+                  :key="contact.key"
+                  class="merchant-balance-detail"
+                  >{{ contact.label }}：{{ row[contact.key] }}</small
+                >
+                <span v-if="!row.phone && !row.email && !row.qq">—</span>
+              </template>
+              <span v-else class="cell">{{
                 resource === "merchants"
                   ? merchantFieldValue(field.name, row[field.name])
                   : field.name === "enabled"
@@ -463,6 +693,16 @@ onBeforeUnmount(resetContext);
                   }}</small
                 >
               </template>
+              <small
+                v-if="
+                  resource === 'merchants' &&
+                  field.name === 'created_at' &&
+                  typeof row.url === 'string' &&
+                  row.url
+                "
+                class="merchant-balance-detail"
+                >网站：{{ row.url }}</small
+              >
               <template
                 v-if="hasDomainProjection && field.name === 'created_at'"
               >
@@ -478,6 +718,16 @@ onBeforeUnmount(resetContext);
             </td>
             <td>
               <div class="row-actions">
+                <ActionDropdown
+                  v-if="resource === 'merchants' && client.area === 'admin'"
+                  :label="`商户关联记录 ${row.id}`"
+                  :items="merchantRelatedLinks(row.id)"
+                  trigger-text="更多"
+                  :disabled="
+                    busy || loading || mode !== null || !!merchantLogID
+                  "
+                  @action="(action) => merchantRelatedAction(action, row.id)"
+                />
                 <button
                   v-if="canDelegate"
                   class="link-button"
@@ -492,8 +742,18 @@ onBeforeUnmount(resetContext);
                   @click="open('detail', row)"
                 >
                   详情</button
+                ><a
+                  v-if="
+                    schema.permissions.update &&
+                    resource === 'onboarding-applications'
+                  "
+                  :href="`/${client.area}/applyments/form?id=${encodeURIComponent(String(row.id))}`"
+                  >编辑</a
                 ><button
-                  v-if="schema.permissions.update"
+                  v-if="
+                    schema.permissions.update &&
+                    resource !== 'onboarding-applications'
+                  "
                   class="link-button"
                   :disabled="busy"
                   @click="open('edit', row)"
@@ -518,7 +778,7 @@ onBeforeUnmount(resetContext);
         </tbody>
       </table>
     </div>
-    <div class="pagination">
+    <div v-if="!entry" class="pagination">
       <span>共 {{ total }} 条记录</span>
       <div>
         <button
@@ -531,7 +791,7 @@ onBeforeUnmount(resetContext);
           上一页</button
         ><span>第 {{ page }} 页</span
         ><button
-          :disabled="page * 20 >= total || loading"
+          :disabled="page * limit >= total || loading"
           @click="
             page++;
             load();
@@ -553,6 +813,13 @@ onBeforeUnmount(resetContext);
       :admin-class="adminClass"
     />
   </section>
+  <AccountLoginLogDialog
+    v-if="merchantLogID && canReadMerchantLogs"
+    :client="client"
+    :own-session="ownSession === true"
+    :merchant-i-d="merchantLogID"
+    @close="closeMerchantLogs"
+  />
   <MerchantDelegationPanel
     v-if="delegation && canDelegate"
     :key="String(delegation.id)"
@@ -561,15 +828,25 @@ onBeforeUnmount(resetContext);
     :name="String(delegation.name || delegation.id)"
     @close="delegation = null"
   />
+  <div v-if="entry" class="toolbar">
+    <a :href="entry.returnPath">返回进件资料列表</a>
+  </div>
   <div
     v-if="mode && schema"
-    class="modal-backdrop"
-    @keydown.esc="!busy && (mode = null)"
+    :class="entry ? 'resource-entry' : 'modal-backdrop'"
+    @keydown.esc="!entry && !busy && (mode = null)"
   >
     <section
-      class="modal panel resource-modal"
-      role="dialog"
-      aria-modal="true"
+      :class="
+        entry
+          ? 'panel resource-entry-form'
+          : 'modal panel resource-modal' +
+            (resource === 'merchants' && mode === 'edit'
+              ? ' merchant-edit-modal'
+              : '')
+      "
+      :role="entry ? undefined : 'dialog'"
+      :aria-modal="entry ? undefined : true"
       :aria-label="
         mode === 'create'
           ? '新增' + schema.title
@@ -591,6 +868,9 @@ onBeforeUnmount(resetContext);
                 : ""
         }}{{ schema.title }}{{ mode === "detail" ? "详情" : "" }}
       </h2>
+      <p v-if="entry && schema.description" class="resource-description muted">
+        {{ schema.description }}
+      </p>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
       <template v-if="mode === 'detail'"
         ><dl class="record-detail">
@@ -655,7 +935,25 @@ onBeforeUnmount(resetContext);
         <p v-if="resource === 'admin-users' && mode === 'edit'" class="muted">
           管理员账号：{{ selected.username }}。账号创建后不可更名。
         </p>
+        <MerchantEditorFields
+          v-if="resource === 'merchants'"
+          :key="mode + ':' + String(selected.id || 'new')"
+          :client="client"
+          :fields="formSchema!.fields"
+          :values="values"
+          :errors="fieldErrors"
+          :editing="mode === 'edit'"
+          :disabled="busy"
+          :recipient="selected.settlement_recipient"
+          :can-edit-recipient="
+            schema.fields.some((f) => f.name === 'settlement_recipient') &&
+            schema.permissions.update
+          "
+          @change="(name, value) => (values[name] = value)"
+          @recipient="editMerchantRecipient = !editMerchantRecipient"
+        />
         <ResourceFields
+          v-else
           :fields="formSchema!.fields"
           :values="values"
           :errors="fieldErrors"
@@ -663,13 +961,34 @@ onBeforeUnmount(resetContext);
           @change="(name, value) => (values[name] = value)"
         />
         <div class="modal-actions">
-          <button type="button" :disabled="busy" @click="mode = null">
+          <a v-if="entry && !busy" :href="entry.returnPath">返回列表</a
+          ><button
+            v-if="!entry"
+            type="button"
+            :disabled="busy"
+            @click="mode = null"
+          >
             取消</button
           ><button class="primary" :disabled="busy">
             {{ busy ? "正在保存…" : "保存" }}
           </button>
         </div>
       </form>
+      <SettlementRecipientPanel
+        v-if="
+          resource === 'merchants' && mode === 'edit' && editMerchantRecipient
+        "
+        :key="String(selected.id)"
+        :client="client"
+        :merchant-i-d="String(selected.id)"
+        :admin="true"
+        :disabled="busy"
+        @change="
+          (value) => {
+            if (value) selected.settlement_recipient = value;
+          }
+        "
+      />
     </section>
   </div>
 </template>
@@ -678,5 +997,8 @@ onBeforeUnmount(resetContext);
   display: block;
   margin-top: 4px;
   white-space: nowrap;
+}
+.merchant-edit-modal {
+  width: min(100%, 900px);
 }
 </style>

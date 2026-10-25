@@ -21,6 +21,9 @@ func (s *Service) createMerchant(ctx context.Context, p Principal, d definition,
 	if e = validateMerchantOptions(v); e != nil {
 		return Item{}, e
 	}
+	if e = validateMerchantContacts(v, in); e != nil {
+		return Item{}, e
+	}
 	id, e := strconv.ParseInt(fmt.Sprint(v["id"]), 10, 64)
 	if e != nil || id <= 0 {
 		return Item{}, ErrInvalid
@@ -83,6 +86,9 @@ func (s *Service) updateMerchant(ctx context.Context, p Principal, d definition,
 		return Item{}, e
 	}
 	if e = validateMerchantOptions(v); e != nil {
+		return Item{}, e
+	}
+	if e = validateMerchantContacts(v, in); e != nil {
 		return Item{}, e
 	}
 	m.Name = fmt.Sprint(v["name"])
@@ -179,10 +185,21 @@ func (s *Service) listSpecial(ctx context.Context, p Principal, r string, q Quer
 		idColumn = "console_users.id"
 	}
 	where := " WHERE " + condition + " AND ($1::text='' OR strpos(lower((" + projection + ")::text),lower($1))>0)"
-	if e := s.pool.QueryRow(ctx, "SELECT count(*) FROM "+table+where, q.Search).Scan(&page.Total); e != nil {
+	order := idColumn + " DESC"
+	args := []any{q.Search}
+	if r == "merchants" {
+		var e error
+		where, order, args, e = merchantDirectorySQL(q.Merchant, q.Search)
+		if e != nil {
+			return page, e
+		}
+	}
+	if e := s.pool.QueryRow(ctx, "SELECT count(*) FROM "+table+where, args...).Scan(&page.Total); e != nil {
 		return page, e
 	}
-	rows, e := s.pool.Query(ctx, "SELECT "+idColumn+","+projection+" FROM "+table+where+" ORDER BY "+idColumn+" DESC LIMIT $2 OFFSET $3", q.Search, q.Limit, (q.Page-1)*q.Limit)
+	limitIndex := len(args) + 1
+	args = append(args, q.Limit, (q.Page-1)*q.Limit)
+	rows, e := s.pool.Query(ctx, "SELECT "+idColumn+","+projection+" FROM "+table+where+" ORDER BY "+order+fmt.Sprintf(" LIMIT $%d OFFSET $%d", limitIndex, limitIndex+1), args...)
 	if e != nil {
 		return page, e
 	}

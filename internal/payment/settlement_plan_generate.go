@@ -272,6 +272,10 @@ func (s *Store) generateSettlementPlanItem(ctx context.Context, run SettlementPl
 		item.View.State, item.View.Reason = "blocked", string(window)
 		return s.commitSettlementPlanItem(ctx, tx, item, run, a.View)
 	}
+	if errors.Is(err, ErrSettlementMode) {
+		item.View.State, item.View.Reason = "skipped", "settlement_mode"
+		return s.commitSettlementPlanItem(ctx, tx, item, run, a.View)
+	}
 	if errors.Is(err, ErrState) && consumed {
 		item.View.State, item.View.Reason = "skipped", "daily_limit"
 		return s.commitSettlementPlanItem(ctx, tx, item, run, a.View)

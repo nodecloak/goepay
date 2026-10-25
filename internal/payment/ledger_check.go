@@ -10,6 +10,7 @@ import (
 // LedgerCheck reports structural invariants from one consistent, read-only
 // snapshot. It does not repair balances or claim reconciliation with a bank.
 type LedgerCheck struct {
+	InvalidCollectionGenerators   int64 `json:"invalid_collection_generators"`
 	InvalidSettlementBatches      int64 `json:"invalid_settlement_batches"`
 	InvalidScanRecoverySources    int64 `json:"invalid_scan_recovery_sources"`
 	UnknownScanCancellations      int64 `json:"unknown_scan_cancellations"`
@@ -143,6 +144,9 @@ func (s *Store) CheckLedger(ctx context.Context) (LedgerCheck, error) {
 		return report, err
 	}
 	if err = s.checkSettlementBatches(ctx, tx, &report); err != nil {
+		return report, err
+	}
+	if err = s.checkCollectionGenerators(ctx, tx, &report); err != nil {
 		return report, err
 	}
 	return report, tx.Commit(ctx)

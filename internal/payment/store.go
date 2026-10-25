@@ -36,6 +36,7 @@ type Merchant struct {
 	Enabled            bool   `json:"enabled"`
 }
 type CreateOrderInput struct {
+	CollectionConfigHash        string            `json:"-"`
 	PaymentCost                 *PaymentCostQuote `json:"-"`
 	Version                     string
 	MerchantID                  int64

@@ -6,8 +6,9 @@ import { merchantFieldValue } from "../pro-console-fields";
 const props = defineProps<{
   client: ApiClient;
   section: "profile" | "api-info" | "security";
+  showLoginLog?: boolean;
 }>();
-const emit = defineEmits<{ reauthenticate: [] }>();
+const emit = defineEmits<{ reauthenticate: []; "login-log": [] }>();
 const loading = ref(false),
   busy = ref(false),
   error = ref(""),
@@ -189,15 +190,28 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <div class="account-pages">
+  <div
+    class="account-pages"
+    role="region"
+    :aria-label="
+      section === 'api-info' ? '商户 API 信息' : '账户资料与安全设置'
+    "
+  >
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
     <div v-if="loading" class="panel loading-row" role="status">
       正在加载账户…
     </div>
     <template v-else-if="section === 'profile' || section === 'security'"
-      ><section v-if="section === 'profile'" class="panel account-section">
+      ><section
+        v-if="section === 'profile'"
+        class="panel account-section"
+        aria-label="账户资料"
+      >
         <h2>账户资料</h2>
+        <button v-if="showLoginLog" type="button" @click="emit('login-log')">
+          登录日志
+        </button>
         <p>收款状态：{{ merchantFieldValue("pay", payStatus) }}</p>
         <form @submit.prevent="saveProfile">
           <label

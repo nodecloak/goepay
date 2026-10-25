@@ -18,15 +18,26 @@ func scanRefund(row pgx.Row) (Refund, error) {
 	return r, e
 }
 func (s *Store) ReserveRefund(ctx context.Context, merchantID int64, outTradeNo, refundNo string, amount int64) (Refund, error) {
+	if amount <= 0 || refundNo == "" || len(refundNo) > 128 {
+		return Refund{}, ErrInvalid
+	}
+	tx, e := s.pool.Begin(ctx)
+	if e != nil {
+		return Refund{}, e
+	}
+	defer tx.Rollback(ctx)
+	r, e := s.reserveRefundTx(ctx, tx, merchantID, outTradeNo, refundNo, amount)
+	if e != nil {
+		return r, e
+	}
+	return r, tx.Commit(ctx)
+}
+
+func (s *Store) reserveRefundTx(ctx context.Context, tx pgx.Tx, merchantID int64, outTradeNo, refundNo string, amount int64) (Refund, error) {
 	var r Refund
 	if amount <= 0 || refundNo == "" || len(refundNo) > 128 {
 		return r, ErrInvalid
 	}
-	tx, e := s.pool.Begin(ctx)
-	if e != nil {
-		return r, e
-	}
-	defer tx.Rollback(ctx)
 	o, e := scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE merchant_id=$1 AND out_trade_no=$2 FOR UPDATE", merchantID, outTradeNo))
 	if e != nil {
 		return r, e
@@ -108,7 +119,7 @@ func (s *Store) ReserveRefund(ctx context.Context, merchantID int64, outTradeNo,
 	if _, e = tx.Exec(ctx, "INSERT INTO jobs(event_key,kind,payload,run_at) VALUES($1,'refund.reconcile',jsonb_build_object('refund_id',$2::bigint),now()+interval '30 seconds')", fmt.Sprintf("refund:%d", r.ID), r.ID); e != nil {
 		return r, e
 	}
-	return r, tx.Commit(ctx)
+	return r, nil
 }
 func (s *Store) ResolveRefund(ctx context.Context, id int64, state string) error {
 	if state != "unknown" && state != "succeeded" && state != "failed" {

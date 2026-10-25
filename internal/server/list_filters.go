@@ -17,6 +17,20 @@ var errListFilterForbidden = errors.New("list filter owner forbidden")
 // This augments, and can never replace, the authenticated tenant predicate.
 func consoleListFilters(q url.Values, role, kind, tenant string, mid int64, args []any) (string, []any, error) {
 	var clauses []string
+	if len(q["include_archived"]) > 1 {
+		return "", nil, errListFilter
+	}
+	if raw := q.Get("include_archived"); raw != "" {
+		if kind != "orders" {
+			return "", nil, errListFilter
+		}
+		if role != "admin" {
+			return "", nil, errListFilterForbidden
+		}
+		if raw != "true" && raw != "false" {
+			return "", nil, errListFilter
+		}
+	}
 	bind := func(expression string, value any) {
 		args = append(args, value)
 		clauses = append(clauses, fmt.Sprintf(expression, len(args)))
@@ -71,6 +85,9 @@ func consoleListFilters(q url.Values, role, kind, tenant string, mid int64, args
 		switch kind {
 		case "orders":
 			expression, allowed = "o.status", "created,submitting,pending,paid,closed,failed,unknown"
+			if role == "admin" {
+				expression = consoleAdminStatusExpression
+			}
 		case "refunds":
 			expression, allowed = "f.status", "pending,unknown,succeeded,failed"
 		case "transfers":

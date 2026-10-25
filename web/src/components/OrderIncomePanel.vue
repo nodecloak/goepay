@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { ApiClient, displayValue } from "../api";
 const props = defineProps<{
   client: ApiClient;
@@ -11,6 +11,7 @@ const props = defineProps<{
   canAdopt?: boolean;
   hasPendingRefund?: boolean;
   disabled?: boolean;
+  initialAction?: "freeze" | "unfreeze";
 }>();
 const emit = defineEmits<{ updated: []; busy: [value: boolean] }>();
 const sourceLabels: Record<string, string> = {
@@ -94,6 +95,9 @@ function prepare(action: "freeze" | "unfreeze" | "adopt") {
   notice.value = "";
   confirmation.value = action;
 }
+onMounted(() => {
+  if (props.initialAction) prepare(props.initialAction);
+});
 async function execute() {
   const action = confirmation.value;
   if (!action || busy.value || props.disabled || !admin.value) return;

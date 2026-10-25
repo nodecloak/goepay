@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { openAdminAPIRefund } from "./order-action-helpers";
 const ok = (data: unknown) => ({
   status: 200,
   contentType: "application/json",
@@ -78,6 +79,17 @@ test("authorized order refund uses trade number and exact decimal, blocked pages
           frozen_money: "0.00",
         }),
       );
+    if (
+      path.endsWith("/orders/TRADE-001") &&
+      route.request().method() === "GET"
+    )
+      return route.fulfill(
+        ok({
+          order: { trade_no: "TRADE-001", status: "paid", amount: "1" },
+          reporting: { refunded_amount: "0" },
+          admin_control: { status: "", archived: false, revision: "0" },
+        }),
+      );
     if (route.request().method() === "POST") {
       expect(path).toBe("/console/v1/admin/orders/TRADE-001/refund");
       expect(route.request().headers()["x-csrf-token"]).toBe("csrf-e2e");
@@ -99,8 +111,10 @@ test("authorized order refund uses trade number and exact decimal, blocked pages
     );
   });
   await page.goto("/admin/trade/order");
-  await expect(page.getByRole("cell", { name: "TRADE-001" })).toBeVisible();
-  await page.getByRole("button", { name: "申请退款", exact: true }).click();
+  await expect(
+    page.getByRole("cell", { name: "TRADE-001", exact: true }),
+  ).toBeVisible();
+  await openAdminAPIRefund(page, "TRADE-001");
   await page.getByLabel("退款金额（元）").fill("0.01");
   await page.getByRole("button", { name: "确认申请退款" }).click();
   await expect(page.locator(".alert.success")).toHaveText(

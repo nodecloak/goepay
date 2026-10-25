@@ -123,12 +123,18 @@ func (s *Server) exportCSV(w http.ResponseWriter, r *http.Request, session ident
 		s.fail(w, e)
 		return
 	}
+	s.finishCSVExport(ctx, w, session, resource, b, count)
+}
+
+// Shared finalization keeps the same audit-before-response rule for typed
+// reports that build their columns without exposing arbitrary SQL identifiers.
+func (s *Server) finishCSVExport(ctx context.Context, w http.ResponseWriter, session identity.Session, resource string, b *csvBoundedBuffer, count int) {
 	digest := fmt.Sprintf("%x", sha256.Sum256(b.Bytes()))
 	var issuer any
 	if session.Issuer != nil {
 		issuer = fmt.Sprint(session.Issuer.ID)
 	}
-	_, e = s.Pool.Exec(ctx, "INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES($1,$2,$3,$4,0,'export-csv',jsonb_build_object('rows',$5::integer,'sha256',$6::text,'delegated_by',$7::text))", session.User.Role, session.User.ID, session.User.Username, resource, count, digest, issuer)
+	_, e := s.Pool.Exec(ctx, "INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES($1,$2,$3,$4,0,'export-csv',jsonb_build_object('rows',$5::integer,'sha256',$6::text,'delegated_by',$7::text))", session.User.Role, session.User.ID, session.User.Username, resource, count, digest, issuer)
 	if e != nil {
 		s.fail(w, e)
 		return

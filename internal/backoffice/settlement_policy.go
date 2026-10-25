@@ -59,6 +59,6 @@ func (s *Service) serveSettlementQuote(w http.ResponseWriter, r *http.Request, p
 		writeError(w, e)
 		return true
 	}
-	write(w, 200, map[string]any{"merchant_id": strconv.FormatInt(mid, 10), "policy": quote.Policy, "terms": quote.Terms, "daily_used": strconv.FormatInt(quote.DailyUsed, 10), "can_apply": quote.CanApply, "available_money": ledger.Format(quote.Funds.Available), "ledger_available_money": ledger.Format(quote.Funds.LedgerAvailable), "today_blocked_money": ledger.Format(quote.Funds.Blocked), "settle_type": quote.Funds.SettleType, "external_payout": false}, "estimate only; submit revalidates policy and funds")
+	write(w, 200, map[string]any{"merchant_id": strconv.FormatInt(mid, 10), "policy": quote.Policy, "terms": quote.Terms, "daily_used": strconv.FormatInt(quote.DailyUsed, 10), "can_apply": quote.CanApply, "settlement_access": quote.Access, "available_money": ledger.Format(quote.Funds.Available), "ledger_available_money": ledger.Format(quote.Funds.LedgerAvailable), "today_blocked_money": ledger.Format(quote.Funds.Blocked), "settle_type": quote.Funds.SettleType, "external_payout": false}, "estimate only; submit revalidates policy and funds")
 	return true
 }

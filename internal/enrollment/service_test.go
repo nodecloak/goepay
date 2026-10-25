@@ -309,6 +309,26 @@ func TestEnrollmentInvitationConcurrentLimitAndAtomicRollback(t *testing.T) {
 	}
 }
 
+func TestEnrollmentArchivedInvitationNeverAdmitsEvenIfEnabled(t *testing.T) {
+	s, f := enrollmentFixture(t)
+	ctx := context.Background()
+	if _, e := s.pool.Exec(ctx, `INSERT INTO backoffice_records(resource,body) VALUES('invitation-codes','{"code":"ARCHIVED-ADMISSION","enabled":true,"archived":true,"max_uses":1}')`); e != nil {
+		t.Fatal(e)
+	}
+	ch, e := s.Issue(ctx, VerificationRequest{Purpose: "register", Email: "archived@example.test", Source: "192.0.2.41"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, e = s.Register(ctx, RegisterInput{ChallengeID: ch.ID, Code: f.last(t).code, Email: "archived@example.test", Source: "192.0.2.41", Username: "archived-user", Name: "Archived", Password: "correct-test-password", InviteCode: "ARCHIVED-ADMISSION"})
+	if !errors.Is(e, ErrInvalid) {
+		t.Fatalf("archived invitation admitted: %v", e)
+	}
+	var merchants, uses, consumed int
+	if e = s.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM merchants),(SELECT count(*) FROM enrollment_invitation_uses),(SELECT count(*) FROM enrollment_challenges WHERE consumed_at IS NOT NULL)`).Scan(&merchants, &uses, &consumed); e != nil || merchants != 0 || uses != 0 || consumed != 0 {
+		t.Fatalf("rejected enrollment changed facts %d %d %d %v", merchants, uses, consumed, e)
+	}
+}
+
 func TestEnrollmentRecoveryBoundIdentityRevokesSessionsPreservesMFA(t *testing.T) {
 	s, f := enrollmentFixture(t)
 	ctx := context.Background()

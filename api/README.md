@@ -1,5 +1,7 @@
 # 接口文档
 
+新增管理员订单操作：`/console/v1/admin/orders/{trade}/admin-status|archive|restore|manual-complete|manual-refund`。前四项使用原请求号/原因/后台审计修订，状态标记不覆盖支付事实，删除保留财务记录。补单只核验原单，202不能当完成。手动退款与通道API退款独立，必须确认已线下退还；首次变更无论全局开关都需本人super的短时资金授权，资金与内部HMAC结果/审计同事务。详见OpenAPI；同支付方式API退款仍使用原`/refund`与未知结果保护。原UI职责和尚未对齐项见[全页面复核](../docs/verification/pro-ux-review-2026-10-25.md)。
+
 模板使用admin本人super专用 `/templates`、`/templates/{type}/{name}/config`、`/templates/{type}/selection` 与PNG/JPEG图片接口；原通用template-configs只读。type为home/pay/qrpay，内置default/compact；配置保存和模板切换共用同类型revision CAS。图片重编码入库，只有当前选择的有效配置所引用图片可从 `/template-assets/{sha256}` 公开读取，撤回即404且no-store。配置实际被原支付身份/token校验后的渲染消费；不能上传PHP、HTML或任意脚本。
 
 打印平台设置 `/console/v1/admin/printing/settings` 仅本人super GET/PUT，商户设置 `/console/v1/merchant/account/printing` 本人GET/PUT；字段完整提交并带expected_revision，密钥/设备仅写入AEAD后返回掩码。订单收据为 `/orders/{trade}/receipt`，原订单记录 GET `/orders/{trade}/print-jobs`，手工创建 POST同路径，三个显式字段external_no、previous_job_id字符串、acknowledge_duplicate布尔。`202`只表示原意图持久化，`accepted`仅网关受理，均不是实体打印完成。未知结果不能自动重发；丢响应保留同一external_no。本人 `/print-jobs/{id}/recover` 只恢复原未发送dead处理任务，绑定expected_task_id且幂等，不换打印请求号、不新增收据。没有HTTP dispatch入口。独立打印worker仅显式local-printing-fake profile、enable标志与sandbox同时满足才运行本地模拟；外部打印执行不开放。
@@ -57,3 +59,7 @@ node docs/tools/build-openapi.mjs
 商户消息提醒：本人会话GET/PUT `/console/v1/merchant/account/notice`；授权管理员GET/PUT `/console/v1/admin/merchants/{merchant_id}/notice`。使用原msgconfig九场景、元金额字符串、voice_order、显式targets/clear_fields及expected_profile_id比较版本。未提交的目标保留；显式清除单列；保存不发送消息。禁止代登录与query商户覆盖，写入要求CSRF。目标和凭据只返回掩码。
 
 设置路径追加 `/events` 可GET只读通知记录，limit默认20/最大100，before_id为规范非负ID，按ID倒序返回items及next_cursor。未知、重复或格式错误分页参数返回400。记录不含消息正文或接收秘密；accepted仅表示发送服务受理，unknown包含永久claim已提交但缺少结果。没有重发或清除接口；读取不改变投递状态。此80增量尚未进入运行93。
+
+2026-10-25 全后台UX修复中的新增契约（工作源码，尚未切换固定98部署）：`GET /console/v1/{role}/membership-sales` 对管理员返回销售配置及修订，对商户返回其可见目录。本人super通过 `POST /console/v1/admin/membership-sales` 原子保存开关、上下架、价格、月/永久期限、排序、可见组与简介。会员购买通过明确的 `/workflows/memberships` 接受可选整数quantity=1..300，总价、期限及原奖励收入在同一事务绑定；旧按天配置及旧证明格式继续兼容。迁移84为新购买保存不可变销售条款，1..83迁移内容不改。
+
+投诉统计 `GET /reports/complaints?view=overview` 返回本地已登记投诉的今日/昨日概要及按商户排行；不返回支付净额、手续费，缺金额为null，近7日无支付分母时比率为null。该视图不能同时使用from/to；CSV与列表口径相同，导出继续要求审计。完整OpenAPI现有181路径/213操作，旧接口保留。

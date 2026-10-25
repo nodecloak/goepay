@@ -11,6 +11,7 @@ import {
 } from "../reports";
 import DataTable from "./DataTable.vue";
 import CsvExportButton from "./CsvExportButton.vue";
+import MerchantMatrixReport from "./MerchantMatrixReport.vue";
 const props = defineProps<{ client: ApiClient; report: string }>();
 const from = ref(""),
   to = ref(""),
@@ -21,6 +22,11 @@ const from = ref(""),
   total = ref(0),
   loading = ref(false),
   error = ref("");
+const summary = ref<Record<string, unknown> | null>(null);
+const complaintOverview = computed(() => props.report === "complaints");
+const merchantMatrix = computed(() =>
+  ["merchants", "transfer-merchants"].includes(props.report),
+);
 let controller: AbortController | undefined;
 function applyShortcut() {
   const range = reportDateRange(shortcut.value);
@@ -32,6 +38,10 @@ function applyShortcut() {
 }
 function reportQuery() {
   const q = new URLSearchParams({ page: String(page.value), limit: "20" });
+  if (complaintOverview.value) {
+    q.set("view", "overview");
+    return q;
+  }
   if (from.value) q.set("from", from.value);
   if (to.value) q.set("to", to.value);
   return q;
@@ -58,6 +68,7 @@ async function load() {
       columns: ReportColumn[];
       items: Record<string, unknown>[];
       total: number;
+      summary?: Record<string, unknown>;
     }>("/reports/" + encodeURIComponent(props.report) + "?" + q, {
       signal: c.signal,
     });
@@ -65,6 +76,7 @@ async function load() {
       columns.value = reportColumns(props.report, data.columns);
       items.value = reportRows(data.items);
       total.value = data.total;
+      summary.value = data.summary || null;
     }
   } catch (e) {
     if (!c.signal.aborted)
@@ -84,12 +96,44 @@ function download() {
   a.click();
   URL.revokeObjectURL(url);
 }
-onMounted(load);
+onMounted(() => {
+  if (!merchantMatrix.value) void load();
+});
 onBeforeUnmount(() => controller?.abort());
 </script>
 <template>
-  <section class="panel records">
+  <MerchantMatrixReport
+    v-if="merchantMatrix"
+    :client="client"
+    :report="report"
+  />
+  <section v-else class="panel records">
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+    <template v-if="complaintOverview">
+      <h2>投诉数据统计&amp;排行榜</h2>
+      <p class="resource-description muted">
+        本地已登记投诉，包含所有处理状态。按北京时间统计今日、昨日和近7日；近7日比率为投诉条数
+        ÷ 同期已支付订单数，无支付订单时显示未知。未登记的上游投诉不计入。
+      </p>
+      <div v-if="summary" class="stats-grid">
+        <article
+          v-for="day in [
+            { key: 'today', label: '今日投诉' },
+            { key: 'yesterday', label: '昨日投诉' },
+          ]"
+          :key="day.key"
+          class="stat"
+        >
+          <h3>{{ day.label }}</h3>
+          <strong>{{ summary[`${day.key}_count`] ?? "—" }} 条</strong>
+          <p>投诉金额：{{ summary[`${day.key}_money`] ?? "未知" }} 元</p>
+          <p>
+            支付宝 {{ summary[`${day.key}_alipay`] ?? "—" }} · 微信
+            {{ summary[`${day.key}_wxpay`] ?? "—" }}
+          </p>
+        </article>
+      </div>
+    </template>
     <form
       class="toolbar report-filter"
       @submit.prevent="
@@ -97,30 +141,32 @@ onBeforeUnmount(() => controller?.abort());
         load();
       "
     >
-      <label
-        >快捷范围<select
-          v-model="shortcut"
-          aria-label="统计日期快捷范围"
-          @change="applyShortcut"
+      <template v-if="!complaintOverview"
+        ><label
+          >快捷范围<select
+            v-model="shortcut"
+            aria-label="统计日期快捷范围"
+            @change="applyShortcut"
+          >
+            <option value="">自定义日期</option>
+            <option value="today">今天</option>
+            <option value="yesterday">昨天</option>
+            <option value="last7">最近7天</option>
+            <option value="last30">最近30天</option>
+          </select></label
         >
-          <option value="">自定义日期</option>
-          <option value="today">今天</option>
-          <option value="yesterday">昨天</option>
-          <option value="last7">最近7天</option>
-          <option value="last30">最近30天</option>
-        </select></label
-      >
-      <label
-        >开始日期<input
-          v-model="from"
-          type="date"
-          @input="shortcut = ''" /></label
-      ><label
-        >结束日期<input
-          v-model="to"
-          type="date"
-          @input="shortcut = ''" /></label
-      ><button :disabled="loading">查询统计</button
+        <label
+          >开始日期<input
+            v-model="from"
+            type="date"
+            @input="shortcut = ''" /></label
+        ><label
+          >结束日期<input
+            v-model="to"
+            type="date"
+            @input="shortcut = ''" /></label></template
+      ><button :disabled="loading">
+        {{ complaintOverview ? "刷新统计" : "查询统计" }}</button
       ><button
         type="button"
         :disabled="loading || !items.length"
@@ -135,7 +181,7 @@ onBeforeUnmount(() => controller?.abort());
         :disabled="loading || !validDateRange(from, to)"
       />
     </form>
-    <p class="resource-description muted">
+    <p v-if="!complaintOverview" class="resource-description muted">
       业务日期按 UTC+08:00 统计。未指定日期时查询最近 30
       天；未采集的维度会显示为未知。
     </p>

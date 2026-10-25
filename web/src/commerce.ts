@@ -9,7 +9,6 @@ export function browserRechargeMethods(type: string): string[] {
 export type CommerceKind = "memberships" | "deposits" | "recharges";
 export const commercePages: Record<Area, Record<string, CommerceKind>> = {
   admin: {
-    "/merchant/group-buy": "memberships",
     "/merchant/deposit-review": "deposits",
   },
   merchant: {

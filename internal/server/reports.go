@@ -28,6 +28,14 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request, role string, se
 		return true
 	}
 	name := parts[2]
+	if s.merchantMatrixReport(w, r, role, session, name) {
+		return true
+	}
+	view := r.URL.Query()["view"]
+	if len(view) > 1 || len(view) == 1 && (name != "complaints" || view[0] != "overview") {
+		response(w, 400, -1, "invalid report view", nil)
+		return true
+	}
 	export, exportErr := csvRequested(r)
 	if exportErr != nil {
 		response(w, 400, -1, exportErr.Error(), nil)
@@ -66,6 +74,10 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request, role string, se
 	}
 	if limit > 100 || page > 1000000 {
 		response(w, 400, -1, "invalid pagination", nil)
+		return true
+	}
+	if name == "complaints" && len(view) == 1 {
+		s.complaintOverview(w, r, session, end, page, limit, export)
 		return true
 	}
 	mid := session.User.ID

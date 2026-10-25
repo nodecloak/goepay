@@ -92,7 +92,7 @@ test("settlement recipient edit clears fee confirmation and binds new snapshot v
       }),
     );
   });
-  await page.goto("/merchant/settle/apply");
+  await page.goto("/merchant/settle/list");
   await expect(
     page.getByText("未记录收款快照，不能出款", { exact: true }),
   ).toBeVisible();
@@ -196,7 +196,7 @@ test("missing recipient prevents new UI application and configuration conflict n
     }
     return route.fulfill(ok({ items: [], total: 0 }));
   });
-  await page.goto("/merchant/settle/apply");
+  await page.goto("/merchant/settle/list");
   await page.getByRole("button", { name: "申请结算", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(

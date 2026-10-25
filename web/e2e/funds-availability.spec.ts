@@ -121,8 +121,7 @@ test("merchant settlement reads and displays T1 available versus ledger snapshot
     return route.fulfill(ok({ items: [], total: 0 }));
   });
   await page.goto("/merchant/settle/apply");
-  await page.getByRole("button", { name: "申请结算", exact: true }).click();
-  const modal = page.getByRole("dialog");
+  const modal = page.getByRole("region", { name: "申请提现", exact: true });
   await expect(modal).toContainText("T+1");
   await expect(modal).toContainText("9.90");
   await expect(modal).toContainText("10.90");

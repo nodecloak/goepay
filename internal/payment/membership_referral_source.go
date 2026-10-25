@@ -95,9 +95,10 @@ func membershipEffectiveGroup(ctx context.Context, q referralReader, mid int64, 
 	return group, revision, enabled, nil
 }
 
-func (s *Store) membershipReferralDecision(ctx context.Context, q referralReader, mid, group int64, externalNo string) (membershipReferralSource, error) {
+func (s *Store) membershipReferralDecision(ctx context.Context, q referralReader, mid, group int64, externalNo string, quantities ...int) (membershipReferralSource, error) {
 	out := membershipReferralSource{MembershipReferralPurchaseSnapshot: MembershipReferralPurchaseSnapshot{MerchantID: mid, GroupID: group}, SourceVersion: 1}
-	if q == nil || mid <= 0 || group <= 0 || externalNo == "" || len(externalNo) > 128 {
+	quantity, quantityErr := membershipSaleQuantity(quantities)
+	if quantityErr != nil || q == nil || mid <= 0 || group <= 0 || externalNo == "" || len(externalNo) > 128 {
 		return out, ErrInvalid
 	}
 	var at time.Time
@@ -121,9 +122,10 @@ func (s *Store) membershipReferralDecision(ctx context.Context, q referralReader
 		return out, e
 	}
 	out.Price, e = strconv.ParseInt(priceRaw, 10, 64)
-	if e != nil || out.Price < 0 {
+	if e != nil || out.Price < 0 || out.Price > 100000000000 {
 		return out, ErrInvalid
 	}
+	out.Price *= int64(quantity)
 	relation, e := s.ReferralRelationTx(ctx, q, mid)
 	if e != nil && !errors.Is(e, ErrNotFound) {
 		return out, e
@@ -168,8 +170,8 @@ func (s *Store) membershipReferralDecision(ctx context.Context, q referralReader
 	return out, e
 }
 
-func (s *Store) FundsMembershipReferralPurchaseSnapshot(ctx context.Context, q referralReader, mid, group int64, externalNo string) (MembershipReferralPurchaseSnapshot, error) {
-	v, e := s.membershipReferralDecision(ctx, q, mid, group, externalNo)
+func (s *Store) FundsMembershipReferralPurchaseSnapshot(ctx context.Context, q referralReader, mid, group int64, externalNo string, quantities ...int) (MembershipReferralPurchaseSnapshot, error) {
+	v, e := s.membershipReferralDecision(ctx, q, mid, group, externalNo, quantities...)
 	return v.MembershipReferralPurchaseSnapshot, e
 }
 
@@ -214,7 +216,11 @@ func (s *Store) membershipLockParties(ctx context.Context, tx pgx.Tx, mid int64)
 }
 
 func (s *Store) membershipReferralSourceProof(p MembershipPurchase, v membershipReferralSource) ([]byte, error) {
-	return s.membershipReferralDigest("purchase-source", []any{p.ID, p.MerchantID, p.GroupID, p.ExternalNo, p.Price, p.GroupName, p.DurationDays, p.ExpiresAt.UTC().Format(time.RFC3339Nano), p.Actor, p.CreatedAt.UTC().Format(time.RFC3339Nano), p.SourceVersion, v.SourceVersion, v.PromoterID, v.RelationID, hex.EncodeToString(v.RelationHash), v.PayerGroupID, v.PromoterGroupID, v.PolicyIDs, v.PolicyRevisions, v.PolicyHashes, v.BuyerRevision, v.PromoterRevision, v.PromoterEnabled, v.Enabled, v.RateBPS, v.Reward, v.Reason, v.IncomeAccountID, v.PurchaseJournalID, v.TransactionID})
+	facts := []any{p.ID, p.MerchantID, p.GroupID, p.ExternalNo, p.Price, p.GroupName, p.DurationDays, p.ExpiresAt.UTC().Format(time.RFC3339Nano), p.Actor, p.CreatedAt.UTC().Format(time.RFC3339Nano), p.SourceVersion, v.SourceVersion, v.PromoterID, v.RelationID, hex.EncodeToString(v.RelationHash), v.PayerGroupID, v.PromoterGroupID, v.PolicyIDs, v.PolicyRevisions, v.PolicyHashes, v.BuyerRevision, v.PromoterRevision, v.PromoterEnabled, v.Enabled, v.RateBPS, v.Reward, v.Reason, v.IncomeAccountID, v.PurchaseJournalID, v.TransactionID}
+	if p.SaleTerms != nil {
+		facts = append(facts, "membership-sale-v1", p.SaleTerms)
+	}
+	return s.membershipReferralDigest("purchase-source", facts)
 }
 
 func (s *Store) membershipReferralEvent(ctx context.Context, tx pgx.Tx, p MembershipPurchase, operation string, subject []byte) error {

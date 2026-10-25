@@ -35,7 +35,7 @@ func TestSettlementThreshold74OriginalSettingsAndGroupFieldsAreRegisteredAndVali
 			t.Fatal(body, e)
 		}
 	}
-	for _, body := range []string{`{"name":"invalid","settle_open":"3"}`, `{"name":"invalid","settle_rate":"100.01"}`, `{"name":"invalid","settle_rate":"1.001"}`} {
+	for _, body := range []string{`{"name":"invalid","settle_open":"4"}`, `{"name":"invalid","settle_rate":"100.01"}`, `{"name":"invalid","settle_rate":"1.001"}`} {
 		if _, e := s.Create(ctx, admin, "groups", input(body)); e == nil {
 			t.Fatal("invalid group threshold policy accepted", body)
 		}

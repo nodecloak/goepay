@@ -80,7 +80,7 @@ func readSettlementThresholdMerchantPolicy(ctx context.Context, q referralReader
 		return out, e
 	}
 	switch open {
-	case "", "0", "1":
+	case "", "_", "0", "1", "3":
 	case "2":
 		out.GroupDisabled = true
 		return out, nil

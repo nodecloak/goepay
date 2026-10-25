@@ -19,11 +19,13 @@ const props = defineProps<{
   client: ApiClient;
   tradeNo: string;
   ownSession?: boolean;
+  canBlacklist?: boolean;
 }>();
 const emit = defineEmits<{
   close: [];
   refund: [order: Record<string, unknown>];
   updated: [];
+  blacklist: [row: Record<string, unknown>, kind: "ip" | "buyer"];
 }>();
 const order = ref<Record<string, unknown> | null>(null),
   provider = ref<Record<string, unknown> | null>(null),
@@ -308,6 +310,22 @@ onBeforeUnmount(() => controller?.abort());
             </dt>
             <dd v-if="order[key] !== undefined">
               {{ consoleValue(String(key), order[key], true) }}
+              <button
+                v-if="
+                  canBlacklist &&
+                  ownSession &&
+                  client.area === 'admin' &&
+                  (key === 'client_ip' || key === 'buyer') &&
+                  order[key]
+                "
+                class="link-button"
+                :disabled="busy || loading || incomeBusy"
+                @click="
+                  emit('blacklist', order, key === 'client_ip' ? 'ip' : 'buyer')
+                "
+              >
+                {{ key === "client_ip" ? "拉黑IP" : "拉黑账号" }}
+              </button>
             </dd></template
           >
         </dl>

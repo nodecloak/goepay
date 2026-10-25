@@ -70,11 +70,18 @@ test("membership purchase uses selected server group and no client supplied pric
           csrf_token: "token",
         }),
       );
-    if (p.endsWith("/groups"))
+    if (p.endsWith("/membership-sales"))
       return route.fulfill(
         ok({
           items: [
-            { id: "1", name: "标准会员", price_cents: 100, enabled: true },
+            {
+              id: "1",
+              name: "标准会员",
+              price_cents: "100",
+              duration_days: 30,
+              duration_months: null,
+              permanent: false,
+            },
           ],
           total: 1,
         }),
@@ -94,6 +101,7 @@ test("membership purchase uses selected server group and no client supplied pric
   expect(submitted).toEqual({
     group_id: "1",
     external_no: "membership-request",
+    quantity: 1,
   });
 });
 test("recharge creates an unpaid order and never follows a non-HTTP payment URL", async ({

@@ -14,6 +14,7 @@ const props = defineProps<{
   ownSession: boolean;
   adminClass?: string;
   merchantID?: string;
+  title?: string;
 }>();
 const admin = computed(() => props.client.area === "admin");
 const allowed = computed(
@@ -154,7 +155,7 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="panel notice-settings">
-    <h2>{{ admin ? "商户消息提醒设置" : "消息提醒设置" }}</h2>
+    <h2>{{ title || (admin ? "商户消息提醒设置" : "消息提醒设置") }}</h2>
     <p v-if="!allowed" class="alert">
       请使用本人会话；管理员需要商户管理权限。
     </p>

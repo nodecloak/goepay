@@ -1,5 +1,6 @@
 import { readLocalSandboxEnv } from "./local-sandbox-env";
 import { test, expect } from "@playwright/test";
+import { localRedBackgroundPNG } from "./local-test-images";
 test("live aggregate collection link renders a public bound payment form and revokes on disable", async ({
   page,
 }) => {
@@ -17,23 +18,31 @@ test("live aggregate collection link renders a public bound payment form and rev
   await page.getByRole("button", { name: "登录工作台" }).click();
   await expect(page.locator(".stat")).toHaveCount(4);
   await page.goto("/admin/other/onecode");
-  await page
-    .getByRole("button", { name: "新增收款码样式", exact: true })
-    .click();
+  await page.getByRole("link", { name: "新增样式", exact: true }).click();
   const dialog = page.getByRole("dialog"),
-    name = "live-collection-" + Date.now();
-  await dialog.getByLabel("名称", { exact: false }).fill(name);
-  await dialog
-    .getByLabel("展示标题", { exact: false })
-    .fill("Local collection test");
-  await dialog.getByLabel("背景颜色", { exact: false }).fill("#172e40");
-  await dialog.getByLabel("文字颜色", { exact: false }).fill("#ffffff");
-  const styleResponse = page.waitForResponse(
+    name = "live_collection_" + Date.now();
+  await page.getByLabel("风格标识", { exact: true }).fill(name);
+  await page
+    .getByLabel("显示名称", { exact: true })
+    .fill("Local collection test " + name);
+  const uploadResponse = page.waitForResponse(
     (r) =>
-      r.url().split("?")[0].endsWith("/resources/collection-styles") &&
+      new URL(r.url()).pathname ===
+        "/console/v1/admin/collection-style-images" &&
       r.request().method() === "POST",
   );
-  await dialog.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByLabel("上传背景图", { exact: true }).setInputFiles({
+    name: "local.png",
+    mimeType: "image/png",
+    buffer: localRedBackgroundPNG(),
+  });
+  expect((await uploadResponse).status()).toBe(201);
+  const styleResponse = page.waitForResponse(
+    (r) =>
+      r.url().split("?")[0].endsWith("/collection-styles") &&
+      r.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "保存样式", exact: true }).click();
   const style = await (await styleResponse).json();
   expect(style.code).toBe(0);
   const styleID = String(style.data.id);
@@ -44,6 +53,7 @@ test("live aggregate collection link renders a public bound payment form and rev
   await page.getByRole("button", { name: "登录工作台" }).click();
   await expect(page.locator(".stat")).toHaveCount(4);
   await page.goto("/merchant/onecode");
+  await page.getByRole("button", { name: "历史收款码", exact: true }).click();
   await page
     .getByRole("button", { name: "新增收款码资料", exact: true })
     .click();
@@ -60,6 +70,16 @@ test("live aggregate collection link renders a public bound payment form and rev
   await row.getByRole("button", { name: "详情", exact: true }).click();
   await dialog.getByRole("button", { name: "生成收款链接" }).click();
   await expect(dialog.getByAltText("聚合收款二维码")).toBeVisible();
+  expect(
+    await dialog
+      .getByAltText("聚合收款二维码")
+      .evaluate((el) => (el as HTMLImageElement).naturalWidth),
+  ).toBe(900);
+  expect(
+    await dialog
+      .getByAltText("聚合收款二维码")
+      .evaluate((el) => (el as HTMLImageElement).naturalHeight),
+  ).toBe(1200);
   const url = await dialog.getByLabel("收款链接", { exact: true }).inputValue();
   const publicPage = await page.context().newPage();
   await publicPage.goto(url);
@@ -93,9 +113,12 @@ test("live aggregate collection link renders a public bound payment form and rev
   await page.getByRole("button", { name: "登录工作台" }).click();
   await expect(page.locator(".stat")).toHaveCount(4);
   await page.goto("/admin/other/onecode");
-  const styleRow = page
-    .getByRole("row")
-    .filter({ has: page.getByRole("cell", { name, exact: true }) });
+  const styleRow = page.locator(".style-card").filter({
+    has: page.getByRole("heading", {
+      name: "Local collection test " + name,
+      exact: true,
+    }),
+  });
   await styleRow.getByRole("button", { name: "删除", exact: true }).click();
   await dialog.getByRole("button", { name: "确认删除", exact: true }).click();
 });

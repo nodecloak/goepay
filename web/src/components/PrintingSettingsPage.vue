@@ -6,6 +6,7 @@ const props = defineProps<{
   client: ApiClient;
   ownSession: boolean;
   adminClass?: string;
+  title?: string;
 }>();
 const admin = computed(() => props.client.area === "admin");
 const allowed = computed(
@@ -129,7 +130,7 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="panel">
-    <h2>{{ admin ? "平台打印配置" : "我的订单打印设置" }}</h2>
+    <h2>{{ title || (admin ? "平台打印配置" : "我的订单打印设置") }}</h2>
     <p v-if="!allowed" class="alert">
       请使用本人会话；平台配置仅超级管理员可管理。
     </p>

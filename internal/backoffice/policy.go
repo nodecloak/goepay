@@ -4,15 +4,28 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"goepay/internal/collectionstyle"
 	"net"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // validateRelations executes under the metadata transaction. Rules share the
 // source merchant lock so concurrent changes cannot exceed a 100% allocation.
 func validateRelations(ctx context.Context, tx pgx.Tx, resource string, id, ownerID int64, v map[string]any) error {
+	if resource == "collection-styles" {
+		if asset := collectionstyle.AssetID(fmt.Sprint(v["url"])); asset != "" {
+			var exists bool
+			if e := tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM collection_style_assets WHERE id=$1)", asset).Scan(&exists); e != nil {
+				return e
+			}
+			if !exists {
+				return ErrInvalid
+			}
+		}
+	}
 	if resource == "order-subject-policies" {
 		return validateSubjectPolicyRelations(ctx, tx, v)
 	}
@@ -114,6 +127,9 @@ func (s *Service) CheckPayment(ctx context.Context, p PaymentContext) error {
 			continue
 		}
 		value := fmt.Sprint(v["value"])
+		if blacklistExpired(v, time.Now()) {
+			continue
+		}
 		switch v["kind"] {
 		case "ip":
 			ip := net.ParseIP(p.ClientIP)

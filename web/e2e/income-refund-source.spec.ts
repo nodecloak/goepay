@@ -74,7 +74,7 @@ test("prepared held income previews original funding before sending a refund", a
     .getByRole("dialog", { name: "订单详情" })
     .getByRole("button", { name: "申请退款", exact: true })
     .click();
-  const dialog = page.getByRole("dialog", { name: "申请退款", exact: true });
+  const dialog = page.getByRole("dialog", { name: "API退款确认", exact: true });
   await dialog.getByLabel("退款金额（元）").fill("4.00");
   await dialog
     .getByRole("button", { name: "核对退款资金来源", exact: true })

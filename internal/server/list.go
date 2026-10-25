@@ -41,10 +41,13 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 	var from, columns, tenant, matching, order string
 	switch kind {
 	case "orders":
-		from = "orders o" + consoleOrderReportingJoins
+		from = "orders o" + consoleOrderReportingJoins + consoleOrderControlJoin
 		columns = "o.id::text,o.trade_no,o.merchant_id::text,o.out_trade_no,o.name,o.type,o.amount::text,o.merchant_amount::text,o.platform_fee::text,o.fee_rate_bps,o.fee_policy,o.refund_fee_payer,o.status,o.created_at,o.paid_at,o.param,o.version"
 		columns += ",CASE WHEN EXISTS(SELECT 1 FROM order_income_holds h WHERE h.order_id=o.id AND h.state='held') THEN 'held' WHEN EXISTS(SELECT 1 FROM order_income_holds h WHERE h.order_id=o.id) THEN 'released' ELSE 'none' END AS income_status"
 		columns += "," + consoleOrderReportingColumns
+		if role == "admin" {
+			columns += ",COALESCE(console_control.changes->>'status','') AS admin_status,COALESCE((console_control.changes->>'archived')='true',false) AS admin_archived,COALESCE(console_control.id::text,'0') AS admin_revision"
+		}
 		tenant = "o.merchant_id"
 		matching = "concat_ws(' ',o.trade_no,o.out_trade_no,o.name)"
 		order = "o.id DESC"
@@ -59,10 +62,10 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 		matching = "concat_ws(' ',m.id,m.name)"
 		order = "m.id"
 	case "refunds":
-		from = "refunds f JOIN orders o ON o.id=f.order_id"
+		from = consoleRefundFrom
 		columns = "f.id::text,f.merchant_id::text,f.order_id::text,o.trade_no,f.refund_no,f.amount::text,f.merchant_amount::text,f.fee_amount::text,f.status,f.created_at"
 		tenant = "f.merchant_id"
-		matching = "concat_ws(' ',f.refund_no,f.order_id,o.trade_no,o.out_trade_no)"
+		matching = consoleRefundMatching
 		order = "f.id DESC"
 	case "transfers":
 		from = "transfers t LEFT JOIN provider_transfer_attempts p ON p.transfer_id=t.id LEFT JOIN bank_transfer_lifecycle b ON b.transfer_id=t.id LEFT JOIN transfer_batch_items batch_item ON batch_item.transfer_id=t.id"
@@ -99,6 +102,9 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 		return
 	}
 	where += filters
+	if kind == "orders" && query.Get("include_archived") != "true" {
+		where += " AND COALESCE((console_control.changes->>'archived')='true',false)=false"
+	}
 	if export {
 		s.exportCSV(w, r, session, kind, "SELECT "+columns+" FROM "+from+where+" ORDER BY "+order, args)
 		return

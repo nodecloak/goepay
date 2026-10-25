@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { openAdminAPIRefund } from "./order-action-helpers";
 const ok = (data: unknown, status = 200) => ({
   status,
   contentType: "application/json",
@@ -17,6 +18,14 @@ test("administrator refund requires masked preview, funds password and explicit 
         ok({
           user: { id: "1", name: "Admin", role: "admin", admin_class: "super" },
           csrf_token: "csrf",
+        }),
+      );
+    if (p.endsWith("/orders/AUTH") && r.method() === "GET")
+      return route.fulfill(
+        ok({
+          order: { trade_no: "AUTH", status: "paid", amount: "100" },
+          reporting: { refunded_amount: "0" },
+          admin_control: { status: "", archived: false, revision: "0" },
         }),
       );
     if (p.endsWith("/security/payment-password"))
@@ -76,7 +85,7 @@ test("administrator refund requires masked preview, funds password and explicit 
     );
   });
   await page.goto("/admin/trade/order");
-  await page.getByRole("button", { name: "申请退款", exact: true }).click();
+  await openAdminAPIRefund(page, "AUTH");
   await page.getByLabel("退款金额（元）", { exact: true }).fill("1.00");
   await page.getByRole("button", { name: "确认申请退款", exact: true }).click();
   const modal = page.getByRole("dialog", { name: "管理员资金二次授权" });
@@ -227,6 +236,14 @@ test("funds status failure blocks a new write and an initial428 is not retried w
               },
         ),
       );
+    if (p.endsWith("/orders/ORIGINAL") && r.method() === "GET")
+      return route.fulfill(
+        ok({
+          order: { trade_no: "ORIGINAL", status: "paid", amount: "100" },
+          reporting: { refunded_amount: "0" },
+          admin_control: { status: "", archived: false, revision: "0" },
+        }),
+      );
     if (p.endsWith("/challenges")) {
       challenges++;
       return route.fulfill(ok({}));
@@ -257,8 +274,8 @@ test("funds status failure blocks a new write and an initial428 is not retried w
     );
   });
   await page.goto("/admin/trade/order");
-  await page.getByRole("button", { name: "申请退款", exact: true }).click();
-  const form = page.getByRole("dialog", { name: "申请退款" });
+  await openAdminAPIRefund(page, "ORIGINAL");
+  const form = page.getByRole("dialog", { name: "API退款确认", exact: true });
   await form.getByLabel("退款金额（元）", { exact: true }).fill("1.00");
   await form.getByRole("button", { name: "确认申请退款", exact: true }).click();
   await expect(form.getByRole("alert")).toContainText("资金安全状态响应不完整");

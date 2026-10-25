@@ -22,6 +22,14 @@ import { installScanRecoveryAPI } from './scan-recovery-openapi.mjs';
 import { installMerchantNoticeAPI } from './merchant-notice-openapi.mjs';
 import { installMerchantPaymentReviewAPI } from './merchant-payment-review-openapi.mjs';
 import { installBusinessNoticeAPI } from './business-notice-openapi.mjs';
+import { installOrderAdminActionsAPI } from './order-admin-actions-openapi.mjs';
+import { installSettlementBatchesAPI } from './settlement-batches-openapi.mjs';
+import { installMembershipSalesAPI } from './membership-sales-openapi.mjs';
+import { installInvitationsAPI } from './invitations-openapi.mjs';
+import { installCollectionStylesAPI } from './collection-styles-openapi.mjs';
+import { installCollectionGeneratorAPI } from './collection-generator-openapi.mjs';
+import { installDashboardAPI } from './dashboard-openapi.mjs';
+import { installMerchantMatrixAPI } from './merchant-matrix-openapi.mjs';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const ref = name => ({ $ref: `#/components/schemas/${name}` });
 const str = (description, extra = {}) => ({ type: 'string', ...(description ? { description } : {}), ...extra });
@@ -63,6 +71,7 @@ const parameters = {
   role: { name: 'role', in: 'path', required: true, schema: { type: 'string', enum: ['admin', 'merchant'] } },
   trade: { name: 'trade', in: 'path', required: true, schema: { type: 'string', minLength: 1 } },
   id: { name: 'id', in: 'path', required: true, schema: id },
+  merchant_id: { name: 'merchant_id', in: 'path', required: true, schema: id },
   resource: { name: 'resource', in: 'path', required: true, schema: { type: 'string' }, description: '必须是服务端已注册资源；管理员/商户允许资源、字段和动作不同。不存在的资源返回404，越权返回403。' },
   kind: { name: 'kind', in: 'path', required: true, schema: { type: 'string', enum: ['settlements', 'internal-transfers', 'profitsharing'] } },
   request_id: {name:'request_id',in:'path',required:true,schema:{type:'string',pattern:'^[a-f0-9]{64}$'}},
@@ -211,12 +220,18 @@ add('/resources/{resource}/{id}', 'put', '更新允许字段（同 PATCH 语义�
 add('/resources/{resource}/{id}', 'delete', '删除允许删除的资源');
 add('/workflows/{kind}', 'get', '站内资金审批申请列表', { list: true });
 add('/workflows/funds-availability', 'get', '读取当前资金出账政策与可出账金额', { description: 'available_money 为可出账金额；ledger_available_money 为账本可用余额；today_blocked_money 为 T+1 当日受限部分；settle_type 为全局政策数值0或1，与商户收款账户类别不同。只有该查询结果和实际预占事务的校验可用于出账判断。管理员必填 merchant_id，商户仅查询自己。' });
-add('/workflows/settlement-policy','get','读取结算政策或按金额给出一致快照报价',{description:'管理员必填merchant_id；商户仅自己。amount为可选元字符串，省略仅查政策；terms中的gross/fee/net/retained为整数分字符串。can_apply不是授权，提交仍在事务重查留存/日次数/T+1。新界面提交同时传expected_fee_cents和expected_net_cents，政策变化409要求重新确认。报价/申请/审批均external_payout=false。'});
+add('/workflows/settlement-policy','get','读取结算政策或按金额给出一致快照报价',{description:'管理员必填merchant_id；商户仅自己。amount为可选元字符串，省略仅查政策；terms中的gross/fee/net/retained为整数分字符串。settlement_access返回mode字符串0关闭/1仅自动/2仅手动/3两者、manual_allowed/automatic_allowed布尔值、source和group_id字符串；按当前有效会员组或基础组覆盖全局，组空/0/_继承。can_apply同时检查手动模式但不是授权，提交仍在事务重查模式/留存/日次数/T+1。余额阈值自动转账独立于普通全局开关，仅手动结算组不参与。新界面提交同时传expected_fee_cents和expected_net_cents，政策变化409要求重新确认；旧请求按原号/金额/收款版本重放不重新定价或因新模式禁用而重建。报价/申请/审批均external_payout=false。'});
 paths['/console/v1/{role}/workflows/settlement-policy'].get.parameters.push({name:'merchant_id',in:'query',schema:id},{name:'amount',in:'query',schema:money});
 paths['/console/v1/{role}/workflows/funds-availability'].get.parameters.push({ name: 'merchant_id', in: 'query', schema: id, description: '管理员必填，商户省略或等于本身份。' });
 add('/workflows/{kind}', 'post', '创建资金冻结申请', { body: 'FundsRequest', created: true, description: 'internal-transfers/profitsharing 必须提供 recipient_id；settlements 不执行外部付款。管理员 merchant_id 必填。' });
 for (const action of ['approve', 'reject']) add(`/workflows/{kind}/{id}/${action}`, 'post', `管理员 ${action} 资金申请`, { body: 'Empty', description: '仅管理员。结算批准仍保留冻结等待独立可验证出款；站内转账/分账只在平台内部记账。' });
 add('/account/profile', 'get', '商户个人资料');
+add('/refunds/summary','get','按当前筛选读取原六项退款统计',{description:'管理员全局或按merchant_id筛选；商户只看本人，跨商户403。仅q/merchant_id/type/status/channel_id/from/to单个参数，不接受分页/导出/未知键；规范int64ID、北京时间日期且同时指定时最多367天。单条只读聚合，无上游调用和业务写入。data原字段totalCount/totalMoney、successCount/successMoney、pendingCount/pendingMoney全部精确字符串；金额为元两位小数。总计包含筛选全部退款，成功仅succeeded，处理中含pending与unknown；failed不计成功/处理中。最多4个并发、10秒数据库期限。'});
+paths['/console/v1/{role}/refunds/summary'].get.parameters.push({name:'q',in:'query',schema:{type:'string',maxLength:256}},...['merchant_id','channel_id'].map(name=>({name,in:'query',schema:id})),...['type','status','from','to'].map(name=>({name,in:'query',schema:{type:'string'}})));
+add('/account/login-log','get','读取商户本人已核实的成功登录日志',{description:'仅商户本人会话；管理员及代登录403。不接受merchant_id/uid/搜索参数。page/limit必须单个规范正整数字符串，page<=100000、limit<=100。仅按已核实subject_id与本人ID一致的成功审计读取，不使用用户名归属旧记录或失败冒名尝试。count/list同一只读repeatable-read快照，真实created_at DESC/id DESC。items的id是字符串，type/city未记录时为空，ip和created_at来自原审计；无业务写入或外部IP查询，Cache-Control:no-store。'});
+paths['/console/v1/{role}/account/login-log'].get.parameters.push(...structuredClone(paging.filter(p=>p.name!=='q')).map(p=>p.name==='page'?{...p,schema:{...p.schema,maximum:100000}}:p));
+add('/merchants/{merchant_id}/login-log','get','管理员读取指定商户已核实的成功登录日志',{description:'仅原始operator/super管理员；商户与代登录403。merchant_id为规范正int64路径字符串，目标不存在404。不接受uid/merchant_id等查询覆盖；仅单个规范page<=100000、limit<=100。存在性、count/list在同一只读repeatable-read快照核对，role=merchant且success且核实subject_id等于目标；不按用户名归属旧日志或失败冒名。原四列、真实时间/ID倒序和未知方式/地域保留，无业务写入或外部IP查询。'});
+paths['/console/v1/{role}/merchants/{merchant_id}/login-log'].get.parameters.push(...structuredClone(paging.filter(p=>p.name!=='q')).map(p=>p.name==='page'?{...p,schema:{...p.schema,maximum:100000}}:p));
 add('/account/profile', 'patch', '修改商户个人资料', { body: 'Profile' });
 add('/account/api-info', 'get', '商户 API 身份与平台公钥', { description: '不会返回完整现有 API key；显示掩码。' });
 add('/account/password', 'post', '验证当前密码并修改密码', { body: 'PasswordChange', description: '管理员及商户可用；成功撤销旧会话，必须重新登录。' });
@@ -288,6 +303,14 @@ installPreauthObservationsAPI({paths,schemas,object,str,id,ref,content});
 installPreauthRemainingAPI({paths,schemas,object,str,id,ref,content});
 installReferralDailyAPI({paths,schemas,object,str,ref,content});
 installProOrderSearchAPI({paths});
+installOrderAdminActionsAPI({paths,schemas,object,str,ref,content});
+installSettlementBatchesAPI({paths});
+installMembershipSalesAPI({add,paths,schemas,object,str,ref,content});
+installInvitationsAPI({add,paths,schemas,object,str});
+installCollectionStylesAPI({add,paths,schemas,object,str,content});
+installCollectionGeneratorAPI({add,paths,schemas,object,str});
+installDashboardAPI({paths,schemas,object,str,ref,content});
+installMerchantMatrixAPI({paths,schemas,object,str,ref});
 installMerchantRSAAPI({paths,schemas,object,str,ref,content});
 installReferralFundingAPI({paths,schemas,object,str,ref,content});
 installSettlementAutoAPI({paths,schemas,object,str,ref,content});

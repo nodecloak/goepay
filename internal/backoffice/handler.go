@@ -7,6 +7,7 @@ import (
 	"goepay/internal/payment"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 )
 
@@ -89,7 +90,22 @@ func (s *Service) Serve(w http.ResponseWriter, r *http.Request, p Principal, par
 		case "GET":
 			page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 			limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-			v, e := s.List(r.Context(), p, resource, Query{Page: page, Limit: limit, Search: r.URL.Query().Get("q")})
+			query := Query{Page: page, Limit: limit, Search: r.URL.Query().Get("q")}
+			if resource == "merchants" {
+				params, parse := url.ParseQuery(r.URL.RawQuery)
+				if parse != nil {
+					write(w, 400, nil, "invalid merchant query")
+					return
+				}
+				filter, search, parse := ParseMerchantDirectoryQuery(params)
+				if parse != nil {
+					write(w, 400, nil, "invalid or unsupported merchant filter")
+					return
+				}
+				query.Merchant = filter
+				query.Search = search
+			}
+			v, e := s.List(r.Context(), p, resource, query)
 			if e != nil {
 				writeError(w, e)
 				return

@@ -91,6 +91,9 @@ func fundsTarget(target string) (fundsTargetDefinition, bool) {
 		case "refund":
 			d.guard = "refund"
 			d.keys = []string{"amount", "external_no"}
+		case "manual-refund":
+			d.guard = "refund"
+			d.keys = []string{"amount", "external_no", "reason", "offline_confirmed"}
 		case "close":
 			d.guard = "order-close"
 		case "capture-authorization":
@@ -123,7 +126,7 @@ func fundsTarget(target string) (fundsTargetDefinition, bool) {
 				d.keys = []string{"merchant_id", "recipient_id", "amount", "external_no", "expected_fee_cents", "expected_net_cents", "recipient_config_id"}
 			case "memberships":
 				d.guard = "membership"
-				d.keys = []string{"merchant_id", "group_id", "external_no"}
+				d.keys = []string{"merchant_id", "group_id", "external_no", "quantity"}
 			case "deposits":
 				d.guard = "deposit"
 				d.keys = []string{"merchant_id", "action", "amount", "external_no"}
@@ -202,9 +205,23 @@ func normalizeFundsBody(raw []byte, d fundsTargetDefinition) (map[string]json.Ra
 			fields[k] = v
 			continue
 		}
+		if k == "quantity" {
+			var n int
+			if json.Unmarshal(v, &n) != nil || n < 1 || n > 300 {
+				return nil, nil, payment.ErrInvalid
+			}
+			continue
+		}
 		if k == "limit" {
 			var n int
 			if json.Unmarshal(v, &n) != nil || n < 1 || n > 100 {
+				return nil, nil, payment.ErrInvalid
+			}
+			continue
+		}
+		if k == "offline_confirmed" {
+			var confirmed bool
+			if json.Unmarshal(v, &confirmed) != nil || !confirmed {
 				return nil, nil, payment.ErrInvalid
 			}
 			continue
@@ -235,8 +252,15 @@ func normalizeFundsBody(raw []byte, d fundsTargetDefinition) (map[string]json.Ra
 			if text == "" || len(text) > 128 {
 				return nil, nil, payment.ErrInvalid
 			}
+		case "reason":
+			if strings.TrimSpace(text) == "" || len(text) > 240 || strings.ContainsAny(text, "\x00\r\n") {
+				return nil, nil, payment.ErrInvalid
+			}
 		}
 		fields[k], _ = json.Marshal(text)
+	}
+	if d.verb == "manual-refund" && (len(fields) != 4 || fields["offline_confirmed"] == nil || fundsText(fields, "reason") == "") {
+		return nil, nil, payment.ErrInvalid
 	}
 	if d.guard == "income-hold-adopt" {
 		if len(fields) != 2 || fundsText(fields, "external_no") == "" {
@@ -474,7 +498,7 @@ func (s *Server) ResolveFundsAction(ctx context.Context, q identity.FundsQuerier
 		if e != nil {
 			return identity.FundsAction{}, nil, e
 		}
-		if d.verb == "refund" {
+		if d.verb == "refund" || d.verb == "manual-refund" {
 			amount, err := ledger.Parse(fundsText(fields, "amount"))
 			if err != nil || amount <= 0 {
 				return identity.FundsAction{}, nil, payment.ErrInvalid
@@ -632,7 +656,20 @@ func (s *Server) ResolveFundsAction(ctx context.Context, q identity.FundsQuerier
 		if e != nil {
 			return identity.FundsAction{}, nil, e
 		}
-		rewardSource, err := s.Store.FundsMembershipReferralPurchaseSnapshot(ctx, q, mid, id, fundsText(fields, "external_no"))
+		quantity := 1
+		if v, ok := fields["quantity"]; ok {
+			if json.Unmarshal(v, &quantity) != nil {
+				return identity.FundsAction{}, nil, payment.ErrInvalid
+			}
+		}
+		sale, err := s.Store.FundsMembershipSaleSnapshot(ctx, q, mid, id, quantity)
+		if err != nil {
+			return identity.FundsAction{}, nil, err
+		}
+		snapshot["membership_sale"] = sale
+		summary["quantity"] = fmt.Sprint(quantity)
+		summary["membership_total_cents"] = fmt.Sprint(sale.UnitPrice * int64(quantity))
+		rewardSource, err := s.Store.FundsMembershipReferralPurchaseSnapshot(ctx, q, mid, id, fundsText(fields, "external_no"), quantity)
 		if err != nil {
 			return identity.FundsAction{}, nil, err
 		}
@@ -783,7 +820,7 @@ func (s *Server) ResolveFundsAction(ctx context.Context, q identity.FundsQuerier
 // protectAdminFunds installs only a request-local guard. It leaves the original
 // body available to the existing handler, and never creates a business intent.
 func mandatoryFundsAuthorization(d fundsTargetDefinition) bool {
-	return d.category == "settlement-plan" || d.category == "settlement-auto" || d.guard == "income-hold-adopt" || d.guard == "authorization-release-remaining" || d.guard == "channel-resume"
+	return d.verb == "manual-refund" || d.category == "settlement-plan" || d.category == "settlement-auto" || d.guard == "income-hold-adopt" || d.guard == "authorization-release-remaining" || d.guard == "channel-resume"
 }
 
 func (s *Server) protectAdminFunds(w http.ResponseWriter, r *http.Request, role string, session identity.Session, token string) (*http.Request, bool) {

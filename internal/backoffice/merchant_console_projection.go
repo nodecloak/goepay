@@ -20,6 +20,9 @@ const merchantConsoleFrom = `merchants LEFT JOIN LATERAL (
 
 const merchantConsoleProjection = `jsonb_strip_nulls(jsonb_build_object(
  'email',CASE WHEN jsonb_typeof(profile->'email')='string' THEN profile->'email' END,
+ 'phone',CASE WHEN jsonb_typeof(profile->'phone')='string' THEN profile->'phone' END,
+ 'qq',CASE WHEN jsonb_typeof(profile->'qq')='string' THEN profile->'qq' END,
+ 'url',CASE WHEN jsonb_typeof(profile->'url')='string' THEN profile->'url' END,
  'group_id',CASE WHEN jsonb_typeof(profile->'group_id')='string' THEN profile->'group_id' END,
  'transfer_api_enabled',CASE WHEN jsonb_typeof(profile->'transfer_api_enabled')='boolean' THEN profile->'transfer_api_enabled' END,
  'transfer_rate',CASE WHEN jsonb_typeof(profile->'transfer_rate')='string' THEN profile->'transfer_rate' END))||jsonb_build_object(

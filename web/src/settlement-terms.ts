@@ -24,6 +24,22 @@ export function readSettlementPreview(
     throw new Error("结算报价无效");
   const q = raw as Record<string, unknown>,
     t = q.terms as Record<string, unknown> | null;
+  if (q.settlement_access !== undefined) {
+    const access = q.settlement_access as Record<string, unknown> | null;
+    if (
+      !access ||
+      typeof access !== "object" ||
+      typeof access.mode !== "string" ||
+      !["0", "1", "2", "3"].includes(access.mode) ||
+      typeof access.manual_allowed !== "boolean" ||
+      access.manual_allowed !== ["2", "3"].includes(access.mode)
+    )
+      throw new Error("结算模式响应无效，请重新查询");
+    if (!access.manual_allowed)
+      throw new Error(
+        "当前结算开关不允许手动申请结算，请联系管理员核对用户组与结算设置",
+      );
+  }
   if (q.external_payout !== false || q.can_apply !== true || !t)
     throw new Error(
       "当前日次数、留存余额或资金条件不允许该结算申请，请重新查询",

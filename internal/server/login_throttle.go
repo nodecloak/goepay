@@ -44,34 +44,24 @@ func (s *Server) allowLoginRequest(r *http.Request, role, username string) (bool
 	account := sha256.Sum256([]byte("goepay/login/account-source/v1\x00" + ip + "\x00" + role + "\x00" + strings.ToLower(username)))
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
-	tx, e := s.Pool.Begin(ctx)
-	if e != nil {
-		return false, e
-	}
-	defer tx.Rollback(ctx)
-	allowed := true
-	// All replicas acquire source before account. Rejected attempts still count;
-	// errors roll back and fail closed, never falling back to process memory.
-	for _, budget := range []struct {
-		key   [32]byte
-		limit int
-	}{{source, 300}, {account, 10}} {
-		var count int
-		e = tx.QueryRow(ctx, `INSERT INTO console_login_throttle(key_hash,window_start,attempts) VALUES($1,statement_timestamp(),1)
-   ON CONFLICT(key_hash) DO UPDATE SET
-    window_start=CASE WHEN console_login_throttle.window_start<=statement_timestamp()-interval '15 minutes' THEN statement_timestamp() ELSE console_login_throttle.window_start END,
-    attempts=CASE WHEN console_login_throttle.window_start<=statement_timestamp()-interval '15 minutes' THEN 1 ELSE LEAST(console_login_throttle.attempts+1,$2::integer+1) END,
-    updated_at=statement_timestamp() RETURNING attempts`, budget.key[:], budget.limit).Scan(&count)
-		if e != nil {
-			return false, e
-		}
-		if count > budget.limit {
-			allowed = false
-			break
-		}
-	}
-	if e = tx.Commit(ctx); e != nil {
-		return false, e
-	}
-	return allowed, nil
+	// One atomic statement keeps the same source-before-account ordering, but
+	// never holds a hot counter row across client round trips. Rejected attempts
+	// still count. Database failures remain fail-closed within the same budget.
+	var allowed bool
+	e = s.Pool.QueryRow(ctx, `WITH source_budget AS (
+ INSERT INTO console_login_throttle(key_hash,window_start,attempts) VALUES($1,statement_timestamp(),1)
+ ON CONFLICT(key_hash) DO UPDATE SET
+ window_start=CASE WHEN console_login_throttle.window_start<=statement_timestamp()-interval '15 minutes' THEN statement_timestamp() ELSE console_login_throttle.window_start END,
+ attempts=CASE WHEN console_login_throttle.window_start<=statement_timestamp()-interval '15 minutes' THEN 1 ELSE LEAST(console_login_throttle.attempts+1,301) END,
+ updated_at=statement_timestamp() RETURNING attempts
+), account_budget AS (
+ INSERT INTO console_login_throttle(key_hash,window_start,attempts)
+ SELECT $2,statement_timestamp(),1 FROM source_budget WHERE attempts<=300
+ ON CONFLICT(key_hash) DO UPDATE SET
+ window_start=CASE WHEN console_login_throttle.window_start<=statement_timestamp()-interval '15 minutes' THEN statement_timestamp() ELSE console_login_throttle.window_start END,
+ attempts=CASE WHEN console_login_throttle.window_start<=statement_timestamp()-interval '15 minutes' THEN 1 ELSE LEAST(console_login_throttle.attempts+1,11) END,
+ updated_at=statement_timestamp() RETURNING attempts
+)
+SELECT attempts<=300 AND COALESCE((SELECT attempts<=10 FROM account_budget),false) FROM source_budget`, source[:], account[:]).Scan(&allowed)
+	return allowed, e
 }

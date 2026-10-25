@@ -8,6 +8,7 @@ import {
   type CommerceKind,
 } from "../commerce";
 import DataTable from "./DataTable.vue";
+import { centsMoney } from "../settlement-terms";
 const props = defineProps<{
   client: ApiClient;
   kind: CommerceKind;
@@ -55,6 +56,27 @@ const form = ref({
   action: "hold",
   type: "alipay",
   method: "page",
+  quantity: "1",
+});
+function membershipPeriod(g: Record<string, unknown>) {
+  return g.permanent === true
+    ? "永久"
+    : typeof g.duration_months === "number"
+      ? `${g.duration_months}个月`
+      : `${g.duration_days}天`;
+}
+const selectedGroup = computed(() =>
+  groups.value.find((g) => String(g.id) === form.value.group_id),
+);
+const membershipTotal = computed(() => {
+  const price = String(selectedGroup.value?.price_cents ?? "");
+  if (
+    !/^(0|[1-9]\d*)$/.test(price) ||
+    !/^[1-9]\d{0,2}$/.test(form.value.quantity) ||
+    Number(form.value.quantity) > 300
+  )
+    return "—";
+  return centsMoney((BigInt(price) * BigInt(form.value.quantity)).toString());
 });
 const title = computed(
   () =>
@@ -73,17 +95,35 @@ const columns = computed(() => {
     created_at: "创建时间",
     amount: "金额（元）",
     amount_cents: "金额（分）",
-    price: "会员价格（元）",
+    price: "购买金额（元）",
     price_cents: "会员价格（分）",
     group_name: "用户组",
     expires_at: "有效期至",
     group_id: "用户组 ID",
+    quantity: "购买数量",
+    unit_price_cents: "单价（分）",
+    permanent: "永久有效",
+    period_months: "每份有效期（月）",
+    membership_period: "有效期",
     action: "操作类型",
     trade_no: "充值订单号",
     type: "支付类型",
     paid_at: "支付时间",
   };
-  return [...new Set(items.value.flatMap(Object.keys))].map((key) => ({
+  const keys =
+    props.kind === "memberships"
+      ? [
+          "id",
+          ...(props.area === "admin" ? ["merchant_id"] : []),
+          "group_name",
+          "price",
+          "quantity",
+          "membership_period",
+          "expires_at",
+          "external_no",
+        ]
+      : [...new Set(items.value.flatMap(Object.keys))];
+  return keys.map((key) => ({
     key,
     label: known[key] || key,
   }));
@@ -104,15 +144,27 @@ async function load() {
       signal: c.signal,
     });
     if (!c.signal.aborted) {
-      items.value = data.items;
+      items.value =
+        props.kind === "memberships"
+          ? data.items.map((row) => ({
+              ...row,
+              membership_period:
+                row.permanent === true
+                  ? "永久"
+                  : Number(row.period_months) > 0
+                    ? `${row.period_months}个月 × ${row.quantity || 1}`
+                    : `${row.duration_days}天`,
+              expires_at: row.permanent === true ? "永久" : row.expires_at,
+            }))
+          : data.items;
       total.value = data.total;
       balances.value = data;
     }
     if (props.kind === "memberships") {
       const data = await props.client.request<{
         items: Record<string, unknown>[];
-      }>("/resources/groups?limit=100", { signal: c.signal });
-      groups.value = data.items.filter((x) => x.enabled !== false);
+      }>("/membership-sales", { signal: c.signal });
+      if (!c.signal.aborted) groups.value = data.items;
     }
   } catch (e) {
     if (!c.signal.aborted)
@@ -130,12 +182,23 @@ function open() {
     action: "hold",
     type: "alipay",
     method: "page",
+    quantity: "1",
   };
   error.value = "";
   dialog.value = true;
   receipt.value = null;
 }
 async function submit() {
+  if (busy.value) return;
+  if (
+    props.kind === "memberships" &&
+    (!selectedGroup.value ||
+      !/^[1-9]\d{0,2}$/.test(form.value.quantity) ||
+      Number(form.value.quantity) > 300)
+  ) {
+    error.value = "请选择可购买用户组，购买数量为1至300的整数";
+    return;
+  }
   if (
     props.kind === "recharges" &&
     !browserRechargeMethods(form.value.type).includes(form.value.method)
@@ -150,12 +213,14 @@ async function submit() {
   busy.value = true;
   error.value = "";
   try {
-    const body: Record<string, string> = {
+    const body: Record<string, string | number> = {
       external_no: form.value.external_no,
     };
     if (props.area === "admin") body.merchant_id = form.value.merchant_id;
-    if (props.kind === "memberships") body.group_id = form.value.group_id;
-    else body.amount = form.value.amount;
+    if (props.kind === "memberships") {
+      body.group_id = form.value.group_id;
+      body.quantity = Number(form.value.quantity);
+    } else body.amount = form.value.amount;
     if (props.kind === "deposits") body.action = form.value.action;
     if (props.kind === "recharges") {
       body.type = form.value.type;
@@ -224,6 +289,35 @@ onBeforeUnmount(() => controller?.abort());
       <p v-else class="muted">
         支付链接尚未就绪，请刷新记录核实订单，或联系管理员。
       </p>
+    </section>
+    <section
+      v-if="kind === 'memberships' && groups.length"
+      class="panel membership-catalog"
+    >
+      <h2>可购买用户组</h2>
+      <div class="membership-offers">
+        <article
+          v-for="g in groups"
+          :key="String(g.id)"
+          class="membership-offer"
+        >
+          <h3>{{ g.name }}</h3>
+          <strong
+            >{{ centsMoney(String(g.price_cents)) }} 元 /
+            {{ membershipPeriod(g) }}</strong
+          >
+          <p class="membership-description">{{ g.description }}</p>
+          <button
+            :disabled="busy || loading"
+            @click="
+              open();
+              form.group_id = String(g.id);
+            "
+          >
+            购买此用户组
+          </button>
+        </article>
+      </div>
     </section>
     <section class="panel records">
       <div class="toolbar">
@@ -346,9 +440,33 @@ onBeforeUnmount(() => controller?.abort());
                 :key="String(group.id)"
                 :value="String(group.id)"
               >
-                {{ group.name }} · {{ group.price_cents }} 分
+                {{ group.name }} ·
+                {{ centsMoney(String(group.price_cents)) }} 元 /
+                {{ membershipPeriod(group) }}
               </option>
             </select></label
+          ><template v-if="kind === 'memberships'"
+            ><label
+              >购买数量<input
+                v-model="form.quantity"
+                aria-label="购买数量"
+                inputmode="numeric"
+                type="number"
+                min="1"
+                max="300"
+                step="1"
+                required
+                :disabled="busy"
+            /></label>
+            <p role="status">
+              合计：{{ membershipTotal }} 元<span v-if="selectedGroup">
+                · {{ membershipPeriod(selectedGroup) }} ×
+                {{ form.quantity }}</span
+              >
+            </p>
+            <p class="muted">
+              按已保存售价扣减余额。月有效期按日历月计算，同组未到期会续期；永久用户组不能重复购买。提交时服务端重新核对售价及可见范围。
+            </p></template
           ><template v-if="kind === 'deposits'"
             ><label
               >保证金操作<select v-model="form.action">
@@ -402,3 +520,29 @@ onBeforeUnmount(() => controller?.abort());
     </div>
   </div>
 </template>
+<style scoped>
+.membership-offers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 16px;
+}
+.membership-offer {
+  border: 1px solid var(--line);
+  border-radius: var(--custom-radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.membership-offer h3 {
+  margin: 0 0 12px;
+}
+.membership-offer strong {
+  color: var(--accent);
+}
+.membership-description {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  flex: 1;
+}
+</style>

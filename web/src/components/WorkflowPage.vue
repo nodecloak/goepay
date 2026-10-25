@@ -24,6 +24,7 @@ const props = defineProps<{
   client: ApiClient;
   workflow: "settlements" | "internal-transfers" | "profitsharing";
   area: Area;
+  application?: boolean;
 }>();
 const items = ref<Record<string, unknown>[]>([]),
   total = ref(0),
@@ -255,7 +256,7 @@ async function submit() {
     await props.client.request(endpoint, { method: "POST", body });
     notice.value = "申请已提交，请根据记录状态核实处理结果";
     dialog.value = null;
-    await load();
+    if (!props.application) await load();
   } catch (e) {
     error.value = e instanceof Error ? e.message : "提交失败";
     if (
@@ -315,14 +316,22 @@ function check(id: string, enabled: boolean) {
     ? [...checked.value, id]
     : checked.value.filter((x) => x !== id);
 }
-onMounted(load);
+onMounted(() => {
+  if (
+    props.application &&
+    props.area === "merchant" &&
+    props.workflow === "settlements"
+  )
+    openCreate();
+  else void load();
+});
 onBeforeUnmount(() => {
   controller?.abort();
   invalidateFunds();
 });
 </script>
 <template>
-  <section class="panel records">
+  <section v-if="!application || !dialog" class="panel records">
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
     <p class="resource-description muted">
@@ -336,7 +345,8 @@ onBeforeUnmount(() => {
     </p>
     <div class="toolbar">
       <div class="toolbar-actions">
-        <button :disabled="loading" @click="load">刷新</button
+        <button v-if="!application" :disabled="loading" @click="load">
+          刷新</button
         ><button
           v-if="workflow !== 'profitsharing'"
           class="primary"
@@ -371,7 +381,7 @@ onBeforeUnmount(() => {
       >
     </div>
     <div v-if="loading" class="loading-row" role="status">正在加载申请…</div>
-    <div v-else class="table-scroll">
+    <div v-else-if="!application" class="table-scroll">
       <table>
         <thead>
           <tr>
@@ -436,7 +446,7 @@ onBeforeUnmount(() => {
         </tbody>
       </table>
     </div>
-    <div class="pagination">
+    <div v-if="!application" class="pagination">
       <span>共 {{ total }} 条申请</span>
       <div>
         <button
@@ -469,18 +479,33 @@ onBeforeUnmount(() => {
     @close="payoutRequestId = ''"
     @changed="load"
   />
-  <div v-if="dialog" class="modal-backdrop">
+  <div v-if="application" class="toolbar">
+    <a href="/merchant/settle/list">提现记录</a>
+    <p v-if="notice" class="muted">业务请求号：{{ form.external_no }}</p>
+  </div>
+  <div
+    v-if="dialog"
+    :class="application ? 'workflow-application' : 'modal-backdrop'"
+  >
     <section
-      class="modal panel"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="dialog === 'create' ? '新增账务申请' : '审批确认'"
+      :class="application ? 'panel workflow-application-form' : 'modal panel'"
+      :role="application ? undefined : 'dialog'"
+      :aria-modal="application ? undefined : true"
+      :aria-label="
+        application
+          ? '申请提现'
+          : dialog === 'create'
+            ? '新增账务申请'
+            : '审批确认'
+      "
     >
       <h2>
         {{
           dialog === "create"
             ? workflow === "settlements"
-              ? "申请结算"
+              ? application
+                ? "申请提现"
+                : "申请结算"
               : "发起站内转账"
             : dialog === "approve"
               ? "核准账务申请"
@@ -563,7 +588,15 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <div class="modal-actions">
-          <button type="button" :disabled="busy" @click="dialog = null">
+          <a v-if="application && !busy" href="/merchant/settle/list"
+            >返回提现记录</a
+          >
+          <button
+            v-if="!application"
+            type="button"
+            :disabled="busy"
+            @click="dialog = null"
+          >
             取消</button
           ><button
             class="primary"

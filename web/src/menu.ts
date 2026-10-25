@@ -200,6 +200,11 @@ export type ViewKind =
   | "account"
   | "operation"
   | "commerce"
+  | "group-sales"
+  | "settings"
+  | "invitations"
+  | "collection-styles"
+  | "collection-generator"
   | "identity-lookup"
   | "channel-sharing"
   | "referral"
@@ -212,6 +217,16 @@ export type ViewKind =
   | "template"
   | "unavailable";
 export function viewKind(area: Area, path: string): ViewKind {
+  if (area === "merchant" && path === "/onecode") return "collection-generator";
+  if (
+    area === "admin" &&
+    ["/other/onecode", "/other/onecode/edit"].includes(path)
+  )
+    return "collection-styles";
+  if (area === "admin" && path === "/merchant/invite-code")
+    return "invitations";
+  if (area === "admin" && path === "/system/settings") return "settings";
+  if (area === "admin" && path === "/merchant/group-buy") return "group-sales";
   if (area === "admin" && path === "/settle/batch") return "settlement-batches";
   if (
     (area === "merchant" && path === "/account/notice") ||

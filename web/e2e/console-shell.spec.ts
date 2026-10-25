@@ -81,7 +81,10 @@ test("Pro admin shell folds, tracks tabs and keeps route navigation available on
     .toBeGreaterThan(before);
   await page.getByRole("button", { name: "展开侧栏", exact: true }).click();
   await page.locator("summary").filter({ hasText: "交易管理" }).click();
-  await page.getByRole("link", { name: "订单管理", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "后台菜单", exact: true })
+    .getByRole("link", { name: "订单管理", exact: true })
+    .click();
   await expect(
     page.getByRole("tab", { name: "订单管理", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
@@ -100,7 +103,9 @@ test("Pro admin shell folds, tracks tabs and keeps route navigation available on
   ).toBeVisible();
   await page.locator("summary").filter({ hasText: "交易管理" }).click();
   await expect(
-    page.getByRole("link", { name: "订单管理", exact: true }),
+    page
+      .getByRole("navigation", { name: "后台菜单", exact: true })
+      .getByRole("link", { name: "订单管理", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(

@@ -390,6 +390,7 @@ onBeforeUnmount(() => {
       >
         申请付款
       </button>
+      <a :href="`/${area}/transfer/batches`" class="button secondary">批量转账</a>
       <CsvExportButton
         :client="client"
         :path="csvPath"

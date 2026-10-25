@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onBeforeUnmount } from "vue";
+import { computed, ref, watch, onBeforeUnmount, nextTick } from "vue";
 import { useRoute } from "vue-router";
 import {
   ApiClient,
@@ -20,16 +20,17 @@ import {
   type Area,
 } from "./menu";
 import ConsoleShell from "./components/ConsoleShell.vue";
-import ShellIcon from "./components/ShellIcon.vue";
 import DataTable from "./components/DataTable.vue";
 import { proListColumns } from "./pro-console-fields";
 import ResourcePage from "./components/ResourcePage.vue";
-import { resourceFor } from "./resources";
+import RefundSummaryDialog from "./components/RefundSummaryDialog.vue";
+import { resourceFor, resourceEntryFor } from "./resources";
 import { reportFor } from "./reports";
 import ReportPage from "./components/ReportPage.vue";
 import { workflowFor } from "./workflows";
 import WorkflowPage from "./components/WorkflowPage.vue";
 import AccountPage from "./components/AccountPage.vue";
+import MerchantAccountSettings from "./components/MerchantAccountSettings.vue";
 import OperationsPage from "./components/OperationsPage.vue";
 import { operationPages } from "./operations";
 import TotpSettings from "./components/TotpSettings.vue";
@@ -37,10 +38,21 @@ import CommercePage from "./components/CommercePage.vue";
 import { commerceFor } from "./commerce";
 import { unavailableReasons } from "./deferred";
 import OrderDetails from "./components/OrderDetails.vue";
+import AdminOrderActionDialog from "./components/AdminOrderActionDialog.vue";
+import type { OrderActionID } from "./order-actions";
 import { refundNotice } from "./order-operations";
 import { centsMoney } from "./settlement-terms";
 import { readHeldRefundFunding } from "./refund-funding";
 import TransferPage from "./components/TransferPage.vue";
+import GroupSalesPage from "./components/GroupSalesPage.vue";
+import SettingsPage from "./components/SettingsPage.vue";
+import InvitationCodesPage from "./components/InvitationCodesPage.vue";
+import CollectionStylesPage from "./components/CollectionStylesPage.vue";
+import CollectionGeneratorPage from "./components/CollectionGeneratorPage.vue";
+import OrderBatchControls from "./components/OrderBatchControls.vue";
+import AutoRefreshControl from "./components/AutoRefreshControl.vue";
+import OrderBlacklistDialog from "./components/OrderBlacklistDialog.vue";
+import DashboardOverview from "./components/DashboardOverview.vue";
 import TransferBatchPage from "./components/TransferBatchPage.vue";
 import SettlementBatchesPage from "./components/SettlementBatchesPage.vue";
 import ListFilters from "./components/ListFilters.vue";
@@ -48,6 +60,7 @@ import {
   freshListFilters,
   appendListFilters,
   orderSearchFields,
+  readListRouteQuery,
 } from "./list-filters";
 import PublicEnrollment from "./components/PublicEnrollment.vue";
 import CsvExportButton from "./components/CsvExportButton.vue";
@@ -139,6 +152,71 @@ function openEnrollment(purpose: "register" | "recover") {
   enrollmentPurpose.value = purpose;
 }
 const listFilters = ref(freshListFilters());
+const refundSummaryQuery = ref<string | null>(null);
+let refundSummaryReturn: HTMLElement | undefined;
+function openRefundSummary() {
+  if (
+    !authorized.value ||
+    kind.value !== "refunds" ||
+    loading.value ||
+    busy.value ||
+    listRouteError.value
+  )
+    return;
+  const q = listQuery();
+  q.delete("page");
+  q.delete("limit");
+  refundSummaryReturn =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : undefined;
+  refundSummaryQuery.value = q.toString();
+}
+function closeRefundSummary() {
+  const target = refundSummaryReturn,
+    context = client.value,
+    csrf = context.csrfToken;
+  refundSummaryQuery.value = null;
+  refundSummaryReturn = undefined;
+  void nextTick(() => {
+    if (
+      client.value === context &&
+      context.csrfToken === csrf &&
+      target?.isConnected
+    )
+      target.focus();
+  });
+}
+const listLimit = ref(20),
+  listRouteError = ref("");
+const includeArchivedOrders = ref(false);
+const selectedOrderTrades = ref<string[]>([]),
+  orderBatchBusy = ref(false);
+const orderBatchOpen = ref(false);
+const blacklistSelection = ref<{
+  tradeNo: string;
+  kind: "ip" | "buyer";
+  expected: string;
+} | null>(null);
+function openBlacklist(row: Record<string, unknown>, kind: "ip" | "buyer") {
+  if (
+    area.value !== "admin" ||
+    !session.value ||
+    session.value.delegated_by ||
+    !["super", "operator"].includes(session.value.user.admin_class || "")
+  )
+    return;
+  orderDetails.value = null;
+  blacklistSelection.value = {
+    tradeNo: String(row.trade_no),
+    kind,
+    expected: String(row[kind === "ip" ? "client_ip" : "buyer"] || ""),
+  };
+}
+const orderAction = ref<{
+  row: Record<string, unknown>;
+  action: OrderActionID;
+} | null>(null);
 const route = useRoute();
 const area = computed<Area>(() =>
   route.path.split("/")[1] === "merchant" ? "merchant" : "admin",
@@ -169,6 +247,9 @@ const navigation = computed(() =>
     menuRole(session.value?.user.role || "", session.value?.user.admin_class),
   ),
 );
+watch(items, () => {
+  selectedOrderTrades.value = [];
+});
 const authorized = computed(
   () =>
     !!page.value &&
@@ -288,9 +369,29 @@ async function initialize() {
   } finally {
     if (current === epoch) {
       initializing.value = false;
-      if (session.value) await load();
+      if (session.value) {
+        applyListRouteQuery();
+        await load();
+      }
     }
   }
+}
+function applyListRouteQuery() {
+  listRouteError.value = "";
+  listLimit.value = 20;
+  if (!["orders", "refunds", "ledger"].includes(kind.value)) return;
+  const parsed = readListRouteQuery(
+    route.query,
+    kind.value,
+    area.value,
+    String(session.value?.user.id ?? ""),
+  );
+  listFilters.value = parsed.filters;
+  search.value = parsed.search;
+  pageNumber.value = parsed.page;
+  listLimit.value = parsed.limit;
+  includeArchivedOrders.value = parsed.includeArchived;
+  listRouteError.value = parsed.error;
 }
 function message(e: unknown) {
   return e instanceof Error ? e.message : "请求失败，请重试";
@@ -298,7 +399,7 @@ function message(e: unknown) {
 function listQuery() {
   const q = new URLSearchParams({
     page: String(pageNumber.value),
-    limit: "20",
+    limit: String(listLimit.value),
   });
   const queryText =
     kind.value === "orders" && listFilters.value.search_field
@@ -306,6 +407,12 @@ function listQuery() {
       : search.value.trim();
   if (queryText !== "") q.set("q", queryText);
   appendListFilters(q, listFilters.value, kind.value, area.value);
+  if (
+    kind.value === "orders" &&
+    area.value === "admin" &&
+    includeArchivedOrders.value
+  )
+    q.set("include_archived", "true");
   return q;
 }
 const listCSVPath = computed(() => {
@@ -325,6 +432,7 @@ async function login() {
     );
     loginCode.value = "";
     password.value = "";
+    applyListRouteQuery();
     await load();
   } catch (e) {
     error.value = message(e);
@@ -364,6 +472,11 @@ async function load() {
     kind.value === "account" ||
     kind.value === "operation" ||
     kind.value === "commerce" ||
+    kind.value === "group-sales" ||
+    kind.value === "settings" ||
+    kind.value === "invitations" ||
+    kind.value === "collection-styles" ||
+    kind.value === "collection-generator" ||
     kind.value === "identity-lookup" ||
     kind.value === "channel-sharing" ||
     kind.value === "referral" ||
@@ -378,12 +491,22 @@ async function load() {
     kind.value === "transfer-batches"
   )
     return;
+  if (listRouteError.value) {
+    loading.value = false;
+    total.value = 0;
+    error.value = listRouteError.value;
+    return;
+  }
   loading.value = true;
   try {
     if (kind.value === "dashboard") {
-      stats.value = await client.value.request("/dashboard", {
-        signal: c.signal,
-      });
+      const data = await client.value.request<Record<string, unknown>>(
+        "/dashboard",
+        {
+          signal: c.signal,
+        },
+      );
+      if (!c.signal.aborted) stats.value = data;
     } else {
       const q = listQuery();
       const data = await client.value.request<{
@@ -412,6 +535,15 @@ function openRefund(row: Record<string, unknown>) {
   }
   refundRow.value = row;
   refundMoney.value = "";
+  if (
+    area.value === "admin" &&
+    /^\d+$/.test(String(row.amount)) &&
+    /^\d+$/.test(String(row.refunded_amount ?? "0"))
+  ) {
+    const remaining =
+      BigInt(String(row.amount)) - BigInt(String(row.refunded_amount ?? "0"));
+    if (remaining > 0n) refundMoney.value = centsMoney(remaining.toString());
+  }
   refundExternal.value = crypto.randomUUID();
   refundFunding.value = null;
   refundFundingBinding.value = "";
@@ -419,6 +551,8 @@ function openRefund(row: Record<string, unknown>) {
   error.value = "";
 }
 function resetListFilters() {
+  listRouteError.value = "";
+  includeArchivedOrders.value = false;
   listFilters.value = freshListFilters();
   search.value = "";
   pageNumber.value = 1;
@@ -474,6 +608,9 @@ async function submitRefund() {
       },
     );
     refundRow.value = null;
+    orderAction.value = null;
+    includeArchivedOrders.value = false;
+    blacklistSelection.value = null;
     notice.value = refundNotice(result.data, result.status);
     await load();
   } catch (e) {
@@ -488,6 +625,8 @@ watch(
     enrollmentPurpose.value =
       area.value === "merchant" && promotionPrefill.value ? "register" : null;
     if (area.value !== "merchant") promotionPrefill.value = "";
+    refundSummaryQuery.value = null;
+    refundSummaryReturn = undefined;
     pageNumber.value = 1;
     search.value = "";
     listFilters.value = freshListFilters();
@@ -498,18 +637,24 @@ watch(
   { immediate: true },
 );
 watch(session, (value) => {
+  refundSummaryQuery.value = null;
+  refundSummaryReturn = undefined;
   if (value) promotionPrefill.value = "";
   if (!value) {
     settleFundsAction(new Error("管理员会话已失效，资金授权已清除"));
     refundRow.value = null;
     orderDetails.value = null;
+    orderAction.value = null;
+    includeArchivedOrders.value = false;
     items.value = [];
     stats.value = {};
   }
 });
 watch(
-  () => route.path,
+  () => [route.path, route.query],
   () => {
+    refundSummaryQuery.value = null;
+    refundSummaryReturn = undefined;
     promotionPrefill.value = "";
     settleFundsAction(new Error("页面已切换，资金授权已清除，请核对原业务"));
     enrollmentPurpose.value = null;
@@ -518,6 +663,11 @@ watch(
     listFilters.value = freshListFilters();
     notice.value = "";
     refundRow.value = null;
+    orderAction.value = null;
+    orderDetails.value = null;
+    includeArchivedOrders.value = false;
+    blacklistSelection.value = null;
+    applyListRouteQuery();
     void load();
   },
 );
@@ -655,6 +805,11 @@ onBeforeUnmount(() => {
               'account',
               'operation',
               'commerce',
+              'group-sales',
+              'settings',
+              'invitations',
+              'collection-styles',
+              'collection-generator',
               'identity-lookup',
               'channel-sharing',
               'referral',
@@ -744,12 +899,50 @@ onBeforeUnmount(() => {
         :client="client"
         :area="area"
       />
+      <SettingsPage
+        v-else-if="kind === 'settings'"
+        :key="area + path"
+        :client="client"
+        :admin-class="session.user.admin_class"
+        :own-session="!session.delegated_by"
+      />
+      <GroupSalesPage
+        v-else-if="kind === 'group-sales'"
+        :key="area + path"
+        :client="client"
+        :admin-class="session.user.admin_class"
+        :own-session="!session.delegated_by"
+      />
+      <InvitationCodesPage
+        v-else-if="kind === 'invitations'"
+        :key="area + path"
+        :client="client"
+        :own-session="!session.delegated_by"
+      />
+      <CollectionStylesPage
+        v-else-if="kind === 'collection-styles'"
+        :key="area + path"
+        :client="client"
+        :own-session="!session.delegated_by"
+        :editing="path === '/other/onecode/edit'"
+        :style-id="route.query.id"
+      />
+      <CollectionGeneratorPage
+        v-else-if="kind === 'collection-generator'"
+        :key="area + path"
+        :client="client"
+        :own-session="!session.delegated_by"
+      />
       <ResourcePage
         v-else-if="kind === 'resource'"
         :key="area + path"
         :client="client"
         :admin-class="session.user.admin_class"
         :resource="resourceFor(area, path)"
+        :entry="resourceEntryFor(area, path, route.query.id)"
+        :merchant-query="
+          resourceFor(area, path) === 'merchants' ? route.query : undefined
+        "
         :own-session="!!session && !session.delegated_by"
       />
       <ReportPage
@@ -776,6 +969,23 @@ onBeforeUnmount(() => {
         :client="client"
         :area="area"
         :workflow="workflowFor(area, path)"
+        :application="area === 'merchant' && path === '/settle/apply'"
+      />
+      <MerchantAccountSettings
+        v-else-if="
+          kind === 'account' &&
+          area === 'merchant' &&
+          path === '/account/settings'
+        "
+        :client="client"
+        :own-session="!!session && !session.delegated_by"
+        @reauthenticate="
+          (message) => {
+            session = null;
+            notice = message;
+            error = '';
+          }
+        "
       />
       <div v-else-if="kind === 'account'">
         <AccountPage
@@ -863,44 +1073,13 @@ onBeforeUnmount(() => {
       </section>
       <template v-else-if="kind === 'dashboard'"
         ><div v-if="loading" class="panel" role="status">正在加载账户数据…</div>
-        <div v-else-if="!error" class="stat-grid">
-          <section
-            v-for="(label, key) in {
-              orders: '订单总数',
-              paid_orders: '已支付订单',
-              available_money: '可用余额',
-              frozen_money: '冻结金额',
-            }"
-            :key="key"
-            class="panel stat"
-          >
-            <span class="stat-icon"
-              ><ShellIcon
-                :name="
-                  key === 'orders' || key === 'paid_orders' ? 'trade' : 'wallet'
-                "
-            /></span>
-            <p>{{ label }}</p>
-            <strong>{{ displayValue(stats[key]) }}</strong
-            ><span>{{
-              key === "orders" || key === "paid_orders" ? "笔" : "元"
-            }}</span>
-          </section>
-        </div>
-        <section class="panel shortcuts">
-          <h2>常用业务</h2>
-          <RouterLink :to="'/' + area + '/trade/order'"
-            >查找订单 <span>→</span></RouterLink
-          ><RouterLink :to="'/' + area + '/trade/refund'"
-            >查看退款 <span>→</span></RouterLink
-          ><RouterLink
-            :to="
-              '/' + area + (area === 'admin' ? '/merchant/record' : '/record')
-            "
-            >核对资金 <span>→</span></RouterLink
-          >
-        </section></template
-      >
+        <DashboardOverview
+          v-else-if="!error"
+          :key="area + path"
+          :data="stats"
+          :area="area"
+          :admin-class="session?.user.admin_class"
+      /></template>
       <section v-else class="panel records">
         <form
           class="toolbar"
@@ -963,24 +1142,82 @@ onBeforeUnmount(() => {
             :area="area"
             @reset="resetListFilters"
           />
+          <AutoRefreshControl
+            v-if="kind === 'orders'"
+            :key="area + path"
+            :refresh="load"
+            :blocked="
+              loading ||
+              busy ||
+              !!orderAction ||
+              !!orderDetails ||
+              !!refundRow ||
+              orderBatchOpen ||
+              !!blacklistSelection ||
+              !!listRouteError
+            "
+          />
           <CsvExportButton
             v-if="['orders', 'refunds', 'ledger'].includes(kind)"
             :client="client"
             :path="listCSVPath"
             :filename="`${kind}-filtered.csv`"
-            :disabled="loading"
+            :disabled="loading || !!listRouteError"
           />
+          <button
+            v-if="kind === 'refunds'"
+            type="button"
+            :disabled="loading || busy || !!listRouteError"
+            @click="openRefundSummary"
+          >
+            退款统计
+          </button>
+          <label
+            v-if="kind === 'orders' && area === 'admin'"
+            class="archived-order-toggle"
+            ><input
+              v-model="includeArchivedOrders"
+              type="checkbox"
+              @change="
+                pageNumber = 1;
+                load();
+              "
+            />显示已删除订单</label
+          >
         </form>
         <div v-if="loading" class="loading-row" role="status">
           正在加载记录…
         </div>
+        <OrderBatchControls
+          v-if="kind === 'orders' && area === 'admin' && !error"
+          :key="area + path"
+          :client="client"
+          :items="items"
+          :selected="selectedOrderTrades"
+          :own-session="!!session && !session.delegated_by"
+          :admin-class="session?.user.admin_class"
+          @busy="orderBatchBusy = $event"
+          @active="orderBatchOpen = $event"
+          @updated="load"
+        />
         <DataTable
-          v-else-if="!error"
+          v-if="!loading && !error"
           :items="items"
           :columns="columns"
           :orders="kind === 'orders'"
+          :admin-orders="kind === 'orders' && area === 'admin'"
+          :selectable="kind === 'orders' && area === 'admin'"
+          :selected-trades="selectedOrderTrades"
+          @selection-change="selectedOrderTrades = $event"
+          :order-actions-disabled="
+            orderBatchBusy ||
+            !!session?.delegated_by ||
+            !['super', 'operator'].includes(session?.user.admin_class || '')
+          "
           @refund="openRefund"
           @detail="(row) => (orderDetails = row)"
+          @order-action="(row, action) => (orderAction = { row, action })"
+          @blacklist="openBlacklist"
         />
         <div class="pagination">
           <span>共 {{ total }} 条记录</span>
@@ -995,7 +1232,7 @@ onBeforeUnmount(() => {
               上一页</button
             ><span>第 {{ pageNumber }} 页</span
             ><button
-              :disabled="pageNumber * 20 >= total || loading"
+              :disabled="pageNumber * listLimit >= total || loading"
               @click="
                 pageNumber++;
                 load();
@@ -1015,12 +1252,56 @@ onBeforeUnmount(() => {
     </main>
     <footer>GOEPAY · 支付运营工作台</footer>
     <template #overlays>
+      <RefundSummaryDialog
+        v-if="refundSummaryQuery !== null && authorized && kind === 'refunds'"
+        :client="client"
+        :query="refundSummaryQuery"
+        @close="closeRefundSummary"
+      />
+      <OrderBlacklistDialog
+        v-if="blacklistSelection && session && authorized && area === 'admin'"
+        :key="blacklistSelection.tradeNo + '/' + blacklistSelection.kind"
+        :client="client"
+        :trade-no="blacklistSelection.tradeNo"
+        :kind="blacklistSelection.kind"
+        :expected="blacklistSelection.expected"
+        :own-session="!session.delegated_by"
+        :admin-class="session.user.admin_class"
+        @close="blacklistSelection = null"
+        @updated="load"
+      />
+      <AdminOrderActionDialog
+        v-if="orderAction && session && authorized && area === 'admin'"
+        :key="
+          String(orderAction.row.trade_no ?? orderAction.row.id) +
+          '/' +
+          orderAction.action
+        "
+        :client="client"
+        :trade-no="String(orderAction.row.trade_no ?? orderAction.row.id)"
+        :action="orderAction.action"
+        @close="orderAction = null"
+        @updated="load"
+        @refund="
+          (row) => {
+            orderAction = null;
+            openRefund(row);
+          }
+        "
+      />
       <OrderDetails
         v-if="orderDetails"
         :key="String(orderDetails.trade_no ?? orderDetails.id)"
         :trade-no="String(orderDetails.trade_no ?? orderDetails.id)"
         :client="client"
         :own-session="!!session && !session.delegated_by"
+        :can-blacklist="
+          area === 'admin' &&
+          !!session &&
+          !session.delegated_by &&
+          ['super', 'operator'].includes(session.user.admin_class || '')
+        "
+        @blacklist="openBlacklist"
         @close="orderDetails = null"
         @refund="
           (row) => {
@@ -1039,9 +1320,9 @@ onBeforeUnmount(() => {
           class="modal panel"
           role="dialog"
           aria-modal="true"
-          aria-label="申请退款"
+          :aria-label="area === 'admin' ? 'API退款确认' : '申请退款'"
         >
-          <h2>申请退款</h2>
+          <h2>{{ area === "admin" ? "API退款确认" : "申请退款" }}</h2>
           <div v-if="error" class="alert error" role="alert">{{ error }}</div>
           <form v-if="refundRow" @submit.prevent="submitRefund">
             <p class="muted">订单 {{ refundRow.trade_no ?? refundRow.id }}</p>

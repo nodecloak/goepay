@@ -41,4 +41,15 @@ export function installProConsoleProjectionsAPI({ paths, schemas, object, str })
   append('/console/v1/{role}/orders/{trade}','get','data.reporting为ConsoleOrderReporting；原order对象金额和ID契约不变。缺少账号/接口单号不编造。');
   append('/console/v1/{role}/ledger','get','行新增ConsoleLedgerBalanceProjection。前后金额按同一account_id完整不可变流水的entry.id顺序累计，在搜索、日期与分页之前计算；不是合并商户总钱包，也不是当前余额。JSON与完整CSV使用同一查询快照口径。');
   append('/console/v1/{role}/resources/{resource}','get','resource=merchants时仅管理员可读；每个item.fields包含ConsoleMerchantBalanceProjection。frozen_minor仅reserved/settlement_reserve/channel_sharing_reserve，与原Balance.Reserved一致；income_held_minor单独表示order_income_reserve，不得重复相加。所有派生字段均read_only，不可创建/修改。');
+  const directory=paths['/console/v1/{role}/resources/{resource}'].get;
+  directory.description+='\n\n仅resource=merchants的专用筛选：column配合q/value，dstatus用户/支付状态，pay为支付状态别名，uid精确商户号，gid当前有效会员组（过期回到已确认基础组，0默认），upid原注册邀请上级，from/to按北京时间注册日期包含整天，order余额/已核实登录时间排序。未核实历史用户名不推断登录主体；从未核实登录排最后。ID保留int64十进制字符串。拒未知/重复参数、冲突q/value或pay/dstatus、非法日期及排序；不搜索解密密钥/收款凭据。读取不写审计、资金或发送上游请求。其它resource不支持这些专用参数。';
+  directory.parameters.push(...[
+    ['column',{type:'string',enum:['','uid','name','email','phone','login_username','domain']}],
+    ['value',{type:'string',maxLength:256,description:'q别名，UTF-8最多256字节；同时提供必须相等。'}],
+    ['dstatus',{type:'string',enum:['','status_0','status_1','pay_0','pay_1','pay_2']}],
+    ['pay',{type:'string',enum:['0','1','2']}],
+    ['uid',identifier],['gid',{type:'string',pattern:'^(0|[1-9][0-9]*)$'}],['upid',identifier],
+    ['from',{type:'string',format:'date'}],['to',{type:'string',format:'date'}],
+    ['order',{type:'string',enum:['','id_desc','money_desc','money_asc','lasttime_desc','lasttime_asc']}],
+  ].map(([name,schema])=>({name,in:'query',schema,description:'仅管理员resource=merchants。'})));
 }

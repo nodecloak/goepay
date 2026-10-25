@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -133,6 +134,11 @@ func TestMembershipReferral72UpgradeCapturesOnlyActualHistoricalPurchasesAndNeve
 	tz.Rollback(ctx)
 	if e != nil {
 		t.Fatal("historical identity depended on connection time zone", e)
+	}
+	forgedLegacy := p
+	forgedLegacy.SaleTerms = &MembershipSaleTerms{Quantity: 2, Months: 1}
+	if e = s.verifyMembershipPurchase(ctx, s.pool, forgedLegacy); !errors.Is(e, ErrConflict) {
+		t.Fatalf("legacy proof accepted unauthenticated new sale terms: %v", e)
 	}
 	var legacy, sources, rewards int64
 	if e = s.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM membership_referral_legacy_purchases),(SELECT count(*) FROM membership_referral_sources),(SELECT count(*) FROM membership_referral_rewards)`).Scan(&legacy, &sources, &rewards); e != nil || legacy != 1 || sources != 0 || rewards != 0 {

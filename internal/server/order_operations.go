@@ -36,6 +36,15 @@ func (s *Server) orderOperations(w http.ResponseWriter, r *http.Request, role st
 	}
 	if r.Method == "GET" {
 		data := map[string]any{"order": order}
+		if role == "admin" {
+			control, e := readOrderAdminControl(r.Context(), s.Pool, order.ID)
+			if e != nil {
+				s.fail(w, e)
+				return true
+			}
+			data["admin_control"] = control
+			data["can_manual_refund"] = session.Issuer == nil && session.User.AdminClass == "super" && order.Status == "paid" && !control.Archived
+		}
 		reporting, e := s.orderReportingProjection(r.Context(), order.ID, order.MerchantID)
 		if e != nil {
 			s.fail(w, e)

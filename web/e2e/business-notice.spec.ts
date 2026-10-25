@@ -60,26 +60,20 @@ for (const width of [375, 1280])
       });
     });
     await page.goto("/admin/system/settings");
+    await page.getByRole("tab", { name: "消息提醒", exact: true }).click();
     const records = page.getByRole("region", {
       name: "管理员业务提醒记录",
       exact: true,
     });
     await expect(records).toContainText("站内转账待审核");
     await expect(records).toContainText("待核实");
-    await page
-      .getByRole("button", { name: "新增系统设置项", exact: true })
-      .click();
-    const dialog = page.getByRole("dialog", {
-      name: "新增系统设置",
+    const mode = page.getByRole("combobox", {
+      name: "域名与站内转账待审核提醒",
       exact: true,
     });
-    await dialog
-      .getByRole("combobox", { name: "配置项", exact: false })
-      .selectOption("msgconfig_domain");
-    const mode = dialog.getByRole("combobox", { name: "配置值", exact: false });
     await expect(mode).toBeVisible();
     await expect(mode.locator("option")).toHaveText([
-      "请选择",
+      "未配置（使用系统默认）",
       "关闭提醒",
       "电子邮件",
       "群机器人",

@@ -2,10 +2,10 @@ package payment
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"strconv"
 	"time"
 )
 
@@ -17,21 +17,28 @@ type MembershipPurchase struct {
 	SourceVersion                  int
 	Actor                          string
 	CreatedAt                      time.Time
+	SaleTerms                      *MembershipSaleTerms
 }
 
 func scanMembership(row pgx.Row) (MembershipPurchase, error) {
 	var m MembershipPurchase
-	e := row.Scan(&m.ID, &m.MerchantID, &m.GroupID, &m.Price, &m.GroupName, &m.ExternalNo, &m.DurationDays, &m.ExpiresAt, &m.SourceVersion, &m.Actor, &m.CreatedAt)
+	var terms []byte
+	e := row.Scan(&m.ID, &m.MerchantID, &m.GroupID, &m.Price, &m.GroupName, &m.ExternalNo, &m.DurationDays, &m.ExpiresAt, &m.SourceVersion, &m.Actor, &m.CreatedAt, &terms)
+	if e == nil && len(terms) > 0 && json.Unmarshal(terms, &m.SaleTerms) != nil {
+		e = ErrConflict
+	}
 	if errors.Is(e, pgx.ErrNoRows) {
 		e = ErrNotFound
 	}
 	return m, e
 }
 
-const membershipColumns = "id,merchant_id,group_id,price,group_name,external_no,duration_days,expires_at,source_version,actor,created_at"
+const membershipBaseColumns = "id,merchant_id,group_id,price,group_name,external_no,duration_days,expires_at,source_version,actor,created_at"
+const membershipColumns = membershipBaseColumns + ",to_jsonb(membership_purchases)->'sale_terms'"
 
-func (s *Store) PurchaseMembership(ctx context.Context, merchantID, groupID int64, externalNo, actor string) (MembershipPurchase, error) {
-	if merchantID <= 0 || groupID <= 0 || externalNo == "" || len(externalNo) > 128 || actor == "" {
+func (s *Store) PurchaseMembership(ctx context.Context, merchantID, groupID int64, externalNo, actor string, quantities ...int) (MembershipPurchase, error) {
+	quantity, quantityErr := membershipSaleQuantity(quantities)
+	if quantityErr != nil || merchantID <= 0 || groupID <= 0 || externalNo == "" || len(externalNo) > 128 || actor == "" {
 		return MembershipPurchase{}, ErrInvalid
 	}
 	tx, e := s.pool.Begin(ctx)
@@ -39,6 +46,9 @@ func (s *Store) PurchaseMembership(ctx context.Context, merchantID, groupID int6
 		return MembershipPurchase{}, e
 	}
 	defer tx.Rollback(ctx)
+	if _, e = tx.Exec(ctx, "SELECT pg_advisory_xact_lock_shared(hashtextextended('goepay/membership-sales',0))"); e != nil {
+		return MembershipPurchase{}, e
+	}
 	if e = s.membershipLockParties(ctx, tx, merchantID); e != nil {
 		return MembershipPurchase{}, e
 	}
@@ -51,7 +61,11 @@ func (s *Store) PurchaseMembership(ctx context.Context, merchantID, groupID int6
 	}
 	old, e := scanMembership(tx.QueryRow(ctx, "SELECT "+membershipColumns+" FROM membership_purchases WHERE merchant_id=$1 AND external_no=$2", merchantID, externalNo))
 	if e == nil {
-		if old.GroupID != groupID {
+		oldQuantity := 1
+		if old.SaleTerms != nil {
+			oldQuantity = old.SaleTerms.Quantity
+		}
+		if old.GroupID != groupID || oldQuantity != quantity {
 			return MembershipPurchase{}, ErrConflict
 		}
 		if e = s.verifyMembershipPurchase(ctx, tx, old); e != nil {
@@ -62,19 +76,16 @@ func (s *Store) PurchaseMembership(ctx context.Context, merchantID, groupID int6
 	if !errors.Is(e, ErrNotFound) {
 		return MembershipPurchase{}, e
 	}
-	var name, priceRaw, daysRaw string
-	if e = tx.QueryRow(ctx, "SELECT body->>'name',COALESCE(body->>'price_cents','0'),COALESCE(body->>'duration_days','30') FROM backoffice_records WHERE resource='groups' AND id=$1 AND body->>'enabled'='true' FOR SHARE", groupID).Scan(&name, &priceRaw, &daysRaw); e != nil {
+	var name string
+	if e = tx.QueryRow(ctx, "SELECT body->>'name' FROM backoffice_records WHERE resource='groups' AND id=$1 AND body->>'enabled'='true' FOR SHARE", groupID).Scan(&name); e != nil {
 		return MembershipPurchase{}, ErrNotFound
 	}
-	price, e := strconv.ParseInt(priceRaw, 10, 64)
-	if e != nil || price < 0 {
-		return MembershipPurchase{}, ErrInvalid
+	terms, e := s.FundsMembershipSaleSnapshot(ctx, tx, merchantID, groupID, quantity)
+	if e != nil {
+		return MembershipPurchase{}, e
 	}
-	days, e := strconv.Atoi(daysRaw)
-	if e != nil || days < 1 || days > 3660 {
-		return MembershipPurchase{}, ErrInvalid
-	}
-	quote, e := s.membershipReferralDecision(ctx, tx, merchantID, groupID, externalNo)
+	price := terms.UnitPrice * int64(quantity)
+	quote, e := s.membershipReferralDecision(ctx, tx, merchantID, groupID, externalNo, quantity)
 	if e != nil || quote.Price != price {
 		if e == nil {
 			e = ErrConflict
@@ -89,7 +100,7 @@ func (s *Store) PurchaseMembership(ctx context.Context, merchantID, groupID int6
 	if e != nil {
 		return MembershipPurchase{}, e
 	}
-	current, e := s.membershipReferralDecision(ctx, tx, merchantID, groupID, externalNo)
+	current, e := s.membershipReferralDecision(ctx, tx, merchantID, groupID, externalNo, quantity)
 	if e != nil || current.ProofFingerprint != quote.ProofFingerprint {
 		if e == nil {
 			e = ErrConflict
@@ -99,8 +110,15 @@ func (s *Store) PurchaseMembership(ctx context.Context, merchantID, groupID int6
 	if e = requireFundsAction(ctx, tx, "membership", fmt.Sprintf("%d:%s", merchantID, externalNo)); e != nil {
 		return MembershipPurchase{}, e
 	}
-	current, e = s.membershipReferralDecision(ctx, tx, merchantID, groupID, externalNo)
+	current, e = s.membershipReferralDecision(ctx, tx, merchantID, groupID, externalNo, quantity)
 	if e != nil || current.ProofFingerprint != quote.ProofFingerprint {
+		if e == nil {
+			e = ErrConflict
+		}
+		return MembershipPurchase{}, e
+	}
+	afterTerms, e := s.FundsMembershipSaleSnapshot(ctx, tx, merchantID, groupID, quantity)
+	if e != nil || afterTerms != terms {
 		if e == nil {
 			e = ErrConflict
 		}
@@ -117,8 +135,27 @@ func (s *Store) PurchaseMembership(ctx context.Context, merchantID, groupID int6
 	} else if e != nil {
 		return MembershipPurchase{}, e
 	}
-	expiration = expiration.Add(time.Duration(days) * 24 * time.Hour)
-	m, e := scanMembership(tx.QueryRow(ctx, "INSERT INTO membership_purchases(id,merchant_id,group_id,price,group_name,external_no,duration_days,expires_at,actor,source_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,1) RETURNING "+membershipColumns, purchaseID, merchantID, groupID, price, name, externalNo, days, expiration, actor))
+	if expiration.Equal(permanentMembershipExpiry) {
+		return MembershipPurchase{}, ErrState
+	}
+	expiration, days, e := membershipSaleExpiry(terms, expiration)
+	if e != nil {
+		return MembershipPurchase{}, e
+	}
+	var hasTerms bool
+	if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='membership_purchases'::regclass AND attname='sale_terms' AND NOT attisdropped)").Scan(&hasTerms); e != nil {
+		return MembershipPurchase{}, e
+	}
+	insert := "INSERT INTO membership_purchases(id,merchant_id,group_id,price,group_name,external_no,duration_days,expires_at,actor,source_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,1) RETURNING " + membershipColumns
+	args := []any{purchaseID, merchantID, groupID, price, name, externalNo, days, expiration, actor}
+	if hasTerms {
+		raw, _ := json.Marshal(terms)
+		args = append(args, raw)
+		insert = "INSERT INTO membership_purchases(id,merchant_id,group_id,price,group_name,external_no,duration_days,expires_at,actor,source_version,sale_terms) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,1,$10) RETURNING " + membershipColumns
+	} else if terms.LegacyDays == 0 || quantity != 1 {
+		return MembershipPurchase{}, ErrState
+	}
+	m, e := scanMembership(tx.QueryRow(ctx, insert, args...))
 	if e != nil {
 		return m, e
 	}

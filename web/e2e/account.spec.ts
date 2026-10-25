@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { accountSettingsReadFixture } from "./fixtures/account-settings";
 const ok = (data: unknown) => ({
   status: 200,
   contentType: "application/json",
@@ -72,6 +73,8 @@ test("password confirmation blocks mismatched update then requires reauthenticat
       changes++;
       return route.fulfill(ok({}));
     }
+    const widget = accountSettingsReadFixture(p);
+    if (widget !== undefined) return route.fulfill(ok(widget));
     return route.fulfill(ok({ name: "Merchant", email: "m@example.com" }));
   });
   await page.goto("/merchant/account/settings");
@@ -81,7 +84,11 @@ test("password confirmation blocks mismatched update then requires reauthenticat
     .getByLabel("再次输入新密码", { exact: true })
     .fill("mismatched-password");
   await page.getByRole("button", { name: "修改密码", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("两次新密码输入不一致");
+  await expect(
+    page
+      .getByRole("region", { name: "账户资料与安全设置", exact: true })
+      .getByRole("alert"),
+  ).toContainText("两次新密码输入不一致");
   expect(changes).toBe(0);
   await page
     .getByLabel("再次输入新密码", { exact: true })

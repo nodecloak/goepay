@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"goepay/internal/businessnotice"
+	"goepay/internal/collectionstyle"
 	"goepay/internal/ledger"
 	notice "goepay/internal/merchantnotice"
 	"goepay/internal/payment"
@@ -37,6 +38,7 @@ type Principal struct {
 type Query struct {
 	Page, Limit int
 	Search      string
+	Merchant    *MerchantDirectoryFilter
 }
 type Item struct {
 	ID     int64
@@ -277,6 +279,10 @@ func validateSpecific(resource string, v map[string]any) error {
 			if value != "0" && value != "1" {
 				return ErrInvalid
 			}
+		case "settle_open":
+			if value != "0" && value != "1" && value != "2" && value != "3" {
+				return ErrInvalid
+			}
 		case "transfer_minmoney", "transfer_maxmoney":
 			if _, e := ledger.Parse(value); e != nil {
 				return ErrInvalid
@@ -325,7 +331,11 @@ func validateSpecific(resource string, v map[string]any) error {
 			v["value"] = strings.ToLower(value)
 		}
 	case "collection-styles":
-		if !colorPattern.MatchString(fmt.Sprint(v["background_color"])) || !colorPattern.MatchString(fmt.Sprint(v["text_color"])) {
+		if collectionstyle.IsLayout(v) {
+			if _, e := collectionstyle.Parse(v); e != nil {
+				return ErrInvalid
+			}
+		} else if fmt.Sprint(v["title"]) == "" || !colorPattern.MatchString(fmt.Sprint(v["background_color"])) || !colorPattern.MatchString(fmt.Sprint(v["text_color"])) {
 			return ErrInvalid
 		}
 	}
@@ -462,6 +472,9 @@ func (s *Service) List(ctx context.Context, p Principal, r string, q Query) (Pag
 		return s.listSpecial(ctx, p, r, q)
 	}
 	where := "resource=$1 AND ($2::text='admin' OR owner_id=$3 OR $4::boolean) AND ($5::text='' OR strpos(lower(body::text),lower($5))>0)"
+	if r == "invitation-codes" {
+		where += " AND body->>'archived' IS DISTINCT FROM 'true'"
+	}
 	page := Page{Items: []Item{}, Page: q.Page, Limit: q.Limit}
 	if e = s.pool.QueryRow(ctx, "SELECT count(*) FROM backoffice_records WHERE "+where, r, p.Role, p.SubjectID, d.merchantRead, q.Search).Scan(&page.Total); e != nil {
 		return page, e
@@ -482,6 +495,9 @@ func (s *Service) List(ctx context.Context, p Principal, r string, q Query) (Pag
 	return page, rows.Err()
 }
 func (s *Service) Update(ctx context.Context, p Principal, r string, id int64, in map[string]json.RawMessage) (Item, error) {
+	return s.update(ctx, p, r, id, in, "")
+}
+func (s *Service) update(ctx context.Context, p Principal, r string, id int64, in map[string]json.RawMessage, expectedStyle string) (Item, error) {
 	d, e := definitionFor(p, r, true)
 	if e != nil {
 		return Item{}, e
@@ -508,7 +524,32 @@ func (s *Service) Update(ctx context.Context, p Principal, r string, id int64, i
 			return Item{}, ErrForbidden
 		}
 	}
+	if r == "collection-styles" && (collectionstyle.IsLayout(decodeFields(raw)) || expectedStyle != "") && collectionstyle.Revision(decodeFields(raw)) != expectedStyle {
+		return Item{}, ErrConflict
+	}
+	if r == "invitation-codes" && decodeFields(raw)["archived"] == true {
+		return Item{}, ErrConflict
+	}
+	if r == "collection-codes" {
+		var generated bool
+		if e = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM collection_code_generations WHERE code_id=$1) OR EXISTS(SELECT 1 FROM backoffice_audit WHERE resource='collection-generator' AND operation='generate' AND resource_id=$1)`, id).Scan(&generated); e != nil {
+			return Item{}, e
+		}
+		if generated || decodeFields(raw)["generated"] == true {
+			if decodeFields(raw)["archived"] == true {
+				return Item{}, ErrConflict
+			}
+			for key := range in {
+				if key != "enabled" {
+					return Item{}, ErrForbidden
+				}
+			}
+		}
+	}
 	if r == "settings" {
+		if fmt.Sprint(decodeFields(raw)["key"]) == "group_buy" {
+			return Item{}, ErrForbidden
+		}
 		if e = validateMerchantNoticeRaw(in, decodeFields(raw)); e != nil {
 			return Item{}, e
 		}
@@ -516,6 +557,9 @@ func (s *Service) Update(ctx context.Context, p Principal, r string, id int64, i
 	v, e := validate(p, d, in, decodeFields(raw), false)
 	if e != nil {
 		return Item{}, e
+	}
+	if r == "collection-styles" && collectionstyle.IsLayout(v) && expectedStyle == "" {
+		return Item{}, ErrConflict
 	}
 	if e = validateSpecific(r, v); e != nil {
 		return Item{}, e
@@ -578,12 +622,34 @@ func (s *Service) Delete(ctx context.Context, p Principal, r string, id int64) e
 	if d.noDelete {
 		return ErrForbidden
 	}
+	if r == "invitation-codes" {
+		return s.archiveInvitation(ctx, p, id)
+	}
 	tx, e := s.pool.Begin(ctx)
 	if e != nil {
 		return e
 	}
 	defer tx.Rollback(ctx)
-	tag, e := tx.Exec(ctx, "DELETE FROM backoffice_records WHERE resource=$1 AND id=$2 AND ($3::text='admin' OR owner_id=$4)", r, id, p.Role, p.SubjectID)
+	if r == "collection-codes" {
+		var generated bool
+		var raw []byte
+		if e = tx.QueryRow(ctx, `SELECT body FROM backoffice_records WHERE resource=$1 AND id=$2 AND ($3::text='admin' OR owner_id=$4) FOR UPDATE`, r, id, p.Role, p.SubjectID).Scan(&raw); e != nil {
+			return businessError(e)
+		}
+		if e = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM collection_code_generations WHERE code_id=$1) OR EXISTS(SELECT 1 FROM backoffice_audit WHERE resource='collection-generator' AND operation='generate' AND resource_id=$1)`, id).Scan(&generated); e != nil {
+			return e
+		}
+		if generated || decodeFields(raw)["generated"] == true {
+			if _, e = tx.Exec(ctx, `UPDATE backoffice_records SET body=body||'{"enabled":false,"archived":true}'::jsonb,updated_at=now() WHERE id=$1`, id); e != nil {
+				return e
+			}
+			if e = audit(ctx, tx, p, r, id, "archive", nil); e != nil {
+				return e
+			}
+			return tx.Commit(ctx)
+		}
+	}
+	tag, e := tx.Exec(ctx, "DELETE FROM backoffice_records WHERE resource=$1 AND id=$2 AND ($3::text='admin' OR owner_id=$4) AND NOT(resource='settings' AND body->>'key'='group_buy')", r, id, p.Role, p.SubjectID)
 	if e != nil {
 		return businessError(e)
 	}

@@ -275,6 +275,9 @@ func (s *Store) AuthorizeSettlementPlan(ctx context.Context, id, expected int64,
 	if err != nil {
 		return out, err
 	}
+	if err = requireSettlementPlanAutomaticAccess(ctx, tx, p); err != nil {
+		return out, err
+	}
 	var now time.Time
 	if err = tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); err != nil {
 		return out, err
@@ -318,6 +321,9 @@ func (s *Store) AuthorizeSettlementPlan(ctx context.Context, id, expected int64,
 	}
 	if !bytes.Equal(raw, finalScope) {
 		return out, ErrConflict
+	}
+	if err = requireSettlementPlanAutomaticAccess(ctx, tx, p); err != nil {
+		return out, err
 	}
 	if err = tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); err != nil {
 		return out, err

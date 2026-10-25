@@ -149,7 +149,7 @@ func run() error {
 		if e = json.NewEncoder(os.Stdout).Encode(result); e != nil {
 			return e
 		}
-		if report.InvalidSettlementBatches != 0 || businessReport.InvalidEvents != 0 || businessReport.InvalidDeliveries != 0 {
+		if report.InvalidCollectionGenerators != 0 || report.InvalidSettlementBatches != 0 || businessReport.InvalidEvents != 0 || businessReport.InvalidDeliveries != 0 {
 			return fmt.Errorf("business notice reconciliation failed")
 		}
 		if noticeReport.InvalidProfiles != 0 || noticeReport.InvalidEvents != 0 || noticeReport.InvalidDeliveries != 0 || report.InvalidScanRecoverySources != 0 || report.InvalidChannelStops != 0 || report.InvalidAuthorizationReleases != 0 || report.InvalidJournals != 0 || report.InvalidAccounts != 0 || report.InvalidSettlementFundings != 0 || report.InvalidChannelSharingFundings != 0 || report.InvalidChannelSharingReturns != 0 || report.InvalidChannelSharingFinishes != 0 || report.InvalidReferralTerms != 0 || report.InvalidReferralRewards != 0 || report.InvalidReferralClawbacks != 0 || report.InvalidProviderRefundResults != 0 || report.InvalidSettlementPlans != 0 || report.InvalidOrderIncomeFundings != 0 || report.InvalidRefundFundings != 0 || invalidPrinting != 0 || history.InvalidLegacyRefundHistory != 0 || history.UnknownLegacyRefunds != 0 {

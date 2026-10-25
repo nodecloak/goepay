@@ -418,7 +418,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (Registered, e
 	if in.InviteCode != "" {
 		var id, max int64
 		var enabled bool
-		e = tx.QueryRow(ctx, "SELECT id,COALESCE((body->>'max_uses')::bigint,0),COALESCE((body->>'enabled')::boolean,false) FROM backoffice_records WHERE resource='invitation-codes' AND body->>'code'=$1 FOR UPDATE", in.InviteCode).Scan(&id, &max, &enabled)
+		e = tx.QueryRow(ctx, "SELECT id,COALESCE((body->>'max_uses')::bigint,0),COALESCE((body->>'enabled')::boolean,false) AND body->>'archived' IS DISTINCT FROM 'true' FROM backoffice_records WHERE resource='invitation-codes' AND body->>'code'=$1 FOR UPDATE", in.InviteCode).Scan(&id, &max, &enabled)
 		if errors.Is(e, pgx.ErrNoRows) || e == nil && (!enabled || max < 1 || max > 1000000) {
 			return Registered{}, ErrInvalid
 		}

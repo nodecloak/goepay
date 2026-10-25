@@ -10,7 +10,14 @@ import (
 )
 
 func membershipJSON(v payment.MembershipPurchase) map[string]any {
-	return map[string]any{"id": strconv.FormatInt(v.ID, 10), "merchant_id": strconv.FormatInt(v.MerchantID, 10), "group_id": strconv.FormatInt(v.GroupID, 10), "price": ledger.Format(v.Price), "price_cents": strconv.FormatInt(v.Price, 10), "group_name": v.GroupName, "external_no": v.ExternalNo, "duration_days": v.DurationDays, "expires_at": v.ExpiresAt}
+	out := map[string]any{"id": strconv.FormatInt(v.ID, 10), "merchant_id": strconv.FormatInt(v.MerchantID, 10), "group_id": strconv.FormatInt(v.GroupID, 10), "price": ledger.Format(v.Price), "price_cents": strconv.FormatInt(v.Price, 10), "group_name": v.GroupName, "external_no": v.ExternalNo, "duration_days": v.DurationDays, "expires_at": v.ExpiresAt}
+	if v.SaleTerms != nil {
+		out["quantity"] = v.SaleTerms.Quantity
+		out["unit_price_cents"] = strconv.FormatInt(v.SaleTerms.UnitPrice, 10)
+		out["permanent"] = v.SaleTerms.Permanent
+		out["period_months"] = v.SaleTerms.Months
+	}
+	return out
 }
 func depositJSON(v payment.DepositAction) map[string]any {
 	return map[string]any{"id": strconv.FormatInt(v.ID, 10), "merchant_id": strconv.FormatInt(v.MerchantID, 10), "amount": ledger.Format(v.Amount), "amount_cents": strconv.FormatInt(v.Amount, 10), "action": v.Action, "external_no": v.ExternalNo, "status": v.Status, "created_at": v.CreatedAt}
@@ -58,6 +65,7 @@ func (s *Service) serveBusiness(w http.ResponseWriter, r *http.Request, p Princi
 		switch kind {
 		case "memberships":
 			allowed["group_id"] = true
+			allowed["quantity"] = true
 		case "deposits":
 			allowed["action"], allowed["amount"] = true, true
 		case "recharges":
@@ -89,7 +97,14 @@ func (s *Service) serveBusiness(w http.ResponseWriter, r *http.Request, p Princi
 				writeError(w, ErrInvalid)
 				return true
 			}
-			v, e := s.store.PurchaseMembership(r.Context(), mid, id, externalNo, actor)
+			quantity := 1
+			if v, ok := in["quantity"]; ok {
+				if json.Unmarshal(v, &quantity) != nil || quantity < 1 || quantity > 300 {
+					writeError(w, ErrInvalid)
+					return true
+				}
+			}
+			v, e := s.store.PurchaseMembership(r.Context(), mid, id, externalNo, actor, quantity)
 			if e != nil {
 				writeError(w, e)
 				return true
@@ -204,7 +219,7 @@ func (s *Service) listBusiness(w http.ResponseWriter, r *http.Request, p Princip
 		mid = 0
 	}
 	table, where := "membership_purchases", "($1::bigint=0 OR merchant_id=$1)"
-	columns := "id,merchant_id,group_id,price,group_name,external_no,duration_days,expires_at"
+	columns := "id,merchant_id,group_id,price,group_name,external_no,duration_days,expires_at,to_jsonb(membership_purchases)->'sale_terms'"
 	if kind == "deposits" {
 		table = "deposit_actions"
 		columns = "id,merchant_id,amount,action,external_no,status,created_at"
@@ -230,7 +245,11 @@ func (s *Service) listBusiness(w http.ResponseWriter, r *http.Request, p Princip
 		switch kind {
 		case "memberships":
 			var v payment.MembershipPurchase
-			e = rows.Scan(&v.ID, &v.MerchantID, &v.GroupID, &v.Price, &v.GroupName, &v.ExternalNo, &v.DurationDays, &v.ExpiresAt)
+			var terms []byte
+			e = rows.Scan(&v.ID, &v.MerchantID, &v.GroupID, &v.Price, &v.GroupName, &v.ExternalNo, &v.DurationDays, &v.ExpiresAt, &terms)
+			if e == nil && len(terms) > 0 {
+				e = json.Unmarshal(terms, &v.SaleTerms)
+			}
 			if e == nil {
 				items = append(items, membershipJSON(v))
 			}

@@ -132,6 +132,9 @@ func (s *Store) verifyMembershipPurchase(ctx context.Context, q referralReader, 
 	if p.SourceVersion != 0 {
 		return ErrConflict
 	}
+	if p.SaleTerms != nil {
+		return ErrConflict
+	}
 	var valid bool
 	e := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM membership_referral_legacy_purchases l JOIN membership_purchases p ON p.id=l.purchase_id WHERE p.id=$1 AND p.source_version=0 AND l.row_snapshot=membership_referral_legacy_snapshot(p) AND l.row_hash=sha256(convert_to(membership_referral_legacy_snapshot(p)::text,'UTF8')))`, p.ID).Scan(&valid)
 	if e != nil {

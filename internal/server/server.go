@@ -60,6 +60,8 @@ type Server struct {
 	mu                                      sync.Mutex
 	attempts                                map[string]attempt
 	lastAttemptCleanup                      time.Time
+	collectionAttempts                      map[string]attempt
+	lastCollectionCleanup                   time.Time
 }
 type attempt struct {
 	count int
@@ -76,7 +78,14 @@ func (s *Server) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
-		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		bodyLimit := int64(1 << 20)
+		if r.Method == "POST" && r.URL.Path == "/console/v1/admin/collection-style-images" {
+			bodyLimit += 8192
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, bodyLimit)
+		if s.collectionStyleAsset(w, r) {
+			return
+		}
 		if s.templatePublic(w, r) {
 			return
 		}
@@ -258,6 +267,30 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.authorizationReleaseConsole(w, r, role, session, parts) {
 		return
 	}
+	if s.orderBlacklistConsole(w, r, role, session, parts) {
+		return
+	}
+	if s.orderBatchControlsConsole(w, r, role, session, parts) {
+		return
+	}
+	if s.orderAdminActions(w, r, role, session, parts) {
+		return
+	}
+	if s.membershipSalesConsole(w, r, role, session, parts) {
+		return
+	}
+	if s.invitationCodesConsole(w, r, role, session, parts) {
+		return
+	}
+	if s.collectionStylesConsole(w, r, role, session, parts) {
+		return
+	}
+	if s.collectionGeneratorConsole(w, r, role, session, parts) {
+		return
+	}
+	if s.collectionStyleImagesConsole(w, r, role, session, parts) {
+		return
+	}
 	if s.orderOperations(w, r, role, session, parts) {
 		return
 	}
@@ -315,6 +348,12 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.account(w, r, role, session, parts) {
 		return
 	}
+	if s.adminMerchantLoginLog(w, r, role, session, parts) {
+		return
+	}
+	if s.refundSummary(w, r, role, session, parts) {
+		return
+	}
 	if s.reports(w, r, role, session, parts) {
 		return
 	}
@@ -342,17 +381,7 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		switch action {
 		case "dashboard":
-			var count, paid int64
-			e = s.Pool.QueryRow(r.Context(), "SELECT count(*),count(*) FILTER(WHERE status='paid') FROM orders WHERE ($1::bigint=0 OR merchant_id=$1)", mid).Scan(&count, &paid)
-			b, be := s.Store.Balance(r.Context(), mid)
-			if mid == 0 {
-				be = s.Pool.QueryRow(r.Context(), "SELECT COALESCE(sum(balance) FILTER(WHERE kind='available'),0),COALESCE(sum(balance) FILTER(WHERE kind IN ('reserved','settlement_reserve','channel_sharing_reserve')),0) FROM accounts WHERE owner_id>0").Scan(&b.Available, &b.Reserved)
-			}
-			if e != nil || be != nil {
-				s.fail(w, errors.New("database"))
-				return
-			}
-			response(w, 200, 0, "", map[string]any{"orders": count, "paid_orders": paid, "available_money": ledger.Format(b.Available), "frozen_money": ledger.Format(b.Reserved), "sandbox": s.Sandbox})
+			s.dashboard(w, r, mid)
 			return
 		case "orders", "refunds", "transfers", "merchants", "ledger":
 			s.list(w, r, role, mid, action, session)

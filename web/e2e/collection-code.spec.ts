@@ -41,6 +41,7 @@ test("collection code links generate a local QR and downloadable image without e
     );
   });
   await page.goto("/merchant/onecode");
+  await page.getByRole("button", { name: "历史收款码", exact: true }).click();
   await page.getByRole("button", { name: "详情", exact: true }).click();
   expect(linkRequests).toBe(0);
   await page.getByRole("button", { name: "生成收款链接" }).click();

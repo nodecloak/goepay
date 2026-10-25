@@ -155,6 +155,9 @@ func (s *Store) createOrderWithPrintOrigin(ctx context.Context, in CreateOrderIn
 		if owner != in.MerchantID || purpose != "payment" {
 			return Order{}, ErrConflict
 		}
+		if e = s.validateCollectionGenerationOrder(ctx, tx, collectionID, in); e != nil {
+			return Order{}, e
+		}
 	}
 	existing, e := scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE merchant_id=$1 AND out_trade_no=$2", in.MerchantID, in.OutTradeNo))
 	if e == nil {

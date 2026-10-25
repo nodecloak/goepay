@@ -3,6 +3,7 @@ package payment
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -15,7 +16,7 @@ func (s *Store) NoticeExpiredMembership(ctx context.Context, tx pgx.Tx, mid int6
 	if ctx == nil || tx == nil || mid <= 0 || at.IsZero() {
 		return nil, ErrInvalid
 	}
-	p, err := scanMembership(tx.QueryRow(ctx, `SELECT `+membershipColumns+` FROM membership_purchases p WHERE p.merchant_id=$1 AND p.expires_at<=$2
+	p, err := scanMembership(tx.QueryRow(ctx, `SELECT `+strings.ReplaceAll(membershipColumns, "to_jsonb(membership_purchases)", "to_jsonb(p)")+` FROM membership_purchases p WHERE p.merchant_id=$1 AND p.expires_at<=$2
  AND p.id=(SELECT max(q.id) FROM membership_purchases q WHERE q.merchant_id=p.merchant_id)
  AND EXISTS(SELECT 1 FROM memberships m WHERE m.merchant_id=p.merchant_id AND (m.group_id,m.expires_at)=(p.group_id,p.expires_at))`, mid, at))
 	if errors.Is(err, ErrNotFound) {

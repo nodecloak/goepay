@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { accountSettingsReadFixture } from "./fixtures/account-settings";
 const ok = (data: unknown, status = 200) => ({
   status,
   contentType: "application/json",
@@ -32,17 +33,27 @@ for (const width of [375, 1280]) {
           ok({ name: "待审核商户", email: "review82@example.test", pay: "2" }),
         );
       }
+      const widget = accountSettingsReadFixture(p, "82");
+      if (widget !== undefined) return route.fulfill(ok(widget));
       return route.fulfill(ok({ items: [], total: 0 }));
     });
     await page.goto("/merchant/account/settings");
     await expect(
       page.getByText("收款状态：待审核", { exact: true }),
     ).toBeVisible();
-    await expect(page.getByRole("combobox")).toHaveCount(0);
+    await expect(
+      page
+        .getByRole("region", { name: "账户资料", exact: true })
+        .getByRole("combobox"),
+    ).toHaveCount(0);
     await page
       .getByRole("button", { name: "保存账户资料", exact: true })
       .click();
-    await expect(page.getByRole("status")).toContainText("账户资料已保存");
+    await expect(
+      page
+        .getByRole("region", { name: "账户资料与安全设置", exact: true })
+        .getByRole("status"),
+    ).toContainText("账户资料已保存");
     expect(saves).toBe(1);
     await page.screenshot({
       path: test.info().outputPath(`merchant-review-${width}.png`),
@@ -121,10 +132,12 @@ for (const width of [375, 1280]) {
     await page.getByRole("button", { name: "编辑", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByLabel("账户状态", { exact: true })).toBeChecked();
-    await expect(dialog.getByRole("combobox", { name: "收款状态", exact: true })).toHaveValue(
-      "2",
-    );
-    await dialog.getByRole("combobox", { name: "收款状态", exact: true }).selectOption("1");
+    await expect(
+      dialog.getByRole("combobox", { name: "收款状态", exact: true }),
+    ).toHaveValue("2");
+    await dialog
+      .getByRole("combobox", { name: "收款状态", exact: true })
+      .selectOption("1");
     await dialog.getByRole("button", { name: "保存", exact: true }).click();
     await expect(dialog).toHaveCount(0);
     expect(writes).toBe(1);
@@ -209,4 +222,3 @@ for (const width of [375, 1280]) {
     });
   });
 }
-

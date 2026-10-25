@@ -126,6 +126,9 @@ func (s *Store) requestFundsTxSettlement(ctx context.Context, tx pgx.Tx, kind st
 		if err != nil {
 			return LedgerRequest{}, err
 		}
+		if err = requireNewSettlementAccess(ctx, tx, merchantID); err != nil {
+			return LedgerRequest{}, err
+		}
 		quote, err := policy.Quote(amount)
 		if err != nil {
 			return LedgerRequest{}, err
@@ -174,6 +177,11 @@ func (s *Store) requestFundsTxSettlement(ctx context.Context, tx pgx.Tx, kind st
 			}
 		}
 		if e = requireSettlementDaily(ctx, tx, merchantID, terms.DailyLimit, operationAt); e != nil {
+			return LedgerRequest{}, e
+		}
+		// A membership can expire while account/confirmation locks are waiting.
+		// Recheck the effective mode before creating this new financial intent.
+		if e = requireNewSettlementAccess(ctx, tx, merchantID); e != nil {
 			return LedgerRequest{}, e
 		}
 		createdAt = operationAt

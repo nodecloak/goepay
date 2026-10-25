@@ -11,6 +11,7 @@ type SettlementQuote struct {
 	Funds     FundsAvailability `json:"-"`
 	DailyUsed int64             `json:"daily_used,string"`
 	CanApply  bool              `json:"can_apply"`
+	Access    SettlementAccess  `json:"settlement_access"`
 }
 
 // A coherent read-only estimate; RequestFunds always rechecks under its locks.
@@ -32,6 +33,10 @@ func (s *Store) SettlementQuote(ctx context.Context, mid, amount int64) (Settlem
 	if e != nil {
 		return out, e
 	}
+	out.Access, e = readSettlementAccess(ctx, tx, mid, false, false)
+	if e != nil {
+		return out, e
+	}
 	out.Funds, e = readFundsAvailability(ctx, tx, mid, nil)
 	if e != nil {
 		return out, e
@@ -45,7 +50,7 @@ func (s *Store) SettlementQuote(ctx context.Context, mid, amount int64) (Settlem
 			return out, err
 		}
 		out.Terms = &terms
-		out.CanApply = enabled && out.Funds.Available >= amount+out.Policy.RetainedCents && (out.Policy.DailyLimit == 0 || out.DailyUsed < out.Policy.DailyLimit)
+		out.CanApply = enabled && out.Access.ManualAllowed && out.Funds.Available >= amount+out.Policy.RetainedCents && (out.Policy.DailyLimit == 0 || out.DailyUsed < out.Policy.DailyLimit)
 	}
 	return out, tx.Commit(ctx)
 }

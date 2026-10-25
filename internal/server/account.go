@@ -31,6 +31,8 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request, role string, se
 	}
 	mid := session.User.ID
 	switch parts[2] {
+	case "login-log":
+		return s.accountLoginLog(w, r, session, parts)
 	case "rsa-key":
 		return s.accountRSA(w, r, session, parts)
 	case "profile":

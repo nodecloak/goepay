@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from "vue";
+import { ref, computed, watch, onBeforeUnmount, onMounted } from "vue";
 import { ApiClient, ApiError, displayValue } from "../api";
 const props = defineProps<{
   client: ApiClient;
@@ -8,8 +8,9 @@ const props = defineProps<{
   allowed: boolean;
   notification?: Record<string, unknown> | null;
   disabled?: boolean;
+  initialConfirm?: boolean;
 }>();
-const emit = defineEmits<{ updated: [] }>();
+const emit = defineEmits<{ updated: []; busy: [value: boolean] }>();
 const requestNo = ref(""),
   confirming = ref(false),
   busy = ref(false),
@@ -64,9 +65,13 @@ function open(newIntent: boolean) {
   notice.value = "";
   confirming.value = true;
 }
+onMounted(() => {
+  if (props.initialConfirm) open(true);
+});
 async function send() {
   if (!allowed.value || blocked.value || !requestNo.value) return;
   busy.value = true;
+  emit("busy", true);
   confirming.value = false;
   error.value = "";
   notice.value = "";
@@ -100,6 +105,7 @@ async function send() {
       error.value = `通知请求结果未知，请保留原请求号并重试原请求，避免创建新的发送。${e instanceof Error ? e.message : "请求失败"}`;
   } finally {
     busy.value = false;
+    emit("busy", false);
     emit("updated");
   }
 }
@@ -151,9 +157,7 @@ async function send() {
       <h4>核对商户通知重发</h4>
       <p>
         订单 {{ tradeNo }} 将使用服务端保存的商户通知地址。原请求号
-        {{
-          requestNo
-        }}
+        {{ requestNo }}
         会持久去重；网络错误时保留此请求号，只有明确的新操作才创建新号。
       </p>
       <div class="toolbar-actions">

@@ -10,6 +10,9 @@ export function needsFundsAuthorization(
 ): boolean {
   return (
     enforced ||
+    /^\/console\/v1\/admin\/orders\/[A-Za-z0-9_-]+\/manual-refund$/.test(
+      target,
+    ) ||
     /^\/console\/v1\/admin\/channel-stops\/[1-9]\d*\/resume$/.test(target) ||
     /^\/console\/v1\/admin\/orders\/[A-Za-z0-9_-]+\/(?:adopt-income-hold|release-remaining-authorization)$/.test(
       target,
@@ -44,7 +47,7 @@ export function isAdminFundsAction(path: string, method: string): boolean {
     /^\/settlement-payouts\/[1-9]\d*\/(?:execute|cancel-unsent)$/.test(
       pathname,
     ) ||
-    /^\/orders\/[A-Za-z0-9_-]+\/(?:refund|close|capture-authorization|release-authorization|release-remaining-authorization|freeze-income|unfreeze-income|adopt-income-hold)$/.test(
+    /^\/orders\/[A-Za-z0-9_-]+\/(?:refund|manual-refund|close|capture-authorization|release-authorization|release-remaining-authorization|freeze-income|unfreeze-income|adopt-income-hold)$/.test(
       pathname,
     ) ||
     /^\/workflows\/(?:settlements|internal-transfers|profitsharing|memberships|deposits)$/.test(

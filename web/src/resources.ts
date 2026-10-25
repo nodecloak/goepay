@@ -1,4 +1,33 @@
 import type { Area } from "./menu";
+export interface ResourceEntry {
+  mode: "create" | "edit";
+  id?: string;
+  returnPath: string;
+}
+export function resourceEntryFor(
+  area: Area,
+  path: string,
+  id: unknown,
+): ResourceEntry | undefined {
+  if (!(
+    (area === "merchant" && path === "/applyments/create") ||
+    path === "/applyments/form"
+  ))
+    return;
+  const returnPath = `/${area}/applyments/merchant`;
+  if (path === "/applyments/create" || id === undefined)
+    return { mode: "create", returnPath };
+  return {
+    mode: "edit",
+    id:
+      typeof id === "string" &&
+      /^[1-9]\d{0,18}$/.test(id) &&
+      BigInt(id) <= 9223372036854775807n
+        ? id
+        : "",
+    returnPath,
+  };
+}
 export type FieldType =
   | "string"
   | "text"

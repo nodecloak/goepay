@@ -195,12 +195,16 @@ export function resourceListFields(
   const hasEffectiveGroup = visible.some((f) =>
     ["effective_group_id", "effective_group_name"].includes(f.name),
   );
+  const contact =
+    visible.find((f) => f.name === "email") ||
+    visible.find((f) => ["phone", "qq"].includes(f.name));
   const names = [
     "name",
     ...(hasEffectiveGroup ? [] : ["group_id"]),
     "available_minor",
     "settlement_recipient",
-    "email",
+    ...(contact ? [contact.name] : []),
+    ...(visible.some((f) => f.name === "created_at") ? [] : ["url"]),
     "created_at",
     "pay",
     "enabled",

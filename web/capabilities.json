@@ -207,7 +207,8 @@
       "server-transfer-policy-display-and-exact-limit-validation",
       "separate-bank-return-lifecycle-and-immutable-ledger-history",
       "verified-transfer-query",
-      "confirmed-alipay-proof-application-and-query"
+      "confirmed-alipay-proof-application-and-query",
+      "direct-durable-batch-entry"
     ],
     "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
   },
@@ -336,10 +337,12 @@
     "hidden": false,
     "status": "partial",
     "capabilities": [
-      "list-membership-purchases",
-      "purchase-configured-group-with-balance"
+      "read-sales-configuration",
+      "atomic-own-super-sales-configuration",
+      "optimistic-version",
+      "publish-unpublish-price-calendar-month-permanent-sort-visibility-description"
     ],
-    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+    "limitations": "当前源码已列能力有专项测试；尚未部署，全部原版UX仍按全页面差异表逐项验收"
   },
   {
     "area": "admin",
@@ -560,7 +563,9 @@
       "read-report",
       "filter-business-dates",
       "export-current-page-csv",
-      "export-filtered-server-csv-with-bounded-download-and-abort"
+      "export-filtered-server-csv-with-bounded-download-and-abort",
+      "local-complaint-overview-and-merchant-ranking",
+      "explicit-missing-amount-and-denominator"
     ],
     "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
   },
@@ -706,11 +711,14 @@
     "status": "partial",
     "resource": "settings",
     "capabilities": [
-      "resource-list",
-      "resource-detail",
-      "schema-permitted-create-update-delete"
+      "read-schema-permitted-settings-all-pages",
+      "original-seventeen-settings-groups",
+      "typed-exact-money-and-basis-point-controls",
+      "save-only-explicitly-edited-fields",
+      "partial-save-unknown-and-readonly-guards",
+      "read-admin-business-notice-history"
     ],
-    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+    "limitations": "当前工作源码已恢复分组及已支持设置，尚未部署；原版尚未实施的配置继续按全页面差异表补齐，不用空分类代表能力完成"
   },
   {
     "area": "admin",
@@ -893,7 +901,10 @@
     "resource": "groups",
     "capabilities": [
       "list-membership-purchases",
-      "purchase-configured-group-with-balance"
+      "purchase-configured-group-with-balance",
+      "visible-sale-catalog",
+      "quantity-exact-total",
+      "calendar-month-permanent-authenticated-source"
     ],
     "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
   },
@@ -1034,7 +1045,8 @@
       "read-authoritative-funds-availability",
       "create-reservation",
       "read-original-settlement-payout-and-masked-recipient",
-      "query-original-claimed-settlement-payout"
+      "query-original-claimed-settlement-payout",
+      "direct-inline-application-no-automatic-financial-write"
     ],
     "limitations": "审批与出款结果分离；仅有费用、独立资金、收款快照且服务端明确许可的钱包或明确产品银行卡可准备；银行保留原结算费待确定退回，缺失快照历史申请不可出款；完整原版行为仍待验收"
   },
@@ -1056,7 +1068,8 @@
       "server-transfer-policy-display-and-exact-limit-validation",
       "separate-bank-return-lifecycle-and-immutable-ledger-history",
       "verified-transfer-query",
-      "confirmed-alipay-proof-application-and-query"
+      "confirmed-alipay-proof-application-and-query",
+      "direct-durable-batch-entry"
     ],
     "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
   },
