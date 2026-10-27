@@ -25,6 +25,11 @@ func NewWechatV3(c WechatV3Config) (*WechatV3, error) {
 	if len(c.Methods) == 0 {
 		return nil, ErrInvalid
 	}
+	var configureErr error
+	c.MiniProgram, c.Methods, configureErr = configureMiniProgram(c.MiniProgram, c.AppID, "wxpay", c.Methods)
+	if configureErr != nil {
+		return nil, configureErr
+	}
 	seen := map[string]bool{}
 	for _, method := range c.Methods {
 		if seen[method] {
@@ -32,7 +37,7 @@ func NewWechatV3(c WechatV3Config) (*WechatV3, error) {
 		}
 		seen[method] = true
 		switch method {
-		case "native", "jsapi", "app":
+		case "native", "jsapi", "app", "applet":
 		case "h5":
 			if !v3HTTPS(c.H5SiteURL) || strings.TrimSpace(c.H5SiteName) == "" || len(c.H5SiteName) > 128 {
 				return nil, ErrInvalid

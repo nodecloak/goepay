@@ -11,8 +11,9 @@ import (
 var errBusinessNoticeConfiguration = errors.New("administrator business notice configuration unavailable")
 
 type businessNoticeRuntime struct {
-	store  *businessnotice.Store
-	getenv func(string) string
+	mailAccounts mailAccountResolver195
+	store        *businessnotice.Store
+	getenv       func(string) string
 }
 
 func newBusinessNoticeRuntime(store *businessnotice.Store, getenv func(string) string) (*businessNoticeRuntime, error) {
@@ -58,7 +59,7 @@ func (r *businessNoticeRuntime) ResolveBusinessNotice(ctx context.Context, kind 
 				out.Recipient = r.getenv("GOEPAY_ADMIN_NOTICE_RECIPIENT")
 			}
 		}
-		out.Sender, err = (&merchantNoticeRuntime{getenv: r.getenv}).ResolveMerchantNotice(ctx, kind, merchantnotice.Account{})
+		out.Sender, err = (&merchantNoticeRuntime{getenv: r.getenv, mailAccounts: r.mailAccounts}).ResolveMerchantNotice(ctx, kind, merchantnotice.Account{})
 	case merchantnotice.Robot:
 		out.Recipient = r.getenv("GOEPAY_ADMIN_MSGROBOT_URL")
 		out.Sender, err = adminnotice.NewWebhook(out.Recipient, nil)

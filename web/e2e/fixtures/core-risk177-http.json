@@ -1,0 +1,69 @@
+{
+  "actions": {
+    "items": [
+      {
+        "active": true,
+        "changed_at": "2026-10-26T14:07:45.379983Z",
+        "fingerprint": "7154102f30177318552b1ecdfd3919de92286f9cf4379d4327aafabe06e66712",
+        "id": "9007199254741774",
+        "kind": "ip",
+        "revision": "1",
+        "rule": "auto_check_payip",
+        "source_count": 1,
+        "source_order_ids": [
+          "9007199254741775"
+        ],
+        "target_id": "0",
+        "until": "2026-10-31T14:07:45.379983Z"
+      }
+    ],
+    "total": 1
+  },
+  "group": {
+    "config": {
+      "check_pay_regoin": "",
+      "pay_block_oversea": ""
+    },
+    "configured": false,
+    "effective_oversea": "0",
+    "effective_scan_region": "2",
+    "fingerprint": "0e12799079ce8e8c7425fc66594c62efd1226ebaecbf79f5ea28db5ce9bf91d2",
+    "geo_configured": true,
+    "group_id": "0",
+    "group_name": "默认用户组",
+    "revision": "0"
+  },
+  "policy": {
+    "configured": true,
+    "fingerprint": "c9eb56780b941f3c59c1c2d9b7a9976b0a7a1ca6468cc6cd9fa4c76e830b93da",
+    "geo_configured": true,
+    "revision": "1",
+    "settings": {
+      "auto_check_channel": "0",
+      "auto_check_payip": "1",
+      "auto_check_payspeed": "0",
+      "auto_check_sucrate": "0",
+      "check_channel_failcount": "",
+      "check_channel_ids": "",
+      "check_channel_notice": "0",
+      "check_channel_second": "",
+      "check_pay_regoin": "2",
+      "check_payip_count": "1",
+      "check_payip_second": "3600",
+      "check_payspeed_count": "",
+      "check_payspeed_days": "",
+      "check_payspeed_second": "",
+      "check_sucrate_count": "",
+      "check_sucrate_notice": "0",
+      "check_sucrate_second": "",
+      "check_sucrate_value": "",
+      "pay_block_oversea": "0",
+      "pay_daymoney": "",
+      "pay_ip_interval": "",
+      "pay_iplimit": "",
+      "pay_iplimit_white": "",
+      "pay_region_block": "",
+      "pay_userlimit": ""
+    }
+  }
+}

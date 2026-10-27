@@ -106,7 +106,9 @@ func (s *Service) updateMerchant(ctx context.Context, p Principal, d definition,
 			return Item{}, ErrInvalid
 		}
 	}
-	if m.SignatureAlgorithm == "RSA" {
+	// Explicit policies are enforced from the locked stored row by Store.
+	// Only the legacy NULL mode still derives availability from this algorithm.
+	if m.Keytype == nil && m.SignatureAlgorithm == "RSA" {
 		if _, e = compat.ParsePublicKey(m.RSAPublicKey); e != nil {
 			return Item{}, ErrInvalid
 		}

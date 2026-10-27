@@ -172,7 +172,7 @@ func TestChannelSharingV2Single79DeclarationSettlementAndOriginalReturn(t *testi
 	if e != nil || !d.Declared || d.Product != "wxpay_v2_single_direct" {
 		t.Fatal(d, e)
 	}
-	if e = f.Store.markPaid(ctx, o.TradeNo, "v2-paid79", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "WX_" + o.TradeNo}); e != nil {
+	if e = f.Store.markPaid(ctx, o.TradeNo, "v2-paid79", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "WX_" + o.TradeNo}); e != nil {
 		t.Fatal(e)
 	}
 	first, e := f.Flow.SubmitChannelSharing(ctx, 751, o.TradeNo, "v2-share79", channelSharingActor)
@@ -220,7 +220,7 @@ func TestChannelSharingV2Single79IndependentFinishKeepsReserveUntilExplicitQuery
 	if _, e = f.Flow.Submit(ctx, o.TradeNo, 7, "native", "127.0.0.1", ""); e != nil {
 		t.Fatal(e)
 	}
-	if e = f.Store.markPaid(ctx, o.TradeNo, "v2-finish-paid79", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "WX_" + o.TradeNo}); e != nil {
+	if e = f.Store.markPaid(ctx, o.TradeNo, "v2-finish-paid79", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "WX_" + o.TradeNo}); e != nil {
 		t.Fatal(e)
 	}
 	first, e := f.Flow.SubmitChannelSharingFinish(ctx, 751, o.TradeNo, "v2-finish79", channelSharingActor)

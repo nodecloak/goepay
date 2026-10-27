@@ -142,9 +142,14 @@ func (s *Store) ChannelSharingRuleVersion(ctx context.Context, mid, id int64, ac
 }
 
 func (g ProviderFlow) SetChannelSharingRule(ctx context.Context, mid, channel int64, input ChannelSharingRuleInput, expected int64, actor TransferBatchActor) (ChannelSharingRuleView, error) {
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return ChannelSharingRuleView{}, ErrLiveDisabled
 	}
+	resolved, resolveErr := g.parentCurrentChannel(ctx, mid, channel)
+	if resolveErr != nil {
+		return ChannelSharingRuleView{}, resolveErr
+	}
+	g = resolved
 	p, b, e := g.sharingChannel(mid, channel)
 	if e != nil {
 		return ChannelSharingRuleView{}, e

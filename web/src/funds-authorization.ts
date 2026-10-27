@@ -10,6 +10,9 @@ export function needsFundsAuthorization(
 ): boolean {
   return (
     enforced ||
+    /^\/console\/v1\/admin\/orders\/business-batches\/[1-9]\d*\/execute$/.test(
+      target,
+    ) ||
     /^\/console\/v1\/admin\/orders\/[A-Za-z0-9_-]+\/manual-refund$/.test(
       target,
     ) ||
@@ -27,6 +30,7 @@ export function isAdminFundsAction(path: string, method: string): boolean {
   const [pathname, query] = path.split("?");
   if (query !== undefined || !pathname) return false;
   return (
+    /^\/orders\/business-batches\/[1-9]\d*\/execute$/.test(pathname) ||
     /^\/channel-stops\/[1-9]\d*\/resume$/.test(pathname) ||
     /^\/settlement-plans\/[1-9]\d*\/(?:authorizations|auto-authorizations)$/.test(
       pathname,

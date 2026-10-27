@@ -7,6 +7,7 @@ const pendingOrderIntents = new WeakMap<
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { ApiClient, validAmount } from "../api";
+import { orderRefundRemaining104 } from "../order-charge104";
 import type { OrderActionID } from "../order-actions";
 import { centsMoney } from "../settlement-terms";
 import OrderIncomePanel from "./OrderIncomePanel.vue";
@@ -22,6 +23,7 @@ const emit = defineEmits<{
   refund: [row: Record<string, unknown>];
 }>();
 interface Detail {
+  charge_verified104?: boolean;
   order: Record<string, unknown>;
   reporting?: Record<string, unknown>;
   admin_control?: { status: string; archived: boolean; revision: string };
@@ -109,21 +111,27 @@ async function load() {
       { signal: controller.signal },
     );
     if (controller.signal.aborted) return;
+    if (typeof result.charge_verified104 === "boolean")
+      result.order = {
+        ...result.order,
+        charge_verified104: result.charge_verified104,
+      };
     data.value = result;
     if (!amount.value) {
-      const gross = String(result.order.amount ?? "0"),
-        refunded = String(result.reporting?.refunded_amount ?? "0");
-      if (/^\d+$/.test(gross) && /^\d+$/.test(refunded))
-        amount.value = centsMoney(
-          (BigInt(gross) > BigInt(refunded)
-            ? BigInt(gross) - BigInt(refunded)
-            : 0n
-          ).toString(),
-        );
+      const remaining = orderRefundRemaining104({
+        ...result.order,
+        refunded_amount: result.reporting?.refunded_amount ?? "0",
+      });
+      if (remaining !== undefined)
+        amount.value = centsMoney(remaining.toString());
     }
     if (props.action === "api-refund" && result.order.status !== "paid") {
       error.value =
         "当前只有后台状态标记，尚无已核实的支付入账，不能进行 API 退款。";
+      return;
+    }
+    if (props.action === "api-refund" && result.charge_verified104 === false) {
+      error.value = "实际支付金额无法核对，请重新读取原订单";
       return;
     }
     if (props.action === "api-refund")

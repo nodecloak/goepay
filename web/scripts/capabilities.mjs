@@ -47,6 +47,7 @@ for (const area of ["admin", "merchant"]) {
           commerce = commerceFor(area, path);
         const identityLookup=area === "admin" && path === "/other/get-token";
         const referral=area === "merchant" && path === "/invite";
+ const subchannel=resource === "subchannels";
         const supported =
           resource ||
           report ||
@@ -69,7 +70,9 @@ for (const area of ["admin", "merchant"]) {
               ? "deferred"
               : "pending",
           resource: resource || undefined,
-          capabilities: identityLookup
+          capabilities: subchannel
+ ? ["owned-runtime-payment-subchannel-list", "original-account-version-restore", "subchannel-status-limits-weight-cas", "merchant-global-subchannel-roll-policy", "exact-child-order-and-csv-filter", "confirmed-once-protected-payment-test", "owned-existing-collection-code-link", ...(area === "admin" ? ["super-only-encrypted-account-create-replace-archive"] : [])]
+ : identityLookup
             ? ["read-session-bound-web-oauth-capabilities", "create-application-scoped-identity-authorization", "query-status-without-subject", "explicit-once-only-session-bound-reveal", "clear-sensitive-display-on-expiry-or-merchant-change", "explicit-independent-web-and-mini-application-profile", "super-own-once-only-alipay-application-authorization"]
             : referral
             ? ["owned-masked-promotion-token-and-expiry", "explicit-cas-rotate-and-revoke-once", "registration-bound-invitee-cursor-list", "original-fee-funded-reward-and-refund-derived-state", "issued-voided-refund-pending-statistics-not-balance", "promotion-prefill-stripped-before-router-explicit-otp-submit", "fee-capped-gross-basis-original-order-reward", "owned-proof-verified-daily-liability-cursor-queue"]
@@ -223,7 +226,9 @@ for (const area of ["admin", "merchant"]) {
                                 ]
                         : [],
           limitations:
-            identityLookup
+ subchannel
+ ? "已接入微信V2/V3与支付宝受信模板的真实-2账户选择、原账户全生命周期恢复、专用字段及双角色权限。原商户不创建/删除或编辑密钥；管理员为保留原单证据采用逻辑归档。只按实际child产品能力开放，未适配服务商/进件和加密写控制器未知行为不推定支持。当前policy与历史快照分离，缺来源明确不可用。"
+ : identityLookup
               ? "已接入直连微信/支付宝网页和小程序独立标识，以及super本人支付宝应用授权；均须显式应用档案与独立开关，本地simulation明确不可用。服务商/子商户、电商及原版加密行为仍未全量验收"
               : referral
               ? "支持手续费或毛额基数、原手续费封顶的即时奖励，以及原订单固定条款的次日入账队列；日结调度须独立显式启动，成功退款撤销整笔原奖励。利润基数、会员推广奖励与Pro按日重新汇总语义尚未恢复，不冒称原加密JSON完全兼容。"

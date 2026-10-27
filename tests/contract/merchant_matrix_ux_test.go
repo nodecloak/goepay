@@ -38,6 +38,10 @@ func TestMerchantMatrixUXOriginalModesTotalsPaginationAndExport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var auditsBefore int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM backoffice_audit`).Scan(&auditsBefore); err != nil {
+		t.Fatal(err)
+	}
 	today := time.Now().In(time.FixedZone("Asia/Shanghai", 8*3600)).Format("2006-01-02")
 	get := func(name, query, role, token string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("GET", "/console/v1/"+role+"/reports/"+name+"?from="+today+"&to="+today+"&"+query, nil)
@@ -111,7 +115,11 @@ func TestMerchantMatrixUXOriginalModesTotalsPaginationAndExport(t *testing.T) {
 		t.Fatalf("old report broken %d", w.Code)
 	}
 	var audits int
-	if e = pool.QueryRow(ctx, `SELECT count(*) FROM backoffice_audit`).Scan(&audits); e != nil || audits != 1 {
+	if e = pool.QueryRow(ctx, `SELECT count(*) FROM backoffice_audit`).Scan(&audits); e != nil || audits != auditsBefore+1 {
 		t.Fatalf("matrix reads wrote business state: %d %v", audits, e)
+	}
+	var exports int
+	if e = pool.QueryRow(ctx, `SELECT count(*) FROM backoffice_audit WHERE resource='reports/merchants-matrix' AND operation='export-csv'`).Scan(&exports); e != nil || exports != 1 {
+		t.Fatal("matrix export audit missing", exports, e)
 	}
 }

@@ -52,6 +52,15 @@ export function readTransferListRow(value: unknown) {
         throw Error();
       return v;
     };
+    const remark = Object.hasOwn(raw, "remark") ? raw.remark : "";
+    // Match the persisted transfer intent's text contract. In particular, a
+    // tab is valid original content and is safely rendered by Vue interpolation.
+    if (
+      typeof remark !== "string" ||
+      Array.from(remark).length > 32 ||
+      /[\u0000\r\n]/.test(remark)
+    )
+      throw Error();
     const identifier = id("id"),
       merchantID = id("merchant_id"),
       amount = centsMoney(raw.amount),
@@ -118,6 +127,10 @@ export function readTransferListRow(value: unknown) {
       fee,
       cost,
       createdAt,
+      remark,
+      // The provider's recorded time is independent of the current lifecycle.
+      // Missing time stays unknown even when the ledger records success.
+      payDate: text("pay_date") ? beijingTimestamp(text("pay_date")) : "未记录",
       state,
       status: labels[state]!,
       tone:

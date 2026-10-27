@@ -82,7 +82,9 @@ test("live settlement reserve is visible and admin rejection restores its termin
   test.skip(process.env.GOEPAY_LIVE_E2E !== "1", "Local seeded sandbox only");
   await login(page, "merchant");
   await page.goto("/merchant/settle/apply");
-  await page.getByRole("button", { name: "申请结算", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "申请提现", exact: true, level: 2 }),
+  ).toBeVisible();
   const recipientPanel = page.getByRole("group", { name: "结算收款资料" });
   await expect(recipientPanel).not.toContainText("正在读取收款配置");
   if (
@@ -125,13 +127,19 @@ test("live settlement reserve is visible and admin rejection restores its termin
   await page.getByRole("button", { name: "退出登录" }).click();
   await login(page, "admin");
   await page.goto("/admin/settle/list");
-  const row = page
-    .getByRole("row")
-    .filter({ has: page.getByRole("cell", { name: requestNo, exact: true }) });
+  const row = page.locator(`[data-settlement-id="${body.data.id}"]`);
   await expect(row).toBeVisible();
   await row.getByRole("button", { name: "拒绝", exact: true }).click();
   await page.getByRole("button", { name: "确认拒绝", exact: true }).click();
-  await expect(
-    row.getByRole("cell", { name: "rejected", exact: true }),
-  ).toBeVisible();
+  await expect(row.locator(".settlement-status")).toHaveText("结算失败");
+  await expect(row).toContainText("申请已拒绝");
+  const original = await page.request.get(
+    `/console/v1/admin/workflows/settlements?limit=100`,
+  );
+  expect(original.status()).toBe(200);
+  expect(
+    (await original.json()).data.items.find(
+      (r: { id: string }) => r.id === String(body.data.id),
+    )?.status,
+  ).toBe("rejected");
 });

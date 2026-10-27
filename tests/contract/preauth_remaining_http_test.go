@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/identity"
@@ -130,7 +131,9 @@ func TestPreauthRemaining75HTTPRealSignedTLSMandatoryGrantAndOriginalReadRecover
 				t.Fatal(e)
 			}
 			call := func(path, body, grant, csrfValue string) *httptest.ResponseRecorder {
-				r := httptest.NewRequest("POST", "/console/v1/"+role+path, strings.NewReader(body))
+				requestContext, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+				defer cancel()
+				r := httptest.NewRequest("POST", "/console/v1/"+role+path, strings.NewReader(body)).WithContext(requestContext)
 				r.Header.Set("Content-Type", "application/json")
 				r.Header.Set("X-CSRF-Token", csrfValue)
 				if grant != "" {

@@ -36,7 +36,7 @@ func (g guarded) ChannelSharingCapabilities() provider.ChannelSharingCapabilitie
 	return provider.ChannelSharingCapabilities{}
 }
 func (g guarded) ValidateChannelSharingReceiver(r provider.SharingReceiver, remove bool) error {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return ErrLiveDisabled
 	}
 	if p, ok := g.Provider.(provider.ChannelSharingReceiverValidator); ok {
@@ -51,7 +51,7 @@ func (g guarded) ChannelSharingRefundMode(method string) (string, error) {
 	return "", provider.ErrUnsupported
 }
 func (g guarded) ValidateChannelSharing(r provider.ChannelSharingRequest) error {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return ErrLiveDisabled
 	}
 	if p, ok := g.Provider.(provider.ChannelSharingProvider); ok {
@@ -60,7 +60,7 @@ func (g guarded) ValidateChannelSharing(r provider.ChannelSharingRequest) error 
 	return provider.ErrUnsupported
 }
 func (g guarded) BindChannelSharingReceiver(ctx context.Context, operation string, r provider.SharingReceiver) error {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return ErrLiveDisabled
 	}
 	if p, ok := g.Provider.(provider.ChannelSharingProvider); ok {
@@ -69,7 +69,7 @@ func (g guarded) BindChannelSharingReceiver(ctx context.Context, operation strin
 	return provider.ErrUnsupported
 }
 func (g guarded) UnbindChannelSharingReceiver(ctx context.Context, operation string, r provider.SharingReceiver) error {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return ErrLiveDisabled
 	}
 	if p, ok := g.Provider.(provider.ChannelSharingProvider); ok {
@@ -78,7 +78,7 @@ func (g guarded) UnbindChannelSharingReceiver(ctx context.Context, operation str
 	return provider.ErrUnsupported
 }
 func (g guarded) SubmitChannelSharing(ctx context.Context, r provider.ChannelSharingRequest) (provider.ChannelSharingResult, error) {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return provider.ChannelSharingResult{}, ErrLiveDisabled
 	}
 	if p, ok := g.Provider.(provider.ChannelSharingProvider); ok {
@@ -93,7 +93,7 @@ func (g guarded) QueryChannelSharing(ctx context.Context, r provider.ChannelShar
 	return provider.ChannelSharingResult{}, provider.ErrUnsupported
 }
 func (g guarded) ReturnChannelSharing(ctx context.Context, r provider.ChannelSharingReturnRequest) (provider.ChannelSharingReturnResult, error) {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return provider.ChannelSharingReturnResult{}, ErrLiveDisabled
 	}
 	if p, ok := g.Provider.(provider.ChannelSharingProvider); ok {
@@ -108,7 +108,7 @@ func (g guarded) QueryChannelSharingReturn(ctx context.Context, r provider.Chann
 	return provider.ChannelSharingReturnResult{}, provider.ErrUnsupported
 }
 func (g guarded) FinishChannelSharing(ctx context.Context, r provider.ChannelSharingFinishRequest) (provider.ChannelSharingFinishResult, error) {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return provider.ChannelSharingFinishResult{}, ErrLiveDisabled
 	}
 	if p, ok := g.Provider.(provider.ChannelSharingFinisher); ok {

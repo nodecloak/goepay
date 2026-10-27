@@ -283,6 +283,10 @@ func (s *Server) transferActionAudit(ctx context.Context, role string, session i
 // transferAPI is reached only after the shared merchant RSA authentication.
 func (s *Server) transferAPI(w http.ResponseWriter, r *http.Request, id int64, p compat.Params, route string) {
 	if route == "/api/transfer/balance" {
+		if e := s.Store.CheckMerchantAPI(r.Context(), id, "transfer"); e != nil {
+			s.wire(w, false, nil, "merchant transfer API unavailable")
+			return
+		}
 		s.transferRead(w, r, id, p, route)
 		return
 	}
@@ -317,7 +321,7 @@ func (s *Server) transferAPI(w http.ResponseWriter, r *http.Request, id int64, p
 			req.Title = req.Remark
 			req.Remark = ""
 		}
-		transfer, e := s.ProviderFlow.Transfer(r.Context(), id, channel, no, req)
+		transfer, e := s.ProviderFlow.TransferFromAPI(r.Context(), id, channel, no, req)
 		if transfer.ID == 0 {
 			s.wire(w, false, nil, "transfer rejected")
 			return

@@ -1,3 +1,4 @@
+import { openMerchantOrderDetails } from "./fixtures/merchant-order-navigation";
 import { test, expect } from "@playwright/test";
 const ok = (data: unknown, status = 200) => ({
   status,
@@ -192,7 +193,7 @@ test("preauthorization is displayed as unpaid until verified capture and offers 
     );
   });
   await page.goto("/merchant/trade/order");
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   const modal = page.getByRole("dialog", { name: "订单详情" });
   await expect(modal).toContainText("预授权已确认，尚未捕获付款");
   await expect(modal).toContainText("AUTH-NO");

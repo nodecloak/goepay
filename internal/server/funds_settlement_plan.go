@@ -60,6 +60,7 @@ func (s *Server) fundsSettlementPlan(ctx context.Context, q identity.FundsQuerie
 					GroupDisabled bool                              `json:"group_disabled"`
 					Policy        payment.SettlementThresholdPolicy `json:"policy"`
 				} `json:"threshold"`
+				SettlementPolicy  *payment.SettlementPolicy       `json:"settlement_policy"`
 				MerchantID        string                          `json:"merchant_id"`
 				RecipientConfigID string                          `json:"recipient_config_id"`
 				Recipient         payment.SettlementRecipientView `json:"recipient"`
@@ -89,6 +90,31 @@ func (s *Server) fundsSettlementPlan(ctx context.Context, q identity.FundsQuerie
 	summary["merchant_daily_limit"] = strconv.FormatInt(policy.DailyLimit, 10)
 	summary["plan_id"], summary["expected_revision"] = d.id, fmt.Sprint(expected)
 	summary["mode"] = "仅自动生成待审核申请及资金预留；不审批、不付款"
+	if approved.Plan.Mode == "generate_only" {
+		rules := make([]string, 0, len(approved.Scope.Merchants))
+		var common *int64
+		mixed := false
+		for _, merchant := range approved.Scope.Merchants {
+			current := approved.Scope.Policy
+			if merchant.SettlementPolicy != nil {
+				current = *merchant.SettlementPolicy
+			}
+			rules = append(rules, fmt.Sprintf("商户%s：%s%%", merchant.MerchantID, ledger.Format(current.FeeRateBPS)))
+			if common == nil {
+				rate := current.FeeRateBPS
+				common = &rate
+			} else if *common != current.FeeRateBPS {
+				mixed = true
+			}
+		}
+		summary["group_fee_rules"] = strings.Join(rules, "; ")
+		summary["fee_scope"] = "逐商户使用已授权有效组结算比例；保留原全局费用上下限、留存及每日限制"
+		if mixed {
+			summary["fee_rate_bps"] = "逐商户，见费率规则"
+		} else if common != nil {
+			summary["fee_rate_bps"] = strconv.FormatInt(*common, 10)
+		}
+	}
 	if approved.Plan.Mode == "balance_threshold" {
 		threshold := approved.Scope.Threshold
 		if threshold == nil || !threshold.Enabled {

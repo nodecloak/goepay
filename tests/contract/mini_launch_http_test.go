@@ -18,7 +18,19 @@ import (
 )
 
 func TestMiniLaunchHTTPMaterialsHaveOneUseBoundStateButNoPaymentAttempt(t *testing.T) {
+	runMiniLaunchHTTPMaterialsHaveOneUseBoundStateButNoPaymentAttemptWithOriginalGroupFixture(t, false)
+}
+func TestGroupRoutingUXHTTPMiniLaunchHTTPMaterialsHaveOneUseBoundStateButNoPaymentAttempt(t *testing.T) {
+	runMiniLaunchHTTPMaterialsHaveOneUseBoundStateButNoPaymentAttemptWithOriginalGroupFixture(t, true)
+}
+func TestChannel168MiniLaunchHTTPMaterialsHaveOneUseBoundStateButNoPaymentAttempt(t *testing.T) {
+	runMiniLaunchHTTPMaterialsHaveOneUseBoundStateButNoPaymentAttemptWithOriginalGroupFixture(t, true, installChannel168Fees)
+}
+func runMiniLaunchHTTPMaterialsHaveOneUseBoundStateButNoPaymentAttemptWithOriginalGroupFixture(t *testing.T, groupRouting bool, channelFees ...channel168FixturePolicy) {
 	s, pool, key := fixture(t)
+	if groupRouting {
+		installGroupRoutingEntrypointFixture152(t, s, map[string]string{"wxpay": "7", "alipay": "8"})
+	}
 	ctx := context.Background()
 	var calls atomic.Int32
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -43,6 +55,9 @@ func TestMiniLaunchHTTPMaterialsHaveOneUseBoundStateButNoPaymentAttempt(t *testi
 	s.ProviderFlow = &payment.ProviderFlow{Store: s.Store, AllowLive: true, CallbackBaseURL: "https://pay.example.invalid", Providers: map[int64]adapter.Provider{7: wx, 8: ali}}
 	s.MiniOAuthProviders = map[int64]adapter.MiniOAuthProvider{7: wxoauth, 8: ali}
 	s.MerchantChannels = map[int64][]int64{1: {7, 8}, 2: {7, 8}}
+	if len(channelFees) > 0 && channelFees[0] != nil {
+		applyChannel168Fixture(t, s, channelFees[0])
+	}
 	s.CheckoutKey = bytes.Repeat([]byte{9}, 32)
 	invoke := func(legacy bool, p compat.Params) map[string]any {
 		t.Helper()

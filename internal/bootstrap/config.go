@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"goepay/internal/payment"
+	"goepay/internal/riskgeo"
 	"os"
 )
 
@@ -35,6 +36,9 @@ func Connect(ctx context.Context) (*pgxpool.Pool, *payment.Store, error) {
 	if e != nil {
 		pool.Close()
 		return nil, nil, e
+	}
+	if v4, v6 := os.Getenv("GOEPAY_RISK_GEO_IPV4_XDB"), os.Getenv("GOEPAY_RISK_GEO_IPV6_XDB"); v4 != "" || v6 != "" {
+		store.CoreRiskGeo = riskgeo.XDB{IPv4Path: v4, IPv6Path: v6}
 	}
 	return pool, store, nil
 }

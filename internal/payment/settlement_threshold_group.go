@@ -62,9 +62,6 @@ func readSettlementThresholdMerchantPolicy(ctx context.Context, q referralReader
 	if out.GroupID < 0 || out.MerchantRevision <= 0 {
 		return out, ErrConflict
 	}
-	if out.GroupID == 0 {
-		return out, nil
-	}
 	if e = q.QueryRow(ctx, "SELECT body FROM backoffice_records WHERE resource='groups' AND id=$1", out.GroupID).Scan(&out.GroupBody); e != nil {
 		if errors.Is(e, pgx.ErrNoRows) {
 			return out, ErrConflict
@@ -74,6 +71,10 @@ func readSettlementThresholdMerchantPolicy(ctx context.Context, q referralReader
 	var body map[string]json.RawMessage
 	if json.Unmarshal(out.GroupBody, &body) != nil || body == nil {
 		return out, ErrInvalid
+	}
+	if enabled, exists := body["enabled"]; exists && string(enabled) != "true" {
+		out.GroupDisabled = true
+		return out, nil
 	}
 	open, e := thresholdGroupScalar(body["settle_open"])
 	if e != nil {

@@ -7,7 +7,10 @@ it("original public transfer search fields preserve exact method-independent mea
     ["biz_no", "交易号"],
     ["out_biz_no", "商户交易号"],
     ["pay_order_no", "接口交易号"],
+    ["account", "付款账号"],
+    ["username", "姓名"],
     ["money", "付款金额"],
+    ["desc", "备注"],
   ]);
 });
 it("transfer read links preserve original aliases long IDs and exact amount text", () => {
@@ -46,7 +49,7 @@ it("invalid transfer read links never become an unrestricted list", () => {
     { uid: "1", merchant_id: "2" },
     { uid: ["1", "2"] },
     { q: ["x", "y"] },
-    { column: "account", value: "private" },
+    { column: "unsupported-private", value: "private" },
     { column: "money", value: "1.001" },
     { column: "biz_no", search_field: "money" },
     { q: "x", value: "y" },

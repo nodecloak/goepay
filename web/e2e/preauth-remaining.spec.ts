@@ -1,3 +1,4 @@
+import { openMerchantOrderDetails } from "./fixtures/merchant-order-navigation";
 import { test, expect } from "@playwright/test";
 const ok = (data: unknown, status = 200) => ({
   status,
@@ -106,7 +107,7 @@ for (const width of [375, 1440])
       );
     });
     await page.goto("/merchant/trade/order");
-    await page.getByRole("button", { name: "详情", exact: true }).click();
+    await openMerchantOrderDetails(page);
     const modal = page.getByRole("dialog", { name: "订单详情" }),
       panel = page.getByRole("region", { name: "预授权原冻结与余款" });
     await panel

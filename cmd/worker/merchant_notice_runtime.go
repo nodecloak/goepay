@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"goepay/internal/adapters/adminnotice"
+	"goepay/internal/mailaccount195"
 	"goepay/internal/mailer"
 	notice "goepay/internal/merchantnotice"
 )
@@ -15,8 +16,9 @@ import (
 var errMerchantNoticeConfiguration = errors.New("merchant notice delivery configuration unavailable")
 
 type merchantNoticeRuntime struct {
-	store  *notice.Store
-	getenv func(string) string
+	mailAccounts mailAccountResolver195
+	store        *notice.Store
+	getenv       func(string) string
 }
 
 func newMerchantNoticeRuntime(pool *pgxpool.Pool, getenv func(string) string) (*merchantNoticeRuntime, error) {
@@ -38,7 +40,7 @@ func newMerchantNoticeRuntime(pool *pgxpool.Pool, getenv func(string) string) (*
 	if err != nil {
 		return nil, errMerchantNoticeConfiguration
 	}
-	return &merchantNoticeRuntime{store: store, getenv: getenv}, nil
+	return &merchantNoticeRuntime{store: store, getenv: getenv, mailAccounts: mailaccount195.FromMaster(pool, key)}, nil
 }
 func (r *merchantNoticeRuntime) ResolveMerchantNotice(ctx context.Context, kind notice.Transport, a notice.Account) (notice.Sender, error) {
 	if r == nil || r.getenv == nil || ctx == nil || ctx.Err() != nil {
@@ -64,6 +66,18 @@ func (r *merchantNoticeRuntime) ResolveMerchantNotice(ctx context.Context, kind 
 		}
 		return sender, nil
 	case notice.SMTP:
+		if r.mailAccounts != nil {
+			sender, managed, e := r.mailAccounts.ResolveSMTP(ctx)
+			if e != nil {
+				return nil, errMerchantNoticeConfiguration
+			}
+			if managed {
+				if sender == nil {
+					return nil, errMerchantNoticeConfiguration
+				}
+				return sender, nil
+			}
+		}
 		raw := r.getenv("GOEPAY_SMTP_PORT")
 		port, err := strconv.Atoi(raw)
 		if err != nil || strconv.Itoa(port) != raw {

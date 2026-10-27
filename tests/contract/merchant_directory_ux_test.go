@@ -70,6 +70,10 @@ func TestMerchantDirectoryUXOriginalFiltersAndSortAreServerEnforced(t *testing.T
 			t.Fatal(e)
 		}
 	}
+	var auditsBefore int
+	if e = pool.QueryRow(ctx, `SELECT count(*) FROM backoffice_audit`).Scan(&auditsBefore); e != nil {
+		t.Fatal(e)
+	}
 	for _, v := range []struct{ sort, want string }{{"money_desc", "2"}, {"money_asc", "1"}} {
 		w := get("order=" + v.sort + "&limit=1")
 		var out struct {
@@ -84,7 +88,7 @@ func TestMerchantDirectoryUXOriginalFiltersAndSortAreServerEnforced(t *testing.T
 		}
 	}
 	var audits int
-	if e = pool.QueryRow(ctx, `SELECT count(*) FROM backoffice_audit`).Scan(&audits); e != nil || audits != 0 {
+	if e = pool.QueryRow(ctx, `SELECT count(*) FROM backoffice_audit`).Scan(&audits); e != nil || audits != auditsBefore {
 		t.Fatalf("filter caused business write %d %v", audits, e)
 	}
 }

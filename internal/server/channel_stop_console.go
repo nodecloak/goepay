@@ -34,17 +34,16 @@ func (s *Server) channelStopConsole(w http.ResponseWriter, r *http.Request, role
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
+	if s.ProviderFlow == nil { response(w, 503, -1, "runtime channel catalog unavailable", nil); return true }
+	kinds, catalogErr := s.ProviderFlow.ConsoleChannelKinds(ctx)
+	if catalogErr != nil { s.fail(w, catalogErr); return true }
 	if len(p) == 2 && r.Method == "GET" {
 		if s.ProviderFlow == nil || len(s.ProviderFlow.Providers) > 1000 {
 			response(w, 503, -1, "runtime channel catalog unavailable", nil)
 			return true
 		}
 		ids := []int64{}
-		for id, provider := range s.ProviderFlow.Providers {
-			if id <= 0 || provider == nil {
-				response(w, 503, -1, "invalid runtime channel catalog", nil)
-				return true
-			}
+		for id := range kinds {
 			ids = append(ids, id)
 		}
 		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
@@ -59,7 +58,7 @@ func (s *Server) channelStopConsole(w http.ResponseWriter, r *http.Request, role
 				s.fail(w, e)
 				return true
 			}
-			items = append(items, item{status, s.ProviderFlow.Providers[id].ID()})
+			items = append(items, item{status, kinds[id]})
 		}
 		response(w, 200, 0, "runtime channel write states", map[string]any{"items": items})
 		return true
@@ -73,7 +72,7 @@ func (s *Server) channelStopConsole(w http.ResponseWriter, r *http.Request, role
 		response(w, 400, -1, "canonical channel required", nil)
 		return true
 	}
-	if s.ProviderFlow == nil || s.ProviderFlow.Providers[id] == nil {
+	if _, exists := kinds[id]; !exists {
 		response(w, 404, -1, "runtime channel not found", nil)
 		return true
 	}

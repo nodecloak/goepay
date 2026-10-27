@@ -38,7 +38,10 @@ func (s *Store) insertRefundResultEvidence(ctx context.Context, tx pgx.Tx, r Ref
 		return err
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO provider_refund_result_evidence(refund_id,operation_id,order_id,channel_id,amount,refund_no,prior_refund_state,prior_operation_state,state,proof_hash,source) VALUES($1,NULLIF($2::bigint,0),$3,NULLIF($4::bigint,0),$5,$6,$7,NULLIF($8::text,''),$9,$10,$11)`, p.RefundID, p.OperationID, p.OrderID, p.ChannelID, p.Amount, p.RefundNo, p.PriorRefundState, p.PriorOperationState, p.State, proof, p.Source)
-	return err
+	if err != nil {
+		return err
+	}
+	return s.captureRefundEvent201(ctx, tx, r, p, proof)
 }
 
 // Historical version 1 refunds are grandfathered explicitly. All new terminal

@@ -86,7 +86,7 @@ func testRejectHistoricalSharingDeclaration(t *testing.T, resetStatus bool) {
 	if e != nil || !owner {
 		t.Fatal(a, owner, e)
 	}
-	if e = s.markPaid(ctx, o.TradeNo, "historical-paid", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "LOCAL_HISTORICAL_PAYMENT"}); e != nil {
+	if e = s.markPaid(ctx, o.TradeNo, "historical-paid", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "LOCAL_HISTORICAL_PAYMENT"}); e != nil {
 		t.Fatal(e)
 	}
 	if resetStatus {

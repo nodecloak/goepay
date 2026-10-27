@@ -12,8 +12,13 @@ import (
 )
 
 func TestMerchantAccountProfileKeysAndPassword(t *testing.T) {
-	s, _, _ := fixture(t)
-	token, csrf, e := s.Sessions.Create(identity.User{Username: "merchant", ID: 1, Name: "Merchant", Role: "merchant"})
+	s, pool, _ := fixture(t)
+	s.Sessions = identity.NewPersistentSessions(pool, false)
+	var version int64
+	if e := pool.QueryRow(t.Context(), `SELECT auth_version FROM console_users WHERE username='merchant' AND role='merchant'`).Scan(&version); e != nil {
+		t.Fatal(e)
+	}
+	token, csrf, e := s.Sessions.Create(identity.User{Username: "merchant", ID: 1, Name: "Merchant", Role: "merchant", AuthVersion: version})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -22,6 +27,7 @@ func TestMerchantAccountProfileKeysAndPassword(t *testing.T) {
 		r := httptest.NewRequest(method, "/console/v1/merchant/account/"+path, bytes.NewBufferString(body))
 		r.AddCookie(&http.Cookie{Name: "goepay_merchant", Value: token})
 		r.Header.Set("X-CSRF-Token", csrf)
+		r.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		s.Handler().ServeHTTP(w, r)
 		var out map[string]any
@@ -48,8 +54,14 @@ func TestMerchantAccountProfileKeysAndPassword(t *testing.T) {
 		t.Fatal(out)
 	}
 	code, _ = request("POST", "api-key/rotate", `{"current_password":"wrong"}`)
-	if code != 401 {
-		t.Fatal("wrong current password rotated key")
+	if code != 422 {
+		t.Fatal("wrong current password must remain retryable in the same valid session", code)
+	}
+	if merchant, e := s.Store.Merchant(t.Context(), 1); e != nil || merchant.APIKey != "contract-secret" {
+		t.Fatal("wrong current password changed the key", e)
+	}
+	if _, ok := s.Sessions.Get(token, "merchant"); !ok {
+		t.Fatal("wrong current password revoked the original valid session")
 	}
 	code, out = request("POST", "api-key/rotate", `{"current_password":"contract-password-123"}`)
 	if code != 200 {
@@ -75,14 +87,20 @@ func TestMerchantAccountProfileKeysAndPassword(t *testing.T) {
 	}
 }
 func TestAdminPasswordChangeRevokesSession(t *testing.T) {
-	s, _, _ := fixture(t)
-	token, csrf, e := s.Sessions.Create(identity.User{Username: "admin", ID: 1, Name: "Admin", Role: "admin"})
+	s, pool, _ := fixture(t)
+	s.Sessions = identity.NewPersistentSessions(pool, false)
+	var version int64
+	if e := pool.QueryRow(t.Context(), `SELECT auth_version FROM console_users WHERE username='admin' AND role='admin'`).Scan(&version); e != nil {
+		t.Fatal(e)
+	}
+	token, csrf, e := s.Sessions.Create(identity.User{Username: "admin", ID: 1, Name: "Admin", Role: "admin", AdminClass: "super", AuthVersion: version})
 	if e != nil {
 		t.Fatal(e)
 	}
 	r := httptest.NewRequest("POST", "/console/v1/admin/account/password", strings.NewReader(`{"current_password":"contract-password-123","new_password":"new-admin-password-123"}`))
 	r.AddCookie(&http.Cookie{Name: "goepay_admin", Value: token})
 	r.Header.Set("X-CSRF-Token", csrf)
+	r.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, r)
 	if w.Code != 200 {

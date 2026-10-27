@@ -234,14 +234,15 @@ func (s *Server) cleanup(w http.ResponseWriter, r *http.Request, session identit
 		response(w, 400, -1, "cutoff must be 1 to 365 days ago", nil)
 		return
 	}
-	s.mu.Lock()
+	limits := s.sharedRequestLimits()
+	limits.mu.Lock()
 	count := 0
-	for _, v := range s.attempts {
+	for _, v := range limits.attempts {
 		if !v.since.After(cutoff) {
 			count++
 		}
 	}
-	s.mu.Unlock()
+	limits.mu.Unlock()
 	var throttleCount int64
 	if err = s.Pool.QueryRow(r.Context(), "SELECT count(*) FROM console_login_throttle WHERE updated_at<=$1", cutoff).Scan(&throttleCount); err != nil {
 		s.fail(w, err)
@@ -265,13 +266,13 @@ func (s *Server) cleanup(w http.ResponseWriter, r *http.Request, session identit
 			err = tx.Commit(r.Context())
 		}
 		if err == nil {
-			s.mu.Lock()
-			for k, v := range s.attempts {
+			limits.mu.Lock()
+			for k, v := range limits.attempts {
 				if !v.since.After(cutoff) {
-					delete(s.attempts, k)
+					delete(limits.attempts, k)
 				}
 			}
-			s.mu.Unlock()
+			limits.mu.Unlock()
 		}
 	}
 	if err != nil {

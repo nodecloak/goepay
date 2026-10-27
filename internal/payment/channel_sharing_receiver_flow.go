@@ -77,9 +77,14 @@ func (s *Store) sharingReceiverBindingMatches(record sharingReceiverRecord, b ch
 	return e == nil && pe == nil && b.MerchantID == record.Binding.MerchantID && b.ChannelID == record.Binding.ChannelID && b.Provider == record.Binding.Provider && b.AppID == record.Binding.AppID && b.Product == record.Binding.Product && hmac.Equal(hash, record.AccountHash) && hmac.Equal(physical, record.RelationAccountHash)
 }
 func (g ProviderFlow) CreateChannelSharingReceiver(ctx context.Context, mid, channel int64, no string, input adapter.SharingReceiver, actor TransferBatchActor) (ChannelSharingReceiverView, error) {
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return ChannelSharingReceiverView{}, ErrLiveDisabled
 	}
+	resolved, resolveErr := g.parentCurrentChannel(ctx, mid, channel)
+	if resolveErr != nil {
+		return ChannelSharingReceiverView{}, resolveErr
+	}
+	g = resolved
 	p, b, e := g.sharingChannel(mid, channel)
 	if e != nil {
 		return ChannelSharingReceiverView{}, e
@@ -91,7 +96,7 @@ func (g ProviderFlow) CreateChannelSharingReceiver(ctx context.Context, mid, cha
 	if e = validator.ValidateChannelSharingReceiver(input, false); e != nil {
 		return ChannelSharingReceiverView{}, e
 	}
-	return g.Store.createChannelSharingReceiver(ctx, b, no, input, actor)
+	return g.Store.createChannelSharingReceiver(ctx, b, no, input, actor, g.parentBindings[channel])
 }
 
 type sharingRelationRecord struct {
@@ -127,7 +132,14 @@ func sameSharingRelationConfiguration(a, b sharingReceiverRecord) bool {
 		hmac.Equal(a.AccountHash, b.AccountHash) && hmac.Equal(a.RelationAccountHash, b.RelationAccountHash) &&
 		hmac.Equal(a.RelationHash, b.RelationHash) && hmac.Equal(a.RelationAuthHash, b.RelationAuthHash)
 }
-func (s *Store) claimSharingReceiverOperation(ctx context.Context, mid, id int64, no, action string, b channelSharingBinding, actor TransferBatchActor) (ChannelSharingReceiverOperation, adapter.SharingReceiver, bool, error) {
+func (s *Store) claimSharingReceiverOperation(ctx context.Context, mid, id int64, no, action string, b channelSharingBinding, actor TransferBatchActor, parents ...*parentExecutionBinding) (ChannelSharingReceiverOperation, adapter.SharingReceiver, bool, error) {
+	if len(parents) > 1 {
+		return ChannelSharingReceiverOperation{}, adapter.SharingReceiver{}, false, ErrInvalid
+	}
+	var parent *parentExecutionBinding
+	if len(parents) == 1 {
+		parent = parents[0]
+	}
 	var input adapter.SharingReceiver
 	var op ChannelSharingReceiverOperation
 	if !actor.valid(mid) || !channelSharingExternalNo.MatchString(no) || action != "bind" && action != "unbind" {
@@ -157,6 +169,14 @@ func (s *Store) claimSharingReceiverOperation(ctx context.Context, mid, id int64
 	var enabled bool
 	if e = tx.QueryRow(ctx, "SELECT enabled FROM merchants WHERE id=$1 FOR SHARE", mid).Scan(&enabled); e != nil || !enabled {
 		return op, input, false, ErrState
+	}
+	if parent != nil {
+		if e = parentChannelLock(ctx, tx, b.ChannelID); e != nil {
+			return op, input, false, e
+		}
+		if e = s.checkParentRuntimeWriteTx(ctx, tx, parent, mid, b.ChannelID); e != nil {
+			return op, input, false, e
+		}
 	}
 	record, e = scanSharingReceiver(tx.QueryRow(ctx, "SELECT "+sharingReceiverColumns+" FROM channel_sharing_receivers WHERE merchant_id=$1 AND id=$2 FOR UPDATE", mid, id))
 	if e != nil {
@@ -324,6 +344,9 @@ func (s *Store) claimSharingReceiverOperation(ctx context.Context, mid, id int64
 		}
 		op.State = "succeeded"
 	}
+	if e = s.checkParentRuntimeWriteTx(ctx, tx, parent, mid, b.ChannelID); e != nil {
+		return op, input, false, e
+	}
 	if e = tx.Commit(ctx); e != nil {
 		return op, input, false, e
 	}
@@ -412,6 +435,12 @@ func (s *Store) resolveSharingReceiverOperation(ctx context.Context, mid int64, 
 	return tx.Commit(ctx)
 }
 func (g ProviderFlow) receiverBeforeIO(ctx context.Context, mid, id int64, expected channelSharingBinding) (adapter.ChannelSharingProvider, error) {
+	if !g.paymentWritesEnabled() {
+		return nil, ErrLiveDisabled
+	}
+	if e := g.checkParentTransferWrite(ctx, Transfer{MerchantID: mid, ChannelID: expected.ChannelID}); e != nil {
+		return nil, e
+	}
 	p, b, e := g.sharingChannel(mid, expected.ChannelID)
 	if e != nil {
 		return nil, e
@@ -430,7 +459,7 @@ func (g ProviderFlow) receiverBeforeIO(ctx context.Context, mid, id int64, expec
 	return p, nil
 }
 func (g ProviderFlow) receiverOperation(ctx context.Context, mid, id int64, no, action string, actor TransferBatchActor) (ChannelSharingReceiverView, error) {
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return ChannelSharingReceiverView{}, ErrLiveDisabled
 	}
 	if g.Store == nil || !actor.valid(mid) {
@@ -440,6 +469,11 @@ func (g ProviderFlow) receiverOperation(ctx context.Context, mid, id int64, no, 
 	if e != nil {
 		return ChannelSharingReceiverView{}, e
 	}
+	resolved, resolveErr := g.parentReceiverIntent(ctx, record)
+	if resolveErr != nil {
+		return ChannelSharingReceiverView{}, resolveErr
+	}
+	g = resolved
 	p, b, e := g.sharingChannel(mid, record.Binding.ChannelID)
 	if e != nil {
 		return ChannelSharingReceiverView{}, e
@@ -458,7 +492,7 @@ func (g ProviderFlow) receiverOperation(ctx context.Context, mid, id int64, no, 
 	if e = validator.ValidateChannelSharingReceiver(input, action == "unbind"); e != nil {
 		return ChannelSharingReceiverView{}, e
 	}
-	op, input, owner, e := g.Store.claimSharingReceiverOperation(ctx, mid, id, no, action, b, actor)
+	op, input, owner, e := g.Store.claimSharingReceiverOperation(ctx, mid, id, no, action, b, actor, g.parentBindings[b.ChannelID])
 	if e != nil {
 		return ChannelSharingReceiverView{}, e
 	}

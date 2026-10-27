@@ -14,7 +14,7 @@ import (
 // Positive delay asks the caller to reschedule; zero means this chain is done.
 // It never holds a database transaction while waiting for an upstream.
 func (g ProviderFlow) ExecuteScanRecovery(ctx context.Context, jobID int64, token string) (time.Duration, error) {
-	if !g.AllowLive || !g.ScanRecoveryEnabled {
+	if !g.paymentWritesEnabled() || !g.ScanRecoveryEnabled {
 		return 0, ErrLiveDisabled
 	}
 	if g.Store == nil || ctx == nil || ctx.Err() != nil {
@@ -25,6 +25,10 @@ func (g ProviderFlow) ExecuteScanRecovery(ctx context.Context, jobID int64, toke
 		return 0, e
 	}
 	source := plan.source
+	g, e = g.forPaymentTrade(ctx, source.TradeNo, source.ChannelID)
+	if e != nil {
+		return 0, e
+	}
 	p := g.Providers[source.ChannelID]
 	if p == nil || p.ID() != source.Provider {
 		return 0, adapter.ErrUnsupported
@@ -76,7 +80,7 @@ func (g ProviderFlow) ExecuteScanRecovery(ctx context.Context, jobID int64, toke
 		if result.ProviderTradeNo == "" {
 			return 0, adapter.ErrAuthentication
 		}
-		return 0, g.Store.markPaid(ctx, source.TradeNo, fmt.Sprintf("provider-scan-recovery:%d:%s", source.ChannelID, result.ProviderTradeNo), true, PaidReceipt{ChannelID: source.ChannelID, ProviderTradeNo: result.ProviderTradeNo, BuyerID: result.BuyerID})
+		return 0, g.Store.markPaid(ctx, source.TradeNo, fmt.Sprintf("provider-scan-recovery:%d:%s", source.ChannelID, result.ProviderTradeNo), true, PaidReceipt{RealMoney: result.Amount, ChannelID: source.ChannelID, ProviderTradeNo: result.ProviderTradeNo, BuyerID: result.BuyerID})
 	default:
 		if !scanQueryPending(source.Provider, result.State) {
 			return 0, nil

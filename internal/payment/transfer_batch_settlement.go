@@ -10,6 +10,12 @@ import (
 // sendClaimedTransfer shares the original verified result/ledger rules for
 // single and batch transfers. The caller already owns a durable send barrier.
 func (g ProviderFlow) sendClaimedTransfer(ctx context.Context, t Transfer, tp adapter.TransferProvider) (Transfer, error) {
+	if !g.paymentWritesEnabled() {
+		return t, ErrLiveDisabled
+	}
+	if e := g.checkParentTransferWrite(ctx, t); e != nil {
+		return t, e
+	}
 	if e := g.Store.checkChannelWrite(ctx, t.ChannelID); e != nil {
 		return t, e
 	}

@@ -6,7 +6,7 @@ import (
 )
 
 func (g guarded) ValidateScan(r provider.ScanRequest) error {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return ErrLiveDisabled
 	}
 	p, ok := g.Provider.(provider.ScanValidator)
@@ -16,7 +16,7 @@ func (g guarded) ValidateScan(r provider.ScanRequest) error {
 	return p.ValidateScan(r)
 }
 func (g guarded) Scan(ctx context.Context, r provider.ScanRequest) (provider.PaymentEvent, error) {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return provider.PaymentEvent{}, ErrLiveDisabled
 	}
 	p, ok := g.Provider.(provider.ScanProvider)
@@ -40,7 +40,7 @@ func (g guarded) CanCancelScan() bool {
 }
 
 func (g guarded) ValidateScanCancellation(r provider.ScanCancellationRequest) error {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return ErrLiveDisabled
 	}
 	p, ok := g.Provider.(provider.ScanCancellationProvider)
@@ -51,7 +51,7 @@ func (g guarded) ValidateScanCancellation(r provider.ScanCancellationRequest) er
 }
 
 func (g guarded) CancelScan(ctx context.Context, r provider.ScanCancellationRequest) (provider.ScanCancellationResult, error) {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return provider.ScanCancellationResult{}, ErrLiveDisabled
 	}
 	p, ok := g.Provider.(provider.ScanCancellationProvider)

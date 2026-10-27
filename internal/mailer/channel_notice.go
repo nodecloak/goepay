@@ -26,6 +26,6 @@ func (s *SMTP) SendChannelStopped(ctx context.Context, to string, channel, event
 		encoded = encoded[76:]
 	}
 	lines.WriteString(encoded + "\r\n")
-	message := []byte(fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n%s", s.from, to, mime.BEncoding.Encode("UTF-8", "支付通道异常停用通知"), time.Now().UTC().Format(time.RFC1123Z), lines.String()))
+	message := []byte(fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n%s", s.headerFrom(), to, mime.BEncoding.Encode("UTF-8", "支付通道异常停用通知"), time.Now().UTC().Format(time.RFC1123Z), lines.String()))
 	return s.send(ctx, to, message)
 }

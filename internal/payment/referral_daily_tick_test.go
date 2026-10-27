@@ -70,7 +70,7 @@ func TestReferralDaily70TickOnceAndQueueOriginalBinding(t *testing.T) {
 	if r, e := s.tickReferralDailyAt(ctx, future, 10, clock); e != nil || r.Awarded != 0 {
 		t.Fatal("daily retry repeated award", r, e)
 	}
-	if e = s.markPaid(ctx, o.TradeNo, "daily70-after-award", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); e != nil {
+	if e = s.markPaid(ctx, o.TradeNo, "daily70-after-award", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); e != nil {
 		t.Fatal("duplicate callback rejected valid deferred award", e)
 	}
 }

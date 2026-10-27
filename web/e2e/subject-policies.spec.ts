@@ -1,3 +1,4 @@
+import { publicSiteFixture191 } from "./fixtures/site191";
 import { test, expect } from "@playwright/test";
 const ok = (data: unknown) => ({
   status: 200,
@@ -10,7 +11,14 @@ test("subject policy supplemental entry uses its actual schema and operator dire
   let adminClass = "operator",
     reads = 0;
   await page.route("**/console/v1/**", (route) => {
+    const siteReply191 = publicSiteFixture191(route);
+    if (siteReply191) return siteReply191;
     const p = new URL(route.request().url()).pathname;
+    if (p === "/console/v1/public/layout") {
+      expect(route.request().method()).toBe("GET");
+      expect(new URL(route.request().url()).search).toBe("");
+      return route.fulfill(ok({ zhuce: "", footer: "", format: "html" }));
+    }
     if (p.endsWith("/session"))
       return route.fulfill(
         ok({

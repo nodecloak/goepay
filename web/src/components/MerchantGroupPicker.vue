@@ -17,20 +17,23 @@ const items = ref<Group[]>([]),
   loading = ref(false),
   loadError = ref(""),
   selectedName = ref(""),
+  defaultName = ref("默认用户组"),
   namedID = ref(""),
   searchAvailable = ref(false);
 const limit = 100,
   current = computed(() =>
-    typeof props.value === "string"
-      ? props.value
-      : props.value == null
-        ? ""
-        : String(props.value),
+    props.value === "0" || props.value === 0
+      ? ""
+      : typeof props.value === "string"
+        ? props.value
+        : props.value == null
+          ? ""
+          : String(props.value),
   ),
   dirty = computed(() => query.value !== applied.value);
 const validID = (value: unknown): value is string =>
   typeof value === "string" &&
-  /^[1-9]\d{0,18}$/.test(value) &&
+  /^(0|[1-9]\d{0,18})$/.test(value) &&
   BigInt(value) <= 9223372036854775807n;
 function group(raw: unknown): Group {
   const v = raw as Group | null;
@@ -135,7 +138,9 @@ async function load() {
     const parsed = data.items.map(group);
     if (new Set(parsed.map((g) => g.id)).size !== parsed.length)
       throw Error("用户组列表含重复编号，请重试");
-    items.value = parsed;
+    const defaultGroup = parsed.find((g) => g.id === "0");
+    if (defaultGroup) defaultName.value = defaultGroup.name;
+    items.value = parsed.filter((g) => g.id !== "0");
     total.value = data.total;
     if (data.total > limit) searchAvailable.value = true;
     const selected = parsed.find((g) => g.id === current.value);
@@ -183,6 +188,7 @@ watch(
     query.value = "";
     applied.value = "";
     selectedName.value = "";
+    defaultName.value = "默认用户组";
     namedID.value = "";
     searchAvailable.value = false;
     await load();
@@ -215,7 +221,7 @@ onBeforeUnmount(() => {
       :aria-describedby="error ? 'merchant-group-error' : 'merchant-group-help'"
       @change="choose"
     >
-      <option value="">默认用户组</option>
+      <option value="">{{ defaultName }}</option>
       <option
         v-if="current && !items.some((g) => g.id === current)"
         :value="current"

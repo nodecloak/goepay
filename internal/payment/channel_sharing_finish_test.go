@@ -38,6 +38,10 @@ func newSharingFinishFixture(t *testing.T) *sharingFinishFixture {
 }
 func sharingFinishFixtureForOrder(t *testing.T, base *sharingExecutionFixture, o Order) *sharingFinishFixture {
 	t.Helper()
+	charge104, chargeErr104 := base.Store.AuthenticatedOrderCharge104(t.Context(), o)
+	if chargeErr104 != nil {
+		t.Fatal(chargeErr104)
+	}
 	f := &sharingFinishFixture{sharingExecutionFixture: base, Order: o, requests: map[string]string{}}
 	merchant, _ := rsa.GenerateKey(rand.Reader, 2048)
 	platform, _ := rsa.GenerateKey(rand.Reader, 2048)
@@ -87,7 +91,7 @@ func sharingFinishFixtureForOrder(t *testing.T, base *sharingExecutionFixture, o
 				w.WriteHeader(400)
 				return
 			}
-			state, result, account, amount := "PROCESSING", "PENDING", "original-mch", o.Amount
+			state, result, account, amount := "PROCESSING", "PENDING", "original-mch", charge104
 			phase := f.Phase.Load()
 			if phase != 0 {
 				state, result = "FINISHED", "SUCCESS"

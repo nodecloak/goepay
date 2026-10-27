@@ -20,7 +20,7 @@ import (
 // program. The separate, one-use SDK-code exchange proves the payer later.
 func (s *Server) miniLaunchChannelReady(mid, channel int64) (provider.MiniLaunchProvider, provider.MiniProgramConfig, string, bool) {
 	var empty provider.MiniProgramConfig
-	if s.Sandbox || s.Store == nil || s.Pool == nil || len(s.CheckoutKey) < 32 || s.ProviderFlow == nil || !s.ProviderFlow.AllowLive || s.ProviderFlow.LocalSimulation || !validOAuthOrigin(s.ProviderFlow.CallbackBaseURL) {
+	if !s.paymentExecutionWriteAllowed() || s.Store == nil || s.Pool == nil || len(s.CheckoutKey) < 32 || s.ProviderFlow == nil || !s.ProviderFlow.AllowLive || s.ProviderFlow.LocalSimulation || !validOAuthOrigin(s.ProviderFlow.CallbackBaseURL) {
 		return nil, empty, "", false
 	}
 	allowed := false
@@ -65,6 +65,9 @@ func (s *Server) miniLaunchChannelReady(mid, channel int64) (provider.MiniLaunch
 }
 
 func (s *Server) miniLaunchBindingReady(ctx context.Context, b payment.MiniLaunchBinding) (provider.MiniLaunchProvider, bool) {
+	if s.ProviderFlow == nil || s.ProviderFlow.CheckParentIdentityAdmission(ctx, b.MerchantID, b.ChannelID) != nil {
+		return nil, false
+	}
 	p, metadata, method, ok := s.miniLaunchChannelReady(b.MerchantID, b.ChannelID)
 	if !ok || b.Provider != s.ProviderFlow.Providers[b.ChannelID].ID() || b.AppID != metadata.AppID || b.Path != metadata.Path || b.Method != method || b.Purpose != "mini-payment" {
 		return nil, false
@@ -148,6 +151,17 @@ func (s *Server) miniLaunchCreate(w http.ResponseWriter, r *http.Request, legacy
 }
 
 func (s *Server) issueMiniLaunch(ctx context.Context, p provider.MiniLaunchProvider, b payment.MiniLaunchBinding, amount int64) (provider.CreateResult, error) {
+	o, e := s.Store.OrderByTradeNo(ctx, b.TradeNo)
+	if e != nil {
+		return provider.CreateResult{}, e
+	}
+	if o.MerchantID != b.MerchantID {
+		return provider.CreateResult{}, payment.ErrConflict
+	}
+	amount, e = s.Store.AuthenticatedOrderCharge104(ctx, o)
+	if e != nil {
+		return provider.CreateResult{}, e
+	}
 	state, e := s.Store.IssueMiniState(ctx, b)
 	if e != nil {
 		return provider.CreateResult{}, e
@@ -165,6 +179,12 @@ func (s *Server) miniLaunchCheckout(w http.ResponseWriter, r *http.Request, o pa
 		http.Error(w, "mini payment unavailable", 503)
 		return true
 	}
+	resolved, resolveErr := s.withParentRuntime(r.Context(), o.MerchantID, o.OutTradeNo)
+	if resolveErr != nil {
+		http.Error(w, "mini payment unavailable", 503)
+		return true
+	}
+	s = resolved
 	if _, e = s.Store.ProviderAttempt(r.Context(), o.TradeNo); e == nil {
 		return false
 	} else if !errors.Is(e, payment.ErrNotFound) {
@@ -180,12 +200,23 @@ func (s *Server) miniLaunchCheckout(w http.ResponseWriter, r *http.Request, o pa
 		}
 		return true
 	}
+	resolved, resolveErr = s.originalOrderServer(r.Context(), b.TradeNo, b.ChannelID)
+	if resolveErr != nil {
+		http.Error(w, "mini payment unavailable", 503)
+		return true
+	}
+	s = resolved
 	p, ok := s.miniLaunchBindingReady(r.Context(), b)
 	if !ok {
 		http.Error(w, "mini payment unavailable", 503)
 		return true
 	}
-	material, e := s.issueMiniLaunch(r.Context(), p, b, o.Amount)
+	charge104, e := s.Store.AuthenticatedOrderCharge104(r.Context(), o)
+	if e != nil {
+		http.Error(w, "mini payment amount unavailable", 503)
+		return true
+	}
+	material, e := s.issueMiniLaunch(r.Context(), p, b, charge104)
 	if e != nil {
 		http.Error(w, "mini payment requires a fresh payment query", 409)
 		return true
@@ -194,7 +225,7 @@ func (s *Server) miniLaunchCheckout(w http.ResponseWriter, r *http.Request, o pa
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'")
-	if !s.pageTemplateOpen(w, r, "pay", pagetemplate.Page{Title: "小程序支付", TradeNo: o.TradeNo, Amount: ledger.Format(o.Amount), OrderName: o.Name, Sandbox: s.Sandbox}, nil) {
+	if !s.pageTemplateOpen(w, r, "pay", pagetemplate.Page{Title: "小程序支付", TradeNo: o.TradeNo, Amount: ledger.Format(charge104), OrderName: o.Name, Sandbox: s.Sandbox}, nil) {
 		return true
 	}
 	if material.MaterialType == "urlscheme" && o.Type == "alipay" {

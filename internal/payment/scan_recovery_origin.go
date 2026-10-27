@@ -104,6 +104,14 @@ func (s *Store) bindAttemptRecoveryAccount(ctx context.Context, tx pgx.Tx, id in
 	if !enabled || v.Provider != recovery.Provider || len(v.RequestIdentityHash) != 32 {
 		return ErrConflict
 	}
+	o, e := scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE id=$1", v.OrderID))
+	if e != nil {
+		return e
+	}
+	v.Amount, e = s.authenticatedChargeValue104(ctx, tx, o)
+	if e != nil {
+		return e
+	}
 	v.ExpiresAt = v.CreatedAt.Add(120 * time.Second)
 	v.ProofHash, e = s.scanRecoveryProof(v)
 	if e != nil {
@@ -150,8 +158,23 @@ func (s *Store) readScanRecoveryOrigin(ctx context.Context, q fundsReader, id in
 	if e != nil || !hmac.Equal(proof, v.ProofHash) {
 		return v, ErrConflict
 	}
+	reader, ok := q.(referralReader)
+	if !ok {
+		return v, ErrInvalid
+	}
+	o, e := scanOrder(q.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE id=$1", v.OrderID))
+	if e != nil {
+		return v, e
+	}
+	charge, e := s.authenticatedChargeValue104(ctx, reader, o)
+	if e != nil {
+		return v, e
+	}
+	if charge != v.Amount {
+		return v, ErrConflict
+	}
 	var original, audited bool
-	e = q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM provider_attempts p JOIN orders o ON o.id=p.order_id JOIN provider_attempt_identities i ON i.attempt_id=p.id WHERE p.id=$1 AND p.method='scan' AND p.channel_id=$2 AND (o.id,o.merchant_id,o.trade_no,o.type,o.amount)=($3,$4,$5,$6,$7) AND i.request_hash=$8),
+	e = q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM provider_attempts p JOIN orders o ON o.id=p.order_id JOIN provider_attempt_identities i ON i.attempt_id=p.id WHERE p.id=$1 AND p.method='scan' AND p.channel_id=$2 AND (o.id,o.merchant_id,o.trade_no,o.type,COALESCE((to_jsonb(o)->>'actual_charge_amount104')::bigint,o.amount))=($3,$4,$5,$6,$7) AND i.request_hash=$8),
  (SELECT count(*)=1 AND count(*) FILTER(WHERE actor_role='system' AND actor_id=0 AND actor_name='scan-recovery' AND operation='create' AND changes=$9::jsonb)=1 FROM backoffice_audit WHERE resource='scan-recovery-origins' AND resource_id=$1)`, id, v.ChannelID, v.OrderID, v.MerchantID, v.TradeNo, v.Provider, v.Amount, v.RequestIdentityHash, scanRecoveryAudit(v)).Scan(&original, &audited)
 	if e != nil {
 		return v, e

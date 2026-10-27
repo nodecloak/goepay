@@ -11,6 +11,9 @@ import (
 // MerchantAllowlist validates the explicit merchant/channel admission shared by
 // the API and the independent automatic payout executor. It performs no I/O.
 func MerchantAllowlist(raw string, providers map[int64]adapter.Provider) (map[int64][]int64, error) {
+	return merchantAllowlistRegistered(raw, func(id int64) bool { _, ok := providers[id]; return ok })
+}
+func merchantAllowlistRegistered(raw string, registered func(int64) bool) (map[int64][]int64, error) {
 	if len(raw) == 0 || len(raw) > 64<<10 {
 		return nil, ErrImport
 	}
@@ -42,7 +45,7 @@ func MerchantAllowlist(raw string, providers map[int64]adapter.Provider) (map[in
 		}
 		seen := map[int64]bool{}
 		for _, channel := range channels {
-			if _, exists := providers[channel]; channel <= 0 || !exists || seen[channel] {
+			if channel <= 0 || !registered(channel) || seen[channel] {
 				return nil, ErrImport
 			}
 			seen[channel] = true

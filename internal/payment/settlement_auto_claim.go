@@ -164,9 +164,14 @@ func (g ProviderFlow) executeSettlementAuto(ctx context.Context, id, expectedAut
 	if g.Store == nil || id <= 0 {
 		return SettlementPayout{}, ErrInvalid
 	}
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return SettlementPayout{}, ErrLiveDisabled
 	}
+	resolved, resolveErr := g.parentSettlementRuntime(ctx, id, 0)
+	if resolveErr != nil {
+		return SettlementPayout{}, resolveErr
+	}
+	g = resolved
 	tx, e := g.Store.pool.Begin(ctx)
 	if e != nil {
 		return SettlementPayout{}, e

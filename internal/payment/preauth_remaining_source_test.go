@@ -28,7 +28,7 @@ func remainingSourceGuard75(t *testing.T, s *Store) context.Context {
 func TestPreauthRemaining75SourceRevisionsKeepOriginalUAAndClaimExactlyOneBoundRemainder(t *testing.T) {
 	s, g, o, token, p := observationFixture68(t)
 	ctx := context.Background()
-	q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("c", 64)}, token, "merchant", observationCheck68)
+	q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("c", 64)}, token, "merchant", observationCheck68, observationCheckTx68)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -45,7 +45,7 @@ func TestPreauthRemaining75SourceRevisionsKeepOriginalUAAndClaimExactlyOneBoundR
 		t.Fatal("remaining intent failed to block capture", owner, e)
 	}
 	p.remaining = 400
-	q2, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("d", 64)}, token, "merchant", observationCheck68)
+	q2, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("d", 64)}, token, "merchant", observationCheck68, observationCheckTx68)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -57,14 +57,14 @@ func TestPreauthRemaining75SourceRevisionsKeepOriginalUAAndClaimExactlyOneBoundR
 	if _, e = s.bindPreauthRemainingRelease(guarded, o.MerchantID, o.TradeNo, in, token, "merchant"); !errors.Is(e, ErrConflict) {
 		t.Fatal("old confirmation adopted a new remainder", e)
 	}
-	if _, e = s.markPreauthRemainingSent(ctx, o.TradeNo, 1, observationCheck68); !errors.Is(e, ErrConflict) {
+	if _, e = s.markPreauthRemainingSent(ctx, o.TradeNo, 1, observationCheckTx68); !errors.Is(e, ErrConflict) {
 		t.Fatal("old source revision claimed new terms", e)
 	}
-	r, e = s.markPreauthRemainingSent(ctx, o.TradeNo, 2, observationCheck68)
+	r, e = s.markPreauthRemainingSent(ctx, o.TradeNo, 2, observationCheckTx68)
 	if e != nil || !r.Sent || r.Amount != 400 || r.State != "processing" {
 		t.Fatal("original remaining send boundary", r, e)
 	}
-	if _, e = s.markPreauthRemainingSent(ctx, o.TradeNo, 2, observationCheck68); !errors.Is(e, ErrState) {
+	if _, e = s.markPreauthRemainingSent(ctx, o.TradeNo, 2, observationCheckTx68); !errors.Is(e, ErrState) {
 		t.Fatal("claimed remaining source rearmed", e)
 	}
 	if _, e = s.bindPreauthRemainingRelease(guarded, o.MerchantID, o.TradeNo, in2, token, "merchant"); e == nil {

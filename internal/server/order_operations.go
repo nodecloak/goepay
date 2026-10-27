@@ -35,7 +35,27 @@ func (s *Server) orderOperations(w http.ResponseWriter, r *http.Request, role st
 		return true
 	}
 	if r.Method == "GET" {
+		charge104, chargeError104 := s.Store.AuthenticatedOrderCharge104(r.Context(), order)
+		if chargeError104 == nil {
+			order.RealMoney = &charge104
+		}
 		data := map[string]any{"order": order}
+		data["can_edit_api_trade_alias"] = s.canEditOrderAPITradeAlias120(r, role, session, order, s.OrderAPITradeAlias120)
+		combined, combinedError := s.combinedOrderDetailCapability204(r.Context(), role, session, order)
+		if combinedError != nil {
+			response(w, 409, -1, "historical suborder source could not be confirmed", nil)
+			return true
+		}
+		combine := 0
+		if combined {
+			combine = 1
+		}
+		data["can_view_suborders"] = combined
+		data["order"] = struct {
+			payment.Order
+			Combine int `json:"combine"`
+		}{Order: order, Combine: combine}
+		data["charge_verified104"] = chargeError104 == nil
 		if role == "admin" {
 			control, e := readOrderAdminControl(r.Context(), s.Pool, order.ID)
 			if e != nil {
@@ -43,7 +63,7 @@ func (s *Server) orderOperations(w http.ResponseWriter, r *http.Request, role st
 				return true
 			}
 			data["admin_control"] = control
-			data["can_manual_refund"] = session.Issuer == nil && session.User.AdminClass == "super" && order.Status == "paid" && !control.Archived
+			data["can_manual_refund"] = chargeError104 == nil && session.Issuer == nil && session.User.AdminClass == "super" && order.Status == "paid" && !control.Archived
 		}
 		reporting, e := s.orderReportingProjection(r.Context(), order.ID, order.MerchantID)
 		if e != nil {
@@ -62,6 +82,7 @@ func (s *Server) orderOperations(w http.ResponseWriter, r *http.Request, role st
 		data["can_capture_authorization"] = s.CanCapturePreauthorization(r.Context(), order)
 		data["can_observe_authorization"] = session.Issuer == nil && s.CanObservePreauthorization(r.Context(), order)
 		data["can_resend_notification"] = order.Status == "paid" && order.NotifyURL != ""
+		data["can_return_notification"] = s.canReturnNotification200(r, role, session, order)
 		var notificationID int64
 		var notificationState string
 		var notificationAttempts int
@@ -73,7 +94,14 @@ func (s *Server) orderOperations(w http.ResponseWriter, r *http.Request, role st
 			return true
 		}
 		if attempt, e := s.Store.ProviderAttempt(r.Context(), order.TradeNo); e == nil {
-			data["provider"] = map[string]any{"channel_id": attempt.ChannelID, "method": attempt.Method, "state": attempt.State, "material_type": attempt.MaterialType, "can_close": attempt.Method != "preauth"}
+			data["provider"] = map[string]any{"channel_id": fmt.Sprint(attempt.ChannelID), "method": attempt.Method, "state": attempt.State, "material_type": attempt.MaterialType, "can_close": attempt.Method != "preauth"}
+			context, e := s.Store.OriginalSubchannelContext(r.Context(), order.MerchantID, order.OutTradeNo, attempt.ChannelID)
+			if e != nil {
+				data["payment_subchannel_unconfirmed"] = true
+				data["provider"].(map[string]any)["can_close"] = false
+			} else if context != nil {
+				data["payment_subchannel"] = context
+			}
 			if attempt.Method == "scan" {
 				recovery, e := s.Store.ScanRecoveryStatus(r.Context(), order.MerchantID, order.TradeNo)
 				if e != nil {
@@ -102,6 +130,27 @@ func (s *Server) orderOperations(w http.ResponseWriter, r *http.Request, role st
 			}
 			data["can_release_remaining_authorization"] = canRemaining
 			data["can_release_authorization"] = canRelease
+		}
+		if data["payment_subchannel_unconfirmed"] == true {
+			data["can_capture_authorization"] = false
+			data["can_observe_authorization"] = false
+			data["can_release_authorization"] = false
+			data["can_release_remaining_authorization"] = false
+		}
+		if role == "merchant" {
+			views := []map[string]any{{"id": fmt.Sprint(order.ID)}}
+			if e := s.merchantOrderActions(r.Context(), session, views); e != nil {
+				s.fail(w, e)
+				return true
+			}
+			caps := views[0]["merchant_actions"].(map[string]bool)
+			if views[0]["income_status"] == "held" && data["can_refund_held_income"] != true {
+				caps["refund"] = false
+			}
+			data["merchant_actions"] = caps
+			if _, present := data["can_refund_held_income"]; present {
+				data["can_refund_held_income"] = data["can_refund_held_income"] == true && caps["refund"]
+			}
 		}
 		response(w, 200, 0, "", data)
 		return true
@@ -185,7 +234,15 @@ func (s *Server) orderOperations(w http.ResponseWriter, r *http.Request, role st
 			return true
 		}
 		var refund payment.Refund
-		refund, err = s.ProviderFlow.Refund(r.Context(), order.MerchantID, order.TradeNo, in.ExternalNo, amount)
+		if role == "merchant" {
+			refund, err = s.ProviderFlow.RefundFromMerchant(r.Context(), order.MerchantID, order.TradeNo, in.ExternalNo, amount)
+		} else {
+			refund, err = s.ProviderFlow.Refund(r.Context(), order.MerchantID, order.TradeNo, in.ExternalNo, amount)
+		}
+		if errors.Is(err, payment.ErrMerchantAPIDisabled) {
+			response(w, 403, -1, "merchant refunds are disabled by platform policy", nil)
+			return true
+		}
 		if isFundsAuthorizationError(err) {
 			fundsHTTPError(w, err)
 			return true

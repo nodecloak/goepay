@@ -1,3 +1,4 @@
+import { openMerchantOrderDetails } from "./fixtures/merchant-order-navigation";
 import { test, expect } from "@playwright/test";
 const ok = (data: unknown, status = 200) => ({
   status,
@@ -196,7 +197,7 @@ test("paid order receipt keeps escaped text and original unknown printing blocks
     return r.fulfill(ok({}));
   });
   await page.goto("/merchant/trade/order");
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   await page.getByRole("button", { name: "查看或刷新打印收据" }).click();
   await expect(page.getByText("<cut/> item", { exact: true })).toBeVisible();
   await expect(

@@ -1,3 +1,4 @@
+import { openMerchantOrderDetails } from "./fixtures/merchant-order-navigation";
 import { test, expect } from "@playwright/test";
 
 for (const area of ["admin", "merchant"] as const) {
@@ -54,7 +55,9 @@ for (const area of ["admin", "merchant"] as const) {
         });
       });
       await page.goto(`/${area}/trade/order`);
-      await page.getByRole("button", { name: "详情", exact: true }).click();
+      if (area === "merchant") await openMerchantOrderDetails(page);
+      else
+        await page.getByRole("button", { name: "详情", exact: true }).click();
       const dialog = page.getByRole("dialog", { name: "订单详情" });
       const recovery = dialog.getByRole("region", { name: "付款码支付处理" });
       await expect(recovery).toContainText("撤销结果待核实");

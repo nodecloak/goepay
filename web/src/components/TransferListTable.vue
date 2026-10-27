@@ -44,7 +44,10 @@ const data = computed(() => {
           <td
             v-for="column in columns"
             :key="column.key"
-            :class="{ 'transfer-number': column.key === 'number' }"
+            :class="{
+              'transfer-number': column.key === 'number',
+              'transfer-method': column.key === 'method',
+            }"
           >
             <template v-if="column.key === 'number'"
               ><span>{{ row.number }}</span
@@ -54,6 +57,14 @@ const data = computed(() => {
                 >接口交易号：{{ row.providerNo }}</small
               ></template
             >
+            <template v-else-if="column.key === 'method'"
+              >{{ row.method
+              }}<small
+                v-if="row.remark"
+                class="transfer-secondary transfer-remark muted"
+                >备注：{{ row.remark }}</small
+              ></template
+            >
             <template v-else-if="column.key === 'account'"
               >{{ row.account
               }}<small class="transfer-secondary">{{
@@ -61,7 +72,16 @@ const data = computed(() => {
               }}</small></template
             >
             <template v-else-if="column.key === 'amount'"
-              ><strong>¥{{ row.amount }}</strong></template
+              ><strong>¥{{ row.amount }}</strong
+              ><small class="transfer-secondary muted"
+                >花费金额：¥{{ row.cost }}</small
+              ></template
+            >
+            <template v-else-if="column.key === 'createdAt'"
+              >{{ row.createdAt
+              }}<small class="transfer-secondary muted"
+                >付款时间：{{ row.payDate }}</small
+              ></template
             >
             <span
               v-else-if="column.key === 'status'"
@@ -123,6 +143,16 @@ const data = computed(() => {
 .transfer-secondary {
   display: block;
   margin-top: 4px;
+}
+.transfer-method {
+  min-width: 190px;
+  max-width: 260px;
+  white-space: normal !important;
+}
+.transfer-remark {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  max-width: 260px;
 }
 .transfer-actions {
   position: sticky;

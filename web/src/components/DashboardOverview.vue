@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import ShellIcon from "./ShellIcon.vue";
+import RichContent from "./RichContent.vue";
+import DailyWelcome from "./DailyWelcome.vue";
 import type { Area } from "../menu";
 import { displayValue } from "../api";
 import { beijingTimestamp as consoleDateTime } from "../console-datetime";
@@ -8,6 +10,8 @@ const props = defineProps<{
   data: Record<string, unknown>;
   area: Area;
   adminClass?: string;
+  merchantId?: string;
+  ownSession?: boolean;
 }>();
 const metric = ref("amount"),
   payment = ref("all"),
@@ -31,7 +35,8 @@ const feeSchedule = computed(() => record(props.data.fee_schedule)),
   channels = computed(() => list(props.data.payment_channels));
 function feePercent(value: unknown) {
   const s = String(value ?? "");
-  if (!/^(0|[1-9][0-9]{0,4})$/.test(s) || BigInt(s) > 10000n) return "—";
+  if (!/^(0|[1-9][0-9]{0,4})$/.test(s) || BigInt(s) > 10000n)
+    return "暂不可确认";
   const n = BigInt(s);
   return `${n / 100n}.${(n % 100n).toString().padStart(2, "0")}%`;
 }
@@ -211,6 +216,14 @@ const quickLinks = computed(() =>
 </script>
 <template>
   <div class="dashboard-overview">
+    <DailyWelcome
+      v-if="area === 'merchant'"
+      :content="String(data.welcome_notice ?? '')"
+      :business-date="String(data.business_date ?? '')"
+      :merchant-id="merchantId ?? ''"
+      :data-merchant-id="String(merchant.id ?? '')"
+      :own-session="ownSession === true"
+    />
     <section v-if="area === 'merchant'" class="panel welcome">
       <h2>欢迎回来，{{ text(merchant.name) }}</h2>
       <p>
@@ -479,8 +492,12 @@ const quickLinks = computed(() =>
           :key="item.id"
           class="dashboard-announcement"
         >
-          <h3>{{ text(item.title) }}</h3>
-          <p>{{ text(item.content) }}</p>
+          <h3 v-if="item.title">{{ text(item.title) }}</h3>
+          <RichContent
+            :content="String(item.content ?? '')"
+            :format="String(item.content_format ?? 'text')"
+            :color="String(item.color ?? '')"
+          />
           <time>{{ consoleDateTime(item.created_at) }}</time>
         </article>
         <p v-if="!announcements.length" class="empty">暂无公告</p>
@@ -493,7 +510,7 @@ const quickLinks = computed(() =>
           feeSchedule.state === "disabled"
             ? "支付手续费未启用，当前费率为0.00%"
             : feeSchedule.state === "ready"
-              ? "以下通道使用当前统一商户费率，仅适用于新订单"
+              ? "各通道费率按当前政策逐行显示，仅适用于新订单"
               : "费率配置暂不可确认，请联系平台核对"
         }}。
       </p>
@@ -510,7 +527,7 @@ const quickLinks = computed(() =>
             <tr v-for="channel in channels" :key="channel.channel_id">
               <td>{{ text(channel.channel_id) }}</td>
               <td>{{ methodName(channel.type) }}</td>
-              <td>{{ feePercent(feeSchedule.rate_bps) }}</td>
+              <td>{{ feePercent(channel.fee_rate_bps) }}</td>
             </tr>
           </tbody>
         </table>

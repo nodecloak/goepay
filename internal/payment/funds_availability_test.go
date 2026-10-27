@@ -94,14 +94,14 @@ func TestT1UTC8BoundaryRechargeGrossAndRefundRules(t *testing.T) {
 	t1PaidOrder(t, s, 603, 200, "recharge", at, true)
 	check := func(ledger, gross, available int64) {
 		t.Helper()
-		v, e := readFundsAvailability(ctx, s.pool, 603, &at)
+		v, e := s.readFundsAvailability(ctx, s.pool, 603, &at)
 		if e != nil || v.LedgerAvailable != ledger || v.TodayGross != gross || v.Available != available || v.Blocked != ledger-available || v.SettleType != 1 {
 			t.Fatalf("availability %+v error %v want ledger=%d gross=%d available=%d", v, e, ledger, gross, available)
 		}
 	}
 	check(1170, 100, 1070) // today net90 is restricted by gross100; recharge net180 is immediately usable.
 	nextDay := midnight.Add(24 * time.Hour)
-	if v, e := readFundsAvailability(ctx, s.pool, 603, &nextDay); e != nil || v.Available != 1170 || v.TodayGross != 0 {
+	if v, e := s.readFundsAvailability(ctx, s.pool, 603, &nextDay); e != nil || v.Available != 1170 || v.TodayGross != 0 {
 		t.Fatalf("next Beijing day did not mature receipts %+v %v", v, e)
 	}
 	r1, e := s.ReserveRefund(ctx, 603, today.OutTradeNo, "partial", 40)
@@ -125,7 +125,7 @@ func TestT1UTC8BoundaryRechargeGrossAndRefundRules(t *testing.T) {
 	}
 	check(1080, 0, 1080)
 	transferSetting(t, s, "settle_type", "0")
-	if v, e := readFundsAvailability(ctx, s.pool, 603, &at); e != nil || v.Available != 1080 || v.Blocked != 0 || v.SettleType != 0 {
+	if v, e := s.readFundsAvailability(ctx, s.pool, 603, &at); e != nil || v.Available != 1080 || v.Blocked != 0 || v.SettleType != 0 {
 		t.Fatalf("T+0 %+v %v", v, e)
 	}
 }
@@ -332,7 +332,7 @@ func TestT1ReservationRefreshesSnapshotAfterAccountLockWait(t *testing.T) {
 		t.Fatal(e)
 	}
 	done := make(chan error, 1)
-	go func() { done <- requireOutgoingFunds(ctx, reader, 607, 1001) }()
+	go func() { done <- s.requireOutgoingFunds(ctx, reader, 607, 1001) }()
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var waiting bool

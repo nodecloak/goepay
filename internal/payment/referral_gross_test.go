@@ -87,7 +87,7 @@ func TestReferralGross69CappedOriginalTermsAndImmutableFeeProof(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			if e := s.markPaid(ctx, capped.TradeNo, fmt.Sprintf("gross-repeat69:%d", i), true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "LOCAL_" + capped.TradeNo}); e != nil {
+			if e := s.markPaid(ctx, capped.TradeNo, fmt.Sprintf("gross-repeat69:%d", i), true, PaidReceipt{RealMoney: capped.Amount, ChannelID: 7, ProviderTradeNo: "LOCAL_" + capped.TradeNo}); e != nil {
 				t.Error(e)
 			}
 		}(i)

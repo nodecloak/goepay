@@ -66,6 +66,7 @@ type noticeSpec struct {
 
 // These are fixed source templates, never supplied by a profile or API client.
 var noticeSpecs = map[string]noticeSpec{
+	"payment_disabled":  {title: "支付权限关闭记录", suffix: true, required: "uid count", body: `商户 {{.P.uid}} 于 {{.Now}} 因连续 {{.P.count}} 个订单回调通知失败被关闭新支付权限。请检查回调站点及其防护设置，并前往后台核对当前状态。原已受理订单仍按原回执处理。`},
 	"regaudit":          {title: "新注册商户待审核提醒", required: "uid account", body: `尊敬的{{.Site}}管理员，网站有新注册的商户待审核，请及时前往用户列表审核处理。<br/><b>商户ID：</b>{{.P.uid}}<br/><b>注册账号：</b>{{.P.account}}<br/><b>注册时间：</b>{{.Now}}`},
 	"apply":             {title: "新的提现待处理提醒", required: "uid type realmoney", money: "realmoney", body: `尊敬的{{.Site}}管理员，商户{{.P.uid}}发起了手动提现申请，请及时处理。<br/><b>商户ID：</b>{{.P.uid}}<br/><b>提现方式：</b>{{.P.type}}<br/><b>提现金额：</b>{{.P.realmoney}}<br/><b>提交时间：</b>{{.Now}}`},
 	"domain":            {title: "新的授权支付域名待审核提醒", required: "uid domain", body: `尊敬的{{.Site}}管理员，商户{{.P.uid}}提交了新的授权支付域名，请及时审核处理。<br/><b>商户ID：</b>{{.P.uid}}<br/><b>授权域名：</b>{{.P.domain}}<br/><b>提交时间：</b>{{.Now}}`},
@@ -80,6 +81,7 @@ var noticeSpecs = map[string]noticeSpec{
 	"domain_audit":      {title: "授权域名审核结果通知", suffix: true, required: "domain result", body: `尊敬的商户，您添加的授权域名 <b>{{.P.domain}}</b> {{.P.result_label}}，请及时前往商户平台查看。`},
 	"channellimit":      {title: "支付通道达到限额提醒", suffix: true, required: "name id reason", body: `尊敬的管理员：支付通道"<b>{{.P.name}}</b>"今日已达到限额，该通道今日将不再接收新订单。<br/><b>通道ID：</b>{{.P.id}}<br/><b>限额原因：</b>{{.P.reason}}<br/><b>触发时间：</b>{{.Now}}`},
 	"daily_report":      {title: "收款日报通知", suffix: true, body: `尊敬的商户，以下是您 <b>{{.Daily.Date}}</b> 的收款日报。<br/><b>订单金额总计：</b>¥{{.Daily.Money}}<br/>{{range .Daily.Types}}<b>{{.Name}}：</b>¥{{.Money}}<br/>{{end}}<b>分成金额总计：</b>¥{{.Daily.Merchant}}<br/><b>订单总数：</b>{{.Daily.Orders}}<br/><b>成功订单数量：</b>{{.Daily.Success}}<br/><b>订单成功率：</b>{{.Daily.Rate}}%{{if .Daily.HasTransfer}}<br/><b>代付总额：</b>¥{{.Daily.Transfer}}{{range .Daily.TransferTypes}}<br/><b>{{.Name}}代付：</b>¥{{.Money}}{{end}}{{end}}`},
+	"core_risk":         {title: "核心支付风控提醒", required: "kind id reason", body: `{{.P.kind}} <b>{{.P.id}}</b> 已触发支付风控规则。<br/><b>处理原因：</b>{{.P.reason}}<br/><b>处理时间：</b>{{.Now}}<br/>原订单查询与回调继续处理；新付款受限。`},
 }
 
 var noticeTemplates = func() map[string]*template.Template {

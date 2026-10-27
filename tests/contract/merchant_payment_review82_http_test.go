@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"goepay/internal/compat"
+	"goepay/internal/identity"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 
 func TestMerchantPaymentReview82HTTPLoginOriginalV1V2AndAdminCSRF(t *testing.T) {
 	s, pool, key := fixture(t)
+	s.Sessions = identity.NewPersistentSessions(pool, false)
 	ctx := context.Background()
 	h := s.Handler()
 	if _, err := pool.Exec(ctx, `UPDATE merchants SET pay=2,profile=profile||'{"pay_status":1,"pay":"1"}'::jsonb`); err != nil {

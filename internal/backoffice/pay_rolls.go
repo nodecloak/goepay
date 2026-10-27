@@ -20,6 +20,7 @@ type PayRoll struct {
 	MerchantID     int64
 	Type, Strategy string
 	Enabled        bool
+	DefaultRoute   bool
 	Channels       []PayRollChannel
 	Limits         PayRollLimit
 	Rules          map[int64]PayRollLimit
@@ -32,7 +33,7 @@ func payRollDefinition() definition {
 	rules := text("rules", "各通道限制 JSON（通道ID到限制对象）", false, 20000)
 	rules.Type = "text"
 	rules.Default = "{}"
-	return definition{title: "通道轮询", description: "同订单持久绑定当前有权使用的同产品通道，未知不切换。旧缺商户/类型资料不执行。限制键：min_amount/max_amount/daily_amount 为元字符串，daily_count、rate_limit_seconds/count 为整数，start_hour/end_hour 为UTC+8小时；rules按通道ID填写。使用后禁用保留记录。", noDelete: true, fields: []Field{text("name", "名称", true, 100), text("merchant_id", "商户ID（0为全局默认）", true, 19), selectField("type", "支付类型", "alipay", "wxpay"), selectField("strategy", "策略", "round_robin", "weighted", "first", "priority"), text("channel_ids", "通道ID:权重，逗号分隔", true, 1000), limits, rules, flag("enabled", "执行路由", false)}}
+	return definition{title: "通道轮询", description: "同订单持久绑定当前有权使用的同产品通道，未知不切换。同一商户与支付方式只允许一个默认轮询组；关闭默认用途可保存多个命名组供用户组指定或随机选择。旧缺商户/类型资料不执行。限制键：min_amount/max_amount/daily_amount 为元字符串，daily_count、rate_limit_seconds/count 为整数，start_hour/end_hour 为UTC+8小时；rules按通道ID填写。使用后禁用保留记录。", noDelete: true, fields: []Field{text("name", "名称", true, 100), text("merchant_id", "商户ID（0为全局默认）", true, 19), selectField("type", "支付类型", "alipay", "wxpay"), selectField("strategy", "策略", "round_robin", "weighted", "first", "priority"), text("channel_ids", "通道ID:权重，逗号分隔", true, 1000), limits, rules, flag("default_route", "用于继承系统路由的默认组", true), flag("enabled", "执行路由", false)}}
 }
 
 var routeMoneyPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)(\.[0-9]{1,2})?$`)
@@ -179,7 +180,7 @@ func ParsePayRoll(v map[string]any) (PayRoll, error) {
 	var r PayRoll
 	for key := range v {
 		switch key {
-		case "name", "merchant_id", "type", "strategy", "channel_ids", "limits", "rules", "enabled":
+		case "name", "merchant_id", "type", "strategy", "channel_ids", "limits", "rules", "enabled", "default_route":
 		default:
 			return r, ErrInvalid
 		}
@@ -200,6 +201,13 @@ func ParsePayRoll(v map[string]any) (PayRoll, error) {
 	r.Enabled, ok = v["enabled"].(bool)
 	if !ok {
 		return r, ErrInvalid
+	}
+	r.DefaultRoute = true
+	if raw, exists := v["default_route"]; exists {
+		r.DefaultRoute, ok = raw.(bool)
+		if !ok {
+			return r, ErrInvalid
+		}
 	}
 	r.Strategy, _ = v["strategy"].(string)
 	switch r.Strategy {

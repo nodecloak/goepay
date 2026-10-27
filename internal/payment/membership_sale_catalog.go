@@ -43,7 +43,7 @@ func (s *Store) MembershipSalesCatalog(ctx context.Context, mid int64) ([]Member
 	if e = s.pool.QueryRow(ctx, "SELECT COALESCE((SELECT group_id FROM memberships WHERE merchant_id=$1 AND expires_at>$2 AND expires_at<>$3),0)", mid, at, permanentMembershipExpiry).Scan(&renewableGroup); e != nil {
 		return nil, false, e
 	}
-	rows, e := s.pool.Query(ctx, "SELECT id,body FROM backoffice_records WHERE resource='groups' ORDER BY id LIMIT 1001")
+	rows, e := s.pool.Query(ctx, "SELECT id,body FROM backoffice_records WHERE resource='groups' AND id>0 ORDER BY id LIMIT 1001")
 	if e != nil {
 		return nil, false, e
 	}

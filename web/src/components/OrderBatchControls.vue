@@ -11,6 +11,11 @@ const batchIntents = new WeakMap<object, Map<string, BatchBody>>();
 import { computed, ref, nextTick, onBeforeUnmount, watch } from "vue";
 import { ApiClient, ApiError } from "../api";
 import { adminOrderActions } from "../order-actions";
+import OrderBusinessBatchDialog from "./OrderBusinessBatchDialog.vue";
+import {
+  isBusinessBatchAction185,
+  businessBatchEligible185,
+} from "../order-business-batches185";
 const props = defineProps<{
   client: ApiClient;
   items: Record<string, unknown>[];
@@ -24,11 +29,22 @@ const emit = defineEmits<{
   active: [value: boolean];
 }>();
 const actions = [
-  { id: "mark-paid", label: "改已完成" },
   { id: "mark-unpaid", label: "改未完成" },
+  { id: "mark-paid", label: "改已完成" },
+  { id: "refund", label: "API退款" },
+  { id: "freeze-income", label: "冻结订单" },
+  { id: "unfreeze-income", label: "解冻订单" },
   { id: "archive", label: "删除订单" },
+  { id: "notify", label: "重新通知" },
+  { id: "confirm-settlement", label: "确认结算" },
+  { id: "query", label: "手动补单" },
   { id: "restore", label: "恢复订单" },
 ];
+const businessOpen = ref(false),
+  businessRows = ref<Record<string, unknown>[]>([]);
+const businessAction = computed(() =>
+  isBusinessBatchAction185(action.value) ? action.value : "query",
+);
 const initialCSRF = props.client.csrfToken;
 let intents = batchIntents.get(props.client);
 if (!intents) {
@@ -54,15 +70,20 @@ const canWrite = computed(
     ["super", "operator"].includes(props.adminClass || "") &&
     props.client.csrfToken === initialCSRF,
 );
-watch(open, (value) => emit("active", value));
+watch(
+  () => open.value || businessOpen.value,
+  (value) => emit("active", value),
+);
 const selectedRows = computed(() =>
   props.items.filter((r) => props.selected.includes(String(r.trade_no))),
 );
 const eligible = (id: string) =>
   selectedRows.value.filter((r) =>
-    adminOrderActions(r).some(
-      (a) => a.id === (id === "archive" ? "delete" : id),
-    ),
+    isBusinessBatchAction185(id)
+      ? businessBatchEligible185(r, id)
+      : adminOrderActions(r).some(
+          (a) => a.id === (id === "archive" ? "delete" : id),
+        ),
   );
 let alive = true,
   controller: AbortController | undefined,
@@ -74,6 +95,14 @@ function remember() {
 }
 async function show() {
   if (!canWrite.value || busy.value) return;
+  if (isBusinessBatchAction185(action.value)) {
+    const rows = eligible(action.value);
+    if (!rows.length || rows.length > 100) return;
+    previousFocus = document.activeElement as HTMLElement;
+    businessRows.value = rows.slice();
+    businessOpen.value = true;
+    return;
+  }
   if (!pending.value) {
     const rows = eligible(action.value);
     if (!rows.length) return;
@@ -200,6 +229,7 @@ watch(
   () => {
     controller?.abort();
     open.value = false;
+    businessOpen.value = false;
     busy.value = false;
     emit("busy", false);
   },
@@ -217,7 +247,7 @@ onBeforeUnmount(() => {
     <select
       v-model="action"
       aria-label="批量操作"
-      :disabled="busy || !!pending || !canWrite"
+      :disabled="busy || businessOpen || !!pending || !canWrite"
     >
       <option v-for="a in actions" :key="a.id" :value="a.id">
         {{ a.label }}（可执行 {{ eligible(a.id).length }} 条）
@@ -230,6 +260,23 @@ onBeforeUnmount(() => {
       {{ unknown ? "核对上次批量结果" : "执行批量操作" }}
     </button>
   </div>
+  <OrderBusinessBatchDialog
+    v-if="businessOpen"
+    :client="client"
+    :action="businessAction"
+    :rows="businessRows"
+    :own-session="ownSession"
+    :admin-class="adminClass"
+    @busy="
+      busy = $event;
+      emit('busy', $event);
+    "
+    @updated="emit('updated')"
+    @close="
+      businessOpen = false;
+      previousFocus?.isConnected && previousFocus.focus();
+    "
+  />
   <Teleport to="body"
     ><div v-if="open" class="modal-backdrop" @keydown.esc="close">
       <section

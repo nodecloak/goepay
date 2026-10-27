@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"goepay/internal/privatesearch"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -223,6 +224,9 @@ func (s *Store) SetSettlementRecipient(ctx context.Context, mid int64, input Set
 		return SettlementRecipientView{}, e
 	}
 	if _, e = tx.Exec(ctx, "INSERT INTO settlement_recipient_configs(id,merchant_id,recipient_type,app_id,identity_hash,recipient_cipher) VALUES($1,$2,$3,$4,$5,$6)", id, mid, in.Type, in.AppID, digest, cipher); e != nil {
+		return SettlementRecipientView{}, e
+	}
+	if e = s.indexPrivateSearchTx(ctx, tx, "settlement_config", id, mid, cipher, privatesearch.Fields{privatesearch.Account: in.Account, privatesearch.Name: in.Name}); e != nil {
 		return SettlementRecipientView{}, e
 	}
 	if _, e = tx.Exec(ctx, "INSERT INTO settlement_recipient_current(merchant_id,config_id) VALUES($1,$2) ON CONFLICT(merchant_id) DO UPDATE SET config_id=EXCLUDED.config_id", mid, id); e != nil {

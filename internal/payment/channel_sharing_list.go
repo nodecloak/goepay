@@ -116,6 +116,11 @@ func (g ProviderFlow) ChannelSharingChannels(ctx context.Context, mid int64, act
 	if g.Store == nil || !actor.valid(mid) {
 		return views, ErrInvalid
 	}
+	resolved, resolveErr := g.parentCurrentChannel(ctx, mid, 0)
+	if resolveErr != nil {
+		return nil, resolveErr
+	}
+	g = resolved
 	if e := ctx.Err(); e != nil {
 		return views, e
 	}

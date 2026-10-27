@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { inheritedRiskGroup } from "./fixtures/core-risk187";
 
 for (const width of [1280, 375])
   test(`original group list and supported editor sections preserve the existing JSON contract at ${width}`, async ({
@@ -87,12 +88,16 @@ for (const width of [1280, 375])
           user: { id: "1", role: "admin", admin_class: "super", name: "local" },
           csrf_token: "group133",
         };
+      else if (path.endsWith("/payment-risk/groups/" + id))
+        data = inheritedRiskGroup(id, "本地测试组");
       else if (path.endsWith("/groups/schema"))
         data = {
           title: "用户组设置",
           fields,
           permissions: { create: true, update: true, delete: true },
         };
+      else if (path.endsWith("/groups/routing-options"))
+        data = { available: true, items: [] };
       else if (path.endsWith("/groups/" + id)) data = record;
       else if (path.endsWith("/groups")) data = { items: [record], total: 1 };
       return route.fulfill({

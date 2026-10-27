@@ -30,12 +30,15 @@ type SMTPConfig struct {
 	Username string `json:"-"`
 	Password string `json:"-"`
 	From     string `json:"from"`
+	FromName string `json:"from_name,omitempty"`
+	ReplyTo  string `json:"reply_to,omitempty"`
 	// RootCAs is an explicit trust hook for synthetic local TLS tests/private PKI.
 	// Nil uses system trust. Hostname verification is always required.
 	RootCAs *x509.CertPool `json:"-"`
 }
 type SMTP struct {
 	host, address, security, username, password, from string
+	fromName, replyTo                                 string
 	roots                                             *x509.CertPool
 }
 
@@ -44,11 +47,20 @@ func NewSMTP(c SMTPConfig) (*SMTP, error) {
 	if !validHost(c.Host) || c.Port < 1 || c.Port > 65535 || (c.Security != "implicit" && c.Security != "starttls") || !safeText(c.Username, 254) || !safeText(c.Password, 1024) || !mailbox(c.From) {
 		return nil, ErrSMTP
 	}
+	if (c.FromName != "" && !safeText(c.FromName, 256)) || (c.ReplyTo != "" && !mailbox(c.ReplyTo)) {
+		return nil, ErrSMTP
+	}
 	var roots *x509.CertPool
 	if c.RootCAs != nil {
 		roots = c.RootCAs.Clone()
 	}
-	return &SMTP{host: c.Host, address: net.JoinHostPort(c.Host, strconv.Itoa(c.Port)), security: c.Security, username: c.Username, password: c.Password, from: c.From, roots: roots}, nil
+	return &SMTP{host: c.Host, address: net.JoinHostPort(c.Host, strconv.Itoa(c.Port)), security: c.Security, username: c.Username, password: c.Password, from: c.From, fromName: c.FromName, replyTo: c.ReplyTo, roots: roots}, nil
+}
+func (s *SMTP) headerFrom() string {
+	if s.fromName == "" {
+		return s.from
+	}
+	return (&mail.Address{Name: s.fromName, Address: s.from}).String()
 }
 func safeText(s string, max int) bool {
 	if len(s) == 0 || len(s) > max || !utf8.ValidString(s) {
@@ -97,6 +109,12 @@ func verificationMessage(from, to, purpose, code string) []byte {
 	if purpose == "recover" {
 		action = "重置密码"
 	}
+	if purpose == "contact-old" {
+		action = "验证原邮箱"
+	}
+	if purpose == "contact-new" {
+		action = "绑定新邮箱"
+	}
 	body := fmt.Sprintf("您的验证码是：%s，用于 GOEPAY %s。验证码10分钟内有效，请勿泄露；如非本人操作请忽略。\r\n", code, action)
 	encoded := base64.StdEncoding.EncodeToString([]byte(body))
 	var lines strings.Builder
@@ -128,7 +146,7 @@ func (c *readBudgetConn) Read(p []byte) (int, error) {
 }
 
 func (s *SMTP) SendVerification(ctx context.Context, to, purpose, code string) error {
-	if s == nil || ctx == nil || ctx.Err() != nil || !mailbox(to) || (purpose != "register" && purpose != "recover") || len(code) != 7 || code[0] < '1' || code[0] > '9' {
+	if s == nil || ctx == nil || ctx.Err() != nil || !mailbox(to) || (purpose != "register" && purpose != "recover" && purpose != "contact-old" && purpose != "contact-new") || len(code) != 7 || code[0] < '1' || code[0] > '9' {
 		return ErrSMTP
 	}
 	for _, c := range code {
@@ -136,10 +154,13 @@ func (s *SMTP) SendVerification(ctx context.Context, to, purpose, code string) e
 			return ErrSMTP
 		}
 	}
-	return s.send(ctx, to, verificationMessage(s.from, to, purpose, code))
+	return s.send(ctx, to, verificationMessage(s.headerFrom(), to, purpose, code))
 }
 
 func (s *SMTP) send(ctx context.Context, to string, message []byte) error {
+	if s != nil && s.replyTo != "" {
+		message = append([]byte("Reply-To: "+s.replyTo+"\r\n"), message...)
+	}
 	if s == nil || ctx == nil || ctx.Err() != nil || !mailbox(to) || len(message) == 0 || len(message) > 4096 {
 		return ErrSMTP
 	}

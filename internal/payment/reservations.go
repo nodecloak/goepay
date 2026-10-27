@@ -9,6 +9,39 @@ import (
 
 const refundColumns = "id,merchant_id,order_id,refund_no,amount,status,merchant_amount,fee_amount"
 
+type refundAccess179 uint8
+
+const (
+	refundInternal179 refundAccess179 = iota
+	refundAPI179
+	refundMerchant179
+)
+
+type refundAdmission179 struct {
+	account merchantAPIAccount
+	access  refundAccess179
+}
+
+func (s *Store) checkRefundAdmission179(ctx context.Context, tx pgx.Tx, a refundAdmission179) error {
+	if a.access == refundAPI179 {
+		return s.checkMerchantAPIAdmissionTx(ctx, tx, a.account, "refund")
+	}
+	if a.access != refundMerchant179 {
+		return ErrInvalid
+	}
+	if !a.account.Enabled {
+		return errors.Join(ErrMerchantAPIAdmission, ErrMerchantAPIDisabled)
+	}
+	platform, e := s.platformAccessTx(ctx, tx, false)
+	if e != nil {
+		return errors.Join(ErrMerchantAPIAdmission, e)
+	}
+	if platform.UserRefund != "1" {
+		return errors.Join(ErrMerchantAPIAdmission, ErrMerchantAPIDisabled)
+	}
+	return nil
+}
+
 func scanRefund(row pgx.Row) (Refund, error) {
 	var r Refund
 	e := row.Scan(&r.ID, &r.MerchantID, &r.OrderID, &r.RefundNo, &r.Amount, &r.Status, &r.MerchantAmount, &r.FeeAmount)
@@ -18,6 +51,15 @@ func scanRefund(row pgx.Row) (Refund, error) {
 	return r, e
 }
 func (s *Store) ReserveRefund(ctx context.Context, merchantID int64, outTradeNo, refundNo string, amount int64) (Refund, error) {
+	return s.reserveRefund(ctx, merchantID, outTradeNo, refundNo, amount, refundInternal179)
+}
+func (s *Store) ReserveAPIRefund(ctx context.Context, merchantID int64, outTradeNo, refundNo string, amount int64) (Refund, error) {
+	return s.reserveRefund(ctx, merchantID, outTradeNo, refundNo, amount, refundAPI179)
+}
+func (s *Store) ReserveMerchantRefund(ctx context.Context, merchantID int64, outTradeNo, refundNo string, amount int64) (Refund, error) {
+	return s.reserveRefund(ctx, merchantID, outTradeNo, refundNo, amount, refundMerchant179)
+}
+func (s *Store) reserveRefund(ctx context.Context, merchantID int64, outTradeNo, refundNo string, amount int64, access refundAccess179) (Refund, error) {
 	if amount <= 0 || refundNo == "" || len(refundNo) > 128 {
 		return Refund{}, ErrInvalid
 	}
@@ -26,19 +68,34 @@ func (s *Store) ReserveRefund(ctx context.Context, merchantID int64, outTradeNo,
 		return Refund{}, e
 	}
 	defer tx.Rollback(ctx)
-	r, e := s.reserveRefundTx(ctx, tx, merchantID, outTradeNo, refundNo, amount)
+	var apiAccounts []refundAdmission179
+	if access != refundInternal179 {
+		m, e := s.merchantAPIAccountTx(ctx, tx, merchantID, false)
+		if e != nil {
+			return Refund{}, e
+		}
+		apiAccounts = append(apiAccounts, refundAdmission179{m, access})
+	}
+	r, e := s.reserveRefundTx(ctx, tx, merchantID, outTradeNo, refundNo, amount, apiAccounts...)
 	if e != nil {
 		return r, e
 	}
 	return r, tx.Commit(ctx)
 }
 
-func (s *Store) reserveRefundTx(ctx context.Context, tx pgx.Tx, merchantID int64, outTradeNo, refundNo string, amount int64) (Refund, error) {
+func (s *Store) reserveRefundTx(ctx context.Context, tx pgx.Tx, merchantID int64, outTradeNo, refundNo string, amount int64, apiAccounts ...refundAdmission179) (Refund, error) {
 	var r Refund
 	if amount <= 0 || refundNo == "" || len(refundNo) > 128 {
 		return r, ErrInvalid
 	}
+	if len(apiAccounts) > 1 || (len(apiAccounts) == 1 && apiAccounts[0].account.ID != merchantID) {
+		return r, ErrInvalid
+	}
 	o, e := scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE merchant_id=$1 AND out_trade_no=$2 FOR UPDATE", merchantID, outTradeNo))
+	if e != nil {
+		return r, e
+	}
+	charge104, _, e := s.authenticatedOrderCharge104(ctx, tx, o)
 	if e != nil {
 		return r, e
 	}
@@ -50,10 +107,38 @@ func (s *Store) reserveRefundTx(ctx context.Context, tx pgx.Tx, merchantID int64
 		if e = s.verifyReferralRefundEvidence(ctx, tx, r); e != nil {
 			return r, e
 		}
+		if e = s.verifyRefundOrigin201(ctx, tx, r); e != nil {
+			return r, e
+		}
+		if len(apiAccounts) == 1 && r.Status != "succeeded" && r.Status != "failed" {
+			// A reservation without an original provider operation is not an
+			// already-sent API refund. Closing API access must not let callers
+			// dispatch a merely reserved internal/offline refund for the first time.
+			var sentIntent bool
+			if e = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM provider_operations WHERE kind='refund' AND refund_id=$1)`, r.ID).Scan(&sentIntent); e != nil {
+				return r, e
+			}
+			if !sentIntent {
+				if e = s.checkRefundAdmission179(ctx, tx, apiAccounts[0]); e != nil {
+					return r, e
+				}
+			}
+		}
 		return r, nil
 	}
 	if !errors.Is(e, ErrNotFound) {
 		return r, e
+	}
+	if len(apiAccounts) > 1 {
+		return r, ErrInvalid
+	}
+	if len(apiAccounts) == 1 {
+		if apiAccounts[0].account.ID != merchantID {
+			return r, ErrInvalid
+		}
+		if e = s.checkRefundAdmission179(ctx, tx, apiAccounts[0]); e != nil {
+			return r, e
+		}
 	}
 	if o.Status != "paid" {
 		return r, ErrState
@@ -70,7 +155,7 @@ func (s *Store) reserveRefundTx(ctx context.Context, tx pgx.Tx, merchantID int64
 	if e != nil {
 		return r, e
 	}
-	if usedGross > o.Amount || amount > o.Amount-usedGross {
+	if usedGross > charge104 || amount > charge104-usedGross {
 		return r, ErrInvalid
 	}
 	merchantAmount, feeAmount := amount, int64(0)
@@ -90,7 +175,7 @@ func (s *Store) reserveRefundTx(ctx context.Context, tx pgx.Tx, merchantID int64
 	if e = requireFundsAction(ctx, tx, "refund", fmt.Sprintf("%d:%s", merchantID, refundNo)); e != nil {
 		return r, e
 	}
-	r, e = scanRefund(tx.QueryRow(ctx, "INSERT INTO refunds(merchant_id,order_id,refund_no,amount,merchant_amount,fee_amount) VALUES($1,$2,$3,$4,$5,$6) RETURNING "+refundColumns, merchantID, o.ID, refundNo, amount, merchantAmount, feeAmount))
+	r, e = s.insertRefundWithOrigin201(ctx, tx, merchantID, o.ID, refundNo, amount, merchantAmount, feeAmount, apiAccounts)
 	if e != nil {
 		return r, e
 	}
@@ -258,7 +343,7 @@ func (s *Store) reserveTransferTx(ctx context.Context, tx pgx.Tx, merchantID int
 	if !errors.Is(e, ErrNotFound) {
 		return Transfer{}, e
 	}
-	if e = requireOutgoingFunds(ctx, tx, merchantID, cost); e != nil {
+	if e = s.requireOutgoingFunds(ctx, tx, merchantID, cost); e != nil {
 		return Transfer{}, e
 	}
 	if e = requireFundsAction(ctx, tx, "transfer", fmt.Sprintf("%d:%s", merchantID, no)); e != nil {

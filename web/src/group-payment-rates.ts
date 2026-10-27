@@ -3,7 +3,12 @@ export const groupPaymentTypes = [
   { key: "wxpay", label: "微信支付" },
   { key: "sandbox", label: "本地模拟支付" },
 ] as const;
-type Rates = Record<string, { rate?: string }>;
+export type GroupPaymentSetting = {
+  rate?: string;
+  channel?: string;
+  type?: "" | "channel" | "roll";
+};
+type Rates = Record<string, GroupPaymentSetting>;
 export function readGroupPaymentRates(raw: unknown): Rates {
   const data =
     raw === "" || raw === undefined
@@ -13,6 +18,7 @@ export function readGroupPaymentRates(raw: unknown): Rates {
         : raw;
   if (!data || typeof data !== "object" || Array.isArray(data))
     throw Error("支付方式分成比例格式不正确");
+  const out: Rates = {};
   for (const [key, value] of Object.entries(data)) {
     if (
       !groupPaymentTypes.some((t) => t.key === key) ||
@@ -21,11 +27,50 @@ export function readGroupPaymentRates(raw: unknown): Rates {
       Array.isArray(value)
     )
       throw Error("支付方式分成比例包含未识别的配置");
-    for (const [field, rate] of Object.entries(value))
-      if (field !== "rate" || typeof rate !== "string")
-        throw Error("分成比例须为明确的百分数字符串");
+    const fields = value as Record<string, unknown>,
+      setting: GroupPaymentSetting = {};
+    for (const [field, content] of Object.entries(fields)) {
+      if (!["rate", "channel", "type"].includes(field))
+        throw Error("支付方式包含未识别的配置");
+      if (field === "rate") {
+        if (typeof content !== "string")
+          throw Error("分成比例须为明确的百分数字符串");
+        setting.rate = content;
+      }
+    }
+    if (Object.hasOwn(fields, "channel") !== Object.hasOwn(fields, "type"))
+      throw Error("通道编号与类型须同时提供");
+    if (Object.hasOwn(fields, "channel")) {
+      const raw = fields.channel;
+      if (
+        (typeof raw !== "string" &&
+          (typeof raw !== "number" || !Number.isSafeInteger(raw))) ||
+        Object.is(raw, -0)
+      )
+        throw Error("通道编号无法精确核对");
+      const channel = String(raw),
+        type = fields.type;
+      if (
+        !/^(?:0|-1|-2|-3|-4|-5|[1-9][0-9]*)$/.test(channel) ||
+        BigInt(channel) > 9223372036854775807n ||
+        typeof type !== "string" ||
+        !["", "channel", "roll"].includes(type)
+      )
+        throw Error("通道配置无效");
+      if (
+        (channel === "-3"
+          ? type !== "roll"
+          : BigInt(channel) < 0n && type !== "channel" && type !== "") ||
+        (BigInt(channel) > 0n && type !== "channel" && type !== "roll") ||
+        key === "sandbox"
+      )
+        throw Error("通道配置尚不支持");
+      setting.channel = channel;
+      setting.type = type as GroupPaymentSetting["type"];
+    }
+    out[key] = setting;
   }
-  return data as Rates;
+  return out;
 }
 export function groupPaymentRatesError(raw: unknown): string {
   try {
@@ -51,8 +96,9 @@ export function setGroupPaymentRate(
 ): string {
   if (!groupPaymentTypes.some((t) => t.key === kind))
     throw Error("支付方式无效");
+  const current = readGroupPaymentRates(raw);
   return JSON.stringify({
-    ...readGroupPaymentRates(raw),
-    [kind]: { rate: value },
+    ...current,
+    [kind]: { ...current[kind], rate: value },
   });
 }

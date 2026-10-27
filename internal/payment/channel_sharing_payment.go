@@ -38,6 +38,7 @@ type ChannelSharingPaymentView struct {
 	CreatedAt   time.Time                   `json:"created_at"`
 }
 type sharingPaymentIntent struct {
+	runtimeChannel *RuntimeChannel
 	ChannelSharingPaymentView
 	AccountHash, RequestHash []byte
 	Prepared                 bool
@@ -86,9 +87,20 @@ func (s *Store) sharingPaymentFingerprint(d sharingPaymentIntent) ([]byte, error
 	}
 	return s.sharingDigest("payment-declaration", raw)
 }
-func (s *Store) verifySharingPayment(d sharingPaymentIntent) error {
+func (s *Store) verifySharingPayment(ctx context.Context, tx referralReader, d sharingPaymentIntent) error {
 	h, e := s.sharingPaymentFingerprint(d)
 	if e != nil || !hmac.Equal(h, d.RequestHash) {
+		return ErrConflict
+	}
+	o, e := scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE id=$1", d.OrderID))
+	if e != nil {
+		return e
+	}
+	charge, e := s.authenticatedChargeValue104(ctx, tx, o)
+	if e != nil {
+		return e
+	}
+	if charge != d.GrossAmount || o.MerchantAmount != d.MerchantNet || o.MerchantID != d.MerchantID {
 		return ErrConflict
 	}
 	return nil
@@ -106,7 +118,7 @@ func (s *Store) ChannelSharingPayment(ctx context.Context, mid int64, trade stri
 	if e != nil {
 		return ChannelSharingPaymentView{}, e
 	}
-	if e = s.verifySharingPayment(d); e != nil {
+	if e = s.verifySharingPayment(ctx, tx, d); e != nil {
 		return ChannelSharingPaymentView{}, e
 	}
 	return d.ChannelSharingPaymentView, tx.Commit(ctx)
@@ -116,6 +128,10 @@ func (s *Store) ChannelSharingPayment(ctx context.Context, mid int64, trade stri
 // current policy under a shared advisory lock and stores all terms before I/O.
 func (g ProviderFlow) prepareSharingPayment(ctx context.Context, o Order, channel int64, method, appID, scope string) (sharingPaymentIntent, error) {
 	s := g.Store
+	bound, e := g.RuntimeChannel(channel)
+	if e != nil {
+		return sharingPaymentIntent{}, e
+	}
 	account, e := s.sharingDigest("account", []byte(scope))
 	if e != nil {
 		return sharingPaymentIntent{}, e
@@ -127,13 +143,14 @@ func (g ProviderFlow) prepareSharingPayment(ctx context.Context, o Order, channe
 	defer tx.Rollback(ctx)
 	old, e := scanSharingPayment(ctx, tx, tx.QueryRow(ctx, "SELECT "+sharingPaymentColumns+" FROM provider_attempt_sharing WHERE order_id=$1", o.ID))
 	if e == nil {
-		if e = s.verifySharingPayment(old); e != nil {
+		if e = s.verifySharingPayment(ctx, tx, old); e != nil {
 			return sharingPaymentIntent{}, e
 		}
 		if old.ChannelID != channel || old.Method != method || old.AppID != appID || !hmac.Equal(old.AccountHash, account) {
 			return sharingPaymentIntent{}, ErrConflict
 		}
 		old.Prepared = true
+		old.runtimeChannel = &bound
 		return old, tx.Commit(ctx)
 	}
 	if !errors.Is(e, ErrNotFound) {
@@ -147,7 +164,12 @@ func (g ProviderFlow) prepareSharingPayment(ctx context.Context, o Order, channe
 	if historical {
 		return sharingPaymentIntent{}, ErrConflict
 	}
-	d := sharingPaymentIntent{ChannelSharingPaymentView: ChannelSharingPaymentView{OrderID: o.ID, MerchantID: o.MerchantID, ChannelID: channel, Method: method, Provider: o.Type, AppID: appID, GrossAmount: o.Amount, MerchantNet: o.MerchantAmount, Items: make([]ChannelSharingPaymentItem, 0)}, AccountHash: account, Prepared: true}
+	charge104, e := s.authenticatedChargeValue104(ctx, tx, o)
+	if e != nil {
+		return sharingPaymentIntent{}, e
+	}
+	d := sharingPaymentIntent{ChannelSharingPaymentView: ChannelSharingPaymentView{OrderID: o.ID, MerchantID: o.MerchantID, ChannelID: channel, Method: method, Provider: o.Type, AppID: appID, GrossAmount: charge104, MerchantNet: o.MerchantAmount, Items: make([]ChannelSharingPaymentItem, 0)}, AccountHash: account, Prepared: true}
+	d.runtimeChannel = &bound
 	d.Purpose, e = sharingPaymentPurpose(ctx, tx, o.ID)
 	if e != nil {
 		return d, e
@@ -166,7 +188,7 @@ func (g ProviderFlow) prepareSharingPayment(ctx context.Context, o Order, channe
 	if d.Purpose == "recharge" || !rule.Enabled || !slices.Contains(rule.Methods, method) {
 		return d, tx.Commit(ctx)
 	}
-	amounts, total, e := calculateChannelSharing(o.Amount, o.MerchantAmount, rule.MinimumAmount, rule.Items)
+	amounts, total, e := calculateChannelSharing(charge104, o.MerchantAmount, rule.MinimumAmount, rule.Items)
 	if e != nil {
 		return d, e
 	}
@@ -213,7 +235,7 @@ func (s *Store) bindSharingPayment(ctx context.Context, tx pgx.Tx, attemptID, or
 		if e != nil {
 			return e
 		}
-		if e = s.verifySharingPayment(old); e != nil {
+		if e = s.verifySharingPayment(ctx, tx, old); e != nil {
 			return e
 		}
 		if !hmac.Equal(account, old.AccountHash) || candidate == nil || old.AppID != candidate.AppID {
@@ -240,7 +262,11 @@ func (s *Store) bindSharingPayment(ctx context.Context, tx pgx.Tx, attemptID, or
 	if e = tx.QueryRow(ctx, "SELECT COALESCE((SELECT rule_id FROM channel_sharing_rule_current WHERE merchant_id=$1 AND channel_id=$2),0)", o.MerchantID, channel).Scan(&currentID); e != nil {
 		return e
 	}
-	d := sharingPaymentIntent{ChannelSharingPaymentView: ChannelSharingPaymentView{AttemptID: attemptID, OrderID: orderID, MerchantID: o.MerchantID, ChannelID: channel, Method: method, Provider: o.Type, GrossAmount: o.Amount, MerchantNet: o.MerchantAmount, Items: make([]ChannelSharingPaymentItem, 0)}, AccountHash: account}
+	charge104, e := s.authenticatedChargeValue104(ctx, tx, o)
+	if e != nil {
+		return e
+	}
+	d := sharingPaymentIntent{ChannelSharingPaymentView: ChannelSharingPaymentView{AttemptID: attemptID, OrderID: orderID, MerchantID: o.MerchantID, ChannelID: channel, Method: method, Provider: o.Type, GrossAmount: charge104, MerchantNet: o.MerchantAmount, Items: make([]ChannelSharingPaymentItem, 0)}, AccountHash: account}
 	if candidate == nil {
 		return ErrInvalid
 	}
@@ -251,7 +277,7 @@ func (s *Store) bindSharingPayment(ctx context.Context, tx pgx.Tx, attemptID, or
 	}
 	d.Purpose = purpose
 	if candidate.Prepared {
-		if candidate.Purpose != purpose || candidate.ExpectedRuleID != currentID || candidate.OrderID != orderID || candidate.ChannelID != channel || candidate.Method != method || candidate.Provider != o.Type || candidate.MerchantID != o.MerchantID || candidate.GrossAmount != o.Amount || candidate.MerchantNet != o.MerchantAmount || !hmac.Equal(candidate.AccountHash, account) {
+		if candidate.Purpose != purpose || candidate.ExpectedRuleID != currentID || candidate.OrderID != orderID || candidate.ChannelID != channel || candidate.Method != method || candidate.Provider != o.Type || candidate.MerchantID != o.MerchantID || candidate.GrossAmount != charge104 || candidate.MerchantNet != o.MerchantAmount || !hmac.Equal(candidate.AccountHash, account) {
 			return ErrConflict
 		}
 		d = *candidate
@@ -322,7 +348,7 @@ func (s *Store) reserveChannelSharingPayment(ctx context.Context, tx pgx.Tx, o O
 	if e != nil {
 		return e
 	}
-	if e = s.verifySharingPayment(d); e != nil {
+	if e = s.verifySharingPayment(ctx, tx, d); e != nil {
 		return e
 	}
 	if !d.Declared {
@@ -335,7 +361,11 @@ func (s *Store) reserveChannelSharingPayment(ctx context.Context, tx pgx.Tx, o O
 	if !receipt {
 		return ErrState
 	}
-	if d.MerchantNet != o.MerchantAmount || d.GrossAmount != o.Amount {
+	charge104, e := s.authenticatedChargeValue104(ctx, tx, o)
+	if e != nil {
+		return e
+	}
+	if d.MerchantNet != o.MerchantAmount || d.GrossAmount != charge104 {
 		return ErrConflict
 	}
 	var account, available int64

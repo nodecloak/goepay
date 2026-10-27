@@ -55,7 +55,9 @@ type Resolved struct {
 	Fallback   string
 }
 type Page struct {
+	SiteLogo                                        bool
 	Title, TradeNo, Amount, OrderName, MerchantName string
+	BrandName, Keywords, Description                string
 	ForegroundColor                                 string
 	Sandbox, Preview                                bool
 }

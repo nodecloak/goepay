@@ -8,6 +8,11 @@ import (
 )
 
 func (s *Server) paymentQuery(w http.ResponseWriter, r *http.Request, legacy bool, o payment.Order) {
+	charge104, chargeError104 := s.Store.AuthenticatedOrderCharge104(r.Context(), o)
+	if chargeError104 != nil {
+		s.wire(w, legacy, nil, "original payment amount unavailable")
+		return
+	}
 	var upstream, buyer, clientIP, authNo, releaseState string
 	var refunded int64
 	var incomeHeld bool
@@ -19,7 +24,7 @@ func (s *Server) paymentQuery(w http.ResponseWriter, r *http.Request, legacy boo
 	state := 0
 	if o.Status == "paid" {
 		state = 1
-		if refunded == o.Amount {
+		if refunded == charge104 {
 			state = 2
 		} else if incomeHeld {
 			state = 3
@@ -38,7 +43,7 @@ func (s *Server) paymentQuery(w http.ResponseWriter, r *http.Request, legacy boo
 	} else if legacy {
 		out["endtime"] = ""
 	}
-	if refunded > 0 && refunded < o.Amount {
+	if refunded > 0 && refunded < charge104 {
 		out["refundmoney"] = ledger.Format(refunded)
 	}
 	if legacy {

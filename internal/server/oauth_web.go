@@ -24,7 +24,7 @@ func validOAuthOrigin(raw string) bool {
 	return e == nil && u.Scheme == "https" && u.Host != "" && u.User == nil && u.RawQuery == "" && u.Fragment == "" && (u.Path == "" || u.Path == "/")
 }
 func (s *Server) oauthChannelReady(merchantID, channelID int64, method string) (provider.WebOAuthProvider, bool) {
-	if s.Sandbox || s.Store == nil || s.Pool == nil || s.ProviderFlow == nil || s.ProviderFlow.LocalSimulation || !s.ProviderFlow.AllowLive || !validOAuthOrigin(s.ProviderFlow.CallbackBaseURL) || method != "jsapi" {
+	if !s.paymentExecutionWriteAllowed() || s.Store == nil || s.Pool == nil || s.ProviderFlow == nil || s.ProviderFlow.LocalSimulation || !s.ProviderFlow.AllowLive || !validOAuthOrigin(s.ProviderFlow.CallbackBaseURL) || method != "jsapi" {
 		return nil, false
 	}
 	allowed := false
@@ -61,6 +61,9 @@ func (s *Server) oauthRouteAllowed(merchantID, channelID int64, method string, p
 	return ok && (p["sub_appid"] == "" || p["sub_appid"] == oauth.ApplicationID())
 }
 func (s *Server) oauthBindingEnabled(ctx context.Context, b payment.OAuthBinding) bool {
+	if s.ProviderFlow == nil || s.ProviderFlow.CheckParentIdentityAdmission(ctx, b.MerchantID, b.ChannelID) != nil {
+		return false
+	}
 	p, ok := s.oauthChannelReady(b.MerchantID, b.ChannelID, b.Method)
 	if !ok || p.ID() != b.Provider || p.ApplicationID() != b.AppID {
 		return false
@@ -124,6 +127,12 @@ func (s *Server) oauthCheckout(w http.ResponseWriter, r *http.Request, order pay
 		http.Error(w, "authorization unavailable", 503)
 		return true
 	}
+	resolved, resolveErr := s.withParentRuntime(r.Context(), order.MerchantID, order.OutTradeNo)
+	if resolveErr != nil {
+		http.Error(w, "authorization unavailable", 503)
+		return true
+	}
+	s = resolved
 	if _, e = s.Store.ProviderAttempt(r.Context(), order.TradeNo); e == nil {
 		return false
 	} else if !errors.Is(e, payment.ErrNotFound) {
@@ -143,6 +152,12 @@ func (s *Server) oauthCheckout(w http.ResponseWriter, r *http.Request, order pay
 		http.Error(w, "invalid checkout token", 403)
 		return true
 	}
+	resolved, resolveErr = s.originalOrderServer(r.Context(), b.TradeNo, b.ChannelID)
+	if resolveErr != nil {
+		http.Error(w, "authorization unavailable", 503)
+		return true
+	}
+	s = resolved
 	if !s.oauthBindingEnabled(r.Context(), b) {
 		http.Error(w, "authorization unavailable", 503)
 		return true
@@ -208,6 +223,12 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 		reject(400)
 		return
 	}
+	resolved, resolveErr := s.originalOrderServer(r.Context(), b.TradeNo, b.ChannelID)
+	if resolveErr != nil {
+		reject(503)
+		return
+	}
+	s = resolved
 	p, e := strictOAuthQuery(r.URL.RawQuery)
 	if e != nil {
 		reject(400)
@@ -277,7 +298,7 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 		reject(503)
 		return
 	}
-	attempt, e := s.ProviderFlow.Submit(r.Context(), b.TradeNo, b.ChannelID, b.Method, originalIP, identity.SubjectID)
+	attempt, e := s.ProviderFlow.Submit(s.paymentDefendContext206(r.Context()), b.TradeNo, b.ChannelID, b.Method, originalIP, identity.SubjectID)
 	if e != nil && attempt.ID == 0 {
 		reject(503)
 		return

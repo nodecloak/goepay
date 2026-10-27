@@ -1,11 +1,16 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"goepay/internal/identity"
+	"goepay/internal/payment"
+	"goepay/internal/privatesearch"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
+	"unicode/utf8"
 )
 
 const transferEffectiveStatus = "CASE WHEN settlement_payout.send_state IN ('unsent','cancelled') THEN settlement_payout.send_state WHEN batch_item.state IN ('unsent','cancelled') THEN batch_item.state WHEN b.state IN ('reversed','reversal_pending') THEN b.state ELSE t.status END"
@@ -46,6 +51,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 		columns += ",CASE WHEN EXISTS(SELECT 1 FROM order_income_holds h WHERE h.order_id=o.id AND h.state='held') THEN 'held' WHEN EXISTS(SELECT 1 FROM order_income_holds h WHERE h.order_id=o.id) THEN 'released' ELSE 'none' END AS income_status"
 		columns += "," + consoleOrderReportingColumns
 		if role == "admin" {
+			columns += ", (o.status='paid' AND o.notify_url<>'' AND COALESCE(console_notification.state,'none')<>'succeeded') AS can_batch_notify"
 			columns += ",COALESCE(console_control.changes->>'status','') AS admin_status,COALESCE((console_control.changes->>'archived')='true',false) AS admin_archived,COALESCE(console_control.id::text,'0') AS admin_revision"
 		}
 		tenant = "o.merchant_id"
@@ -89,7 +95,55 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 		return
 	}
 	// All SQL identifiers above are fixed by the endpoint; user input is bound.
-	searchClause, search, searchErr := consoleOrderSearch(query, kind, matching)
+	searchQuery := query
+	privateField := map[string]privatesearch.Field{"account": privatesearch.Account, "username": privatesearch.Name, "desc": privatesearch.Remark}[query.Get("search_field")]
+	var privateIDs []int64
+	privateActive := kind == "transfers" && privateField != ""
+	if privateActive {
+		if e := validateTransferListFilters(query); e != nil {
+			response(w, 400, -1, "invalid search filter", nil)
+			return
+		}
+		raw := query.Get("q")
+		if !utf8.ValidString(raw) || len(raw) > 256 || strings.ContainsAny(raw, "\x00\r\n") {
+			response(w, 400, -1, "invalid search filter", nil)
+			return
+		}
+		if strings.TrimSpace(raw) != "" {
+			owner := mid
+			if v := query.Get("merchant_id"); v != "" {
+				id, e := strconv.ParseInt(v, 10, 64)
+				if e != nil || id <= 0 {
+					response(w, 400, -1, "invalid merchant", nil)
+					return
+				}
+				if role != "admin" && id != mid {
+					response(w, 403, -1, "forbidden", nil)
+					return
+				}
+				owner = id
+			}
+			var e error
+			privateIDs, e = s.Store.SearchPrivateTransfers(r.Context(), owner, privateField, raw)
+			if e != nil {
+				if errors.Is(e, payment.ErrPrivateSearchBroad) {
+					response(w, 422, -1, "搜索范围过大，请输入更完整的账号、姓名或备注", nil)
+				} else {
+					s.fail(w, e)
+				}
+				return
+			}
+		} else {
+			privateActive = false
+		}
+		searchQuery = url.Values{}
+		for k, v := range query {
+			searchQuery[k] = append([]string(nil), v...)
+		}
+		searchQuery.Set("search_field", "")
+		searchQuery.Set("q", "")
+	}
+	searchClause, search, searchErr := consoleOrderSearch(searchQuery, kind, matching)
 	if searchErr != nil {
 		response(w, 400, -1, "invalid search filter", nil)
 		return
@@ -105,6 +159,10 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 		return
 	}
 	where += filters
+	if privateActive {
+		args = append(args, privateIDs)
+		where += fmt.Sprintf(" AND t.id=ANY($%d::bigint[])", len(args))
+	}
 	if kind == "orders" && query.Get("include_archived") != "true" {
 		where += " AND COALESCE((console_control.changes->>'archived')='true',false)=false"
 	}
@@ -156,6 +214,19 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 	if rows.Err() != nil {
 		s.fail(w, rows.Err())
 		return
+	}
+	rows.Close()
+	if kind == "orders" && role == "admin" {
+		if e = s.consoleOrderCharges104(r.Context(), 0, items); e != nil {
+			s.fail(w, e)
+			return
+		}
+	}
+	if kind == "orders" && role == "merchant" {
+		if e = s.merchantOrderActions(r.Context(), session, items); e != nil {
+			s.fail(w, e)
+			return
+		}
 	}
 	response(w, 200, 0, "", map[string]any{"items": items, "total": total, "page": page, "limit": limit})
 }

@@ -1,3 +1,4 @@
+import { siteKeys191 } from "./site191";
 export const settingsTabs = [
   ["site", "网站信息"],
   ["merchant", "商户相关"],
@@ -22,7 +23,7 @@ export interface SettingDefinition {
   key: string;
   label: string;
   tab: SettingsTab;
-  kind: "text" | "email" | "select" | "integer" | "money";
+  kind: "text" | "email" | "select" | "integer" | "money" | "html";
   storage?: "cents" | "bps";
   options?: { value: string; label: string }[];
   hint?: string;
@@ -30,6 +31,17 @@ export interface SettingDefinition {
 const option = (value: string, label: string) => ({ value, label });
 const booleanOptions = [option("true", "开启"), option("false", "关闭")];
 const switchOptions = [option("1", "开启"), option("0", "关闭")];
+export function settingInitialValue(d: SettingDefinition): string {
+  return [
+    "test_open",
+    "test_pay_uid",
+    "captcha_open_test",
+    "captcha_version",
+    "captcha_open_login",
+  ].includes(d.key)
+    ? "0"
+    : "";
+}
 const labels: Record<
   string,
   [
@@ -40,13 +52,34 @@ const labels: Record<
   ]
 > = {
   site_name: ["site", "网站名称", "text"],
-  sitename: ["site", "原网站名称", "text"],
+  sitename: ["site", "网站名称", "text"],
+  title: ["site", "网站标题", "text"],
+  keywords: ["site", "网站关键词", "text"],
+  description: ["site", "网站描述", "text"],
+  orgname: ["site", "公司名称", "text"],
+  email: ["site", "联系邮箱", "email"],
+  kfqq: ["site", "客服QQ", "text"],
+  kfqq_url: ["site", "客服QQ链接", "text"],
+  wework_url: ["site", "企业微信链接", "text"],
+  qqqun: ["site", "加群链接", "text"],
+  login_subtitle: ["site", "登录页面标语", "text"],
+  homepage: ["site", "网站首页", "select"],
+  homepage_url: ["site", "自定义首页地址", "text"],
   support_email: ["site", "客服邮箱", "email"],
+  modal: ["anounce", "用户中心弹出公告", "html"],
+  zhuce: ["anounce", "用户注册页面公告", "html"],
+  footer: ["anounce", "底部版权", "html"],
   registration_open: ["merchant", "开放商户注册", "select"],
   registration_invite_required: ["merchant", "注册必须邀请码", "select"],
   user_review: ["merchant", "新商户审核", "select"],
   enforce_domains: ["pay", "校验授权域名", "select"],
   payment_fee_enabled: ["pay", "支付手续费", "select"],
+  test_open: ["site", "测试支付", "select"],
+  test_pay_uid: ["site", "测试支付收款商户ID", "integer"],
+  captcha_open_test: ["site", "测试支付开启验证码", "select"],
+  captcha_id: ["site", "极验滑动验证码ID", "text"],
+  captcha_version: ["site", "极验版本", "select"],
+  captcha_open_login: ["site", "登录开启验证码", "select"],
   pay_maxmoney: ["pay", "最大支付金额（元）", "money"],
   pay_minmoney: ["pay", "最小支付金额（元）", "money"],
   refund_fee_payer: ["pay", "退款手续费承担方", "select"],
@@ -86,8 +119,8 @@ const labels: Record<
   telegramnotice: ["notice", "Telegram提醒", "select"],
   qqbotnotice: ["notice", "QQ Bot提醒", "select"],
   voicenotice: ["notice", "语音提醒", "select"],
-  mail_recv: ["mail", "管理员接收邮箱", "email"],
-  mail_name: ["mail", "管理员默认邮箱", "email"],
+  mail_recv: ["notice", "管理员邮箱", "email"],
+  mail_name: ["notice", "管理员邮箱", "email"],
   msgtelegram_chatid: ["notice", "管理员Telegram会话ID", "text"],
   qqbot_openid: ["notice", "管理员QQ机器人OpenID", "text"],
   admin_funds_authorization_enabled: [
@@ -148,6 +181,13 @@ export function settingDefinition(
     d.options = booleanOptions;
   if (key === "user_review")
     d.options = [option("0", "无需审核"), option("1", "需管理员审核")];
+  if (key === "homepage")
+    d.options = [
+      option("0", "默认首页"),
+      option("1", "商户登录页面"),
+      option("2", "自定义首页"),
+      option("3", "空白页面"),
+    ];
   if (key === "settle_type")
     d.options = [option("0", "T+0"), option("1", "T+1")];
   if (key === "settle_open") {
@@ -166,11 +206,19 @@ export function settingDefinition(
       option("merchant", "商户承担（保留手续费）"),
     ];
   if (
-    ["user_transfer", "telegramnotice", "qqbotnotice", "voicenotice"].includes(
-      key,
-    )
+    [
+      "user_transfer",
+      "telegramnotice",
+      "qqbotnotice",
+      "voicenotice",
+      "test_open",
+      "captcha_open_test",
+      "captcha_open_login",
+    ].includes(key)
   )
     d.options = switchOptions;
+  if (key === "captcha_version")
+    d.options = [option("0", "V3.0"), option("1", "V4.0")];
   if (key.startsWith("msgconfig_")) {
     const scene = key.slice(10);
     d.tab = "notice";
@@ -204,7 +252,7 @@ export function settingDefinition(
   if (key === "site_name")
     d.hint = "支付页面等功能使用的网站名称；原消息模板可使用下方原网站名称。";
   if (key === "sitename")
-    d.hint = "兼容原消息模板的网站名称；已配置时提醒内容优先使用此值。";
+    d.hint = "用于网站首页、登录页面、后台品牌和消息提醒。";
   if (key === "user_transfer")
     d.hint =
       "普通代付兼容原系统开关；配置转账付款开关时优先使用该项。用户组开启可覆盖普通业务开关，商户自身权限和执行开关仍需满足。";
@@ -223,6 +271,9 @@ export function settingDefinition(
     d.hint = "0表示不限制。";
   if (["auto_settle_money", "transfer_alipay"].includes(key))
     d.hint = "0表示关闭该自动转账条件。";
+  if (key === "test_pay_uid")
+    d.hint =
+      "0关闭测试支付。仅使用此固定商户及当前启用通道，测试订单仍执行原支付费率和权限校验。";
   return d;
 }
 const formatMinor = (n: bigint) =>
@@ -235,6 +286,22 @@ export function settingDisplay(d: SettingDefinition, value: string): string {
 }
 export function settingStorage(d: SettingDefinition, input: string): string {
   const value = input.trim();
+  if (d.key === "captcha_id") {
+    if (!/^[A-Za-z0-9_-]{0,128}$/.test(value))
+      throw Error("极验滑动验证码ID格式无效");
+    return value;
+  }
+  if (
+    !value &&
+    (siteKeys191 as readonly string[]).includes(d.key) &&
+    !["sitename", "homepage"].includes(d.key)
+  )
+    return "";
+  if (d.kind === "html" && ["modal", "zhuce", "footer"].includes(d.key)) {
+    if (new TextEncoder().encode(value).length > 20000)
+      throw Error(`${d.label}：内容不能超过20000字节`);
+    return value;
+  }
   if (!value)
     throw Error(`${d.label}：请填写明确的设置值，未配置的项目无需保存`);
   if (d.kind === "select" && !d.options?.some((o) => o.value === value))

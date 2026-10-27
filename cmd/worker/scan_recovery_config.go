@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
+	adapter "goepay/internal/adapters/payment"
 	"os"
 
 	"goepay/internal/channelconfig"
@@ -40,13 +42,34 @@ func configuredScanRecoveryFlow(store *payment.Store) (*payment.ProviderFlow, er
 	if e != nil {
 		return nil, errScanRecoveryConfiguration
 	}
-	providers, e := channelconfig.BuildWithOptions(imp, channelconfig.BuildOptions{AllowLive: true, ScanRecovery: true})
-	if e != nil || len(providers) == 0 {
+	var parentAccounts []adapter.ParentStartupAccount
+	if store != nil {
+		parentAccounts, e = store.ParentStartupAccounts(context.Background())
+		if e != nil {
+			return nil, errScanRecoveryConfiguration
+		}
+	}
+	startup, e := channelconfig.PrepareParentStartup(imp, parentAccounts)
+	if e != nil {
 		return nil, errScanRecoveryConfiguration
 	}
-	mapping, e := channelconfig.MerchantAllowlist(os.Getenv("GOEPAY_MERCHANT_CHANNELS"), providers)
+	imp = startup.Import
+	providers, e := startup.BuildProviders(channelconfig.BuildOptions{AllowLive: true, ScanRecovery: true})
+	if e != nil || !startup.HasRegisteredSources() {
+		return nil, errScanRecoveryConfiguration
+	}
+	mapping, e := startup.MerchantAllowlist(os.Getenv("GOEPAY_MERCHANT_CHANNELS"))
 	if e != nil || len(mapping) == 0 {
 		return nil, errScanRecoveryConfiguration
 	}
-	return &payment.ProviderFlow{Store: store, Providers: providers, MerchantChannels: mapping, AllowLive: true, ScanRecoveryEnabled: true}, nil
+	factories, e := startup.BuildSubchannelFactories(channelconfig.BuildOptions{AllowLive: true, ScanRecovery: true})
+	if e != nil {
+		return nil, errScanRecoveryConfiguration
+	}
+	flow := &payment.ProviderFlow{SubchannelFactories: factories, Store: store, Providers: providers, MerchantChannels: mapping, AllowLive: true, ScanRecoveryEnabled: true}
+	parentFactories, e := startup.BuildFactories(channelconfig.ParentBuildOptions{BuildOptions: channelconfig.BuildOptions{AllowLive: true, ScanRecovery: true, RuntimeWriteAllowed: func() bool { return flow.AllowLive }}})
+	if e != nil || flow.InstallParentAccountFactories(parentFactories) != nil {
+		return nil, errScanRecoveryConfiguration
+	}
+	return flow, nil
 }

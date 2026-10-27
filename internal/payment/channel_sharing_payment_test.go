@@ -72,7 +72,7 @@ func TestChannelSharingPaymentDeclarationAndNetReserveAreOriginalAndAtomic(t *te
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if e := s.markPaid(ctx, o.TradeNo, "sharing-paid", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "original-provider-trade"}); e != nil {
+			if e := s.markPaid(ctx, o.TradeNo, "sharing-paid", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "original-provider-trade"}); e != nil {
 				t.Error(e)
 			}
 		}()
@@ -130,7 +130,7 @@ func TestChannelSharingPaymentNoRuleIsAnImmutableNegativeDeclaration(t *testing.
 	if _, e = s.pool.Exec(ctx, "UPDATE provider_attempt_sharing SET declared=true WHERE attempt_id=$1", a.ID); e == nil {
 		t.Fatal("original negative declaration was mutable")
 	}
-	if e = s.markPaid(ctx, o.TradeNo, "negative-paid", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "negative-provider"}); e != nil {
+	if e = s.markPaid(ctx, o.TradeNo, "negative-paid", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "negative-provider"}); e != nil {
 		t.Fatal(e)
 	}
 	b, e := s.Balance(ctx, 751)
@@ -161,7 +161,7 @@ func TestChannelSharingPaymentT1DoesNotBlockOldAvailableFundsTwice(t *testing.T)
 	if _, e = g.Submit(ctx, today.TradeNo, 7, "native", "127.0.0.1", ""); e != nil {
 		t.Fatal(e)
 	}
-	if e = s.markPaid(ctx, today.TradeNo, "today-sharing-paid", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "today-upstream"}); e != nil {
+	if e = s.markPaid(ctx, today.TradeNo, "today-sharing-paid", true, PaidReceipt{RealMoney: today.Amount, ChannelID: 7, ProviderTradeNo: "today-upstream"}); e != nil {
 		t.Fatal(e)
 	}
 	if _, e = s.pool.Exec(ctx, `INSERT INTO backoffice_records(resource,body) VALUES('settings','{"key":"settle_type","value":"1"}')`); e != nil {
@@ -185,7 +185,7 @@ func TestChannelSharingFundingCheckerDetectsMissingProjectionAndRejectsForeignSp
 	if _, e = g.Submit(ctx, o.TradeNo, 7, "native", "127.0.0.1", ""); e != nil {
 		t.Fatal(e)
 	}
-	if e = s.markPaid(ctx, o.TradeNo, "sharing-integrity-paid", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "integrity-upstream"}); e != nil {
+	if e = s.markPaid(ctx, o.TradeNo, "sharing-integrity-paid", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "integrity-upstream"}); e != nil {
 		t.Fatal(e)
 	}
 	report, e := s.CheckLedger(ctx)
@@ -251,7 +251,7 @@ func TestChannelSharingPaymentProofAndFundingFailuresRollbackBeforeAnyPartialCom
 	if _, e = s.pool.Exec(ctx, `CREATE FUNCTION reject_sharing_funding_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected sharing funding failure'; END $$;CREATE TRIGGER reject_sharing_funding_test BEFORE INSERT ON channel_sharing_fundings FOR EACH ROW EXECUTE FUNCTION reject_sharing_funding_test()`); e != nil {
 		t.Fatal(e)
 	}
-	receipt := PaidReceipt{ChannelID: 7, ProviderTradeNo: "rollback-upstream"}
+	receipt := PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "rollback-upstream"}
 	if e = s.markPaid(ctx, o.TradeNo, "rollback-paid", true, receipt); e == nil {
 		t.Fatal("funding failure still acknowledged a paid order")
 	}

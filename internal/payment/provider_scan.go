@@ -12,7 +12,7 @@ import (
 var ErrScanPending = errors.New("scan outcome requires authenticated query")
 
 func (g ProviderFlow) scanRequest(channelID int64, r provider.ScanRequest) (provider.ScanProvider, provider.ScanRequest, error) {
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return nil, r, ErrLiveDisabled
 	}
 	p := g.Providers[channelID]
@@ -72,10 +72,19 @@ func (g ProviderFlow) SubmitScan(ctx context.Context, tradeNo string, channelID 
 	if g.Store == nil {
 		return Order{}, ErrInvalid
 	}
+	resolved, resolveErr := g.parentPaymentTrade(ctx, tradeNo)
+	if resolveErr != nil {
+		return Order{}, resolveErr
+	}
+	g = resolved
 	if e := g.Store.checkChannelWrite(ctx, channelID); e != nil {
 		return Order{}, e
 	}
 	o, e := g.Store.OrderByTradeNo(ctx, tradeNo)
+	if e != nil {
+		return o, e
+	}
+	g, _, e = g.ForPaymentIntent(ctx, o.MerchantID, o.OutTradeNo, channelID)
 	if e != nil {
 		return o, e
 	}
@@ -99,7 +108,11 @@ func (g ProviderFlow) SubmitScan(ctx context.Context, tradeNo string, channelID 
 	if e != nil {
 		return o, e
 	}
-	scanner, request, e := g.scanRequest(channelID, provider.ScanRequest{TradeNo: tradeNo, Subject: subject, Amount: o.Amount, ClientIP: clientIP, AuthCode: authCode, ProfitSharing: sharing.Declared})
+	charge104, e := g.Store.AuthenticatedOrderCharge104(ctx, o)
+	if e != nil {
+		return o, e
+	}
+	scanner, request, e := g.scanRequest(channelID, provider.ScanRequest{TradeNo: tradeNo, Subject: subject, Amount: charge104, ClientIP: clientIP, AuthCode: authCode, ProfitSharing: sharing.Declared})
 	if e != nil {
 		return o, e
 	}
@@ -135,6 +148,11 @@ func (g ProviderFlow) SubmitScan(ctx context.Context, tradeNo string, channelID 
 		}
 		return current, ErrScanPending
 	}
+	if e = g.Store.merchantScanBeforeIO106(ctx, o); e != nil {
+		// Ownership has already committed. Never release it for a second send;
+		// reconciliation of this original attempt remains query-only.
+		return o, e
+	}
 	event, e := scanner.Scan(ctx, request)
 	if e != nil {
 		state := "unknown"
@@ -155,14 +173,14 @@ func (g ProviderFlow) SubmitScan(ctx context.Context, tradeNo string, channelID 
 		current, _ := g.Store.OrderByTradeNo(ctx, tradeNo)
 		return current, e
 	}
-	if event.State != "SUCCESS" || event.TradeNo != tradeNo || event.Amount != o.Amount || event.Currency != "CNY" || event.ProviderTradeNo == "" {
+	if event.State != "SUCCESS" || event.TradeNo != tradeNo || event.Amount != charge104 || event.Currency != "CNY" || event.ProviderTradeNo == "" {
 		save := g.Store.RecordProviderAttemptResult(ctx, attempt.ID, "unknown", "", "", "")
 		return o, &provider.UnknownOutcome{Operation: "scan", Cause: errors.Join(provider.ErrAuthentication, save)}
 	}
 	if e = g.Store.RecordProviderAttemptResult(ctx, attempt.ID, "pending", "", "", event.ProviderTradeNo); e != nil {
 		return o, &provider.UnknownOutcome{Operation: "persist scan result", Cause: e}
 	}
-	if e = g.Store.markPaid(ctx, tradeNo, fmt.Sprintf("provider-scan:%d:%s", channelID, event.ProviderTradeNo), true, PaidReceipt{ChannelID: channelID, ProviderTradeNo: event.ProviderTradeNo, BuyerID: event.BuyerID}); e != nil {
+	if e = g.Store.markPaid(ctx, tradeNo, fmt.Sprintf("provider-scan:%d:%s", channelID, event.ProviderTradeNo), true, PaidReceipt{RealMoney: event.Amount, ChannelID: channelID, ProviderTradeNo: event.ProviderTradeNo, BuyerID: event.BuyerID}); e != nil {
 		return o, &provider.UnknownOutcome{Operation: "settle scan", Cause: e}
 	}
 	return g.Store.OrderByTradeNo(ctx, tradeNo)

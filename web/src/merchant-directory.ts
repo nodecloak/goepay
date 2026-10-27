@@ -25,6 +25,8 @@ export const merchantDirectoryStatuses = [
   { value: "status_0", label: "用户状态封禁" },
   { value: "pay_1", label: "支付状态正常" },
   { value: "pay_0", label: "支付状态关闭" },
+  { value: "settle_1", label: "结算状态正常" },
+  { value: "settle_0", label: "结算状态关闭" },
 ];
 export const merchantDirectorySorts = [
   { value: "", label: "商户号倒序" },

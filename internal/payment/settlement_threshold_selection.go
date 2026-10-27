@@ -193,7 +193,7 @@ func (s *Store) sealThresholdSelection(ctx context.Context, tx pgx.Tx, r settlem
 		if m.Threshold == nil {
 			return out, ErrConflict
 		}
-		if m.Threshold.GroupID > 0 {
+		if m.Threshold.GroupID >= 0 {
 			groupIDs = append(groupIDs, m.Threshold.GroupID)
 		}
 	}
@@ -213,7 +213,7 @@ func (s *Store) sealThresholdSelection(ctx context.Context, tx pgx.Tx, r settlem
 		}
 	}
 	for _, mid := range p.Input.MerchantIDs {
-		if e = requireOutgoingFunds(ctx, tx, mid, 0); e != nil {
+		if e = s.requireOutgoingFunds(ctx, tx, mid, 0); e != nil {
 			return out, e
 		}
 	}
@@ -234,7 +234,7 @@ func (s *Store) sealThresholdSelection(ctx context.Context, tx pgx.Tx, r settlem
 	}
 	out.Snapshot.Candidates = []settlementThresholdCandidate{}
 	for _, mid := range p.Input.MerchantIDs {
-		funds, e := readFundsAvailability(ctx, tx, mid, &out.CreatedAt)
+		funds, e := s.readFundsAvailability(ctx, tx, mid, &out.CreatedAt)
 		if e != nil {
 			return out, e
 		}

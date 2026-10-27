@@ -1,4 +1,7 @@
+import { closedLoginCaptchaFixture205 } from "./fixtures/login-captcha205";
+import { publicSiteFixture191 } from "./fixtures/site191";
 import { test, expect } from "@playwright/test";
+import actualPlatform from "./globalaccess179-http-fixture.json" with { type: "json" };
 const ok = (data: unknown, status = 200) => ({
   status,
   contentType: "application/json",
@@ -9,7 +12,23 @@ test("mail-disabled enrollment cannot send and leaving the form clears sensitive
 }) => {
   let sends = 0;
   await page.route("**/console/v1/**", (route) => {
+    const captcha205Reply = closedLoginCaptchaFixture205(route);
+    if (captcha205Reply) return captcha205Reply;
+    const siteReply191 = publicSiteFixture191(route);
+    if (siteReply191) return siteReply191;
     const p = new URL(route.request().url()).pathname;
+    if (p === "/console/v1/public/merchant-access")
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: 0,
+          message: "",
+          data: actualPlatform.public_default,
+        }),
+      });
+    if (p === "/console/v1/public/layout")
+      return route.fulfill(ok({ zhuce: "", footer: "", format: "html" }));
     if (p.endsWith("/session"))
       return route.fulfill({
         status: 401,
@@ -58,8 +77,24 @@ test("registration posts opaque challenge with invitation, handles wrong code an
   let submits = 0,
     logins = 0;
   await page.route("**/console/v1/**", (route) => {
+    const captcha205Reply = closedLoginCaptchaFixture205(route);
+    if (captcha205Reply) return captcha205Reply;
+    const siteReply191 = publicSiteFixture191(route);
+    if (siteReply191) return siteReply191;
     const r = route.request(),
       p = new URL(r.url()).pathname;
+    if (p === "/console/v1/public/merchant-access")
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: 0,
+          message: "",
+          data: actualPlatform.public_default,
+        }),
+      });
+    if (p === "/console/v1/public/layout")
+      return route.fulfill(ok({ zhuce: "", footer: "", format: "html" }));
     if (p.endsWith("/session"))
       return route.fulfill({
         status: 401,
@@ -148,8 +183,24 @@ test("recovery invalidates a challenge after editing email and reports uniform c
   let sends = 0;
   await page.clock.install();
   await page.route("**/console/v1/**", (route) => {
+    const captcha205Reply = closedLoginCaptchaFixture205(route);
+    if (captcha205Reply) return captcha205Reply;
+    const siteReply191 = publicSiteFixture191(route);
+    if (siteReply191) return siteReply191;
     const r = route.request(),
       p = new URL(r.url()).pathname;
+    if (p === "/console/v1/public/merchant-access")
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: 0,
+          message: "",
+          data: actualPlatform.public_default,
+        }),
+      });
+    if (p === "/console/v1/public/layout")
+      return route.fulfill(ok({ zhuce: "", footer: "", format: "html" }));
     if (p.endsWith("/session"))
       return route.fulfill({
         status: 401,
@@ -213,7 +264,23 @@ test("unknown capabilities fail closed and mail service/rate-limit failures neve
   let capabilities = 0,
     sends = 0;
   await page.route("**/console/v1/**", (route) => {
+    const captcha205Reply = closedLoginCaptchaFixture205(route);
+    if (captcha205Reply) return captcha205Reply;
+    const siteReply191 = publicSiteFixture191(route);
+    if (siteReply191) return siteReply191;
     const p = new URL(route.request().url()).pathname;
+    if (p === "/console/v1/public/merchant-access")
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: 0,
+          message: "",
+          data: actualPlatform.public_default,
+        }),
+      });
+    if (p === "/console/v1/public/layout")
+      return route.fulfill(ok({ zhuce: "", footer: "", format: "html" }));
     if (p.endsWith("/session"))
       return route.fulfill({
         status: 401,

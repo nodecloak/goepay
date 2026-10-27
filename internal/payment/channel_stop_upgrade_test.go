@@ -3,44 +3,14 @@ package payment
 import (
 	"context"
 	"github.com/jackc/pgx/v5"
-	adapter "goepay/internal/adapters/payment"
 	"os"
 	"testing"
 )
 
 func TestChannelStop76UpgradePreservesActual75UnknownFundsWithoutInventingStopsOrNotices(t *testing.T) {
-	s := membership72HistoricalStore(t, 75)
+	s, _ := actualHistoricalStore155(t, "stop75")
 	ctx := context.Background()
 	const mid int64 = 7633
-	if e := s.CreateMerchant(ctx, Merchant{ID: mid, Name: "Local historical payer", APIKey: "synthetic-only76"}); e != nil {
-		t.Fatal(e)
-	}
-	if _, e := s.pool.Exec(ctx, `UPDATE merchants SET profile='{"transfer_api_enabled":true}' WHERE id=$1`, mid); e != nil {
-		t.Fatal(e)
-	}
-	transferSetting(t, s, "transfer_enabled", "true")
-	o, e := s.CreateOrder(ctx, CreateOrderInput{MerchantID: mid, OutTradeNo: "before76-local-credit", Amount: 2000})
-	if e != nil {
-		t.Fatal(e)
-	}
-	if e = s.MarkPaid(ctx, o.TradeNo, "before76-local-paid"); e != nil {
-		t.Fatal(e)
-	}
-	provider := &autoScopeProvider73{kind: "alipay", account: "seller:2088000000000073", product: "alipay.fund.trans.toaccount.transfer"}
-	scope, e := adapter.TransferAccountScope(provider)
-	if e != nil {
-		t.Fatal(e)
-	}
-	old, owner, e := s.beginTransfer(ctx, mid, 7, "before76-unknown", adapter.TransferRequest{Type: "alipay", Account: "local-recipient@example.test", Name: "Local Recipient", Amount: 1000, Remark: "Local upgrade fixture"}, func(adapter.TransferRequest) error { return nil }, "", scope)
-	if e != nil || !owner {
-		t.Fatal(old, owner, e)
-	}
-	if e = s.resolveProviderTransfer(ctx, old.ID, "unknown", "", ""); e != nil {
-		t.Fatal(e)
-	}
-	if _, e = s.pool.Exec(ctx, `UPDATE jobs SET last_error='40004:PAYER_BALANCE_NOT_ENOUGH' WHERE kind='transfer.reconcile'`); e != nil {
-		t.Fatal(e)
-	}
 	rows, e := s.pool.Query(ctx, `SELECT table_name FROM information_schema.tables WHERE table_schema=current_schema() AND table_type='BASE TABLE' ORDER BY table_name`)
 	if e != nil {
 		t.Fatal(e)

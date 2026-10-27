@@ -173,9 +173,7 @@ test("live local settlement pays original net once after administrator funds con
     // after the ordinary live suite; restore it before fixture cleanup.
     await set("admin_funds_authorization_enabled", "true");
     await page.goto("/admin/settle/list");
-    const row = page
-      .getByRole("row")
-      .filter({ has: page.getByRole("cell", { name: external, exact: true }) });
+    const row = page.locator(`[data-settlement-id="${application.id}"]`);
     await row.getByRole("button", { name: "核对结算出款" }).click();
     const panel = page.getByRole("region", { name: "结算出款", exact: true });
     await panel.getByLabel("出款通道").selectOption("1");

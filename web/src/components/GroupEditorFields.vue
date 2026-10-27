@@ -6,10 +6,19 @@ import {
   onMounted,
   ref,
   useId,
+  useSlots,
   watch,
 } from "vue";
 import { readonly, type ResourceField } from "../resources";
 import ResourceFields from "./ResourceFields.vue";
+import type { ApiClient } from "../api";
+import {
+  readGroupRoutingCatalog,
+  readGroupRoutingRolls,
+  groupRouteValue,
+  setGroupPaymentRoute,
+  type GroupRouteOption,
+} from "../group-routing";
 import {
   groupPaymentTypes,
   readGroupPaymentRates,
@@ -23,8 +32,10 @@ const props = defineProps<{
   disabled: boolean;
   initialTab?: string;
   returnFocus?: HTMLElement;
+  client?: ApiClient;
 }>();
 const emit = defineEmits<{ change: [name: string, value: unknown] }>();
+const slots = useSlots();
 const tabName = (value?: string) => (value === "other" ? "other" : "basic");
 const tab = ref(tabName(props.initialTab)),
   root = ref<HTMLElement>(),
@@ -62,6 +73,97 @@ const typeRates = computed(() => {
     return null;
   }
 });
+const routeOptions = ref<GroupRouteOption[]>([]),
+  routesLoading = ref(false),
+  routesError = ref(""),
+  routesReady = ref(false);
+let routesController: AbortController | undefined,
+  active = true;
+async function loadRoutes() {
+  if (!props.client || !props.fields.some((f) => f.name === "info")) return;
+  routesController?.abort();
+  const controller = new AbortController();
+  routesController = controller;
+  routesLoading.value = true;
+  routesError.value = "";
+  routesReady.value = false;
+  try {
+    const channels = readGroupRoutingCatalog(
+      await props.client.request<unknown>("/resources/groups/routing-options", {
+        signal: controller.signal,
+      }),
+    );
+    const rows: unknown[] = [];
+    let expected: number | undefined;
+    for (let page = 1; page <= 20; page++) {
+      const data = await props.client.request<{
+        items: unknown[];
+        total: number;
+      }>(`/resources/pay-rolls?page=${page}&limit=100`, {
+        signal: controller.signal,
+      });
+      if (
+        !Array.isArray(data.items) ||
+        data.items.length > 100 ||
+        !Number.isSafeInteger(data.total) ||
+        data.total < 0 ||
+        data.total > 2000 ||
+        (expected !== undefined && expected !== data.total)
+      )
+        throw Error();
+      expected = data.total;
+      rows.push(...data.items);
+      if (rows.length === expected) break;
+      if (rows.length > expected || !data.items.length || page === 20)
+        throw Error();
+    }
+    const rolls = readGroupRoutingRolls(rows, channels),
+      options: GroupRouteOption[] = [
+        ...channels.map((channel) => ({
+          value: "channel:" + channel.id,
+          label:
+            (groupPaymentTypes.find((t) => t.key === channel.type)?.label ||
+              channel.type) +
+            " #" +
+            channel.id,
+          type: channel.type,
+        })),
+        ...rolls,
+      ];
+    if (active && routesController === controller) {
+      routeOptions.value = options;
+      routesReady.value = true;
+    }
+  } catch {
+    if (active && routesController === controller && !controller.signal.aborted)
+      routesError.value = "通道选项读取失败，请重试；原配置已保留。";
+  } finally {
+    if (active && routesController === controller) routesLoading.value = false;
+  }
+}
+function choicesFor(
+  kind: string,
+): (GroupRouteOption & { disabled?: boolean })[] {
+  const choices: (GroupRouteOption & { disabled?: boolean })[] = [
+    { value: "disabled", label: "关闭", type: kind },
+    { value: "random", label: "随机可用", type: kind },
+    { value: "subchannels", label: "商户子通道", type: kind },
+    { value: "sequential", label: "顺序可用", type: kind },
+    { value: "first", label: "首个可用通道", type: kind },
+    { value: "random_roll", label: "随机可用轮询组", type: kind },
+    { value: "default", label: "继承系统路由", type: kind },
+    ...routeOptions.value.filter((o) => o.type === kind),
+  ];
+  const current = groupRouteValue(props.values.info, kind);
+  if (!choices.some((o) => o.value === current))
+    choices.push({
+      value: current,
+      label: "当前配置 " + current + "（目录中不可用）",
+      type: kind,
+      disabled: true,
+    });
+  return choices;
+}
 const sections = computed(() =>
   [
     ...definitions.map((group) => ({
@@ -101,7 +203,9 @@ const sections = computed(() =>
               : field,
         ),
     }))
-    .filter((group) => group.fields.length),
+    .filter(
+      (group) => group.fields.length || (group.name === "other" && slots.other),
+    ),
 );
 const groups = computed(() =>
   [
@@ -120,7 +224,9 @@ const groups = computed(() =>
       ...group,
       fields: group.sections.flatMap((section) => section.fields),
     }))
-    .filter((group) => group.fields.length),
+    .filter(
+      (group) => group.fields.length || (group.name === "other" && slots.other),
+    ),
 );
 const selected = computed(
   () =>
@@ -177,6 +283,7 @@ function keydown(event: KeyboardEvent) {
   );
 }
 onMounted(async () => {
+  void loadRoutes();
   await nextTick();
   root.value
     ?.querySelector<HTMLElement>(
@@ -185,6 +292,8 @@ onMounted(async () => {
     ?.focus();
 });
 onBeforeUnmount(() => {
+  active = false;
+  routesController?.abort();
   void nextTick(() => {
     if (opener?.isConnected && !document.querySelector('[role="dialog"]'))
       opener.focus();
@@ -239,10 +348,10 @@ onBeforeUnmount(() => {
               {{ section.label }}
             </h3>
             <p v-if="section.name === 'payment'" class="muted">
-              统一支付费率单位为万分比。下方分成比例为商户保留的百分比，留空或0使用统一费率；仅在支付手续费开启时用于新订单。通道分配仍须单独配置。
+              统一支付费率单位为万分比。下方分成比例为商户保留的百分比，留空或0使用统一费率；仅用于新订单。通道选择不会自动发起支付。
             </p>
             <p v-if="section.name === 'settlement'" class="muted">
-              结算开关按原选项生效；余额自动转账比例按现有规则单独配置，留空继承。修改组配置不会自动创建出款。
+              结算手续费率用于新的手动提现及普通定时申请，留空继承系统费率，0免手续费；余额阈值转账按其独立规则处理。修改组配置不会自动发起付款。
             </p>
             <p v-if="section.name === 'transfer'" class="muted">
               缺省继承系统设置，旧值0同样继承；开启用于该组普通代付。仍需商户自身权限、可用通道和执行开关，修改不会自动发起付款。
@@ -275,53 +384,110 @@ onBeforeUnmount(() => {
               <div v-if="!typeRates" role="alert">
                 支付方式分成比例格式不正确，请核对原配置。
               </div>
-              <div v-else class="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th scope="col">支付方式</th>
-                      <th scope="col">分成比例（%）</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="kind in groupPaymentTypes" :key="kind.key">
-                      <th scope="row">{{ kind.label }}</th>
-                      <td>
-                        <input
-                          :aria-label="kind.label + '分成比例（%）'"
-                          :value="typeRates[kind.key]?.rate ?? ''"
-                          :aria-invalid="!!errors.info"
-                          inputmode="decimal"
-                          maxlength="6"
-                          placeholder="留空继承"
-                          @input="
-                            emit(
-                              'change',
-                              'info',
-                              setGroupPaymentRate(
-                                values.info,
-                                kind.key,
-                                ($event.target as HTMLInputElement).value,
-                              ),
-                            )
-                          "
-                        />
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <template v-else>
+                <p v-if="routesLoading" role="status">正在读取通道选项…</p>
+                <div v-if="routesError" class="group-routing-error">
+                  <p role="alert">{{ routesError }}</p>
+                  <button
+                    type="button"
+                    :disabled="disabled || routesLoading"
+                    @click="loadRoutes"
+                  >
+                    重试读取通道
+                  </button>
+                </div>
+                <div class="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th scope="col">支付方式</th>
+                        <th scope="col">支付通道</th>
+                        <th scope="col">分成比例（%）</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="kind in groupPaymentTypes" :key="kind.key">
+                        <th scope="row">{{ kind.label }}</th>
+                        <td>
+                          <span v-if="kind.key === 'sandbox'">本地默认通道</span
+                          ><select
+                            v-else
+                            class="group-routing-select"
+                            :aria-label="kind.label + '通道'"
+                            :aria-invalid="!!errors.info"
+                            :disabled="
+                              disabled || routesLoading || !routesReady
+                            "
+                            :value="groupRouteValue(values.info, kind.key)"
+                            @change="
+                              emit(
+                                'change',
+                                'info',
+                                setGroupPaymentRoute(
+                                  values.info,
+                                  kind.key,
+                                  ($event.target as HTMLSelectElement).value,
+                                ),
+                              )
+                            "
+                          >
+                            <option
+                              v-for="option in choicesFor(kind.key)"
+                              :key="option.value"
+                              :value="option.value"
+                              :disabled="option.disabled"
+                            >
+                              {{ option.label }}
+                            </option>
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            :aria-label="kind.label + '分成比例（%）'"
+                            :value="typeRates[kind.key]?.rate ?? ''"
+                            :aria-invalid="!!errors.info"
+                            inputmode="decimal"
+                            maxlength="6"
+                            placeholder="留空继承"
+                            @input="
+                              emit(
+                                'change',
+                                'info',
+                                setGroupPaymentRate(
+                                  values.info,
+                                  kind.key,
+                                  ($event.target as HTMLInputElement).value,
+                                ),
+                              )
+                            "
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
               <p v-if="errors.info" role="alert" class="field-error">
                 {{ errors.info }}
               </p>
             </div>
           </section>
         </div>
+        <slot v-if="selected.name === 'other'" name="other" />
       </section>
     </fieldset>
   </div>
 </template>
 <style scoped>
+.group-routing-select {
+  width: 100%;
+  min-width: 9rem;
+  max-width: 20rem;
+}
+.group-routing-error {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
 .group-editor {
   min-width: 0;
 }

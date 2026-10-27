@@ -17,7 +17,7 @@ func TestProOrderSearchFixedFieldsAndExactMoney(t *testing.T) {
 		{"name", "%_product", "strpos(lower(o.name),lower($2::text))>0", "%_product"},
 		{"param", "A&B", "strpos(lower(o.param),lower($2::text))>0", "A&B"},
 		{"money", "0.01", "o.amount=$2::bigint", int64(1)},
-		{"realmoney", "92233720368547758.07", "o.amount=$2::bigint", int64(9223372036854775807)},
+		{"realmoney", "92233720368547758.07", "COALESCE((to_jsonb(o)->>'actual_charge_amount104')::bigint,o.amount)=$2::bigint", int64(9223372036854775807)},
 		{"getmoney", "0.00", "o.merchant_amount=$2::bigint", int64(0)},
 		{"buyer", "buyer-secret", "console_authorization.buyer_id", "buyer-secret"},
 		{"ip", "2001:0db8:0:0:0:0:0:1", "console_report.client_ip=$2::text", "2001:db8::1"},

@@ -77,7 +77,7 @@ func (s *Store) scanSharingOrder(ctx context.Context, tx referralReader, row pgx
 	if e != nil {
 		return r, e
 	}
-	if e = s.verifySharingPayment(r.Payment); e != nil {
+	if e = s.verifySharingPayment(ctx, tx, r.Payment); e != nil {
 		return r, e
 	}
 	if e = tx.QueryRow(ctx, "SELECT account_id FROM channel_sharing_fundings WHERE order_id=$1", r.OrderID).Scan(&r.FundingAccount); e != nil {
@@ -154,6 +154,18 @@ func (s *Store) readSharingOrderID(ctx context.Context, id int64) (sharingOrderR
 	return r, tx.Commit(ctx)
 }
 func (g ProviderFlow) sharingOrderProvider(ctx context.Context, q fundsReader, r sharingOrderRecord) (adapter.ChannelSharingProvider, error) {
+	orderID := r.OrderID
+	if orderID == 0 {
+		orderID = r.Payment.OrderID
+	}
+	original, e := scanOrder(q.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE id=$1 AND merchant_id=$2", orderID, r.MerchantID))
+	if e != nil {
+		return nil, e
+	}
+	g, _, e = g.ForPaymentIntentTx(ctx, q, original.MerchantID, original.OutTradeNo, r.Payment.ChannelID)
+	if e != nil {
+		return nil, e
+	}
 	p, b, e := g.sharingChannel(r.MerchantID, r.Payment.ChannelID)
 	if e != nil {
 		return nil, e

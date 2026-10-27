@@ -24,11 +24,14 @@ func TestConsoleListFiltersAndTenantBoundary(t *testing.T) {
 		{2, "other-tenant", "sandbox", "2026-10-22T16:00:00Z", true},
 		{1, "unpaid", "sandbox", "2026-10-23T00:00:00Z", false},
 	} {
-		o, e := s.Store.CreateOrder(ctx, payment.CreateOrderInput{MerchantID: spec.mid, OutTradeNo: spec.no, Name: spec.no, Type: spec.typ, Amount: 123})
-		if e != nil {
+		// Import a genuinely historical birth at its original timestamp. Current
+		// order births authenticate created_at and must never be backdated.
+		var trade string
+		if e := pool.QueryRow(ctx, `INSERT INTO orders(trade_no,merchant_id,out_trade_no,name,type,amount,merchant_amount,platform_fee,fee_policy,refund_fee_payer,created_at)VALUES(nextval('trade_no_seq')::text,$1,$2,$2,$3,123,123,0,'none','platform',$4::timestamptz)RETURNING trade_no`, spec.mid, spec.no, spec.typ, spec.date).Scan(&trade); e != nil {
 			t.Fatal(e)
 		}
-		if _, e = pool.Exec(ctx, "UPDATE orders SET created_at=$2::timestamptz WHERE id=$1", o.ID, spec.date); e != nil {
+		o, e := s.Store.OrderByTradeNo(ctx, trade)
+		if e != nil {
 			t.Fatal(e)
 		}
 		if i == 0 {

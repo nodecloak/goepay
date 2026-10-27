@@ -37,7 +37,9 @@ export function readSettlementPreview(
       throw new Error("结算模式响应无效，请重新查询");
     if (!access.manual_allowed)
       throw new Error(
-        "当前结算开关不允许手动申请结算，请联系管理员核对用户组与结算设置",
+        access.source === "merchant_settle"
+          ? "当前商户的结算权限已关闭，无法申请提现，请联系管理员核对。"
+          : "当前结算开关不允许手动申请结算，请联系管理员核对用户组与结算设置",
       );
   }
   if (q.external_payout !== false || q.can_apply !== true || !t)

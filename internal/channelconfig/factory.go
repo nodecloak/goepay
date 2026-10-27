@@ -22,8 +22,12 @@ func Build(imp Import, allowLive bool) (map[int64]provider.Provider, error) {
 }
 
 type BuildOptions struct {
-	AllowLive    bool
-	ScanRecovery bool
+	// Only child factories consume this independently validated OAuth gate.
+	EnableSubchannelOAuth bool
+	AllowLive             bool
+	ScanRecovery          bool
+	// Reference to the original runtime policy, shared by restored providers.
+	RuntimeWriteAllowed func() bool
 }
 
 // BuildWithOptions retains all ordinary write guards. ScanRecovery adds the
@@ -32,7 +36,7 @@ func BuildWithOptions(imp Import, options BuildOptions) (map[int64]provider.Prov
 	allowLive := options.AllowLive
 	out := map[int64]provider.Provider{}
 	for _, c := range imp.Channels {
-		if c.ID <= 0 || out[c.ID] != nil {
+		if c.ID <= 0 || out[c.ID] != nil || !supportedCollectionMode(c) {
 			return nil, ErrImport
 		}
 		if !directIdentityChannel(c) {
@@ -219,7 +223,7 @@ func BuildWithOptions(imp Import, options BuildOptions) (map[int64]provider.Prov
 				}
 			}
 		}
-		g := guarded{Provider: p, allowLive: allowLive}
+		g := guarded{Provider: p, allowLive: allowLive, runtimeWriteAllowed: options.RuntimeWriteAllowed}
 		if raw, present := c.Config["costrate"]; present {
 			cost, err := provider.NewPaymentCostEstimate(p, raw)
 			if err != nil {
@@ -232,10 +236,21 @@ func BuildWithOptions(imp Import, options BuildOptions) (map[int64]provider.Prov
 	return out, nil
 }
 
+// Explicit direct settlement cannot be silently executed by the platform-net
+// ledger. Existing imports with no collection mode retain their old behavior.
+func supportedCollectionMode(c Channel) bool {
+	return (c.Mode == nil || *c.Mode == 0) && (c.Config["mode"] == "" || c.Config["mode"] == "0")
+}
+
 type guarded struct {
 	provider.Provider
-	allowLive bool
-	cost      *provider.PaymentCostEstimate
+	allowLive           bool
+	cost                *provider.PaymentCostEstimate
+	runtimeWriteAllowed func() bool
+}
+
+func (g guarded) writesEnabled() bool {
+	return g.allowLive && (g.runtimeWriteAllowed == nil || g.runtimeWriteAllowed())
 }
 
 func (g guarded) PaymentCostEstimate() (provider.PaymentCostEstimate, bool) {
@@ -257,6 +272,10 @@ func (g guarded) TransferProductIdentity() string {
 	}
 	return ""
 }
+func (g guarded) PaymentProductIdentity() string {
+	value, _ := provider.PaymentProductScope(g.Provider)
+	return value
+}
 func (g guarded) NotificationFormat() string {
 	if p, ok := g.Provider.(interface{ NotificationFormat() string }); ok {
 		return p.NotificationFormat()
@@ -272,7 +291,7 @@ func (g guarded) ApplicationID() string {
 }
 
 func (g guarded) ValidateCreate(r provider.CreateRequest) error {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return ErrLiveDisabled
 	}
 	if p, ok := g.Provider.(provider.CreateValidator); ok {
@@ -282,19 +301,19 @@ func (g guarded) ValidateCreate(r provider.CreateRequest) error {
 }
 
 func (g guarded) Create(ctx context.Context, r provider.CreateRequest) (provider.CreateResult, error) {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return provider.CreateResult{}, ErrLiveDisabled
 	}
 	return g.Provider.Create(ctx, r)
 }
 func (g guarded) Close(ctx context.Context, r provider.QueryRequest) error {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return ErrLiveDisabled
 	}
 	return g.Provider.Close(ctx, r)
 }
 func (g guarded) Refund(ctx context.Context, r provider.RefundRequest) (provider.RefundResult, error) {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return provider.RefundResult{}, ErrLiveDisabled
 	}
 	return g.Provider.Refund(ctx, r)
@@ -315,7 +334,7 @@ func (g guarded) TransferTypes() []string {
 }
 
 func (g guarded) ValidateTransfer(r provider.TransferRequest) error {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return ErrLiveDisabled
 	}
 	if p, ok := g.Provider.(provider.TransferValidator); ok {
@@ -324,7 +343,7 @@ func (g guarded) ValidateTransfer(r provider.TransferRequest) error {
 	return provider.ErrUnsupported
 }
 func (g guarded) Transfer(ctx context.Context, r provider.TransferRequest) (provider.TransferResult, error) {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return provider.TransferResult{}, ErrLiveDisabled
 	}
 	p, ok := g.Provider.(provider.TransferProvider)
@@ -342,7 +361,7 @@ func (g guarded) QueryTransfer(ctx context.Context, r provider.TransferRequest) 
 }
 
 func (g guarded) ApplyTransferProof(ctx context.Context, id string) (provider.TransferProofResult, error) {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return provider.TransferProofResult{}, ErrLiveDisabled
 	}
 	p, ok := g.Provider.(provider.TransferProofProvider)

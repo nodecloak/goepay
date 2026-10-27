@@ -64,6 +64,10 @@ func TestMerchantPaymentStatisticsUXExactSevenDaysAndTenantIsolation(t *testing.
 		return v
 	}
 	before := fingerprint()
+	var auditsBefore int
+	if e = pool.QueryRow(ctx, `SELECT count(*) FROM backoffice_audit`).Scan(&auditsBefore); e != nil {
+		t.Fatal(e)
+	}
 	get := func(id string) map[string]any {
 		t.Helper()
 		r := httptest.NewRequest("GET", "/console/v1/admin/reports/merchant-payments?uid="+id, nil)
@@ -111,7 +115,7 @@ func TestMerchantPaymentStatisticsUXExactSevenDaysAndTenantIsolation(t *testing.
 		t.Fatal("read-only report mutated source rows")
 	}
 	var audits int
-	if e = pool.QueryRow(ctx, `SELECT count(*) FROM backoffice_audit`).Scan(&audits); e != nil || audits != 0 {
+	if e = pool.QueryRow(ctx, `SELECT count(*) FROM backoffice_audit`).Scan(&audits); e != nil || audits != auditsBefore {
 		t.Fatalf("read wrote audit %d %v", audits, e)
 	}
 }

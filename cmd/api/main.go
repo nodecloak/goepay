@@ -4,15 +4,19 @@ import (
 	"context"
 	"crypto/rsa"
 	"encoding/hex"
+	"encoding/json"
 	"goepay/internal/bootstrap"
+	"goepay/internal/captcha203"
 	"goepay/internal/compat"
 	"goepay/internal/enrollment"
 	"goepay/internal/identity"
 	"goepay/internal/merchantnotice"
 	"goepay/internal/migration"
 	"goepay/internal/ordersubject"
+	"goepay/internal/paymentdefend206"
 	"goepay/internal/printing"
 	"goepay/internal/server"
+	"goepay/internal/systemupdate"
 	"log/slog"
 	"net/http"
 	"os"
@@ -22,6 +26,12 @@ import (
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "--build-info" {
+		if e := json.NewEncoder(os.Stdout).Encode(systemupdate.RuntimeBuild(0)); e != nil {
+			os.Exit(1)
+		}
+		return
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	proxyWrapper, e := server.NewTrustedProxy(os.Getenv("GOEPAY_TRUSTED_PROXY_CIDRS"))
@@ -35,6 +45,10 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
+	if e = store.RebuildPrivateSearch(ctx); e != nil {
+		slog.Error("private search projection unavailable")
+		os.Exit(1)
+	}
 	var key *rsa.PrivateKey
 	if raw := os.Getenv("GOEPAY_PLATFORM_PRIVATE_KEY_FILE"); raw != "" {
 		b, err := os.ReadFile(raw)
@@ -49,6 +63,17 @@ func main() {
 		}
 	}
 	app := &server.Server{Pool: pool, Store: store, Sessions: identity.NewPersistentSessions(pool, os.Getenv("COOKIE_SECURE") != "false"), PlatformKey: key, Sandbox: os.Getenv("GOEPAY_SANDBOX") == "true"}
+	app.Mail195TestEnabled, e = mailTestGate195(os.Getenv)
+	if e != nil {
+		slog.Error("invalid SMTP test submission configuration")
+		os.Exit(1)
+	}
+	app.SystemUpdate, e = systemupdate.FromEnvironment(os.Getenv)
+	if e != nil {
+		slog.Error("invalid trusted local update configuration")
+		os.Exit(1)
+	}
+	defer store.StopSystemUpdates()
 	app.Printing, e = printing.New(pool, store)
 	if e != nil {
 		slog.Error("invalid printing protection configuration")
@@ -57,6 +82,16 @@ func main() {
 	app.FundsActionResolver = app.ResolveFundsAction
 	app.BusinessNotice = store.AdminBusinessNotices()
 	seed, _ := hex.DecodeString(os.Getenv("GOEPAY_MASTER_KEY"))
+	app.PaymentDefend206, e = paymentdefend206.NewStore(pool, seed)
+	if e != nil {
+		slog.Error("invalid payment verification policy protection configuration")
+		os.Exit(1)
+	}
+	app.OrderAPITradeAlias120, e = server.NewOrderAPITradeAliasStore120ForMaster(app, seed)
+	if e != nil {
+		slog.Error("invalid order alias protection configuration")
+		os.Exit(1)
+	}
 	app.MerchantNotice, e = merchantnotice.NewStore(pool, seed)
 	if e != nil {
 		slog.Error("invalid merchant notice protection configuration")
@@ -67,12 +102,17 @@ func main() {
 		slog.Error("invalid legacy history protection configuration")
 		os.Exit(1)
 	}
+	app.CombinedOrderHistory204, e = migration.NewCombinedOrderHistoryReader(pool, seed)
+	if e != nil {
+		slog.Error("invalid combined order history protection configuration")
+		os.Exit(1)
+	}
 	app.MFA, e = identity.NewMFA(pool, seed)
 	if e != nil {
 		slog.Error("invalid authenticator encryption configuration")
 		os.Exit(1)
 	}
-	verificationSender, e := configuredVerificationSender(os.Getenv)
+	verificationSender, e := configuredManagedVerification195(pool, seed, os.Getenv)
 	if e != nil {
 		slog.Error("invalid verification delivery configuration")
 		os.Exit(1)
@@ -93,6 +133,16 @@ func main() {
 	}
 	if app.ProviderFlow != nil {
 		app.ProviderFlow.SubjectResolver = ordersubject.New(pool).Resolve
+	}
+	app.PublicTestPay203, e = server.NewPublicTestPayService203ForMaster(app, captcha203.NewGeetestVerifier(nil), seed, os.Getenv("GOEPAY_PUBLIC_ORIGIN"))
+	if e != nil {
+		slog.Error("invalid public test payment configuration")
+		os.Exit(1)
+	}
+	app.LoginCaptcha205, e = server.NewLoginCaptchaService205ForMaster(app, captcha203.NewGeetestVerifier(nil), seed, consoleOrigin)
+	if e != nil {
+		slog.Error("invalid login CAPTCHA configuration")
+		os.Exit(1)
 	}
 	addr := os.Getenv("HTTP_ADDR")
 	if addr == "" {

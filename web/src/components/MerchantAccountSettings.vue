@@ -6,7 +6,14 @@ import TotpSettings from "./TotpSettings.vue";
 import MerchantNoticeSettings from "./MerchantNoticeSettings.vue";
 import PrintingSettingsPage from "./PrintingSettingsPage.vue";
 import AccountLoginLogDialog from "./AccountLoginLogDialog.vue";
-const props = defineProps<{ client: ApiClient; ownSession: boolean }>();
+import MerchantAPISwitches from "./MerchantAPISwitches.vue";
+import MerchantPersonalSettings from "./MerchantPersonalSettings.vue";
+import BuyerFeeSettings104 from "./BuyerFeeSettings104.vue";
+const props = defineProps<{
+  client: ApiClient;
+  ownSession: boolean;
+  merchantId: string;
+}>();
 const emit = defineEmits<{ reauthenticate: [message: string] }>();
 const logsOpen = ref(false),
   epoch = ref(0);
@@ -44,7 +51,26 @@ watch(
         section="profile"
         :show-login-log="ownSession"
         @login-log="openLogs"
-        @reauthenticate="emit('reauthenticate', '密码已修改，请重新登录')"
+        @reauthenticate="
+          (message) =>
+            emit('reauthenticate', message || '密码已修改，请重新登录')
+        "
+      />
+      <MerchantPersonalSettings
+        :client="client"
+        :own-session="ownSession"
+        :merchant-id="merchantId"
+      />
+      <BuyerFeeSettings104
+        kind="merchant"
+        :client="client"
+        :allowed="ownSession"
+        :merchant-id="merchantId"
+      />
+      <MerchantAPISwitches
+        :client="client"
+        :own-session="ownSession"
+        :merchant-id="merchantId"
       />
       <TotpSettings
         v-if="ownSession"

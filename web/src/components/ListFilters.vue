@@ -73,6 +73,12 @@ defineEmits<{ reset: [] }>();
           inputmode="numeric"
           pattern="[1-9][0-9]*"
       /></label>
+      <label v-if="kind === 'orders'"
+        >子通道 ID 筛选<input
+          v-model="filters.subchannel_id"
+          inputmode="numeric"
+          pattern="[1-9][0-9]*"
+      /></label>
       <label>创建开始日期<input v-model="filters.from" type="date" /></label>
       <label>创建结束日期<input v-model="filters.to" type="date" /></label>
       <label v-if="kind === 'orders'"

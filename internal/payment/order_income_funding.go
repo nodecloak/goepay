@@ -67,6 +67,9 @@ func (s *Store) scanIncomeFunding(ctx context.Context, q referralReader, h Order
 	if e != nil {
 		return f, e
 	}
+	if _, _, e = s.authenticatedOrderChargeReader104(ctx, q, o); e != nil {
+		return f, e
+	}
 	want, e := s.incomeFundingProof(f, h, o)
 	if e != nil || !hmac.Equal(want, f.Proof) || f.OrderID != h.OrderID || f.MerchantID != h.MerchantID || f.Amount != h.Amount {
 		return f, ErrConflict

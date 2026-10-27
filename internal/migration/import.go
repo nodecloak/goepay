@@ -53,6 +53,9 @@ func Apply(ctx context.Context, pool *pgxpool.Pool, master []byte, raw []byte) (
 		if err != nil || check.InvalidLegacyRefundHistory != 0 {
 			return report, ErrConflict
 		}
+		if err = verifyCombinedReplay204(ctx, tx, master, plan); err != nil {
+			return report, err
+		}
 		report.AlreadyImported = true
 		return report, nil
 	}
@@ -95,7 +98,15 @@ func Apply(ctx context.Context, pool *pgxpool.Pool, master []byte, raw []byte) (
 		}
 		encrypted := aead.Seal(nonce, nonce, []byte(base64.RawURLEncoding.EncodeToString(key)), []byte(fmt.Sprint(m.ID)))
 		profile, _ := json.Marshal(map[string]string{"legacy_source": plan.Source, "legacy_export": plan.ExportID, "compat_profile": compatProfile(plan.Source)})
-		if _, e = tx.Exec(ctx, "INSERT INTO merchants(id,name,api_key,enabled,signature_algorithm,profile) VALUES($1,$2,$3,false,'MD5',$4::jsonb)", m.ID, m.Name, encrypted, string(profile)); e != nil {
+		var originalCreated any
+		known := m.CreatedAt != ""
+		if known {
+			originalCreated, e = parseRegistrationTime(m.CreatedAt)
+			if e != nil {
+				return report, e
+			}
+		}
+		if _, e = tx.Exec(ctx, "INSERT INTO merchants(id,name,api_key,enabled,signature_algorithm,profile,created_at,registration_time_known) VALUES($1,$2,$3,false,'MD5',$4::jsonb,COALESCE($5::timestamptz,transaction_timestamp()),$6)", m.ID, m.Name, encrypted, string(profile), originalCreated, known); e != nil {
 			return report, e
 		}
 		if _, e = tx.Exec(ctx, "INSERT INTO accounts(owner_id,kind) VALUES($1,'available'),($1,'reserved')", m.ID); e != nil {
@@ -150,13 +161,20 @@ func Apply(ctx context.Context, pool *pgxpool.Pool, master []byte, raw []byte) (
 			return report, e
 		}
 	}
+	if e = archiveCombinedOrders204(ctx, tx, master, plan, report.Digest, orders); e != nil {
+		return report, e
+	}
 	report.Applied = true
 	if e = archiveRefundManifest(ctx, tx, master, plan, report.Digest); e != nil {
 		report.Applied = false
 		return report, e
 	}
 	stored, _ := json.Marshal(report)
-	if _, e = tx.Exec(ctx, "INSERT INTO legacy_import_runs(export_id,source,sha256,report) VALUES($1,$2,$3,$4::jsonb)", plan.ExportID, plan.Source, report.Digest, string(stored)); e != nil {
+	receiptSQL := "INSERT INTO legacy_import_runs(export_id,source,sha256,report) VALUES($1,$2,$3,$4::jsonb)"
+	if plan.CombinedOrders != nil {
+		receiptSQL = "INSERT INTO legacy_import_runs(export_id,source,sha256,report,combined_history_version204) VALUES($1,$2,$3,$4::jsonb,1)"
+	}
+	if _, e = tx.Exec(ctx, receiptSQL, plan.ExportID, plan.Source, report.Digest, string(stored)); e != nil {
 		report.Applied = false
 		return report, e
 	}

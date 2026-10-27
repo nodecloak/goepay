@@ -246,7 +246,14 @@ func sharingConfigurationAudit(ctx context.Context, tx pgx.Tx, actor TransferBat
 	_, e := tx.Exec(ctx, `INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES($1,$2,$3,$4,$5,$6,$7)`, actor.Role, actor.ID, actor.Name, resource, id, action, raw)
 	return e
 }
-func (s *Store) createChannelSharingReceiver(ctx context.Context, b channelSharingBinding, no string, input adapter.SharingReceiver, actor TransferBatchActor) (ChannelSharingReceiverView, error) {
+func (s *Store) createChannelSharingReceiver(ctx context.Context, b channelSharingBinding, no string, input adapter.SharingReceiver, actor TransferBatchActor, parents ...*parentExecutionBinding) (ChannelSharingReceiverView, error) {
+	if len(parents) > 1 {
+		return ChannelSharingReceiverView{}, ErrInvalid
+	}
+	var parent *parentExecutionBinding
+	if len(parents) == 1 {
+		parent = parents[0]
+	}
 	if !actor.valid(b.MerchantID) || !validSharingBinding(b) || !channelSharingExternalNo.MatchString(no) || !validSharingReceiverInput(b, input) || s.aead == nil {
 		return ChannelSharingReceiverView{}, ErrInvalid
 	}
@@ -283,6 +290,17 @@ func (s *Store) createChannelSharingReceiver(ctx context.Context, b channelShari
 	var enabled bool
 	if e = tx.QueryRow(ctx, "SELECT enabled FROM merchants WHERE id=$1 FOR SHARE", b.MerchantID).Scan(&enabled); e != nil || !enabled {
 		return ChannelSharingReceiverView{}, ErrState
+	}
+	if parent != nil {
+		if e = parentChannelLock(ctx, tx, b.ChannelID); e != nil {
+			return ChannelSharingReceiverView{}, e
+		}
+		if e = s.captureParentBootstrap(ctx, tx, parent); e != nil {
+			return ChannelSharingReceiverView{}, e
+		}
+		if e = s.checkParentExecutionCurrent(ctx, tx, parent, b.MerchantID); e != nil {
+			return ChannelSharingReceiverView{}, e
+		}
 	}
 	if _, e = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,48))", fmt.Sprintf("channel-sharing-receiver:%d:%s", b.MerchantID, no)); e != nil {
 		return ChannelSharingReceiverView{}, e
@@ -325,6 +343,12 @@ func (s *Store) createChannelSharingReceiver(ctx context.Context, b channelShari
 		return ChannelSharingReceiverView{}, e
 	}
 	if e = sharingConfigurationAudit(ctx, tx, actor, "channel-sharing-receivers", id, "create", "draft"); e != nil {
+		return ChannelSharingReceiverView{}, e
+	}
+	if e = s.sealParentReceiverSource(ctx, tx, record, parent, actor); e != nil {
+		return ChannelSharingReceiverView{}, e
+	}
+	if e = s.checkParentRuntimeWriteTx(ctx, tx, parent, b.MerchantID, b.ChannelID); e != nil {
 		return ChannelSharingReceiverView{}, e
 	}
 	if e = tx.Commit(ctx); e != nil {

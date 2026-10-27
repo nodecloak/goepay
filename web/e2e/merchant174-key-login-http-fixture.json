@@ -1,0 +1,21 @@
+{
+  "cookie_or_bearer_exported": false,
+  "merchant_id": "9007199254740993",
+  "producer": "TestMerchant174KeyLoginRealStrictDTOAndDisposableLargeIDFixture",
+  "response": {
+    "code": 0,
+    "data": {
+      "csrf_token": "cD7bxiytTiRvk6me2sIa31pDIG8XfHoe4BJJCuf8BzA",
+      "user": {
+        "id": "9007199254740993",
+        "name": "Merchant",
+        "role": "merchant"
+      }
+    },
+    "message": ""
+  },
+  "schema_disposed": true,
+  "session_invalid_after_cleanup": true,
+  "source": "actual local Go HTTP handler plus PostgreSQL",
+  "synthetic_only": true
+}

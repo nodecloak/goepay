@@ -138,13 +138,23 @@ func (s *Server) collect(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	childRoute, authRequest, routeErr := collectionChildQuery(r)
+	if routeErr != nil {
+		http.Error(w, "invalid collection route", 400)
+		return
+	}
 	if c.Generation != nil {
-		if !s.collectionGenerationAuthorized(r, id, c.Generation.ConfigHash) {
+		if !s.collectionGenerationAuthorized(authRequest, id, c.Generation.ConfigHash) {
 			http.Error(w, "invalid collection link", 403)
 			return
 		}
-	} else if r.URL.Query().Get("mode") != "" || !s.checkoutAuthorized(r, id, "collect") {
+	} else if r.URL.Query().Get("mode") != "" || !s.checkoutAuthorized(authRequest, id, "collect") {
 		http.Error(w, "invalid collection link", 403)
+		return
+	}
+	childRoute, routeErr = s.validateCollectionChild(r.Context(), c.Owner, childRoute)
+	if routeErr != nil {
+		http.Error(w, "collection child unavailable", 422)
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
@@ -189,6 +199,16 @@ func (s *Server) collect(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		typ := r.PostForm.Get("type")
+		if childRoute.kind != "" && typ != childRoute.kind {
+			http.Error(w, "collection payment type mismatch", 400)
+			return
+		}
+		for _, key := range []string{"subchannel_id", "channel_id", "merchant_id"} {
+			if len(r.PostForm[key]) > 0 {
+				http.Error(w, "ambiguous collection routing fields", 400)
+				return
+			}
+		}
 		ip, _, splitErr := net.SplitHostPort(r.RemoteAddr)
 		if splitErr != nil {
 			ip = r.RemoteAddr
@@ -198,11 +218,20 @@ func (s *Server) collect(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		params := compat.Params{"type": typ, "out_trade_no": "collect:" + id + ":" + intent, "name": c.Title, "money": ledger.Format(amount), "clientip": ip}
+		if childRoute.id > 0 {
+			params["subchannel_id"] = strconv.FormatInt(childRoute.id, 10)
+		}
 		channel, method, err := s.providerRoutedBrowserRequest(r.Context(), c.Owner, params)
 		if err != nil {
 			http.Error(w, "payment type unavailable", 422)
 			return
 		}
+		resolved, err := s.paymentIntentServer(r.Context(), c.Owner, params["out_trade_no"], channel)
+		if err != nil {
+			http.Error(w, "original payment account unavailable", 409)
+			return
+		}
+		s = resolved
 		cost, err := s.ProviderFlow.PaymentCostQuote(channel, method)
 		if err != nil {
 			http.Error(w, "payment cost configuration unavailable", 409)
@@ -250,5 +279,13 @@ func (s *Server) collect(w http.ResponseWriter, r *http.Request) {
 	if c.Generation != nil && c.Generation.FixedAmount > 0 {
 		fixed = fmt.Sprintf(` value="%s" readonly`, ledger.Format(c.Generation.FixedAmount))
 	}
-	fmt.Fprintf(w, `<form method="post" action="%s"><input type="hidden" name="external_no" value="%s"><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required%s></label><label>支付方式<select name="type"><option value="wxpay">微信支付</option><option value="alipay">支付宝</option></select></label><button type="submit">前往支付</button></form></main></html>`, html.EscapeString(r.URL.RequestURI()), base64.RawURLEncoding.EncodeToString(nonce), fixed)
+	paymentOptions := `<option value="wxpay">微信支付</option><option value="alipay">支付宝</option>`
+	if childRoute.kind != "" {
+		label := "支付宝"
+		if childRoute.kind == "wxpay" {
+			label = "微信支付"
+		}
+		paymentOptions = `<option value="` + childRoute.kind + `">` + label + `</option>`
+	}
+	fmt.Fprintf(w, `<form method="post" action="%s"><input type="hidden" name="external_no" value="%s"><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required%s></label><label>支付方式<select name="type">%s</select></label><button type="submit">前往支付</button></form></main></html>`, html.EscapeString(r.URL.RequestURI()), base64.RawURLEncoding.EncodeToString(nonce), fixed, paymentOptions)
 }

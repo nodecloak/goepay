@@ -1,0 +1,246 @@
+{
+  "admin": {
+    "items": [
+      {
+        "roll_type": 2,
+        "fee_rate_bps": 50,
+        "fee_source": "parent",
+        "fee_policy": "merchant_deduct",
+        "methods": [
+          "native"
+        ],
+        "account_available": true,
+        "parent_available": true,
+        "browser_test_available": true,
+        "unavailable_reason": "",
+        "statistics": {
+          "attempts": "1",
+          "confirmed": "0",
+          "today_amount": "0",
+          "yesterday_amount": "0",
+          "success_bps": 0,
+          "timezone": "UTC+8",
+          "basis": "verified_confirmation_gross_including_later_refunds"
+        },
+        "id": "9007199254740993",
+        "merchant_id": "1",
+        "parent_id": "7",
+        "pay_type": "alipay",
+        "name": "本地合成商户子通道名称用于完整显示与换行校验😀",
+        "enabled": true,
+        "archived": false,
+        "weight": 99,
+        "min_amount": "1",
+        "max_amount": "100000",
+        "revision": "1",
+        "account_version": "1",
+        "fingerprint": "93a592ea3e5572b399fab6d6946c471cc5fa9ee3f1461fded857f3e279b3a9bf",
+        "schema_fingerprint": "150e955cf01db6c0a39f074f3f325c6853a303d4ffd42507aa01dfa2bb95e228",
+        "fields": [
+          {
+            "name": "app",
+            "secret": false,
+            "present": true
+          },
+          {
+            "name": "secret",
+            "secret": true,
+            "present": true
+          }
+        ],
+        "created_at": "2026-10-26T16:00:11.683843+08:00",
+        "updated_at": "2026-10-26T16:00:11.683843+08:00"
+      },
+      {
+        "roll_type": 2,
+        "fee_rate_bps": 50,
+        "fee_source": "parent",
+        "fee_policy": "merchant_deduct",
+        "methods": [
+          "native"
+        ],
+        "account_available": true,
+        "parent_available": true,
+        "browser_test_available": false,
+        "unavailable_reason": "disabled",
+        "statistics": {
+          "attempts": "0",
+          "confirmed": "0",
+          "today_amount": "0",
+          "yesterday_amount": "0",
+          "success_bps": null,
+          "timezone": "UTC+8",
+          "basis": "verified_confirmation_gross_including_later_refunds"
+        },
+        "id": "9007199254740994",
+        "merchant_id": "1",
+        "parent_id": "7",
+        "pay_type": "alipay",
+        "name": "本地合成未启用账户",
+        "enabled": false,
+        "archived": false,
+        "weight": 99,
+        "min_amount": "1",
+        "max_amount": "100000",
+        "revision": "1",
+        "account_version": "1",
+        "fingerprint": "e06421686342476ccfe5f90a56a6dc2af8ba57e39b1c92674dc67e6334a9adf3",
+        "schema_fingerprint": "150e955cf01db6c0a39f074f3f325c6853a303d4ffd42507aa01dfa2bb95e228",
+        "fields": [
+          {
+            "name": "app",
+            "secret": false,
+            "present": true
+          },
+          {
+            "name": "secret",
+            "secret": true,
+            "present": true
+          }
+        ],
+        "created_at": "2026-10-26T16:00:11.728291+08:00",
+        "updated_at": "2026-10-26T16:00:11.728291+08:00"
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "size": 10
+  },
+  "merchant": {
+    "items": [
+      {
+        "roll_type": 2,
+        "fee_rate_bps": 50,
+        "fee_source": "parent",
+        "fee_policy": "merchant_deduct",
+        "methods": [
+          "native"
+        ],
+        "account_available": true,
+        "parent_available": true,
+        "browser_test_available": true,
+        "unavailable_reason": "",
+        "statistics": {
+          "attempts": "1",
+          "confirmed": "0",
+          "today_amount": "0",
+          "yesterday_amount": "0",
+          "success_bps": 0,
+          "timezone": "UTC+8",
+          "basis": "verified_confirmation_gross_including_later_refunds"
+        },
+        "id": "9007199254740993",
+        "merchant_id": "1",
+        "parent_id": "7",
+        "pay_type": "alipay",
+        "name": "本地合成商户子通道名称用于完整显示与换行校验😀",
+        "enabled": true,
+        "archived": false,
+        "weight": 99,
+        "min_amount": "1",
+        "max_amount": "100000",
+        "revision": "1",
+        "account_version": "1",
+        "fingerprint": "93a592ea3e5572b399fab6d6946c471cc5fa9ee3f1461fded857f3e279b3a9bf",
+        "schema_fingerprint": "150e955cf01db6c0a39f074f3f325c6853a303d4ffd42507aa01dfa2bb95e228",
+        "fields": [
+          {
+            "name": "app",
+            "secret": false,
+            "present": true
+          },
+          {
+            "name": "secret",
+            "secret": true,
+            "present": true
+          }
+        ],
+        "created_at": "2026-10-26T16:00:11.683843+08:00",
+        "updated_at": "2026-10-26T16:00:11.683843+08:00"
+      },
+      {
+        "roll_type": 2,
+        "fee_rate_bps": 50,
+        "fee_source": "parent",
+        "fee_policy": "merchant_deduct",
+        "methods": [
+          "native"
+        ],
+        "account_available": true,
+        "parent_available": true,
+        "browser_test_available": false,
+        "unavailable_reason": "disabled",
+        "statistics": {
+          "attempts": "0",
+          "confirmed": "0",
+          "today_amount": "0",
+          "yesterday_amount": "0",
+          "success_bps": null,
+          "timezone": "UTC+8",
+          "basis": "verified_confirmation_gross_including_later_refunds"
+        },
+        "id": "9007199254740994",
+        "merchant_id": "1",
+        "parent_id": "7",
+        "pay_type": "alipay",
+        "name": "本地合成未启用账户",
+        "enabled": false,
+        "archived": false,
+        "weight": 99,
+        "min_amount": "1",
+        "max_amount": "100000",
+        "revision": "1",
+        "account_version": "1",
+        "fingerprint": "e06421686342476ccfe5f90a56a6dc2af8ba57e39b1c92674dc67e6334a9adf3",
+        "schema_fingerprint": "150e955cf01db6c0a39f074f3f325c6853a303d4ffd42507aa01dfa2bb95e228",
+        "fields": [
+          {
+            "name": "app",
+            "secret": false,
+            "present": true
+          },
+          {
+            "name": "secret",
+            "secret": true,
+            "present": true
+          }
+        ],
+        "created_at": "2026-10-26T16:00:11.728291+08:00",
+        "updated_at": "2026-10-26T16:00:11.728291+08:00"
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "size": 10
+  },
+  "policy": {
+    "merchant_id": "1",
+    "roll_type": 2,
+    "revision": "1",
+    "fingerprint": "2b33372c47d4a949afab23a09e26204c2062405cf5605a46022621b9b7412576"
+  },
+  "schemas": {
+    "items": [
+      {
+        "parent_id": "7",
+        "revision": "1",
+        "pay_type": "alipay",
+        "fields": [
+          {
+            "name": "app",
+            "secret": false,
+            "required": true
+          },
+          {
+            "name": "secret",
+            "secret": true,
+            "required": true
+          }
+        ],
+        "fingerprint": "150e955cf01db6c0a39f074f3f325c6853a303d4ffd42507aa01dfa2bb95e228"
+      }
+    ],
+    "total": 1
+  },
+  "synthetic_only": true
+}

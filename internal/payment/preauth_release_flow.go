@@ -22,10 +22,14 @@ func (g ProviderFlow) releasePending(ctx context.Context, merchantID int64, trad
 	return r, &provider.UnknownOutcome{Operation: "authorization release", Cause: cause}
 }
 func (g ProviderFlow) verifiedReleasePayment(ctx context.Context, o Order, a Preauthorization, q provider.QueryResult) error {
-	if q.TradeNo != o.TradeNo || q.Amount != o.Amount || q.Currency != "CNY" || q.ProviderTradeNo == "" {
+	charge104, e := g.Store.AuthenticatedOrderCharge104(ctx, o)
+	if e != nil {
+		return e
+	}
+	if q.TradeNo != o.TradeNo || q.Amount != charge104 || q.Currency != "CNY" || q.ProviderTradeNo == "" {
 		return provider.ErrAuthentication
 	}
-	return g.Store.markPaid(ctx, o.TradeNo, fmt.Sprintf("authorization-release-query:%d:%s", a.ChannelID, q.ProviderTradeNo), true, PaidReceipt{ChannelID: a.ChannelID, ProviderTradeNo: q.ProviderTradeNo, BuyerID: a.BuyerID})
+	return g.Store.markPaid(ctx, o.TradeNo, fmt.Sprintf("authorization-release-query:%d:%s", a.ChannelID, q.ProviderTradeNo), true, PaidReceipt{RealMoney: q.Amount, ChannelID: a.ChannelID, ProviderTradeNo: q.ProviderTradeNo, BuyerID: a.BuyerID})
 }
 
 // ReleaseAuthorization can send one full unfreeze only after independent signed
@@ -33,7 +37,7 @@ func (g ProviderFlow) verifiedReleasePayment(ctx context.Context, o Order, a Pre
 // release immediately blocks future automatic capture, even while evidence is
 // incomplete. It never returns buyer funds through a merchant ledger credit.
 func (g ProviderFlow) ReleaseAuthorization(ctx context.Context, merchantID int64, tradeNo string) (AuthorizationRelease, error) {
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return AuthorizationRelease{}, ErrLiveDisabled
 	}
 	o, attempt, p, e := g.owned(ctx, merchantID, tradeNo)
@@ -75,7 +79,11 @@ func (g ProviderFlow) ReleaseAuthorization(ctx context.Context, merchantID int64
 		}
 		return r, ErrState
 	}
-	closed := queryErr == nil && payment.State == "TRADE_CLOSED" && payment.TradeNo == tradeNo && payment.Amount == o.Amount && payment.Currency == "CNY"
+	charge104, e := g.Store.AuthenticatedOrderCharge104(ctx, o)
+	if e != nil {
+		return r, e
+	}
+	closed := queryErr == nil && payment.State == "TRADE_CLOSED" && payment.TradeNo == tradeNo && payment.Amount == charge104 && payment.Currency == "CNY"
 	if !closed && !authorizationTradeNotFound(queryErr) {
 		return g.releasePending(ctx, merchantID, tradeNo, "reversal_pending", queryErr)
 	}
@@ -91,8 +99,11 @@ func (g ProviderFlow) ReleaseAuthorization(ctx context.Context, merchantID int64
 			return g.releasePending(ctx, merchantID, tradeNo, "reversal_pending", e)
 		}
 	}
-	if e = g.Store.MarkAuthorizationReleaseSent(ctx, tradeNo); e != nil {
+	if e = g.Store.MarkAuthorizationReleaseSent(ctx, tradeNo, g.parentLiveWriteGuard); e != nil {
 		return g.releasePending(ctx, merchantID, tradeNo, "reversal_pending", e)
+	}
+	if !g.paymentWritesEnabled() {
+		return g.releasePending(ctx, merchantID, tradeNo, "unknown", ErrLiveDisabled)
 	}
 	_, e = authProvider.UnfreezeAuthorization(ctx, provider.AuthorizationRequest{TradeNo: tradeNo, RequestNo: r.RequestNo, AuthNo: r.AuthNo, Amount: r.Amount})
 	if e != nil {

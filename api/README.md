@@ -1,5 +1,19 @@
 # 接口文档
 
+真实计划任务使用本人原super的 `/console/v1/admin/scheduled-tasks`、`/{task}`、`/{task}/run`、`/{task}/runs`。配置与手动安排均需原CAS、CSRF及末次等待后会话校验，手动返回仅pending。静态registry不消费旧cron资料，不接受命令/SQL/URL；未配置的原worker显示未接管，已配置后真实开关/频率参与原job lease准入，启用不授予资金或外发权限。原Check风控核心尚未接入，进件/投诉插件暂缓，分账自动首次发送未知分支单列，不能把本阶段称原11任务全部完成。完整ID是字符串，列表仅公开状态/真实起止/有限计数，不返租约、授权或内部证明。见[来源、执行链和边界](../docs/plans/2026-10-26-real-scheduled-tasks.md)。migration100在隔离开发分支，须由root连同并行98/99完整登记验证后整合，不是部署声明。
+
+管理员商户密钥独立使用本人super的 `GET /console/v1/admin/merchants/{merchant_id}/credentials` 和 POST子路径 `reset-md5|generate-rsa`；仅接受 `{expected_fingerprint}`，拒绝query、未知/重复字段和非规范ID。返回商户ID/修订均为完整十进制字符串。GET只提供当前公钥、算法、是否配置MD5及HMAC状态指纹，不提供已有MD5或私钥。新密钥、修订和无秘密审计原子提交；会话在锁等待和最后审计等待后复核，降权/撤销/过期不能提交。
+
+重置MD5生成32位随机十六进制，只保存AEAD密文；RSA固定2048位、PKIX公钥及PKCS8私钥，只保存公钥。原算法保持不变；仅成功响应一次返回新MD5或RSA私钥。并发同指纹只有一次成功，丢响应后旧指纹409，禁止自动刷新指纹后重发。前端关闭或切换商户清除一次性显示，生成后清除未保存密钥草稿，普通资料草稿保留；既有商户本人RSA流程不变。原MD5+RSA兼容模式另项核对，此增量不宣称该模式已对齐。
+
+用户组 `info` 恢复原“随机可用轮询组”：`{"alipay":{"channel":"-3","type":"roll","rate":"99.50"}}`；管理员保存仍使用原资源接口。随机组只从同方式、全局商户0、启用轮询组中选取，继而使用该组原策略和限制。失败不换组，同号请求保留原组/通道。目录超过1000组时明确失败，不截断选择范围。
+
+轮询资源新增可选布尔 `default_route`，缺失按旧Go默认true处理；true范围内每商户/方式仍仅一个启用默认组，false可配置多个命名组，供用户组指定或随机选择，不能隐式覆盖原继承路由。未知或非法布尔值拒绝。既有路由、计数和请求不回填、不换号。Pro UI声明随机选择；Release参考代码SQL实际LIMIT1，本实现与该参考限制的差异见[设计边界](../docs/plans/2026-10-26-original-random-roll-groups.md)。
+
+管理员商户资源的原字段 `settle` 为字符串 `"1"` 开启、`"0"` 关闭，保存遵循资源 PATCH、角色权限与 CSRF；商户本人不可修改。目录 `dstatus=settle_1|settle_0` 与列表的“结算”状态使用同一规则。缺省兼容此前 Go 的开启行为；原 `settle` 优先于旧 `settle_status` 别名，明确无效值不能放行。兼容商户信息接口的 `settle_status` 返回实际商户权限，并不代表用户组或全局规则均已满足。只读 `settlement_permission_revision` 不接受请求赋值。
+
+关闭商户结算权限后，新提现、代付及未发送批次/结算出款均在事务内拒绝；原请求号重放和原结果查询仍可用，不会自动重发。关闭后重新开启不会恢复旧的未来生成/付款授权，须明确重新授权；历史原资金、费用、请求和证明保持原样。此字段不改变退款规则。
+
 新增管理员订单操作：`/console/v1/admin/orders/{trade}/admin-status|archive|restore|manual-complete|manual-refund`。前四项使用原请求号/原因/后台审计修订，状态标记不覆盖支付事实，删除保留财务记录。补单只核验原单，202不能当完成。手动退款与通道API退款独立，必须确认已线下退还；首次变更无论全局开关都需本人super的短时资金授权，资金与内部HMAC结果/审计同事务。详见OpenAPI；同支付方式API退款仍使用原`/refund`与未知结果保护。原UI职责和尚未对齐项见[全页面复核](../docs/verification/pro-ux-review-2026-10-25.md)。
 
 模板使用admin本人super专用 `/templates`、`/templates/{type}/{name}/config`、`/templates/{type}/selection` 与PNG/JPEG图片接口；原通用template-configs只读。type为home/pay/qrpay，内置default/compact；配置保存和模板切换共用同类型revision CAS。图片重编码入库，只有当前选择的有效配置所引用图片可从 `/template-assets/{sha256}` 公开读取，撤回即404且no-store。配置实际被原支付身份/token校验后的渲染消费；不能上传PHP、HTML或任意脚本。
@@ -63,3 +77,30 @@ node docs/tools/build-openapi.mjs
 2026-10-25 全后台UX修复中的新增契约（工作源码，尚未切换固定98部署）：`GET /console/v1/{role}/membership-sales` 对管理员返回销售配置及修订，对商户返回其可见目录。本人super通过 `POST /console/v1/admin/membership-sales` 原子保存开关、上下架、价格、月/永久期限、排序、可见组与简介。会员购买通过明确的 `/workflows/memberships` 接受可选整数quantity=1..300，总价、期限及原奖励收入在同一事务绑定；旧按天配置及旧证明格式继续兼容。迁移84为新购买保存不可变销售条款，1..83迁移内容不改。
 
 投诉统计 `GET /reports/complaints?view=overview` 返回本地已登记投诉的今日/昨日概要及按商户排行；不返回支付净额、手续费，缺金额为null，近7日无支付分母时比率为null。该视图不能同时使用from/to；CSV与列表口径相同，导出继续要求审计。完整OpenAPI现有181路径/213操作，旧接口保留。
+
+商户API信息的签名方式使用GET/PATCH `/console/v1/merchant/account/signature-policy`。keytype=0为MD5+RSA兼容、1为仅RSA；null保留旧signature_algorithm严格配置。V2请求在所有模式下仍须RSA，RSA时间窗不变。只有本人原merchant持久会话可修改，PATCH精确提交keytype与expected_fingerprint，明确确认、不自动重试；无有效RSA公钥不能改为仅RSA。密钥生成与策略设置分开，均不暗改另一项。GET只读完整字符串商户ID、当前模式、原算法、RSA可用性及HMAC指纹；不返回MD5秘密或私钥。
+
+管理员密钥页采用同一实际keytype0/1方式，通过本人super会话 GET/PATCH `/console/v1/admin/merchants/{merchant_id}/signature-policy` 和同事实CAS设置。普通商户DTO仅增加只读keytype。显式模式下旧algorithm字段只代表历史配置，通用资料保存不能改变它；RSA-only时公钥有效性由真实商户事务锁/CAS内核验，不因旧algorithm=MD5或调用方漏传Keytype绕过。前端明确提交模式时清除旧算法草稿，取消不清；处理期间与资料保存和密钥生成互斥。
+
+商户GET `/console/v1/merchant/workflows/internal-transfers` 使用安全方向DTO读取本人转出/转入，可筛选direction=in/out与status=pending/approved/rejected，count/分页同本人谓词；不因此获得审批/修改权。id/peer_merchant_id为完整字符串，amount是正元字符串，completed_at仅真实匹配终态事件，没有记录则null；remark当前无原持久来源而固定null，不泄露actor/私密幂等号。管理员和其它workflow范围不变。
+付款列表及CSV新增原加密意图remark，保留原合法tab但拒NUL/CR/LF，私密cipher/Title/当前profile不作为展示备注。cost_amount仍整数分总花费、pay_date为原真实回执时间，缺失显示未记录。
+授权域名支持唯一左侧通配符`*.example.com`，仅匹配非空子域；根域和evil-example.com不匹配。plain域保留原root/suffix行为，大小写/单尾点统一规范，所有权/approved/enabled与域名修改后重审在真实支付前检查消费；不自动开启enforce_domains，不扩大黑名单匹配。
+
+商户订单GET返回merchant_actions={query,notify,refund,print}四个布尔能力，一次本人批量元数据/原用途验证，不在GET调用通道。菜单只显示真实条件允许动作，点击后再读取原详情并复核当前状态；写入权限仍由原服务端操作执行。query补单不是mark-paid，通知/退款/打印继续使用原持久流程。
+账务/退款GET及CSV接受精确trade_no，不忽略参数；重复、空、过长、NUL/CR/LF或冲突q/search_field拒400。物理账户scope与历史余额window保持，关联只取真实FK或原writer精确canonical key；分账收款/推广商户只看本人分录，不显示他人订单内容；无可见分录与不存在同为空。
+
+已接入支付通道费率使用本人super GET `/console/v1/admin/channel-policies`、GET/PATCH `/console/v1/admin/channel-policies/{channel_id}`。这里channel_id是真实注册支付通道，不能与通道资料ID/名称混用。PATCH精确{rate,mode:0,enabled,expected_fingerprint}，费率为商户保留百分比：99.50对应手续费0.50%；父0.00是0%保留，组0/空仍表示继承所选父率。未配置DTO为configured=false/rate=null/revision="0"，保持旧费用语义；不捏造100%。
+选路和私有费用事实同事务，出生费用/成本/组/支付产品账户身份由原事实验证消费，写入与实际支付均不能在事实丢失后降为legacy。旧false出生标记/原HMAC保持，不为历史重新报价或补造证明；原已有attempt继续原账户恢复。历史只有assignment无order/quote、或旧bornorder无attempt且缺原费用证明，在通道配置新政策后首次支付明确拒绝，需要新订单号。收款mode1直清尚未实现完整账务，不得默认为代收执行；受控import和policy均拒显式1，和account_mode不同。
+
+邀请当前政策：`GET /console/v1/merchant/referral/current-policy` 只读解释当前有效组、预算和条件；100元示例是所选基数比例计算，实际订单收入未知时不估算。不包含他人组资料、token或成本证明。
+
+本人联系QQ和个人单笔金额：`GET/PATCH /console/v1/merchant/account/personal-settings` 只修改`qq/pay_minmoney/pay_maxmoney`；金额为元字符串，空或0不额外限制。原session、CSRF、CAS、字段名审计同事务，最后写后按数据库时钟核验；无关profile和密钥不覆盖。现有新订单/报价金额引擎实际执行，不能放宽其它限制或改历史金额。个人API开关、密钥登录及买家加费另阶段，未通过这些字段假开放。
+
+Console登录与session的`user.id`统一为完整字符串，防止大商户编号在浏览器比较本人归属前丢精度。仅变更console传输DTO；内部身份、Cookie/CSRF、持久session及历史证明不变。
+
+商户资料 GET `/console/v1/merchant/account/profile` 新增原字段 `uid`（完整字符串）、`addtime`（UTC+8展示时间）及 `registration_time_known`。只读字段不接受PATCH；原name/email/pay保留。未提供原注册时间的历史导入账号，addtime为空并明确显示未提供；管理员商户列表也不显示导入时钟为注册时间，注册日期筛选只匹配已知原时间。原有商户出生时间保护和金融证明不变。
+
+脱敏迁移schema1的Merchant可选 `created_at`，例如 `"created_at":"2018-07-08T09:10:11+08:00"`。需确认旧系统时区后提供明确RFC3339时间，不接受零时间、未知偏移-00:00或晚于exported_at的日期。旧快照不增加该字段仍可导入，原字节摘要和资金导入规则保持；缺少原时间时仅标记未知，不捏造或改写历史。
+
+
+核心风控实际接口与25个全局/2个组继承字段见 OpenAPI CoreRisk* 与 docs/core-payment-risk-compatibility.md；98子通道与171同TxCheck整合见 docs/core-payment-risk-integration.md。

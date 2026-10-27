@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"errors"
+	"github.com/jackc/pgx/v5"
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/backoffice"
 	"goepay/internal/identity"
@@ -18,18 +19,43 @@ func (s *Server) preauthorizationObservationPermission(ctx context.Context, o pa
 	if !s.AuthorizationObservationEnabled || s.Store == nil || s.Pool == nil || s.ProviderFlow == nil || s.Sandbox || s.ProviderFlow.LocalSimulation || !validOAuthOrigin(s.ProviderFlow.CallbackBaseURL) {
 		return payment.ErrLiveDisabled
 	}
-	current, e := s.Store.OrderByTradeNo(ctx, o.TradeNo)
+	tx, e := s.Pool.Begin(ctx)
+	if e != nil {
+		return e
+	}
+	defer tx.Rollback(ctx)
+	if e = s.preauthorizationObservationPermissionTx(ctx, tx, o); e != nil {
+		return e
+	}
+	return tx.Commit(ctx)
+}
+
+// Every database-dependent permission and original account restoration uses
+// the supplied transaction. In particular, no public pool reader is called
+// while a release claim or observation result holds the original order lock.
+func (s *Server) preauthorizationObservationPermissionTx(ctx context.Context, tx pgx.Tx, o payment.Order) error {
+	if tx == nil || !s.AuthorizationObservationEnabled || s.Store == nil || s.Pool == nil || s.ProviderFlow == nil || s.Sandbox || s.ProviderFlow.LocalSimulation || !validOAuthOrigin(s.ProviderFlow.CallbackBaseURL) {
+		return payment.ErrLiveDisabled
+	}
+	current, e := s.Store.OrderByTradeNoTx(ctx, tx, o.TradeNo)
 	if e != nil || current.ID != o.ID || current.MerchantID != o.MerchantID || current.Type != "alipay" {
 		return payment.ErrNotFound
 	}
-	attempt, e := s.Store.ProviderAttempt(ctx, o.TradeNo)
+	attempt, e := s.Store.ProviderAttemptTx(ctx, tx, o.TradeNo)
 	if e != nil || attempt.Method != "preauth" {
 		return payment.ErrState
 	}
-	auth, e := s.Store.Preauthorization(ctx, o.TradeNo)
-	if e != nil || auth.ChannelID != attempt.ChannelID || auth.Amount != current.Amount {
+	// PreauthorizationTx authenticates the immutable 104 charge. The nominal
+	// order amount can differ from the amount actually frozen by that source.
+	auth, e := s.Store.PreauthorizationTx(ctx, tx, o.TradeNo)
+	if e != nil || auth.ChannelID != attempt.ChannelID {
 		return payment.ErrState
 	}
+	resolved, e := s.paymentIntentServerTx(ctx, tx, current.MerchantID, current.OutTradeNo, attempt.ChannelID)
+	if e != nil {
+		return e
+	}
+	s = resolved
 	p := s.ProviderFlow.Providers[attempt.ChannelID]
 	if p == nil || p.ID() != "alipay" || !p.Capabilities().Query {
 		return adapter.ErrUnsupported
@@ -64,10 +90,10 @@ func (s *Server) preauthorizationObservationPermission(ctx context.Context, o pa
 		return backoffice.ErrForbidden
 	}
 	var enabled bool
-	if e = s.Pool.QueryRow(ctx, "SELECT enabled FROM merchants WHERE id=$1", current.MerchantID).Scan(&enabled); e != nil || !enabled {
+	if e = tx.QueryRow(ctx, "SELECT enabled FROM merchants WHERE id=$1", current.MerchantID).Scan(&enabled); e != nil || !enabled {
 		return backoffice.ErrForbidden
 	}
-	return s.ProviderFlow.ValidatePaymentAccount(ctx, current.MerchantID, current.TradeNo)
+	return s.ProviderFlow.ValidatePaymentAccountTx(ctx, tx, current.MerchantID, current.TradeNo)
 }
 
 func (s *Server) CanObservePreauthorization(ctx context.Context, o payment.Order) bool {
@@ -104,6 +130,9 @@ func (s *Server) preauthorizationObservationConsole(w http.ResponseWriter, r *ht
 		return true
 	}
 	check := func(ctx context.Context) error { return s.preauthorizationObservationPermission(ctx, o) }
+	checkTx := func(ctx context.Context, tx pgx.Tx) error {
+		return s.preauthorizationObservationPermissionTx(ctx, tx, o)
+	}
 	if e = check(r.Context()); e != nil {
 		observationHTTPError(w, e)
 		return true
@@ -118,13 +147,13 @@ func (s *Server) preauthorizationObservationConsole(w http.ResponseWriter, r *ht
 			response(w, 400, -1, "client_request_no must be 64 lowercase hexadecimal characters", nil)
 			return true
 		}
-		q, e = s.ProviderFlow.ObservePreauthorization(r.Context(), payment.PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: in["client_request_no"]}, token, role, check)
+		q, e = s.ProviderFlow.ObservePreauthorization(r.Context(), payment.PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: in["client_request_no"]}, token, role, check, checkTx)
 	} else {
 		if !identityHex(parts[4]) {
 			response(w, 404, -1, "observation not found", nil)
 			return true
 		}
-		q, e = s.ProviderFlow.ReadPreauthorizationObservation(r.Context(), parts[4], token, role, check)
+		q, e = s.ProviderFlow.ReadPreauthorizationObservation(r.Context(), parts[4], token, role, check, checkTx)
 	}
 	if e != nil {
 		observationHTTPError(w, e)

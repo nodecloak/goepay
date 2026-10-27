@@ -6,17 +6,19 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
 
 func TestChannelNotice77Actual76SMTPClaimUpgradePreservesEveryOldColumnAndNeverResends(t *testing.T) {
+	s, facts := actualHistoricalStore155(t, "notice76")
 	ctx := context.Background()
-	s, job, lease, event := noticeSourceStore77(t, membership72HistoricalStore(t, 76))
-	legacy := &uncertainNoticeSender76{}
-	if e := s.DeliverChannelStopNotice(ctx, job, lease, "local-admin@example.test", legacy); e != nil || legacy.calls.Load() != 1 {
-		t.Fatal("actual76 SMTP attempt unavailable", e)
-	}
+	var job, event int64
+	var lease string
+	facts.decode(t, "job", &job)
+	facts.decode(t, "lease", &lease)
+	facts.decode(t, "event", &event)
 	before, e := s.readChannelNoticeClaim(ctx, s.pool, event)
 	if e != nil || before.RouteVersion != 0 || before.State != "unknown" {
 		t.Fatal(before, e)
@@ -76,6 +78,16 @@ func TestChannelNotice77Actual76SMTPClaimUpgradePreservesEveryOldColumnAndNeverR
 	if e != nil || !status.Blocked || status.NoticeState != "unknown" || status.NoticeTransport != "smtp" {
 		t.Fatal("legacy notice status changed", status, e)
 	}
+	// A restored worker lease may have expired. Expire only this mutable job
+	// lease, then acquire a real current queue claim; no notice proof is changed.
+	if _, e = s.pool.Exec(ctx, "UPDATE jobs SET lease_until=clock_timestamp()-interval '1 second' WHERE id=$1", job); e != nil {
+		t.Fatal(e)
+	}
+	claimed, e := jobsQueue76(s).Claim(ctx, []string{"admin.channel-stopped"}, time.Hour)
+	if e != nil || claimed.ID != job {
+		t.Fatal("original job cannot be reclaimed", claimed.ID, e)
+	}
+	lease = claimed.Token
 	mail := &routedNotice77{mode: "smtp", scope: strings.Repeat("a", 64), to: "local-admin@example.test"}
 	if e = s.DeliverChannelStopNotice(ctx, job, lease, mail.to, mail); e != nil || mail.calls.Load() != 0 {
 		t.Fatal("legacy attempt reopened", e)

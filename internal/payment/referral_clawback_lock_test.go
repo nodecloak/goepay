@@ -151,7 +151,7 @@ func TestReferralClawbackMerchantForeignKeyIsLockedBeforePromoterWallet(t *testi
 					_, e := s.ReserveRefund(ctx, 902, o.OutTradeNo, "fk-refund", 98)
 					done <- e
 				} else {
-					done <- s.markPaid(ctx, o.TradeNo, "fk-paid-second", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "WX_SECOND_" + o.TradeNo})
+					done <- s.markPaid(ctx, o.TradeNo, "fk-paid-second", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "WX_SECOND_" + o.TradeNo})
 				}
 			}()
 			for {

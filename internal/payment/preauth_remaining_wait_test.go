@@ -10,7 +10,7 @@ import (
 func TestPreauthRemaining75ClaimAuditWaitRollsBackExpiredSendAuthority(t *testing.T) {
 	s, g, o, token, _ := observationFixture68(t)
 	ctx := context.Background()
-	q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("9", 64)}, token, "merchant", observationCheck68)
+	q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("9", 64)}, token, "merchant", observationCheck68, observationCheckTx68)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -52,7 +52,7 @@ func TestPreauthRemaining75ClaimAuditWaitRollsBackExpiredSendAuthority(t *testin
  CREATE TRIGGER remaining_claim_wait75 BEFORE INSERT ON backoffice_audit FOR EACH ROW EXECUTE FUNCTION remaining_claim_delay75()`); e != nil {
 		t.Fatal(e)
 	}
-	if _, e = s.markPreauthRemainingSent(ctx, o.TradeNo, 1, observationCheck68); e == nil {
+	if _, e = s.markPreauthRemainingSent(ctx, o.TradeNo, 1, observationCheckTx68); e == nil {
 		t.Fatal("expired claim crossed send boundary")
 	}
 	var entered bool

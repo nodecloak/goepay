@@ -115,7 +115,7 @@ func delivery80(t *testing.T) (*Store, *notice.Store, jobs.Job, notice.SettingsV
 	if _, _, err = s.BeginProviderAttempt(ctx, o.TradeNo, 7, "native"); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.markPaid(ctx, o.TradeNo, "notice-delivery-event80", false, PaidReceipt{ChannelID: 7, ProviderTradeNo: "local-verified-notice80"}); err != nil {
+	if err = s.markPaid(ctx, o.TradeNo, "notice-delivery-event80", false, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "local-verified-notice80"}); err != nil {
 		t.Fatal(err)
 	}
 	job, err := (jobs.Queue{Pool: s.pool}).Claim(ctx, []string{"merchant.notice"}, time.Minute)
@@ -315,7 +315,7 @@ func TestMerchantNotice80WechatSourceMappingsAndOriginalAppCannotBeReplaced(t *t
 			if _, _, err = s.BeginProviderAttempt(ctx, o.TradeNo, 7, "native"); err != nil {
 				t.Fatal(err)
 			}
-			if err = s.markPaid(ctx, o.TradeNo, "local-wx-event80", false, PaidReceipt{ChannelID: 7, ProviderTradeNo: "local-wx-receipt80"}); err != nil {
+			if err = s.markPaid(ctx, o.TradeNo, "local-wx-event80", false, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "local-wx-receipt80"}); err != nil {
 				t.Fatal(err)
 			}
 			job, err := (jobs.Queue{Pool: s.pool}).Claim(ctx, []string{"merchant.notice"}, time.Minute)

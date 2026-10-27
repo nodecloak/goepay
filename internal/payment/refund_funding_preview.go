@@ -23,7 +23,11 @@ func (s *Store) RefundFundingPreview(ctx context.Context, q referralReader, oid 
 	if e != nil {
 		return p, e
 	}
-	p.OrderID, p.Gross, p.MerchantNet, p.OriginalFee = oid, o.Amount, o.MerchantAmount, o.PlatformFee
+	charge104, _, e := s.authenticatedOrderChargeReader104(ctx, q, o)
+	if e != nil {
+		return p, e
+	}
+	p.OrderID, p.Gross, p.MerchantNet, p.OriginalFee = oid, charge104, o.MerchantAmount, o.PlatformFee
 	if e = s.verifyOrderRefundFundingHistory(ctx, q, oid); e != nil {
 		return p, e
 	}
@@ -91,7 +95,7 @@ func (s *Store) RefundFundingPreview(ctx context.Context, q referralReader, oid 
 	if e = q.QueryRow(ctx, "SELECT COALESCE(sum(amount),0),COALESCE(sum(merchant_amount),0),COALESCE(sum(fee_amount),0) FROM refunds WHERE order_id=$1 AND status<>'failed'", oid).Scan(&ug, &um, &uf); e != nil {
 		return p, e
 	}
-	p.MerchantAmount, p.FeeAmount, p.HeldAmount, p.AvailableAmount, e = allocateRefundFunding(o.Amount, o.MerchantAmount, o.PlatformFee, ug, um, uf, amount, p.HeldRemaining, o.RefundFeePayer)
+	p.MerchantAmount, p.FeeAmount, p.HeldAmount, p.AvailableAmount, e = allocateRefundFunding(charge104, o.MerchantAmount, o.PlatformFee, ug, um, uf, amount, p.HeldRemaining, o.RefundFeePayer)
 	if e != nil {
 		return p, e
 	}

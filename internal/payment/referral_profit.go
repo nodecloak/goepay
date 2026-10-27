@@ -26,7 +26,7 @@ func (s *Store) profitDigest(domain string, fact any) ([]byte, error) {
 func (s *Store) profitCostProof(c referralProfitCost) ([]byte, error) {
 	return s.profitDigest("birth", []any{c.Version, c.OrderID, c.MerchantID, c.ChannelID, c.Method, c.Provider, c.AppID, c.AccountHash, c.Revision, c.RateUnits, c.Amount, c.Fee, c.CostWhole, c.CostRemainder, c.Profit, c.Reward, c.TermsHash})
 }
-func (s *Store) prepareReferralProfit(o Order, rate int64, q *PaymentCostQuote) (*referralProfitCost, error) {
+func (s *Store) prepareReferralProfit(o Order, charge104, rate int64, q *PaymentCostQuote) (*referralProfitCost, error) {
 	if q == nil || q.channelID <= 0 || !providerMethodPattern.MatchString(q.method) {
 		return nil, ErrInvalid
 	}
@@ -35,7 +35,7 @@ func (s *Store) prepareReferralProfit(o Order, rate int64, q *PaymentCostQuote) 
 	if json.Unmarshal([]byte(e.AccountScope), &scope) != nil || len(scope) != 4 || scope[0] != o.Type || scope[0] != e.Provider || scope[1] != e.AppID || scope[1] == "" || scope[2] == "" || scope[3] != "account" || e.Provider == "alipay" && (!strings.HasPrefix(scope[2], "seller:") || len(scope[2]) <= 7) || e.Provider != "alipay" && e.Provider != "wxpay" || !isLowerHex64(e.Revision) {
 		return nil, ErrInvalid
 	}
-	calc, err := calculateReferralProfitCost(o.Amount, o.PlatformFee, e.RateUnits, rate)
+	calc, err := calculateReferralProfitCost(charge104, o.PlatformFee, e.RateUnits, rate)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (s *Store) prepareReferralProfit(o Order, rate int64, q *PaymentCostQuote) 
 	if err != nil {
 		return nil, err
 	}
-	return &referralProfitCost{OrderID: o.ID, MerchantID: o.MerchantID, ChannelID: q.channelID, Version: 3, Method: q.method, Provider: e.Provider, AppID: e.AppID, Revision: e.Revision, RateUnits: e.RateUnits, Amount: o.Amount, Fee: o.PlatformFee, CostWhole: calc.CostWhole, CostRemainder: calc.CostRemainder, Profit: calc.Profit, Reward: calc.Reward, AccountHash: account}, nil
+	return &referralProfitCost{OrderID: o.ID, MerchantID: o.MerchantID, ChannelID: q.channelID, Version: 3, Method: q.method, Provider: e.Provider, AppID: e.AppID, Revision: e.Revision, RateUnits: e.RateUnits, Amount: charge104, Fee: o.PlatformFee, CostWhole: calc.CostWhole, CostRemainder: calc.CostRemainder, Profit: calc.Profit, Reward: calc.Reward, AccountHash: account}, nil
 }
 func isLowerHex64(v string) bool {
 	if len(v) != 64 {
@@ -94,7 +94,11 @@ func (s *Store) readReferralProfit(ctx context.Context, q referralReader, o Orde
 	if err != nil {
 		return nil, err
 	}
-	if !required || c.Version != 3 || c.OrderID != o.ID || c.MerchantID != o.MerchantID || c.Provider != o.Type || c.Amount != o.Amount || c.Fee != o.PlatformFee || c.Reward != t.RewardAmount || !hmac.Equal(c.TermsHash, t.ProofHash) || len(c.AccountHash) != 32 || !isLowerHex64(c.Revision) || c.AppID == "" || c.ChannelID <= 0 || !providerMethodPattern.MatchString(c.Method) {
+	charge104, _, chargeError104 := s.readBuyerSource104(ctx, q, o)
+	if chargeError104 != nil {
+		return nil, chargeError104
+	}
+	if !required || c.Version != 3 || c.OrderID != o.ID || c.MerchantID != o.MerchantID || c.Provider != o.Type || c.Amount != charge104 || c.Fee != o.PlatformFee || c.Reward != t.RewardAmount || !hmac.Equal(c.TermsHash, t.ProofHash) || len(c.AccountHash) != 32 || !isLowerHex64(c.Revision) || c.AppID == "" || c.ChannelID <= 0 || !providerMethodPattern.MatchString(c.Method) {
 		return nil, ErrConflict
 	}
 	calc, err := calculateReferralProfitCost(c.Amount, c.Fee, c.RateUnits, t.RateBPS)

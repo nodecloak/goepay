@@ -1,3 +1,4 @@
+import { openMerchantOrderDetails } from "./fixtures/merchant-order-navigation";
 import { test, expect } from "@playwright/test";
 
 const ok = (data: unknown, status = 200) => ({
@@ -74,7 +75,7 @@ test("preauthorization observation is explicit, unknown refresh is local GET and
     );
   });
   await page.goto("/merchant/trade/order");
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   const panel = page.getByRole("region", { name: "预授权原冻结与余款" });
   await expect(
     panel.getByRole("button", { name: "查询原冻结与余款", exact: true }),
@@ -102,7 +103,7 @@ test("preauthorization observation is explicit, unknown refresh is local GET and
   expect(posts).toHaveLength(2);
   expect(posts[1]).not.toBe(posts[0]);
   await page.getByRole("button", { name: "关闭详情", exact: true }).click();
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   await expect(
     panel.getByRole("button", { name: "查询原冻结与余款", exact: true }),
   ).toBeVisible();
@@ -149,7 +150,7 @@ for (const gate of ["absent", "false", "delegated"] as const)
       );
     });
     await page.goto("/merchant/trade/order");
-    await page.getByRole("button", { name: "详情", exact: true }).click();
+    await openMerchantOrderDetails(page);
     await expect(page.getByRole("dialog", { name: "订单详情" })).toBeVisible();
     await expect(
       page.getByRole("button", { name: "查询原冻结与余款", exact: true }),

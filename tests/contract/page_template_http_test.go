@@ -107,7 +107,9 @@ func TestPageTemplateActuallyRendersCheckoutCollectionAndHomeWithoutChangingPaym
 		t.Fatal(e)
 	}
 	page = get("/")
-	if page.Code != 200 || !strings.Contains(page.Body.String(), "HOME-BRAND") {
+	// The published site name supplies the home brand, while the selected
+	// template still controls its own appearance and notice.
+	if page.Code != 200 || !strings.Contains(page.Body.String(), "GOEPAY") || strings.Contains(page.Body.String(), "HOME-BRAND") || !strings.Contains(page.Body.String(), "background:#ddeeff") || !strings.Contains(page.Body.String(), "Local appearance only") {
 		t.Fatal("home selection is metadata only", page.Code, page.Body.String())
 	}
 	order, e := s.Store.OrderByTradeNo(ctx, trade)

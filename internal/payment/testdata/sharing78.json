@@ -1,0 +1,33 @@
+{
+  "fields": {
+    "order": {
+      "merchant_amount": "1000",
+      "platform_fee": "0",
+      "fee_rate_bps": 0,
+      "fee_group_id": "0",
+      "fee_policy": "none",
+      "refund_fee_payer": "platform",
+      "version": "v1",
+      "id": "1",
+      "trade_no": "1000000000000000000",
+      "merchant_id": "751",
+      "out_trade_no": "old-positive78",
+      "name": "local78",
+      "type": "wxpay",
+      "amount": "1000",
+      "notify_url": "",
+      "return_url": "",
+      "param": "",
+      "status": "created",
+      "created_at": "2026-10-26T08:31:32.662067+08:00",
+      "paid_at": null
+    }
+  },
+  "schema": "member72_1c1acaaf36d7e39a",
+  "source_files": 1645,
+  "source_manifest_sha256": "cfdf6e68f579165049568914718c99fab7637cbb46126deb501279d7db6cd9ef",
+  "synthetic_only": true,
+  "dump_sha256": "5a5a03cf8b00b3c55e02023786e3a54add53f6c077e9ce04df001da195c2049e",
+  "dump_uncompressed_sha256": "726b21e0132bc2dc19ba4df929d20d781b5abb031f80e3b476a21375867ec8d9",
+  "dump_uncompressed_bytes": 924958
+}

@@ -67,6 +67,15 @@ func (s *Server) preauthorizationRemainingConsole(w http.ResponseWriter, r *http
 		return true
 	}
 	check := func(ctx context.Context) error { return s.preauthorizationObservationPermission(ctx, o) }
+	checkTx := func(ctx context.Context, tx pgx.Tx) error {
+		if e := s.preauthorizationObservationPermissionTx(ctx, tx, o); e != nil {
+			return e
+		}
+		if role == "admin" {
+			return identity.CheckOriginalSuperAdminSessionTx(ctx, tx, session.User, token, session.Issuer != nil)
+		}
+		return identity.CheckOriginalMerchantSessionTx(ctx, tx, session.User, token, session.CSRF)
+	}
 	if e = check(r.Context()); e != nil {
 		observationHTTPError(w, e)
 		return true
@@ -79,10 +88,10 @@ func (s *Server) preauthorizationRemainingConsole(w http.ResponseWriter, r *http
 			if kind != "authorization-release-remaining" || key != fmt.Sprintf("%s:%d:%s", o.TradeNo, in.ExpectedSourceRevision, in.ExpectedObservationID) {
 				return payment.ErrInvalid
 			}
-			return check(c)
+			return checkTx(c, tx)
 		})
 	}
-	release, e := s.ProviderFlow.ReleaseRemainingAuthorization(ctx, o.MerchantID, o.TradeNo, in, token, role, check)
+	release, e := s.ProviderFlow.ReleaseRemainingAuthorization(ctx, o.MerchantID, o.TradeNo, in, token, role, check, checkTx)
 	if isFundsAuthorizationError(e) {
 		fundsHTTPError(w, e)
 		return true

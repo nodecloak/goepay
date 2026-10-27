@@ -1,7 +1,22 @@
 <script setup lang="ts">
-import { RouterLink } from "vue-router";
+import { RouterLink, useRouter } from "vue-router";
 import { readLinkedMerchantRoute } from "../list-filters";
-import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
+import {
+  ref,
+  computed,
+  watch,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+} from "vue";
+import {
+  freshSettlementFilters,
+  readSettlementRoute,
+  settlementFiltersError,
+  settlementFilterQuery,
+} from "../settlement-filters";
+import SettlementListFilters from "./SettlementListFilters.vue";
+import SettlementStatistics from "./SettlementStatistics.vue";
 import { ApiClient, ApiError, validAmount } from "../api";
 import type { Area } from "../menu";
 import { displayValue } from "../api";
@@ -13,6 +28,7 @@ import FundsAvailabilitySummary from "./FundsAvailabilitySummary.vue";
 import SettlementRecipientPanel from "./SettlementRecipientPanel.vue";
 import SettlementPayoutPanel from "./SettlementPayoutPanel.vue";
 import SettlementListTable from "./SettlementListTable.vue";
+import InternalTransferListTable from "./InternalTransferListTable.vue";
 import { hasOriginalSettlementProjection } from "../settlement-list";
 import { payoutFundingLabel, payoutStateLabel } from "../settlement-payout";
 import {
@@ -31,12 +47,84 @@ const props = defineProps<{
   application?: boolean;
   initialQuery?: Record<string, unknown>;
   selfID?: string;
+  boundMerchantID?: string;
 }>();
-const routeContext = readLinkedMerchantRoute(
+const emit = defineEmits<{ busy: [value: boolean]; submitted: [] }>();
+const internalMerchantList = computed(
+  () => props.workflow === "internal-transfers" && props.area === "merchant",
+);
+const internalDraft = ref({ direction: "", status: "" });
+const internalApplied = ref({ direction: "", status: "" });
+function applyInternalFilters() {
+  internalApplied.value = { ...internalDraft.value };
+  page.value = 1;
+  void load();
+}
+function resetInternalFilters() {
+  internalDraft.value = { direction: "", status: "" };
+  applyInternalFilters();
+}
+const settlementRoute = readSettlementRoute(
   props.initialQuery || {},
   props.area,
   props.selfID || "",
 );
+const settlementDraft = ref({ ...settlementRoute.filters }),
+  settlementApplied = ref({ ...settlementRoute.filters }),
+  settlementRouteError = ref(settlementRoute.error),
+  statisticsOpen = ref(false);
+const router = useRouter();
+let statisticsOpener: HTMLElement | undefined;
+function openStatistics() {
+  statisticsOpener =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : undefined;
+  statisticsOpen.value = true;
+}
+function closeStatistics() {
+  const opener = statisticsOpener;
+  statisticsOpen.value = false;
+  statisticsOpener = undefined;
+  void nextTick(() => {
+    if (opener?.isConnected) opener.focus();
+  });
+}
+function applySettlementFilters() {
+  const message = settlementFiltersError(settlementDraft.value);
+  if (message) {
+    error.value = message;
+    return;
+  }
+  settlementApplied.value = { ...settlementDraft.value };
+  settlementRouteError.value = "";
+  statisticsOpen.value = false;
+  page.value = 1;
+  void load();
+}
+function resetSettlementFilters() {
+  settlementDraft.value = freshSettlementFilters();
+  settlementApplied.value = freshSettlementFilters();
+  settlementRouteError.value = "";
+  statisticsOpen.value = false;
+  page.value = 1;
+  if (props.initialQuery && Object.keys(props.initialQuery).length && router) {
+    void router.replace("/" + props.area + "/settle/list");
+  } else void load();
+}
+const routeContext =
+  props.workflow === "settlements"
+    ? {
+        merchantID: settlementRoute.filters.merchant_id,
+        page: settlementRoute.page,
+        limit: settlementRoute.limit,
+        error: settlementRoute.error,
+      }
+    : readLinkedMerchantRoute(
+        props.initialQuery || {},
+        props.area,
+        props.selfID || "",
+      );
 const items = ref<Record<string, unknown>[]>([]),
   total = ref(0),
   page = ref(routeContext.page),
@@ -49,6 +137,22 @@ const items = ref<Record<string, unknown>[]>([]),
   selected = ref<Record<string, unknown>>({}),
   checked = ref<string[]>([]),
   batchMode = ref(false);
+watch(busy, (value) => emit("busy", value), { flush: "sync" });
+const validBoundMerchant = computed(
+  () =>
+    props.boundMerchantID === undefined ||
+    (/^[1-9]\d{0,18}$/.test(props.boundMerchantID) &&
+      BigInt(props.boundMerchantID) <= 9223372036854775807n),
+);
+const settlementRecordsHref = computed(
+  () =>
+    "/" +
+    props.area +
+    "/settle/list" +
+    (props.area === "admin" && props.boundMerchantID && validBoundMerchant.value
+      ? "?uid=" + props.boundMerchantID
+      : ""),
+);
 const payoutRequestId = ref("");
 const form = ref({
   merchant_id: "",
@@ -167,8 +271,12 @@ async function load() {
   checked.value = [];
   items.value = [];
   total.value = 0;
-  if (routeContext.error) {
-    error.value = routeContext.error;
+  const routeError =
+    props.workflow === "settlements"
+      ? settlementRouteError.value
+      : routeContext.error;
+  if (routeError) {
+    error.value = routeError;
     items.value = [];
     total.value = 0;
     loading.value = false;
@@ -186,13 +294,30 @@ async function load() {
     }>(
       endpoint +
         "?" +
-        new URLSearchParams({
-          page: String(page.value),
-          limit: String(limit.value),
-          ...(props.area === "admin" && routeContext.merchantID
-            ? { merchant_id: routeContext.merchantID }
-            : {}),
-        }),
+        (props.workflow === "settlements"
+          ? settlementFilterQuery(
+              settlementApplied.value,
+              props.area,
+              page.value,
+              limit.value,
+            )
+          : new URLSearchParams({
+              page: String(page.value),
+              limit: String(limit.value),
+              ...(internalMerchantList.value
+                ? {
+                    ...(internalApplied.value.direction
+                      ? { direction: internalApplied.value.direction }
+                      : {}),
+                    ...(internalApplied.value.status
+                      ? { status: internalApplied.value.status }
+                      : {}),
+                  }
+                : {}),
+              ...(props.area === "admin" && routeContext.merchantID
+                ? { merchant_id: routeContext.merchantID }
+                : {}),
+            })),
       { signal: c.signal },
     );
     if (!c.signal.aborted) {
@@ -230,9 +355,13 @@ async function load() {
   }
 }
 function openCreate() {
+  if (props.area === "admin" && !validBoundMerchant.value) {
+    error.value = "所选商户号无效，请关闭后重新选择";
+    return;
+  }
   settlementRecipient.value = null;
   form.value = {
-    merchant_id: "",
+    merchant_id: props.area === "admin" ? props.boundMerchantID || "" : "",
     recipient_id: "",
     amount: "",
     external_no: crypto.randomUUID(),
@@ -244,6 +373,15 @@ function openCreate() {
 }
 async function submit() {
   if (busy.value) return;
+  if (
+    props.area === "admin" &&
+    props.boundMerchantID !== undefined &&
+    (!validBoundMerchant.value ||
+      form.value.merchant_id !== props.boundMerchantID)
+  ) {
+    error.value = "提现商户已变化，请关闭后重新选择";
+    return;
+  }
   if (!hasRecipient.value) {
     error.value = "请先核对并配置当前商户的收款版本";
     return;
@@ -289,6 +427,7 @@ async function submit() {
     await props.client.request(endpoint, { method: "POST", body });
     notice.value = "申请已提交，请根据记录状态核实处理结果";
     dialog.value = null;
+    emit("submitted");
     if (!props.application) await load();
   } catch (e) {
     error.value = e instanceof Error ? e.message : "提交失败";
@@ -350,12 +489,7 @@ function check(id: string, enabled: boolean) {
     : checked.value.filter((x) => x !== id);
 }
 onMounted(() => {
-  if (
-    props.application &&
-    props.area === "merchant" &&
-    props.workflow === "settlements"
-  )
-    openCreate();
+  if (props.application && props.workflow === "settlements") openCreate();
   else void load();
 });
 onBeforeUnmount(() => {
@@ -365,11 +499,67 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section v-if="!application || !dialog" class="panel records">
+    <form
+      v-if="internalMerchantList && !application"
+      class="filters internal-transfer-filters"
+      aria-label="站内转账筛选"
+      @submit.prevent="applyInternalFilters"
+    >
+      <label
+        >方向<select
+          v-model="internalDraft.direction"
+          aria-label="方向"
+          :disabled="loading || busy"
+        >
+          <option value="">全部方向</option>
+          <option value="out">转出</option>
+          <option value="in">转入</option>
+        </select></label
+      >
+      <label
+        >状态<select
+          v-model="internalDraft.status"
+          aria-label="状态"
+          :disabled="loading || busy"
+        >
+          <option value="">全部状态</option>
+          <option value="pending">待审核</option>
+          <option value="approved">成功</option>
+          <option value="rejected">已拒绝</option>
+        </select></label
+      >
+      <button class="primary" :disabled="loading || busy">查询</button>
+      <button
+        type="button"
+        data-action="reset-internal-transfers"
+        :disabled="loading || busy"
+        @click="resetInternalFilters"
+      >
+        重置
+      </button>
+    </form>
+    <SettlementListFilters
+      v-if="workflow === 'settlements' && !application"
+      v-model="settlementDraft"
+      :area="area"
+      :loading="loading || busy"
+      @submit="applySettlementFilters"
+      @reset="resetSettlementFilters"
+    />
     <p
-      v-if="area === 'admin' && routeContext.merchantID && !routeContext.error"
+      v-if="
+        area === 'admin' &&
+        (workflow === 'settlements'
+          ? settlementApplied.merchant_id && !settlementRouteError
+          : routeContext.merchantID && !routeContext.error)
+      "
       class="resource-description"
     >
-      商户号：{{ routeContext.merchantID }}
+      商户号：{{
+        workflow === "settlements"
+          ? settlementApplied.merchant_id
+          : routeContext.merchantID
+      }}
     </p>
     <RouterLink
       v-if="
@@ -394,6 +584,12 @@ onBeforeUnmount(() => {
       <div class="toolbar-actions">
         <button v-if="!application" :disabled="loading" @click="load">
           刷新</button
+        ><button
+          v-if="workflow === 'settlements' && !application"
+          :disabled="loading || !!settlementRouteError"
+          @click="openStatistics"
+        >
+          结算统计</button
         ><button
           v-if="workflow !== 'profitsharing'"
           class="primary"
@@ -427,7 +623,13 @@ onBeforeUnmount(() => {
         >将所选 {{ checked.length }} 条申请生成结算批次</a
       >
     </div>
-    <div v-if="loading" class="loading-row" role="status">正在加载申请…</div>
+    <div v-if="loading" class="loading-row" role="status">
+      {{ internalMerchantList ? "正在加载站内转账…" : "正在加载申请…" }}
+    </div>
+    <InternalTransferListTable
+      v-else-if="internalMerchantList && !application"
+      :items="items"
+    />
     <SettlementListTable
       v-else-if="
         !application &&
@@ -508,7 +710,10 @@ onBeforeUnmount(() => {
       </table>
     </div>
     <div v-if="!application" class="pagination">
-      <span>共 {{ total }} 条申请</span>
+      <span
+        >共 {{ total }}
+        {{ internalMerchantList ? "条转账记录" : "条申请" }}</span
+      >
       <div>
         <button
           :disabled="page <= 1 || loading"
@@ -531,6 +736,12 @@ onBeforeUnmount(() => {
       </div>
     </div>
   </section>
+  <SettlementStatistics
+    v-if="statisticsOpen"
+    :client="client"
+    :query="settlementFilterQuery(settlementApplied, area).toString()"
+    @close="closeStatistics"
+  />
   <SettlementPayoutPanel
     v-if="workflow === 'settlements' && payoutRequestId"
     :key="payoutRequestId"
@@ -541,7 +752,7 @@ onBeforeUnmount(() => {
     @changed="load"
   />
   <div v-if="application" class="toolbar">
-    <a href="/merchant/settle/list">提现记录</a>
+    <a :href="settlementRecordsHref">提现记录</a>
     <p v-if="notice" class="muted">业务请求号：{{ form.external_no }}</p>
   </div>
   <div
@@ -578,6 +789,7 @@ onBeforeUnmount(() => {
         <label v-if="area === 'admin'"
           >付款商户 ID<input
             v-model="form.merchant_id"
+            :readonly="boundMerchantID !== undefined"
             required
             inputmode="numeric" /></label
         ><button
@@ -649,7 +861,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <div class="modal-actions">
-          <a v-if="application && !busy" href="/merchant/settle/list"
+          <a v-if="application && !busy" :href="settlementRecordsHref"
             >返回提现记录</a
           >
           <button
@@ -697,3 +909,32 @@ onBeforeUnmount(() => {
     </section>
   </div>
 </template>
+<style scoped>
+.internal-transfer-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.internal-transfer-filters label {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 220px;
+  gap: 8px;
+  margin: 0;
+  min-width: 140px;
+}
+.internal-transfer-filters select {
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .internal-transfer-filters {
+    padding: 16px;
+  }
+  .internal-transfer-filters label {
+    flex: 1 1 100%;
+  }
+}
+</style>

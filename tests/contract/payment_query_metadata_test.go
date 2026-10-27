@@ -13,7 +13,14 @@ import (
 func TestPaymentQueryBusinessTimeAndSettledRefundMetadata(t *testing.T) {
 	s, pool, key := fixture(t)
 	ctx := context.Background()
-	o, e := s.Store.CreateOrder(ctx, payment.CreateOrderInput{MerchantID: 1, OutTradeNo: "query-metadata", Name: "test", Type: "sandbox", Amount: 100})
+	// Import the historical creation time before current settlement authors its
+	// evidence. Do not overwrite a current104 authenticated creation timestamp.
+	var trade string
+	e := pool.QueryRow(ctx, `INSERT INTO orders(trade_no,merchant_id,out_trade_no,name,type,amount,merchant_amount,platform_fee,fee_policy,refund_fee_payer,created_at)VALUES(nextval('trade_no_seq')::text,1,'query-metadata','test','sandbox',100,100,0,'none','platform','2026-01-01 20:30:00+00')RETURNING trade_no`).Scan(&trade)
+	if e != nil {
+		t.Fatal(e)
+	}
+	o, e := s.Store.OrderByTradeNo(ctx, trade)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -23,7 +30,7 @@ func TestPaymentQueryBusinessTimeAndSettledRefundMetadata(t *testing.T) {
 	if e = s.Store.SetOrderClientIP(ctx, o.ID, "192.0.2.1"); e != nil {
 		t.Fatal(e)
 	}
-	if _, e = pool.Exec(ctx, "UPDATE orders SET created_at='2026-01-01 20:30:00+00',paid_at='2026-01-01 20:31:00+00' WHERE id=$1", o.ID); e != nil {
+	if _, e = pool.Exec(ctx, "UPDATE orders SET paid_at='2026-01-01 20:31:00+00' WHERE id=$1", o.ID); e != nil {
 		t.Fatal(e)
 	}
 	query := func() map[string]any {

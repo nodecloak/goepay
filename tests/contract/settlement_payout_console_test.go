@@ -113,6 +113,15 @@ func TestSettlementPayoutConsoleScopedReadPrepareUnknownAndOriginalQuery(t *test
 		s.Handler().ServeHTTP(w, r)
 		return w
 	}
+	checkSettlementStats := func(state, key string) {
+		t.Helper()
+		w := readAdmin("/workflows/settlements/statistics?dstatus=" + state)
+		var v struct{ Data map[string]string }
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &v) != nil || v.Data["total_count"] != "1" || v.Data[key] != "1" || v.Data["total_money"] != "10.00" {
+			t.Fatal("original payout statistics", w.Code, w.Body.String())
+		}
+	}
+	checkSettlementStats("0", "waiting_count")
 	listed := readAdmin("/transfers?merchant_id=1")
 	var list struct {
 		Data struct{ Items []map[string]any }
@@ -137,6 +146,7 @@ func TestSettlementPayoutConsoleScopedReadPrepareUnknownAndOriginalQuery(t *test
 	if provider.writes.Load() != 1 {
 		t.Fatal("unknown was resent")
 	}
+	checkSettlementStats("2", "processing_count")
 	s.ProviderFlow.AllowLive = false
 	w = invoke("merchant", "POST", "/query", `{}`, merchantCSRF)
 	if w.Code != 200 {
@@ -158,6 +168,7 @@ func TestSettlementPayoutConsoleScopedReadPrepareUnknownAndOriginalQuery(t *test
 	if err = p.QueryRow(ctx, "SELECT balance FROM accounts WHERE owner_id=0 AND kind='fees'").Scan(&fee); err != nil || fee != 25 {
 		t.Fatal("settlement fee doubled or absent", fee, err)
 	}
+	checkSettlementStats("1", "completed_count")
 	applications := readAdmin("/workflows/settlements")
 	var applicationList struct {
 		Data struct {

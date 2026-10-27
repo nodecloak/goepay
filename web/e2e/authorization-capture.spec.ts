@@ -1,3 +1,4 @@
+import { openMerchantOrderDetails } from "./fixtures/merchant-order-navigation";
 import { test, expect } from "@playwright/test";
 const ok = (data: unknown, status = 200) => ({
   status,
@@ -61,7 +62,7 @@ test("capture requires clear amount confirmation, excludes release while confirm
     );
   });
   await page.goto("/merchant/trade/order");
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   const modal = page.getByRole("dialog", { name: "订单详情" });
   await modal
     .getByRole("button", { name: "扣取买家授权金额", exact: true })
@@ -125,14 +126,14 @@ test("released or already-consumed authorization cannot expose capture with cont
     );
   });
   await page.goto("/merchant/trade/order");
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   const modal = page.getByRole("dialog", { name: "订单详情" });
   await expect(
     modal.getByRole("button", { name: "扣取买家授权金额", exact: true }),
   ).toHaveCount(0);
   await modal.getByRole("button", { name: "关闭详情", exact: true }).click();
   released = false;
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   await expect(
     modal.getByRole("button", { name: "扣取买家授权金额", exact: true }),
   ).toHaveCount(0);

@@ -43,35 +43,16 @@ func sharingSchemaRows79(t *testing.T, s *Store) map[string]string {
 }
 
 func TestChannelSharingV2Single79UpgradePreservesEvery78TableAndOldOriginalMAC(t *testing.T) {
-	s := membership72HistoricalStore(t, 78)
+	s, facts := actualHistoricalStore155(t, "sharing78")
 	ctx := context.Background()
-	if e := s.CreateMerchant(ctx, Merchant{ID: 751, Name: "sharing-owner", APIKey: "local-only"}); e != nil {
-		t.Fatal(e)
-	}
+	var o Order
+	facts.decode(t, "order", &o)
 	_, g, calls, _ := sharingReceiverFlowFixture(t)
 	g.Store = s
 	g.CallbackBaseURL = "https://local.example.invalid"
-	sharingPaymentRule(t, g, 2000)
-	o, e := s.CreateOrder(ctx, CreateOrderInput{MerchantID: 751, OutTradeNo: "old-positive78", Type: "wxpay", Name: "local78", Amount: 1000})
-	if e != nil {
-		t.Fatal(e)
-	}
-	if _, e = g.Submit(ctx, o.TradeNo, 7, "native", "127.0.0.1", ""); e != nil {
-		t.Fatal(e)
-	}
-	if e = s.markPaid(ctx, o.TradeNo, "old-paid78", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "OLD_TX78"}); e != nil {
-		t.Fatal(e)
-	}
 	old, e := s.ChannelSharingPayment(ctx, 751, o.TradeNo, channelSharingActor)
 	if e != nil || !old.Declared {
 		t.Fatal(old, e)
-	}
-	legacy, e := s.CreateOrder(ctx, CreateOrderInput{MerchantID: 751, OutTradeNo: "old-negative78", Type: "wxpay", Name: "local78", Amount: 123})
-	if e != nil {
-		t.Fatal(e)
-	}
-	if _, _, e = s.BeginRecoverableScanAttempt(ctx, legacy.TradeNo, 7, "local-app", "120000000000000078", "old-scan-scope78"); e != nil {
-		t.Fatal(e)
 	}
 	before := sharingSchemaRows79(t, s)
 	raw, e := os.ReadFile("../../db/migrations/000079_wechat_v2_single_sharing.up.sql")

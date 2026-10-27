@@ -16,7 +16,19 @@ import (
 )
 
 func TestMiniOAuthWechatHTTPLaunchToTrustedJSAPIPayer(t *testing.T) {
+	runMiniOAuthWechatHTTPLaunchToTrustedJSAPIPayerWithOriginalGroupFixture(t, false)
+}
+func TestGroupRoutingUXHTTPMiniOAuthWechatHTTPLaunchToTrustedJSAPIPayer(t *testing.T) {
+	runMiniOAuthWechatHTTPLaunchToTrustedJSAPIPayerWithOriginalGroupFixture(t, true)
+}
+func TestChannel168MiniOAuthWechatHTTPLaunchToTrustedJSAPIPayer(t *testing.T) {
+	runMiniOAuthWechatHTTPLaunchToTrustedJSAPIPayerWithOriginalGroupFixture(t, true, installChannel168Fees)
+}
+func runMiniOAuthWechatHTTPLaunchToTrustedJSAPIPayerWithOriginalGroupFixture(t *testing.T, groupRouting bool, channelFees ...channel168FixturePolicy) {
 	s, pool, _ := fixture(t)
+	if groupRouting {
+		installGroupRoutingEntrypointFixture152(t, s, map[string]string{"wxpay": "7"})
+	}
 	s.Sandbox = false
 	ctx := context.Background()
 	exchanges, creates := 0, 0
@@ -63,6 +75,9 @@ func TestMiniOAuthWechatHTTPLaunchToTrustedJSAPIPayer(t *testing.T) {
 	s.MiniOAuthProviders = map[int64]adapter.MiniOAuthProvider{7: mini}
 	s.CheckoutKey = bytes.Repeat([]byte{8}, 32)
 	s.MerchantChannels = map[int64][]int64{1: {7}}
+	if len(channelFees) > 0 && channelFees[0] != nil {
+		applyChannel168Fixture(t, s, channelFees[0])
+	}
 	h := s.Handler()
 	_, out := call(t, h, "POST", "/mapi.php", signed(compat.Params{"pid": "1", "out_trade_no": "wx-mini", "money": "1.25", "name": "item", "type": "wxpay", "method": "applet", "channel_id": "7", "is_applet": "1", "clientip": "192.0.2.5"}, "contract-secret"))
 	if out["code"] != float64(1) {
@@ -129,7 +144,11 @@ func TestMiniOAuthWechatHTTPLaunchToTrustedJSAPIPayer(t *testing.T) {
 		}
 	}
 	bal, e = s.Store.Balance(ctx, 1)
-	if e != nil || bal.Available != 125 {
+	wantCredit := int64(125)
+	if len(channelFees) > 0 && channelFees[0] != nil {
+		wantCredit = 124
+	}
+	if e != nil || bal.Available != wantCredit {
 		t.Fatal("mini query/notification credited more than once", bal, e)
 	}
 	var receipts int

@@ -1,4 +1,5 @@
 import { displayValue } from "./api";
+import { orderActualAmount104 } from "./order-charge104";
 import type { Area } from "./menu";
 import type { ResourceField } from "./resources";
 import { readSettlementRecipient } from "./settlement-recipient";
@@ -17,6 +18,8 @@ export interface ConsoleColumn {
 // *_money fields and schema-driven `money` inputs already use yuan strings.
 const minorFields = new Set([
   "amount",
+  "realmoney",
+  "remaining_refund_amount",
   "amount_minor",
   "merchant_amount",
   "platform_fee",
@@ -123,6 +126,7 @@ const orderColumns: ConsoleColumn[] = [
   { key: "merchant_id", label: "商户号" },
   { key: "name", label: "商品名称" },
   { key: "amount", label: "订单金额（元）" },
+  { key: "realmoney", label: "实际支付金额（元）" },
   { key: "type", label: "支付方式" },
   { key: "client_ip", label: "支付 IP" },
   { key: "param", label: "扩展参数" },
@@ -184,12 +188,18 @@ export function canRefundListOrder(row: Record<string, unknown>): boolean {
     row.income_status === "held"
   )
     return false;
+  const actual = orderActualAmount104(row);
   if (
-    typeof row.amount === "string" &&
-    /^\d+$/.test(row.amount) &&
+    (Object.hasOwn(row, "charge_verified104") ||
+      Object.hasOwn(row, "realmoney")) &&
+    actual === undefined
+  )
+    return false;
+  if (
+    actual !== undefined &&
     typeof row.refunded_amount === "string" &&
     /^\d+$/.test(row.refunded_amount) &&
-    BigInt(row.refunded_amount) >= BigInt(row.amount)
+    BigInt(row.refunded_amount) >= actual
   )
     return false;
   return true;
@@ -341,6 +351,11 @@ export function approvedMerchantDomains(raw: unknown): string[] {
   return [...new Set(domains)].sort();
 }
 export function merchantFieldValue(key: string, value: unknown): string {
+  if (key === "settle")
+    return (
+      ({ "0": "关闭", "1": "正常" } as Record<string, string>)[String(value)] ??
+      "未识别"
+    );
   if (key === "pay")
     return (
       (

@@ -1,0 +1,13 @@
+{
+  "fields": {
+    "group": 1,
+    "purchase_id": 1
+  },
+  "schema": "member72_4b5c373f35b8fcfc",
+  "source_files": 1645,
+  "source_manifest_sha256": "cfdf6e68f579165049568914718c99fab7637cbb46126deb501279d7db6cd9ef",
+  "synthetic_only": true,
+  "dump_sha256": "9b92265b14852b951102ffbfdf78d11a11c8820ff41eca60ac94b8fb3da51a13",
+  "dump_uncompressed_sha256": "4772814fca217c1fdaee833eaf50e2ba60ea4eaca853fa065d93169af668ed20",
+  "dump_uncompressed_bytes": 797665
+}

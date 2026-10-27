@@ -9,6 +9,7 @@ import (
 // PaidReceipt may only be supplied after the provider identity, signature,
 // platform order, currency and exact amount have all been authenticated.
 type PaidReceipt struct {
+	RealMoney                int64 `json:"-"`
 	ChannelID                int64
 	ProviderTradeNo, BuyerID string
 }

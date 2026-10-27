@@ -1,3 +1,4 @@
+// Original group routing model, runtime catalog and transaction-bound choices.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +16,35 @@ const walk = relative => {
 // Deliberate allowlist: never traverse .env, .secrets, reference or SDK packages.
 for (const name of ['cmd','internal','db','tests','scripts','api','web/src','web/tests','web/e2e','docs/tools','go.mod','go.sum','Dockerfile','Dockerfile.test','compose.yaml','.dockerignore','.env.example','README.md','web/.dockerignore','web/index.html','web/tsconfig.json','web/vite.config.ts','web/package.json','web/package-lock.json','web/Dockerfile','web/nginx.conf','web/playwright.config.ts','web/capabilities.json','web/supplemental-capabilities.json']) walk(name);
 walk('web/scripts');
+walk('docs/plans/2026-10-27-original-public-testpay203.md');
+walk('docs/plans/2026-10-27-original-combined-history204.md');
+walk('docs/plans/2026-10-27-original-login-captcha205.md');
+walk('docs/plans/2026-10-27-original-refund-events201.md');
+walk('docs/plans/2026-10-27-original-native-scan202.md');
+walk('docs/plans/2026-10-27-original-return-notification200.md');
+walk('docs/plans/2026-10-27-original-credentials199.md');
+walk('docs/plans/2026-10-27-original-profile198.md');
+walk('docs/plans/2026-10-27-verified-email197.md');
+walk('docs/plans/2026-10-27-historical-proof-fixtures196.md');
+walk('docs/plans/2026-10-27-original-smtp-accounts195.md');
+walk('docs/plans/2026-10-27-original-mail-frequency194.md');
+walk('docs/plans/2026-10-27-original-site-branding193.md');
+walk('docs/plans/2026-10-26-original-group-routing.md');
+walk('docs/superpowers/plans/2026-10-26-original-buyer-charge104.md');
+walk('docs/plans/2026-10-26-original-group-route-semantics.md');
+walk('docs/plans/2026-10-26-original-default-group.md');
+walk('docs/plans/2026-10-26-original-group-settlement-fees.md');
+walk('docs/plans/2026-10-26-original-settlement-filters.md');
+walk('docs/plans/2026-10-26-original-settlement-filter-errors.md');
+walk('docs/plans/2026-10-26-original-private-recipient-search.md');
+walk('docs/plans/2026-10-26-original-merchant-manual-withdrawal.md');
+walk('docs/plans/2026-10-26-original-merchant-settlement-permission.md');
+walk('docs/plans/2026-10-26-original-random-roll-groups.md');
+walk('docs/plans/2026-10-26-original-admin-merchant-credentials.md');
+walk('docs/plans/2026-10-26-original-merchant-signature-policy.md');
+walk('docs/plans/2026-10-26-full-original-ux-follow-up.md');
+walk('docs/plans/2026-10-26-original-transfer-and-domain-parity.md');
+walk('docs/plans/2026-10-26-original-merchant-order-actions.md');
 walk('docs/superpowers/plans/2026-10-26-original-merchant-daily-statistics.md');
 walk('docs/superpowers/plans/2026-10-26-original-trade-table-readability.md');
 walk('docs/superpowers/plans/2026-10-26-original-province-labels.md');
@@ -48,6 +78,35 @@ for(const name of ['docs/design/wechat-v2-sharing-79.md','docs/verification/wech
 // Preserve the reviewed75 documents already included in frozen89, and carry
 // the corresponding76 design/verification boundary with the new source.
 for(const name of ['docs/design/preauth-remaining-release-75.md','docs/verification/preauth-remaining-release-75-2026-10-24.md','docs/design/channel-auto-stop-76.md','docs/verification/channel-auto-stop-76-2026-10-24.md','docs/design/admin-notice-transports-77.md','docs/verification/admin-notice-transports-77-2026-10-24.md','docs/design/scan-recovery-78.md','docs/verification/scan-recovery-78-2026-10-24.md','docs/design/printing-original-order-scope.md'])walk(name);
+walk('docs/plans/2026-10-26-original-channel-rate-facts.md');
+walk('docs/design/2026-10-26-channel-policy-contract.md');
+walk('docs/plans/2026-10-26-pro-global-channel-sequence.md');
+walk('docs/plans/2026-10-26-channel-and-referral-integration.md');
+walk('docs/plans/2026-10-26-real-scheduled-tasks.md');
+walk('docs/plans/2026-10-26-original-merchant-personal-limits.md');
+walk('docs/plans/2026-10-26-original-merchant-api-switches.md');
+walk('docs/plans/2026-10-26-original-announcements-and-welcome.md');
+walk('docs/plans/2026-10-26-parent-channel-limits-integration.md');
+walk('docs/plans/2026-10-26-merchant-api-switches-integration.md');
+walk('docs/plans/2026-10-26-real-scheduled-tasks-integration.md');
+walk('docs/plans/2026-10-26-child-parent-limits-integration.md');
+walk('docs/plans/2026-10-26-original-merchant-payment-subchannels.md');
+walk('docs/plans/2026-10-26-platform-merchant-access.md');
+walk('docs/plans/2026-10-26-platform-access-and-child-recovery-integration.md');
+walk('docs/plans/2026-10-26-original-order-business-batches.md');
+walk('docs/plans/2026-10-26-original-system-update.md');
+walk('docs/plans/2026-10-26-system-update-and-order-batch-integration.md');
+walk('docs/core-payment-risk-compatibility.md');
+walk('docs/core-payment-risk-integration.md');
+walk('docs/plans/2026-10-26-original-core-payment-risk.md');
+walk('docs/plans/2026-10-26-core-risk-and-strict-json-integration.md');
+walk('docs/plans/2026-10-27-shared-execution-request-limits.md');
+walk('docs/plans/2026-10-27-original-parent-channel-delivery.md');
+walk('docs/plans/2026-10-27-original-parent-weixin-bindings.md');
+walk('docs/superpowers/plans/2026-10-26-original-parent-channel-runtime.md');
+walk('docs/plans/2026-10-27-parent-child-execution-integration.md');
+walk('docs/plans/2026-10-27-original-site-settings191.md');
+walk('docs/plans/2026-10-27-original-merchant-scanpay192.md');
 const manifest = {
   generated_at: new Date().toISOString(),
   scope: 'Source snapshot only; not a claim of complete compatibility or a replacement for test results.',
@@ -56,3 +115,4 @@ const manifest = {
 fs.mkdirSync(path.join(root,'docs/testing'),{recursive:true});
 fs.writeFileSync(path.join(root,'docs/testing/source-manifest.json'),JSON.stringify(manifest,null,2)+'\n');
 console.log(JSON.stringify({source_files:manifest.files.length,manifest:'docs/testing/source-manifest.json'}));
+

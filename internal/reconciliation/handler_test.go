@@ -63,6 +63,10 @@ func (p *queryProvider) QueryRefund(_ context.Context, r adapter.RefundRequest) 
 }
 
 func fixture(t *testing.T) (*Handler, *queryProvider, payment.Order) {
+	return fixtureWithLegacyAge190(t, 0)
+}
+
+func fixtureWithLegacyAge190(t *testing.T, age time.Duration) (*Handler, *queryProvider, payment.Order) {
 	t.Helper()
 	dsn := os.Getenv("GOEPAY_TEST_DATABASE_URL")
 	if dsn == "" {
@@ -109,7 +113,18 @@ func fixture(t *testing.T) (*Handler, *queryProvider, payment.Order) {
 	if e = store.CreateMerchant(ctx, payment.Merchant{ID: 1, Name: "synthetic", APIKey: "synthetic-secret"}); e != nil {
 		t.Fatal(e)
 	}
-	order, e := store.CreateOrder(ctx, payment.CreateOrderInput{MerchantID: 1, OutTradeNo: "synthetic", Type: "wxpay", Name: "test", Amount: 100})
+	var order payment.Order
+	if age > 0 {
+		// Import the old unpaid cohort before creating the actual unknown-send
+		// attempt. Never backdate an order authenticated by the current104 code.
+		var trade string
+		e = pool.QueryRow(ctx, `INSERT INTO orders(trade_no,merchant_id,out_trade_no,name,type,amount,merchant_amount,platform_fee,fee_policy,refund_fee_payer,created_at)VALUES(nextval('trade_no_seq')::text,1,'synthetic','test','wxpay',100,100,0,'none','platform',clock_timestamp()-$1::bigint*interval '1 second')RETURNING trade_no`, int64(age/time.Second)).Scan(&trade)
+		if e == nil {
+			order, e = store.OrderByTradeNo(ctx, trade)
+		}
+	} else {
+		order, e = store.CreateOrder(ctx, payment.CreateOrderInput{MerchantID: 1, OutTradeNo: "synthetic", Type: "wxpay", Name: "test", Amount: 100})
+	}
 	if e != nil {
 		t.Fatal(e)
 	}

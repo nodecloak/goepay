@@ -52,7 +52,7 @@ func readMembershipSaleConfiguration(ctx context.Context, q membershipSaleQuery,
 		return out, nil, payment.ErrInvalid
 	}
 	out.Enabled = global == "true"
-	query := "SELECT id,body FROM backoffice_records WHERE resource='groups' ORDER BY id LIMIT 1001"
+	query := "SELECT id,body FROM backoffice_records WHERE resource='groups' AND id>0 ORDER BY id LIMIT 1001"
 	if lock {
 		query += " FOR UPDATE"
 	}

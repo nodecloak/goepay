@@ -89,7 +89,18 @@ test("live local wallet transfer follows capability, confirmation and readonly q
     await modal.getByLabel("业务请求号").fill("live-wallet-" + Date.now());
     await modal.getByRole("button", { name: "核对付款信息" }).click();
     await expect(modal).toContainText("3%");
+    const submitted = page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname.endsWith("/transfers") &&
+        r.request().method() === "POST",
+    );
     await modal.getByRole("button", { name: "确认提交付款" }).click();
+    const transferResponse = await submitted;
+    expect(transferResponse.ok()).toBeTruthy();
+    const transferBody = await transferResponse.json();
+    expect(transferBody.code).toBe(0);
+    const originalTransferID = String(transferBody.data.id);
+    expect(originalTransferID).toMatch(/^[1-9][0-9]*$/);
     const detail = page.getByRole("dialog", { name: "付款详情" });
     await expect(detail).toContainText("通道已确认付款成功");
     await expect(detail).toContainText("local-simulation@example.test");
@@ -154,9 +165,7 @@ test("live local wallet transfer follows capability, confirmation and readonly q
     await page.goto("/merchant/transfer");
     // Query the original single transfer after the write switch is stopped.
     await page
-      .getByRole("row")
-      .filter({ has: page.getByRole("cell", { name: /^live-wallet-/ }) })
-      .first()
+      .locator(`[data-transfer-id="${originalTransferID}"]`)
       .getByRole("button", { name: "付款详情", exact: true })
       .click();
     await detail.getByRole("button", { name: "查询通道付款结果" }).click();

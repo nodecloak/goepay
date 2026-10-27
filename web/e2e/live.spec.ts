@@ -26,7 +26,7 @@ test("live Docker admin and merchant sessions, dashboard, lists, and logout", as
     if (await passwordField.isVisible()) await passwordField.fill("");
     await expect(page.locator(".stat")).toHaveCount(4);
     await expect(page.getByRole("alert")).toHaveCount(0);
-    await page.getByRole("link", { name: "查找订单" }).click();
+    await page.getByRole("link", { name: "订单管理", exact: true }).click();
     await expect(page.getByRole("heading", { name: "订单管理" })).toBeVisible();
     await expect(page.getByRole("table")).toBeVisible();
     await page.setViewportSize({ width: 375, height: 812 });

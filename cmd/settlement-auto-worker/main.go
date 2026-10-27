@@ -61,33 +61,63 @@ func parseJob(raw json.RawMessage) (int64, int64, error) {
 	return fields["request_id"], fields["authorization_id"], nil
 }
 
-func configuredFlow() (*payment.ProviderFlow, error) {
+func configuredParentImport() (channelconfig.Import, bool, error) {
 	autoStop, e := channelAutoStopSetting(os.Getenv("GOEPAY_ENABLE_CHANNEL_AUTO_STOP"))
 	if e != nil {
-		return nil, e
+		return channelconfig.Import{}, false, e
 	}
 	if os.Getenv("GOEPAY_PROVIDER_MODE") != "configured" || os.Getenv("GOEPAY_SANDBOX") != "false" || os.Getenv("GOEPAY_ENABLE_PROVIDER_WRITES") != "true" {
-		return nil, errConfiguration
+		return channelconfig.Import{}, false, errConfiguration
 	}
 	master, e := hex.DecodeString(os.Getenv("GOEPAY_MASTER_KEY"))
 	path := os.Getenv("GOEPAY_CHANNEL_CONFIG_FILE")
 	if e != nil || len(master) != 32 || path == "" {
-		return nil, errConfiguration
+		return channelconfig.Import{}, false, errConfiguration
 	}
 	imp, e := channelconfig.Load(path, master)
 	if e != nil {
+		return channelconfig.Import{}, false, errConfiguration
+	}
+	return imp, autoStop, nil
+}
+
+func configuredFlow(stores ...*payment.Store) (*payment.ProviderFlow, error) {
+	if len(stores) > 1 {
 		return nil, errConfiguration
 	}
-	providers, e := channelconfig.Build(imp, true)
-	if e != nil || len(providers) == 0 {
-		return nil, errConfiguration
+	var store *payment.Store
+	if len(stores) == 1 {
+		store = stores[0]
 	}
-	mapping, e := channelconfig.MerchantAllowlist(os.Getenv("GOEPAY_MERCHANT_CHANNELS"), providers)
+	imp, autoStop, e := configuredParentImport()
+	if e != nil {
+		return nil, e
+	}
+	var parentAccounts []adapter.ParentStartupAccount
+	if store != nil {
+		parentAccounts, e = store.ParentStartupAccounts(context.Background())
+		if e != nil {
+			return nil, errConfiguration
+		}
+	}
+	startup, e := channelconfig.PrepareParentStartup(imp, parentAccounts)
 	if e != nil {
 		return nil, errConfiguration
 	}
-	flow := &payment.ProviderFlow{Providers: providers, MerchantChannels: mapping, AllowLive: true, ChannelAutoStopEnabled: autoStop}
-	if len(flow.SettlementAutoWalletChannels()) == 0 {
+	providers, e := startup.BuildProviders(channelconfig.BuildOptions{AllowLive: true})
+	if e != nil || !startup.HasRegisteredSources() {
+		return nil, errConfiguration
+	}
+	mapping, e := startup.MerchantAllowlist(os.Getenv("GOEPAY_MERCHANT_CHANNELS"))
+	if e != nil {
+		return nil, errConfiguration
+	}
+	flow := &payment.ProviderFlow{Store: store, Providers: providers, MerchantChannels: mapping, AllowLive: true, ChannelAutoStopEnabled: autoStop}
+	factories, e := startup.BuildFactories(channelconfig.ParentBuildOptions{BuildOptions: channelconfig.BuildOptions{AllowLive: true, RuntimeWriteAllowed: func() bool { return flow.AllowLive }}})
+	if e != nil || flow.InstallParentAccountFactories(factories) != nil {
+		return nil, errConfiguration
+	}
+	if len(flow.SettlementAutoWalletChannels()) == 0 && !startup.HasManagedAccounts() {
 		return nil, errConfiguration
 	}
 	return flow, nil
@@ -98,6 +128,13 @@ type autoExecutor interface {
 }
 
 func handle(ctx context.Context, flow autoExecutor, j jobs.Job) error {
+	if gate, ok := flow.(interface {
+		VerifyScheduledJobClaim(context.Context, jobs.Job) error
+	}); ok {
+		if e := gate.VerifyScheduledJobClaim(ctx, j); e != nil {
+			return e
+		}
+	}
 	if j.Kind != payment.SettlementAutoJobKind || flow == nil {
 		return errPayload
 	}
@@ -148,8 +185,7 @@ func run(ctx context.Context) error {
 	default:
 		return errConfiguration
 	}
-	flow, e := configuredFlow()
-	if e != nil {
+	if _, _, e := configuredParentImport(); e != nil {
 		return e
 	}
 	pool, store, e := bootstrap.Connect(ctx)
@@ -157,8 +193,11 @@ func run(ctx context.Context) error {
 		return e
 	}
 	defer pool.Close()
-	flow.Store = store
-	q := jobs.Queue{Pool: pool}
+	flow, e := configuredFlow(store)
+	if e != nil {
+		return e
+	}
+	q := jobs.Queue{Pool: pool, Policy: store}
 	slog.Info("independent automatic wallet settlement executor started")
 	nextScan := time.Time{}
 	for ctx.Err() == nil {

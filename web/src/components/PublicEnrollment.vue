@@ -8,9 +8,11 @@ import {
   type EnrollmentCapabilities,
 } from "../enrollment";
 import { validPromotionToken } from "../referral";
+import RichContent from "./RichContent.vue";
 const props = defineProps<{
   purpose: "register" | "recover";
   initialPromotionToken?: string;
+  registrationAnnouncement?: string;
 }>();
 const emit = defineEmits<{ close: []; prefillConsumed: [] }>();
 const promotionToken = ref(
@@ -249,6 +251,12 @@ onBeforeUnmount(() => {
 <template>
   <section aria-label="商户邮箱服务">
     <h2>{{ register ? "注册商户" : "找回商户密码" }}</h2>
+    <RichContent
+      v-if="register && registrationAnnouncement"
+      :content="registrationAnnouncement"
+      format="html"
+      class="registration-announcement"
+    />
     <p class="muted">
       {{
         register

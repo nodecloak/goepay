@@ -46,13 +46,13 @@ func TestPreauthRemaining75FlowSendsOnlyBoundRemainderAndRecoversOriginalUAAfter
 			p := &remainingProvider75{observationProvider68: base, unknown: unknown}
 			g.Providers[7] = p
 			g.AllowLive = true
-			q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("f", 64)}, token, "merchant", observationCheck68)
+			q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("f", 64)}, token, "merchant", observationCheck68, observationCheckTx68)
 			if e != nil {
 				t.Fatal(e)
 			}
 			in := PreauthRemainingReleaseInput{ExpectedObservationID: q.ID, ExpectedRemainingCents: 450}
 			guarded := remainingSourceGuard75(t, s)
-			r, e := g.ReleaseRemainingAuthorization(guarded, o.MerchantID, o.TradeNo, in, token, "merchant", observationCheck68)
+			r, e := g.ReleaseRemainingAuthorization(guarded, o.MerchantID, o.TradeNo, in, token, "merchant", observationCheck68, observationCheckTx68)
 			if unknown {
 				var u *adapter.UnknownOutcome
 				if !errors.As(e, &u) {
@@ -88,7 +88,7 @@ func TestPreauthRemaining75FlowFreshEvidenceAndInFlightCaptureCannotBorrowObserv
 			p := &remainingProvider75{observationProvider68: base, unknown: true}
 			g.Providers[7] = p
 			g.AllowLive = true
-			q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("b", 64)}, token, "merchant", observationCheck68)
+			q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("b", 64)}, token, "merchant", observationCheck68, observationCheckTx68)
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -117,7 +117,7 @@ func TestPreauthRemaining75FlowFreshEvidenceAndInFlightCaptureCannotBorrowObserv
 				}
 			}
 			in := PreauthRemainingReleaseInput{ExpectedObservationID: q.ID, ExpectedRemainingCents: 450}
-			r, e := g.ReleaseRemainingAuthorization(remainingSourceGuard75(t, s), o.MerchantID, o.TradeNo, in, token, "merchant", observationCheck68)
+			r, e := g.ReleaseRemainingAuthorization(remainingSourceGuard75(t, s), o.MerchantID, o.TradeNo, in, token, "merchant", observationCheck68, observationCheckTx68)
 			if e == nil {
 				t.Fatal("unknown/pending evidence became completion", r)
 			}

@@ -38,7 +38,19 @@ func (x oauthContractTLSTransport) RoundTrip(r *http.Request) (*http.Response, e
 }
 
 func TestWebOAuthHTTPStateBrowserAndTrustedPayerSubmission(t *testing.T) {
+	runWebOAuthHTTPStateBrowserAndTrustedPayerSubmissionWithOriginalGroupFixture(t, false)
+}
+func TestGroupRoutingUXHTTPWebOAuthHTTPStateBrowserAndTrustedPayerSubmission(t *testing.T) {
+	runWebOAuthHTTPStateBrowserAndTrustedPayerSubmissionWithOriginalGroupFixture(t, true)
+}
+func TestChannel168WebOAuthHTTPStateBrowserAndTrustedPayerSubmission(t *testing.T) {
+	runWebOAuthHTTPStateBrowserAndTrustedPayerSubmissionWithOriginalGroupFixture(t, true, installChannel168Fees)
+}
+func runWebOAuthHTTPStateBrowserAndTrustedPayerSubmissionWithOriginalGroupFixture(t *testing.T, groupRouting bool, channelFees ...channel168FixturePolicy) {
 	s, pool, key := fixture(t)
+	if groupRouting {
+		installGroupRoutingEntrypointFixture152(t, s, map[string]string{"alipay": "7"})
+	}
 	s.Sandbox = false
 	ctx := context.Background()
 	platform, e := rsa.GenerateKey(rand.Reader, 2048)
@@ -88,6 +100,9 @@ func TestWebOAuthHTTPStateBrowserAndTrustedPayerSubmission(t *testing.T) {
 	s.OAuthProviders = map[int64]adapter.WebOAuthProvider{7: ali}
 	s.CheckoutKey = bytes.Repeat([]byte{7}, 32)
 	s.MerchantChannels = map[int64][]int64{1: {7}}
+	if len(channelFees) > 0 && channelFees[0] != nil {
+		applyChannel168Fixture(t, s, channelFees[0])
+	}
 	h := s.Handler()
 	lastCheckout := ""
 	start := func(no string) (string, string, *http.Cookie) {

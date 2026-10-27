@@ -6,19 +6,32 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"time"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"time"
 )
 
 type Job struct {
 	ID       int64
 	Kind     string
+	EventKey string
 	Payload  json.RawMessage
 	Attempts int
 	Token    string
 }
-type Queue struct{ Pool *pgxpool.Pool }
+
+// ClaimPolicy is an internal trusted store hook, never a request-supplied SQL
+// expression. Its predicate uses the jobs alias and $1..$3 are reserved by Queue.
+// Admission is verified in the same transaction as the original job lease.
+type ClaimPolicy interface {
+	ClaimFilter(context.Context, pgx.Tx, int) (string, []any, error)
+	AuthorizeClaim(context.Context, pgx.Tx, Job) error
+}
+type Queue struct {
+	Pool   *pgxpool.Pool
+	Policy ClaimPolicy
+}
 
 var ErrLeaseLost = errors.New("job lease lost")
 
@@ -53,7 +66,7 @@ func (q Queue) claim(ctx context.Context, kinds []string, lease time.Duration, c
 	args := []any{kinds, lease.Milliseconds(), token}
 	if channels != nil {
 		filter = ` AND (
- kind IN('payment.notify','admin.channel-stopped','merchant.notice','admin.business-notice')
+ kind IN('payment.notify','admin.channel-stopped','merchant.notice','core-risk.notice','admin.business-notice','merchant.payment-disabled-notice','merchant.refund-event','merchant.refund-event-closed-notice')
  OR (kind='payment.scan-recover' AND EXISTS(SELECT 1 FROM provider_attempts a WHERE jobs.payload=jsonb_build_object('attempt_id',a.id::text) AND jobs.event_key='scan-recover:'||a.id::text AND a.channel_id=ANY($4::bigint[])))
  OR (kind IN ('payment.reconcile','authorization.release.reconcile') AND EXISTS(SELECT 1 FROM orders o JOIN provider_attempts a ON a.order_id=o.id WHERE o.trade_no=jobs.payload->>'trade_no' AND a.channel_id=ANY($4::bigint[])))
  OR (kind='refund.reconcile' AND EXISTS(SELECT 1 FROM refunds r JOIN provider_attempts a ON a.order_id=r.order_id WHERE r.id::text=jobs.payload->>'refund_id' AND a.channel_id=ANY($4::bigint[])))
@@ -64,8 +77,42 @@ func (q Queue) claim(ctx context.Context, kinds []string, lease time.Duration, c
 )`
 		args = append(args, channels)
 	}
-	e = q.Pool.QueryRow(ctx, `WITH candidate AS (SELECT id FROM jobs WHERE kind=ANY($1::text[]) AND attempts<max_attempts AND run_at<=now() AND (state='pending' OR (state='running' AND lease_until<now()))`+filter+` ORDER BY run_at,id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE jobs j SET state='running', attempts=attempts+1, lease_until=now()+$2::bigint*interval '1 millisecond',lease_token=$3 FROM candidate c WHERE j.id=c.id RETURNING j.id,j.kind,j.payload,j.attempts,j.lease_token`, args...).Scan(&j.ID, &j.Kind, &j.Payload, &j.Attempts, &j.Token)
-	return j, e
+	tx, e := q.Pool.Begin(ctx)
+	if e != nil {
+		return j, e
+	}
+	defer tx.Rollback(ctx)
+	if q.Policy != nil {
+		predicate, values, err := q.Policy.ClaimFilter(ctx, tx, len(args)+1)
+		if err != nil {
+			return j, err
+		}
+		filter += predicate
+		args = append(args, values...)
+	}
+	e = tx.QueryRow(ctx, `WITH candidate AS (SELECT id FROM jobs WHERE kind=ANY($1::text[]) AND attempts<max_attempts AND run_at<=clock_timestamp() AND (state='pending' OR (state='running' AND lease_until<clock_timestamp()))`+filter+` ORDER BY run_at,id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE jobs j SET state='running', attempts=attempts+1, lease_until=clock_timestamp()+$2::bigint*interval '1 millisecond',lease_token=$3 FROM candidate c WHERE j.id=c.id RETURNING j.id,j.kind,j.payload,j.attempts,j.lease_token,j.event_key`, args...).Scan(&j.ID, &j.Kind, &j.Payload, &j.Attempts, &j.Token, &j.EventKey)
+	if e != nil {
+		return Job{}, e
+	}
+	if q.Policy != nil {
+		if e = q.Policy.AuthorizeClaim(ctx, tx, j); e != nil {
+			return Job{}, e
+		}
+	}
+	// Policy locks and final admission/claim writes may wait longer than this
+	// original job lease. No expired lease or consumed retry attempt may commit,
+	// including unconfigured legacy consumers that have no policy hook.
+	var live bool
+	if e = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM jobs WHERE id=$1 AND state='running' AND lease_token=$2 AND attempts=$3 AND kind=$4 AND event_key=$5 AND payload=$6::jsonb AND lease_until>clock_timestamp())`, j.ID, j.Token, j.Attempts, j.Kind, j.EventKey, j.Payload).Scan(&live); e != nil {
+		return Job{}, e
+	}
+	if !live {
+		return Job{}, ErrLeaseLost
+	}
+	if e = tx.Commit(ctx); e != nil {
+		return Job{}, e
+	}
+	return j, nil
 }
 func (q Queue) Complete(ctx context.Context, j Job) error {
 	tag, e := q.Pool.Exec(ctx, "UPDATE jobs SET state='succeeded',lease_until=NULL,lease_token=NULL WHERE id=$1 AND state='running' AND lease_token=$2 AND lease_until>now()", j.ID, j.Token)

@@ -15,6 +15,9 @@ import (
 )
 
 func certificateChannel(t *testing.T) Channel {
+	return certificateChannelAt(t, time.Now())
+}
+func certificateChannelAt(t *testing.T, now time.Time) Channel {
 	t.Helper()
 	rootKey, e := rsa.GenerateKey(rand.Reader, 2048)
 	if e != nil {
@@ -28,7 +31,6 @@ func certificateChannel(t *testing.T) Channel {
 	if e != nil {
 		t.Fatal(e)
 	}
-	now := time.Now()
 	root := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{Country: []string{"CN"}, Organization: []string{"Synthetic CA"}, CommonName: "Synthetic Root"}, NotBefore: now.Add(-time.Hour), NotAfter: now.Add(time.Hour), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageCRLSign}
 	der, e := x509.CreateCertificate(rand.Reader, root, root, &rootKey.PublicKey, rootKey)
 	if e != nil {

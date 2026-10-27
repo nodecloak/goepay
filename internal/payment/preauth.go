@@ -30,7 +30,49 @@ func scanPreauthorization(row pgx.Row) (Preauthorization, error) {
 const preauthorizationColumns = "o.trade_no,a.channel_id,a.auth_no,a.buyer_id,a.amount,a.capture_state,a.release_state"
 
 func (s *Store) Preauthorization(ctx context.Context, tradeNo string) (Preauthorization, error) {
-	return scanPreauthorization(s.pool.QueryRow(ctx, "SELECT "+preauthorizationColumns+" FROM payment_authorizations a JOIN orders o ON o.id=a.order_id WHERE o.trade_no=$1", tradeNo))
+	tx, e := s.pool.Begin(ctx)
+	if e != nil {
+		return Preauthorization{}, e
+	}
+	defer tx.Rollback(ctx)
+	a, e := s.PreauthorizationTx(ctx, tx, tradeNo)
+	if e != nil {
+		return a, e
+	}
+	return a, tx.Commit(ctx)
+}
+
+// PreauthorizationTx authenticates the original charge under the caller's
+// order lock, without opening a nested transaction or dropping FOR SHARE.
+func (s *Store) PreauthorizationTx(ctx context.Context, tx pgx.Tx, tradeNo string) (Preauthorization, error) {
+	if s == nil || tx == nil {
+		return Preauthorization{}, ErrInvalid
+	}
+	o, e := scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE trade_no=$1 FOR SHARE", tradeNo))
+	if e != nil {
+		return Preauthorization{}, e
+	}
+	a, e := scanPreauthorization(tx.QueryRow(ctx, "SELECT "+preauthorizationColumns+" FROM payment_authorizations a JOIN orders o ON o.id=a.order_id WHERE o.trade_no=$1", tradeNo))
+	if e != nil {
+		return a, e
+	}
+	charge, _, e := s.authenticatedOrderCharge104(ctx, tx, o)
+	if e != nil {
+		return a, e
+	}
+	if a.Amount != charge {
+		return a, ErrConflict
+	}
+	return a, nil
+}
+
+func (s *Store) authorizationCharge104(ctx context.Context, tx pgx.Tx, id int64) (int64, error) {
+	o, e := scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE id=$1", id))
+	if e != nil {
+		return 0, e
+	}
+	c, _, e := s.authenticatedOrderCharge104(ctx, tx, o)
+	return c, e
 }
 func (s *Store) RecordPreauthorization(ctx context.Context, channelID int64, event provider.AuthorizationEvent) error {
 	if channelID <= 0 || event.TradeNo == "" || event.RequestNo != event.TradeNo || event.State != "SUCCESS" || event.Amount <= 0 || event.AuthNo == "" || len(event.AuthNo) > 256 || event.BuyerID == "" || len(event.BuyerID) > 256 || strings.HasPrefix(event.AuthNo, "@") || strings.HasPrefix(event.BuyerID, "@") {
@@ -44,6 +86,10 @@ func (s *Store) RecordPreauthorization(ctx context.Context, channelID int64, eve
 	var id, amount, actualChannel int64
 	var method string
 	if e = tx.QueryRow(ctx, "SELECT o.id,o.amount,p.channel_id,p.method FROM orders o JOIN provider_attempts p ON p.order_id=o.id WHERE o.trade_no=$1 FOR UPDATE OF o", event.TradeNo).Scan(&id, &amount, &actualChannel, &method); e != nil {
+		return e
+	}
+	amount, e = s.authorizationCharge104(ctx, tx, id)
+	if e != nil {
 		return e
 	}
 	if amount != event.Amount || actualChannel != channelID || method != "preauth" {
@@ -61,7 +107,10 @@ func (s *Store) RecordPreauthorization(ctx context.Context, channelID int64, eve
 	}
 	return tx.Commit(ctx)
 }
-func (s *Store) BeginPreauthorizationCapture(ctx context.Context, tradeNo string) (Preauthorization, bool, error) {
+func (s *Store) BeginPreauthorizationCapture(ctx context.Context, tradeNo string, guards ...func(context.Context, pgx.Tx) error) (Preauthorization, bool, error) {
+	if len(guards) > 1 || len(guards) == 1 && guards[0] == nil {
+		return Preauthorization{}, false, ErrInvalid
+	}
 	tx, e := s.pool.Begin(ctx)
 	if e != nil {
 		return Preauthorization{}, false, e
@@ -80,11 +129,23 @@ func (s *Store) BeginPreauthorizationCapture(ctx context.Context, tradeNo string
 	if e != nil {
 		return a, false, e
 	}
+	charge, e := s.authorizationCharge104(ctx, tx, id)
+	if e != nil {
+		return a, false, e
+	}
+	if a.Amount != charge {
+		return a, false, ErrConflict
+	}
 	if a.CaptureState != "none" || a.ReleaseState != "none" || status == "paid" {
 		return a, false, nil
 	}
 	if status == "closed" || status == "failed" {
 		return a, false, ErrState
+	}
+	if len(guards) == 1 {
+		if e = guards[0](ctx, tx); e != nil {
+			return a, false, e
+		}
 	}
 	if e = requireFundsAction(ctx, tx, "authorization-capture", tradeNo); e != nil {
 		return a, false, e
@@ -94,6 +155,11 @@ func (s *Store) BeginPreauthorizationCapture(ctx context.Context, tradeNo string
 	}
 	if _, e = tx.Exec(ctx, "INSERT INTO jobs(event_key,kind,payload,run_at) VALUES($1,'payment.reconcile',jsonb_build_object('trade_no',$2::text),now()+interval '30 seconds') ON CONFLICT(event_key) DO NOTHING", "preauth-capture-reconcile:"+tradeNo, tradeNo); e != nil {
 		return a, false, e
+	}
+	if len(guards) == 1 {
+		if e = guards[0](ctx, tx); e != nil {
+			return a, false, e
+		}
 	}
 	if e = tx.Commit(ctx); e != nil {
 		return a, false, e
@@ -105,12 +171,24 @@ func (s *Store) RecordPreauthorizationCaptureState(ctx context.Context, tradeNo,
 	if state != "unknown" && state != "failed" && state != "succeeded" {
 		return ErrInvalid
 	}
-	tag, e := s.pool.Exec(ctx, "UPDATE payment_authorizations a SET capture_state=$2,updated_at=now() FROM orders o WHERE a.order_id=o.id AND o.trade_no=$1 AND (a.capture_state IN ('processing','unknown','failed') OR a.capture_state=$2)", tradeNo, state)
+	tx, e := s.pool.Begin(ctx)
+	if e != nil {
+		return e
+	}
+	defer tx.Rollback(ctx)
+	o, e := scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE trade_no=$1 FOR UPDATE", tradeNo))
+	if e != nil {
+		return e
+	}
+	if _, e = s.authenticatedChargeValue104(ctx, tx, o); e != nil {
+		return e
+	}
+	tag, e := tx.Exec(ctx, "UPDATE payment_authorizations a SET capture_state=$2,updated_at=now() FROM orders o WHERE a.order_id=o.id AND o.trade_no=$1 AND (a.capture_state IN ('processing','unknown','failed') OR a.capture_state=$2)", tradeNo, state)
 	if e != nil {
 		return e
 	}
 	if tag.RowsAffected() != 1 {
 		return ErrState
 	}
-	return nil
+	return tx.Commit(ctx)
 }

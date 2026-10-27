@@ -13,7 +13,7 @@ import (
 	"goepay/internal/payment"
 )
 
-var fundsFinancialSettingKeys = []string{"admin_funds_authorization_enabled", "settle_type", "settlement_minimum_cents", "settlement_maximum_cents", "settlement_fee_rate_bps", "settlement_fee_minimum_cents", "settlement_fee_maximum_cents", "settlement_retained_cents", "settlement_daily_limit", "auto_settle_money", "transfer_alipay", "transfer_enabled", "transfer_minmoney", "transfer_maxmoney", "transfer_maxlimit", "transfer_desc", "transfer_name", "payment_fee_enabled", "refund_fee_payer", "enforce_domains"}
+var fundsFinancialSettingKeys = []string{"admin_funds_authorization_enabled", "settle_type", "settle_open", "settlement_minimum_cents", "settlement_maximum_cents", "settlement_fee_rate_bps", "settlement_fee_minimum_cents", "settlement_fee_maximum_cents", "settlement_retained_cents", "settlement_daily_limit", "auto_settle_money", "transfer_alipay", "transfer_enabled", "user_transfer", "transfer_minmoney", "transfer_maxmoney", "transfer_maxlimit", "transfer_desc", "transfer_name", "payment_fee_enabled", "refund_fee_payer", "enforce_domains"}
 
 // All settings are selected by exact financial keys; target groups/rules are
 // bound separately. Other merchants' history can never push a policy outside a
@@ -24,9 +24,17 @@ func fundsRelevantPolicies(ctx context.Context, q identity.FundsQuerier, mids ma
 		ids = append(ids, id)
 	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	rows, e := q.Query(ctx, `SELECT jsonb_build_object('id',id,'resource',resource,'body',body) FROM backoffice_records WHERE
- (resource='settings' AND body->>'key'=ANY($1::text[])) OR (resource IN ('merchant-risk','settlement-settings') AND owner_id=ANY($2::bigint[]))
- ORDER BY id LIMIT 10001`, fundsFinancialSettingKeys, ids)
+	rows, e := q.Query(ctx, `SELECT jsonb_build_object('id',b.id,'resource',b.resource,'body',
+ CASE WHEN b.resource='groups' THEN jsonb_strip_nulls(jsonb_build_object(
+ 'enabled',b.body->'enabled','settle_open',b.body->'settle_open',
+ 'settle_rate',b.body->'settle_rate','user_transfer',b.body->'user_transfer')) ELSE b.body END)
+ FROM backoffice_records b WHERE
+ (b.resource='settings' AND b.body->>'key'=ANY($1::text[])) OR
+ (b.resource IN ('merchant-risk','settlement-settings') AND b.owner_id=ANY($2::bigint[])) OR
+ (b.resource='groups' AND b.id IN (SELECT CASE WHEN v.expires_at>statement_timestamp() THEN v.group_id
+ WHEN m.group_baseline_unresolved THEN NULL::bigint ELSE m.base_group_id END
+ FROM merchants m LEFT JOIN memberships v ON v.merchant_id=m.id WHERE m.id=ANY($2::bigint[])))
+ ORDER BY b.id LIMIT 10001`, fundsFinancialSettingKeys, ids)
 	if e != nil {
 		return nil, e
 	}
@@ -178,6 +186,9 @@ func fundsActionSummary(summary map[string]string, d fundsTargetDefinition, fiel
 				}
 				*dest = n
 			}
+		}
+		if current, ok := snapshot["settlement_policy"].(payment.SettlementPolicy); ok {
+			p = current
 		}
 		amount, e := ledger.Parse(fundsText(fields, "amount"))
 		if e != nil {

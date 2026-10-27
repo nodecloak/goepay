@@ -143,25 +143,13 @@ func TestScanRecovery78OriginCannotBeDeletedDowngradedOrDetachedFromAudit(t *tes
 }
 
 func TestScanRecovery78Actual77AccountMACAndUnknownOrderRemainLegacyWithoutBackfill(t *testing.T) {
-	s := membership72HistoricalStore(t, 77)
+	s, facts := actualHistoricalStore155(t, "scan77")
 	ctx := context.Background()
-	if e := s.CreateMerchant(ctx, Merchant{ID: 78, Name: "Local legacy", APIKey: "synthetic-only78"}); e != nil {
-		t.Fatal(e)
-	}
-	o, e := s.CreateOrder(ctx, CreateOrderInput{MerchantID: 78, OutTradeNo: "legacy-before78", Name: "Local barcode", Type: "wxpay", Amount: 123})
-	if e != nil {
-		t.Fatal(e)
-	}
-	a, owner, e := s.BeginProviderAttemptWithAccount(ctx, o.TradeNo, 7, "scan", "app78", "120000000000000078", "original-scope78")
-	if e != nil || !owner {
-		t.Fatal(e)
-	}
-	if e = s.RecordProviderAttemptResult(ctx, a.ID, "unknown", "", "", ""); e != nil {
-		t.Fatal(e)
-	}
-	if e = s.checkProviderAccountScope(ctx, s.pool, a.ID, "original-scope78", true); e != nil {
-		t.Fatal("actual77 shape unreadable", e)
-	}
+	var o Order
+	var a ProviderAttempt
+	facts.decode(t, "order", &o)
+	facts.decode(t, "attempt", &a)
+	var e error
 	var before, after string
 	snapshot := `SELECT jsonb_build_array((SELECT to_jsonb(a)-'recovery_version'-'recovery_source_hash' FROM provider_attempt_accounts a WHERE attempt_id=$1),(SELECT to_jsonb(p) FROM provider_attempts p WHERE id=$1),(SELECT to_jsonb(i) FROM provider_attempt_identities i WHERE attempt_id=$1),(SELECT to_jsonb(o) FROM orders o WHERE id=$2))::text`
 	if e = s.pool.QueryRow(ctx, snapshot, a.ID, o.ID).Scan(&before); e != nil {

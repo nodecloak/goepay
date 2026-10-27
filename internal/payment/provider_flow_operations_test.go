@@ -3,6 +3,7 @@ package payment
 import (
 	"context"
 	"errors"
+	"fmt"
 	provider "goepay/internal/adapters/payment"
 	"sync"
 	"sync/atomic"
@@ -79,6 +80,40 @@ func TestProviderRefundUnknownReservedAndNoResubmit(t *testing.T) {
 	b, _ = s.Balance(ctx, 1)
 	if b.Available != 40 || b.Reserved != 0 {
 		t.Fatal(b)
+	}
+}
+
+func TestGlobalAccess182StaleUnsentClaimCannotSpendReleasedReservation(t *testing.T) {
+	s, flow, p, o := setupOperations(t)
+	ctx := context.Background()
+	if _, err := flow.Query(ctx, 1, o.TradeNo); err != nil {
+		t.Fatal(err)
+	}
+	r, err := s.ReserveRefund(ctx, 1, o.OutTradeNo, "stale-unsent182", 60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := s.ProviderAttempt(ctx, o.TradeNo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.ResolveRefund(ctx, r.ID, "failed"); err != nil {
+		t.Fatal(err)
+	}
+	_, _, owner, err := s.beginProviderOperation(ctx, "refund", fmt.Sprint(r.ID), o, a, r.ID)
+	if !errors.Is(err, ErrState) || owner || p.refunds.Load() != 0 {
+		t.Fatal("stale claim adopted a terminal reservation", owner, err, p.refunds.Load())
+	}
+	var operations int
+	if err = s.pool.QueryRow(ctx, `SELECT count(*) FROM provider_operations WHERE refund_id=$1`, r.ID).Scan(&operations); err != nil || operations != 0 {
+		t.Fatal(operations, err)
+	}
+	b, err := s.Balance(ctx, 1)
+	if err != nil || b.Available != 100 || b.Reserved != 0 {
+		t.Fatal(b, err)
+	}
+	if _, err = s.CheckLedger(ctx); err != nil {
+		t.Fatal(err)
 	}
 }
 func TestProviderCloseAndLatePaidQuery(t *testing.T) {

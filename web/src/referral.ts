@@ -1,4 +1,6 @@
 import { beijingTimestamp } from "./console-datetime";
+export { readReferralCurrentPolicy } from "./referral-current-policy";
+export type { ReferralCurrentPolicy } from "./referral-current-policy";
 
 export const validPromotionToken = (token: string) =>
   /^rp_[A-Za-z0-9_-]{43}$/.test(token);

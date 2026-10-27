@@ -3,17 +3,22 @@ package main
 import (
 	"context"
 	"crypto/rsa"
-	"goepay/internal/bootstrap"
-	"goepay/internal/compat"
-	"goepay/internal/notification"
-	"goepay/internal/platform/httpclient"
-	"goepay/internal/platform/jobs"
-	"goepay/internal/reconciliation"
+	"encoding/hex"
+	"errors"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"goepay/internal/bootstrap"
+	"goepay/internal/compat"
+	"goepay/internal/mailaccount195"
+	notice "goepay/internal/merchantnotice"
+	"goepay/internal/notification"
+	"goepay/internal/platform/httpclient"
+	"goepay/internal/platform/jobs"
+	"goepay/internal/reconciliation"
 )
 
 func main() {
@@ -38,7 +43,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	q := jobs.Queue{Pool: pool}
+	q := jobs.Queue{Pool: pool, Policy: store}
 	h := notification.Handler{Store: store, Client: httpclient.New(), PlatformKey: key}
 	flow, e := configuredReadOnlyFlow(store)
 	if e != nil {
@@ -51,10 +56,20 @@ func main() {
 		os.Exit(1)
 	}
 	kinds := []string{"payment.notify"}
+	if key != nil {
+		kinds = append(kinds, "merchant.refund-event")
+	}
 	if recoveryFlow != nil {
 		kinds = append(kinds, "payment.scan-recover")
 	}
-	noticeRuntime, e := newChannelNoticeRuntime(ctx, store, os.Getenv)
+	mailMaster195, e := hex.DecodeString(os.Getenv("GOEPAY_MASTER_KEY"))
+	if e != nil || len(mailMaster195) != 32 {
+		slog.Error("invalid mail account protection configuration")
+		os.Exit(1)
+	}
+	mailAccounts195 := mailaccount195.FromMaster(pool, mailMaster195)
+	kinds = append(kinds, "merchant.refund-event-closed-notice")
+	noticeRuntime, e := newManagedChannelNoticeRuntime195(ctx, store, os.Getenv, mailAccounts195)
 	if e != nil {
 		slog.Error("administrator notice configuration rejected")
 		os.Exit(1)
@@ -68,7 +83,7 @@ func main() {
 		os.Exit(1)
 	}
 	if merchantNotices != nil {
-		kinds = append(kinds, "merchant.notice")
+		kinds = append(kinds, "merchant.notice", "merchant.payment-disabled-notice")
 	}
 	businessNotices, e := newBusinessNoticeRuntime(store.AdminBusinessNotices(), os.Getenv)
 	if e != nil {
@@ -76,7 +91,16 @@ func main() {
 		os.Exit(1)
 	}
 	if businessNotices != nil {
+		businessNotices.mailAccounts = mailAccounts195
 		kinds = append(kinds, "admin.business-notice")
+	}
+	coreRiskNotices, e := newCoreRiskNoticeRuntime(store, os.Getenv)
+	if e != nil {
+		slog.Error("core risk notice configuration rejected")
+		os.Exit(1)
+	}
+	if coreRiskNotices != nil {
+		kinds = append(kinds, "core-risk.notice")
 	}
 	var channels []int64
 	if flow != nil {
@@ -107,6 +131,7 @@ func main() {
 		}
 		jobCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 		var recoveryDelay time.Duration
+		var notificationFailure string
 		if j.Kind == "payment.scan-recover" {
 			recoveryDelay, e = recoveryFlow.ExecuteScanRecovery(jobCtx, j.ID, j.Token)
 		} else if j.Kind == "admin.channel-stopped" {
@@ -118,10 +143,31 @@ func main() {
 			}
 		} else if j.Kind == "merchant.notice" {
 			e = merchantNotices.Handle(jobCtx, j.ID, j.Token)
+		} else if j.Kind == "merchant.payment-disabled-notice" {
+			sender, resolveErr := merchantNotices.ResolveMerchantNotice(jobCtx, notice.SMTP, notice.Account{})
+			if resolveErr != nil || sender == nil {
+				e = errMerchantNoticeConfiguration
+			} else {
+				e = store.DeliverScheduledPaymentDisabledNotice(jobCtx, j.ID, j.Token, sender)
+			}
 		} else if j.Kind == "admin.business-notice" {
 			e = businessNotices.Handle(jobCtx, j.ID, j.Token)
+		} else if j.Kind == "core-risk.notice" {
+			e = coreRiskNotices.Handle(jobCtx, j.ID, j.Token)
+		} else if j.Kind == "merchant.refund-event" {
+			e = store.DeliverMerchantRefundEvent201(jobCtx, j, key, h.Client)
+		} else if j.Kind == "merchant.refund-event-closed-notice" {
+			sender, managed, resolveErr := mailAccounts195.ResolveSMTP(jobCtx)
+			if resolveErr != nil || !managed || sender == nil {
+				e = errors.New("managed refund subscription closure mail unavailable")
+			} else {
+				e = store.DeliverMerchantRefundEventClosedNotice201(jobCtx, j, sender)
+			}
 		} else if j.Kind == "payment.notify" {
 			e = h.Handle(jobCtx, j)
+			if code, ok := notification.FailureCode(e, j); ok {
+				notificationFailure = code
+			}
 		} else {
 			e = reconciler.Handle(jobCtx, j)
 		}
@@ -142,14 +188,22 @@ func main() {
 			reason := "notification delivery failed"
 			if j.Kind == "admin.channel-stopped" {
 				reason = "administrator notice requires original claim review"
-			} else if j.Kind == "merchant.notice" {
+			} else if j.Kind == "merchant.notice" || j.Kind == "merchant.payment-disabled-notice" {
 				reason = "merchant notice requires original configuration or claim review"
 			} else if j.Kind == "admin.business-notice" {
 				reason = "administrator business notice requires original source or claim review"
+			} else if j.Kind == "core-risk.notice" {
+				reason = "core risk notice requires original source or claim review"
+			} else if j.Kind == "merchant.refund-event" || j.Kind == "merchant.refund-event-closed-notice" {
+				reason = "refund event requires original source or unsent configuration review"
 			} else if j.Kind != "payment.notify" {
 				reason = "provider outcome unresolved; reservation preserved"
 			}
-			e = q.Retry(finishCtx, j, reason, delay)
+			if notificationFailure != "" {
+				e = q.RetryNotificationFailure(finishCtx, j, notificationFailure, delay)
+			} else {
+				e = q.Retry(finishCtx, j, reason, delay)
+			}
 		}
 		finishCancel()
 		if e != nil {

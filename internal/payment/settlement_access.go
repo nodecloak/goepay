@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"goepay/internal/merchantpolicy"
 )
 
 var ErrSettlementMode = fmt.Errorf("%w: current settlement mode does not permit this new request", ErrState)
@@ -29,6 +30,10 @@ func settlementAccessMode(mode, source string, gid int64) (SettlementAccess, err
 	return SettlementAccess{Mode: mode, ManualAllowed: mode == "2" || mode == "3", AutomaticAllowed: mode == "1" || mode == "3", Source: source, GroupID: gid}, nil
 }
 func readSettlementAccess(ctx context.Context, q referralReader, mid int64, threshold, lock bool) (SettlementAccess, error) {
+	permission, e := merchantpolicy.ReadSettlementPermission(ctx, q, mid, lock)
+	if e != nil {
+		return SettlementAccess{}, e
+	}
 	if lock {
 		// Membership renewal and its expiry must be observed after any row wait.
 		// The caller already holds the merchant row before reserving funds.
@@ -49,14 +54,21 @@ func readSettlementAccess(ctx context.Context, q referralReader, mid int64, thre
 	if !enabled || gid < 0 {
 		return SettlementAccess{}, ErrState
 	}
+	if !permission.Allowed {
+		return settlementAccessMode("0", "merchant_settle", gid)
+	}
 	suffix := ""
 	if lock {
 		suffix = " FOR SHARE"
 	}
-	if gid > 0 {
+	if gid >= 0 {
 		var raw json.RawMessage
-		if e = q.QueryRow(ctx, `SELECT body->'settle_open' FROM backoffice_records WHERE resource='groups' AND id=$1`+suffix, gid).Scan(&raw); e != nil {
+		var groupEnabled *string
+		if e = q.QueryRow(ctx, `SELECT body->'settle_open',body->>'enabled' FROM backoffice_records WHERE resource='groups' AND id=$1`+suffix, gid).Scan(&raw, &groupEnabled); e != nil {
 			return SettlementAccess{}, e
+		}
+		if groupEnabled != nil && *groupEnabled != "true" {
+			return SettlementAccess{}, ErrState
 		}
 		group, e := thresholdGroupScalar(raw)
 		if e != nil {

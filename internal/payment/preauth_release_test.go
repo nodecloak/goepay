@@ -51,7 +51,7 @@ func TestAuthorizationReleaseIntentBlocksCaptureAndClosesWithoutMerchantCredit(t
 	if order.Status != "closed" || auth.ReleaseState != "succeeded" || balance.Available != 0 || balance.Reserved != 0 {
 		t.Fatal("release invented a refund or failed to close", order.Status, auth, balance)
 	}
-	if e = s.markPaid(ctx, o.TradeNo, "late-real-payment", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "late-real-payment", BuyerID: auth.BuyerID}); e != nil {
+	if e = s.markPaid(ctx, o.TradeNo, "late-real-payment", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "late-real-payment", BuyerID: auth.BuyerID}); e != nil {
 		t.Fatal("release blocked late verified payment", e)
 	}
 	balance, _ = s.Balance(ctx, 70)

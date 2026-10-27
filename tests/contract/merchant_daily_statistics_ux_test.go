@@ -36,7 +36,19 @@ func TestMerchantDailyStatisticsUXOriginalFieldsWeightedFooterAndPrivateScope(t 
 		kind, no    string
 		paid        bool
 	}{{1, 10000, "alipay", "daily137-alipay", true}, {1, 50, "wxpay", "daily137-wxpay", true}, {1, 9999, "wxpay", "daily137-pending", false}, {2, 900000, "wxpay", "daily137-foreign", true}} {
-		o, e := s.Store.CreateOrder(ctx, payment.CreateOrderInput{MerchantID: in.mid, OutTradeNo: in.no, Name: "merchant daily original", Type: in.kind, Amount: in.amount})
+		// This report explicitly covers imported historical orders. Create their
+		// original timestamp and retained amount before settling/refunding them;
+		// never mutate a new104 authenticated birth to manufacture history.
+		net, rate, feePolicy := in.amount, int64(0), "none"
+		if in.mid == 1 {
+			net, rate, feePolicy = in.amount*9/10, 1000, "merchant_deduct"
+		}
+		var trade string
+		e := pool.QueryRow(ctx, `INSERT INTO orders(trade_no,merchant_id,out_trade_no,name,type,amount,merchant_amount,platform_fee,fee_rate_bps,fee_policy,refund_fee_payer,created_at)VALUES(nextval('trade_no_seq')::text,$1,$2,'merchant daily original',$3,$4,$5,$4::bigint-$5::bigint,$6,$7,'platform',$8)RETURNING trade_no`, in.mid, in.no, in.kind, in.amount, net, rate, feePolicy, at).Scan(&trade)
+		if e != nil {
+			t.Fatal(e)
+		}
+		o, e := s.Store.OrderByTradeNo(ctx, trade)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -44,9 +56,6 @@ func TestMerchantDailyStatisticsUXOriginalFieldsWeightedFooterAndPrivateScope(t 
 			if e = s.Store.MarkPaid(ctx, o.TradeNo, "daily137:"+o.TradeNo); e != nil {
 				t.Fatal(e)
 			}
-		}
-		if _, e = pool.Exec(ctx, `UPDATE orders SET created_at=$2 WHERE id=$1`, o.ID, at); e != nil {
-			t.Fatal(e)
 		}
 		if in.no == "daily137-alipay" {
 			refundable = o.TradeNo

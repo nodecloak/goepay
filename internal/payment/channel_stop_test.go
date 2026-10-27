@@ -103,6 +103,18 @@ func TestChannelStop76AuthenticatedAutoPayerFailurePersistsOnceAndDoesNotRelease
 	if e != nil || !status.Blocked || status.Code != "40004:PAYER_BALANCE_NOT_ENOUGH" || status.EventID <= 0 {
 		t.Fatal("trusted automatic error failed to stop original channel", status, e)
 	}
+	statusTx, e := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if e != nil {
+		t.Fatal(e)
+	}
+	withinTx, e := s.ChannelWriteStatusTx(ctx, statusTx, 7)
+	if e != nil || withinTx.ChannelID != status.ChannelID || withinTx.EventID != status.EventID || withinTx.Revision != status.Revision || withinTx.Blocked != status.Blocked || withinTx.Code != status.Code {
+		statusTx.Rollback(ctx)
+		t.Fatal("routing transaction changed authenticated stop", withinTx, e)
+	}
+	if e = statusTx.Rollback(ctx); e != nil {
+		t.Fatal(e)
+	}
 	var sources, jobs int
 	if e = s.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM channel_stop_events),(SELECT count(*) FROM jobs WHERE kind='admin.channel-stopped')`).Scan(&sources, &jobs); e != nil || sources != 1 || jobs != 1 {
 		t.Fatal("pause/notice not exactly once", sources, jobs, e)

@@ -54,10 +54,10 @@ type referralOrderTerms struct {
 }
 
 func (s *Store) referralTermsProof(o Order, t referralOrderTerms) ([]byte, error) {
-	return s.referralDigest("order-terms", []any{o.ID, o.TradeNo, o.MerchantID, o.OutTradeNo,
+	return s.referralDigest("order-terms", withRuntimeFeeBirthMarker(o, []any{o.ID, o.TradeNo, o.MerchantID, o.OutTradeNo,
 		o.Amount, o.MerchantAmount, o.PlatformFee, o.FeeRateBPS, o.FeeGroupID, o.FeePolicy, o.RefundFeePayer,
 		t.RelationID, t.PromoterID, t.Purpose, t.Enabled, t.Reason, t.RateBPS, t.PlatformFee, t.RewardAmount,
-		t.RefundPolicy, t.PolicyVersions})
+		t.RefundPolicy, t.PolicyVersions}))
 }
 
 func (s *Store) readReferralTermsBase(ctx context.Context, tx referralReader, o Order) (referralOrderTerms, error) {
@@ -132,6 +132,10 @@ func (s *Store) snapshotReferralTerms(ctx context.Context, tx pgx.Tx, o Order, p
 	} else if !errors.Is(err, ErrNotFound) {
 		return err
 	}
+	charge104, _, chargeError104 := s.readBuyerSource104(ctx, tx, o)
+	if chargeError104 != nil {
+		return chargeError104
+	}
 	t := referralOrderTerms{OrderID: o.ID, MerchantID: o.MerchantID, Purpose: purpose, PlatformFee: o.PlatformFee, RefundPolicy: referralRefundPolicy, Reason: "no_relation"}
 	dailyBasis := ""
 	var profit *referralProfitCost
@@ -150,7 +154,7 @@ func (s *Store) snapshotReferralTerms(ctx context.Context, tx pgx.Tx, o Order, p
 			}
 			t.PolicyVersions, t.RateBPS = refs, policy.RateBPS
 			if enabled && policy.Enabled && policy.Basis == "profit" {
-				profit, err = s.prepareReferralProfit(o, policy.RateBPS, cost)
+				profit, err = s.prepareReferralProfit(o, charge104, policy.RateBPS, cost)
 				if err != nil {
 					return err
 				}
@@ -168,7 +172,7 @@ func (s *Store) snapshotReferralTerms(ctx context.Context, tx pgx.Tx, o Order, p
 				if profit != nil {
 					t.RewardAmount = profit.Reward
 				} else {
-					t.RewardAmount, err = calculateReferralPolicyReward(o.Amount, o.PlatformFee, policy.RateBPS, policy.Basis)
+					t.RewardAmount, err = calculateReferralPolicyReward(charge104, o.PlatformFee, policy.RateBPS, policy.Basis)
 				}
 				if err != nil {
 					return err

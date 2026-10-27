@@ -1,0 +1,13 @@
+# 真实计划任务累计整合
+
+父冻结176共1966发布源，累计真实任务171 v2共80路径。保留个人QQ/金额、完整字符串会话ID、签名策略、公告/每日欢迎/注册/页脚、99全局通道限制、101个人API开关和密钥登录全部行为。166/176/171重叠文件三方合并，纯API重新生成。
+
+100迁移的不可变intent/result/admission与独立配置、auto/lease/progress/result锚进入累计库；原jobs新failure head默认NULL，不重写历史。配置默认关闭，未接管任务明确legacy_managed。全部原外发仍在原worker，cron不能自行授予资金/发送权限；同一未知请求、原次数和原资金证明保留。最后claim写后同时核DB真实时钟和原job租约，过期回滚attempt/claim，同一pending可恢复。手动安排仅pending，不表示付款或送达。
+
+10个可执行任务包含8个原适用核心及2本地任务；Check仍需独立riskcheck177/102真实接入，仅投诉/进件插件暂缓，自动首次分账未知规则不伪实现。累计98子通道仍独立复核，后续须验证98/99共同路由、完整95→101/102升级、全部旧表旧列旧行与旧证明。剩余核心、最终双平台全量/竞态及Docker本地部署不由该合并替代。仅本地合成环境，禁止生产、真实上游和真实资金。
+
+首次组合6浏览器全部走完原操作后，在unexpected==[]断言发现173新增公共layout GET缺测试夹具（每项仅该新GET）。原失败JSON/log保留；只给准确GET路径补空zhuce/footer、html格式响应，不删/放宽任何原动作、次数、CAS、权限或unexpected断言。此非生产功能修改，必须重新运行6项及完整累计前端。
+
+追加成功日期修正：本地Pro app/cron/Notify.php（SHA cc22053ecdd38c53e6d8d6bf5a662142b509a6d60c9ae5b0746cb45ba42e6f55）28–33按date>=昨天及已付款筛重试，129–130近三日风险亦按date；Release includes/lib/Payment.php（SHA 297bc5de980bb044f4335d906fae732b1e0fec0a70e9afdb33a40765766d6774）353首次成功设置date=CURDATE，安装date默认NULL且创建不写date。Pro现代成功赋值服务本体编码，采用可读Release成功日与Pro明确date条件推导Go paid_at，不能称Pro赋值已解密。
+
+原2025源142根/51子项组合和640c独立报告保留其原版本边界。最初三个失败中，昨日边界错选、十天前创建但真实今日付款的订单无重试准入是有效窗口反例；第三近三日用例漏走原first delivery排除后的第二次重试，属于root用例缺陷，不能据此证明窗口错误。独立复核指出后，改为真实首发失败（pay保持1）→原managed准入→Attempts2的第二次失败，再验证三日窗口；另以只还原原三日created_at筛选的Go overlay取得单独RED，实际paid_at版本须GREEN。只将notify候选与原失败检测两个已付窗口改为paid_at；未付查单仍created_at，原accepted准入/lease/MAC/业务ID不改。旧边界夹具改为真实所测成功日，新测试保留真实paid_at而只老化created_at。追加独立复核和最终全前端/PHP/完整链门禁另验。

@@ -7,16 +7,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"goepay/internal/compat"
-	"goepay/internal/ledger"
-	"goepay/internal/payment"
-	"goepay/internal/platform/httpclient"
-	"goepay/internal/platform/jobs"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"goepay/internal/compat"
+	"goepay/internal/ledger"
+	"goepay/internal/payment"
+	"goepay/internal/platform/httpclient"
+	"goepay/internal/platform/jobs"
 )
 
 type Repository interface {
@@ -77,6 +78,13 @@ func (h Handler) Handle(ctx context.Context, j jobs.Job) error {
 	if j.Kind != "payment.notify" {
 		return errors.New("unsupported job kind")
 	}
+	if gate, ok := h.Store.(interface {
+		VerifyScheduledJobClaim(context.Context, jobs.Job) error
+	}); ok {
+		if e := gate.VerifyScheduledJobClaim(ctx, j); e != nil {
+			return e
+		}
+	}
 	var payload struct {
 		TradeNo string `json:"trade_no"`
 	}
@@ -116,15 +124,21 @@ func (h Handler) Handle(ctx context.Context, j jobs.Job) error {
 	}
 	response, e := client.Do(req)
 	if e != nil {
-		return errors.New("notification transport failed")
+		if ctx.Err() != nil {
+			return errors.New("notification delivery interrupted")
+		}
+		return observedDeliveryFailure(j, "transport", "notification transport failed")
 	}
 	defer response.Body.Close()
 	raw, e := io.ReadAll(io.LimitReader(response.Body, 4097))
 	if e != nil {
-		return errors.New("notification response read failed")
+		if ctx.Err() != nil {
+			return errors.New("notification delivery interrupted")
+		}
+		return observedDeliveryFailure(j, "read", "notification response read failed")
 	}
 	if len(raw) > 4096 || response.StatusCode != http.StatusOK || string(raw) != "success" {
-		return fmt.Errorf("notification not acknowledged (HTTP %d)", response.StatusCode)
+		return observedDeliveryFailure(j, "ack", fmt.Sprintf("notification not acknowledged (HTTP %d)", response.StatusCode))
 	}
 	return nil
 }

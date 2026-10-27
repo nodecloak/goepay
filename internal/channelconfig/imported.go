@@ -18,13 +18,16 @@ const importContext = "goepay:imported-channels:v1"
 var ErrImport = errors.New("invalid encrypted channel import")
 
 type Channel struct {
-	ID           int64             `json:"id"`
-	Plugin       string            `json:"plugin"`
+	ID     int64  `json:"id"`
+	Plugin string `json:"plugin"`
+	// Collection mode is distinct from the provider account/agent mode.
+	Mode         *int              `json:"mode,omitempty"`
 	AppTypes     []string          `json:"app_types"`
 	Config       map[string]string `json:"config"`
 	Certificates map[string]string `json:"certificates"`
 }
 type Import struct {
+	PaymentSubchannelTemplates       []PaymentSubchannelTemplate           `json:"payment_subchannel_templates,omitempty"`
 	Version                          int                                   `json:"version"`
 	Channels                         []Channel                             `json:"channels"`
 	IdentityProfiles                 []IdentityProfileSpec                 `json:"identity_profiles,omitempty"`
@@ -92,7 +95,7 @@ func Decrypt(raw, master []byte) (Import, error) {
 	}
 	seen := map[int64]bool{}
 	for _, c := range out.Channels {
-		if c.ID <= 0 || seen[c.ID] || (c.Plugin != "wxpay" && c.Plugin != "alipay") || c.Config == nil {
+		if c.ID <= 0 || seen[c.ID] || (c.Plugin != "wxpay" && c.Plugin != "alipay") || c.Config == nil || !supportedCollectionMode(c) {
 			return Import{}, ErrImport
 		}
 		seen[c.ID] = true

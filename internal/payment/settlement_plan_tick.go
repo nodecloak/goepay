@@ -23,6 +23,17 @@ func (s *Store) ScheduleSettlementPlans(ctx context.Context) error {
 			after = id
 			p, e := s.readSettlementPlan(ctx, s.pool, id)
 			if e == nil {
+				key := "settle"
+				if p.Input.Mode == settlementThresholdMode {
+					key = "transfer"
+				}
+				allowed, err := s.LegacyScheduledTaskAllowed(ctx, key)
+				if err != nil {
+					return err
+				}
+				if !allowed {
+					continue
+				}
 				slot, _, due := dueSettlementSlot(p.Input.Schedule, now)
 				if due != nil {
 					continue

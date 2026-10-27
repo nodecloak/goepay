@@ -11,14 +11,23 @@ import (
 // SubmitPreauthorization creates signed buyer authorization material. It never
 // credits an account and is separate from ordinary payment submission.
 func (g ProviderFlow) SubmitPreauthorization(ctx context.Context, tradeNo string, channelID int64, clientIP, openID string) (ProviderAttempt, error) {
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return ProviderAttempt{}, ErrLiveDisabled
 	}
 	if g.Store == nil || !validProviderOrigin(g.CallbackBaseURL, g.LocalSimulation) {
 		return ProviderAttempt{}, ErrInvalid
 	}
+	resolved, resolveErr := g.parentPaymentTrade(ctx, tradeNo)
+	if resolveErr != nil {
+		return ProviderAttempt{}, resolveErr
+	}
+	g = resolved
 	if e := g.Store.checkChannelWrite(ctx, channelID); e != nil {
 		return ProviderAttempt{}, e
+	}
+	g, resolveErr = g.forPaymentTrade(ctx, tradeNo, channelID)
+	if resolveErr != nil {
+		return ProviderAttempt{}, resolveErr
 	}
 	p, ok := g.Providers[channelID].(provider.PreauthorizationProvider)
 	if !ok {
@@ -35,7 +44,11 @@ func (g ProviderFlow) SubmitPreauthorization(ctx context.Context, tradeNo string
 	if e != nil {
 		return ProviderAttempt{}, e
 	}
-	request := provider.CreateRequest{TradeNo: tradeNo, Subject: subject, Method: "preauth", Amount: o.Amount, ClientIP: clientIP, OpenID: openID, NotifyURL: strings.TrimRight(g.CallbackBaseURL, "/") + "/pay/preauthnotify/" + tradeNo + "/"}
+	charge104, e := g.Store.AuthenticatedOrderCharge104(ctx, o)
+	if e != nil {
+		return ProviderAttempt{}, e
+	}
+	request := provider.CreateRequest{TradeNo: tradeNo, Subject: subject, Method: "preauth", Amount: charge104, ClientIP: clientIP, OpenID: openID, NotifyURL: strings.TrimRight(g.CallbackBaseURL, "/") + "/pay/preauthnotify/" + tradeNo + "/"}
 	if v, ok := g.Providers[channelID].(provider.CreateValidator); ok {
 		if e = v.ValidateCreate(request); e != nil {
 			return ProviderAttempt{}, e
@@ -49,7 +62,12 @@ func (g ProviderFlow) SubmitPreauthorization(ctx context.Context, tradeNo string
 	if e != nil {
 		return ProviderAttempt{}, e
 	}
-	a, owner, e := g.Store.BeginProviderAttemptWithAccount(ctx, tradeNo, channelID, "preauth", appID, openID, accountScope)
+	bound, e := g.RuntimeChannel(channelID)
+	if e != nil {
+		return ProviderAttempt{}, e
+	}
+	prepared := sharingPaymentIntent{ChannelSharingPaymentView: ChannelSharingPaymentView{AppID: appID}, runtimeChannel: &bound}
+	a, owner, e := g.Store.beginProviderAttemptWithIdentity(ctx, tradeNo, channelID, "preauth", appID, openID, accountScope, &prepared)
 	if e != nil || !owner {
 		return a, e
 	}
@@ -80,6 +98,14 @@ func (g ProviderFlow) HandlePreauthorizationNotification(ctx context.Context, ch
 	if g.Store == nil {
 		return ErrInvalid
 	}
+	var resolveErr error
+	g, resolveErr = g.forPaymentTrade(ctx, tradeNo, channelID)
+	if resolveErr != nil {
+		return resolveErr
+	}
+	if g.Store == nil {
+		return ErrInvalid
+	}
 	p, ok := g.Providers[channelID].(provider.PreauthorizationProvider)
 	if !ok {
 		return provider.ErrUnsupported
@@ -98,18 +124,22 @@ func (g ProviderFlow) HandlePreauthorizationNotification(ctx context.Context, ch
 	if e != nil {
 		return e
 	}
-	event, e := p.VerifyAuthorization(ctx, headers, raw, provider.ExpectedPayment{TradeNo: tradeNo, Amount: o.Amount})
+	charge104, e := g.Store.AuthenticatedOrderCharge104(ctx, o)
 	if e != nil {
 		return e
 	}
-	if event.TradeNo != tradeNo || event.Amount != o.Amount || event.State != "SUCCESS" {
+	event, e := p.VerifyAuthorization(ctx, headers, raw, provider.ExpectedPayment{TradeNo: tradeNo, Amount: charge104})
+	if e != nil {
+		return e
+	}
+	if event.TradeNo != tradeNo || event.Amount != charge104 || event.State != "SUCCESS" {
 		return provider.ErrAuthentication
 	}
 	if e = g.Store.RecordPreauthorization(ctx, channelID, event); e != nil {
 		return e
 	}
 	// A stopped writer still preserves verified buyer authorization for status 4.
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return nil
 	}
 	if e = g.Store.checkChannelWrite(ctx, channelID); e != nil {
@@ -121,7 +151,13 @@ func (g ProviderFlow) HandlePreauthorizationNotification(ctx context.Context, ch
 	if !validProviderOrigin(g.CallbackBaseURL, g.LocalSimulation) {
 		return ErrInvalid
 	}
-	authorization, owner, e := g.Store.BeginPreauthorizationCapture(ctx, tradeNo)
+	if e = g.checkParentOrderWrite(ctx, o.MerchantID, o.ID, channelID); e != nil {
+		if errors.Is(e, ErrState) || errors.Is(e, ErrLiveDisabled) {
+			return nil
+		}
+		return e
+	}
+	authorization, owner, e := g.Store.BeginPreauthorizationCapture(ctx, tradeNo, g.parentOrderWriteGuard(o.MerchantID, o.ID, channelID))
 	if e != nil || !owner {
 		return e
 	}
@@ -135,6 +171,11 @@ func (g ProviderFlow) RefreshPreauthorization(ctx context.Context, tradeNo strin
 	if g.Store == nil {
 		return ErrInvalid
 	}
+	resolved, resolveErr := g.parentPaymentTrade(ctx, tradeNo)
+	if resolveErr != nil {
+		return resolveErr
+	}
+	g = resolved
 	existing, e := g.Store.Preauthorization(ctx, tradeNo)
 	if e == nil {
 		if existing.ChannelID != channelID {
@@ -152,6 +193,11 @@ func (g ProviderFlow) RefreshPreauthorization(ctx context.Context, tradeNo strin
 	if attempt.ChannelID != channelID || attempt.Method != "preauth" {
 		return ErrConflict
 	}
+	var originalErr error
+	g, originalErr = g.forPaymentTrade(ctx, tradeNo, channelID)
+	if originalErr != nil {
+		return originalErr
+	}
 	if e = g.Store.checkProviderAccount(ctx, g.Store.pool, attempt.ID, g.Providers[channelID]); e != nil {
 		return e
 	}
@@ -163,11 +209,15 @@ func (g ProviderFlow) RefreshPreauthorization(ctx context.Context, tradeNo strin
 	if e != nil {
 		return e
 	}
-	event, e := p.QueryAuthorization(ctx, provider.AuthorizationRequest{TradeNo: tradeNo, RequestNo: tradeNo, Amount: o.Amount})
+	charge104, e := g.Store.AuthenticatedOrderCharge104(ctx, o)
 	if e != nil {
 		return e
 	}
-	if event.TradeNo != tradeNo || event.RequestNo != tradeNo || event.Amount != o.Amount || event.State != "SUCCESS" || (event.OrderStatus != "AUTHORIZED" && event.OrderStatus != "FINISH") {
+	event, e := p.QueryAuthorization(ctx, provider.AuthorizationRequest{TradeNo: tradeNo, RequestNo: tradeNo, Amount: charge104})
+	if e != nil {
+		return e
+	}
+	if event.TradeNo != tradeNo || event.RequestNo != tradeNo || event.Amount != charge104 || event.State != "SUCCESS" || (event.OrderStatus != "AUTHORIZED" && event.OrderStatus != "FINISH") {
 		return provider.ErrAuthentication
 	}
 	return g.Store.RecordPreauthorization(ctx, channelID, event)

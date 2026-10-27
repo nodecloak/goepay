@@ -26,6 +26,16 @@ async function fixture(page: Page, delegated = false) {
         email: "account121@example.invalid",
         pay: "1",
       };
+    else if (p.endsWith("/account/personal-settings"))
+      data = {
+        merchant_id: "1",
+        qq: "",
+        pay_minmoney: "",
+        pay_maxmoney: "",
+        bounds_valid: true,
+        fingerprint: "a".repeat(64),
+        can_update: true,
+      };
     else if (p.endsWith("/account/notice"))
       data = {
         id: "0",
@@ -200,7 +210,9 @@ test("delegated merchant settings cannot read personal logs or notification/devi
   ).toHaveCount(0);
   expect(
     f.reads.some((u) =>
-      /\/account\/(login-log|notice|printing)$/.test(u.pathname),
+      /\/account\/(login-log|notice|printing|personal-settings)$/.test(
+        u.pathname,
+      ),
     ),
   ).toBe(false);
   expect(f.writes).toHaveLength(0);

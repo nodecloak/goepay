@@ -12,6 +12,9 @@ import (
 var errChannelNoticeConfiguration = errors.New("invalid explicitly configured administrator channel notice delivery")
 
 func configuredChannelNotices(getenv func(string) string) (payment.ChannelNoticeSender, string, error) {
+	return configuredChannelNoticesWithSMTP195(getenv, nil)
+}
+func configuredChannelNoticesWithSMTP195(getenv func(string) string, resolve func() (payment.ChannelNoticeSender, error)) (payment.ChannelNoticeSender, string, error) {
 	flag := getenv("GOEPAY_ENABLE_ADMIN_CHANNEL_NOTICES")
 	if flag == "" || flag == "false" {
 		return nil, "", nil
@@ -68,6 +71,15 @@ func configuredChannelNotices(getenv func(string) string) (payment.ChannelNotice
 	for _, r := range to {
 		if r < 33 || r > 126 {
 			return nil, "", errChannelNoticeConfiguration
+		}
+	}
+	if resolve != nil {
+		sender, e = resolve()
+		if e != nil {
+			return nil, "", errChannelNoticeConfiguration
+		}
+		if sender != nil {
+			return sender, to, nil
 		}
 	}
 	raw := getenv("GOEPAY_SMTP_PORT")

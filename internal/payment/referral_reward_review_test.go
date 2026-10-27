@@ -143,7 +143,7 @@ func TestReferralReviewAwardAuditFaultRollsBackOriginalPaymentAndReceipt(t *test
 	CREATE TRIGGER reject_review_reward_audit BEFORE INSERT ON referral_reward_audits FOR EACH ROW EXECUTE FUNCTION reject_review_reward_audit()`); err != nil {
 		t.Fatal(err)
 	}
-	receipt := PaidReceipt{ChannelID: 7, ProviderTradeNo: "LOCAL_REVIEW_" + o.TradeNo}
+	receipt := PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "LOCAL_REVIEW_" + o.TradeNo}
 	if err := s.markPaid(ctx, o.TradeNo, "review-original-retry", true, receipt); err == nil {
 		t.Fatal("reward without original audit was committed")
 	}

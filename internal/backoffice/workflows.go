@@ -47,6 +47,14 @@ func (s *Service) ServeWorkflows(w http.ResponseWriter, r *http.Request, p Princ
 		return
 	}
 	kind := parts[0]
+	if kind == "internal-transfers" && p.Role == "merchant" && r.Method == "GET" && len(parts) == 1 {
+		s.serveMerchantInternalTransferList(w, r, p)
+		return
+	}
+	if kind == "settlements" && r.Method == "GET" && (len(parts) == 1 || len(parts) == 2 && parts[1] == "statistics") {
+		s.serveOriginalSettlementList(w, r, p, len(parts) == 2)
+		return
+	}
 	actor := fmt.Sprintf("%s:%d:%s", p.Role, p.SubjectID, p.Username)
 	if len(parts) == 1 && r.Method == "POST" {
 		in, ok := body(w, r)
