@@ -61,7 +61,7 @@ func referralPayTestOrder(t *testing.T, s *Store, o Order) {
 	if _, _, err := s.BeginProviderAttempt(ctx, o.TradeNo, 7, "native"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.markPaid(ctx, o.TradeNo, "local-referral-paid:"+o.TradeNo, true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); err != nil {
+	if err := s.markPaid(ctx, o.TradeNo, "local-referral-paid:"+o.TradeNo, true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -90,7 +90,7 @@ func TestReferralOriginalFeeAwardSnapshotAndConcurrentCallbacks(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			if err := s.markPaid(ctx, o.TradeNo, fmt.Sprintf("local-duplicate:%d", i), true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); err != nil {
+			if err := s.markPaid(ctx, o.TradeNo, fmt.Sprintf("local-duplicate:%d", i), true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); err != nil {
 				t.Error(err)
 			}
 		}(i)

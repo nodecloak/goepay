@@ -1,0 +1,47 @@
+{
+  "admin_closed": {
+    "can_update": true,
+    "close_keylogin": "1",
+    "fingerprint": "8ac89efaff0250930e637ce89ed0682c2df381654d992610a05f121fad20b8e1",
+    "user_refund": "0"
+  },
+  "admin_default": {
+    "can_update": true,
+    "close_keylogin": "0",
+    "fingerprint": "2b46b5b00fc4a03b23fc5da819add2abb85cb7ff02e710ca38e688775e196b54",
+    "user_refund": "1"
+  },
+  "admin_key_closed_refund_open": {
+    "can_update": true,
+    "close_keylogin": "1",
+    "fingerprint": "b2018efb496d5ad3807fccce5f8bb884e2372838305ec0d7c7462ec493771c26",
+    "user_refund": "1"
+  },
+  "admin_key_open_refund_closed": {
+    "can_update": true,
+    "close_keylogin": "0",
+    "fingerprint": "3ea839add1f39a7339045d2aefaff5141d411e397828172041bc2ec9e9132872",
+    "user_refund": "0"
+  },
+  "cookie_or_bearer_exported": false,
+  "public_closed": {
+    "close_keylogin": 1,
+    "user_refund": 0
+  },
+  "public_default": {
+    "close_keylogin": 0,
+    "user_refund": 1
+  },
+  "public_key_closed_refund_open": {
+    "close_keylogin": 1,
+    "user_refund": 1
+  },
+  "public_key_open_refund_closed": {
+    "close_keylogin": 0,
+    "user_refund": 0
+  },
+  "schema_disposed": true,
+  "session_invalid_after_cleanup": true,
+  "source": "actual local Go HTTP plus PostgreSQL",
+  "synthetic_only": true
+}

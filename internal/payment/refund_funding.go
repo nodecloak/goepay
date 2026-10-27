@@ -49,6 +49,9 @@ func (s *Store) scanRefundFunding(ctx context.Context, q referralReader, r Refun
 	if e != nil {
 		return f, e
 	}
+	if _, _, e = s.authenticatedOrderChargeReader104(ctx, q, o); e != nil {
+		return f, e
+	}
 	proof, e := s.refundFundingProof(f, r, o)
 	if e != nil || !hmac.Equal(proof, f.Proof) || f.OrderID != r.OrderID || f.MerchantID != r.MerchantID || f.Merchant != r.MerchantAmount || f.Fee != r.FeeAmount || f.Held < 0 || f.Available < 0 || f.Held > f.Merchant || f.Available != f.Merchant-f.Held {
 		return f, ErrConflict

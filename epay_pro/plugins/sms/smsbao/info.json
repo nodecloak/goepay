@@ -1,0 +1,30 @@
+{
+    "name": "smsbao",
+    "title": "短信宝",
+    "author": "官方",
+    "link": "https://www.smsbao.com/",
+    "version": "1.0",
+    "icon": "smsbao.png",
+    "desc": "",
+    "inputs": {
+        "user": {
+            "name": "用户名",
+            "type": "input",
+            "required": true,
+            "note": ""
+        },
+        "pass": {
+            "name": "密码",
+            "type": "input",
+            "required": true,
+            "note": ""
+        },
+        "sign": {
+            "name": "短信签名",
+            "type": "input",
+            "required": true,
+            "note": "填写短信签名内容"
+        }
+    },
+    "note": "<a href=\"https://www.smsbao.com/\" target=\"_blank\" rel=\"noreferrer\">短信宝网站</a>，模板ID处写模板内容（不含签名，验证码用{code}代替）"
+}

@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	adapter "goepay/internal/adapters/payment"
+	"goepay/internal/merchantpolicy"
+	"goepay/internal/privatesearch"
 	"time"
 )
 
@@ -94,6 +96,13 @@ func (s *Store) lockSettlementRequest(ctx context.Context, tx pgx.Tx, id int64) 
 	return v, profile, e
 }
 func (s *Store) settlementWritePolicy(ctx context.Context, tx pgx.Tx, mid int64, profile []byte) error {
+	settle, e := merchantpolicy.ResolveSettlementPermission(profile)
+	if e != nil {
+		return e
+	}
+	if !settle {
+		return ErrState
+	}
 	var active bool
 	if e := tx.QueryRow(ctx, "SELECT enabled FROM merchants WHERE id=$1", mid).Scan(&active); e != nil {
 		return e
@@ -196,9 +205,14 @@ func (g ProviderFlow) PrepareSettlementPayout(ctx context.Context, id, channel i
 	if g.Store == nil || id <= 0 || channel <= 0 {
 		return SettlementPayout{}, ErrInvalid
 	}
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return SettlementPayout{}, ErrLiveDisabled
 	}
+	resolved, resolveErr := g.parentSettlementRuntime(ctx, id, channel)
+	if resolveErr != nil {
+		return SettlementPayout{}, resolveErr
+	}
+	g = resolved
 	tx, e := g.Store.pool.Begin(ctx)
 	if e != nil {
 		return SettlementPayout{}, e
@@ -231,6 +245,9 @@ func (g ProviderFlow) prepareSettlementPayoutTx(ctx context.Context, tx pgx.Tx, 
 	}
 	if !errors.Is(e, ErrNotFound) {
 		return old, e
+	}
+	if e = g.prepareParentTransferChannelTx(ctx, tx, v.MerchantID, channel); e != nil {
+		return SettlementPayout{}, e
 	}
 	if v.Status != "approved" {
 		return SettlementPayout{}, ErrState
@@ -282,6 +299,9 @@ func (g ProviderFlow) prepareSettlementPayoutTx(ctx context.Context, tx pgx.Tx, 
 	if _, e = tx.Exec(ctx, "INSERT INTO provider_transfer_attempts(transfer_id,channel_id,recipient_cipher) VALUES($1,$2,$3)", tid, channel, cipher); e != nil {
 		return SettlementPayout{}, e
 	}
+	if e = g.Store.indexPrivateSearchTx(ctx, tx, "transfer_intent", tid, v.MerchantID, cipher, privatesearch.Fields{privatesearch.Account: req.Account, privatesearch.Name: req.Name, privatesearch.Remark: req.Remark}); e != nil {
+		return SettlementPayout{}, e
+	}
 	accountScope, e := adapter.TransferAccountScope(g.Providers[channel])
 	if e != nil {
 		return SettlementPayout{}, e
@@ -316,5 +336,15 @@ func (g ProviderFlow) prepareSettlementPayoutTx(ctx context.Context, tx pgx.Tx, 
 	if e = payoutEvent(ctx, tx, id, "prepare", "unsent", actor); e != nil {
 		return SettlementPayout{}, e
 	}
-	return g.Store.settlementPayout(ctx, tx, id)
+	prepared, e := g.Store.settlementPayout(ctx, tx, id)
+	if e != nil {
+		return prepared, e
+	}
+	if e = g.Store.sealParentTransferSource(ctx, tx, prepared.Transfer, g.parentBindings[channel], g.Providers[channel]); e != nil {
+		return prepared, e
+	}
+	if e = g.checkParentTransferWriteTx(ctx, tx, prepared.Transfer); e != nil {
+		return prepared, e
+	}
+	return prepared, nil
 }

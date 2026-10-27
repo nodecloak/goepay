@@ -31,6 +31,10 @@ func TestDashboardUXOriginalOverviewUsesScopedRealFactsAndSevenDays(t *testing.T
 	if _, e := pool.Exec(ctx, `INSERT INTO backoffice_records(resource,owner_id,body) VALUES('announcements',NULL,'{"title":"本地公告","content":"纯文本公告","audience":"merchant","enabled":true}'),('announcements',NULL,'{"title":"管理公告","content":"管理员内容","audience":"admin","enabled":true}'),('complaints',1,'{"status":"open","amount":"123","pay_type":"alipay"}')`); e != nil {
 		t.Fatal(e)
 	}
+	var auditsBefore int
+	if e := pool.QueryRow(ctx, `SELECT count(*) FROM backoffice_audit`).Scan(&auditsBefore); e != nil {
+		t.Fatal(e)
+	}
 	get := func(role, query string) *httptest.ResponseRecorder {
 		token, _, e := s.Sessions.Create(identity.User{ID: 1, Username: role, Role: role, AdminClass: "super"})
 		if e != nil {
@@ -113,7 +117,7 @@ func TestDashboardUXOriginalOverviewUsesScopedRealFactsAndSevenDays(t *testing.T
 		t.Fatal("dashboard leaked merchant credential")
 	}
 	var orders, audits int
-	if e := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM orders),(SELECT count(*) FROM backoffice_audit)`).Scan(&orders, &audits); e != nil || orders != 3 || audits != 0 {
+	if e := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM orders),(SELECT count(*) FROM backoffice_audit)`).Scan(&orders, &audits); e != nil || orders != 3 || audits != auditsBefore {
 		t.Fatalf("dashboard wrote business data %d %d %v", orders, audits, e)
 	}
 	if w = get("merchant", "?merchant_id=2"); w.Code != 400 {
@@ -168,13 +172,40 @@ func TestDashboardUXApprovedSettlementIsNotSuccessfulPayout(t *testing.T) {
 	}
 }
 
-func TestDashboardUXFrozenOrderIncomeRemainsVisibleInFrozenMoney(t *testing.T){
-	s,_,_:=fixture(t);ctx:=context.Background()
-	o,e:=s.Store.CreateOrder(ctx,payment.CreateOrderInput{MerchantID:1,OutTradeNo:"dashboard-order-income",Name:"本地冻结",Type:"alipay",Amount:123});if e!=nil{t.Fatal(e)};if e=s.Store.MarkPaid(ctx,o.TradeNo,"dashboard-order-income-paid");e!=nil{t.Fatal(e)}
-	if _,e=s.Store.FreezeOrderIncome(ctx,1,o.TradeNo,"dashboard-income-freeze",payment.IncomeHoldActor{ID:1,Name:"admin",Class:"super"});e!=nil{t.Fatal(e)}
-	token,_,e:=s.Sessions.Create(identity.User{ID:1,Username:"merchant",Role:"merchant"});if e!=nil{t.Fatal(e)}
-	r:=httptest.NewRequest("GET","/console/v1/merchant/dashboard",nil);r.AddCookie(&http.Cookie{Name:"goepay_merchant",Value:token});w:=httptest.NewRecorder();s.Handler().ServeHTTP(w,r)
-	if w.Code!=200{t.Fatal(w.Code,w.Body.String())}
-	var out struct{Data struct{Available string `json:"available_money"`;Frozen string `json:"frozen_money"`}}
-	if e=json.Unmarshal(w.Body.Bytes(),&out);e!=nil{t.Fatal(e)};if out.Data.Available!="0.00"||out.Data.Frozen!="1.23"{t.Fatalf("held order income disappeared %s",w.Body.String())}
+func TestDashboardUXFrozenOrderIncomeRemainsVisibleInFrozenMoney(t *testing.T) {
+	s, _, _ := fixture(t)
+	ctx := context.Background()
+	o, e := s.Store.CreateOrder(ctx, payment.CreateOrderInput{MerchantID: 1, OutTradeNo: "dashboard-order-income", Name: "本地冻结", Type: "alipay", Amount: 123})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = s.Store.MarkPaid(ctx, o.TradeNo, "dashboard-order-income-paid"); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = s.Store.FreezeOrderIncome(ctx, 1, o.TradeNo, "dashboard-income-freeze", payment.IncomeHoldActor{ID: 1, Name: "admin", Class: "super"}); e != nil {
+		t.Fatal(e)
+	}
+	token, _, e := s.Sessions.Create(identity.User{ID: 1, Username: "merchant", Role: "merchant"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	r := httptest.NewRequest("GET", "/console/v1/merchant/dashboard", nil)
+	r.AddCookie(&http.Cookie{Name: "goepay_merchant", Value: token})
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	var out struct {
+		Data struct {
+			Available string `json:"available_money"`
+			Frozen    string `json:"frozen_money"`
+		}
+	}
+	if e = json.Unmarshal(w.Body.Bytes(), &out); e != nil {
+		t.Fatal(e)
+	}
+	if out.Data.Available != "0.00" || out.Data.Frozen != "1.23" {
+		t.Fatalf("held order income disappeared %s", w.Body.String())
+	}
 }

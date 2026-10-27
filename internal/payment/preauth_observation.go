@@ -81,6 +81,17 @@ func (s *Store) scanObservation(row pgx.Row) (PreauthorizationObservation, error
 	return q, nil
 }
 func (s *Store) observationRow(ctx context.Context, tx pgx.Tx, where string, args ...any) (PreauthorizationObservation, error) {
+	q, e := s.scanObservation(tx.QueryRow(ctx, "SELECT "+preauthObservationColumns+" FROM preauth_observations WHERE "+where, args...))
+	if e != nil {
+		return q, e
+	}
+	// Remaining-release binding locks the parent before the observation. Read
+	// and result transactions use that same order before taking FOR UPDATE,
+	// including when their permission checker authenticates the parent again.
+	var id int64
+	if e = tx.QueryRow(ctx, `SELECT id FROM orders WHERE id=$1 AND trade_no=$2 FOR SHARE`, q.OrderID, q.TradeNo).Scan(&id); e != nil {
+		return q, e
+	}
 	return s.scanObservation(tx.QueryRow(ctx, "SELECT "+preauthObservationColumns+" FROM preauth_observations WHERE "+where+" FOR UPDATE", args...))
 }
 func (s *Store) observationEvent(ctx context.Context, tx pgx.Tx, q PreauthorizationObservation, op string) error {
@@ -113,11 +124,23 @@ func observationSession(ctx context.Context, tx pgx.Tx, token, role string, mid 
 	if len(token) != 43 || lookupSession(ctx, tx, &q) != nil || q.actorRole != role {
 		return q, ErrPreauthObservation
 	}
+	var alive bool
+	if e := tx.QueryRow(ctx, `SELECT $1::timestamptz>clock_timestamp()`, q.ExpiresAt).Scan(&alive); e != nil || !alive {
+		return q, ErrPreauthObservation
+	}
 	return q, nil
 }
 func (s *Store) observationOrigin(ctx context.Context, tx remainingEvidenceReader, q PreauthorizationObservation) error {
+	o, e := scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE id=$1", q.OrderID))
+	if e != nil {
+		return ErrPreauthObservation
+	}
+	charge, e := s.authenticatedChargeValue104(ctx, tx, o)
+	if e != nil || charge != q.Amount {
+		return ErrPreauthObservation
+	}
 	var ok bool
-	e := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM orders o JOIN provider_attempts p ON p.order_id=o.id JOIN payment_authorizations a ON a.order_id=o.id JOIN provider_attempt_accounts ac ON ac.attempt_id=p.id WHERE o.id=$1 AND o.merchant_id=$2 AND o.trade_no=$3 AND o.amount=$4 AND o.type='alipay' AND p.id=$5 AND p.channel_id=$6 AND p.method='preauth' AND a.channel_id=$6 AND a.amount=$4 AND a.auth_no=$7 AND a.buyer_id=$8 AND ac.account_hash=$9)`, q.OrderID, q.MerchantID, q.TradeNo, q.Amount, q.AttemptID, q.ChannelID, q.AuthNo, q.BuyerID, q.accountHash).Scan(&ok)
+	e = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM orders o JOIN provider_attempts p ON p.order_id=o.id JOIN payment_authorizations a ON a.order_id=o.id JOIN provider_attempt_accounts ac ON ac.attempt_id=p.id WHERE o.id=$1 AND o.merchant_id=$2 AND o.trade_no=$3 AND COALESCE((to_jsonb(o)->>'actual_charge_amount104')::bigint,o.amount)=$4 AND o.type='alipay' AND p.id=$5 AND p.channel_id=$6 AND p.method='preauth' AND a.channel_id=$6 AND a.amount=$4 AND a.auth_no=$7 AND a.buyer_id=$8 AND ac.account_hash=$9)`, q.OrderID, q.MerchantID, q.TradeNo, q.Amount, q.AttemptID, q.ChannelID, q.AuthNo, q.BuyerID, q.accountHash).Scan(&ok)
 	if e != nil || !ok {
 		return ErrPreauthObservation
 	}
@@ -130,7 +153,7 @@ func (s *Store) observationAlive(ctx context.Context, tx pgx.Tx, q Preauthorizat
 	}
 	var revision int64
 	var alive bool
-	if e := tx.QueryRow(ctx, `SELECT config_revision,$2::timestamptz>clock_timestamp() FROM merchants WHERE id=$1`, q.MerchantID, q.expiresAt).Scan(&revision, &alive); e != nil || revision != q.merchantRevision || !alive {
+	if e := tx.QueryRow(ctx, `SELECT config_revision,LEAST($2::timestamptz,$3::timestamptz)>clock_timestamp() FROM merchants WHERE id=$1`, q.MerchantID, q.expiresAt, original.ExpiresAt).Scan(&revision, &alive); e != nil || revision != q.merchantRevision || !alive {
 		return ErrPreauthObservation
 	}
 	return s.observationOrigin(ctx, tx, q)
@@ -193,7 +216,7 @@ func (s *Store) beginObservation(ctx context.Context, in PreauthObservationInput
 	if e != nil {
 		return q, false, e
 	}
-	e = tx.QueryRow(ctx, `SELECT o.id,p.id,p.channel_id,a.auth_no,a.buyer_id,a.amount,ac.account_hash,m.config_revision,LEAST($3::timestamptz,statement_timestamp()+interval '5 minutes') FROM orders o JOIN merchants m ON m.id=o.merchant_id JOIN provider_attempts p ON p.order_id=o.id JOIN payment_authorizations a ON a.order_id=o.id JOIN provider_attempt_accounts ac ON ac.attempt_id=p.id WHERE o.merchant_id=$1 AND o.trade_no=$2 AND o.amount=a.amount AND o.type='alipay' AND p.method='preauth' AND p.channel_id=a.channel_id FOR SHARE OF o,p,a,ac,m`, in.MerchantID, in.TradeNo, actor.ExpiresAt).Scan(&q.OrderID, &q.AttemptID, &q.ChannelID, &q.AuthNo, &q.BuyerID, &q.Amount, &q.accountHash, &q.merchantRevision, &q.expiresAt)
+	e = tx.QueryRow(ctx, `SELECT o.id,p.id,p.channel_id,a.auth_no,a.buyer_id,a.amount,ac.account_hash,m.config_revision,LEAST($3::timestamptz,statement_timestamp()+interval '5 minutes') FROM orders o JOIN merchants m ON m.id=o.merchant_id JOIN provider_attempts p ON p.order_id=o.id JOIN payment_authorizations a ON a.order_id=o.id JOIN provider_attempt_accounts ac ON ac.attempt_id=p.id WHERE o.merchant_id=$1 AND o.trade_no=$2 AND COALESCE((to_jsonb(o)->>'actual_charge_amount104')::bigint,o.amount)=a.amount AND o.type='alipay' AND p.method='preauth' AND p.channel_id=a.channel_id FOR SHARE OF o,p,a,ac,m`, in.MerchantID, in.TradeNo, actor.ExpiresAt).Scan(&q.OrderID, &q.AttemptID, &q.ChannelID, &q.AuthNo, &q.BuyerID, &q.Amount, &q.accountHash, &q.merchantRevision, &q.expiresAt)
 	if e != nil {
 		return q, false, ErrPreauthObservation
 	}
@@ -225,7 +248,7 @@ func sealPreauthObservation(q PreauthorizationObservation, e adapter.Authorizati
 	}
 	return verifiedPreauthObservation{e}, nil
 }
-func (s *Store) finishObservation(ctx context.Context, id string, sealed *verifiedPreauthObservation, check func(context.Context) error) error {
+func (s *Store) finishObservation(ctx context.Context, id string, sealed *verifiedPreauthObservation, checkTx func(context.Context, pgx.Tx) error) error {
 	tx, e := s.pool.Begin(ctx)
 	if e != nil {
 		return e
@@ -242,7 +265,7 @@ func (s *Store) finishObservation(ctx context.Context, id string, sealed *verifi
 		return tx.Commit(ctx)
 	}
 	if sealed != nil {
-		if check == nil || check(ctx) != nil || s.observationAlive(ctx, tx, q) != nil {
+		if checkTx == nil || checkTx(ctx, tx) != nil || s.observationAlive(ctx, tx, q) != nil {
 			return ErrPreauthObservation
 		}
 		if _, e = sealPreauthObservation(q, sealed.event); e != nil {
@@ -269,16 +292,13 @@ func (s *Store) finishObservation(ctx context.Context, id string, sealed *verifi
 	if e = s.observationEvent(ctx, tx, q, q.Status); e != nil {
 		return e
 	}
-	if sealed != nil && (check(ctx) != nil || s.observationAlive(ctx, tx, q) != nil) {
+	if sealed != nil && (checkTx(ctx, tx) != nil || s.observationAlive(ctx, tx, q) != nil) {
 		return ErrPreauthObservation
 	}
 	return tx.Commit(ctx)
 }
-func (g ProviderFlow) observationGuard(ctx context.Context, q PreauthorizationObservation, check func(context.Context) error) error {
-	if check == nil || check(ctx) != nil {
-		return ErrPreauthObservation
-	}
-	_, a, p, e := g.owned(ctx, q.MerchantID, q.TradeNo)
+func (g ProviderFlow) observationAccountTx(ctx context.Context, tx pgx.Tx, q PreauthorizationObservation) error {
+	_, a, p, e := g.ownedTx(ctx, tx, q.MerchantID, q.TradeNo)
 	if e != nil || a.ID != q.AttemptID || a.ChannelID != q.ChannelID {
 		return ErrPreauthObservation
 	}
@@ -290,12 +310,29 @@ func (g ProviderFlow) observationGuard(ctx context.Context, q PreauthorizationOb
 	if e != nil || subtle.ConstantTimeCompare(hash, q.accountHash) != 1 {
 		return ErrPreauthObservation
 	}
+	return nil
+}
+
+func (g ProviderFlow) observationGuardTx(ctx context.Context, tx pgx.Tx, q PreauthorizationObservation, checkTx func(context.Context, pgx.Tx) error) error {
+	if checkTx == nil || checkTx(ctx, tx) != nil {
+		return ErrPreauthObservation
+	}
+	if e := g.observationAccountTx(ctx, tx, q); e != nil {
+		return e
+	}
+	return g.Store.observationAlive(ctx, tx, q)
+}
+
+func (g ProviderFlow) observationGuard(ctx context.Context, q PreauthorizationObservation, check func(context.Context) error, checkTx func(context.Context, pgx.Tx) error) error {
+	if check == nil || check(ctx) != nil {
+		return ErrPreauthObservation
+	}
 	tx, e := g.Store.pool.Begin(ctx)
 	if e != nil {
 		return e
 	}
 	defer tx.Rollback(ctx)
-	if e = g.Store.observationAlive(ctx, tx, q); e != nil {
+	if e = g.observationGuardTx(ctx, tx, q, checkTx); e != nil {
 		return e
 	}
 	return tx.Commit(ctx)
@@ -305,9 +342,13 @@ func (g ProviderFlow) observationUnknown(id string) {
 	defer cancel()
 	_ = g.Store.finishObservation(ctx, id, nil, nil)
 }
-func (g ProviderFlow) ObservePreauthorization(ctx context.Context, in PreauthObservationInput, token, role string, check func(context.Context) error) (PreauthorizationObservation, error) {
+
+// Check is called only without a transaction. Exactly one explicit CheckTx is
+// required for checks at the commit boundary; there is no nested-pool fallback.
+func (g ProviderFlow) ObservePreauthorization(ctx context.Context, in PreauthObservationInput, token, role string, check func(context.Context) error, checks ...func(context.Context, pgx.Tx) error) (PreauthorizationObservation, error) {
 	var empty PreauthorizationObservation
-	if g.Store == nil || check == nil || in.MerchantID <= 0 || in.TradeNo == "" || len(in.TradeNo) > 128 || !observationID68(in.ClientRequestNo) || len(token) != 43 {
+	checkTx, checkErr := observationCheckTx(checks)
+	if g.Store == nil || check == nil || checkErr != nil || in.MerchantID <= 0 || in.TradeNo == "" || len(in.TradeNo) > 128 || !observationID68(in.ClientRequestNo) || len(token) != 43 {
 		return empty, ErrPreauthObservation
 	}
 	if e := check(ctx); e != nil {
@@ -326,31 +367,33 @@ func (g ProviderFlow) ObservePreauthorization(ctx context.Context, in PreauthObs
 		return empty, e
 	}
 	if !owner {
-		return g.ReadPreauthorizationObservation(ctx, q.ID, token, role, check)
+		return g.ReadPreauthorizationObservation(ctx, q.ID, token, role, check, checkTx)
 	}
-	if e = g.observationGuard(ctx, q, check); e != nil {
+	if e = g.observationGuard(ctx, q, check, checkTx); e != nil {
 		g.observationUnknown(q.ID)
 		return empty, e
 	}
 	event, queryErr := v.QueryAuthorization(ctx, adapter.AuthorizationRequest{TradeNo: q.TradeNo, RequestNo: q.TradeNo, AuthNo: q.AuthNo, Amount: q.Amount})
-	if e = g.observationGuard(ctx, q, check); e != nil {
+	if e = g.observationGuard(ctx, q, check, checkTx); e != nil {
 		g.observationUnknown(q.ID)
 		return empty, e
 	}
 	sealed, sealErr := sealPreauthObservation(q, event)
 	if queryErr != nil || sealErr != nil {
 		g.observationUnknown(q.ID)
-		return g.ReadPreauthorizationObservation(ctx, q.ID, token, role, check)
+		return g.ReadPreauthorizationObservation(ctx, q.ID, token, role, check, checkTx)
 	}
-	if e = g.Store.finishObservation(ctx, q.ID, &sealed, check); e != nil {
+	guardTx := func(c context.Context, tx pgx.Tx) error { return g.observationGuardTx(c, tx, q, checkTx) }
+	if e = g.Store.finishObservation(ctx, q.ID, &sealed, guardTx); e != nil {
 		g.observationUnknown(q.ID)
 		return empty, e
 	}
-	return g.ReadPreauthorizationObservation(ctx, q.ID, token, role, check)
+	return g.ReadPreauthorizationObservation(ctx, q.ID, token, role, check, checkTx)
 }
-func (g ProviderFlow) ReadPreauthorizationObservation(ctx context.Context, id, token, role string, check func(context.Context) error) (PreauthorizationObservation, error) {
+func (g ProviderFlow) ReadPreauthorizationObservation(ctx context.Context, id, token, role string, check func(context.Context) error, checks ...func(context.Context, pgx.Tx) error) (PreauthorizationObservation, error) {
 	var empty PreauthorizationObservation
-	if g.Store == nil || check == nil || !observationID68(id) || len(token) != 43 {
+	checkTx, checkErr := observationCheckTx(checks)
+	if g.Store == nil || check == nil || checkErr != nil || !observationID68(id) || len(token) != 43 {
 		return empty, ErrPreauthObservation
 	}
 	if e := check(ctx); e != nil {
@@ -374,19 +417,13 @@ func (g ProviderFlow) ReadPreauthorizationObservation(ctx context.Context, id, t
 	if e = g.Store.observationAuditValid(ctx, tx, q); e != nil {
 		return empty, e
 	}
-	_, a, p, e := g.owned(ctx, q.MerchantID, q.TradeNo)
-	if e != nil || a.ID != q.AttemptID {
-		return empty, ErrPreauthObservation
+	if e = g.observationAccountTx(ctx, tx, q); e != nil {
+		return empty, e
 	}
-	_, app, scope, e := observationProvider(p)
-	if e != nil || app != q.AppID {
-		return empty, ErrPreauthObservation
+	if e = checkTx(ctx, tx); e != nil {
+		return empty, e
 	}
-	hash, e := g.Store.providerAccountHash(scope)
-	if e != nil || subtle.ConstantTimeCompare(hash, q.accountHash) != 1 {
-		return empty, ErrPreauthObservation
-	}
-	if e = check(ctx); e != nil {
+	if _, e = observationSession(ctx, tx, token, role, q.MerchantID); e != nil {
 		return empty, e
 	}
 	if e = tx.Commit(ctx); e != nil {

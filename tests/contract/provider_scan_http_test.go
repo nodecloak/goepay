@@ -25,6 +25,12 @@ import (
 )
 
 func TestScanHTTPOriginalContractsUnknownRecoveryAndLateNotify(t *testing.T) {
+	runChannel168ScanHTTPOriginalContractsUnknownRecoveryAndLateNotify(t, nil)
+}
+func TestChannel168ScanHTTPOriginalContractsUnknownRecoveryAndLateNotify(t *testing.T) {
+	runChannel168ScanHTTPOriginalContractsUnknownRecoveryAndLateNotify(t, installChannel168Fees)
+}
+func runChannel168ScanHTTPOriginalContractsUnknownRecoveryAndLateNotify(t *testing.T, channelFees channel168FixturePolicy) {
 	s, pool, key := fixture(t)
 	ctx := context.Background()
 	const wxKey = "0123456789abcdef0123456789abcdef"
@@ -107,6 +113,9 @@ func TestScanHTTPOriginalContractsUnknownRecoveryAndLateNotify(t *testing.T) {
 	s.ProviderFlow = &payment.ProviderFlow{Store: s.Store, Providers: map[int64]adapter.Provider{7: wx, 8: ali}, AllowLive: true, CallbackBaseURL: "https://pay.example.invalid"}
 	s.CheckoutKey = bytes.Repeat([]byte{9}, 32)
 	s.MerchantChannels = map[int64][]int64{1: {7, 8}, 2: {7, 8}}
+	if channelFees != nil {
+		applyChannel168Fixture(t, s, channelFees)
+	}
 	invoke := func(legacy bool, p compat.Params) map[string]any {
 		t.Helper()
 		path := "/api/pay/create"
@@ -195,6 +204,15 @@ func TestScanHTTPOriginalContractsUnknownRecoveryAndLateNotify(t *testing.T) {
 	if wxWrites.Load() != 2 || aliWrites.Load() != 2 {
 		t.Fatal("duplicate scan write", wxWrites.Load(), aliWrites.Load())
 	}
+	expectedNet := int64(100)
+	if channelFees != nil {
+		// Original Pro retains floor(100 * 99.50 / 100) = 99 cents.
+		expectedNet = 99
+	}
+	var invalidSnapshots int
+	if e = pool.QueryRow(ctx, `SELECT count(*) FROM orders WHERE amount<>100 OR coalesce(actual_charge_amount104,amount)<>100 OR merchant_amount<>$1 OR platform_fee<>100-$1`, expectedNet).Scan(&invalidSnapshots); e != nil || invalidSnapshots != 0 {
+		t.Fatal("scan gross/net/fee did not retain original fee calculation", invalidSnapshots, e)
+	}
 	s.ProviderFlow.AllowLive = false
 	for _, item := range unresolved {
 		if _, e = s.ProviderFlow.Query(ctx, item.mid, item.trade); e != nil {
@@ -203,7 +221,7 @@ func TestScanHTTPOriginalContractsUnknownRecoveryAndLateNotify(t *testing.T) {
 	}
 	for _, mid := range []int64{1, 2} {
 		b, _ := s.Store.Balance(ctx, mid)
-		if b.Available != 100 {
+		if b.Available != expectedNet || b.Reserved != 0 {
 			t.Fatal("pending scan credited", mid, b)
 		}
 	}
@@ -236,7 +254,7 @@ func TestScanHTTPOriginalContractsUnknownRecoveryAndLateNotify(t *testing.T) {
 	}
 	for _, mid := range []int64{1, 2} {
 		b, _ := s.Store.Balance(ctx, mid)
-		if b.Available != 200 {
+		if b.Available != 2*expectedNet || b.Reserved != 0 {
 			t.Fatal("late callback duplicate credit", mid, b)
 		}
 	}

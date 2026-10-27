@@ -160,7 +160,7 @@ func (s *Store) verifySharingFundingEvidence(ctx context.Context, tx pgx.Tx, ord
 	if e != nil {
 		return e
 	}
-	if e = s.verifySharingPayment(d); e != nil {
+	if e = s.verifySharingPayment(ctx, tx, d); e != nil {
 		return e
 	}
 	var exists bool

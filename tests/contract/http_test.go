@@ -101,7 +101,14 @@ func fixtureWithMigration(t *testing.T, migrate func(context.Context, *pgxpool.P
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &server.Server{Pool: scoped, Store: store, Sessions: identity.NewSessions(false), PlatformKey: key, Sandbox: true}, scoped, key
+	app := &server.Server{Pool: scoped, Store: store, Sessions: identity.NewSessions(false), PlatformKey: key, Sandbox: true}
+	// Match the API bootstrap's independent login protection key without
+	// configuring checkout credentials or enabling a payment provider.
+	app.LoginCaptcha205, err = server.NewLoginCaptchaService205ForMaster(app, nil, make([]byte, 32), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return app, scoped, key
 }
 func call(t *testing.T, h http.Handler, method, path string, p url.Values) (int, map[string]any) {
 	t.Helper()
@@ -381,11 +388,12 @@ func TestDisabledAccountsRevokeExistingSessions(t *testing.T) {
 	for _, target := range []string{"console", "merchant"} {
 		t.Run(target, func(t *testing.T) {
 			s, pool, _ := fixture(t)
+			s.Sessions = identity.NewPersistentSessions(pool, false)
 			r := httptest.NewRequest("POST", "/console/v1/merchant/login", bytes.NewBufferString(`{"username":"merchant","password":"contract-password-123"}`))
 			w := httptest.NewRecorder()
 			s.Handler().ServeHTTP(w, r)
 			if w.Code != 200 {
-				t.Fatal("login failed")
+				t.Fatalf("login failed: status=%d body=%s", w.Code, w.Body.String())
 			}
 			cookie := w.Result().Cookies()[0]
 			q := "UPDATE console_users SET enabled=false WHERE username='merchant'"

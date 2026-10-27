@@ -1,0 +1,93 @@
+{
+  "global": {
+    "can_update": true,
+    "channel_id": "0",
+    "configured": false,
+    "effective_payfee_lessthan": "0.00",
+    "effective_payfee_mincost": "0.00",
+    "fingerprint": "37cb560bafcef83470434989fd9b87d43c0c1bae4efdd28de9c64e65de3dee9d",
+    "kind": "global",
+    "payfee_lessthan": "0.00",
+    "payfee_mincost": "0.00",
+    "revision": "0"
+  },
+  "merchant_default": {
+    "can_update": true,
+    "configured": false,
+    "fingerprint": "4f564033e9045086b9c93b2b0e4a3a72686b341a6706ec48db4bfe7a5dcaba4e",
+    "merchant_id": "1",
+    "mode": 0,
+    "mode_feerate": "",
+    "partial_available": true,
+    "revision": "0"
+  },
+  "merchant_partial": {
+    "can_update": true,
+    "configured": true,
+    "fingerprint": "dea02f9c7e13e3a0a2544253b53e7c5d58b8d02dc0a0c3c0ecc88fad89f4e5f7",
+    "merchant_id": "1",
+    "mode": 1,
+    "mode_feerate": "3.125",
+    "partial_available": true,
+    "revision": "1"
+  },
+  "order_list": {
+    "items": [
+      {
+        "amount": "100",
+        "api_trade_no": "",
+        "buyer": "",
+        "can_refund_held_income": false,
+        "channel_id": "7",
+        "charge_verified104": true,
+        "client_ip": "192.0.2.1",
+        "created_at": "2026-10-27T00:57:00.252686+08:00",
+        "fee_policy": "buyer_additive",
+        "fee_rate_bps": 600,
+        "id": "1",
+        "income_status": "none",
+        "merchant_actions": {
+          "notify": false,
+          "print": false,
+          "query": false,
+          "refund": false
+        },
+        "merchant_amount": "97",
+        "merchant_id": "1",
+        "name": "synthetic item168",
+        "notification_state": "none",
+        "out_trade_no": "public-fixture104",
+        "paid_at": "2026-10-27T00:57:00.49709+08:00",
+        "param": "",
+        "platform_fee": "6",
+        "realmoney": "103",
+        "refund_fee_payer": "platform",
+        "refunded_amount": "100",
+        "remaining_refund_amount": "3",
+        "status": "paid",
+        "trade_no": "1000000000000000000",
+        "type": "alipay",
+        "version": "v1"
+      }
+    ],
+    "limit": 20,
+    "page": 1,
+    "total": 1
+  },
+  "parent": {
+    "can_update": true,
+    "channel_id": "7",
+    "configured": false,
+    "effective_payfee_lessthan": "0.00",
+    "effective_payfee_mincost": "0.00",
+    "fingerprint": "ea4a1b7c9a50465befc25c70c78fe6a9bab956b36a28eb22233b322adc1ac9ad",
+    "kind": "parent",
+    "payfee_lessthan": "",
+    "payfee_mincost": "",
+    "revision": "0"
+  },
+  "production": false,
+  "real_funds": false,
+  "source": "actual migrated local PostgreSQL and HTTP handlers; schema/session disposed by test cleanup",
+  "synthetic_only": true
+}

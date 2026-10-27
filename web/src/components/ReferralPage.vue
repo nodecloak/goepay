@@ -3,6 +3,7 @@ import { ref, watch, onMounted, onBeforeUnmount, computed } from "vue";
 import { ApiClient } from "../api";
 import { validPromotionToken, referralAmount, referralID } from "../referral";
 import ReferralDailyQueue from "./ReferralDailyQueue.vue";
+import ReferralCurrentPolicyCard from "./ReferralCurrentPolicyCard.vue";
 const props = defineProps<{ client: ApiClient }>();
 interface Token {
   id: string;
@@ -242,6 +243,11 @@ onBeforeUnmount(() => {
     <p v-if="loading" role="status">正在核对邀请资料…</p>
     <p v-if="error" role="alert" class="alert error">{{ error }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
+    <ReferralCurrentPolicyCard
+      v-if="token && referralID(token.merchant_id)"
+      :client="client"
+      :merchant-i-d="token.merchant_id"
+    />
     <dl v-if="summary" class="referral-stats">
       <div v-for="(label, key) in summaryLabels" :key="key">
         <dt>{{ label }}</dt>

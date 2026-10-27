@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	adapter "goepay/internal/adapters/payment"
+	"goepay/internal/compat"
 	"goepay/internal/payment"
 	"net/http"
 	"net/http/httptest"
@@ -20,7 +21,19 @@ import (
 )
 
 func TestMiniOAuthHTTPConsumesBeforeTLSExchangeAndBindsTrustedPayer(t *testing.T) {
+	runMiniOAuthHTTPConsumesBeforeTLSExchangeAndBindsTrustedPayerWithOriginalGroupFixture(t, false)
+}
+func TestGroupRoutingUXHTTPMiniOAuthHTTPConsumesBeforeTLSExchangeAndBindsTrustedPayer(t *testing.T) {
+	runMiniOAuthHTTPConsumesBeforeTLSExchangeAndBindsTrustedPayerWithOriginalGroupFixture(t, true)
+}
+func TestChannel168MiniOAuthHTTPConsumesBeforeTLSExchangeAndBindsTrustedPayer(t *testing.T) {
+	runMiniOAuthHTTPConsumesBeforeTLSExchangeAndBindsTrustedPayerWithOriginalGroupFixture(t, true, installChannel168Fees)
+}
+func runMiniOAuthHTTPConsumesBeforeTLSExchangeAndBindsTrustedPayerWithOriginalGroupFixture(t *testing.T, groupRouting bool, channelFees ...channel168FixturePolicy) {
 	s, pool, key := fixture(t)
+	if groupRouting {
+		installGroupRoutingEntrypointFixture152(t, s, map[string]string{"alipay": "7"})
+	}
 	s.Sandbox = false
 	ctx := context.Background()
 	platform, e := rsa.GenerateKey(rand.Reader, 2048)
@@ -80,9 +93,22 @@ func TestMiniOAuthHTTPConsumesBeforeTLSExchangeAndBindsTrustedPayer(t *testing.T
 	s.MiniOAuthProviders = map[int64]adapter.MiniOAuthProvider{7: ali}
 	s.CheckoutKey = bytes.Repeat([]byte{7}, 32)
 	s.MerchantChannels = map[int64][]int64{1: {7}}
+	if len(channelFees) > 0 && channelFees[0] != nil {
+		applyChannel168Fixture(t, s, channelFees[0])
+	}
 	start := func(no string) (string, string) {
 		t.Helper()
-		o, e := s.Store.CreateOrder(ctx, payment.CreateOrderInput{MerchantID: 1, OutTradeNo: no, Type: "alipay", Name: "item", Amount: 125})
+		var o payment.Order
+		var e error
+		if len(channelFees) > 0 && channelFees[0] != nil {
+			_, out := call(t, s.Handler(), "POST", "/mapi.php", signed(compat.Params{"pid": "1", "out_trade_no": no, "money": "1.25", "name": "item", "type": "alipay", "method": "applet", "channel_id": "7", "is_applet": "1", "clientip": "192.0.2.5"}, "contract-secret"))
+			if out["code"] != float64(1) {
+				t.Fatal("configured mini HTTP birth", out)
+			}
+			o, e = s.Store.Order(ctx, 1, no)
+		} else {
+			o, e = s.Store.CreateOrder(ctx, payment.CreateOrderInput{MerchantID: 1, OutTradeNo: no, Type: "alipay", Name: "item", Amount: 125})
+		}
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -218,7 +244,11 @@ func TestMiniOAuthHTTPConsumesBeforeTLSExchangeAndBindsTrustedPayer(t *testing.T
 		}
 	}
 	bal, e = s.Store.Balance(ctx, 1)
-	if e != nil || bal.Available != 125 {
+	wantCredit := int64(125)
+	if len(channelFees) > 0 && channelFees[0] != nil {
+		wantCredit = 124
+	}
+	if e != nil || bal.Available != wantCredit {
 		t.Fatal("trusted query/notification duplicated credit", bal, e)
 	}
 	var receipts int

@@ -8,9 +8,13 @@ import {
   nextTick,
 } from "vue";
 import { ApiClient, displayValue } from "../api";
+import { effectiveRiskDescription } from "../core-risk-status";
 import { RouterLink } from "vue-router";
 import { groupDirectoryRates, groupUsersHref } from "../group-directory";
-import { groupPaymentRatesError } from "../group-payment-rates";
+import {
+  groupPaymentRatesError,
+  readGroupPaymentRates,
+} from "../group-payment-rates";
 import {
   resourceListFields,
   hasOriginalMerchantListFields,
@@ -31,9 +35,11 @@ import {
 import ResourceFields from "./ResourceFields.vue";
 import MerchantEditorFields from "./MerchantEditorFields.vue";
 import GroupEditorFields from "./GroupEditorFields.vue";
+import CoreRiskGroupPanel from "./CoreRiskGroupPanel.vue";
 import GroupStatisticsDialog from "./GroupStatisticsDialog.vue";
 import PaymentStatisticsDialog from "./PaymentStatisticsDialog.vue";
 import AccountLoginLogDialog from "./AccountLoginLogDialog.vue";
+import MerchantManualWithdrawal from "./MerchantManualWithdrawal.vue";
 import SettlementRecipientPanel from "./SettlementRecipientPanel.vue";
 import CasePanel from "./CasePanel.vue";
 import RuleExecutionPanel from "./RuleExecutionPanel.vue";
@@ -48,6 +54,8 @@ import {
   appendMerchantDirectory,
 } from "../merchant-directory";
 import ChannelStopPanel from "./ChannelStopPanel.vue";
+import RuntimeChannelPolicyPanel from "./RuntimeChannelPolicyPanel.vue";
+import ParentChannelPage from "./ParentChannelPage.vue";
 import MerchantDelegationPanel from "./MerchantDelegationPanel.vue";
 import BusinessNoticeEvents from "./BusinessNoticeEvents.vue";
 import { businessNoticeSettingsFields } from "../business-notice";
@@ -63,6 +71,34 @@ const delegation = ref<Record<string, unknown> | null>(null);
 const editMerchantRecipient = ref(false);
 const merchantLogID = ref<string>();
 const merchantStatisticsID = ref<string>();
+const manualWithdrawalID = ref<string>();
+let manualWithdrawalReturn: HTMLElement | undefined,
+  manualWithdrawalChanged = false;
+const canManualWithdraw = computed(
+  () =>
+    canReadMerchantStatistics.value &&
+    schema.value?.permissions.update === true,
+);
+async function closeManualWithdrawal() {
+  const target = manualWithdrawalReturn,
+    id = manualWithdrawalID.value,
+    epoch = contextEpoch,
+    refresh = manualWithdrawalChanged;
+  manualWithdrawalID.value = undefined;
+  manualWithdrawalReturn = undefined;
+  manualWithdrawalChanged = false;
+  if (refresh) await load();
+  await nextTick();
+  if (epoch !== contextEpoch) return;
+  const current = target?.isConnected
+    ? target
+    : id
+      ? document.querySelector<HTMLButtonElement>(
+          'button[aria-label="商户关联记录 ' + id + '"]',
+        )
+      : undefined;
+  current?.focus();
+}
 let merchantStatisticsReturn: HTMLElement | undefined;
 const canReadMerchantStatistics = computed(
   () =>
@@ -185,6 +221,9 @@ function merchantRelatedLinks(id: unknown) {
     ...(canReadMerchantStatistics.value
       ? [{ id: "payment-statistics", label: "支付统计" }]
       : []),
+    ...(canManualWithdraw.value
+      ? [{ id: "manual-withdrawal", label: "手动提现" }]
+      : []),
     {
       id: "orders",
       label: "订单管理",
@@ -212,6 +251,24 @@ function merchantRelatedLinks(id: unknown) {
 }
 function merchantRelatedAction(action: string, id: unknown) {
   const value = String(id ?? "");
+  if (action === "manual-withdrawal") {
+    if (
+      !canManualWithdraw.value ||
+      busy.value ||
+      loading.value ||
+      mode.value !== null ||
+      !/^[1-9]\d{0,18}$/.test(value) ||
+      BigInt(value) > 9223372036854775807n
+    )
+      return;
+    manualWithdrawalReturn =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : undefined;
+    manualWithdrawalChanged = false;
+    manualWithdrawalID.value = value;
+    return;
+  }
   if (action === "payment-statistics") {
     if (
       !canReadMerchantStatistics.value ||
@@ -277,6 +334,46 @@ const mode = ref<"create" | "edit" | "detail" | "delete" | null>(null),
   selected = ref<Record<string, unknown>>({}),
   values = ref<Record<string, unknown>>({}),
   fieldErrors = ref<Record<string, string>>({});
+const groupRiskBusy = ref(false);
+const credentialsBusy = ref(false),
+  editingBusy = computed(
+    () => busy.value || credentialsBusy.value || groupRiskBusy.value,
+  );
+const canManageMerchantCredentials = computed(
+  () =>
+    props.client.area === "admin" &&
+    props.ownSession === true &&
+    props.adminClass === "super" &&
+    schema.value?.permissions.update === true,
+);
+function credentialBusy(id: string, value: boolean) {
+  if (mode.value === "edit" && String(selected.value.id) === id)
+    credentialsBusy.value = value;
+}
+function discardCredentialDrafts(id: string) {
+  if (mode.value === "edit" && String(selected.value.id) === id) {
+    values.value.api_key = "";
+    values.value.rsa_public_key = "";
+  }
+}
+function observeSignaturePolicy(state: {
+  merchant_id: string;
+  keytype: 0 | 1 | null;
+}) {
+  if (
+    mode.value === "edit" &&
+    String(selected.value.id) === state.merchant_id
+  ) {
+    selected.value.keytype = state.keytype;
+    values.value.keytype = state.keytype;
+  }
+}
+function discardLegacyAlgorithm(id: string, algorithm: "MD5" | "RSA") {
+  if (mode.value === "edit" && String(selected.value.id) === id) {
+    selected.value.signature_algorithm = algorithm;
+    values.value.signature_algorithm = algorithm;
+  }
+}
 let controller: AbortController | undefined,
   detailController: AbortController | undefined,
   contextEpoch = 0;
@@ -292,6 +389,8 @@ function resetContext() {
   query.value = "";
   loading.value = false;
   busy.value = false;
+  credentialsBusy.value = false;
+  groupRiskBusy.value = false;
   mode.value = null;
   selected.value = {};
   values.value = {};
@@ -299,6 +398,9 @@ function resetContext() {
   delegation.value = null;
   merchantLogID.value = undefined;
   merchantStatisticsID.value = undefined;
+  manualWithdrawalID.value = undefined;
+  manualWithdrawalReturn = undefined;
+  manualWithdrawalChanged = false;
   merchantStatisticsReturn = undefined;
   groupStatisticsID.value = undefined;
   groupStatisticsReturn = undefined;
@@ -353,7 +455,7 @@ const isGroupEditor = computed(
 const groupEditorTitle = computed(() =>
   mode.value === "create"
     ? "新增用户组"
-    : "编辑用户组 GID:" + String(selected.value.id || ""),
+    : "编辑用户组 GID:" + String(selected.value.id ?? ""),
 );
 function trapGroupFocus(event: KeyboardEvent) {
   if (!isGroupEditor.value) return;
@@ -450,6 +552,7 @@ async function refreshCase() {
   }
 }
 async function load() {
+	if(props.resource==='channels'&&props.client.area==='admin'&&props.ownSession===true&&props.adminClass==='super')return;
   merchantStatisticsID.value = undefined;
   merchantStatisticsReturn = undefined;
   groupStatisticsID.value = undefined;
@@ -540,6 +643,14 @@ async function open(
   detailController = c;
   error.value = "";
   notice.value = "";
+  if (
+    action === "delete" &&
+    props.resource === "groups" &&
+    String(row.id) === "0"
+  ) {
+    error.value = "系统自带默认用户组不支持删除";
+    return;
+  }
   fieldErrors.value = {};
   editMerchantRecipient.value = false;
   mode.value = null;
@@ -547,6 +658,16 @@ async function open(
   selected.value = row;
   if (action === "create") {
     values.value = formValues(schema.value!);
+    if (
+      props.resource === "groups" &&
+      schema.value!.fields.some((field) => field.name === "info") &&
+      Object.keys(readGroupPaymentRates(values.value.info)).length === 0
+    ) {
+      values.value.info = JSON.stringify({
+        alipay: { channel: "0", type: "", rate: "" },
+        wxpay: { channel: "0", type: "", rate: "" },
+      });
+    }
     mode.value = action;
     return;
   }
@@ -567,7 +688,7 @@ async function open(
   }
 }
 async function save() {
-  if (busy.value) return;
+  if (editingBusy.value) return;
   const current = contextEpoch;
   if (!schema.value) return;
   if (props.resource === "merchants") {
@@ -663,7 +784,21 @@ onMounted(() => {
 onBeforeUnmount(resetContext);
 </script>
 <template>
-  <section v-if="!entry || !mode" class="panel records">
+  <template v-if="resource==='channels'&&client.area==='admin'&&ownSession===true&&adminClass==='super'">
+    <ParentChannelPage :client="client" :allowed="ownSession===true&&adminClass==='super'" />
+    <ChannelStopPanel :client="client" />
+  </template>
+  <section v-else-if="!entry || !mode" class="panel records">
+    <RuntimeChannelPolicyPanel
+      v-if="
+        resource === 'channels' &&
+        client.area === 'admin' &&
+        ownSession === true &&
+        adminClass === 'super'
+      "
+      :client="client"
+      :allowed="ownSession === true && adminClass === 'super'"
+    />
     <ChannelStopPanel
       v-if="
         resource === 'channels' &&
@@ -822,10 +957,22 @@ onBeforeUnmount(resetContext);
             <td v-for="field in listFields" :key="field.name">
               <template v-if="isOriginalMerchantList && field.name === 'pay'">
                 <span class="cell"
-                  >收款：{{ merchantFieldValue("pay", row.pay) }}</span
+                  >收款配置：{{ merchantFieldValue("pay", row.pay) }}</span
                 >
                 <small class="merchant-balance-detail muted"
                   >账户：{{ consoleValue("enabled", row.enabled) }}</small
+                >
+                <small class="merchant-balance-detail muted">{{
+                  effectiveRiskDescription(
+                    row.core_risk,
+                    row.enabled === true,
+                    row.pay,
+                  )
+                }}</small>
+                <small
+                  v-if="row.settle !== undefined"
+                  class="merchant-balance-detail muted"
+                  >结算：{{ merchantFieldValue("settle", row.settle) }}</small
                 >
               </template>
               <template
@@ -951,7 +1098,8 @@ onBeforeUnmount(resetContext);
                     loading ||
                     mode !== null ||
                     !!merchantLogID ||
-                    !!merchantStatisticsID
+                    !!merchantStatisticsID ||
+                    !!manualWithdrawalID
                   "
                   @action="(action) => merchantRelatedAction(action, row.id)"
                 />
@@ -1044,6 +1192,13 @@ onBeforeUnmount(resetContext);
       :admin-class="adminClass"
     />
   </section>
+  <MerchantManualWithdrawal
+    v-if="manualWithdrawalID && canManualWithdraw"
+    :client="client"
+    :merchant-i-d="manualWithdrawalID"
+    @close="closeManualWithdrawal"
+    @changed="manualWithdrawalChanged = true"
+  />
   <AccountLoginLogDialog
     v-if="merchantLogID && canReadMerchantLogs"
     :client="client"
@@ -1084,7 +1239,7 @@ onBeforeUnmount(resetContext);
         ? 'resource-entry'
         : 'modal-backdrop' + (isGroupEditor ? ' group-edit-backdrop' : '')
     "
-    @keydown.esc="!entry && !busy && (mode = null)"
+    @keydown.esc="!entry && !editingBusy && (mode = null)"
     @keydown.tab="trapGroupFocus"
   >
     <section
@@ -1208,7 +1363,10 @@ onBeforeUnmount(resetContext);
           :values="values"
           :errors="fieldErrors"
           :editing="mode === 'edit'"
-          :disabled="busy"
+          :disabled="editingBusy"
+          :merchant-i-d="String(selected.id || '')"
+          :can-manage-credentials="canManageMerchantCredentials"
+          :signature-policy="selected.keytype"
           :recipient="selected.settlement_recipient"
           :can-edit-recipient="
             schema.fields.some((f) => f.name === 'settlement_recipient') &&
@@ -1216,6 +1374,10 @@ onBeforeUnmount(resetContext);
           "
           @change="(name, value) => (values[name] = value)"
           @recipient="editMerchantRecipient = !editMerchantRecipient"
+          @credential-busy="credentialBusy"
+          @credential-drafts-discard="discardCredentialDrafts"
+          @signature-policy-observed="observeSignaturePolicy"
+          @legacy-algorithm-discard="discardLegacyAlgorithm"
         />
         <GroupEditorFields
           v-else-if="resource === 'groups'"
@@ -1227,8 +1389,23 @@ onBeforeUnmount(resetContext);
           :disabled="busy"
           :initial-tab="groupSection"
           :return-focus="groupReturnFocus"
+          :client="client"
           @change="(name, value) => (values[name] = value)"
-        />
+        >
+          <template
+            v-if="mode === 'edit' && canManageMerchantCredentials"
+            #other
+          >
+            <CoreRiskGroupPanel
+              :key="String(selected.id)"
+              :client="client"
+              :group-i-d="String(selected.id)"
+              :allowed="true"
+              :disabled="busy"
+              @busy="groupRiskBusy = $event"
+            />
+          </template>
+        </GroupEditorFields>
         <ResourceFields
           v-else
           :fields="formSchema!.fields"
@@ -1238,16 +1415,16 @@ onBeforeUnmount(resetContext);
           @change="(name, value) => (values[name] = value)"
         />
         <div class="modal-actions">
-          <a v-if="entry && !busy" :href="entry.returnPath">返回列表</a
+          <a v-if="entry && !editingBusy" :href="entry.returnPath">返回列表</a
           ><button
             v-if="!entry"
             type="button"
-            :disabled="busy"
+            :disabled="editingBusy"
             @click="mode = null"
           >
             取消</button
-          ><button class="primary" :disabled="busy">
-            {{ busy ? "正在保存…" : "保存" }}
+          ><button class="primary" :disabled="editingBusy">
+            {{ credentialsBusy ? "正在处理…" : busy ? "正在保存…" : "保存" }}
           </button>
         </div>
       </form>

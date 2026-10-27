@@ -21,18 +21,26 @@ func thresholdPreparedRun74(t *testing.T, s *Store, mid int64, prepare func()) S
 	in := settlementPlanInputFor(mid)
 	in.Mode = settlementThresholdMode
 	in.Schedule = SettlementScheduleSpec{Frequency: "minute", Interval: 1, AnchorAt: time.Now().UTC().Truncate(time.Minute)}
+	var preparedDBClock time.Time
+	if e := s.pool.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&preparedDBClock); e != nil {
+		t.Fatal(e)
+	}
 	p, e := s.UpdateSettlementPlan(ctx, p.ID, p.Revision, in, settlementPlanAdmin)
 	if e != nil {
 		t.Fatal(e)
 	}
 	transferSetting(t, s, "auto_settle_money", "1.00")
 	transferSetting(t, s, "transfer_alipay", "7")
-	if _, e = s.AuthorizeSettlementPlan(settlementPlanGuard(t, s), p.ID, p.Revision, settlementPlanAuthorizationInput(t, s), settlementPlanAdmin); e != nil {
+	authority := settlementPlanAuthorizationInput(t, s)
+	if _, e = s.AuthorizeSettlementPlan(settlementPlanGuard(t, s), p.ID, p.Revision, authority, settlementPlanAdmin); e != nil {
 		t.Fatal(e)
 	}
 	run, e := s.CreateSettlementPlanRun(ctx, p.ID, p.Revision, settlementPlanAdmin)
 	if e != nil {
-		t.Fatal(e)
+		var failedDBClock time.Time
+		clockErr := s.pool.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&failedDBClock)
+		slot, scheduledAt, slotErr := dueSettlementSlot(in.Schedule, failedDBClock)
+		t.Fatalf("threshold run preparation: %v; host_utc=%s prepared_db_utc=%s failed_db_utc=%s clock_error=%v anchor=%s slot=%d scheduled_at=%s slot_error=%v authorization_from=%s authorization_until=%s budgets=%d/%d/%d/%d", e, time.Now().UTC().Format(time.RFC3339Nano), preparedDBClock.UTC().Format(time.RFC3339Nano), failedDBClock.UTC().Format(time.RFC3339Nano), clockErr, in.Schedule.AnchorAt.Format(time.RFC3339Nano), slot, scheduledAt.UTC().Format(time.RFC3339Nano), slotErr, authority.ValidFrom.UTC().Format(time.RFC3339Nano), authority.ExpiresAt.UTC().Format(time.RFC3339Nano), authority.MaxItemGross, authority.MaxRunGross, authority.MaxDayGross, authority.MaxDayItems)
 	}
 	return run
 }

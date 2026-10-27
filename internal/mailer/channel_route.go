@@ -11,7 +11,11 @@ func (s *SMTP) ChannelNoticeScope() string {
 	if s == nil {
 		return ""
 	}
-	raw, _ := json.Marshal([]string{"smtp", s.host, s.address, s.security, s.username, s.password, s.from})
+	fields := []string{"smtp", s.host, s.address, s.security, s.username, s.password, s.from}
+	if s.fromName != "" || s.replyTo != "" {
+		fields = append(fields, s.fromName, s.replyTo)
+	}
+	raw, _ := json.Marshal(fields)
 	d := sha256.Sum256(raw)
 	return hex.EncodeToString(d[:])
 }

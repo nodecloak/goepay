@@ -62,6 +62,9 @@ func (s *Store) BeginAuthorizationRelease(ctx context.Context, merchantID int64,
 	if e = tx.QueryRow(ctx, "SELECT id,status FROM orders WHERE trade_no=$1 AND merchant_id=$2 FOR UPDATE", tradeNo, merchantID).Scan(&id, &state); e != nil {
 		return AuthorizationRelease{}, false, ErrNotFound
 	}
+	if _, e = s.authenticatedOrderIDCharge104(ctx, tx, id); e != nil {
+		return AuthorizationRelease{}, false, e
+	}
 	old, e := scanAuthorizationRelease(tx.QueryRow(ctx, "SELECT "+authorizationReleaseColumns+" FROM payment_authorization_releases r JOIN orders o ON o.id=r.order_id WHERE r.order_id=$1", id))
 	if e == nil {
 		old, e = s.attachPreauthRemaining(ctx, tx, old)
@@ -126,7 +129,10 @@ func (s *Store) BeginAuthorizationRelease(ctx context.Context, merchantID int64,
 	e = tx.Commit(ctx)
 	return r, e == nil, e
 }
-func (s *Store) MarkAuthorizationReleaseSent(ctx context.Context, tradeNo string) error {
+func (s *Store) MarkAuthorizationReleaseSent(ctx context.Context, tradeNo string, guards ...func(context.Context, pgx.Tx) error) error {
+	if len(guards) > 1 || len(guards) == 1 && guards[0] == nil {
+		return ErrInvalid
+	}
 	tx, e := s.pool.Begin(ctx)
 	if e != nil {
 		return e
@@ -151,6 +157,11 @@ func (s *Store) MarkAuthorizationReleaseSent(ctx context.Context, tradeNo string
 	if r.SourceRevision > 0 {
 		return ErrState
 	}
+	if len(guards) == 1 {
+		if e = guards[0](ctx, tx); e != nil {
+			return e
+		}
+	}
 	tag, e := tx.Exec(ctx, "UPDATE payment_authorization_releases SET sent=true,state='processing',updated_at=now() WHERE order_id=$1 AND sent=false AND state='checking'", id)
 	if e != nil {
 		return e
@@ -160,6 +171,11 @@ func (s *Store) MarkAuthorizationReleaseSent(ctx context.Context, tradeNo string
 	}
 	if _, e = tx.Exec(ctx, "UPDATE payment_authorizations SET release_state='processing',updated_at=now() WHERE order_id=$1", id); e != nil {
 		return e
+	}
+	if len(guards) == 1 {
+		if e = guards[0](ctx, tx); e != nil {
+			return e
+		}
 	}
 	return tx.Commit(ctx)
 }

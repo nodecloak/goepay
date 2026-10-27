@@ -18,6 +18,11 @@ func (s *Server) backoffice(w http.ResponseWriter, r *http.Request, role string,
 		return false
 	}
 	service := backoffice.New(s.Pool, s.Store)
+	service.GroupRoutingChannels = s.groupPaymentChannels
+	service.GroupChannelAllowed = func(id int64, kind string) bool {
+		return s.ProviderFlow != nil && s.ProviderFlow.Providers[id] != nil && s.ProviderFlow.Providers[id].ID() == kind && len(s.ProviderFlow.Providers[id].Capabilities().Methods) > 0
+	}
+
 	if s.ProviderFlow != nil && s.ProviderFlow.AllowLive && len(s.CheckoutKey) >= 32 {
 		service.RechargeValidate = func(ctx context.Context, mid int64, params map[string]string) error {
 			p := compat.Params{}
@@ -43,7 +48,11 @@ func (s *Server) backoffice(w http.ResponseWriter, r *http.Request, role string,
 			if e != nil {
 				return backoffice.ErrInvalid
 			}
-			if validator, ok := s.ProviderFlow.Providers[channel].(provider.CreateValidator); ok {
+			resolved, e := s.paymentIntentServer(ctx, mid, p["out_trade_no"], channel)
+			if e != nil {
+				return backoffice.ErrInvalid
+			}
+			if validator, ok := resolved.ProviderFlow.Providers[channel].(provider.CreateValidator); ok {
 				base := strings.TrimRight(s.ProviderFlow.CallbackBaseURL, "/")
 				if e = validator.ValidateCreate(provider.CreateRequest{TradeNo: "preflight", Subject: "balance recharge", Method: method, ClientIP: ip, OpenID: p["sub_openid"], Amount: amount, NotifyURL: base + "/callbacks/providers/preflight", ReturnURL: base + "/"}); e != nil {
 					return backoffice.ErrInvalid

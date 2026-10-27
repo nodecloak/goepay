@@ -96,7 +96,12 @@ func TestMerchantNotice80SuccessfulHTTPLoginCreatesNoticeAfterAuthenticationOnly
 	if _, err = s.SaveSettings(ctx, 1000, 0, notice.SettingsWrite{Preferences: notice.Preferences{Login: 2}}, owner80); err != nil {
 		t.Fatal(err)
 	}
-	app := (&server.Server{Pool: pool, MerchantNotice: s, Sessions: identity.NewSessions(false)}).Handler()
+	instance := &server.Server{Pool: pool, MerchantNotice: s, Sessions: identity.NewPersistentSessions(pool, false)}
+	instance.LoginCaptcha205, err = server.NewLoginCaptchaService205ForMaster(instance, nil, make([]byte, 32), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := instance.Handler()
 	login := func(password string) int {
 		r := httptest.NewRequest("POST", "/console/v1/merchant/login", strings.NewReader(`{"username":"notice-owner80","password":"`+password+`","code":""}`))
 		r.RemoteAddr = "192.0.2.80:1234"

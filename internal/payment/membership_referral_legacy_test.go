@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
+
 	"os"
 	"path/filepath"
 	"strconv"
@@ -76,38 +76,13 @@ func membership72HistoricalStore(t *testing.T, last int) *Store {
 }
 
 func TestMembershipReferral72UpgradeCapturesOnlyActualHistoricalPurchasesAndNeverBackfills(t *testing.T) {
-	s := membership72HistoricalStore(t, 71)
+	s, facts := actualHistoricalStore155(t, "membership71")
 	ctx := context.Background()
 	promoter, buyer := int64(7220), int64(7221)
-	referralBoundMerchants(t, s, promoter, buyer)
-	o, e := s.CreateOrder(ctx, CreateOrderInput{MerchantID: buyer, OutTradeNo: "member72-legacy-credit", Amount: 1000})
-	if e != nil {
-		t.Fatal(e)
-	}
-	if e = s.MarkPaid(ctx, o.TradeNo, "member72-legacy-paid"); e != nil {
-		t.Fatal(e)
-	}
-	group := membership72Group(t, s, 300)
-	var id int64
-	// Historical schema71 SQL, not the current PurchaseMembership API. There
-	// was no membership reward source, version field or isolated income then.
-	tx, e := s.pool.Begin(ctx)
-	if e != nil {
-		t.Fatal(e)
-	}
-	defer tx.Rollback(ctx)
-	if e = tx.QueryRow(ctx, `INSERT INTO membership_purchases(merchant_id,group_id,price,group_name,external_no,duration_days,expires_at,actor) VALUES($1,$2,300,'historical','member72-original-before-upgrade',30,now()+interval '30 days','merchant:7221') RETURNING id`, buyer, group).Scan(&id); e != nil {
-		t.Fatal(e)
-	}
-	if e = post(ctx, tx, fmt.Sprintf("membership:%d", id), "membership purchase", buyer, "available", 0, "clearing", 300); e != nil {
-		t.Fatal(e)
-	}
-	if _, e = tx.Exec(ctx, "INSERT INTO memberships(merchant_id,group_id,expires_at) SELECT merchant_id,group_id,expires_at FROM membership_purchases WHERE id=$1", id); e != nil {
-		t.Fatal(e)
-	}
-	if e = tx.Commit(ctx); e != nil {
-		t.Fatal(e)
-	}
+	var group, id int64
+	facts.decode(t, "group", &group)
+	facts.decode(t, "purchase_id", &id)
+	var e error
 	raw, e := os.ReadFile("../../db/migrations/000072_membership_referral.up.sql")
 	if e != nil {
 		t.Fatal(e)

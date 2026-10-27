@@ -15,7 +15,7 @@ import (
 // charge. It receives no barcode and cannot allocate or resubmit a payment.
 // A worker's active lease is observed rather than stolen by the HTTP caller.
 func (g ProviderFlow) WaitScanRecovery(ctx context.Context, merchantID int64, tradeNo string) (Order, error) {
-	if !g.ScanRecoveryEnabled || !g.AllowLive {
+	if !g.ScanRecoveryEnabled || !g.paymentWritesEnabled() {
 		return Order{}, ErrLiveDisabled
 	}
 	ctx, stop := context.WithTimeout(ctx, 23*time.Second)

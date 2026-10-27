@@ -24,6 +24,11 @@ func (s *Store) BeginProviderAttemptWithAccount(ctx context.Context, tradeNo str
 	return s.beginProviderAttemptWithIdentity(ctx, tradeNo, channelID, method, appID, openID, accountScope)
 }
 func (s *Store) beginProviderAttemptWithIdentity(ctx context.Context, tradeNo string, channelID int64, method, appID, openID, accountScope string, terms ...*sharingPaymentIntent) (ProviderAttempt, bool, error) {
+	buyer := ""
+	if method == "jsapi" || method == "mini" || method == "preauth" {
+		buyer = openID
+	}
+	ctx = withCoreRiskBuyer(ctx, buyer)
 	hash, e := s.providerIdentityHash(channelID, method, appID, openID)
 	if e != nil {
 		return ProviderAttempt{}, false, e

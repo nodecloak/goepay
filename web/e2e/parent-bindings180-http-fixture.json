@@ -1,0 +1,467 @@
+{
+  "bound": {
+    "account": {
+      "app_types": [
+        "1",
+        "2"
+      ],
+      "appwxa": "82",
+      "appwxmp": "81",
+      "fields": [
+        {
+          "name": "publickey_path",
+          "namespace": "certificates",
+          "pem": true,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "sslcert_path",
+          "namespace": "certificates",
+          "pem": true,
+          "present": true,
+          "secret": false,
+          "value": "-----BEGIN CERTIFICATE-----\nMIIDATCCAemgAwIBAgIBAjANBgkqhkiG9w0BAQsFADAhMR8wHQYDVQQDExZwYXJl\nbnQxODAgc3ludGhldGljIENBMB4XDTI2MTAyNjE1NDcyMloXDTI2MTAyNzE2NDcy\nMlowHTEbMBkGA1UEAxMScGFyZW50MTgwLWNsaWVudC1BMIIBIjANBgkqhkiG9w0B\nAQEFAAOCAQ8AMIIBCgKCAQEAxkDgC0UMNiZHWoSLhYUP4h2JJEeo2JV3gGMYBLqM\nvoc8I+8bbaaBRIuk3G5GaoQ9mXMy2NgaATX3c1ybo045YObtly//G34k5g65KMys\nT3rFOpSuFzzhNn194kjiJA9O6NRhunyySdFo79+osvdr2QX0BLh8FcmKILkFaWjM\n3I+3QPlNqSJZ/Ukzj7mL3ILbkJPDNWobXi9w04h87/t38gFE9Ll3SEjC7Fpd0rCu\nheHwCWSU9Spa6x4pofm3KBAP9a9EZ36xvG32yfW/GA/pkJfd0nfGtX3ozGc3IbfJ\nXOzq5g+rVBsG5Ny3UnUxSuSze71zB5ERZvnw88W1EyifwQIDAQABo0gwRjAOBgNV\nHQ8BAf8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwIwHwYDVR0jBBgwFoAU9KWn\nTJWnfk7yvk8C+aghBZ52cs4wDQYJKoZIhvcNAQELBQADggEBAF9PLxPM1RNSZaJv\nPg62Ogfw3TNOFHBGsb3fAzgcAzjJLhHTBcJjA9p0M6oGWqCXs0RN7tE1RCBKmk4s\nWgYjth872pe/6ylRDkRWrsvugdDmyZWZOf+yMLi3bFXP88I+fX4Ab0URbOeipD05\n6Ja9Exd9KryiVv5aXk/AtZavolzXQjZcaexVIdhatY71FH51icqyY1slJAMtfVUx\n5smYUM9Pqe88K1biQb84CicvTookxnYZqfcnfIymyaAI4pL6dlYZ4FFNIgzokNuB\nly3AAFDXpDGLrt6vyThJLXhWVTN17Us+uRhqB9bJhGlBVw4ftuUQj4MdxiDlKPB7\nUtUXPkk=\n-----END CERTIFICATE-----\n"
+        },
+        {
+          "name": "sslkey_path",
+          "namespace": "certificates",
+          "pem": true,
+          "present": true,
+          "secret": true
+        },
+        {
+          "name": "v3_merchant_key",
+          "namespace": "certificates",
+          "pem": true,
+          "present": false,
+          "secret": true
+        },
+        {
+          "name": "appid",
+          "namespace": "config",
+          "pem": false,
+          "present": true,
+          "secret": false,
+          "value": "synthetic180-fresh"
+        },
+        {
+          "name": "appkey",
+          "namespace": "config",
+          "pem": false,
+          "present": true,
+          "secret": true
+        },
+        {
+          "name": "appmchid",
+          "namespace": "config",
+          "pem": false,
+          "present": true,
+          "secret": false,
+          "value": "synthetic180-fresh-mch"
+        },
+        {
+          "name": "bank_public_key",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "costrate",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "enable_bank_transfer",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "enable_channel_sharing",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "enable_mini_launch",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "enable_scan_pay",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "enable_web_oauth",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "h5_site_name",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "h5_site_url",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "mini_appid",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "mini_path",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "mini_program_id",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "mini_secret",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": true
+        },
+        {
+          "name": "oauth_appsecret",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": true
+        },
+        {
+          "name": "v3_api_key",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": true
+        },
+        {
+          "name": "v3_encryption_serial",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "v3_merchant_serial",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        },
+        {
+          "name": "wechat_api_version",
+          "namespace": "config",
+          "pem": false,
+          "present": false,
+          "secret": false
+        }
+      ],
+      "mode": 0,
+      "plugin": "wxpay",
+      "weixin_binding_state": {
+        "mini": {
+          "appid": "synthetic-mini-A",
+          "current": true,
+          "id": "82",
+          "revision": "1"
+        },
+        "web": {
+          "appid": "synthetic-web-A",
+          "current": true,
+          "id": "81",
+          "revision": "1"
+        }
+      }
+    },
+    "account_version": "2",
+    "archived": false,
+    "configured": true,
+    "created_at": "2026-10-27T00:47:22.536807+08:00",
+    "enabled": true,
+    "fee_rate_bps": 50,
+    "fingerprint": "5f9256bb24e3a1cd82f1125841f6cf7e664440fef86ffe1b6d2c1bf692a2c58b",
+    "id": "9",
+    "mode": 0,
+    "name": "本地新父通道180",
+    "pay_type": "wxpay",
+    "plugin": "wxpay",
+    "rate": "99.50",
+    "revision": "3",
+    "source_channel_id": "8",
+    "updated_at": "2026-10-27T00:47:22.628924+08:00"
+  },
+  "catalog": {
+    "channel_id": "9",
+    "source_channel_id": "8",
+    "fingerprint": "359e9418bdfce371fbd0c50c29b1ad435b2875ca6aa326fca2c6ebabf1cadef4",
+    "items": [
+      {
+        "id": "81",
+        "revision": "1",
+        "kind": "web",
+        "appid": "synthetic-web-A"
+      },
+      {
+        "id": "82",
+        "revision": "1",
+        "kind": "mini",
+        "appid": "synthetic-mini-A"
+      }
+    ],
+    "total": 2
+  },
+  "rotated": {
+    "configured": true,
+    "id": "9",
+    "source_channel_id": "8",
+    "name": "本地新父通道180",
+    "pay_type": "wxpay",
+    "plugin": "wxpay",
+    "revision": "4",
+    "account_version": "3",
+    "enabled": true,
+    "archived": false,
+    "mode": 0,
+    "rate": "99.50",
+    "fee_rate_bps": 50,
+    "fingerprint": "93809f863375de9b1b3daf259a237abed7c58abf485f73d03da0bcdbcff8d9dc",
+    "account": {
+      "appwxmp": "81",
+      "appwxa": "82",
+      "weixin_binding_state": {
+        "web": {
+          "id": "81",
+          "revision": "2",
+          "appid": "synthetic-web-B",
+          "current": true
+        },
+        "mini": {
+          "id": "82",
+          "revision": "2",
+          "appid": "synthetic-mini-B",
+          "current": true
+        }
+      },
+      "plugin": "wxpay",
+      "app_types": [
+        "1",
+        "2"
+      ],
+      "mode": 0,
+      "fields": [
+        {
+          "name": "publickey_path",
+          "namespace": "certificates",
+          "secret": false,
+          "pem": true,
+          "present": false
+        },
+        {
+          "name": "sslcert_path",
+          "namespace": "certificates",
+          "secret": false,
+          "pem": true,
+          "present": true,
+          "value": "-----BEGIN CERTIFICATE-----\nMIIDATCCAemgAwIBAgIBAzANBgkqhkiG9w0BAQsFADAhMR8wHQYDVQQDExZwYXJl\nbnQxODAgc3ludGhldGljIENBMB4XDTI2MTAyNjE1NDcyMloXDTI2MTAyNzE2NDcy\nMlowHTEbMBkGA1UEAxMScGFyZW50MTgwLWNsaWVudC1CMIIBIjANBgkqhkiG9w0B\nAQEFAAOCAQ8AMIIBCgKCAQEA0xRpNFrXWhI8NrRE8ozZIeqnBnn9bRlRUhHS/+Ie\nExhr0cqYROcnguKw9Pr8juhKeqPBG4WUen2RL+oQhUTOdZ/qwNuH3J3sPbz20i+7\nyvfGMBDli63HwHnxmS5zFWf6QNMHG9i/edhitrZzpFySSFKoSXhPPUgCi/XcDeUI\nKnXr+h6hBRGqHkvx32di8buSOACrKV3wjS8VhOfTYQ+OFZrgdWQUDMBJHH3Ruj9X\nh2rOXOWP00RSMDSnA7tjcJWUMyO9hxhfuC+iPn0jFhJeq6CptI8VSpk4y5RMOiYC\nBo1WbUFH3Mi+NdtDaxomhJz/BfdVTqcsn42avJuXEvL/GQIDAQABo0gwRjAOBgNV\nHQ8BAf8EBAMCBaAwEwYDVR0lBAwwCgYIKwYBBQUHAwIwHwYDVR0jBBgwFoAU9KWn\nTJWnfk7yvk8C+aghBZ52cs4wDQYJKoZIhvcNAQELBQADggEBAE19P9JtwNCYfgG2\nVrMuLT9ox2TxsKgcGKtBpMAZEfFsuScuvZHQcyjwFoSY6OcS21SpQi6VQNBE0TH4\nNhtsIy0mzTnINSzV90Hl+i/oK02KD8z4qn94I+1ItTkmVzXBOFwMFBKwLkyDfJZ6\nGxbDb8G/BoCzAjkbkWKslSCOVwopNv9mdCd34yXmFpiGJ+TsUhahnmTfBAf1ljuu\nwdKrIUc9usIXPg8eljClUVS5MNCYawfDMtgJEwp/Jev6a7KAmAv7OOCS0y5rdzzW\nZ5Z4/jtQ+prnZi4XtbTFnZ0tLGEBU5hbot/NRtw2NwfNrJl7vmOxKTHRu/c6clns\n2dFh0mc=\n-----END CERTIFICATE-----\n"
+        },
+        {
+          "name": "sslkey_path",
+          "namespace": "certificates",
+          "secret": true,
+          "pem": true,
+          "present": true
+        },
+        {
+          "name": "v3_merchant_key",
+          "namespace": "certificates",
+          "secret": true,
+          "pem": true,
+          "present": false
+        },
+        {
+          "name": "appid",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": true,
+          "value": "synthetic180-fresh"
+        },
+        {
+          "name": "appkey",
+          "namespace": "config",
+          "secret": true,
+          "pem": false,
+          "present": true
+        },
+        {
+          "name": "appmchid",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": true,
+          "value": "synthetic180-fresh-mch"
+        },
+        {
+          "name": "bank_public_key",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "costrate",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "enable_bank_transfer",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "enable_channel_sharing",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "enable_mini_launch",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "enable_scan_pay",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "enable_web_oauth",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "h5_site_name",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "h5_site_url",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "mini_appid",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "mini_path",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "mini_program_id",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "mini_secret",
+          "namespace": "config",
+          "secret": true,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "oauth_appsecret",
+          "namespace": "config",
+          "secret": true,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "v3_api_key",
+          "namespace": "config",
+          "secret": true,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "v3_encryption_serial",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "v3_merchant_serial",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        },
+        {
+          "name": "wechat_api_version",
+          "namespace": "config",
+          "secret": false,
+          "pem": false,
+          "present": false
+        }
+      ]
+    },
+    "created_at": "2026-10-27T00:47:22.536807+08:00",
+    "updated_at": "2026-10-27T00:47:22.959991+08:00"
+  },
+  "scope": "Actual HTTP from a disposed synthetic database schema; no provider credentials"
+}

@@ -10,13 +10,17 @@ type channelNoticeSettingsReader interface {
 	AdminChannelNoticeSettings(context.Context) (map[string]string, error)
 }
 type channelNoticeRuntime struct {
-	getenv   func(string) string
-	settings channelNoticeSettingsReader
-	mu       sync.Mutex
-	sender   payment.ChannelNoticeSender
+	mailAccounts mailAccountResolver195
+	getenv       func(string) string
+	settings     channelNoticeSettingsReader
+	mu           sync.Mutex
+	sender       payment.ChannelNoticeSender
 }
 
 func newChannelNoticeRuntime(ctx context.Context, r channelNoticeSettingsReader, getenv func(string) string) (*channelNoticeRuntime, error) {
+	return newManagedChannelNoticeRuntime195(ctx, r, getenv, nil)
+}
+func newManagedChannelNoticeRuntime195(ctx context.Context, r channelNoticeSettingsReader, getenv func(string) string, mailAccounts mailAccountResolver195) (*channelNoticeRuntime, error) {
 	if getenv == nil {
 		return nil, errChannelNoticeConfiguration
 	}
@@ -24,7 +28,7 @@ func newChannelNoticeRuntime(ctx context.Context, r channelNoticeSettingsReader,
 		_, _, e := configuredChannelNotices(getenv)
 		return nil, e
 	}
-	out := &channelNoticeRuntime{getenv: getenv, settings: r}
+	out := &channelNoticeRuntime{getenv: getenv, settings: r, mailAccounts: mailAccounts}
 	if _, _, e := out.Resolve(ctx); e != nil {
 		return nil, e
 	}
@@ -57,7 +61,22 @@ func (r *channelNoticeRuntime) Resolve(ctx context.Context) (payment.ChannelNoti
 		}
 		return r.getenv(key)
 	}
-	sender, to, e := configuredChannelNotices(getenv)
+	sender, to, e := configuredChannelNoticesWithSMTP195(getenv, func() (payment.ChannelNoticeSender, error) {
+		if r.mailAccounts == nil {
+			return nil, nil
+		}
+		sender, managed, e := r.mailAccounts.ResolveSMTP(ctx)
+		if e != nil {
+			return nil, errChannelNoticeConfiguration
+		}
+		if !managed {
+			return nil, nil
+		}
+		if sender == nil {
+			return nil, errChannelNoticeConfiguration
+		}
+		return sender, nil
+	})
 	if e != nil || sender == nil {
 		return nil, "", errChannelNoticeConfiguration
 	}

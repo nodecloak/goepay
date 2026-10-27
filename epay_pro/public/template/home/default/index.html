@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html class="no-js" lang="zh" data-attr-t lang-t="lang">
+<head>
+    <meta charset="utf-8"/>
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>{:config_get('title')}</title>
+    <link rel="stylesheet" href="{$template_path}assets/css/app.css">
+    <meta name="description" content="{:config_get('description')}"/>
+    <meta name="keywords" content="{:config_get('keywords')}"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+</head>
+<body class="">
+    <div class="top-bar-wrapper" id="index-top-bar">
+        <div class="row align-center">
+            <div class="title-bar show-for-small-only">
+                <div class="title-bar-title">
+                    <a href="/" >
+                        <div style="height: 35px;width: 130px" class="top-bar__logo"></div>
+                    </a>
+                </div>
+                <a id="hamburger" class="title-bar__toggle" href="javascript:void(0);">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </a>
+            </div>
+            <div class="small-11 medium-8 large-8 hide-for-small-only">
+                <div class="top-bar">
+                    <div class="top-bar-title">
+                        <a href="/">
+                            <div style="height: 35px;width: 130px" class="top-bar__logo"></div>
+                        </a>
+                    </div>
+                    <div class="top-bar-left">
+                        <ul class="dropdown menu" data-dropdown-menu>
+                            <li>
+                                <a href="/" data-t="top-nav.more">首页</a>
+                            </li>
+                            {if config_get('test_open')}<li>
+                                <a href="/user/test" >测试支付</a>
+                            </li>{/if}
+                            <li>
+                                <a href="/doc" >开发文档</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="top-bar-right">
+                        <ul class="dropdown menu" data-dropdown-menu>
+                            {if $islogin}
+                            <li><a href="/user/" class="login-link">用户中心</a></li>
+                            {else}
+                            <li><a href="/user/" class="login-link">登录</a></li>
+                            <li><a href="/user/#/auth/register" class="button cta hollow small" data-t="top-nav.signup">注册</a></li>
+                            {/if}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="mobile-nav show-for-small-only" id="sidebar-menu">
+        <ul>
+            <li><a href="/">首页</a></li>
+            {if config_get('test_open')}<li><a href="/user/test" >测试支付</a></li>{/if}
+            <li><a href="/doc" >开发文档</a></li>
+            {if $islogin}
+            <li class="divider"><a href="/user/" class="login-link">用户中心</a></li>
+            {else}
+            <li class="divider"><a href="/user/" class="login-link">登录</a></li>
+            <li><a href="/user/#/auth/register">注册</a></li>
+            {/if}
+        </ul>
+    </div>
+    <div class="ui-mask"></div>
+<div>
+    <section class="home-header-container row align-center  align-middle">
+        <div class="large-8 medium-8 small-11 align-center  align-middle ">
+            <div class="row align-center align-middle">
+                <div class="large-6 medium-6 small-12">
+                    <div class="row align-middle">
+                        <div class="large-10 small-12 ">
+                            <div>
+                                <h2 class="hide-for-small-only">{:config_get('sitename')}</h2>
+                            </div>
+                            <h2 class="show-for-small-only">{:config_get('sitename')}</h2>
+                            <p class="content">{:config_get('sitename')}产品整合了全渠道支付收款、钱包账户管理、合规分账等服务于一体，全面助力平台企业，繁荣业务生态，更合规高效。</p>
+
+                            {if $islogin}
+                            <a class="free_try" href="/user/">用户中心</a>
+                            {else}
+                            <a class="free_try" href="/user/">加入我们</a>
+                            {/if}
+                        </div>
+                    </div>
+                </div>
+                <div class="large-6 medium-6 small-12">
+                    <div class="row align-middle home-img-box">
+                        <div class="large-10 small-12">
+                            <img src="{$template_path}assets/images/ip.png" alt=""/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+<section class="service-box hide-for-small-only">
+    <div class="row">
+        <div class="fixed-element large-6 medium-6">
+            <div class="left-content">
+                <ul class="controls-nav" id="controls-nav">
+                    <li class="controls-item scroll1  active"></li>
+                    <li class="controls-item scroll2"></li>
+                    <!-- <li class="controls-item scroll3"></li> -->
+                </ul>
+                <ul class="left-text">
+                    <li class="cont-box left1 active row">
+                        <div>
+                            <img src="{$template_path}assets/images/icon1.png" alt=""/>
+                            <h4>让分账业务安全合规</h4>
+                            <p>携手多家银行，为平台提供合规、专业、安全的服务； {:config_get('sitename')} 团队有丰富的资金合规分账解决方案经验，能够精确匹配分账业务场景诉求，为平台业务保驾护航。</p>
+                        </div>
+                    </li>
+                    <li class="cont-box left2 row">
+                        <div>
+                            <img src="{$template_path}assets/images/icon2.png" alt=""/>
+                            <h4>让支付接入简单明了</h4>
+                            <p>不论是使用微信、支付宝，不论是在App、小程序、公众号哪种载体，一点接入所有主流支付渠道，{:config_get('sitename')}给你最简单、快捷的接入体验，彻底告别繁琐的支付接入流程。</p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            <div class="right-bg">
+                <div class="circle-bg"></div>
+                <div class="dashed1"></div>
+                <div class="dashed2"></div>
+            </div>
+        </div>
+        <div class="right-content large-6 medium-6">
+            <ul>
+                <li class="cont-box" id="scroll1"><img src="{$template_path}assets/images/group1.png" alt=""/></li>
+                <li class="cont-box" id="scroll2"><img src="{$template_path}assets/images/group2.png" alt=""/></li>
+                <!-- <li class="cont-box" id="scroll3"><img src="{$template_path}assets/images/group3.png" alt="" /></li> -->
+            </ul>
+        </div>
+    </div>
+</section>
+<div class="show-for-small-only">
+    <section class="service-box-m">
+        <div class="service-content-item-m row align-center">
+            <div class="small-11">
+                <img class="icon" src="{$template_path}assets/images/icon1.png" alt=""/>
+                <h4>让分账业务安全合规</h4>
+                <p>携手多家银行，为平台提供合规、专业、安全的服务；{:config_get('sitename')}团队有丰富的资金合规分账解决方案经验，能够精确匹配分账业务场景诉求，为平台业务保驾护航。</p>
+            </div>
+            <div class="small-11 align-center">
+                <img src="{$template_path}assets/images/group1.png" alt=""/>
+            </div>
+        </div>
+        <div class="service-content-item-m row align-center">
+            <div class="small-11">
+                <img class="icon" src="{$template_path}assets/images/icon2.png" alt=""/>
+                <h4>让支付接入简单明了</h4>
+                <p>不论是使用微信、支付宝，不论是在App、小程序、公众号哪种载体，一点接入所有主流支付渠道，{:config_get('sitename')}给你最简单、快捷的接入体验，彻底告别繁琐的支付接入流程。</p>
+            </div>
+            <div class="small-11 align-center">
+                <img src="{$template_path}assets/images/group2.png" alt=""/>
+            </div>
+        </div>
+    </section>
+    </div>
+        <div class="bottom-contact-us row align-center ">
+        <div class="large-8 medium-8 small-10">
+            <div class="row align-middle">
+                <div class="large-7 medium-7 hide-for-small-only">
+                    <img src="{$template_path}assets/images/contact-us.png" alt=""/>
+                </div>
+                <div class="large-5 medium-5 small-12 text-center ">
+                    <div class="contact-content">
+                        <h3 class="large-12 small-12 medium-12">让交易更有价值</h3>
+                        <p class="large-12 small-12 medium-12">立即获取企业专属的解决方案</p>
+                        <a href="javascript:$('.service-qr-div').show();" class="contact-btn"
+                           data-t="bottom-cta.default.cta">联系我们</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="row align-center hide-for-small-only">
+            <div class="large-8 medium-11 small-8 columns">
+                <ul class="row">
+                    <li>
+                        <dl>
+                            <dt>产品</dt>
+                            <dd><a href="#">聚合支付</a></dd>
+                            <dd><a href="#">合规分账</a></dd>
+                            <dd><a href="#">风控管理</a></dd>
+                        </dl>
+                    </li>
+                    <li>
+                        <dl>
+                            <dt>解决方案</dt>
+                            <dd><a href="#">零售行业</a></dd>
+                            <dd><a href="#">电商行业</a></dd>
+                            <dd><a href="#">餐饮行业</a></dd>
+                            <dd><a href="#">服务行业</a></dd>
+                        </dl>
+                    </li>
+                    <li>
+                        <dl>
+                            <dt>协议政策</dt>
+                            <dd><a href="/agreement.html" target="_blank">《服务条款》</a></dd>
+                        </dl>
+                    </li>
+                    <li>
+                        <dl>
+                            <dt>关于我们</dt>
+                            <dd><a href="#">资讯动态</a></dd>
+                            <dd><a href="#">关于我们</a></dd>
+                            <dd><a href="#">加入我们</a></dd>
+                        </dl>
+                    </li>
+                    <li class="contact-us">
+                        <dl>
+                            <dt>联系我们</dt>
+                            {if config_get('kfqq')}<dd>QQ:<a href="{:config_get('kfqq_url')}" target="_blank">{:config_get('kfqq')}</a>{if config_get('kfqq_url')}<span class="contact-qr-wrap" data-qr-link="{:config_get('kfqq_url')}"><span class="contact-qr-icon" title="查看二维码"></span><span class="contact-qr-pop"><span class="contact-qr-canvas" aria-label="QQ二维码"></span></span></span>{/if}</dd>{/if}
+                            {if config_get('wework_url')}<dd>微信:<a href="{:config_get('wework_url')}" target="_blank">企业微信</a><span class="contact-qr-wrap" data-qr-link="{:config_get('wework_url')}"><span class="contact-qr-icon" title="查看二维码"></span><span class="contact-qr-pop"><span class="contact-qr-canvas" aria-label="微信二维码"></span></span></span></dd>{/if}
+                            {if config_get('email')}<dd>邮箱:<a href="mailto:{:config_get('email')}" target="_blank">{:config_get('email')}</a></dd>{/if}
+                            <dd></dd>
+                        </dl>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="row align-center show-for-small-only">
+            <div class="small-11">
+                <ul>
+                    <li>
+                        <p class="nav-title">产品</p>
+                        <div class="nav-content">
+                            <p><a href="#">聚合支付</a></p>
+                            <p><a href="#">合规分账</a></p>
+                            <p><a href="#">风控管理</a></p>
+                        </div>
+                    </li>
+                    <li>
+                        <p class="nav-title">解决方案</p>
+                        <div class="nav-content">
+                            <p><a href="#">电商行业</a></p>
+                            <p><a href="#">零售行业</a></p>
+                            <p><a href="#">餐饮行业</a></p>
+                            <p><a href="#">服务行业</a></p>
+                        </div>
+                    </li>
+                    <li>
+                        <p class="nav-title">协议政策</p>
+                        <div class="nav-content">
+                            <p><a href="/agreement.html" target="_blank">《服务条款》</a></p>
+                        </div>
+                    </li>
+                    <li>
+                        <p class="nav-title">探索{:config_get('sitename')}</p>
+                        <div class="nav-content">
+                            <p><a href="#">资讯动态</a></p>
+                            <p><a href="#">关于我们</a></p>
+                            <p><a href="#">加入我们</a></p>
+                        </div>
+                    </li>
+                </ul>
+                <div class="row nav-consult align-center text-center contact-us">
+                    <p class="title">联系我们</p>
+                    {if config_get('kfqq')}<p class="phone">QQ:<a href="{:config_get('kfqq_url')}" target="_blank">{:config_get('kfqq')}</a></p>{/if}
+                    {if config_get('wework_url')}<p class="phone">微信:<a href="{:config_get('wework_url')}" target="_blank">企业微信</a></p>{/if}
+                    {if config_get('email')}<p class="phone">邮箱:<a href="mailto:{:config_get('email')}" target="_blank">{:config_get('email')}</a></p>{/if}
+                    <p></p>
+                </div>
+            </div>
+        </div>
+        <div class="beian row align-center">
+            <p>
+                <span>&copy; {:config_get('sitename')} </span>
+                <span>{:config_get('footer')}</span>
+            </p>
+        </div>
+    </footer>
+<script src="{$cdnpublic}jquery/3.7.1/jquery.min.js"></script>
+<script src="{$cdnpublic}qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="{$template_path}assets/js/app.js"></script>
+</body>
+</html>

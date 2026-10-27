@@ -70,7 +70,7 @@ func (g ProviderFlow) batchTransferLocal(ctx context.Context, t Transfer) (Trans
 	return t, false, nil
 }
 func (g ProviderFlow) claimBatchItem(ctx context.Context, mid, batchID int64, item TransferBatchItem, actor TransferBatchActor, check TransferBatchCheck, execution *batchExecution) (Transfer, bool, error) {
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return Transfer{}, false, ErrLiveDisabled
 	}
 	if e := g.Store.checkTransferAccount(ctx, g.Store.pool, item.Transfer.ID, g.Providers[item.Transfer.ChannelID]); e != nil {
@@ -89,6 +89,18 @@ func (g ProviderFlow) claimBatchItem(ctx context.Context, mid, batchID int64, it
 		return Transfer{}, false, e
 	}
 	defer tx.Rollback(ctx)
+	if g.parentBindings[item.Transfer.ChannelID] != nil {
+		var parentOwner int64
+		if e = tx.QueryRow(ctx, `SELECT id FROM merchants WHERE id=$1 FOR NO KEY UPDATE`, mid).Scan(&parentOwner); e != nil {
+			return Transfer{}, false, e
+		}
+		if e = parentChannelLock(ctx, tx, item.Transfer.ChannelID); e != nil {
+			return Transfer{}, false, e
+		}
+		if e = g.checkParentTransferWriteTx(ctx, tx, item.Transfer); e != nil {
+			return Transfer{}, false, e
+		}
+	}
 	var active bool
 	var raw []byte
 	if e = tx.QueryRow(ctx, "SELECT enabled,profile FROM merchants WHERE id=$1 FOR NO KEY UPDATE", mid).Scan(&active, &raw); e != nil {
@@ -144,6 +156,9 @@ func (g ProviderFlow) claimBatchItem(ctx context.Context, mid, batchID int64, it
 	if _, e = tx.Exec(ctx, "INSERT INTO jobs(event_key,kind,payload,run_at) VALUES($1,'transfer.reconcile',jsonb_build_object('transfer_id',$2::bigint),statement_timestamp()+interval '30 seconds') ON CONFLICT DO NOTHING", fmt.Sprintf("batch-transfer:%d:reconcile", t.ID), t.ID); e != nil {
 		return t, false, e
 	}
+	if e = g.checkParentTransferWriteTx(ctx, tx, t); e != nil {
+		return t, false, e
+	}
 	if e = tx.Commit(ctx); e != nil {
 		return t, false, e
 	}
@@ -166,7 +181,7 @@ func (g ProviderFlow) ExecuteTransferBatch(ctx context.Context, mid, id int64, l
 	if g.Store == nil || !actor.valid(mid) || limit < 1 || limit > 100 {
 		return TransferBatch{}, ErrInvalid
 	}
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return TransferBatch{}, ErrLiveDisabled
 	}
 	b, e := g.Store.TransferBatch(ctx, mid, id)
@@ -193,7 +208,12 @@ func (g ProviderFlow) ExecuteTransferBatch(ctx context.Context, mid, id int64, l
 			operationErr = ctx.Err()
 			break
 		}
-		t, owner, err := g.claimBatchItem(ctx, mid, id, item, actor, check, execution)
+		original, err := g.ParentTransferIntent(ctx, item.Transfer)
+		if err != nil {
+			operationErr = err
+			break
+		}
+		t, owner, err := original.claimBatchItem(ctx, mid, id, item, actor, check, execution)
 		if err != nil {
 			operationErr = err
 			break
@@ -208,20 +228,20 @@ func (g ProviderFlow) ExecuteTransferBatch(ctx context.Context, mid, id int64, l
 				break
 			}
 		}
-		if err = g.Store.checkTransferAccount(ctx, g.Store.pool, t.ID, g.Providers[t.ChannelID]); err != nil {
+		if err = g.Store.checkTransferAccount(ctx, g.Store.pool, t.ID, original.Providers[t.ChannelID]); err != nil {
 			operationErr = err
 			break
 		}
-		if err = g.batchProviderMatches(item); err != nil {
+		if err = original.batchProviderMatches(item); err != nil {
 			operationErr = err
 			break
 		}
-		p, ok := g.Providers[t.ChannelID].(adapter.TransferProvider)
+		p, ok := original.Providers[t.ChannelID].(adapter.TransferProvider)
 		if !ok {
 			operationErr = adapter.ErrUnsupported
 			break
 		}
-		current, sendErr := g.sendClaimedTransfer(ctx, t, p)
+		current, sendErr := original.sendClaimedTransfer(ctx, t, p)
 		state := current.Status
 		if state == "" {
 			state = "unknown"

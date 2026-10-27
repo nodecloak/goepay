@@ -1,0 +1,30 @@
+{
+    "name": "qcloud",
+    "title": "腾讯云短信",
+    "author": "官方",
+    "link": "https://cloud.tencent.com/product/sms",
+    "version": "1.0",
+    "icon": "qcloud.png",
+    "desc": "",
+    "inputs": {
+        "appid": {
+            "name": "SDKAppID",
+            "type": "input",
+            "required": true,
+            "note": ""
+        },
+        "appkey": {
+            "name": "App Key",
+            "type": "input",
+            "required": true,
+            "note": ""
+        },
+        "sign": {
+            "name": "短信签名",
+            "type": "input",
+            "required": true,
+            "note": "已申请并报备的短信签名内容"
+        }
+    },
+    "note": "<a href=\"https://console.cloud.tencent.com/smsv2\" target=\"_blank\" rel=\"noreferrer\">腾讯云短信控制台</a>，在应用列表->点击应用进入可查看密钥信息"
+}

@@ -155,6 +155,9 @@ func (s *Store) createSettlementPlanRun(ctx context.Context, id, expected int64,
 	if err != nil {
 		return out, err
 	}
+	if original, ok := ctx.Value(scheduledTaskSettlementSlotKey{}).(scheduledTaskSettlementExpected); ok && (original.PlanID != id || original.Slot != slot) {
+		return out, ErrState
+	}
 	day, err := settlementBusinessDate(now, 0)
 	if err != nil {
 		return out, err

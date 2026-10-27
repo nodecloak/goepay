@@ -1,3 +1,4 @@
+import { openMerchantOrderDetails } from "./fixtures/merchant-order-navigation";
 import { test, expect } from "@playwright/test";
 const ok = (data: unknown, status = 200) => ({
   status,
@@ -46,7 +47,7 @@ test("order detail queries only after a click and unknown close remains unverifi
     );
   });
   await page.goto("/merchant/trade/order");
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   const dialog = page.getByRole("dialog", { name: "订单详情" });
   await expect(dialog).toContainText("商户入账额（元）0.99");
   expect(queries).toBe(0);
@@ -84,12 +85,34 @@ test("a 202 refund is described as unknown even when its snapshot has a terminal
       );
     if (path.endsWith("/refund"))
       return route.fulfill(ok({ refund_no: "R-1", status: "succeeded" }, 202));
+    const order = {
+      trade_no: "ORDER-1",
+      status: "paid",
+      amount: "100",
+      refunded_amount: "0",
+      merchant_actions: { refund: true },
+    };
     return route.fulfill(
-      ok({ items: [{ trade_no: "ORDER-1", status: "paid" }], total: 1 }),
+      ok(
+        path.endsWith("/orders/ORDER-1")
+          ? {
+              order: {
+                trade_no: order.trade_no,
+                status: order.status,
+                amount: order.amount,
+              },
+              reporting: { refunded_amount: "0" },
+              merchant_actions: { refund: true },
+            }
+          : { items: [order], total: 1 },
+      ),
     );
   });
   await page.goto("/merchant/trade/order");
-  await page.getByRole("button", { name: "申请退款", exact: true }).click();
+  await page
+    .getByRole("button", { name: "订单操作 ORDER-1", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "退款", exact: true }).click();
   await page.getByLabel("退款金额（元）").fill("0.01");
   await page.getByRole("button", { name: "确认申请退款", exact: true }).click();
   await expect(page.locator(".alert.success")).toContainText("结果尚未核实");

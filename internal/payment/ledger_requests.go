@@ -114,6 +114,7 @@ func (s *Store) requestFundsTxSettlement(ctx context.Context, tx pgx.Tx, kind st
 		return LedgerRequest{}, e
 	}
 	var terms *SettlementTerms
+	var selectedSettlementDeadline time.Time
 	required := amount
 	if kind == "settlements" {
 		var policy SettlementPolicy
@@ -121,7 +122,9 @@ func (s *Store) requestFundsTxSettlement(ctx context.Context, tx pgx.Tx, kind st
 		if threshold, ok := ctx.Value(settlementThresholdRequestKey{}).(*settlementThresholdRequest); ok {
 			policy, err = s.thresholdRequestPolicy(ctx, tx, threshold, merchantID, externalNo, amount, configID)
 		} else {
-			policy, err = readSettlementPolicy(ctx, tx, true)
+			var selected merchantSettlementSelection
+			selected, err = readMerchantSettlementSelection(ctx, tx, merchantID, true)
+			policy, selectedSettlementDeadline = selected.Policy, selected.ValidUntil
 		}
 		if err != nil {
 			return LedgerRequest{}, err
@@ -149,7 +152,7 @@ func (s *Store) requestFundsTxSettlement(ctx context.Context, tx pgx.Tx, kind st
 			return LedgerRequest{}, ErrState
 		}
 	}
-	if e = requireOutgoingFunds(ctx, tx, merchantID, required); e != nil {
+	if e = s.requireOutgoingFunds(ctx, tx, merchantID, required); e != nil {
 		return LedgerRequest{}, e
 	}
 	if e = requireFundsAction(ctx, tx, "funds-request", fmt.Sprintf("%s:%d:%s", kind, merchantID, externalNo)); e != nil {
@@ -183,6 +186,12 @@ func (s *Store) requestFundsTxSettlement(ctx context.Context, tx pgx.Tx, kind st
 		// Recheck the effective mode before creating this new financial intent.
 		if e = requireNewSettlementAccess(ctx, tx, merchantID); e != nil {
 			return LedgerRequest{}, e
+		}
+		// All possible group rows, membership and fee settings remain locked.
+		// Only the captured membership deadline can invalidate this price; reuse
+		// it instead of repeating the same locked configuration reads.
+		if !selectedSettlementDeadline.IsZero() && !operationAt.Before(selectedSettlementDeadline) {
+			return LedgerRequest{}, ErrConflict
 		}
 		createdAt = operationAt
 	}

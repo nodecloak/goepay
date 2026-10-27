@@ -115,6 +115,28 @@ func consoleListFilters(q url.Values, role, kind, tenant string, mid int64, args
 		}
 		bind("o.type=$%d", raw)
 	}
+	for _, key := range []string{"subchannel", "subchannel_id"} {
+		if len(q[key]) > 1 || len(q[key]) == 1 && q.Get(key) == "" {
+			return "", nil, errListFilter
+		}
+	}
+	childID := q.Get("subchannel_id")
+	if legacy := q.Get("subchannel"); legacy != "" {
+		if childID != "" && childID != legacy {
+			return "", nil, errListFilter
+		}
+		childID = legacy
+	}
+	if childID != "" {
+		if kind != "orders" {
+			return "", nil, errListFilter
+		}
+		child, e := strconv.ParseInt(childID, 10, 64)
+		if e != nil || child <= 0 || strconv.FormatInt(child, 10) != childID {
+			return "", nil, errListFilter
+		}
+		bind("EXISTS(SELECT 1 FROM payment_subchannel_routes child_route WHERE child_route.merchant_id=o.merchant_id AND child_route.out_trade_no=o.out_trade_no AND child_route.subchannel_id=$%d)", child)
+	}
 	if raw := q.Get("channel_id"); raw != "" {
 		channel, e := strconv.ParseInt(raw, 10, 64)
 		if e != nil || channel <= 0 {

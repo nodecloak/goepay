@@ -76,14 +76,15 @@ func TestLoginRateLimitSeparatedAndBounded(t *testing.T) {
 	if !s.allowLogin("127.0.0.1:1000", "admin", "a", now.Add(16*time.Minute)) {
 		t.Fatal("expired attempts retained")
 	}
-	s.attempts = make(map[string]attempt, 10000)
+	limits := s.sharedRequestLimits()
+	limits.attempts = make(map[string]attempt, 10000)
 	for i := 0; i < 10000; i++ {
-		s.attempts[fmt.Sprint(i)] = attempt{count: 1, since: now}
+		limits.attempts[fmt.Sprint(i)] = attempt{count: 1, since: now}
 	}
 	if s.allowLogin("127.0.0.1:1000", "admin", "new", now) {
 		t.Fatal("unbounded new key")
 	}
-	if len(s.attempts) > 10000 {
+	if len(limits.attempts) > 10000 {
 		t.Fatal("unbounded map")
 	}
 }

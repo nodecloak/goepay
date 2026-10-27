@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { ApiClient } from "../api";
 import {
   manualPrintBody,
@@ -14,6 +14,7 @@ const props = defineProps<{
   tradeNo: string;
   ownSession: boolean;
 }>();
+const emit = defineEmits<{ busy: [value: boolean] }>();
 const owner = computed(
   () => props.client.area === "merchant" && props.ownSession,
 );
@@ -29,6 +30,11 @@ const busy = ref(false),
   externalNo = ref("");
 const pendingRecovery = ref<{ id: string; taskID: string } | null>(null),
   recoveryUncertain = ref(false);
+watch(
+  () => busy.value || uncertain.value || recoveryUncertain.value,
+  (value) => emit("busy", value),
+  { flush: "sync" },
+);
 const controller = new AbortController();
 let alive = true;
 const blocked = computed(
@@ -184,6 +190,7 @@ async function more() {
 onBeforeUnmount(() => {
   alive = false;
   controller.abort();
+  emit("busy", false);
 });
 </script>
 <template>

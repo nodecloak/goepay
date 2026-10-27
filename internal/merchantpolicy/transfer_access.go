@@ -91,6 +91,10 @@ func readTransferAccess(ctx context.Context, q Reader, mid int64, lock bool, at 
 	if mid <= 0 {
 		return TransferAccess{}, ErrInvalid
 	}
+	permission, e := ReadSettlementPermission(ctx, q, mid, lock)
+	if e != nil {
+		return TransferAccess{}, e
+	}
 	suffix := ""
 	if lock {
 		suffix = " FOR SHARE"
@@ -146,7 +150,7 @@ func readTransferAccess(ctx context.Context, q Reader, mid int64, lock bool, at 
 	for attempt := 0; attempt < 2; attempt++ {
 		group := ""
 		disabled := false
-		if *gid > 0 {
+		if *gid >= 0 {
 			var raw []byte
 			var enabled *string
 			e = q.QueryRow(ctx, `SELECT body->'user_transfer',body->>'enabled' FROM backoffice_records WHERE resource='groups' AND id=$1`+suffix, *gid).Scan(&raw, &enabled)
@@ -184,6 +188,10 @@ func readTransferAccess(ctx context.Context, q Reader, mid int64, lock bool, at 
 		if disabled {
 			access.Enabled = false
 			access.Source = "group_disabled"
+		}
+		if !permission.Allowed {
+			access.Enabled = false
+			access.Source = "merchant_settle"
 		}
 		return access, nil
 	}

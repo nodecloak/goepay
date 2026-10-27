@@ -1,0 +1,84 @@
+{extend name="common/applyments_page" /}
+{block name="main"}
+<style>tbody tr>td:nth-child(1){width:180px}</style>
+<div class="panel panel-primary">
+<div class="panel-heading"><h3 class="panel-title">进件处理中，请稍候...</h3></div>
+<div class="panel-body">
+<div class="col-xs-12 col-sm-10 col-md-8 col-lg-6 center-block" style="float: none;">
+<div class="table-responsive">
+<table class="table table-hover table-bordered text-center" id="taskTable">
+    <thead>
+        <tr>
+            <th class="text-center">任务名称</th>
+            <th class="text-center">执行状态</th>
+        </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</table>
+</div>
+<div class="alert alert-warning" style="display:none" id="error-alert">执行失败，可<a href="javascript:location.reload();">点此刷新页面</a>重试</div>
+</div>
+</div>
+</div>
+<script>var taskList = {$taskList|json_encode|raw}</script>
+<script>
+$(document).ready(function(){
+	var tbody = $('#taskTable tbody');
+	taskList.forEach(function(task) {
+		var row = $('<tr>');
+		row.append('<td>' + task.name + '</td>');
+		if(task.done){
+			row.append('<td><span class="label label-success">已完成</span></td>');
+		}else{
+			row.append('<td id="task'+task.code+'"></td>');
+		}
+		tbody.append(row);
+	});
+	setTimeout(function(){executeTasks(taskList, 0);}, 100);
+})
+function executeTasks(tasks, index) {
+	if (index >= tasks.length) {
+		layer.alert('商户申请单提交成功！请等待审核', {icon: 1}, function(){
+			if (window.parent !== window) {
+				window.parent.postMessage({ type: 'APPLY_FORM_CLOSE_IFRAME' }, '*');
+			} else {
+				window.opener=null;window.close();
+			}
+		});
+		return;
+	}
+
+	var task = tasks[index];
+	if(task.done){
+		executeTasks(tasks, index + 1);
+		return;
+	}
+
+	var ii = layer.msg('正在执行: ' + task.name, {icon: 16, shade: 0.3, time: 0});
+	$.ajax({
+		url: '?',
+		method: 'POST',
+		data: { action:'process', id:{$row.id}, do:task.code },
+		dataType: 'json',
+		success: function(res) {
+			layer.close(ii);
+			if(res.code == 0){
+				$("#task"+task.code).html('<span class="label label-success">已完成</span>');
+				executeTasks(tasks, index + 1);
+			}else{
+				$("#task"+task.code).html('<span class="label label-danger">失败</span>');
+				$("#error-alert").show();
+				layer.alert(res.msg, {icon: 2});
+			}
+		},
+		error: function() {
+			layer.close(ii);
+			$("#task"+task.code).html('<span class="label label-danger">失败</span>');
+			$("#error-alert").show();
+			layer.msg('执行超时，请刷新页面重试', {icon: 2});
+		}
+	});
+}
+</script>
+{/block}

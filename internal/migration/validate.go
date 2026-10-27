@@ -22,6 +22,7 @@ type Merchant struct {
 	Name      string `json:"name"`
 	Available string `json:"available_money"`
 	Reserved  string `json:"reserved_money"`
+	CreatedAt string `json:"created_at,omitempty"`
 }
 type Order struct {
 	TradeNo    string `json:"trade_no"`
@@ -49,14 +50,15 @@ type Transfer struct {
 	Status     string `json:"status"`
 }
 type Plan struct {
-	SchemaVersion int        `json:"schema_version"`
-	ExportID      string     `json:"export_id"`
-	Source        string     `json:"source"`
-	ExportedAt    string     `json:"exported_at"`
-	Merchants     []Merchant `json:"merchants"`
-	Orders        []Order    `json:"orders"`
-	Refunds       []Refund   `json:"refunds"`
-	Transfers     []Transfer `json:"transfers"`
+	SchemaVersion  int                        `json:"schema_version"`
+	ExportID       string                     `json:"export_id"`
+	Source         string                     `json:"source"`
+	ExportedAt     string                     `json:"exported_at"`
+	Merchants      []Merchant                 `json:"merchants"`
+	Orders         []Order                    `json:"orders"`
+	Refunds        []Refund                   `json:"refunds"`
+	Transfers      []Transfer                 `json:"transfers"`
+	CombinedOrders []CombinedOrderSnapshot204 `json:"combined_orders,omitempty"`
 }
 type Issue struct {
 	Path string `json:"path"`
@@ -115,7 +117,8 @@ func Validate(raw []byte) (Plan, Report, error) {
 	if plan.Source != "epay_pro" && plan.Source != "epay_release" {
 		issue("source", "unsupported_source")
 	}
-	if _, e := time.Parse(time.RFC3339, plan.ExportedAt); e != nil {
+	exportedAt, exportedErr := time.Parse(time.RFC3339, plan.ExportedAt)
+	if exportedErr != nil {
 		issue("exported_at", "invalid_timestamp")
 	}
 	report.Merchants = len(plan.Merchants)
@@ -146,6 +149,12 @@ func Validate(raw []byte) (Plan, Report, error) {
 	}
 	for i, m := range plan.Merchants {
 		path := fmt.Sprintf("merchants[%d]", i)
+		if m.CreatedAt != "" {
+			created, err := parseRegistrationTime(m.CreatedAt)
+			if err != nil || created.After(exportedAt) {
+				issue(path+".created_at", "invalid_registration_timestamp")
+			}
+		}
 		if m.ID <= 0 || !goodString(m.Name, 128) {
 			issue(path, "invalid_merchant")
 		}
@@ -199,6 +208,7 @@ func Validate(raw []byte) (Plan, Report, error) {
 			issue(path, "unsupported_protocol_version")
 		}
 	}
+	validateCombinedOrders204(plan, orders, issue)
 	refundKeys := map[string]bool{}
 	for i, r := range plan.Refunds {
 		path := fmt.Sprintf("refunds[%d]", i)

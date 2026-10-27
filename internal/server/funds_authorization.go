@@ -80,6 +80,9 @@ func strictFundsJSON(raw []byte, out any) error {
 	if _, e := d.Token(); e != io.EOF {
 		return identity.ErrFundsInvalid
 	}
+	if e := validateFundsJSONFields(raw, out); e != nil {
+		return e
+	}
 	d = json.NewDecoder(bytes.NewReader(raw))
 	d.DisallowUnknownFields()
 	if e := d.Decode(out); e != nil {

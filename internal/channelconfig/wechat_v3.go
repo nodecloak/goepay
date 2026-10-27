@@ -13,7 +13,7 @@ func buildWechatV3(c Channel) (provider.Provider, error) {
 	if e != nil {
 		return nil, e
 	}
-	for _, field := range []string{"enable_scan_pay", "enable_bank_transfer", "enable_mini_launch"} {
+	for _, field := range []string{"enable_scan_pay", "enable_bank_transfer"} {
 		if value := c.Config[field]; value != "" && value != "false" {
 			return nil, ErrImport
 		}
@@ -52,5 +52,9 @@ func buildWechatV3(c Channel) (provider.Provider, error) {
 		}
 		verifiers[serial] = key
 	}
-	return provider.NewWechatV3(provider.WechatV3Config{EnableChannelSharing: sharing, EncryptionSerial: c.Config["v3_encryption_serial"], AppID: c.Config["appid"], MerchantID: c.Config["appmchid"], MerchantSerial: c.Config["v3_merchant_serial"], APIv3Key: []byte(c.Config["v3_api_key"]), PrivateKey: private, VerificationKeys: verifiers, Methods: methods, H5SiteURL: c.Config["h5_site_url"], H5SiteName: c.Config["h5_site_name"], HTTPClient: httpclient.New()})
+	mini, err := miniProgramConfig(c)
+	if err != nil {
+		return nil, err
+	}
+	return provider.NewWechatV3(provider.WechatV3Config{EnableChannelSharing: sharing, EncryptionSerial: c.Config["v3_encryption_serial"], AppID: c.Config["appid"], MerchantID: c.Config["appmchid"], MerchantSerial: c.Config["v3_merchant_serial"], APIv3Key: []byte(c.Config["v3_api_key"]), PrivateKey: private, VerificationKeys: verifiers, Methods: methods, MiniProgram: mini, H5SiteURL: c.Config["h5_site_url"], H5SiteName: c.Config["h5_site_name"], HTTPClient: httpclient.New()})
 }

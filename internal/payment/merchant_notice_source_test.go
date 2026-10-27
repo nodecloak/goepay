@@ -28,7 +28,7 @@ func TestMerchantNotice80PaidBirthFreezesOriginalSettingsAndNeverBackfills(t *te
 		if _, owner, err := s.BeginProviderAttempt(ctx, o.TradeNo, 7, "native"); err != nil || !owner {
 			t.Fatal(owner, err)
 		}
-		if err := s.markPaid(ctx, o.TradeNo, "event-"+no, false, PaidReceipt{ChannelID: 7, ProviderTradeNo: "provider-" + no}); err != nil {
+		if err := s.markPaid(ctx, o.TradeNo, "event-"+no, false, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "provider-" + no}); err != nil {
 			t.Fatal(err)
 		}
 		return o
@@ -43,7 +43,7 @@ func TestMerchantNotice80PaidBirthFreezesOriginalSettingsAndNeverBackfills(t *te
 	}
 	fresh := pay("after-profile")
 	for _, o := range []Order{old, fresh} {
-		if err = s.markPaid(ctx, o.TradeNo, "replay", false, PaidReceipt{ChannelID: 7, ProviderTradeNo: "provider-" + o.OutTradeNo}); err != nil {
+		if err = s.markPaid(ctx, o.TradeNo, "replay", false, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "provider-" + o.OutTradeNo}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -80,7 +80,7 @@ func TestMerchantNotice80OptionalProjectionFailureCannotUndoVerifiedPayment(t *t
 	if _, _, err = s.BeginProviderAttempt(ctx, o.TradeNo, 7, "native"); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.markPaid(ctx, o.TradeNo, "verified-independent", false, PaidReceipt{ChannelID: 7, ProviderTradeNo: "local-verified80"}); err != nil {
+	if err = s.markPaid(ctx, o.TradeNo, "verified-independent", false, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "local-verified80"}); err != nil {
 		t.Fatal(err)
 	}
 	balance, err := s.Balance(ctx, 80002)

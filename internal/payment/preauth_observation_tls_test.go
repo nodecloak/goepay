@@ -86,7 +86,7 @@ func TestPreauthObservation68RealTLSAuthenticatedOriginalQuery(t *testing.T) {
 				t.Fatal(e)
 			}
 			g.Providers[7] = real
-			q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("4", 64)}, token, "merchant", observationCheck68)
+			q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("4", 64)}, token, "merchant", observationCheck68, observationCheckTx68)
 			if e != nil || calls.Load() != 1 {
 				t.Fatal(q, e, calls.Load())
 			}

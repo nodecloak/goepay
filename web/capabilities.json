@@ -501,11 +501,16 @@
     "status": "partial",
     "resource": "subchannels",
     "capabilities": [
-      "resource-list",
-      "resource-detail",
-      "schema-permitted-create-update-delete"
+      "owned-runtime-payment-subchannel-list",
+      "original-account-version-restore",
+      "subchannel-status-limits-weight-cas",
+      "merchant-global-subchannel-roll-policy",
+      "exact-child-order-and-csv-filter",
+      "confirmed-once-protected-payment-test",
+      "owned-existing-collection-code-link",
+      "super-only-encrypted-account-create-replace-archive"
     ],
-    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+    "limitations": "已接入微信V2/V3与支付宝受信模板的真实-2账户选择、原账户全生命周期恢复、专用字段及双角色权限。原商户不创建/删除或编辑密钥；管理员为保留原单证据采用逻辑归档。只按实际child产品能力开放，未适配服务商/进件和加密写控制器未知行为不推定支持。当前policy与历史快照分离，缺来源明确不可用。"
   },
   {
     "area": "admin",
@@ -1220,11 +1225,15 @@
     "status": "partial",
     "resource": "subchannels",
     "capabilities": [
-      "resource-list",
-      "resource-detail",
-      "schema-permitted-create-update-delete"
+      "owned-runtime-payment-subchannel-list",
+      "original-account-version-restore",
+      "subchannel-status-limits-weight-cas",
+      "merchant-global-subchannel-roll-policy",
+      "exact-child-order-and-csv-filter",
+      "confirmed-once-protected-payment-test",
+      "owned-existing-collection-code-link"
     ],
-    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+    "limitations": "已接入微信V2/V3与支付宝受信模板的真实-2账户选择、原账户全生命周期恢复、专用字段及双角色权限。原商户不创建/删除或编辑密钥；管理员为保留原单证据采用逻辑归档。只按实际child产品能力开放，未适配服务商/进件和加密写控制器未知行为不推定支持。当前policy与历史快照分离，缺来源明确不可用。"
   },
   {
     "area": "merchant",

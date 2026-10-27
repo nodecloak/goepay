@@ -129,15 +129,36 @@ func ValidateTimestamp(raw string, now time.Time, window time.Duration) error {
 }
 
 type Credentials struct {
-	Algorithm       string
+	Algorithm string
+	// Nil keeps the existing strict algorithm. Explicit 0 accepts both original
+	// algorithms; explicit 1 accepts RSA only. This comes from merchant storage.
+	Keytype         *int
 	MD5Key          string
 	PublicKey       *rsa.PublicKey
 	Profile         Profile
 	TimestampWindow time.Duration
 }
 
-// Verify uses merchant-owned algorithm configuration. A request cannot downgrade
-// an RSA merchant by changing sign_type. RSA requests require a fresh timestamp.
+func (c Credentials) Allows(algorithm string) bool {
+	if algorithm != "MD5" && algorithm != "RSA" {
+		return false
+	}
+	if c.Keytype == nil {
+		return algorithm == c.Algorithm
+	}
+	switch *c.Keytype {
+	case 0:
+		return true
+	case 1:
+		return algorithm == "RSA"
+	default:
+		return false
+	}
+}
+
+// Verify uses merchant-owned algorithm configuration and the explicitly stored
+// optional policy. sign_type only selects among permitted algorithms, never the
+// policy. RSA requests in every mode require a fresh timestamp.
 func Verify(p Params, c Credentials, now time.Time) error {
 	if c.Profile != ProfileProServer && c.Profile != ProfileSDKV2 {
 		return errors.New("unsupported signature profile")
@@ -146,7 +167,7 @@ func Verify(p Params, c Credentials, now time.Time) error {
 	if algorithm == "" {
 		algorithm = "MD5"
 	}
-	if algorithm != c.Algorithm {
+	if !c.Allows(algorithm) {
 		return ErrSignature
 	}
 	switch algorithm {

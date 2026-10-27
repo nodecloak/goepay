@@ -62,6 +62,9 @@ func TestMerchantCompatibilityInfoOrdersAndTransferReads(t *testing.T) {
 	if legacy["order_today"] != float64(2) || legacy["orders"] != float64(3) || legacy["key"] != "contract-secret" {
 		t.Fatal("legacy pro fields", legacy)
 	}
+	if _, e := pool.Exec(ctx, `UPDATE merchants SET profile=profile||'{"transfer_api_enabled":true}'::jsonb WHERE id=2`); e != nil {
+		t.Fatal(e)
+	}
 	out = invoke("/api/transfer/balance", compat.Params{})
 	if out["available_money"] != "2.00" {
 		t.Fatal(out)

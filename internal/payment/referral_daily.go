@@ -81,7 +81,11 @@ func (s *Store) readReferralDailyTerms(ctx context.Context, q referralReader, o 
 	if e != nil {
 		return nil, e
 	}
-	if mode != "daily" || !t.Enabled || json.Unmarshal(raw, &d.Versions) != nil || d.OrderID != o.ID || d.MerchantID != o.MerchantID || d.PromoterID != t.PromoterID || d.Amount != o.Amount || d.PlatformFee != o.PlatformFee || d.Reward != t.RewardAmount || d.Basis != basis || d.Versions != t.PolicyVersions || !hmac.Equal(d.TermsHash, t.ProofHash) {
+	charge104, _, chargeError104 := s.readBuyerSource104(ctx, q, o)
+	if chargeError104 != nil {
+		return nil, chargeError104
+	}
+	if mode != "daily" || !t.Enabled || json.Unmarshal(raw, &d.Versions) != nil || d.OrderID != o.ID || d.MerchantID != o.MerchantID || d.PromoterID != t.PromoterID || d.Amount != charge104 || d.PlatformFee != o.PlatformFee || d.Reward != t.RewardAmount || d.Basis != basis || d.Versions != t.PolicyVersions || !hmac.Equal(d.TermsHash, t.ProofHash) {
 		return nil, ErrConflict
 	}
 	proof, e := s.dailyTermsProof(d)
@@ -99,7 +103,11 @@ func (s *Store) readReferralDailyTerms(ctx context.Context, q referralReader, o 
 	return &d, nil
 }
 func (s *Store) insertReferralDailyTerms(ctx context.Context, tx pgx.Tx, o Order, t referralOrderTerms, basis string) error {
-	d := referralDailyTerms{OrderID: o.ID, MerchantID: o.MerchantID, PromoterID: t.PromoterID, Amount: o.Amount, PlatformFee: o.PlatformFee, Reward: t.RewardAmount, Basis: basis, Versions: t.PolicyVersions, TermsHash: t.ProofHash}
+	charge104, _, chargeError104 := s.readBuyerSource104(ctx, tx, o)
+	if chargeError104 != nil {
+		return chargeError104
+	}
+	d := referralDailyTerms{OrderID: o.ID, MerchantID: o.MerchantID, PromoterID: t.PromoterID, Amount: charge104, PlatformFee: o.PlatformFee, Reward: t.RewardAmount, Basis: basis, Versions: t.PolicyVersions, TermsHash: t.ProofHash}
 	if e := tx.QueryRow(ctx, `INSERT INTO accounts(owner_id,kind,scope_id)VALUES(0,'referral_daily_pending',$1)RETURNING id`, o.ID).Scan(&d.PendingAccountID); e != nil {
 		return e
 	}

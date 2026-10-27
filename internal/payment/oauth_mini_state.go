@@ -63,6 +63,9 @@ func (s *Store) PrepareMiniPayment(ctx context.Context, b MiniLaunchBinding) err
 	if e != nil {
 		return e
 	}
+	if _, e = s.authenticatedOrderIDCharge104(ctx, tx, id); e != nil {
+		return e
+	}
 	if !enabled || provider != b.Provider {
 		return ErrState
 	}
@@ -104,6 +107,9 @@ func (s *Store) IssueMiniState(ctx context.Context, b MiniLaunchBinding) (string
 	if e = tx.QueryRow(ctx, "SELECT o.id,o.status,m.enabled,EXISTS(SELECT 1 FROM provider_attempts WHERE order_id=o.id) FROM orders o JOIN merchants m ON m.id=o.merchant_id WHERE o.trade_no=$1 AND o.merchant_id=$2 FOR UPDATE OF o", b.TradeNo, b.MerchantID).Scan(&id, &status, &enabled, &attempted); e != nil {
 		return "", ErrOAuthState
 	}
+	if _, e = s.authenticatedOrderIDCharge104(ctx, tx, id); e != nil {
+		return "", e
+	}
 	if status != "created" || !enabled || attempted {
 		return "", ErrOAuthState
 	}
@@ -141,6 +147,9 @@ func (s *Store) ConsumeMiniState(ctx context.Context, state, code string, b Mini
 	var enabled, attempted bool
 	if e = tx.QueryRow(ctx, "SELECT o.id,o.status,m.enabled,EXISTS(SELECT 1 FROM provider_attempts WHERE order_id=o.id) FROM orders o JOIN merchants m ON m.id=o.merchant_id WHERE o.trade_no=$1 AND o.merchant_id=$2 FOR UPDATE OF o", b.TradeNo, b.MerchantID).Scan(&id, &status, &enabled, &attempted); e != nil {
 		return ErrOAuthState
+	}
+	if _, e = s.authenticatedOrderIDCharge104(ctx, tx, id); e != nil {
+		return e
 	}
 	tag, e := tx.Exec(ctx, "UPDATE mini_oauth_states SET consumed_at=clock_timestamp() WHERE state_hash=$1 AND order_id=$2 AND merchant_id=$3 AND channel_id=$4 AND provider=$5 AND app_id=$6 AND method=$7 AND purpose=$8 AND path=$9 AND consumed_at IS NULL AND expires_at>clock_timestamp()", s.oauthHash("mini-state", state), id, b.MerchantID, b.ChannelID, b.Provider, b.AppID, b.Method, b.Purpose, b.Path)
 	if e != nil {

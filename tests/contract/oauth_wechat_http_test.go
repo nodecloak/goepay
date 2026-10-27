@@ -32,7 +32,19 @@ func (x oauthWechatTLSTransport) RoundTrip(r *http.Request) (*http.Response, err
 }
 
 func TestWebOAuthWechatHTTPUsesAuthenticatedOpenIDWithoutCreditingPayment(t *testing.T) {
+	runWebOAuthWechatHTTPUsesAuthenticatedOpenIDWithoutCreditingPaymentWithOriginalGroupFixture(t, false)
+}
+func TestGroupRoutingUXHTTPWebOAuthWechatHTTPUsesAuthenticatedOpenIDWithoutCreditingPayment(t *testing.T) {
+	runWebOAuthWechatHTTPUsesAuthenticatedOpenIDWithoutCreditingPaymentWithOriginalGroupFixture(t, true)
+}
+func TestChannel168WebOAuthWechatHTTPUsesAuthenticatedOpenIDWithoutCreditingPayment(t *testing.T) {
+	runWebOAuthWechatHTTPUsesAuthenticatedOpenIDWithoutCreditingPaymentWithOriginalGroupFixture(t, true, installChannel168Fees)
+}
+func runWebOAuthWechatHTTPUsesAuthenticatedOpenIDWithoutCreditingPaymentWithOriginalGroupFixture(t *testing.T, groupRouting bool, channelFees ...channel168FixturePolicy) {
 	s, _, _ := fixture(t)
+	if groupRouting {
+		installGroupRoutingEntrypointFixture152(t, s, map[string]string{"wxpay": "7"})
+	}
 	s.Sandbox = false
 	exchanges, creates := 0, 0
 	key := "0123456789abcdef0123456789abcdef"
@@ -73,6 +85,9 @@ func TestWebOAuthWechatHTTPUsesAuthenticatedOpenIDWithoutCreditingPayment(t *tes
 	s.OAuthProviders = map[int64]adapter.WebOAuthProvider{7: oauth}
 	s.CheckoutKey = bytes.Repeat([]byte{8}, 32)
 	s.MerchantChannels = map[int64][]int64{1: {7}}
+	if len(channelFees) > 0 && channelFees[0] != nil {
+		applyChannel168Fixture(t, s, channelFees[0])
+	}
 	h := s.Handler()
 	_, out := call(t, h, "POST", "/mapi.php", signed(compat.Params{"pid": "1", "out_trade_no": "wx-oauth", "money": "1.25", "name": "item", "type": "wxpay", "method": "jsapi", "channel_id": "7", "oauth": "1", "clientip": "192.0.2.5"}, "contract-secret"))
 	if out["code"] != float64(1) {

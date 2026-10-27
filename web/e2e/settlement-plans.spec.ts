@@ -214,6 +214,9 @@ test("plan authorization always obtains an exact-body grant even when global enf
             mode: "generate_only",
             max_item_gross: "100",
             recipient: "masked configs",
+            fee_rate_bps: "逐商户，见费率规则",
+            group_fee_rules: "商户1：2.55%；商户2：4.00%",
+            fee_scope: "逐商户使用已授权有效组结算比例",
           },
         }),
       );
@@ -255,6 +258,11 @@ test("plan authorization always obtains an exact-body grant even when global enf
   await page.getByRole("button", { name: "确认授权并验证资金密码" }).click();
   const modal = page.getByRole("dialog", { name: "管理员资金二次授权" });
   await expect(modal).toContainText("masked configs");
+  await expect(
+    modal.getByText("各商户原结算费率", { exact: true }),
+  ).toBeVisible();
+  await expect(modal.getByText("手续费规则", { exact: true })).toBeVisible();
+  await expect(modal).toContainText("商户1：2.55%；商户2：4.00%");
   expect(submitted).toBe(0);
   expect(challenged.body).toEqual({
     expected_revision: "1",

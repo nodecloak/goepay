@@ -1,0 +1,135 @@
+{
+  "completed": {
+    "action": "query",
+    "counts": {
+      "cancelled": 0,
+      "failed": 0,
+      "processed": 1,
+      "succeeded": 1,
+      "total": 1,
+      "unknown": 0
+    },
+    "created_at": "2026-10-26T21:35:15.730505+08:00",
+    "external_no": "fixture-prepared185",
+    "fingerprint": "b1277b8bebc9c9504f01ef7b1bf01afe18c32f18f95d13b89d38ec90a33a0e51",
+    "id": "1",
+    "items": [
+      {
+        "code": "verified_paid",
+        "merchant_id": "1",
+        "order_id": "1",
+        "order_status": "paid",
+        "position": 1,
+        "state": "succeeded",
+        "trade_no": "1000000000000000000"
+      }
+    ],
+    "reason": "原批次安全边界本地验证",
+    "replayed": false,
+    "state": "completed"
+  },
+  "cookie_or_bearer_exported": false,
+  "partial": {
+    "action": "query",
+    "counts": {
+      "cancelled": 0,
+      "failed": 0,
+      "processed": 1,
+      "succeeded": 1,
+      "total": 2,
+      "unknown": 0
+    },
+    "created_at": "2026-10-26T21:35:16.195173+08:00",
+    "external_no": "fixture-partial185",
+    "fingerprint": "b0887d45fee51e16741cb5205fa5c6a2f991b5678d4fc5bd9f26cb6e9a3b468e",
+    "id": "2",
+    "items": [
+      {
+        "code": "verified_paid",
+        "merchant_id": "1",
+        "order_id": "2",
+        "order_status": "paid",
+        "position": 1,
+        "state": "succeeded",
+        "trade_no": "1000000000000000001"
+      },
+      {
+        "merchant_id": "1",
+        "order_id": "3",
+        "position": 2,
+        "state": "unsent",
+        "trade_no": "1000000000000000002"
+      }
+    ],
+    "reason": "local original progress",
+    "replayed": false,
+    "state": "running"
+  },
+  "partly_cancelled": {
+    "action": "query",
+    "counts": {
+      "cancelled": 1,
+      "failed": 0,
+      "processed": 2,
+      "succeeded": 1,
+      "total": 2,
+      "unknown": 0
+    },
+    "created_at": "2026-10-26T21:35:16.195173+08:00",
+    "external_no": "fixture-partial185",
+    "fingerprint": "43248e625b8ceacba128bc7d06b72c78f08a42a764c01a24ecb139b1817f6d64",
+    "id": "2",
+    "items": [
+      {
+        "code": "verified_paid",
+        "merchant_id": "1",
+        "order_id": "2",
+        "order_status": "paid",
+        "position": 1,
+        "state": "succeeded",
+        "trade_no": "1000000000000000001"
+      },
+      {
+        "merchant_id": "1",
+        "order_id": "3",
+        "position": 2,
+        "state": "cancelled",
+        "trade_no": "1000000000000000002"
+      }
+    ],
+    "reason": "local original progress",
+    "replayed": false,
+    "state": "completed"
+  },
+  "prepared": {
+    "action": "query",
+    "counts": {
+      "cancelled": 0,
+      "failed": 0,
+      "processed": 0,
+      "succeeded": 0,
+      "total": 1,
+      "unknown": 0
+    },
+    "created_at": "2026-10-26T21:35:15.730505+08:00",
+    "external_no": "fixture-prepared185",
+    "fingerprint": "a6b048d677a2d0ef7a06dee8e0c6f2aed8add63b75cbf6f2aa7d9516db3bfb53",
+    "id": "1",
+    "items": [
+      {
+        "merchant_id": "1",
+        "order_id": "1",
+        "position": 1,
+        "state": "unsent",
+        "trade_no": "1000000000000000000"
+      }
+    ],
+    "reason": "原批次安全边界本地验证",
+    "replayed": false,
+    "state": "prepared"
+  },
+  "schema_disposed": true,
+  "session_invalid_after_cleanup": true,
+  "source": "actual local Go HTTP and PostgreSQL",
+  "synthetic_only": true
+}

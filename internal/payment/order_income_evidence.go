@@ -13,6 +13,9 @@ type orderIncomeSource struct {
 
 func (s *Store) orderIncomeSource(ctx context.Context, q pgx.Tx, o Order) (orderIncomeSource, error) {
 	var v orderIncomeSource
+	if _, _, e := s.authenticatedOrderCharge104(ctx, q, o); e != nil {
+		return v, e
+	}
 	if o.Status != "paid" || o.MerchantAmount <= 0 {
 		return v, ErrState
 	}

@@ -1,0 +1,561 @@
+{
+  "group100": {
+    "announcements": [],
+    "as_of": "2026-10-26T09:36:14Z",
+    "available_money": "99.50",
+    "business_date": "2026-10-26",
+    "fee_schedule": {
+      "group_name": "默认用户组",
+      "rate_bps": "100",
+      "source": "current_runtime_channel_fee",
+      "state": "ready"
+    },
+    "fee_trend": null,
+    "frozen_money": "0.00",
+    "merchant": {
+      "enabled": true,
+      "id": "1",
+      "name": "merchant",
+      "pay": "1"
+    },
+    "orders": 1,
+    "paid_orders": 1,
+    "payment_channels": [
+      {
+        "channel_id": "7",
+        "fee_rate_bps": 100,
+        "fee_source": "group",
+        "type": "alipay"
+      }
+    ],
+    "payment_mix": [
+      {
+        "amount": "100.00",
+        "orders": "1",
+        "type": "alipay"
+      }
+    ],
+    "recent_settlements": [],
+    "runtime": null,
+    "sandbox": false,
+    "source": "local_ledger_snapshot",
+    "summary": {
+      "settled_money": "0.00",
+      "today_money": "100.00",
+      "today_orders": "1",
+      "today_paid_orders": "1",
+      "today_register": null,
+      "today_settled_money": "0.00",
+      "today_transfer_money": "0.00",
+      "total_users": null,
+      "yesterday_money": "0.00",
+      "yesterday_settled_money": "0.00",
+      "yesterday_transfer_money": "0.00"
+    },
+    "timezone": "Asia/Shanghai",
+    "todos": null,
+    "trend": [
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-20",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-21",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-22",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-23",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-24",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-25",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "100.00",
+        "amount": "100.00",
+        "date": "2026-10-26",
+        "orders": "1",
+        "paid_orders": "1",
+        "wxpay": "0.00"
+      }
+    ]
+  },
+  "off": {
+    "announcements": [],
+    "as_of": "2026-10-26T09:36:13Z",
+    "available_money": "0.00",
+    "business_date": "2026-10-26",
+    "fee_schedule": {
+      "group_name": "默认用户组",
+      "rate_bps": "0",
+      "source": "current_runtime_channel_fee",
+      "state": "disabled"
+    },
+    "fee_trend": null,
+    "frozen_money": "0.00",
+    "merchant": {
+      "enabled": true,
+      "id": "1",
+      "name": "merchant",
+      "pay": "1"
+    },
+    "orders": 0,
+    "paid_orders": 0,
+    "payment_channels": [
+      {
+        "channel_id": "7",
+        "fee_rate_bps": 0,
+        "fee_source": "none",
+        "type": "alipay"
+      }
+    ],
+    "payment_mix": [],
+    "recent_settlements": [],
+    "runtime": null,
+    "sandbox": false,
+    "source": "local_ledger_snapshot",
+    "summary": {
+      "settled_money": "0.00",
+      "today_money": "0.00",
+      "today_orders": "0",
+      "today_paid_orders": "0",
+      "today_register": null,
+      "today_settled_money": "0.00",
+      "today_transfer_money": "0.00",
+      "total_users": null,
+      "yesterday_money": "0.00",
+      "yesterday_settled_money": "0.00",
+      "yesterday_transfer_money": "0.00"
+    },
+    "timezone": "Asia/Shanghai",
+    "todos": null,
+    "trend": [
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-20",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-21",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-22",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-23",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-24",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-25",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-26",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      }
+    ]
+  },
+  "parent1000": {
+    "announcements": [],
+    "as_of": "2026-10-26T09:36:14Z",
+    "available_money": "99.50",
+    "business_date": "2026-10-26",
+    "fee_schedule": {
+      "group_name": "默认用户组",
+      "rate_bps": "1000",
+      "source": "current_runtime_channel_fee",
+      "state": "ready"
+    },
+    "fee_trend": null,
+    "frozen_money": "0.00",
+    "merchant": {
+      "enabled": true,
+      "id": "1",
+      "name": "merchant",
+      "pay": "1"
+    },
+    "orders": 1,
+    "paid_orders": 1,
+    "payment_channels": [
+      {
+        "channel_id": "7",
+        "fee_rate_bps": 1000,
+        "fee_source": "parent",
+        "type": "alipay"
+      }
+    ],
+    "payment_mix": [
+      {
+        "amount": "100.00",
+        "orders": "1",
+        "type": "alipay"
+      }
+    ],
+    "recent_settlements": [],
+    "runtime": null,
+    "sandbox": false,
+    "source": "local_ledger_snapshot",
+    "summary": {
+      "settled_money": "0.00",
+      "today_money": "100.00",
+      "today_orders": "1",
+      "today_paid_orders": "1",
+      "today_register": null,
+      "today_settled_money": "0.00",
+      "today_transfer_money": "0.00",
+      "total_users": null,
+      "yesterday_money": "0.00",
+      "yesterday_settled_money": "0.00",
+      "yesterday_transfer_money": "0.00"
+    },
+    "timezone": "Asia/Shanghai",
+    "todos": null,
+    "trend": [
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-20",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-21",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-22",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-23",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-24",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-25",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "100.00",
+        "amount": "100.00",
+        "date": "2026-10-26",
+        "orders": "1",
+        "paid_orders": "1",
+        "wxpay": "0.00"
+      }
+    ]
+  },
+  "parent50": {
+    "announcements": [],
+    "as_of": "2026-10-26T09:36:13Z",
+    "available_money": "0.00",
+    "business_date": "2026-10-26",
+    "fee_schedule": {
+      "group_name": "默认用户组",
+      "rate_bps": "50",
+      "source": "current_runtime_channel_fee",
+      "state": "ready"
+    },
+    "fee_trend": null,
+    "frozen_money": "0.00",
+    "merchant": {
+      "enabled": true,
+      "id": "1",
+      "name": "merchant",
+      "pay": "1"
+    },
+    "orders": 0,
+    "paid_orders": 0,
+    "payment_channels": [
+      {
+        "channel_id": "7",
+        "fee_rate_bps": 50,
+        "fee_source": "parent",
+        "type": "alipay"
+      }
+    ],
+    "payment_mix": [],
+    "recent_settlements": [],
+    "runtime": null,
+    "sandbox": false,
+    "source": "local_ledger_snapshot",
+    "summary": {
+      "settled_money": "0.00",
+      "today_money": "0.00",
+      "today_orders": "0",
+      "today_paid_orders": "0",
+      "today_register": null,
+      "today_settled_money": "0.00",
+      "today_transfer_money": "0.00",
+      "total_users": null,
+      "yesterday_money": "0.00",
+      "yesterday_settled_money": "0.00",
+      "yesterday_transfer_money": "0.00"
+    },
+    "timezone": "Asia/Shanghai",
+    "todos": null,
+    "trend": [
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-20",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-21",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-22",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-23",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-24",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-25",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-26",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      }
+    ]
+  },
+  "synthetic_only": true,
+  "unknown": {
+    "announcements": [],
+    "as_of": "2026-10-26T09:36:14Z",
+    "available_money": "99.50",
+    "business_date": "2026-10-26",
+    "fee_schedule": {
+      "group_name": "默认用户组",
+      "rate_bps": null,
+      "source": "current_runtime_channel_fee",
+      "state": "ready"
+    },
+    "fee_trend": null,
+    "frozen_money": "0.00",
+    "merchant": {
+      "enabled": true,
+      "id": "1",
+      "name": "merchant",
+      "pay": "1"
+    },
+    "orders": 1,
+    "paid_orders": 1,
+    "payment_channels": [
+      {
+        "channel_id": "7",
+        "fee_rate_bps": null,
+        "fee_source": "unknown",
+        "type": "alipay"
+      }
+    ],
+    "payment_mix": [
+      {
+        "amount": "100.00",
+        "orders": "1",
+        "type": "alipay"
+      }
+    ],
+    "recent_settlements": [],
+    "runtime": null,
+    "sandbox": false,
+    "source": "local_ledger_snapshot",
+    "summary": {
+      "settled_money": "0.00",
+      "today_money": "100.00",
+      "today_orders": "1",
+      "today_paid_orders": "1",
+      "today_register": null,
+      "today_settled_money": "0.00",
+      "today_transfer_money": "0.00",
+      "total_users": null,
+      "yesterday_money": "0.00",
+      "yesterday_settled_money": "0.00",
+      "yesterday_transfer_money": "0.00"
+    },
+    "timezone": "Asia/Shanghai",
+    "todos": null,
+    "trend": [
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-20",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-21",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-22",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-23",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-24",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "0.00",
+        "amount": "0.00",
+        "date": "2026-10-25",
+        "orders": "0",
+        "paid_orders": "0",
+        "wxpay": "0.00"
+      },
+      {
+        "alipay": "100.00",
+        "amount": "100.00",
+        "date": "2026-10-26",
+        "orders": "1",
+        "paid_orders": "1",
+        "wxpay": "0.00"
+      }
+    ]
+  }
+}

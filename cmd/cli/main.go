@@ -14,6 +14,7 @@ import (
 	"goepay/internal/migration"
 	"goepay/internal/payment"
 	"goepay/internal/printing"
+	"goepay/internal/systemupdate"
 	"os"
 	"sort"
 	"time"
@@ -38,7 +39,10 @@ func main() {
 }
 func run() error {
 	if len(os.Args) != 2 {
-		return fmt.Errorf("usage: cli migrate|seed-local|reconcile|check-channels")
+		return fmt.Errorf("usage: cli migrate|seed-local|reconcile|check-channels|verify-update|build-info")
+	}
+	if os.Args[1] == "build-info" {
+		return json.NewEncoder(os.Stdout).Encode(systemupdate.RuntimeBuild(0))
 	}
 	if os.Args[1] == "check-channels" {
 		key, e := hex.DecodeString(os.Getenv("GOEPAY_MASTER_KEY"))
@@ -77,6 +81,8 @@ func run() error {
 	}
 	defer pool.Close()
 	switch os.Args[1] {
+	case "verify-update":
+		return verifyLocalUpdate183(ctx, pool, os.Stdout)
 	case "migrate":
 		return db.Migrate(ctx, pool)
 	case "seed-local":

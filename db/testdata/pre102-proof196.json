@@ -1,0 +1,548 @@
+{
+  "original_order_id": 2,
+  "original_trade_no": "1000000000000000000",
+  "production": false,
+  "provenance": "Actual immutable188 pre104 implementation generating original96/97 proof families on pre102 schema; current104 constructor never used",
+  "real_funds": false,
+  "sequences": {
+    "accounts_id_seq": {
+      "is_called": true,
+      "last_value": 7
+    },
+    "admin_business_notice_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "admin_funds_audit_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "alipay_bank_observations_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "application_authorization_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "authorization_remaining_sources_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "backoffice_audit_id_seq": {
+      "is_called": true,
+      "last_value": 1
+    },
+    "backoffice_records_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "bank_transfer_observations_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "case_comments_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "channel_sharing_finish_observations_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "channel_sharing_finishes_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "channel_sharing_observations_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "channel_sharing_orders_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "channel_sharing_receiver_operations_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "channel_sharing_receivers_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "channel_sharing_relation_leases_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "channel_sharing_relations_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "channel_sharing_return_observations_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "channel_sharing_returns_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "channel_sharing_rules_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "channel_stop_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "console_login_audit_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "console_subject_seq": {
+      "is_called": false,
+      "last_value": 10000
+    },
+    "console_users_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "deposit_action_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "deposit_actions_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "identity_lookup_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "jobs_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "journals_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "ledger_entries_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "ledger_request_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "ledger_requests_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "legacy_refund_history_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "membership_purchases_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "membership_referral_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "membership_referral_policies_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "merchant_notice_claims_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "merchant_notice_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "merchant_notice_profiles_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "merchant_notice_timer_sources_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "operation_audit_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "order_income_hold_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "order_income_holds_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "order_profit_allocations_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "orders_id_seq": {
+      "is_called": true,
+      "last_value": 2
+    },
+    "outbox_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "payment_subchannels_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "preauth_observation_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "printing_intents_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "printing_merchant_configs_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "printing_platform_configs_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "printing_recoveries_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "profile_identity_lookup_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "provider_attempts_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "provider_operations_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "provider_reconciliations_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "recharge_intents_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "referral_daily_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "referral_policies_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "referral_relations_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "referral_rewards_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "referral_tokens_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "refunds_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "runtime_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "scan_recovery_query_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "scheduled_job_admissions_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "scheduled_notification_failures_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "scheduled_notification_stops_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "scheduled_task_runs_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "settlement_auto_authorizations_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "settlement_auto_claims_claim_seq_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "settlement_batch_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "settlement_batches_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "settlement_payout_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "settlement_plan_authorizations_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "settlement_plan_items_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "settlement_plan_runs_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "settlement_plan_versions_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "settlement_plans_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "settlement_recipient_configs_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "settlement_schedule_preferences_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "settlement_threshold_selections_source_sequence_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "trade_no_seq": {
+      "is_called": true,
+      "last_value": 1000000000000000000
+    },
+    "transfer_batch_events_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "transfer_batches_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    },
+    "transfers_id_seq": {
+      "is_called": false,
+      "last_value": 1
+    }
+  },
+  "synthetic_only": true,
+  "tables": {
+    "accounts": [
+      {
+        "id": 6,
+        "kind": "available",
+        "balance": 0,
+        "owner_id": 11,
+        "scope_id": 0
+      },
+      {
+        "id": 7,
+        "kind": "reserved",
+        "balance": 0,
+        "owner_id": 11,
+        "scope_id": 0
+      }
+    ],
+    "merchants": [
+      {
+        "id": 11,
+        "pay": 1,
+        "name": "pre102 real proof",
+        "api_key": "\\x6e80a5fd7eb3581ffc31fa5aa7981b7dc53a7fddede1d802414b774ab4fb6de094fc5288578db299491438b9c13ee7739f7cf7",
+        "enabled": true,
+        "keytype": null,
+        "profile": {},
+        "created_at": "2026-10-27T02:39:20.412507+00:00",
+        "base_group_id": 0,
+        "rsa_public_key": "",
+        "config_revision": 1,
+        "signature_algorithm": "MD5",
+        "group_baseline_unresolved": false,
+        "settlement_permission_revision": 1
+      }
+    ],
+    "order_print_origins": [
+      {
+        "kind": "api",
+        "order_id": 2,
+        "proof_hash": "\\x67fe1bcf285a375d77752409da44e4e1eb6a91de99d23344e2b13e0cdb9538c4",
+        "collection_code_id": null
+      }
+    ],
+    "order_route_fee_terms": [
+      {
+        "order_id": 2,
+        "proof_hash": "\\xbe7249aeed664c89ad0d9a8c9500137e0e1cff44e5cea474528798e8d5b33273",
+        "merchant_id": 11,
+        "out_trade_no": "pre102-original-priced"
+      }
+    ],
+    "orders": [
+      {
+        "id": 2,
+        "name": "real original96 proof",
+        "type": "wxpay",
+        "param": "",
+        "amount": 123,
+        "status": "created",
+        "paid_at": null,
+        "version": "v1",
+        "trade_no": "1000000000000000000",
+        "created_at": "2026-10-27T02:39:20.483165+00:00",
+        "fee_policy": "none",
+        "notify_url": "",
+        "return_url": "",
+        "merchant_id": 11,
+        "fee_group_id": 0,
+        "fee_rate_bps": 0,
+        "out_trade_no": "pre102-original-priced",
+        "platform_fee": 0,
+        "merchant_amount": 123,
+        "refund_fee_payer": "platform",
+        "provider_event_id": null,
+        "referral_source_hash": "\\x211ca9343af9ceeeeb510c5318738f28e3a13286e2ecff660290e317006fd49e",
+        "referral_source_version": 3,
+        "runtime_fee_quote_required": true
+      }
+    ],
+    "provider_channel_last_used": [
+      {
+        "channel_id": 9,
+        "merchant_id": 1,
+        "out_trade_no": "pre102-sequence",
+        "last_used_millis": 1793068760509
+      }
+    ],
+    "provider_route_assignments": [
+      {
+        "amount": 123,
+        "method": "native",
+        "rule_id": null,
+        "pay_type": "alipay",
+        "channel_id": 9,
+        "created_at": "2026-10-27T02:39:20.509616+00:00",
+        "merchant_id": 1,
+        "out_trade_no": "pre102-sequence",
+        "request_hash": "\\xbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+        "rule_snapshot": {
+          "payment_info": {
+            "alipay": {
+              "channel": "-4"
+            }
+          }
+        }
+      },
+      {
+        "amount": 123,
+        "method": "native",
+        "rule_id": null,
+        "pay_type": "wxpay",
+        "channel_id": 7,
+        "created_at": "2026-10-27T02:39:20.423874+00:00",
+        "merchant_id": 11,
+        "out_trade_no": "pre102-original-priced",
+        "request_hash": "\\xacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacac",
+        "rule_snapshot": {}
+      }
+    ],
+    "provider_route_fee_quotes": [
+      {
+        "facts": {
+          "Fee": 0,
+          "Net": 123,
+          "Cost": null,
+          "Name": "real original96 proof",
+          "Param": "",
+          "Amount": 123,
+          "Method": "native",
+          "Source": "none",
+          "FeeRate": 0,
+          "GroupID": 0,
+          "PayType": "wxpay",
+          "Version": 1,
+          "QuotedAt": "2026-10-27T10:39:20.443143+08:00",
+          "ChannelID": 7,
+          "FeePolicy": "none",
+          "GroupHash": "jmEp3KagkpnEG7jPdxRprob9KwoOoxM4D5xLFSAGrEI=",
+          "NotifyURL": "",
+          "ReturnURL": "",
+          "RouteHash": "rKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKw=",
+          "FeeGroupID": 0,
+          "MerchantID": 11,
+          "OutTradeNo": "pre102-original-priced",
+          "AccountHash": "2ms0W1b8nHCSi9gcFoyWc4pxE1w26j/Xa/mzoDJttYw=",
+          "RefundPayer": "platform",
+          "GroupSnapshot": {
+            "group_id": "0",
+            "payment_info": {}
+          },
+          "ParentProduct": "wechat.v2.payment.single-direct",
+          "GroupUpdatedAt": "2026-10-27T10:39:19.949686+08:00",
+          "ParentIdentity": "ei22Br9qJ0aNRw/tNSg45jArwIYyqUYWzpPsyZk5NJs=",
+          "ParentRetained": 10000,
+          "ParentRevision": 0,
+          "GroupValidUntil": "0001-01-01T00:00:00Z",
+          "MerchantRevision": 1,
+          "ParentConfigured": false
+        },
+        "created_at": "2026-10-27T02:39:20.479476+00:00",
+        "proof_hash": "\\xe98546ef077b4470f0e7c876df2b7f5d902a7cc790d161b9b668d5a541510b81",
+        "merchant_id": 11,
+        "out_trade_no": "pre102-original-priced"
+      }
+    ],
+    "referral_order_terms": [
+      {
+        "reason": "no_relation",
+        "enabled": false,
+        "purpose": "payment",
+        "order_id": 2,
+        "rate_bps": 0,
+        "created_at": "2026-10-27T02:39:20.483165+00:00",
+        "proof_hash": "\\xf1406f111c14f46af56bed248f098ac83d17ab7f2a868219341733d3c574f740",
+        "merchant_id": 11,
+        "promoter_id": null,
+        "relation_id": null,
+        "platform_fee": 0,
+        "refund_policy": "any_successful_refund_voids_reward",
+        "reward_amount": 0,
+        "policy_versions": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    ]
+  }
+}

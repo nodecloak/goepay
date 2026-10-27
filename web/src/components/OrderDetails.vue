@@ -1,13 +1,26 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import {
+  ref,
+  shallowRef,
+  computed,
+  nextTick,
+  watch,
+  onMounted,
+  onBeforeUnmount,
+} from "vue";
 import { ApiClient, displayValue } from "../api";
+import { orderRefundRemaining104 } from "../order-charge104";
+import { subchannelID } from "../subchannels";
 import { consoleColumnLabel, consoleValue } from "../pro-console-fields";
 import { operationNotice } from "../order-operations";
 import NotificationDeliveryPanel from "./NotificationDeliveryPanel.vue";
+import NotificationReturnAction200 from "./NotificationReturnAction200.vue";
 import OrderIncomePanel from "./OrderIncomePanel.vue";
 import OrderPrintingPanel from "./OrderPrintingPanel.vue";
 import PreauthorizationObservation from "./PreauthorizationObservation.vue";
 import ScanRecoveryPanel from "./ScanRecoveryPanel.vue";
+import LegacyCombinedOrders204 from "./LegacyCombinedOrders204.vue";
+import OrderApiTradeAlias from "./OrderApiTradeAlias.vue";
 import type { ScanRecoveryView } from "../scan-recovery";
 import {
   canReleaseAuthorization,
@@ -34,6 +47,9 @@ const order = ref<Record<string, unknown> | null>(null),
   authorizationRelease = ref<AuthorizationRelease | null>(null),
   serverAllowsRelease = ref(false),
   serverAllowsNotification = ref(false),
+  serverAllowsReturnNotification200 = ref(false),
+  notificationBusy = ref(false),
+  returnNotificationBusy200 = ref(false),
   serverAllowsCapture = ref(false),
   serverAllowsObservation = ref(false),
   serverAllowsRemainingRelease = ref(false),
@@ -55,6 +71,81 @@ const order = ref<Record<string, unknown> | null>(null),
   confirmClose = ref(false),
   confirmRelease = ref(false),
   confirmCapture = ref(false);
+const combinedOpen204 = ref(false),
+  combinedContext204 = ref(0),
+  combinedButton204 = ref<HTMLButtonElement | null>(null);
+const apiTradeAliasActive = ref(false);
+const apiTradeAliasAuthority = shallowRef<{
+  client: ApiClient;
+  area: ApiClient["area"];
+  csrf: string;
+  trade: string;
+  merchant: string;
+  verified: string;
+  ownSession: boolean | undefined;
+} | null>(null);
+const canEditApiTradeAlias = computed(() => {
+  const stamp = apiTradeAliasAuthority.value;
+  return (
+    !!stamp &&
+    stamp.client === props.client &&
+    stamp.area === "admin" &&
+    stamp.area === props.client.area &&
+    !!stamp.csrf &&
+    stamp.csrf === props.client.csrfToken &&
+    stamp.trade === props.tradeNo &&
+    stamp.ownSession === true &&
+    props.ownSession === true &&
+    order.value?.trade_no === stamp.trade &&
+    order.value.merchant_id === stamp.merchant &&
+    order.value.api_trade_no === stamp.verified
+  );
+});
+const combinedAuthority204 = shallowRef<{
+  client: ApiClient;
+  area: ApiClient["area"];
+  csrf: string;
+  trade: string;
+  merchant: string;
+  ownSession: boolean | undefined;
+} | null>(null);
+const canViewCombined204 = computed(() => {
+  const stamp = combinedAuthority204.value;
+  return (
+    !!stamp &&
+    stamp.client === props.client &&
+    stamp.area === props.client.area &&
+    stamp.csrf === props.client.csrfToken &&
+    stamp.trade === props.tradeNo &&
+    stamp.ownSession === props.ownSession &&
+    order.value?.trade_no === props.tradeNo &&
+    order.value.combine === 1 &&
+    order.value.merchant_id === stamp.merchant
+  );
+});
+function closeCombined204() {
+  combinedOpen204.value = false;
+  void nextTick(() => {
+    if (canViewCombined204.value) combinedButton204.value?.focus();
+  });
+}
+watch(
+  () => [
+    props.client,
+    props.client.area,
+    props.client.csrfToken,
+    props.tradeNo,
+    props.ownSession,
+    order.value?.merchant_id,
+  ],
+  () => {
+    combinedContext204.value++;
+    combinedAuthority204.value = null;
+    combinedOpen204.value = false;
+    apiTradeAliasAuthority.value = null;
+  },
+  { flush: "sync" },
+);
 const canCapture = computed(
   () =>
     !captureUncertain.value &&
@@ -100,6 +191,7 @@ const labels: Record<string, string> = {
   name: "商品名称",
   type: "支付方式",
   amount: "订单金额（元）",
+  realmoney: "实际支付金额（元）",
   merchant_amount: "商户入账额（元）",
   platform_fee: "平台手续费（元）",
   refunded_amount: "已退款金额（元）",
@@ -109,6 +201,9 @@ const labels: Record<string, string> = {
   status: "订单状态",
   notification_state: "通知状态",
   channel_id: "支付通道 ID",
+  subchannel_id: "原子通道 ID",
+  subchannel_account_version: "原子账户版本",
+  subchannel_evidence: "原子通道记录",
   buyer: "支付账号",
   client_ip: "支付 IP",
   created_at: "创建时间",
@@ -120,9 +215,20 @@ async function load() {
   controller?.abort();
   controller = new AbortController();
   const c = controller;
+  const combinedRead204 = {
+    client: props.client,
+    area: props.client.area,
+    csrf: props.client.csrfToken,
+    trade: props.tradeNo,
+    ownSession: props.ownSession,
+  };
+  combinedAuthority204.value = null;
+  combinedOpen204.value = false;
+  apiTradeAliasAuthority.value = null;
   loading.value = true;
   serverAllowsRelease.value = false;
   serverAllowsNotification.value = false;
+  serverAllowsReturnNotification200.value = false;
   serverAllowsCapture.value = false;
   serverAllowsObservation.value = false;
   serverAllowsRemainingRelease.value = false;
@@ -134,13 +240,23 @@ async function load() {
   try {
     const data = await props.client.request<{
       order: Record<string, unknown>;
+      charge_verified104?: boolean;
       reporting?: Record<string, unknown>;
       provider?: Record<string, unknown>;
+      payment_subchannel?: {
+        id: string;
+        parent_id: string;
+        account_version: string;
+      };
+      payment_subchannel_unconfirmed?: boolean;
       scan_recovery?: ScanRecoveryView;
       authorization?: Record<string, unknown>;
       authorization_release?: AuthorizationRelease;
       can_release_authorization?: boolean;
       can_resend_notification?: boolean;
+      can_return_notification?: boolean;
+      can_view_suborders?: boolean;
+      can_edit_api_trade_alias?: boolean;
       notification?: Record<string, unknown>;
       can_capture_authorization?: boolean;
       can_observe_authorization?: boolean;
@@ -153,7 +269,30 @@ async function load() {
       can_refund_held_income?: boolean;
       income_refund_pending?: boolean;
     }>(`/orders/${encodeURIComponent(props.tradeNo)}`, { signal: c.signal });
-    order.value = { ...data.order };
+    order.value = {
+      ...data.order,
+      ...(typeof data.charge_verified104 === "boolean"
+        ? { charge_verified104: data.charge_verified104 }
+        : {}),
+    };
+    if (
+      !c.signal.aborted &&
+      data.can_view_suborders === true &&
+      data.order.combine === 1 &&
+      data.order.trade_no === combinedRead204.trade &&
+      typeof data.order.merchant_id === "string" &&
+      /^[1-9]\d*$/.test(data.order.merchant_id) &&
+      props.client === combinedRead204.client &&
+      props.client.area === combinedRead204.area &&
+      props.client.csrfToken === combinedRead204.csrf &&
+      props.tradeNo === combinedRead204.trade &&
+      props.ownSession === combinedRead204.ownSession
+    ) {
+      combinedAuthority204.value = {
+        ...combinedRead204,
+        merchant: data.order.merchant_id,
+      };
+    }
     for (const key of [
       "api_trade_no",
       "channel_id",
@@ -164,12 +303,40 @@ async function load() {
     ])
       if (data.reporting?.[key] !== undefined)
         order.value[key] = data.reporting[key];
+    if (
+      !c.signal.aborted &&
+      data.can_edit_api_trade_alias === true &&
+      data.order.trade_no === combinedRead204.trade &&
+      typeof data.order.merchant_id === "string" &&
+      /^[1-9]\d*$/.test(data.order.merchant_id) &&
+      typeof data.reporting?.api_trade_no === "string" &&
+      props.client === combinedRead204.client &&
+      props.client.area === combinedRead204.area &&
+      props.client.csrfToken === combinedRead204.csrf &&
+      props.tradeNo === combinedRead204.trade &&
+      props.ownSession === combinedRead204.ownSession
+    )
+      apiTradeAliasAuthority.value = {
+        ...combinedRead204,
+        merchant: data.order.merchant_id,
+        verified: data.reporting.api_trade_no,
+      };
     provider.value = data.provider || null;
+    if (data.payment_subchannel) {
+      order.value.subchannel_id = subchannelID(data.payment_subchannel.id);
+      order.value.subchannel_account_version = subchannelID(
+        data.payment_subchannel.account_version,
+      );
+    }
+    if (data.payment_subchannel_unconfirmed === true)
+      order.value.subchannel_evidence = "无法核对，请核实原订单记录";
     scanRecovery.value = data.scan_recovery || null;
     authorization.value = data.authorization || null;
     authorizationRelease.value = data.authorization_release || null;
     serverAllowsRelease.value = data.can_release_authorization === true;
     serverAllowsNotification.value = data.can_resend_notification === true;
+    serverAllowsReturnNotification200.value =
+      data.can_return_notification === true;
     notification.value = data.notification || null;
     serverAllowsCapture.value = data.can_capture_authorization === true;
     serverAllowsObservation.value = data.can_observe_authorization === true;
@@ -290,13 +457,14 @@ onBeforeUnmount(() => controller?.abort());
 <template>
   <div
     class="modal-backdrop"
-    @keydown.esc="!busy && !incomeBusy && emit('close')"
+    @keydown.esc="!busy && !incomeBusy && !apiTradeAliasActive && emit('close')"
   >
     <section
       class="modal panel resource-modal"
       role="dialog"
       aria-modal="true"
       aria-label="订单详情"
+      :inert="combinedOpen204 || undefined"
     >
       <h2>订单详情</h2>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
@@ -310,6 +478,24 @@ onBeforeUnmount(() => controller?.abort());
             </dt>
             <dd v-if="order[key] !== undefined">
               {{ consoleValue(String(key), order[key], true) }}
+              <OrderApiTradeAlias
+                v-if="key === 'api_trade_no' && canEditApiTradeAlias"
+                :client="client"
+                :trade-no="tradeNo"
+                :merchant-i-d="apiTradeAliasAuthority!.merchant"
+                :verified-api-trade-no="apiTradeAliasAuthority!.verified"
+                :allowed="canEditApiTradeAlias"
+                :own-session="ownSession === true"
+                :disabled="
+                  busy ||
+                  loading ||
+                  incomeBusy ||
+                  observationBusy ||
+                  notificationBusy ||
+                  returnNotificationBusy200
+                "
+                @active="apiTradeAliasActive = $event"
+              />
               <button
                 v-if="
                   canBlacklist &&
@@ -371,8 +557,21 @@ onBeforeUnmount(() => controller?.abort());
           :order-status="order.status"
           :allowed="serverAllowsNotification"
           :notification="notification"
-          :disabled="busy || loading"
+          :disabled="busy || loading || returnNotificationBusy200"
+          @busy="notificationBusy = $event"
           @updated="load"
+        />
+        <NotificationReturnAction200
+          :key="`${client.area}:${tradeNo}`"
+          :client="client"
+          :trade-no="tradeNo"
+          :order-status="order.trade_no === tradeNo ? order.status : undefined"
+          :allowed="serverAllowsReturnNotification200"
+          :own-session="ownSession === true"
+          :disabled="
+            busy || loading || incomeBusy || observationBusy || notificationBusy
+          "
+          @busy="returnNotificationBusy200 = $event"
         />
         <template v-if="authorization"
           ><h3>预授权记录</h3>
@@ -577,6 +776,15 @@ onBeforeUnmount(() => controller?.abort());
       />
       <div class="modal-actions">
         <button
+          v-if="canViewCombined204"
+          ref="combinedButton204"
+          type="button"
+          :disabled="loading || busy || incomeBusy"
+          @click="combinedOpen204 = true"
+        >
+          查看子订单
+        </button>
+        <button
           v-if="
             order &&
             ['paid', 'partially_refunded'].includes(String(order.status))
@@ -585,6 +793,8 @@ onBeforeUnmount(() => controller?.abort());
             busy ||
             loading ||
             incomeBusy ||
+            orderRefundRemaining104(order ?? {}) === undefined ||
+            orderRefundRemaining104(order ?? {}) === 0n ||
             (incomeHold?.state === 'held' && !canRefundHeldIncome)
           "
           :title="
@@ -607,5 +817,13 @@ onBeforeUnmount(() => controller?.abort());
         </button>
       </div>
     </section>
+    <LegacyCombinedOrders204
+      v-if="combinedOpen204 && canViewCombined204"
+      :client="client"
+      :trade-no="tradeNo"
+      :merchant-i-d="combinedAuthority204!.merchant"
+      :context-stamp="combinedContext204"
+      @close="closeCombined204"
+    />
   </div>
 </template>

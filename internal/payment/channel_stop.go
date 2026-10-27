@@ -227,6 +227,21 @@ func (s *Store) ChannelWriteStatus(ctx context.Context, channel int64) (ChannelW
 		return out, e
 	}
 	defer tx.Rollback(ctx)
+	out, e = s.ChannelWriteStatusTx(ctx, tx, channel)
+	if e != nil {
+		return out, e
+	}
+	e = tx.Commit(ctx)
+	return out, e
+}
+
+// ChannelWriteStatusTx reads the same authenticated history on the caller's
+// transaction. Routing must not exhaust the pool with nested transactions.
+func (s *Store) ChannelWriteStatusTx(ctx context.Context, tx pgx.Tx, channel int64) (ChannelWriteStatus, error) {
+	out := ChannelWriteStatus{ChannelID: channel}
+	if tx == nil || channel <= 0 {
+		return out, ErrInvalid
+	}
 	all, e := s.readChannelStops(ctx, tx, channel)
 	if e != nil {
 		return out, e
@@ -243,8 +258,7 @@ func (s *Store) ChannelWriteStatus(ctx context.Context, channel int64) (ChannelW
 			return out, e
 		}
 	}
-	e = tx.Commit(ctx)
-	return out, e
+	return out, nil
 }
 func (s *Store) checkChannelWrite(ctx context.Context, channel int64) error {
 	out, e := s.ChannelWriteStatus(ctx, channel)

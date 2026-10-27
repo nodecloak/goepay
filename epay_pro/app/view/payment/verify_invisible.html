@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<title>正在进行支付安全验证，请稍候...</title>
+	<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:100vh;background:#fff;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif}
+.box{text-align:center;padding:40px}
+.loader{display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:28px}
+.loader-dot{width:12px;height:12px;border-radius:50%;background:#1677ff;animation:bounce 1.4s ease-in-out infinite}
+.loader-dot:first-child{animation-delay:0s}
+.loader-dot:nth-child(2){animation-delay:.2s}
+.loader-dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,100%,80%{transform:scale(.6);opacity:.4}
+40%{transform:scale(1);opacity:1}
+}
+.loading-text{color:#1a1a1a;font-size:18px;font-weight:500;line-height:1.5;margin-bottom:8px}
+.loading-sub{color:#999;font-size:14px}
+    </style>
+</head>
+<body>
+<div class="box">
+    <div class="loader">
+        <div class="loader-dot"></div>
+        <div class="loader-dot"></div>
+        <div class="loader-dot"></div>
+    </div>
+    <p class="loading-text">正在进行支付安全验证</p>
+    <p class="loading-sub">请稍候...</p>
+</div>
+<form id="dopay" action="?" method="post">
+{foreach $params as $key=>$value}
+<input type="hidden" name="{$key}" value="{$value}" />
+{/foreach}
+<input type="submit" value="Loading" style="display:none"/>
+</form>
+<script src="{$cdnpublic}jquery/1.12.4/jquery.min.js"></script>
+<script src="https://static.geetest.com/v4/gt4.js"></script>
+<script>
+window.appendChildOrg = Element.prototype.appendChild;
+Element.prototype.appendChild = function() {
+    if(arguments[0].tagName == 'SCRIPT'){
+        arguments[0].setAttribute('referrerpolicy', 'no-referrer');
+    }
+    return window.appendChildOrg.apply(this, arguments);
+};
+initGeetest4({
+    captchaId: "99b142aaece96330d0f3ffb565ffb3ef",
+    product: 'bind',
+    protocol: 'https://',
+    riskType: 'ai',
+},function (captcha) {
+    captcha.onReady(function(){
+        captcha.showCaptcha();
+    }).onSuccess(function(){
+        var result = captcha.getValidate();
+        result.pid = '{$params.pid}';
+        result.trade_no = '{$params.out_trade_no}';
+        $.ajax({
+            url: '/payment/captcha_verify',
+            type: 'post',
+            dataType: 'json',
+            data: result,
+            cache: false,
+            success: function (data) {
+                if(data.code == 0){
+                    var elem = document.getElementById("dopay");
+                    var input = document.createElement("input");  
+                    input.type="hidden";  
+                    input.name="__defend";
+                    input.value=data.key;
+                    elem.appendChild(input);
+                    elem.submit();
+                }else{
+                    alert(data.msg);
+                }
+            },
+            error: function () {
+                alert('服务器错误');
+            }
+        });
+    }).onError(function(){
+        alert('验证码加载失败，请刷新页面重试');
+    })
+});
+</script>
+</body>
+</html>

@@ -4,12 +4,14 @@ import { useRouter } from "vue-router";
 import type { Area, MenuNode } from "../menu";
 import MenuTree from "./MenuTree.vue";
 import ShellIcon from "./ShellIcon.vue";
+import SiteBrandIcon193 from "./SiteBrandIcon193.vue";
 const props = defineProps<{
   area: Area;
   navigation: MenuNode[];
   active: string;
   title: string;
   owner: object;
+  brandName?: string;
 }>();
 const router = useRouter();
 const collapsed = ref(false),
@@ -131,7 +133,11 @@ onBeforeUnmount(() => {
       :aria-hidden="mobile && !navOpen ? true : undefined"
     >
       <div class="brand">
-        <span class="brand-mark">G</span><span class="brand-name">GOEPAY</span>
+        <SiteBrandIcon193
+          ><span class="brand-mark">{{
+            Array.from(brandName || "GOEPAY")[0]
+          }}</span></SiteBrandIcon193
+        ><span class="brand-name">{{ brandName || "GOEPAY" }}</span>
       </div>
       <div class="area-label">
         {{ area === "admin" ? "管理后台" : "商户后台" }}

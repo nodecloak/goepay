@@ -1,0 +1,33 @@
+{
+  "fields": {
+    "order": {
+      "merchant_amount": "125",
+      "platform_fee": "0",
+      "fee_rate_bps": 0,
+      "fee_group_id": "0",
+      "fee_policy": "none",
+      "refund_fee_payer": "platform",
+      "version": "v1",
+      "id": "1",
+      "trade_no": "1000000000000000000",
+      "merchant_id": "70",
+      "out_trade_no": "provider",
+      "name": "goods",
+      "type": "alipay",
+      "amount": "125",
+      "notify_url": "",
+      "return_url": "",
+      "param": "",
+      "status": "created",
+      "created_at": "2026-10-26T08:31:20.803445+08:00",
+      "paid_at": null
+    }
+  },
+  "schema": "member72_eb55cd7907902294",
+  "source_files": 1645,
+  "source_manifest_sha256": "cfdf6e68f579165049568914718c99fab7637cbb46126deb501279d7db6cd9ef",
+  "synthetic_only": true,
+  "dump_sha256": "fbd945adfcd492e04504039e5482a5578c581ef2b4ca375a4c186e4414502dd0",
+  "dump_uncompressed_sha256": "29bc236fe48d7d4c59f0c4e87581a054d52ccca58345b07599ccd6928544f924",
+  "dump_uncompressed_bytes": 856356
+}

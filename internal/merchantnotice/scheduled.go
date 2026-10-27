@@ -171,6 +171,29 @@ func (s *Store) GenerateScheduledPage(ctx context.Context, afterID int64, limit,
 	return out, nil
 }
 func (s *Store) generateScheduledMerchant(ctx context.Context, mid int64, sendHour int, transfers TransferReportReader) (int, error) {
+	return s.generateScheduledMerchantScope(ctx, mid, sendHour, transfers, "", "")
+}
+
+// GenerateScheduledSceneMerchant publishes one original scene for one frozen
+// business day. Delivery remains owned by the existing authenticated worker.
+func (s *Store) GenerateScheduledSceneMerchant(ctx context.Context, mid int64, sendHour int, transfers TransferReportReader, scene, expectedDay string) (bool, error) {
+	day, err := time.Parse("2006-01-02", expectedDay)
+	if !s.available() || ctx == nil || mid <= 0 || sendHour < 0 || sendHour > 23 || (scene != "daily_report" && scene != "balance" && scene != "group") || err != nil || day.Format("2006-01-02") != expectedDay {
+		return false, ErrInvalid
+	}
+	if _, err = s.generateScheduledMerchantScope(ctx, mid, sendHour, transfers, scene, expectedDay); err != nil {
+		return false, err
+	}
+	var recorded bool
+	if scene == "group" {
+		err = s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM merchant_notice_timer_sources WHERE merchant_id=$1 AND scene='group' AND created_at>=$2::date AT TIME ZONE 'Asia/Shanghai' AND created_at<($2::date+1)AT TIME ZONE 'Asia/Shanghai')`, mid, expectedDay).Scan(&recorded)
+	} else {
+		err = s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM merchant_notice_timer_sources WHERE merchant_id=$1 AND scene=$2 AND business_key=$3)`, mid, scene, expectedDay).Scan(&recorded)
+	}
+	return recorded, err
+}
+
+func (s *Store) generateScheduledMerchantScope(ctx context.Context, mid int64, sendHour int, transfers TransferReportReader, scene, expectedDay string) (int, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
 	if err != nil {
 		return 0, err
@@ -195,8 +218,24 @@ func (s *Store) generateScheduledMerchant(ctx context.Context, mid int64, sendHo
 		return 0, err
 	}
 	at = at.UTC()
+	if expectedDay != "" && at.In(businessZone).Format("2006-01-02") != expectedDay {
+		return 0, ErrState
+	}
 	created := 0
-	if reader, ok := transfers.(MembershipExpiryReader); ok {
+	allowed := map[string]bool{"group": true, "daily_report": true, "balance": true}
+	if scene == "" {
+		if gate, ok := transfers.(interface {
+			ScheduledNoticeSceneLegacyAllowedTx(context.Context, pgx.Tx, string) (bool, error)
+		}); ok {
+			for _, current := range []string{"group", "daily_report", "balance"} {
+				allowed[current], err = gate.ScheduledNoticeSceneLegacyAllowedTx(ctx, tx, current)
+				if err != nil {
+					return 0, err
+				}
+			}
+		}
+	}
+	if reader, ok := transfers.(MembershipExpiryReader); ok && allowed["group"] && (scene == "" || scene == "group") {
 		expired, e := reader.NoticeExpiredMembership(ctx, tx, mid, at)
 		if e != nil {
 			return 0, e
@@ -220,11 +259,11 @@ func (s *Store) generateScheduledMerchant(ctx context.Context, mid int64, sendHo
 				}
 			}
 		}
-	} else if data.Preferences.Group != 0 {
+	} else if allowed["group"] && (scene == "" || scene == "group") && data.Preferences.Group != 0 {
 		return 0, ErrState
 	}
 	_, _, dailyDue, _ := DailyWindow(at, sendHour)
-	if data.Preferences.DailyReport != 0 && dailyDue {
+	if allowed["daily_report"] && (scene == "" || scene == "daily_report") && data.Preferences.DailyReport != 0 && dailyDue {
 		added, e := s.generateDaily(ctx, tx, p, at, transfers)
 		if e != nil {
 			return 0, e
@@ -233,13 +272,22 @@ func (s *Store) generateScheduledMerchant(ctx context.Context, mid int64, sendHo
 			created++
 		}
 	}
-	if data.Preferences.Balance != 0 && data.Preferences.BalanceMoney > 0 {
+	if allowed["balance"] && (scene == "" || scene == "balance") && data.Preferences.Balance != 0 && data.Preferences.BalanceMoney > 0 {
 		added, e := s.generateBalance(ctx, tx, p, at, data.Preferences.BalanceMoney)
 		if e != nil {
 			return 0, e
 		}
 		if added {
 			created++
+		}
+	}
+	if expectedDay != "" {
+		var finalTime time.Time
+		if err = tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&finalTime); err != nil {
+			return 0, err
+		}
+		if finalTime.In(businessZone).Format("2006-01-02") != expectedDay {
+			return 0, ErrState
 		}
 	}
 	if err = tx.Commit(ctx); err != nil {

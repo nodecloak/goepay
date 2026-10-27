@@ -11,6 +11,13 @@ import (
 	"strings"
 )
 
+type accountVerification197 struct {
+	http.Handler
+	service *Service
+}
+
+func (h accountVerification197) AccountVerification197() *Service { return h.service }
+
 // NewHandler is mounted before authenticated console routing. No handler here
 // creates a session. Origin is the configured public origin, not proxy input.
 func NewHandler(s *Service, origin string) http.Handler {
@@ -20,7 +27,7 @@ func NewHandler(s *Service, origin string) http.Handler {
 	if validOrigin {
 		configuredOrigin = u.Scheme + "://" + u.Host
 	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return accountVerification197{service: s, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
@@ -140,7 +147,7 @@ func NewHandler(s *Service, origin string) http.Handler {
 			}
 			reply(w, 200, "request completed; sign in normally", nil)
 		}
-	})
+	})}
 }
 func reply(w http.ResponseWriter, status int, message string, data any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

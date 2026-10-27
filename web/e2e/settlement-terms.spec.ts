@@ -4,69 +4,85 @@ const ok = (data: unknown) => ({
   contentType: "application/json",
   body: JSON.stringify({ code: 0, data }),
 });
-test("auto-only settlement mode gives a business reason and never opens fee confirmation", async ({
-  page,
-}) => {
-  let writes = 0;
-  await page.route("**/console/v1/**", (route) => {
-    const p = new URL(route.request().url()).pathname;
-    if (route.request().method() !== "GET") {
-      writes++;
-      return route.fulfill(ok({}));
-    }
-    if (p.endsWith("/session"))
-      return route.fulfill(
-        ok({
-          user: { id: "1", name: "Local", role: "merchant" },
-          csrf_token: "csrf",
-        }),
-      );
-    if (p.endsWith("/settlement-recipient"))
-      return route.fulfill(
-        ok({
-          state: "configured",
-          config_id: "42",
-          type: "alipay",
-          app_id: "",
-          account_masked: "***1234",
-          name_masked: "***",
-        }),
-      );
-    if (p.endsWith("/funds-availability"))
-      return route.fulfill(
-        ok({
-          available_money: "10.00",
-          ledger_available_money: "10.00",
-          today_blocked_money: "0.00",
-          settle_type: 0,
-        }),
-      );
-    if (p.endsWith("/settlement-policy"))
-      return route.fulfill(
-        ok({
-          can_apply: false,
-          external_payout: false,
-          settlement_access: {
-            mode: "1",
-            manual_allowed: false,
-            automatic_allowed: true,
-            source: "group",
-            group_id: "12",
-          },
-        }),
-      );
-    return route.fulfill(ok({ items: [], total: 0 }));
+for (const scenario of [
+  {
+    name: "auto-only settlement mode",
+    mode: "1",
+    source: "group",
+    automatic: true,
+    reason: "当前结算开关不允许手动申请结算",
+  },
+  {
+    name: "merchant settlement permission closed",
+    mode: "0",
+    source: "merchant_settle",
+    automatic: false,
+    reason: "当前商户的结算权限已关闭",
+  },
+])
+  test(`${scenario.name} gives a business reason and never opens fee confirmation`, async ({
+    page,
+  }) => {
+    let writes = 0;
+    await page.route("**/console/v1/**", (route) => {
+      const p = new URL(route.request().url()).pathname;
+      if (route.request().method() !== "GET") {
+        writes++;
+        return route.fulfill(ok({}));
+      }
+      if (p.endsWith("/session"))
+        return route.fulfill(
+          ok({
+            user: { id: "1", name: "Local", role: "merchant" },
+            csrf_token: "csrf",
+          }),
+        );
+      if (p.endsWith("/settlement-recipient"))
+        return route.fulfill(
+          ok({
+            state: "configured",
+            config_id: "42",
+            type: "alipay",
+            app_id: "",
+            account_masked: "***1234",
+            name_masked: "***",
+          }),
+        );
+      if (p.endsWith("/funds-availability"))
+        return route.fulfill(
+          ok({
+            available_money: "10.00",
+            ledger_available_money: "10.00",
+            today_blocked_money: "0.00",
+            settle_type: 0,
+          }),
+        );
+      if (p.endsWith("/settlement-policy"))
+        return route.fulfill(
+          ok({
+            can_apply: false,
+            external_payout: false,
+            settlement_access: {
+              mode: scenario.mode,
+              manual_allowed: false,
+              automatic_allowed: scenario.automatic,
+              source: scenario.source,
+              group_id: "12",
+            },
+          }),
+        );
+      return route.fulfill(ok({ items: [], total: 0 }));
+    });
+    await page.goto("/merchant/settle/apply");
+    const dialog = page.getByRole("region", { name: "申请提现", exact: true });
+    await dialog.getByLabel("金额（元）", { exact: true }).fill("1.00");
+    await dialog.getByRole("button", { name: "确认提交", exact: true }).click();
+    await expect(dialog).toContainText(scenario.reason);
+    await expect(
+      dialog.getByRole("button", { name: "按已核对费用提交", exact: true }),
+    ).toHaveCount(0);
+    expect(writes).toBe(0);
   });
-  await page.goto("/merchant/settle/apply");
-  const dialog = page.getByRole("region", { name: "申请提现", exact: true });
-  await dialog.getByLabel("金额（元）", { exact: true }).fill("1.00");
-  await dialog.getByRole("button", { name: "确认提交", exact: true }).click();
-  await expect(dialog).toContainText("当前结算开关不允许手动申请结算");
-  await expect(
-    dialog.getByRole("button", { name: "按已核对费用提交", exact: true }),
-  ).toHaveCount(0);
-  expect(writes).toBe(0);
-});
 test("settlement fee confirmation binds amount and never treats approval as payout", async ({
   page,
 }) => {

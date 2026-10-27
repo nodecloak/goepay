@@ -10,6 +10,7 @@ import (
 	"io"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"goepay/internal/payment"
 	"goepay/internal/platform/jobs"
 )
@@ -25,6 +26,11 @@ type Handler struct {
 func (h Handler) Handle(ctx context.Context, j jobs.Job) error {
 	if h.Pool == nil || h.Flow == nil || h.Flow.Store == nil {
 		return ErrJob
+	}
+	if j.Kind == "payment.reconcile" || j.Kind == "channel-sharing.reconcile" || j.Kind == "channel-sharing-finish.reconcile" {
+		if e := h.Flow.Store.VerifyScheduledJobClaim(ctx, j); e != nil {
+			return e
+		}
 	}
 	switch j.Kind {
 	case "channel-sharing-finish.reconcile":

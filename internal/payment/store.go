@@ -13,7 +13,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"goepay/internal/businessnotice"
 	"goepay/internal/merchantnotice"
+	"goepay/internal/riskgeo"
 	"os"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -29,6 +32,7 @@ type Merchant struct {
 	PayStatus          int    `json:"pay"`
 	ConfigRevision     int64  `json:"-"`
 	SignatureAlgorithm string `json:"signature_algorithm"`
+	Keytype            *int   `json:"keytype"`
 	ID                 int64  `json:"id,string"`
 	Name               string `json:"name"`
 	APIKey             string `json:"-"`
@@ -45,26 +49,30 @@ type CreateOrderInput struct {
 	NotifyURL, ReturnURL, Param string
 }
 type Order struct {
-	MerchantAmount int64      `json:"merchant_amount,string"`
-	PlatformFee    int64      `json:"platform_fee,string"`
-	FeeRateBPS     int64      `json:"fee_rate_bps"`
-	FeeGroupID     int64      `json:"fee_group_id,string"`
-	FeePolicy      string     `json:"fee_policy"`
-	RefundFeePayer string     `json:"refund_fee_payer"`
-	Version        string     `json:"version"`
-	ID             int64      `json:"id,string"`
-	TradeNo        string     `json:"trade_no"`
-	MerchantID     int64      `json:"merchant_id,string"`
-	OutTradeNo     string     `json:"out_trade_no"`
-	Name           string     `json:"name"`
-	Type           string     `json:"type"`
-	Amount         int64      `json:"amount,string"`
-	NotifyURL      string     `json:"notify_url"`
-	ReturnURL      string     `json:"return_url"`
-	Param          string     `json:"param"`
-	Status         string     `json:"status"`
-	CreatedAt      time.Time  `json:"created_at"`
-	PaidAt         *time.Time `json:"paid_at"`
+	RealMoney               *int64 `json:"realmoney,string,omitempty"`
+	actualChargeAmount104   *int64
+	actualChargeRequired104 bool
+	routeFeeRequired        bool
+	MerchantAmount          int64      `json:"merchant_amount,string"`
+	PlatformFee             int64      `json:"platform_fee,string"`
+	FeeRateBPS              int64      `json:"fee_rate_bps"`
+	FeeGroupID              int64      `json:"fee_group_id,string"`
+	FeePolicy               string     `json:"fee_policy"`
+	RefundFeePayer          string     `json:"refund_fee_payer"`
+	Version                 string     `json:"version"`
+	ID                      int64      `json:"id,string"`
+	TradeNo                 string     `json:"trade_no"`
+	MerchantID              int64      `json:"merchant_id,string"`
+	OutTradeNo              string     `json:"out_trade_no"`
+	Name                    string     `json:"name"`
+	Type                    string     `json:"type"`
+	Amount                  int64      `json:"amount,string"`
+	NotifyURL               string     `json:"notify_url"`
+	ReturnURL               string     `json:"return_url"`
+	Param                   string     `json:"param"`
+	Status                  string     `json:"status"`
+	CreatedAt               time.Time  `json:"created_at"`
+	PaidAt                  *time.Time `json:"paid_at"`
 }
 type Refund struct {
 	MerchantAmount int64  `json:"merchant_amount,string"`
@@ -118,11 +126,15 @@ type Balance struct {
 	Reserved  int64 `json:"reserved,string"`
 }
 type Store struct {
-	pool     *pgxpool.Pool
-	aead     cipher.AEAD
-	indexKey []byte
-	notice   *merchantnotice.Store
-	business *businessnotice.Store
+	// Configure once before serving; nil never bypasses enabled rules.
+	CoreRiskGeo  riskgeo.Resolver
+	updateJobs   sync.Map
+	updateClosed atomic.Bool
+	pool         *pgxpool.Pool
+	aead         cipher.AEAD
+	indexKey     []byte
+	notice       *merchantnotice.Store
+	business     *businessnotice.Store
 }
 
 func New(pool *pgxpool.Pool) *Store {
@@ -164,9 +176,29 @@ func (s *Store) CreateMerchant(ctx context.Context, m Merchant) error {
 	return s.CreateMerchantAtomic(ctx, m, nil)
 }
 func (s *Store) Merchant(ctx context.Context, id int64) (Merchant, error) {
+	return s.readMerchant(ctx, s.pool, id, false)
+}
+
+// MerchantTx reads and protects the current signing identity on the caller's
+// transaction connection. Revocation and key changes wait until that transaction
+// releases its share lock; no second pool connection is acquired.
+func (s *Store) MerchantTx(ctx context.Context, tx pgx.Tx, id int64) (Merchant, error) {
+	if tx == nil {
+		return Merchant{}, ErrInvalid
+	}
+	return s.readMerchant(ctx, tx, id, true)
+}
+
+func (s *Store) readMerchant(ctx context.Context, q interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, id int64, locked bool) (Merchant, error) {
 	var m Merchant
 	var secret []byte
-	e := s.pool.QueryRow(ctx, "SELECT id,name,api_key,rsa_public_key,enabled,signature_algorithm,config_revision,COALESCE((to_jsonb(merchants)->>'pay')::int,1) FROM merchants WHERE id=$1", id).Scan(&m.ID, &m.Name, &secret, &m.RSAPublicKey, &m.Enabled, &m.SignatureAlgorithm, &m.ConfigRevision, &m.PayStatus)
+	query := "SELECT id,name,api_key,rsa_public_key,enabled,signature_algorithm,keytype,config_revision,COALESCE((to_jsonb(merchants)->>'pay')::int,1) FROM merchants WHERE id=$1"
+	if locked {
+		query += " FOR SHARE"
+	}
+	e := q.QueryRow(ctx, query, id).Scan(&m.ID, &m.Name, &secret, &m.RSAPublicKey, &m.Enabled, &m.SignatureAlgorithm, &m.Keytype, &m.ConfigRevision, &m.PayStatus)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return m, ErrNotFound
 	}
@@ -185,11 +217,11 @@ func (s *Store) Merchant(ctx context.Context, id int64) (Merchant, error) {
 	return m, nil
 }
 
-const orderColumns = "id,trade_no,merchant_id,out_trade_no,name,type,amount,notify_url,return_url,param,status,created_at,paid_at,version,merchant_amount,platform_fee,fee_rate_bps,fee_group_id,fee_policy,refund_fee_payer"
+const orderColumns = "id,trade_no,merchant_id,out_trade_no,name,type,amount,notify_url,return_url,param,status,created_at,paid_at,version,merchant_amount,platform_fee,fee_rate_bps,fee_group_id,fee_policy,refund_fee_payer,COALESCE((to_jsonb(orders)->>'runtime_fee_quote_required')::boolean,false),(to_jsonb(orders)->>'actual_charge_amount104')::bigint,COALESCE((to_jsonb(orders)->>'actual_charge_required104')::boolean,false)"
 
 func scanOrder(row pgx.Row) (Order, error) {
 	var o Order
-	e := row.Scan(&o.ID, &o.TradeNo, &o.MerchantID, &o.OutTradeNo, &o.Name, &o.Type, &o.Amount, &o.NotifyURL, &o.ReturnURL, &o.Param, &o.Status, &o.CreatedAt, &o.PaidAt, &o.Version, &o.MerchantAmount, &o.PlatformFee, &o.FeeRateBPS, &o.FeeGroupID, &o.FeePolicy, &o.RefundFeePayer)
+	e := row.Scan(&o.ID, &o.TradeNo, &o.MerchantID, &o.OutTradeNo, &o.Name, &o.Type, &o.Amount, &o.NotifyURL, &o.ReturnURL, &o.Param, &o.Status, &o.CreatedAt, &o.PaidAt, &o.Version, &o.MerchantAmount, &o.PlatformFee, &o.FeeRateBPS, &o.FeeGroupID, &o.FeePolicy, &o.RefundFeePayer, &o.routeFeeRequired, &o.actualChargeAmount104, &o.actualChargeRequired104)
 	if errors.Is(e, pgx.ErrNoRows) {
 		e = ErrNotFound
 	}
@@ -276,6 +308,17 @@ func (s *Store) markPaid(ctx context.Context, tradeNo, eventID string, allowLate
 	if e != nil {
 		return e
 	}
+	charge104, _, e := s.authenticatedOrderCharge104(ctx, tx, o)
+	if e != nil {
+		return e
+	}
+	if o.actualChargeRequired104 && len(receipts) > 0 && (len(receipts) != 1 || receipts[0].RealMoney != charge104) {
+		return ErrConflict
+	}
+	limitsReady, e := s.lockParentSuccessfulPayment(ctx, tx, o, receipts)
+	if e != nil {
+		return e
+	}
 	if e = s.checkScanCancellationBarrier(ctx, tx, o.ID); e != nil {
 		return e
 	}
@@ -290,11 +333,17 @@ func (s *Store) markPaid(ctx context.Context, tradeNo, eventID string, allowLate
 		}
 	}
 	if o.Status == "paid" {
+		s.recordCoreRiskPaid(ctx, tx, o, receipts)
 		if e = s.verifyReferralPaidIntegrity(ctx, tx, o); e != nil {
 			return e
 		}
 		if len(receipts) == 1 {
 			if e = s.recordPrintingPaidSource(ctx, tx, o, receipts[0], false); e != nil {
+				return e
+			}
+		}
+		if limitsReady {
+			if e = s.recordParentSuccessfulPayment(ctx, tx, o, receipts, false); e != nil {
 				return e
 			}
 		}
@@ -361,6 +410,12 @@ func (s *Store) markPaid(ctx context.Context, tradeNo, eventID string, allowLate
 			return e
 		}
 	}
+	if limitsReady {
+		if e = s.recordParentSuccessfulPayment(ctx, tx, o, receipts, true); e != nil {
+			return e
+		}
+	}
+	s.recordCoreRiskPaid(ctx, tx, o, receipts)
 	return tx.Commit(ctx)
 }
 func (s *Store) CloseOrder(ctx context.Context, merchantID int64, outTradeNo string) error {

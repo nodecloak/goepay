@@ -40,6 +40,8 @@ const summaryLabels: Record<string, string> = {
   minimum_money: "政策最低毛额（元）",
   maximum_money: "政策毛额上限（元，0为不额外限制）",
   fee_rate_bps: "手续费率（万分比）",
+  group_fee_rules: "各商户原结算费率",
+  fee_scope: "手续费规则",
   fee_minimum_money: "最低手续费（元）",
   fee_maximum_money: "手续费封顶（元，0为不额外限制）",
   merchant_daily_limit: "单商户日次数上限（0为不额外限制）",

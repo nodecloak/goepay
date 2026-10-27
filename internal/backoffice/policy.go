@@ -78,7 +78,7 @@ func validateGroup(ctx context.Context, tx pgx.Tx, profile map[string]any) error
 		return nil
 	}
 	id, e := strconv.ParseInt(fmt.Sprint(raw), 10, 64)
-	if e != nil || id <= 0 {
+	if e != nil || id < 0 {
 		return ErrInvalid
 	}
 	var exists bool
@@ -139,7 +139,7 @@ func (s *Service) CheckPayment(ctx context.Context, p PaymentContext) error {
 				continue
 			}
 			u, e := url.Parse(rawURL)
-			if e != nil {
+			if e != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil {
 				return ErrInvalid
 			}
 			var domains []string
@@ -162,7 +162,7 @@ func (s *Service) CheckPayment(ctx context.Context, p PaymentContext) error {
 			}
 			match := false
 			for _, domain := range domains {
-				if domainMatches(u.Hostname(), domain) {
+				if authorizationDomainMatches(u.Hostname(), domain) {
 					match = true
 					break
 				}

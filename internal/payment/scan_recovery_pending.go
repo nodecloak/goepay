@@ -72,7 +72,7 @@ func (s *Store) RecordScanPending(ctx context.Context, id int64, appID string, r
 	if e != nil {
 		return e
 	}
-	if e = s.verifySharingPayment(declaration); e != nil {
+	if e = s.verifySharingPayment(ctx, tx, declaration); e != nil {
 		return e
 	}
 	if declaration.Declared != r.ProfitSharing {

@@ -1,3 +1,4 @@
+import { orderActualAmount104 } from "./order-charge104";
 export type OrderActionID =
   | "mark-paid"
   | "mark-unpaid"
@@ -13,6 +14,63 @@ export interface OrderAction {
   id: OrderActionID;
   label: string;
   separatorBefore?: boolean;
+}
+export type MerchantOrderActionID =
+  | "detail"
+  | "ledger"
+  | "query"
+  | "notify"
+  | "refund"
+  | "print"
+  | "refund-history";
+export function merchantOrderActions(
+  row: Record<string, unknown>,
+): { id: MerchantOrderActionID; label: string; href?: string }[] {
+  const trade = row.trade_no;
+  if (typeof trade !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(trade))
+    return [];
+  const caps = (
+    row.merchant_actions && typeof row.merchant_actions === "object"
+      ? row.merchant_actions
+      : {}
+  ) as Record<string, unknown>;
+  const out: { id: MerchantOrderActionID; label: string; href?: string }[] = [
+    { id: "detail", label: "查看详情" },
+    {
+      id: "ledger",
+      label: "资金明细",
+      href: "/merchant/record?trade_no=" + encodeURIComponent(trade),
+    },
+  ];
+  if (row.status === "pending" && caps.query === true)
+    out.push({ id: "query", label: "手动补单" });
+  const money = (v: unknown) =>
+    typeof v === "string" &&
+    /^(0|[1-9]\d{0,18})$/.test(v) &&
+    BigInt(v) <= 9223372036854775807n
+      ? BigInt(v)
+      : undefined;
+  const amount = orderActualAmount104(row),
+    refunded = money(row.refunded_amount);
+  if (row.status === "paid") {
+    if (caps.notify === true) out.push({ id: "notify", label: "重新通知" });
+    if (
+      caps.refund === true &&
+      amount !== undefined &&
+      amount > 0n &&
+      refunded !== undefined &&
+      refunded < amount
+    )
+      out.push({ id: "refund", label: "退款" });
+    if (caps.print === true) out.push({ id: "print", label: "打印小票" });
+    if (refunded !== undefined && refunded > 0n)
+      out.push({
+        id: "refund-history",
+        label: "退款记录",
+        href: "/merchant/trade/refund?trade_no=" + encodeURIComponent(trade),
+      });
+  }
+  return out;
 }
 const labels: Record<OrderActionID, string> = {
   "mark-paid": "改已完成",
@@ -44,13 +102,10 @@ export function adminOrderActions(row: Record<string, unknown>): OrderAction[] {
       item("delete"),
     ];
   let refunded = status === "2";
-  if (
-    /^\d+$/.test(String(row.amount)) &&
-    /^\d+$/.test(String(row.refunded_amount))
-  )
+  const actual104 = orderActualAmount104(row);
+  if (actual104 !== undefined && /^\d+$/.test(String(row.refunded_amount)))
     refunded ||=
-      BigInt(String(row.amount)) > 0n &&
-      BigInt(String(row.refunded_amount)) >= BigInt(String(row.amount));
+      actual104 > 0n && BigInt(String(row.refunded_amount)) >= actual104;
   if (refunded)
     return [
       item("mark-unpaid"),

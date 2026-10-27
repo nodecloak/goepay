@@ -1,0 +1,21 @@
+{
+  "default": {
+    "description": "",
+    "email": "",
+    "homepage": "0",
+    "homepage_url": "",
+    "keywords": "",
+    "kfqq": "",
+    "kfqq_url": "",
+    "login_subtitle": "",
+    "orgname": "",
+    "qqqun": "",
+    "sitename": "GOEPAY",
+    "title": "GOEPAY",
+    "wework_url": ""
+  },
+  "production": false,
+  "real_funds": false,
+  "source": "actual migrated local PostgreSQL and GET /console/v1/public/site; schema/session disposed after test",
+  "synthetic_only": true
+}

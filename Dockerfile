@@ -5,7 +5,10 @@ RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
 COPY db ./db
-RUN CGO_ENABLED=0 go build -trimpath -o /out/api ./cmd/api && CGO_ENABLED=0 go build -trimpath -o /out/cli ./cmd/cli && CGO_ENABLED=0 go build -trimpath -o /out/worker ./cmd/worker && CGO_ENABLED=0 go build -trimpath -o /out/settlement-scheduler ./cmd/settlement-scheduler && CGO_ENABLED=0 go build -trimpath -o /out/settlement-auto-worker ./cmd/settlement-auto-worker && CGO_ENABLED=0 go build -trimpath -o /out/printing-worker ./cmd/printing-worker && CGO_ENABLED=0 go build -trimpath -o /out/referral-scheduler ./cmd/referral-scheduler && CGO_ENABLED=0 go build -trimpath -o /out/merchant-notice-scheduler ./cmd/merchant-notice-scheduler
+ARG GOEPAY_VERSION=development
+ARG GOEPAY_SOURCE_SHA=
+ARG GOEPAY_COMMIT=
+RUN set -eu; export CGO_ENABLED=0; for target in api cli worker settlement-scheduler settlement-auto-worker printing-worker referral-scheduler merchant-notice-scheduler task-scheduler risk-check; do go build -trimpath -ldflags="-X goepay/internal/systemupdate.Version=${GOEPAY_VERSION} -X goepay/internal/systemupdate.SourceSHA=${GOEPAY_SOURCE_SHA} -X goepay/internal/systemupdate.Commit=${GOEPAY_COMMIT}" -o "/out/${target}" "./cmd/${target}"; done
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates && addgroup -S app && adduser -S -G app app
 COPY --from=build /out/ /app/

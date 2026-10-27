@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	adapter "goepay/internal/adapters/payment"
@@ -22,6 +23,8 @@ func configureProviders(app *server.Server, mode string, master []byte, origin s
 			app.ProviderFlow.ScanRecoveryEnabled = false
 		}
 		app.IdentityProfiles = nil
+		app.ScanJSProfiles202 = nil
+		app.ScanJSSiteOrigin202 = ""
 		app.IdentityProfileEnabled = false
 		app.IdentityProfileCallbackBaseURL = ""
 		app.ApplicationAuthorizationProfiles = nil
@@ -60,8 +63,20 @@ func configureProviders(app *server.Server, mode string, master []byte, origin s
 	if e != nil {
 		return errConfiguredProviders
 	}
-	providers, e := channelconfig.BuildWithOptions(imp, channelconfig.BuildOptions{AllowLive: allowWrites, ScanRecovery: scanRecovery})
-	if e != nil || len(providers) == 0 {
+	var parentAccounts []adapter.ParentStartupAccount
+	if app.Store != nil {
+		parentAccounts, e = app.Store.ParentStartupAccounts(context.Background())
+		if e != nil {
+			return errConfiguredProviders
+		}
+	}
+	startup, e := channelconfig.PrepareParentStartup(imp, parentAccounts)
+	if e != nil {
+		return errConfiguredProviders
+	}
+	imp = startup.Import
+	providers, e := startup.BuildProviders(channelconfig.BuildOptions{AllowLive: allowWrites, ScanRecovery: scanRecovery})
+	if e != nil || !startup.HasRegisteredSources() {
 		return errConfiguredProviders
 	}
 	oauthEnabled := os.Getenv("GOEPAY_ENABLE_OAUTH")
@@ -80,13 +95,13 @@ func configureProviders(app *server.Server, mode string, master []byte, origin s
 	if observationEnabled != "" && observationEnabled != "false" && observationEnabled != "true" {
 		return errConfiguredProviders
 	}
-	applicationAuthorizationProfiles, e := channelconfig.BuildApplicationAuthorizationProfiles(imp, applicationAuthorizationEnabled == "true")
+	applicationAuthorizationProfiles, e := channelconfig.BuildApplicationAuthorizationProfiles(startup.IdentityImport, applicationAuthorizationEnabled == "true")
 	if e != nil {
 		return errConfiguredProviders
 	}
 	app.IdentityProfileEnabled = identityEnabled == "true"
 	app.IdentityProfileCallbackBaseURL = strings.TrimRight(origin, "/")
-	app.IdentityProfiles, e = channelconfig.BuildIdentityProfiles(imp, app.IdentityProfileEnabled)
+	app.IdentityProfiles, e = channelconfig.BuildIdentityProfiles(startup.IdentityImport, app.IdentityProfileEnabled)
 	if e != nil {
 		return errConfiguredProviders
 	}
@@ -96,25 +111,45 @@ func configureProviders(app *server.Server, mode string, master []byte, origin s
 			return errConfiguredProviders
 		}
 		app.MiniOAuthProviders, e = channelconfig.BuildMiniOAuth(imp)
-		if e != nil || len(app.OAuthProviders)+len(app.MiniOAuthProviders)+len(app.IdentityProfiles)+len(applicationAuthorizationProfiles) == 0 {
+		if e != nil || len(app.OAuthProviders)+len(app.MiniOAuthProviders)+len(app.IdentityProfiles)+len(applicationAuthorizationProfiles) == 0 && !startup.HasManagedAccounts() {
 			return errConfiguredProviders
 		}
 	} else {
 		app.OAuthProviders = nil
 		app.MiniOAuthProviders = nil
 	}
-	mapping, e := configuredAllowlist(os.Getenv("GOEPAY_MERCHANT_CHANNELS"), providers)
+	mapping, e := startup.MerchantAllowlist(os.Getenv("GOEPAY_MERCHANT_CHANNELS"))
 	if e != nil {
 		return e
 	}
 	key := sha256.Sum256(append([]byte("checkout-signing:"), master...))
 	app.CheckoutKey = key[:]
-	flow := &payment.ProviderFlow{Store: app.Store, Providers: providers, MerchantChannels: mapping, AllowLive: allowWrites, ScanRecoveryEnabled: scanRecovery, LocalSimulation: false, CallbackBaseURL: strings.TrimRight(origin, "/")}
+	childFactories, e := startup.BuildSubchannelFactories(channelconfig.BuildOptions{AllowLive: allowWrites, ScanRecovery: scanRecovery, EnableSubchannelOAuth: oauthEnabled == "true"})
+	if e != nil {
+		return errConfiguredProviders
+	}
+	flow := &payment.ProviderFlow{SubchannelFactories: childFactories, Store: app.Store, Providers: providers, MerchantChannels: mapping, AllowLive: allowWrites, ScanRecoveryEnabled: scanRecovery, LocalSimulation: false, CallbackBaseURL: strings.TrimRight(origin, "/")}
+	parentFactories, e := startup.BuildFactories(channelconfig.ParentBuildOptions{BuildOptions: channelconfig.BuildOptions{AllowLive: allowWrites, ScanRecovery: scanRecovery, RuntimeWriteAllowed: func() bool { return flow.AllowLive }}, OAuthEnabled: oauthEnabled == "true", WebOAuthAllowed: func() bool { return app.OAuthProviders != nil }, MiniOAuthAllowed: func() bool { return app.MiniOAuthProviders != nil }})
+	if e != nil || flow.InstallParentAccountFactories(parentFactories) != nil {
+		return errConfiguredProviders
+	}
 	app.ProviderFlow = flow
 	flow.ReturnURLBuilder = app.ProviderReturnURL
 	app.MerchantChannels = mapping
+	if app.InstallParentRuntimeAuthorization() != nil {
+		return errConfiguredProviders
+	}
 	app.Simulation = nil
 	app.AuthorizationObservationEnabled = observationEnabled == "true"
+	scanJSProfiles, e := channelconfig.BuildScanJSProfiles202(startup.IdentityImport)
+	if e != nil {
+		return errConfiguredProviders
+	}
+	// Startup construction is offline and grants no merchant scan authority.
+	// The separate persisted operator selection defaults to disabled. Publish
+	// this immutable catalogue only after the configured environment validates.
+	app.ScanJSProfiles202 = scanJSProfiles
+	app.ScanJSSiteOrigin202 = strings.TrimRight(origin, "/")
 	// Publish this independent capability only after the full configured
 	// environment validates. Failure and simulation paths keep it cleared.
 	if applicationAuthorizationEnabled == "true" {

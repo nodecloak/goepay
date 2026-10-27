@@ -1,0 +1,214 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>开发文档 - {:config_get('sitename')}</title>
+    <!-- jQuery-->
+    <script src="{$cdnpublic}jquery/1.12.4/jquery.min.js"></script>
+    <!-- layui -->
+    <link rel="stylesheet" href="{$cdnpublic}layui/2.6.13/css/layui.css" />
+    <script src="{$cdnpublic}layui/2.6.13/layui.js"></script>
+    <!-- zTree -->
+    <link rel="stylesheet" href="{$cdnpublic}zTree.v3/3.5.42/css/zTreeStyle/zTreeStyle.min.css" />
+    <script src="{$cdnpublic}zTree.v3/3.5.42/js/jquery.ztree.core.min.js"></script>
+    <!-- SyntaxHighlighter -->
+    <script src="/static/doc/js/shCore.min.js" type="text/javascript"></script>
+    <link rel="stylesheet" type="text/css" href="/static/doc/css/shCoreDefault.css"/>
+    <!-- 自定义 -->
+    <link rel="stylesheet" href="/static/doc/css/style.css" />
+    <script src="/static/doc/js/home.js"></script>
+    <link rel="stylesheet" href="/static/doc/css/docView.css" />
+    <script src="/static/doc/js/docView.js"></script>
+</head>
+<body>
+    <!-- top-begin -->
+    <div id="navbar">
+        <div class="bg-blur" style="background: white!important;"></div>
+        <div class="navbar-body">
+            <ul class="layui-nav" lay-filter="">
+                <div class="navRight">
+                    <li class="layui-nav-item layui-this" lay-unselect>
+                        <a href="/" style="padding-right: 40px;">返回官网</a>
+                    </li>
+                </div>
+            </ul>
+            <div class="nav-menu">
+                <a href="" class="logo"><img src="/static/img/logo.png"/></a>
+                <a href="javascript:;" id="navMenuLeft"><i class="layui-icon layui-icon-spread-left"></i></a>
+                <a href="javascript:;" id="navMenuRight"><i class="layui-icon">&#xe61a;</i></a>
+            </div>
+            <div class="clear"></div>
+        </div>
+    </div>
+    <script>
+    function showMask()
+    {
+        $('#mask').show();
+    }
+    function hideMask()
+    {
+        $('#mask').hide();
+    }
+    function clickMask()
+    {
+        closeMenuLeft();
+        closeMenuRight();
+    }
+    function openMenuLeft()
+    {
+        $('#leftbar').addClass('show-item');
+        $('#navMenuLeft').addClass('active');
+        var ico = $('#navMenuLeft .layui-icon');
+        ico.removeClass('layui-icon-spread-left');
+        ico.addClass('layui-icon-shrink-right');
+        showMask();
+    }
+    function closeMenuLeft()
+    {
+        $('#leftbar').removeClass('show-item');
+        $('#navMenuLeft').removeClass('active');
+        var ico = $('#navMenuLeft .layui-icon');
+        ico.removeClass('layui-icon-shrink-right');
+        ico.addClass('layui-icon-spread-left');
+        hideMask();
+    }
+    $('#navMenuLeft').click(function(){
+        var isShow = $('#leftbar').hasClass('show-item');
+        if(isShow)
+        {
+            closeMenuLeft();
+        }
+        else
+        {
+            closeMenuRight();
+            openMenuLeft();
+        }
+    });
+    function openMenuRight()
+    {
+        $('#navbar > .navbar-body > .layui-nav').addClass('show-item')
+        $('#navMenuRight').addClass('active').find('i').html('&#xe619;');
+        showMask();
+    }
+    function closeMenuRight()
+    {
+        $('#navbar > .navbar-body > .layui-nav').removeClass('show-item')
+        $('#navMenuRight').removeClass('active').find('i').html('&#xe61a;');
+        hideMask();
+    }
+    $('#navMenuRight').click(function(){
+        var isShow = $('#navbar > .navbar-body > .layui-nav').hasClass('show-item');
+        if(isShow)
+        {
+            closeMenuRight();
+        }
+        else
+        {
+            closeMenuLeft();
+            openMenuRight();
+        }
+    });
+    </script>
+    <!-- top-end -->
+
+    <!-- left-begin -->
+    <div id="leftbar" class="layui-nav-side">
+        <div class="layui-tab layui-tab-brief" style="margin-top:0">
+            <ul class="layui-tab-title">
+                <li class="layui-this"><i class="layui-icon">&#xe705;</i> 目录</li>
+            </ul>
+            <div class="layui-tab-content">
+                <div class="layui-tab-item layui-show">
+                    <ul id="treeDirectory" class="ztree showIcon"></ul>
+                </div>
+                <div class="layui-tab-item">
+                    <div class="searchBox">
+                        <div id="searchForm">
+                            <div class="inputBox">
+                                <input type="text" id="search-keyword" autocomplete="off" name="keyword" placeholder="搜索关键词" class="layui-input"/>
+                                <i class="layui-icon input-icon">&#xe615;</i>
+                            </div>
+                        </div>
+                        <ul id="treeSearch">
+                        </ul>
+                        <div class="searchResultNone">
+                            <i class="layui-icon">&#xe615;</i>
+                            <p>未搜索到结果</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="copyright noScroll">{:config_get('sitename')}</div>
+        </div>
+    </div>
+    <script id="searchListTemplate" type="text/html">
+        {{#  layui.each(d, function(index, item){ }}
+        <li>
+            <a href="{{ item.url }}">
+                <h3>{{ item.searchedTitle }}</h3>
+                <p>{{ item.searchedContent }}</p>
+            </a>
+        </li>
+        {{#  }) }}
+    </script>
+    <!-- left-end -->
+
+    <div id="body">
+        <div id="content_body" name="content_body" style="width:100%;height:100%;border:none;overflow: auto;">
+            <div id="article-content" class="markdown-body">
+                <script>
+                    var catalogList = [{"id":1,"parent_id":0,"title":"接口说明","mdFileName":"index.md","url":"index.html","level":0},{"id":2,"parent_id":0,"title":"签名规则","mdFileName":"sign_note.md","url":"sign_note.html","level":0},{"id":3,"parent_id":0,"title":"支付方式列表","mdFileName":"paytype.md","url":"paytype.html","level":0},{"id":4,"parent_id":0,"title":"支付相关接口","level":0},{"id":5,"parent_id":4,"title":"页面跳转支付","mdFileName":"pay_submit.md","url":"pay_submit.html","level":1},{"id":6,"parent_id":4,"title":"统一下单接口","mdFileName":"pay_create.md","url":"pay_create.html","level":1},{"id":7,"parent_id":4,"title":"订单查询","mdFileName":"pay_query.md","url":"pay_query.html","level":1},{"id":8,"parent_id":4,"title":"支付结果通知","mdFileName":"pay_notify.md","url":"pay_notify.html","level":1},{"id":9,"parent_id":4,"title":"订单退款","mdFileName":"pay_refund.md","url":"pay_refund.html","level":1},{"id":10,"parent_id":4,"title":"订单退款查询","mdFileName":"pay_refundquery.md","url":"pay_refundquery.html","level":1},{"id":11,"parent_id":4,"title":"关闭订单","mdFileName":"pay_close.md","url":"pay_close.html","level":1},{"id":20,"parent_id":0,"title":"商户相关接口","level":0},{"id":21,"parent_id":20,"title":"查询商户信息","mdFileName":"merchant_info.md","url":"merchant_info.html","level":1},{"id":22,"parent_id":20,"title":"查询订单列表","mdFileName":"merchant_orders.md","url":"merchant_orders.html","level":1},{"id":30,"parent_id":0,"title":"代付相关接口","level":0},{"id":31,"parent_id":30,"title":"转账发起","mdFileName":"transfer_submit.md","url":"transfer_submit.html","level":1},{"id":32,"parent_id":30,"title":"转账查询","mdFileName":"transfer_query.md","url":"transfer_query.html","level":1},{"id":33,"parent_id":30,"title":"可用余额查询","mdFileName":"transfer_balance.md","url":"transfer_balance.html","level":1},{"id":40,"parent_id":0,"title":"投诉相关接口","level":0},{"id":41,"parent_id":40,"title":"投诉列表","mdFileName":"complain_batch.md","url":"complain_batch.html","level":1},{"id":42,"parent_id":40,"title":"投诉详情","mdFileName":"complain_detail.md","url":"complain_detail.html","level":1},{"id":43,"parent_id":40,"title":"上传图片","mdFileName":"complain_upload.md","url":"complain_upload.html","level":1},{"id":44,"parent_id":40,"title":"处理投诉","mdFileName":"complain_feedback.md","url":"complain_feedback.html","level":1},{"id":45,"parent_id":40,"title":"回复用户","mdFileName":"complain_reply.md","url":"complain_reply.html","level":1},{"id":46,"parent_id":40,"title":"更新退款审批结果","mdFileName":"complain_refundprogress.md","url":"complain_refundprogress.html","level":1},{"id":47,"parent_id":40,"title":"处理完成","mdFileName":"complain_complete.md","url":"complain_complete.html","level":1},{"id":50,"parent_id":0,"title":"SDK下载","pageTitle":"接口说明","mdFileName":"sdk.md","url":"sdk.html","level":0}];
+                    initTree(catalogList);
+                </script>
+                <h1 id="处理投诉"><a href="#处理投诉">处理投诉</a></h1><blockquote>提交投诉处理结果。支付宝投诉使用本接口完结处理；微信投诉也可用于回复用户，并可选择同时反馈处理完成</blockquote><h4 id="请求地址："><a href="#请求地址：">请求地址：</a></h4><p><code>{:config_get('apiurl', request()->siteurl)}api/complain/feedback</code></p><h4 id="请求方式："><a href="#请求方式：">请求方式：</a></h4><p>POST</p><h4 id="请求参数说明："><a href="#请求参数说明：">请求参数说明：</a></h4><table><thead><tr><th>字段名</th><th>变量名</th><th>必填</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead><tbody><tr><td>商户ID</td><td>pid</td><td>是</td><td>Int</td><td>1001</td><td> </td></tr><tr><td>投诉单ID</td><td>id</td><td>是</td><td>Int</td><td>10001</td><td> </td></tr><tr><td>处理结果码</td><td>code</td><td>特殊</td><td>String</td><td>03</td><td><a href="#处理结果码说明">处理结果码说明</a>；微信回复时可不传</td></tr><tr><td>处理说明</td><td>content</td><td>特殊</td><td>String</td><td> </td><td>处理说明/留言内容；<code>code=1</code> 时可为空，其余情况必填</td></tr><tr><td>图片列表</td><td>images</td><td>否</td><td>Array</td><td> </td><td>上传图片接口返回的 image_id 数组，不参与签名</td></tr><tr><td>同时完成</td><td>complete</td><td>否</td><td>String</td><td>0</td><td>仅微信：传 <code>1</code> 表示处理后同时反馈处理完成</td></tr><tr><td>当前时间戳</td><td>timestamp</td><td>是</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr><tr><td>签名字符串</td><td>sign</td><td>是</td><td>String</td><td> </td><td>参考签名规则</td></tr><tr><td>签名类型</td><td>sign_type</td><td>是</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr></tbody></table><h4 id="返回参数说明："><a href="#返回参数说明：">返回参数说明：</a></h4><table><thead><tr><th>字段名</th><th>变量名</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead><tbody><tr><td>返回状态码</td><td>code</td><td>Int</td><td>0</td><td>0为成功，其它值为失败</td></tr><tr><td>返回信息</td><td>msg</td><td>String</td><td>success</td><td> </td></tr><tr><td>当前时间戳</td><td>timestamp</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr><tr><td>签名字符串</td><td>sign</td><td>String</td><td> </td><td>参考签名规则</td></tr><tr><td>签名类型</td><td>sign_type</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr></tbody></table><h4 id="处理结果码说明"><a href="#处理结果码说明">处理结果码说明</a></h4><p><strong>支付宝小程序交易投诉（showtype=alipay）：</strong></p><table><thead><tr><th>结果码</th><th>描述</th></tr></thead><tbody><tr><td>02</td><td>通过其他方式退款</td></tr><tr><td>03</td><td>已发货</td></tr><tr><td>04</td><td>其他</td></tr><tr><td>05</td><td>已完成售后服务</td></tr><tr><td>06</td><td>非我方责任范围</td></tr></tbody></table><p><strong>支付宝RiskGO消费者投诉（showtype=alipayrisk）：</strong></p><table><thead><tr><th>结果码</th><th>描述</th></tr></thead><tbody><tr><td>CONSENSUS_WITH_CLIENT</td><td>已联系到用户，协商一致，无异议</td></tr><tr><td>RECTIFICATION_NO_REFUND</td><td>不涉及退款，已针对投诉内容进行整改</td></tr><tr><td>REFUND</td><td>已退款，用户无异议</td></tr><tr><td>SUBMIT_PROOF_NOT_CONTACTED</td><td>不认可举报的证明材料</td></tr><tr><td>OTHER_CHANNEL_REFUND</td><td>其他渠道已退款</td></tr><tr><td>ORTHER</td><td>其他</td></tr></tbody></table><h4 id="其他说明："><a href="#其他说明：">其他说明：</a></h4><ul><li>请先调用投诉详情接口，根据 <code>showtype</code> 选择对应的处理结果码</li><li>微信投诉建议优先使用<a href="complain_reply.html">回复用户</a>、<a href="complain_complete.html">处理完成</a>接口</li><li><code>images</code> 为数组类型，不参与签名计算</li></ul>            <div id="mask" style="display:none" onclick="clickMask()"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(function(){
+            var leftBarTimeout = null;
+            $('#leftbar').hover(function(e){
+                if(null !== leftBarTimeout)
+                {
+                    clearTimeout(leftBarTimeout);
+                    leftBarTimeout = null;
+                }
+                if(e.type === 'mouseenter')
+                {
+                    $('.left-show-hide').fadeIn(250);
+                }
+                else if($('#leftbar').css('left') == '0px')
+                {
+                    $('.left-show-hide').fadeOut(500);
+                }
+            });
+        });
+        function showLeftbar()
+        {
+            $('#leftbar').css('left', 0);
+            $('#body').css('padding-left','');
+            $('.left-show-hide > i.layui-icon').html('&#xe603;');
+        }
+        function hideLeftbar()
+        {
+            $('#leftbar').css('left', '-240px');
+            $('#body').css('padding-left',0);
+            $('.left-show-hide > i.layui-icon').html('&#xe602;');
+            $('.left-show-hide').fadeIn(250);
+        }
+        $('.left-show-hide').click(function(){
+            if($('#leftbar').css('left') == '0px')
+            {
+                hideLeftbar();
+            }
+            else
+            {
+                showLeftbar();
+            }
+        })
+    </script>
+</body>
+</html>

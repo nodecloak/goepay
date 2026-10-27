@@ -6,7 +6,10 @@ export const transferSearchFields = [
   { value: "biz_no", label: "交易号" },
   { value: "out_biz_no", label: "商户交易号" },
   { value: "pay_order_no", label: "接口交易号" },
+  { value: "account", label: "付款账号" },
+  { value: "username", label: "姓名" },
   { value: "money", label: "付款金额" },
+  { value: "desc", label: "备注" },
 ] as const;
 export const transferStatusFields = [
   { value: "", label: "全部状态" },

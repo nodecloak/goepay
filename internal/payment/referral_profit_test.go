@@ -193,7 +193,7 @@ func TestReferralProfit71BirthImmutableCostAndZeroStillMandatory(t *testing.T) {
 			if _, e = s.pool.Exec(ctx, `ALTER TABLE referral_profit_costs DISABLE TRIGGER referral_profit_cost_immutable;ALTER TABLE referral_profit_cost_events DISABLE TRIGGER referral_profit_event_immutable;DELETE FROM referral_profit_cost_events;DELETE FROM referral_profit_costs`); e != nil {
 				t.Fatal(e)
 			}
-			if e = s.markPaid(ctx, o.TradeNo, "profit71-missing-proof", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); !errors.Is(e, ErrConflict) {
+			if e = s.markPaid(ctx, o.TradeNo, "profit71-missing-proof", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); !errors.Is(e, ErrConflict) {
 				t.Fatal("missing cost downgraded even zero reward", e)
 			}
 		})
@@ -248,7 +248,7 @@ func profitOrder71(t *testing.T, mode string) (*Store, Order, int64) {
 	if _, _, e = s.BeginProviderAttemptWithAccount(ctx, o.TradeNo, 7, "native", "profit71-app", "", q.estimate.AccountScope); e != nil {
 		t.Fatal(e)
 	}
-	if e = s.markPaid(ctx, o.TradeNo, "profit71-local-paid", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); e != nil {
+	if e = s.markPaid(ctx, o.TradeNo, "profit71-local-paid", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); e != nil {
 		t.Fatal(e)
 	}
 	return s, o, promoter
@@ -318,7 +318,7 @@ func TestReferralProfit71TamperingCannotBecomeDisabledOrFreeCost(t *testing.T) {
 			if _, e := s.pool.Exec(ctx, mutation); e != nil {
 				t.Fatal(e)
 			}
-			if e := s.markPaid(ctx, o.TradeNo, "profit71-tampered-replay", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); !errors.Is(e, ErrConflict) {
+			if e := s.markPaid(ctx, o.TradeNo, "profit71-tampered-replay", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); !errors.Is(e, ErrConflict) {
 				t.Fatal("tamper accepted", e)
 			}
 			r, e := s.CheckLedger(ctx)
@@ -409,7 +409,7 @@ func TestReferralProfit71ProvenZeroRewardNeedsReceiptAndKeepsFullRefund(t *testi
 			if e = s.MarkPaid(ctx, o.TradeNo, "profit71-unverified-zero"); !errors.Is(e, ErrState) {
 				t.Fatal("R0 bypassed receipt provenance", e)
 			}
-			if e = s.markPaid(ctx, o.TradeNo, "profit71-verified-zero", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); e != nil {
+			if e = s.markPaid(ctx, o.TradeNo, "profit71-verified-zero", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); e != nil {
 				t.Fatal(e)
 			}
 			b, e := s.Balance(ctx, promoter)

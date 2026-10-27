@@ -22,6 +22,13 @@ for (const width of [1280, 375])
         approved_domains: ["pay.example.invalid"],
         pay: "2",
         enabled: false,
+        core_risk: {
+          blocked: false,
+          reason: "",
+          until: null,
+          action_id: "0",
+          revision: "0",
+        },
         login_username: "merchant-login-145",
         signature_algorithm: "MD5",
         api_key: "never-visible-api145",
@@ -112,8 +119,10 @@ for (const width of [1280, 375])
     await expect(row).toContainText("冻结预留：0.50");
     await expect(row).toContainText("待解冻收入：0.99");
     await expect(row).toContainText("***1234");
-    await expect(row).toContainText("收款：待审核");
+    await expect(row).toContainText("收款配置：待审核");
     await expect(row).toContainText("账户：已禁用");
+    await expect(row).toContainText("新付款受限：配置已关闭；支付权限待审核");
+    await expect(row).not.toContainText("风控有效状态待核对");
     await expect(row).toContainText("手机：13000000145");
     await expect(row).toContainText("pay.example.invalid");
     await expect(row).not.toContainText("merchant-login-145");

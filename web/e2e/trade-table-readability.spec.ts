@@ -1,3 +1,4 @@
+import { openMerchantOrderDetails } from "./fixtures/merchant-order-navigation";
 import { test, expect } from "@playwright/test";
 
 for (const area of ["admin", "merchant"] as const)
@@ -90,7 +91,8 @@ for (const area of ["admin", "merchant"] as const)
         await page.keyboard.press("Escape");
         await expect(trigger).toBeFocused();
       }
-      await row.getByRole("button", { name: "详情", exact: true }).click();
+      if (area === "merchant") await openMerchantOrderDetails(page, row);
+      else await row.getByRole("button", { name: "详情", exact: true }).click();
       await expect(
         page.getByRole("dialog", { name: "订单详情" }),
       ).toContainText(order.out_trade_no);

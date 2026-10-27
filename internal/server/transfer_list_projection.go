@@ -7,7 +7,7 @@ import (
 )
 
 const privateTransferRecipientColumn = "private_recipient_cipher"
-const transferListDisplayColumns = ",t.created_at,COALESCE(p.provider_transfer_no,'') AS provider_transfer_no,COALESCE(p.pay_date,'') AS pay_date,''::text AS type,''::text AS account_masked,''::text AS name_masked,p.recipient_cipher AS " + privateTransferRecipientColumn
+const transferListDisplayColumns = ",t.created_at,COALESCE(p.provider_transfer_no,'') AS provider_transfer_no,COALESCE(p.pay_date,'') AS pay_date,''::text AS type,''::text AS account_masked,''::text AS name_masked,''::text AS remark,p.recipient_cipher AS " + privateTransferRecipientColumn
 
 var errTransferListProjection = errors.New("original transfer display cannot be verified")
 
@@ -87,6 +87,8 @@ func (s *Server) projectTransferListValues(columns []string, values []any) ([]an
 			out = append(out, display.AccountMasked)
 		case "name_masked":
 			out = append(out, display.NameMasked)
+		case "remark":
+			out = append(out, display.Remark)
 		default:
 			out = append(out, values[i])
 		}

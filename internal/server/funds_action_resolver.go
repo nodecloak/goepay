@@ -36,6 +36,12 @@ func fundsTarget(target string) (fundsTargetDefinition, bool) {
 		return d, false
 	}
 	p := strings.Split(strings.TrimPrefix(target, "/console/v1/admin/"), "/")
+	if len(p) == 4 && p[0] == "orders" && p[1] == "business-batches" && p[3] == "execute" {
+		if _, ok := positiveFundsID(p[2]); !ok {
+			return d, false
+		}
+		return fundsTargetDefinition{guard: "order-business-batch", category: "order-business-batch", id: p[2], verb: "execute", keys: []string{"limit"}}, true
+	}
 	if len(p) == 3 && p[0] == "channel-stops" && p[2] == "resume" {
 		if _, ok := positiveFundsID(p[1]); !ok {
 			return d, false
@@ -191,6 +197,9 @@ func normalizeFundsBody(raw []byte, d fundsTargetDefinition) (map[string]json.Ra
 		}
 		if k == "items" {
 			var items []batchConsoleItem
+			if validateFundsJSONFields(v, &items) != nil {
+				return nil, nil, payment.ErrInvalid
+			}
 			decoder := json.NewDecoder(bytes.NewReader(v))
 			decoder.DisallowUnknownFields()
 			if e := decoder.Decode(&items); e != nil || len(items) < 1 || len(items) > 100 {
@@ -343,6 +352,9 @@ func (s *Server) ResolveFundsAction(ctx context.Context, q identity.FundsQuerier
 	fields, canonical, e := normalizeFundsBody(raw, d)
 	if e != nil {
 		return identity.FundsAction{}, nil, e
+	}
+	if d.category == "order-business-batch" {
+		return s.resolveOrderBusinessBatchFunds185(ctx, q, d, target, canonical)
 	}
 	summary := map[string]string{"action": d.guard, "target": target}
 	snapshot := map[string]any{}
@@ -736,6 +748,10 @@ func (s *Server) ResolveFundsAction(ctx context.Context, q identity.FundsQuerier
 		}
 		if d.category == "settlements" {
 			if d.id == "" {
+				snapshot["settlement_policy"], e = s.Store.FundsSettlementPolicySnapshot(ctx, q, mid)
+				if e != nil {
+					return identity.FundsAction{}, nil, e
+				}
 				snapshot["recipient_config"], e = fundsJSONRow(ctx, q, `SELECT COALESCE((SELECT to_jsonb(c) FROM settlement_recipient_current p JOIN settlement_recipient_configs c ON c.id=p.config_id AND c.merchant_id=p.merchant_id WHERE p.merchant_id=$1),'null'::jsonb)`, mid)
 			} else {
 				id, _ := positiveFundsID(d.id)
@@ -764,7 +780,7 @@ func (s *Server) ResolveFundsAction(ctx context.Context, q identity.FundsQuerier
 	merchants := map[string]json.RawMessage{}
 	runtime := map[string]any{}
 	for merchant := range mids {
-		m, e := fundsJSONRow(ctx, q, "SELECT jsonb_build_object('id',id,'enabled',enabled,'profile',profile,'config_revision',config_revision) FROM merchants WHERE id=$1", merchant)
+		m, e := fundsJSONRow(ctx, q, "SELECT jsonb_build_object('id',id,'enabled',enabled,'profile',profile,'config_revision',config_revision,'settlement_permission_revision',settlement_permission_revision) FROM merchants WHERE id=$1", merchant)
 		if e != nil {
 			return identity.FundsAction{}, nil, e
 		}
@@ -820,6 +836,9 @@ func (s *Server) ResolveFundsAction(ctx context.Context, q identity.FundsQuerier
 // protectAdminFunds installs only a request-local guard. It leaves the original
 // body available to the existing handler, and never creates a business intent.
 func mandatoryFundsAuthorization(d fundsTargetDefinition) bool {
+	if d.category == "order-business-batch" {
+		return true
+	}
 	return d.verb == "manual-refund" || d.category == "settlement-plan" || d.category == "settlement-auto" || d.guard == "income-hold-adopt" || d.guard == "authorization-release-remaining" || d.guard == "channel-resume"
 }
 

@@ -84,6 +84,12 @@ func (s *Server) handleMiniOAuthComplete(w http.ResponseWriter, r *http.Request)
 		reject(400)
 		return
 	}
+	resolved, resolveErr := s.originalOrderServer(r.Context(), b.TradeNo, b.ChannelID)
+	if resolveErr != nil {
+		reject(503)
+		return
+	}
+	s = resolved
 	q, e := strictOAuthQuery(r.URL.RawQuery)
 	if e != nil || len(q) != 1 || q.Get("state") == "" {
 		reject(400)
@@ -142,7 +148,7 @@ func (s *Server) handleMiniOAuthComplete(w http.ResponseWriter, r *http.Request)
 		reject(503)
 		return
 	}
-	attempt, e := s.ProviderFlow.Submit(r.Context(), b.TradeNo, b.ChannelID, b.Method, originalIP, identity.SubjectID)
+	attempt, e := s.ProviderFlow.Submit(s.paymentDefendContext206(r.Context()), b.TradeNo, b.ChannelID, b.Method, originalIP, identity.SubjectID)
 	if e != nil && attempt.ID == 0 {
 		reject(503)
 		return

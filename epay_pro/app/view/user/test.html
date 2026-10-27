@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+	<title>{$sitename} - 测试支付</title>
+	<link href="{$cdnpublic}twitter-bootstrap/3.4.1/css/bootstrap.min.css" rel="stylesheet"/>
+	<link rel="stylesheet" href="/static/css/captcha.css" type="text/css" />
+	<style>.form-group{margin-bottom:18px} #captcha{margin: auto;margin-bottom:16px}</style>
+</head>
+<body>
+<div class="container">
+<div class="col-xs-12 col-sm-10 col-lg-8 center-block" style="float: none;">
+<div class="page-header">
+  <h4>{$sitename} - 测试支付<a href="/" class="pull-right"><small>返回首页</small></a></h4>
+</div>
+<div class="panel panel-primary">
+<div class="panel-body">
+
+<form name="alipayment">
+<input type="hidden" name="csrf_token" id="csrf_token" value="">
+<div class="form-group"><div class="input-group">
+<span class="input-group-addon"><span class="glyphicon glyphicon-barcode"></span></span>
+<input class="form-control" placeholder="商户订单号" value="{$success_trade_no}" name="trade_no" id="trade_no" type="text" disabled="">
+</div></div>
+<div class="form-group"><div class="input-group">
+<span class="input-group-addon"><span class="glyphicon glyphicon-shopping-cart"></span></span>
+<input class="form-control" placeholder="商品名称" value="支付测试" name="name" type="text" disabled="">
+</div></div>
+<div class="form-group"><div class="input-group">
+<span class="input-group-addon"><span class="glyphicon glyphicon-yen"></span></span>
+<input class="form-control" placeholder="付款金额" value="{$success_money}" name="money" id="money" type="text" {if $show_success}disabled="disabled"{else/}required=""{/if}>
+</div></div>
+<center>
+{if $show_success}
+<div class="alert alert-success"><i class="glyphicon glyphicon-ok-circle"></i>&nbsp;订单已支付成功！</div>
+{else/}
+	<div class="list-group-item" id="captcha" style="display:none;"><div id="captcha_text">正在加载验证码</div>
+	<div id="captcha_wait">
+		<div class="loading">
+			<div class="loading-dot"></div>
+			<div class="loading-dot"></div>
+			<div class="loading-dot"></div>
+			<div class="loading-dot"></div>
+		</div>
+	</div></div>
+	<div id="captchaform"></div>
+	<div id="paytype_wrap" class="btn-group btn-group-justified" role="group" style="margin-top:16px;">
+		<div class="btn-group" role="group"><button type="button" class="btn btn-default" disabled>加载中...</button></div>
+	</div>
+{/if}
+</center>
+</form>
+</div>
+<div class="panel-footer text-center">
+{$sitename} © {:date("Y")} All Rights Reserved.
+</div>
+</div>
+</div>
+</div>
+<script src="{$cdnpublic}jquery/3.7.1/jquery.min.js"></script>
+<script src="{$cdnpublic}twitter-bootstrap/3.4.1/js/bootstrap.min.js"></script>
+<script src="{$cdnpublic}layer/3.1.1/layer.js"></script>
+<script>
+window.appendChildOrg = Element.prototype.appendChild;
+Element.prototype.appendChild = function() {
+    if(arguments[0].tagName == 'SCRIPT'){
+        arguments[0].setAttribute('referrerpolicy', 'no-referrer');
+    }
+    return window.appendChildOrg.apply(this, arguments);
+};
+</script>
+<script src="//static.geetest.com/static/tools/gt.js"></script>
+<script src="//static.geetest.com/v4/gt4.js"></script>
+<script>
+var captcha_open = 0;
+var handlerEmbed = function (captchaObj) {
+	captchaObj.appendTo('#captcha');
+	captchaObj.onReady(function () {
+		$("#captcha_wait").hide();
+	}).onSuccess(function () {
+		var result = captchaObj.getValidate();
+		if (!result) {
+			return alert('请完成验证');
+		}
+		$.captchaResult = result;
+		$.captchaObj = captchaObj;
+	});
+};
+function submitPay(obj){
+	var csrf_token = $("#csrf_token").val();
+	var money = $("#money").val();
+	var typeid = $(obj).val();
+	if(money==''){
+		layer.alert("金额不能为空");
+		return false;
+	}
+	if(captcha_open == 1 && !$.captchaResult){
+		layer.alert('请先完成滑动验证！'); return false;
+	}
+	var postData = {money:money, typeid:typeid, csrf_token:csrf_token};
+	if($.captchaResult){
+		$.extend(postData, $.captchaResult);
+	}
+	var ii = layer.load();
+	$.ajax({
+		type: "POST",
+		dataType: "json",
+		data: postData,
+		url: "/user/testpay/submit",
+		success: function (data) {
+			layer.close(ii);
+			if (data.code == 200 && data.data && data.data.url) {
+				window.location.href = data.data.url;
+			}else{
+				layer.alert(data.msg || '提交失败', {icon: 2});
+				if($.captchaObj) $.captchaObj.reset();
+			}
+		},
+		error: function () {
+			layer.close(ii);
+			layer.msg('服务器错误', {icon: 2});
+		}
+	});
+	return false;
+}
+$(document).ready(function(){
+	{if $show_success}
+	{else/}
+	$.get("/user/testpay/init").done(function (data) {
+		if (data.code !== 200 || !data.data) {
+			$("#paytype_wrap").html('<div class="btn-group" role="group"><button type="button" class="btn btn-default" disabled>' + (data.msg || '初始化失败') + '</button></div>');
+			return;
+		}
+		var d = data.data;
+		$("#csrf_token").val(d.csrf_token || '');
+		$("#trade_no").val(d.trade_no || '');
+		$("#money").val(d.money || 1);
+
+		var html = '';
+		$.each(d.paytype || [], function(i, row) {
+			html += '<div class="btn-group" role="group"><button type="button" name="type" value="' + row.id + '" class="btn btn-default" onclick="submitPay(this)"><img src="/static/icon/' + row.name + '.png" height="18" onerror="this.style.display=\'none\'">&nbsp;' + (row.showname || row.name) + '</button></div>';
+		});
+		$("#paytype_wrap").html(html || '<div class="btn-group" role="group"><button type="button" class="btn btn-default" disabled>暂无支付方式</button></div>');
+
+		if (d.captcha_open) {
+			captcha_open = 1;
+			$("#captcha").show();
+			$.get("/user/common/captcha").done(function (cr) {
+				if (cr.code !== 200 || !cr.data) return;
+				var cfg = cr.data;
+				$('#captcha_text').hide();
+				$('#captcha_wait').show();
+				if (cfg.version == 1) {
+					initGeetest4({
+						captchaId: cfg.gt || cfg.captcha_id,
+						product: 'popup',
+						protocol: 'https://',
+						riskType: 'ai',
+						hideSuccess: true,
+						nativeButton: {width: '100%'}
+					}, handlerEmbed);
+				} else if (typeof initGeetest === 'function') {
+					initGeetest({
+						gt: cfg.gt,
+						challenge: cfg.challenge,
+						new_captcha: cfg.new_captcha,
+						product: "popup",
+						width: "100%",
+						offline: !cfg.success,
+					}, handlerEmbed);
+				}
+			});
+		}
+	}).fail(function() {
+		$("#paytype_wrap").html('<div class="btn-group" role="group"><button type="button" class="btn btn-default" disabled>网络错误</button></div>');
+	});
+	{/if}
+});
+</script>
+</body>
+</html>

@@ -79,7 +79,7 @@ func TestReferralDaily70VerifiedPaymentFundsOriginalPendingOnce(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			if e := s.markPaid(ctx, o.TradeNo, fmt.Sprintf("daily70-duplicate:%d", i), true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); e != nil {
+			if e := s.markPaid(ctx, o.TradeNo, fmt.Sprintf("daily70-duplicate:%d", i), true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); e != nil {
 				t.Error(e)
 			}
 		}(i)
@@ -96,7 +96,7 @@ func TestReferralDaily70MissingBirthMarkerCannotFallBackToImmediate(t *testing.T
 	if _, _, e := s.BeginProviderAttempt(ctx, o.TradeNo, 7, "native"); e != nil {
 		t.Fatal(e)
 	}
-	if e := s.markPaid(ctx, o.TradeNo, "daily70-missing-marker", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); !errors.Is(e, ErrConflict) {
+	if e := s.markPaid(ctx, o.TradeNo, "daily70-missing-marker", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "LOCAL_" + o.TradeNo}); !errors.Is(e, ErrConflict) {
 		t.Fatal("missing daily marker downgraded payment to immediate", e)
 	}
 	var entries int

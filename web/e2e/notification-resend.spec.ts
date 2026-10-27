@@ -1,3 +1,4 @@
+import { openMerchantOrderDetails } from "./fixtures/merchant-order-navigation";
 import { test, expect } from "@playwright/test";
 const ok = (data: unknown, status = 200) => ({
   status,
@@ -54,7 +55,7 @@ test("notification retries preserve UUID after network error, distinguish queue 
     );
   });
   await page.goto("/merchant/trade/order");
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   const modal = page.getByRole("dialog", { name: "订单详情" });
   await modal
     .getByRole("button", { name: "重发商户通知", exact: true })
@@ -125,14 +126,14 @@ test("unpaid or unpermitted orders do not expose notification send even if other
     );
   });
   await page.goto("/merchant/trade/order");
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   const modal = page.getByRole("dialog", { name: "订单详情" });
   await expect(
     modal.getByRole("button", { name: "重发商户通知", exact: true }),
   ).toHaveCount(0);
   await modal.getByRole("button", { name: "关闭详情", exact: true }).click();
   paid = true;
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   await expect(modal).toContainText("dead");
   await expect(
     modal.getByRole("button", { name: "重发商户通知", exact: true }),
@@ -164,7 +165,7 @@ test("HTTP200 terminal notification failure does not claim merchant receipt", as
     );
   });
   await page.goto("/merchant/trade/order");
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   const modal = page.getByRole("dialog", { name: "订单详情" });
   await modal
     .getByRole("button", { name: "重发商户通知", exact: true })

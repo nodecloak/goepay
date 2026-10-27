@@ -1,0 +1,30 @@
+{
+  "authorization_id": 1,
+  "plan_id": 1,
+  "proof_hash": "embHOIVaqBCRgnbZQA148oNuTBK1j4NzxijqT5q/1BY=",
+  "request_id": 1,
+  "revision": 1,
+  "run_id": 1,
+  "schema": "member72_4e4146e32755631f",
+  "source_files": 1645,
+  "source_manifest_sha256": "cfdf6e68f579165049568914718c99fab7637cbb46126deb501279d7db6cd9ef",
+  "synthetic_only": true,
+  "table_hashes": {
+    "accounts": "d2626edd0d5dfa2dfee3a4b1dbee74eb",
+    "backoffice_audit": "e2c1a0006c57092b209698b86c7fd477",
+    "journals": "06fd7f0c2205379fe30ae42784f11f78",
+    "ledger_entries": "0063942b76a920a80fc685239417e4f8",
+    "ledger_requests": "70d0b1bd168992437ca269df5d326c5d",
+    "settlement_fundings": "b81f8e882ceb666dc8753f48bc4c69e1",
+    "settlement_plan_authorizations": "9b301e14d525743815f4deb37fbfc8e3",
+    "settlement_plan_budget_uses": "88bafb3f0df99d59994be62ed12ec3ff",
+    "settlement_plan_items": "094f5a5d17649190e231204678b0b427",
+    "settlement_plan_runs": "3d240d80b808578910deb930c391b869",
+    "settlement_plan_versions": "c2202c4c3cd25af6270345560aa0d082",
+    "settlement_request_terms": "7771d0c1dd4baf65e3ed66115c4298fb",
+    "settlement_scheduled_intents": "f7151d92c6cd8e6333f9d0db0f0d5c07"
+  },
+  "dump_sha256": "de0dc5beb5cb3bdf227d37129f2dbe35420d146f8c7ad084a90bcd0413bb73bc",
+  "dump_uncompressed_sha256": "93cd2617edf6b81b2a26da4914cc257f01f181f1e83743d6710c3ad3b8fbc731",
+  "dump_uncompressed_bytes": 849640
+}

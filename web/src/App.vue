@@ -1,6 +1,23 @@
 <script setup lang="ts">
-import { computed, ref, watch, onBeforeUnmount, nextTick } from "vue";
-import { useRoute } from "vue-router";
+import { orderRefundRemaining104 } from "./order-charge104";
+import { isPersonalMerchantID } from "./merchant-personal-settings";
+import {
+  fetchPublicMerchantAccess,
+  type PublicMerchantAccess,
+} from "./platform-merchant-access";
+import {
+  computed,
+  ref,
+  watch,
+  onBeforeUnmount,
+  onMounted,
+  nextTick,
+} from "vue";
+import { useRoute, useRouter } from "vue-router";
+import {
+  merchantLoginEntry205,
+  merchantLoginReturn205,
+} from "./login-document205";
 import {
   ApiClient,
   ApiError,
@@ -20,9 +37,24 @@ import {
   type Area,
 } from "./menu";
 import ConsoleShell from "./components/ConsoleShell.vue";
+import SiteBrandIcon193 from "./components/SiteBrandIcon193.vue";
+import SiteContacts191 from "./components/SiteContacts191.vue";
+import LoginCaptcha205 from "./components/LoginCaptcha205.vue";
+const loginCaptchaRef205 = ref<InstanceType<typeof LoginCaptcha205> | null>(
+  null,
+);
+import { usePublicSite191 } from "./site191";
+const { site: publicSite191, reload: reloadPublicSite191 } = usePublicSite191();
 import DataTable from "./components/DataTable.vue";
 import { proListColumns } from "./pro-console-fields";
 import ResourcePage from "./components/ResourcePage.vue";
+import AnnouncementsPage from "./components/AnnouncementsPage.vue";
+import RichContent from "./components/RichContent.vue";
+import {
+  publicAnnouncementLayout,
+  type PublicAnnouncementLayout,
+} from "./announcement-layout";
+import SubchannelPage from "./components/SubchannelPage.vue";
 import RefundSummaryDialog from "./components/RefundSummaryDialog.vue";
 import { resourceFor, resourceEntryFor } from "./resources";
 import { reportFor } from "./reports";
@@ -32,12 +64,16 @@ import WorkflowPage from "./components/WorkflowPage.vue";
 import AccountPage from "./components/AccountPage.vue";
 import MerchantAccountSettings from "./components/MerchantAccountSettings.vue";
 import OperationsPage from "./components/OperationsPage.vue";
+import SystemUpdatePage from "./components/SystemUpdatePage.vue";
+import TaskSchedulerPage from "./components/TaskSchedulerPage.vue";
 import { operationPages } from "./operations";
 import TotpSettings from "./components/TotpSettings.vue";
 import CommercePage from "./components/CommercePage.vue";
 import { commerceFor } from "./commerce";
 import { unavailableReasons } from "./deferred";
 import OrderDetails from "./components/OrderDetails.vue";
+import MerchantOrderActionDialog from "./components/MerchantOrderActionDialog.vue";
+import type { MerchantOrderActionID } from "./order-actions";
 import AdminOrderActionDialog from "./components/AdminOrderActionDialog.vue";
 import type { OrderActionID } from "./order-actions";
 import { refundNotice } from "./order-operations";
@@ -49,6 +85,7 @@ import SettingsPage from "./components/SettingsPage.vue";
 import InvitationCodesPage from "./components/InvitationCodesPage.vue";
 import CollectionStylesPage from "./components/CollectionStylesPage.vue";
 import CollectionGeneratorPage from "./components/CollectionGeneratorPage.vue";
+import MerchantScanPage192 from "./components/MerchantScanPage192.vue";
 import OrderBatchControls from "./components/OrderBatchControls.vue";
 import AutoRefreshControl from "./components/AutoRefreshControl.vue";
 import OrderBlacklistDialog from "./components/OrderBlacklistDialog.vue";
@@ -64,6 +101,7 @@ import {
   readListRouteQuery,
 } from "./list-filters";
 import PublicEnrollment from "./components/PublicEnrollment.vue";
+import PublicTestPay203 from "./components/PublicTestPay203.vue";
 import CsvExportButton from "./components/CsvExportButton.vue";
 import PaymentPasswordSettings from "./components/PaymentPasswordSettings.vue";
 import FundsAuthorizationModal from "./components/FundsAuthorizationModal.vue";
@@ -146,6 +184,9 @@ function connectFundsAuthorization(c: ApiClient) {
 }
 const enrollmentPurpose = ref<"register" | "recover" | null>(null);
 function openEnrollment(purpose: "register" | "recover") {
+  if (busy.value || loginUncertain.value) return;
+  loginEpoch++;
+  loginAPIKey.value = "";
   password.value = "";
   loginCode.value = "";
   error.value = "";
@@ -219,6 +260,13 @@ const orderAction = ref<{
   action: OrderActionID;
 } | null>(null);
 const route = useRoute();
+const router = useRouter();
+const merchantLoginDocument205 = computed(
+  () => route.path === "/merchant/login",
+);
+const publicTestPayEntry203 = computed(
+  () => route.path === "/test" || route.path === "/test/",
+);
 const area = computed<Area>(() =>
   route.path.split("/")[1] === "merchant" ? "merchant" : "admin",
 );
@@ -237,11 +285,50 @@ const error = ref(""),
   username = ref(""),
   password = ref(""),
   loginCode = ref(""),
+  loginMode = ref<"password" | "key">("password"),
+  loginMerchantID = ref(""),
+  loginAPIKey = ref(""),
+  loginUncertain = ref(false),
   search = ref(""),
   pageNumber = ref(1),
   items = ref<Record<string, unknown>[]>([]),
   total = ref(0),
   stats = ref<Record<string, unknown>>({});
+const loginPlatformAccess = ref<PublicMerchantAccess | null>(null),
+  loginPlatformLoading = ref(false),
+  loginPlatformError = ref("");
+let loginPlatformController: AbortController | undefined,
+  loginPlatformEpoch = 0;
+async function loadLoginPlatformAccess() {
+  const run = ++loginPlatformEpoch,
+    current = epoch,
+    c = client.value;
+  loginPlatformController?.abort();
+  const ac = new AbortController();
+  loginPlatformController = ac;
+  loginPlatformAccess.value = null;
+  loginPlatformError.value = "";
+  loginMode.value = "password";
+  loginAPIKey.value = "";
+  if (area.value !== "merchant" || session.value) return;
+  loginPlatformLoading.value = true;
+  const valid = () =>
+    run === loginPlatformEpoch &&
+    current === epoch &&
+    c === client.value &&
+    !ac.signal.aborted &&
+    area.value === "merchant" &&
+    !session.value;
+  try {
+    const v = await fetchPublicMerchantAccess(ac.signal);
+    if (valid()) loginPlatformAccess.value = v;
+  } catch {
+    if (valid())
+      loginPlatformError.value = "平台登录功能状态无法确认，密码登录仍可使用。";
+  } finally {
+    if (valid()) loginPlatformLoading.value = false;
+  }
+}
 const navigation = computed(() =>
   visibleMenu(
     navigationMenus(area.value),
@@ -274,6 +361,127 @@ let orderDetailsOpener: {
   csrf: string;
   path: string;
 } | null = null;
+const merchantOrderAction = ref<{
+    trade: string;
+    action: "query" | "notify" | "refund" | "print";
+  } | null>(null),
+  merchantOrderBusy = ref(false);
+const refundDialog = ref<HTMLElement>();
+function trapRefundFocus(event: KeyboardEvent) {
+  if (event.key !== "Tab" || !refundDialog.value) return;
+  const all = Array.from(
+    refundDialog.value.querySelectorAll<HTMLElement>(
+      "input:not([disabled]),button:not([disabled]),a[href]",
+    ),
+  );
+  const first = all[0],
+    last = all.at(-1);
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last?.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first?.focus();
+  }
+}
+type MerchantMenuReturn = {
+  element: HTMLElement | null;
+  trade: string;
+  client: ApiClient;
+  csrf: string;
+  path: string;
+};
+let merchantMenuReturn: MerchantMenuReturn | null = null,
+  refundMenuReturn: MerchantMenuReturn | null = null,
+  pendingMenuFocus: MerchantMenuReturn | null = null;
+async function returnMerchantFocus(context: MerchantMenuReturn | null) {
+  if (!context) return;
+  await nextTick();
+  if (
+    context.client !== client.value ||
+    context.csrf !== client.value.csrfToken ||
+    context.path !== route.fullPath ||
+    merchantOrderAction.value ||
+    orderDetails.value ||
+    refundRow.value
+  )
+    return;
+  if (loading.value) {
+    pendingMenuFocus = context;
+    return;
+  }
+  pendingMenuFocus = null;
+  const target = context.element?.isConnected
+    ? context.element
+    : document.querySelector<HTMLElement>(
+        `[data-merchant-order-trade="${context.trade}"] button`,
+      );
+  target?.focus();
+}
+watch(loading, (value) => {
+  if (!value && pendingMenuFocus) void returnMerchantFocus(pendingMenuFocus);
+});
+function openMerchantOrderAction(
+  row: Record<string, unknown>,
+  action: MerchantOrderActionID,
+) {
+  if (area.value !== "merchant") return;
+  if (action === "detail") {
+    openOrderDetails(row);
+    return;
+  }
+  if (!["query", "notify", "refund", "print"].includes(action)) return;
+  const trade = row.trade_no;
+  if (typeof trade !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(trade)) return;
+  merchantMenuReturn = {
+    element:
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null,
+    trade,
+    client: client.value,
+    csrf: client.value.csrfToken,
+    path: route.fullPath,
+  };
+  merchantOrderAction.value = {
+    trade,
+    action: action as "query" | "notify" | "refund" | "print",
+  };
+}
+async function closeMerchantOrderAction() {
+  const context = merchantMenuReturn;
+  merchantMenuReturn = null;
+  merchantOrderAction.value = null;
+  merchantOrderBusy.value = false;
+  await returnMerchantFocus(context);
+}
+function merchantRefund(row: Record<string, unknown>) {
+  refundMenuReturn = merchantMenuReturn;
+  merchantMenuReturn = null;
+  merchantOrderAction.value = null;
+  merchantOrderBusy.value = false;
+  openRefund(row);
+  void nextTick(() =>
+    refundDialog.value?.querySelector<HTMLInputElement>("input")?.focus(),
+  );
+}
+async function closeRefundModal() {
+  if (busy.value) return;
+  refundRow.value = null;
+  const context = refundMenuReturn;
+  refundMenuReturn = null;
+  await returnMerchantFocus(context);
+}
+watch(
+  () => [client.value, client.value.csrfToken, route.fullPath],
+  () => {
+    merchantOrderAction.value = null;
+    merchantOrderBusy.value = false;
+    merchantMenuReturn = null;
+    refundMenuReturn = null;
+    pendingMenuFocus = null;
+  },
+);
 function openOrderDetails(row: Record<string, unknown>) {
   orderDetailsOpener =
     document.activeElement instanceof HTMLElement
@@ -382,10 +590,37 @@ const labels: Record<string, string> = {
   refund_fee_payer: "退款手续费承担方",
   income_status: "订单收入状态",
 };
+let loginEpoch = 0,
+  loginController: AbortController | undefined;
+watch(
+  loginMode,
+  () => {
+    loginEpoch++;
+    loginController?.abort();
+    loginAPIKey.value = "";
+    password.value = "";
+    loginCode.value = "";
+    error.value = "";
+  },
+  { flush: "sync" },
+);
 async function initialize() {
   const current = ++epoch;
+  loginEpoch++;
+  loginController?.abort();
+  loginAPIKey.value = "";
+  password.value = "";
+  loginCode.value = "";
+  loginMode.value = "password";
+  loginUncertain.value = false;
+  busy.value = false;
   initializing.value = true;
   session.value = null;
+  loginPlatformEpoch++;
+  loginPlatformController?.abort();
+  loginPlatformAccess.value = null;
+  loginPlatformLoading.value = false;
+  loginPlatformError.value = "";
   error.value = "";
   client.value = new ApiClient(area.value);
   connectFundsAuthorization(client.value);
@@ -395,6 +630,12 @@ async function initialize() {
       session.value = null;
     }
   };
+  if (publicTestPayEntry203.value) {
+    controller?.abort();
+    loading.value = false;
+    initializing.value = false;
+    return;
+  }
   try {
     const s = await client.value.session();
     if (current === epoch) session.value = s;
@@ -405,8 +646,15 @@ async function initialize() {
     if (current === epoch) {
       initializing.value = false;
       if (session.value) {
+        if (merchantLoginDocument205.value) return;
         applyListRouteQuery();
         await load();
+      } else if (area.value === "merchant") {
+        if (merchantLoginDocument205.value && route.query.reauth === "password")
+          notice.value = "请使用当前有效密码重新登录";
+        else if (merchantLoginDocument205.value && route.query.reauth === "security")
+          notice.value = "请重新登录以继续操作";
+        void loadLoginPlatformAccess();
       }
     }
   }
@@ -456,23 +704,99 @@ const listCSVPath = computed(() => {
   return `/${kind.value}?${q}`;
 });
 async function login() {
+  if (busy.value || loginUncertain.value) return;
+  if (
+    loginMode.value === "key" &&
+    loginPlatformAccess.value?.close_keylogin !== 0
+  ) {
+    loginMode.value = "password";
+    loginAPIKey.value = "";
+    error.value = "请先核对平台密钥登录状态";
+    return;
+  }
+  if (
+    loginMode.value === "key" &&
+    (!isPersonalMerchantID(loginMerchantID.value) ||
+      !loginAPIKey.value ||
+      loginAPIKey.value.length > 512)
+  ) {
+    error.value = "请填写完整商户ID和商户密钥";
+    return;
+  }
+  const c = client.value,
+    current = epoch,
+    run = ++loginEpoch,
+    mode = loginMode.value,
+    owner = loginMerchantID.value,
+    secret = mode === "key" ? loginAPIKey.value : password.value,
+    code = loginCode.value,
+    name = username.value;
+  const ac = new AbortController();
+  loginController?.abort();
+  loginController = ac;
+  const currentContext = () =>
+    !ac.signal.aborted &&
+    current === epoch &&
+    run === loginEpoch &&
+    c === client.value &&
+    mode === loginMode.value;
+  loginAPIKey.value = "";
   notice.value = "";
   busy.value = true;
   error.value = "";
+  let credentialsSent205 = false;
+  const captcha205 =
+    mode === "password" && c.area === "merchant"
+      ? loginCaptchaRef205.value
+      : null;
   try {
-    session.value = await client.value.login(
-      username.value,
-      password.value,
-      loginCode.value,
-    );
+    let proof205: Record<string, string> = {};
+    if (mode === "password" && c.area === "merchant") {
+      if (!captcha205) throw Error("请先核对登录验证码设置");
+      proof205 = await captcha205.verify();
+      if (!currentContext() || name !== username.value) return;
+    }
+    credentialsSent205 = true;
+    const result =
+      mode === "key"
+        ? await c.merchantKeyLogin(owner, secret, code, ac.signal)
+        : c.area === "merchant"
+          ? await c.login(name, secret, code, {
+              captcha: proof205,
+              signal: ac.signal,
+            })
+          : await c.login(name, secret, code);
+    if (!currentContext()) return;
+    session.value = result;
     loginCode.value = "";
     password.value = "";
+    if (merchantLoginDocument205.value) return;
     applyListRouteQuery();
     await load();
   } catch (e) {
-    error.value = message(e);
+    if (!currentContext()) return;
+    if (credentialsSent205 && (mode === "key" || c.area === "merchant")) {
+      // A transport error or unverified response may follow a committed cookie.
+      // Only read /session before another credential submission.
+      const knownRejection =
+        e instanceof ApiError &&
+        e.responseDecoded &&
+        (mode === "key"
+          ? [400, 401, 403, 422, 429]
+          : [400, 401, 403, 409, 422, 429]
+        ).includes(e.status);
+      loginUncertain.value = !knownRejection;
+    }
+    error.value = loginUncertain.value
+      ? "登录结果无法确认，请重新检查登录状态后再操作"
+      : message(e);
   } finally {
-    busy.value = false;
+    if (currentContext()) {
+      captcha205?.invalidate();
+      loginAPIKey.value = "";
+      loginCode.value = "";
+      busy.value = false;
+    }
   }
 }
 async function logout() {
@@ -568,17 +892,19 @@ function openRefund(row: Record<string, unknown>) {
     notice.value = "请先读取订单详情，核对冻结款的专用退款来源";
     return;
   }
+  const remaining104 = orderRefundRemaining104(row);
+  if (
+    (Object.hasOwn(row, "realmoney") ||
+      Object.hasOwn(row, "charge_verified104")) &&
+    remaining104 === undefined
+  ) {
+    error.value = "实际支付金额无法核对，请重新读取原订单";
+    return;
+  }
   refundRow.value = row;
   refundMoney.value = "";
-  if (
-    area.value === "admin" &&
-    /^\d+$/.test(String(row.amount)) &&
-    /^\d+$/.test(String(row.refunded_amount ?? "0"))
-  ) {
-    const remaining =
-      BigInt(String(row.amount)) - BigInt(String(row.refunded_amount ?? "0"));
-    if (remaining > 0n) refundMoney.value = centsMoney(remaining.toString());
-  }
+  if (area.value === "admin" && remaining104 !== undefined && remaining104 > 0n)
+    refundMoney.value = centsMoney(remaining104.toString());
   refundExternal.value = crypto.randomUUID();
   refundFunding.value = null;
   refundFundingBinding.value = "";
@@ -648,6 +974,9 @@ async function submitRefund() {
     blacklistSelection.value = null;
     notice.value = refundNotice(result.data, result.status);
     await load();
+    const context = refundMenuReturn;
+    refundMenuReturn = null;
+    await returnMerchantFocus(context);
   } catch (e) {
     error.value = message(e);
   } finally {
@@ -655,7 +984,7 @@ async function submitRefund() {
   }
 }
 watch(
-  area,
+  [area, publicTestPayEntry203],
   () => {
     enrollmentPurpose.value =
       area.value === "merchant" && promotionPrefill.value ? "register" : null;
@@ -702,11 +1031,114 @@ watch(
     orderDetails.value = null;
     includeArchivedOrders.value = false;
     blacklistSelection.value = null;
+    if (merchantLoginDocument205.value) return;
     applyListRouteQuery();
     void load();
   },
 );
+let loginDocumentTarget205 = "";
+watch(
+  [
+    area,
+    () => route.fullPath,
+    initializing,
+    session,
+    enrollmentPurpose,
+    publicTestPayEntry203,
+  ],
+  () => {
+    if (
+      area.value !== "merchant" ||
+      initializing.value ||
+      publicTestPayEntry203.value ||
+      enrollmentPurpose.value
+    ) {
+      loginDocumentTarget205 = "";
+      return;
+    }
+    const target =
+      !session.value && !merchantLoginDocument205.value
+        ? merchantLoginEntry205(route.fullPath, notice.value === "密码已修改，请重新登录" ? "password" : notice.value ? "security" : "")
+        : session.value && merchantLoginDocument205.value
+          ? merchantLoginReturn205(route.query.return)
+          : "";
+    if (!target) {
+      loginDocumentTarget205 = "";
+      return;
+    }
+    if (target === loginDocumentTarget205) return;
+    loginDocumentTarget205 = target;
+    const originPath = route.fullPath,
+      originEpoch = epoch;
+    void router.replace(target).catch(() => {
+      if (
+        originEpoch === epoch &&
+        area.value === "merchant" &&
+        route.fullPath === originPath &&
+        loginDocumentTarget205 === target
+      )
+        error.value = "登录页面切换失败，请重新加载页面";
+    });
+  },
+  { immediate: true },
+);
+const publicLayout = ref<PublicAnnouncementLayout | null>(null),
+  publicLayoutController = new AbortController();
+watch(
+  [
+    publicSite191,
+    () => area.value,
+    () => page.value?.title,
+    () => !!session.value,
+    publicTestPayEntry203,
+  ],
+  () => {
+    const site = publicSite191.value;
+    if (!site) return;
+    const label = publicTestPayEntry203.value
+      ? "测试支付"
+      : session.value
+        ? page.value?.title
+        : area.value === "admin"
+          ? "管理员登录"
+          : "商户登录";
+    document.title = label ? `${label} · ${site.title}` : site.title;
+    for (const key of ["keywords", "description"] as const) {
+      let element = document.querySelector<HTMLMetaElement>(
+        `meta[name="${key}"]`,
+      );
+      if (!element) {
+        element = document.createElement("meta");
+        element.name = key;
+        document.head.append(element);
+      }
+      element.content = site[key];
+    }
+  },
+  { immediate: true },
+);
+onMounted(async () => {
+  try {
+    const r = await fetch("/console/v1/public/layout", {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+      signal: publicLayoutController.signal,
+    });
+    if (!r.ok) return;
+    const p = await r.json();
+    if (p.code === 0 && !publicLayoutController.signal.aborted)
+      publicLayout.value = publicAnnouncementLayout(p.data);
+  } catch {
+    /* Keep the existing footer when optional layout cannot be read. */
+  }
+});
 onBeforeUnmount(() => {
+  loginPlatformEpoch++;
+  loginPlatformController?.abort();
+  publicLayoutController.abort();
+  loginEpoch++;
+  loginController?.abort();
+  loginAPIKey.value = "";
   promotionPrefill.value = "";
   controller?.abort();
   settleFundsAction(new Error("页面已关闭，资金授权已清除"));
@@ -714,18 +1146,27 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="initializing" class="loading-screen" role="status">
+  <PublicTestPay203 v-if="publicTestPayEntry203" />
+  <div v-else-if="initializing" class="loading-screen" role="status">
     正在验证会话…
   </div>
   <main v-else-if="!session" class="login-layout" :data-area="area">
     <section class="login-intro">
-      <div class="brand"><span class="brand-mark">G</span> GOEPAY</div>
+      <div class="brand">
+        <SiteBrandIcon193
+          ><span class="brand-mark">{{
+            Array.from(publicSite191?.sitename || "GOEPAY")[0]
+          }}</span></SiteBrandIcon193
+        >
+        {{ publicSite191?.sitename || "GOEPAY" }}
+      </div>
       <p class="eyebrow">PAYMENT OPERATIONS</p>
       <h1>每一笔交易，<br />清晰可循。</h1>
       <p>交易、退款与资金流转，在同一工作台中有序处理。</p>
       <div class="login-rule">
         <span>交易</span><span>账务</span><span>核对</span>
       </div>
+      <SiteContacts191 v-if="publicSite191" :site="publicSite191" />
     </section>
     <section class="login-panel">
       <nav class="area-switch" aria-label="登录身份">
@@ -744,6 +1185,7 @@ onBeforeUnmount(() => {
         :key="enrollmentPurpose"
         :purpose="enrollmentPurpose"
         :initial-promotion-token="promotionPrefill"
+        :registration-announcement="publicLayout?.zhuce ?? ''"
         @prefill-consumed="promotionPrefill = ''"
         @close="
           enrollmentPurpose = null;
@@ -752,45 +1194,162 @@ onBeforeUnmount(() => {
       />
       <template v-else>
         <h2>{{ area === "admin" ? "管理员登录" : "商户登录" }}</h2>
-        <p class="muted">使用您的账户继续</p>
+        <p class="muted">
+          {{ publicSite191?.login_subtitle || "使用您的账户继续" }}
+        </p>
+        <div
+          v-if="area === 'merchant'"
+          class="toolbar-actions"
+          aria-label="商户登录方式"
+        >
+          <button
+            type="button"
+            data-login-mode="password"
+            :aria-pressed="loginMode === 'password'"
+            :disabled="busy || loginUncertain"
+            @click="loginMode = 'password'"
+          >
+            密码登录
+          </button>
+          <button
+            v-if="loginPlatformAccess?.close_keylogin === 0"
+            type="button"
+            data-login-mode="key"
+            :aria-pressed="loginMode === 'key'"
+            :disabled="busy || loginUncertain"
+            @click="loginMode = 'key'"
+          >
+            密钥登录
+          </button>
+        </div>
+        <template v-if="area === 'merchant'">
+          <p v-if="loginPlatformLoading" role="status">正在读取平台登录功能…</p>
+          <p
+            v-else-if="loginPlatformAccess?.close_keylogin === 1"
+            class="muted"
+          >
+            平台已关闭密钥登录，请使用密码登录。
+          </p>
+          <p v-if="loginPlatformError" role="alert">{{ loginPlatformError }}</p>
+          <button
+            v-if="!loginPlatformLoading && !loginPlatformAccess"
+            type="button"
+            :disabled="busy || loginUncertain"
+            @click="loadLoginPlatformAccess"
+          >
+            重新读取平台登录功能
+          </button>
+        </template>
         <div v-if="error" class="alert error" role="alert">{{ error }}</div>
         <div v-if="notice" class="alert success" role="status">
           {{ notice }}
         </div>
         <form @submit.prevent="login">
-          <label
-            >用户名<input
-              v-model="username"
-              name="username"
-              autocomplete="username"
-              required
-              maxlength="128" /></label
-          ><label
-            >密码<input
-              v-model="password"
-              name="password"
-              type="password"
-              autocomplete="current-password"
-              required
-              maxlength="1024" /></label
+          <template v-if="loginMode === 'key' && area === 'merchant'">
+            <label
+              >商户ID<input
+                v-model="loginMerchantID"
+                name="merchant_id"
+                inputmode="numeric"
+                autocomplete="off"
+                maxlength="19"
+                required
+                :disabled="busy || loginUncertain"
+            /></label>
+            <label
+              >商户密钥<input
+                v-model="loginAPIKey"
+                name="api_key"
+                type="password"
+                autocomplete="off"
+                maxlength="512"
+                required
+                :disabled="busy || loginUncertain"
+            /></label>
+            <p class="muted">
+              使用当前商户密钥；需本人已开启密钥登录。已绑定验证器时仍需动态验证码。
+            </p>
+          </template>
+          <template v-else
+            ><label
+              >用户名<input
+                v-model="username"
+                name="username"
+                autocomplete="username"
+                :disabled="busy"
+                required
+                maxlength="128" /></label
+            ><label
+              >密码<input
+                v-model="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                :disabled="busy"
+                required
+                maxlength="1024" /></label></template
           ><label
             >动态验证码（已绑定验证器时填写）<input
               v-model="loginCode"
               inputmode="numeric"
               pattern="[0-9]{6}"
               maxlength="6"
-              autocomplete="one-time-code" /></label
-          ><button class="primary full" :disabled="busy">
+              autocomplete="one-time-code"
+              :disabled="busy || loginUncertain" /></label
+          ><LoginCaptcha205
+            v-if="
+              area === 'merchant' &&
+              merchantLoginDocument205 &&
+              loginMode === 'password'
+            "
+            ref="loginCaptchaRef205"
+            active
+            :username="username"
+            :context-key="client"
+            :disabled="busy || loginUncertain"
+          /><button
+            type="submit"
+            class="primary full"
+            :disabled="busy || loginUncertain"
+          >
             {{ busy ? "正在登录…" : "登录工作台" }}
           </button>
         </form>
+        <button
+          v-if="loginUncertain"
+          type="button"
+          data-action="check-login"
+          class="full"
+          @click="initialize"
+        >
+          重新检查登录状态
+        </button>
         <div v-if="area === 'merchant'" class="toolbar-actions">
-          <button @click="openEnrollment('register')">注册商户</button>
-          <button @click="openEnrollment('recover')">找回密码</button>
+          <button
+            :disabled="busy || loginUncertain"
+            @click="openEnrollment('register')"
+          >
+            注册商户
+          </button>
+          <button
+            :disabled="busy || loginUncertain"
+            @click="openEnrollment('recover')"
+          >
+            找回密码
+          </button>
         </div>
       </template>
     </section>
+    <footer v-if="publicLayout?.footer">
+      <RichContent :content="publicLayout.footer" format="html" />
+    </footer>
   </main>
+  <MerchantScanPage192
+    v-else-if="area === 'merchant' && path === '/scanpay'"
+    :client="client"
+    :own-session="!session.delegated_by"
+    :merchant-i-d="String(session.user.id)"
+  />
   <ConsoleShell
     v-else
     :area="area"
@@ -798,6 +1357,7 @@ onBeforeUnmount(() => {
     :active="path"
     :title="page?.title || '页面不存在'"
     :owner="session"
+    :brand-name="publicSite191?.sitename"
     :inert="!!fundsAction"
   >
     <template #account>
@@ -940,6 +1500,7 @@ onBeforeUnmount(() => {
         :client="client"
         :admin-class="session.user.admin_class"
         :own-session="!session.delegated_by"
+        @site-changed="reloadPublicSite191"
       />
       <GroupSalesPage
         v-else-if="kind === 'group-sales'"
@@ -967,6 +1528,26 @@ onBeforeUnmount(() => {
         :key="area + path"
         :client="client"
         :own-session="!session.delegated_by"
+      />
+      <AnnouncementsPage
+        v-else-if="
+          kind === 'resource' && area === 'admin' && path === '/system/anounce'
+        "
+        :key="area + path"
+        :client="client"
+        :own-session="!session.delegated_by"
+      />
+      <SubchannelPage
+        v-else-if="
+          kind === 'resource' && resourceFor(area, path) === 'subchannels'
+        "
+        :key="area + path"
+        :client="client"
+        :merchant-id="session.user.id"
+        :own-session="!session.delegated_by"
+        :admin-class="session.user.admin_class"
+        :initial-query="route.query"
+        @clear-route="$router.replace({ query: {} })"
       />
       <ResourcePage
         v-else-if="kind === 'resource'"
@@ -1019,6 +1600,7 @@ onBeforeUnmount(() => {
           path === '/account/settings'
         "
         :client="client"
+        :merchant-id="String(session.user.id)"
         :own-session="!!session && !session.delegated_by"
         @reauthenticate="
           (message) => {
@@ -1032,6 +1614,15 @@ onBeforeUnmount(() => {
         <AccountPage
           :key="path"
           :client="client"
+          :own-session="
+            area === 'merchant' &&
+            !!session &&
+            session.user.role === 'merchant' &&
+            !session.delegated_by
+          "
+          :merchant-id="
+            session?.user.role === 'merchant' ? String(session.user.id) : ''
+          "
           :section="
             area === 'admin'
               ? 'security'
@@ -1040,9 +1631,11 @@ onBeforeUnmount(() => {
                 : 'profile'
           "
           @reauthenticate="
-            session = null;
-            notice = '密码已修改，请重新登录';
-            error = '';
+            (message) => {
+              session = null;
+              notice = message || '密码已修改，请重新登录';
+              error = '';
+            }
           "
         />
         <TotpSettings
@@ -1062,28 +1655,49 @@ onBeforeUnmount(() => {
         />
       </div>
       <div v-else-if="kind === 'operation'">
-        <template v-if="['/system/cron', '/app/plugin-list'].includes(path)"
-          ><h2>
-            {{ path === "/system/cron" ? "任务计划配置" : "本地扩展资料" }}
-          </h2>
-          <ResourcePage
-            :key="path + 'config'"
-            :client="client"
-            :resource="
-              path === '/system/cron' ? 'cron-tasks' : 'plugin-configs'
-            "
-          />
-          <h2 class="operation-heading">
-            {{ path === "/system/cron" ? "实际任务队列" : "当前运行能力" }}
-          </h2></template
-        >
-        <OperationsPage
-          :key="path"
+        <TaskSchedulerPage
+          v-if="path === '/system/cron'"
           :client="client"
-          :operation="operationPages[path]"
-          :own-session="!session.delegated_by"
-          :admin-class="session.user.admin_class"
+          :allowed="
+            area === 'admin' &&
+            session.user.admin_class === 'super' &&
+            !session.delegated_by
+          "
         />
+        <template v-else>
+          <SystemUpdatePage
+            v-if="path === '/system/update'"
+            :client="client"
+            :own-session="!session.delegated_by"
+            :admin-class="session.user.admin_class"
+          />
+          <template v-if="path === '/app/plugin-list'"
+            ><h2>本地扩展资料</h2>
+            <ResourcePage
+              :key="path + 'config'"
+              :client="client"
+              resource="plugin-configs"
+            />
+            <h2 class="operation-heading">当前运行能力</h2></template
+          >
+          <OperationsPage
+            v-if="path !== '/system/update'"
+            :key="path"
+            :client="client"
+            :operation="operationPages[path]"
+            :own-session="!session.delegated_by"
+            :admin-class="session.user.admin_class"
+          />
+          <details v-if="path === '/system/update'" class="panel">
+            <summary>运行信息</summary>
+            <OperationsPage
+              :client="client"
+              operation="system-info"
+              :own-session="!session.delegated_by"
+              :admin-class="session.user.admin_class"
+            />
+          </details>
+        </template>
       </div>
       <CommercePage
         v-else-if="kind === 'commerce'"
@@ -1124,6 +1738,8 @@ onBeforeUnmount(() => {
           :data="stats"
           :area="area"
           :admin-class="session?.user.admin_class"
+          :merchant-id="String(session?.user.id ?? '')"
+          :own-session="!!session && !session.delegated_by"
       /></template>
       <section v-else class="panel records">
         <form
@@ -1203,6 +1819,7 @@ onBeforeUnmount(() => {
               loading ||
               busy ||
               !!orderAction ||
+              !!merchantOrderAction ||
               !!orderDetails ||
               !!refundRow ||
               orderBatchOpen ||
@@ -1260,17 +1877,24 @@ onBeforeUnmount(() => {
           :orders="kind === 'orders'"
           :refunds="kind === 'refunds'"
           :admin-orders="kind === 'orders' && area === 'admin'"
+          :merchant-orders="kind === 'orders' && area === 'merchant'"
           :selectable="kind === 'orders' && area === 'admin'"
           :selected-trades="selectedOrderTrades"
           @selection-change="selectedOrderTrades = $event"
           :order-actions-disabled="
             orderBatchBusy ||
-            !!session?.delegated_by ||
-            !['super', 'operator'].includes(session?.user.admin_class || '')
+            merchantOrderBusy ||
+            !!merchantOrderAction ||
+            (area === 'admin' &&
+              (!!session?.delegated_by ||
+                !['super', 'operator'].includes(
+                  session?.user.admin_class || '',
+                )))
           "
           @refund="openRefund"
           @detail="openOrderDetails"
           @order-action="(row, action) => (orderAction = { row, action })"
+          @merchant-order-action="openMerchantOrderAction"
           @blacklist="openBlacklist"
         />
         <div class="pagination">
@@ -1304,7 +1928,13 @@ onBeforeUnmount(() => {
         :own-session="!!session && !session.delegated_by"
       />
     </main>
-    <footer>GOEPAY · 支付运营工作台</footer>
+    <footer v-if="publicLayout === null || publicLayout.footer">
+      <RichContent
+        v-if="publicLayout?.footer"
+        :content="publicLayout.footer"
+        format="html"
+      /><template v-else>GOEPAY · 支付运营工作台</template>
+    </footer>
     <template #overlays>
       <RefundSummaryDialog
         v-if="refundSummaryQuery !== null && authorized && kind === 'refunds'"
@@ -1343,6 +1973,18 @@ onBeforeUnmount(() => {
           }
         "
       />
+      <MerchantOrderActionDialog
+        v-if="merchantOrderAction && session && area === 'merchant'"
+        :key="merchantOrderAction.trade + '/' + merchantOrderAction.action"
+        :client="client"
+        :trade-no="merchantOrderAction.trade"
+        :action="merchantOrderAction.action"
+        :own-session="!session.delegated_by"
+        @close="closeMerchantOrderAction"
+        @updated="load"
+        @refund="merchantRefund"
+        @busy="merchantOrderBusy = $event"
+      />
       <OrderDetails
         v-if="orderDetails"
         :key="String(orderDetails.trade_no ?? orderDetails.id)"
@@ -1368,13 +2010,15 @@ onBeforeUnmount(() => {
       <div
         v-if="refundRow"
         class="modal-backdrop"
-        @keydown.esc="!busy && (refundRow = null)"
+        @keydown.esc="closeRefundModal"
       >
         <section
+          ref="refundDialog"
           class="modal panel"
           role="dialog"
           aria-modal="true"
           :aria-label="area === 'admin' ? 'API退款确认' : '申请退款'"
+          @keydown="trapRefundFocus"
         >
           <h2>{{ area === "admin" ? "API退款确认" : "申请退款" }}</h2>
           <div v-if="error" class="alert error" role="alert">{{ error }}</div>
@@ -1412,7 +2056,7 @@ onBeforeUnmount(() => {
               </p>
             </div>
             <div class="modal-actions">
-              <button type="button" :disabled="busy" @click="refundRow = null">
+              <button type="button" :disabled="busy" @click="closeRefundModal">
                 取消</button
               ><button class="primary" :disabled="busy">
                 {{

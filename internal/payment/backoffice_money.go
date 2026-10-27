@@ -3,6 +3,7 @@ package payment
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
 )
@@ -72,6 +73,30 @@ func (s *Store) ReplaceMerchantAtomic(ctx context.Context, m Merchant, profile [
 		return e
 	}
 	defer tx.Rollback(ctx)
+	// The policy is authoritative only under the same merchant lock as this
+	// configuration CAS. Callers may omit Keytype or have read an older policy.
+	var revision int64
+	var keytype *int
+	var algorithm string
+	e = tx.QueryRow(ctx, `SELECT config_revision,keytype,signature_algorithm FROM merchants WHERE id=$1 FOR UPDATE`, m.ID).Scan(&revision, &keytype, &algorithm)
+	if errors.Is(e, pgx.ErrNoRows) {
+		return ErrConflict
+	}
+	if e != nil {
+		return e
+	}
+	if revision != m.ConfigRevision {
+		return ErrConflict
+	}
+	if keytype != nil {
+		if m.SignatureAlgorithm != algorithm {
+			return ErrInvalid
+		}
+	}
+	requiresRSA := keytype == nil && m.SignatureAlgorithm == "RSA" || keytype != nil && *keytype == 1
+	if requiresRSA && !usableMerchantRSAPublicKey(m.RSAPublicKey) {
+		return ErrInvalid
+	}
 	tag, e := tx.Exec(ctx, "UPDATE merchants SET name=$2,enabled=$3,api_key=$4,signature_algorithm=$5,rsa_public_key=$6,profile=$7::jsonb,config_revision=config_revision+1 WHERE id=$1 AND config_revision=$8", m.ID, m.Name, m.Enabled, secret, m.SignatureAlgorithm, m.RSAPublicKey, string(profile), m.ConfigRevision)
 	if e != nil {
 		return e

@@ -13,7 +13,7 @@ func (g ProviderFlow) ExecuteSettlementPayout(ctx context.Context, id int64, act
 	if g.Store == nil {
 		return SettlementPayout{}, ErrInvalid
 	}
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return SettlementPayout{}, ErrLiveDisabled
 	}
 	tx, e := g.Store.pool.Begin(ctx)
@@ -45,6 +45,19 @@ func (g ProviderFlow) claimSettlementPayoutTx(ctx context.Context, tx pgx.Tx, id
 	p, e := g.Store.settlementPayout(ctx, tx, id)
 	if e != nil {
 		return p, false, e
+	}
+	resolved, resolveErr := g.parentTransferIntentTx(ctx, tx, p.Transfer)
+	if resolveErr != nil {
+		return p, false, resolveErr
+	}
+	g = resolved
+	if g.parentBindings[p.ChannelID] != nil {
+		if e = parentChannelLock(ctx, tx, p.ChannelID); e != nil {
+			return p, false, e
+		}
+		if e = g.checkParentTransferWriteTx(ctx, tx, p.Transfer); e != nil {
+			return p, false, e
+		}
 	}
 	if e = tx.QueryRow(ctx, "SELECT id FROM transfers WHERE id=$1 FOR UPDATE", p.TransferID).Scan(&p.TransferID); e != nil {
 		return p, false, e
@@ -95,10 +108,18 @@ func (g ProviderFlow) claimSettlementPayoutTx(ctx context.Context, tx pgx.Tx, id
 	if _, e = tx.Exec(ctx, "INSERT INTO jobs(event_key,kind,payload,run_at) VALUES($1,'transfer.reconcile',jsonb_build_object('transfer_id',$2::bigint),clock_timestamp()+interval '30 seconds') ON CONFLICT DO NOTHING", fmt.Sprintf("settlement-payout:%d:reconcile", id), p.TransferID); e != nil {
 		return p, false, e
 	}
+	if e = g.checkParentTransferWriteTx(ctx, tx, p.Transfer); e != nil {
+		return p, false, e
+	}
 	return p, true, nil
 }
 
 func (g ProviderFlow) sendClaimedSettlement(ctx context.Context, p SettlementPayout, actor TransferBatchActor, check, finalCheck TransferBatchCheck) (SettlementPayout, error) {
+	resolved, resolveErr := g.ParentTransferIntent(ctx, p.Transfer)
+	if resolveErr != nil {
+		return p, resolveErr
+	}
+	g = resolved
 	id := p.RequestID
 	var e error
 	if check != nil {
@@ -216,6 +237,11 @@ func (g ProviderFlow) CancelUnsentSettlementPayout(ctx context.Context, id int64
 }
 
 func (g ProviderFlow) payoutProviderMatches(ctx context.Context, q fundsReader, p SettlementPayout) error {
+	resolved, resolveErr := g.parentTransferIntentTx(ctx, q, p.Transfer)
+	if resolveErr != nil {
+		return resolveErr
+	}
+	g = resolved
 	if e := g.Store.checkTransferAccount(ctx, q, p.TransferID, g.Providers[p.ChannelID]); e != nil {
 		return e
 	}

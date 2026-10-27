@@ -81,6 +81,9 @@ func (g ProviderFlow) claimChannelSharingReturn(ctx context.Context, mid int64, 
 		return r, false, e
 	}
 	r.OutNo = "PR" + hex.EncodeToString(nonce)
+	if e = g.checkParentOrderWriteTx(ctx, tx, mid, r.OrderID, r.Original.Payment.ChannelID); e != nil {
+		return r, false, e
+	}
 	if _, e = g.sharingReturnProvider(ctx, tx, r); e != nil {
 		return r, false, e
 	}
@@ -110,6 +113,9 @@ func (g ProviderFlow) claimChannelSharingReturn(ctx context.Context, mid int64, 
 	if _, e = tx.Exec(ctx, "INSERT INTO jobs(event_key,kind,payload,run_at) VALUES($1,'channel-sharing-return.reconcile',jsonb_build_object('return_id',$2::bigint),statement_timestamp()+interval '30 seconds')", fmt.Sprintf("channel-sharing-return:%d:reconcile", r.ID), r.ID); e != nil {
 		return r, false, e
 	}
+	if e = g.checkParentOrderWriteTx(ctx, tx, mid, r.OrderID, r.Original.Payment.ChannelID); e != nil {
+		return r, false, e
+	}
 	if e = tx.Commit(ctx); e != nil {
 		return r, false, e
 	}
@@ -117,11 +123,14 @@ func (g ProviderFlow) claimChannelSharingReturn(ctx context.Context, mid int64, 
 	return r, true, nil
 }
 func (g ProviderFlow) SubmitChannelSharingReturn(ctx context.Context, mid int64, sharingNo string, receiverID int64, no string, amount int64, actor TransferBatchActor) (ChannelSharingReturnView, error) {
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return ChannelSharingReturnView{}, ErrLiveDisabled
 	}
 	r, owner, e := g.claimChannelSharingReturn(ctx, mid, sharingNo, receiverID, no, amount, actor)
 	if e != nil || !owner {
+		return r.ChannelSharingReturnView, e
+	}
+	if e = g.checkParentOrderWrite(ctx, mid, r.OrderID, r.Original.Payment.ChannelID); e != nil {
 		return r.ChannelSharingReturnView, e
 	}
 	p, e := g.sharingReturnProvider(ctx, g.Store.pool, r)

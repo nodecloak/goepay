@@ -1,0 +1,36 @@
+{
+    "name": "smtp",
+    "title": "SMTP发信",
+    "author": "官方",
+    "link": "",
+    "version": "1.0",
+    "icon": "smtp.png",
+    "desc": "使用SMTP服务器发信",
+    "inputs": {
+        "host": {
+            "name": "SMTP服务器",
+            "type": "input",
+            "required": true,
+            "note": "如 smtp.qq.com"
+        },
+        "port": {
+            "name": "SMTP端口",
+            "type": "input",
+            "required": true,
+            "note": "常用 465(ssl) 或 587(tls)"
+        },
+        "username": {
+            "name": "邮箱账号",
+            "type": "input",
+            "required": true,
+            "note": ""
+        },
+        "password": {
+            "name": "邮箱密码",
+            "type": "input",
+            "required": true,
+            "note": "QQ邮箱需使用授权码"
+        }
+    },
+    "note": "QQ邮箱：smtp.qq.com，端口465或587，密码是QQ邮箱设置界面生成的<a href=\"https://service.mail.qq.com/detail/0/75\" target=\"_blank\" rel=\"noreferrer\">授权码</a>"
+}

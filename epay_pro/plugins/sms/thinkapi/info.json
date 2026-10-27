@@ -1,0 +1,24 @@
+{
+    "name": "thinkapi",
+    "title": "ThinkAPI",
+    "author": "官方",
+    "link": "https://www.kancloud.cn/topthink-doc/think-api/2203721",
+    "version": "1.0",
+    "icon": "",
+    "desc": "",
+    "inputs": {
+        "appCode": {
+            "name": "AppCode",
+            "type": "input",
+            "required": true,
+            "note": ""
+        },
+        "signId": {
+            "name": "短信签名ID",
+            "type": "input",
+            "required": true,
+            "note": "填写短信签名ID"
+        }
+    },
+    "note": "<a href=\"https://www.kancloud.cn/topthink-doc/think-api/2203721\" target=\"_blank\" rel=\"noreferrer\">ThinkAPI短信接口介绍</a>"
+}

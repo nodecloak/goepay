@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	adapter "goepay/internal/adapters/payment"
 	"math"
+	"sort"
 	"strings"
 	"time"
 )
@@ -161,6 +162,11 @@ func (g ProviderFlow) PrepareTransferBatchChecked(ctx context.Context, mid int64
 	if g.Store == nil || !actor.valid(mid) || no == "" || len(no) > 128 || strings.TrimSpace(no) != no || strings.ContainsAny(no, "\r\n\x00") {
 		return TransferBatch{}, ErrInvalid
 	}
+	resolved, resolveErr := g.parentTransferBatchRuntime(ctx, mid, no, inputs)
+	if resolveErr != nil {
+		return TransferBatch{}, resolveErr
+	}
+	g = resolved
 	routes, e := g.batchRoutes(inputs)
 	if e != nil {
 		return TransferBatch{}, e
@@ -181,6 +187,22 @@ func (g ProviderFlow) PrepareTransferBatchChecked(ctx context.Context, mid int64
 		return TransferBatch{}, e
 	}
 	defer tx.Rollback(ctx)
+	var parentOwner int64
+	if e = tx.QueryRow(ctx, `SELECT id FROM merchants WHERE id=$1 FOR NO KEY UPDATE`, mid).Scan(&parentOwner); e != nil {
+		return TransferBatch{}, e
+	}
+	parentIDs := []int64{}
+	for _, route := range routes {
+		if g.parentBindings[route.Input.ChannelID] != nil && !parentHasChannel(parentIDs, route.Input.ChannelID) {
+			parentIDs = append(parentIDs, route.Input.ChannelID)
+		}
+	}
+	sort.Slice(parentIDs, func(i, j int) bool { return parentIDs[i] < parentIDs[j] })
+	for _, channel := range parentIDs {
+		if e = g.prepareParentTransferChannelTx(ctx, tx, mid, channel); e != nil {
+			return TransferBatch{}, e
+		}
+	}
 	var enabled bool
 	if e = tx.QueryRow(ctx, "SELECT enabled FROM merchants WHERE id=$1 FOR NO KEY UPDATE", mid).Scan(&enabled); e != nil {
 		return TransferBatch{}, e
@@ -262,6 +284,9 @@ func (g ProviderFlow) PrepareTransferBatchChecked(ctx context.Context, mid int64
 		if !owner {
 			return TransferBatch{}, ErrConflict
 		}
+		if err = g.Store.sealParentTransferSource(ctx, tx, t, g.parentBindings[r.Input.ChannelID], g.Providers[r.Input.ChannelID]); err != nil {
+			return TransferBatch{}, err
+		}
 		if t.Amount > math.MaxInt64-amount || t.CostAmount > math.MaxInt64-cost {
 			return TransferBatch{}, ErrInvalid
 		}
@@ -283,6 +308,11 @@ func (g ProviderFlow) PrepareTransferBatchChecked(ctx context.Context, mid int64
 	}
 	if e = batchEventTx(ctx, tx, id, 0, "prepare", "unsent", actor); e != nil {
 		return TransferBatch{}, e
+	}
+	for _, channel := range parentIDs {
+		if e = g.Store.checkParentExecutionCurrent(ctx, tx, g.parentBindings[channel], mid); e != nil {
+			return TransferBatch{}, e
+		}
 	}
 	if e = tx.Commit(ctx); e != nil {
 		return TransferBatch{}, e

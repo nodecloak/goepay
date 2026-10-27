@@ -62,6 +62,9 @@ func (s *Store) beginProviderAttemptTerms(ctx context.Context, tradeNo string, c
 		return ProviderAttempt{}, false, e
 	}
 	defer tx.Rollback(ctx)
+	if e = CheckPaymentDefend206Tx(ctx, tx); e != nil {
+		return ProviderAttempt{}, false, e
+	}
 	var orderID int64
 	var status string
 	e = tx.QueryRow(ctx, "SELECT id,status FROM orders WHERE trade_no=$1 FOR UPDATE", tradeNo).Scan(&orderID, &status)
@@ -71,11 +74,23 @@ func (s *Store) beginProviderAttemptTerms(ctx context.Context, tradeNo string, c
 	if e != nil {
 		return ProviderAttempt{}, false, e
 	}
+	if sharing != nil && sharing.runtimeChannel != nil && sharing.runtimeChannel.parent != nil {
+		if e = parentChannelLock(ctx, tx, channelID); e != nil {
+			return ProviderAttempt{}, false, e
+		}
+	}
 	appID := ""
 	if sharing != nil {
 		appID = sharing.AppID
 	}
 	if e = s.validateReferralProfitAttempt(ctx, tx, orderID, channelID, method, appID, accountScope); e != nil {
+		return ProviderAttempt{}, false, e
+	}
+	pricedOrder, e := scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE id=$1", orderID))
+	if e != nil {
+		return ProviderAttempt{}, false, e
+	}
+	if _, _, e = s.authenticatedOrderCharge104(ctx, tx, pricedOrder); e != nil {
 		return ProviderAttempt{}, false, e
 	}
 	a, e := scanProviderAttempt(tx.QueryRow(ctx, "SELECT "+providerAttemptColumns+" FROM provider_attempts a JOIN orders o ON o.id=a.order_id WHERE a.order_id=$1", orderID))
@@ -100,6 +115,13 @@ func (s *Store) beginProviderAttemptTerms(ctx context.Context, tradeNo string, c
 	if status != "created" {
 		return ProviderAttempt{}, false, ErrState
 	}
+	var bound *RuntimeChannel
+	if sharing != nil {
+		bound = sharing.runtimeChannel
+	}
+	if e = s.validateRouteFeeAttempt(ctx, tx, pricedOrder, channelID, method, accountScope, bound); e != nil {
+		return ProviderAttempt{}, false, e
+	}
 	// Review admission applies only to a first external payment intent. An
 	// existing original attempt above remains recoverable, never re-owned.
 	var admitted bool
@@ -108,6 +130,10 @@ func (s *Store) beginProviderAttemptTerms(ctx context.Context, tradeNo string, c
 	}
 	if !admitted {
 		return ProviderAttempt{}, false, ErrState
+	}
+	riskOrigin, e := s.prepareCoreRiskOrigin(ctx, tx, pricedOrder, channelID, method)
+	if e != nil {
+		return ProviderAttempt{}, false, e
 	}
 	var id int64
 	if e = tx.QueryRow(ctx, "INSERT INTO provider_attempts(order_id,channel_id,method) VALUES($1,$2,$3) RETURNING id", orderID, channelID, method).Scan(&id); e != nil {
@@ -134,6 +160,24 @@ func (s *Store) beginProviderAttemptTerms(ctx context.Context, tradeNo string, c
 	if e != nil {
 		return ProviderAttempt{}, false, e
 	}
+	if e = s.bindCoreRiskOrigin(ctx, tx, riskOrigin, id); e != nil {
+		return ProviderAttempt{}, false, e
+	}
+	if bound != nil && bound.child != nil {
+		if e = s.checkChildFirstSendTx(ctx, tx, pricedOrder, bound); e != nil {
+			return ProviderAttempt{}, false, e
+		}
+	}
+	if e = s.parentAttemptFinal(ctx, tx, pricedOrder, bound); e != nil {
+		return ProviderAttempt{}, false, e
+	}
+	if e = s.finalCoreRiskClock(ctx, tx, riskOrigin); e != nil {
+		return ProviderAttempt{}, false, e
+	}
+	if e = s.merchantScanFirstSend106(ctx, tx, pricedOrder); e != nil {
+		return ProviderAttempt{}, false, e
+	}
+
 	if e = tx.Commit(ctx); e != nil {
 		return ProviderAttempt{}, false, e
 	}

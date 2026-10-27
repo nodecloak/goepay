@@ -190,6 +190,13 @@ func (s *Store) PrintingPaidSource(ctx context.Context, q fundsReader, id int64)
 	if e != nil || !hmac.Equal(want, proof) {
 		return f, ErrConflict
 	}
+	reader, ok := q.(referralReader)
+	if !ok {
+		return f, ErrConflict
+	}
+	if _, e = s.authenticatedOrderIDCharge104(ctx, reader, id); e != nil {
+		return f, e
+	}
 	var valid bool
 	e = q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM orders o JOIN verified_payment_receipts v ON v.order_id=o.id WHERE o.id=$1 AND o.merchant_id=$2 AND o.status='paid' AND o.trade_no=$3 AND o.amount=$4 AND o.merchant_amount=$5 AND o.platform_fee=$6 AND v.channel_id=$7 AND v.provider_trade_no=$8 AND o.paid_at=$9::timestamptz
  AND (o.merchant_amount=0 OR EXISTS(SELECT 1 FROM journals j WHERE j.event_key='payment:'||o.trade_no AND (SELECT COALESCE(sum(x.amount),0) FROM ledger_entries x JOIN accounts a ON a.id=x.account_id WHERE x.journal_id=j.id AND a.owner_id=o.merchant_id AND a.kind='available' AND a.scope_id=0)=o.merchant_amount))

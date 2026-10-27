@@ -1,0 +1,214 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>开发文档 - {:config_get('sitename')}</title>
+    <!-- jQuery-->
+    <script src="{$cdnpublic}jquery/1.12.4/jquery.min.js"></script>
+    <!-- layui -->
+    <link rel="stylesheet" href="{$cdnpublic}layui/2.6.13/css/layui.css" />
+    <script src="{$cdnpublic}layui/2.6.13/layui.js"></script>
+    <!-- zTree -->
+    <link rel="stylesheet" href="{$cdnpublic}zTree.v3/3.5.42/css/zTreeStyle/zTreeStyle.min.css" />
+    <script src="{$cdnpublic}zTree.v3/3.5.42/js/jquery.ztree.core.min.js"></script>
+    <!-- SyntaxHighlighter -->
+    <script src="/static/doc/js/shCore.min.js" type="text/javascript"></script>
+    <link rel="stylesheet" type="text/css" href="/static/doc/css/shCoreDefault.css"/>
+    <!-- 自定义 -->
+    <link rel="stylesheet" href="/static/doc/css/style.css" />
+    <script src="/static/doc/js/home.js"></script>
+    <link rel="stylesheet" href="/static/doc/css/docView.css" />
+    <script src="/static/doc/js/docView.js"></script>
+</head>
+<body>
+    <!-- top-begin -->
+    <div id="navbar">
+        <div class="bg-blur" style="background: white!important;"></div>
+        <div class="navbar-body">
+            <ul class="layui-nav" lay-filter="">
+                <div class="navRight">
+                    <li class="layui-nav-item layui-this" lay-unselect>
+                        <a href="/" style="padding-right: 40px;">返回官网</a>
+                    </li>
+                </div>
+            </ul>
+            <div class="nav-menu">
+                <a href="" class="logo"><img src="/static/img/logo.png"/></a>
+                <a href="javascript:;" id="navMenuLeft"><i class="layui-icon layui-icon-spread-left"></i></a>
+                <a href="javascript:;" id="navMenuRight"><i class="layui-icon">&#xe61a;</i></a>
+            </div>
+            <div class="clear"></div>
+        </div>
+    </div>
+    <script>
+    function showMask()
+    {
+        $('#mask').show();
+    }
+    function hideMask()
+    {
+        $('#mask').hide();
+    }
+    function clickMask()
+    {
+        closeMenuLeft();
+        closeMenuRight();
+    }
+    function openMenuLeft()
+    {
+        $('#leftbar').addClass('show-item');
+        $('#navMenuLeft').addClass('active');
+        var ico = $('#navMenuLeft .layui-icon');
+        ico.removeClass('layui-icon-spread-left');
+        ico.addClass('layui-icon-shrink-right');
+        showMask();
+    }
+    function closeMenuLeft()
+    {
+        $('#leftbar').removeClass('show-item');
+        $('#navMenuLeft').removeClass('active');
+        var ico = $('#navMenuLeft .layui-icon');
+        ico.removeClass('layui-icon-shrink-right');
+        ico.addClass('layui-icon-spread-left');
+        hideMask();
+    }
+    $('#navMenuLeft').click(function(){
+        var isShow = $('#leftbar').hasClass('show-item');
+        if(isShow)
+        {
+            closeMenuLeft();
+        }
+        else
+        {
+            closeMenuRight();
+            openMenuLeft();
+        }
+    });
+    function openMenuRight()
+    {
+        $('#navbar > .navbar-body > .layui-nav').addClass('show-item')
+        $('#navMenuRight').addClass('active').find('i').html('&#xe619;');
+        showMask();
+    }
+    function closeMenuRight()
+    {
+        $('#navbar > .navbar-body > .layui-nav').removeClass('show-item')
+        $('#navMenuRight').removeClass('active').find('i').html('&#xe61a;');
+        hideMask();
+    }
+    $('#navMenuRight').click(function(){
+        var isShow = $('#navbar > .navbar-body > .layui-nav').hasClass('show-item');
+        if(isShow)
+        {
+            closeMenuRight();
+        }
+        else
+        {
+            closeMenuLeft();
+            openMenuRight();
+        }
+    });
+    </script>
+    <!-- top-end -->
+
+    <!-- left-begin -->
+    <div id="leftbar" class="layui-nav-side">
+        <div class="layui-tab layui-tab-brief" style="margin-top:0">
+            <ul class="layui-tab-title">
+                <li class="layui-this"><i class="layui-icon">&#xe705;</i> 目录</li>
+            </ul>
+            <div class="layui-tab-content">
+                <div class="layui-tab-item layui-show">
+                    <ul id="treeDirectory" class="ztree showIcon"></ul>
+                </div>
+                <div class="layui-tab-item">
+                    <div class="searchBox">
+                        <div id="searchForm">
+                            <div class="inputBox">
+                                <input type="text" id="search-keyword" autocomplete="off" name="keyword" placeholder="搜索关键词" class="layui-input"/>
+                                <i class="layui-icon input-icon">&#xe615;</i>
+                            </div>
+                        </div>
+                        <ul id="treeSearch">
+                        </ul>
+                        <div class="searchResultNone">
+                            <i class="layui-icon">&#xe615;</i>
+                            <p>未搜索到结果</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="copyright noScroll">{:config_get('sitename')}</div>
+        </div>
+    </div>
+    <script id="searchListTemplate" type="text/html">
+        {{#  layui.each(d, function(index, item){ }}
+        <li>
+            <a href="{{ item.url }}">
+                <h3>{{ item.searchedTitle }}</h3>
+                <p>{{ item.searchedContent }}</p>
+            </a>
+        </li>
+        {{#  }) }}
+    </script>
+    <!-- left-end -->
+
+    <div id="body">
+        <div id="content_body" name="content_body" style="width:100%;height:100%;border:none;overflow: auto;">
+            <div id="article-content" class="markdown-body">
+                <script>
+                    var catalogList = [{"id":1,"parent_id":0,"title":"接口说明","mdFileName":"index.md","url":"index.html","level":0},{"id":2,"parent_id":0,"title":"签名规则","mdFileName":"sign_note.md","url":"sign_note.html","level":0},{"id":3,"parent_id":0,"title":"支付方式列表","mdFileName":"paytype.md","url":"paytype.html","level":0},{"id":4,"parent_id":0,"title":"支付相关接口","level":0},{"id":5,"parent_id":4,"title":"页面跳转支付","mdFileName":"pay_submit.md","url":"pay_submit.html","level":1},{"id":6,"parent_id":4,"title":"统一下单接口","mdFileName":"pay_create.md","url":"pay_create.html","level":1},{"id":7,"parent_id":4,"title":"订单查询","mdFileName":"pay_query.md","url":"pay_query.html","level":1},{"id":8,"parent_id":4,"title":"支付结果通知","mdFileName":"pay_notify.md","url":"pay_notify.html","level":1},{"id":9,"parent_id":4,"title":"订单退款","mdFileName":"pay_refund.md","url":"pay_refund.html","level":1},{"id":10,"parent_id":4,"title":"订单退款查询","mdFileName":"pay_refundquery.md","url":"pay_refundquery.html","level":1},{"id":11,"parent_id":4,"title":"关闭订单","mdFileName":"pay_close.md","url":"pay_close.html","level":1},{"id":20,"parent_id":0,"title":"商户相关接口","level":0},{"id":21,"parent_id":20,"title":"查询商户信息","mdFileName":"merchant_info.md","url":"merchant_info.html","level":1},{"id":22,"parent_id":20,"title":"查询订单列表","mdFileName":"merchant_orders.md","url":"merchant_orders.html","level":1},{"id":30,"parent_id":0,"title":"代付相关接口","level":0},{"id":31,"parent_id":30,"title":"转账发起","mdFileName":"transfer_submit.md","url":"transfer_submit.html","level":1},{"id":32,"parent_id":30,"title":"转账查询","mdFileName":"transfer_query.md","url":"transfer_query.html","level":1},{"id":33,"parent_id":30,"title":"可用余额查询","mdFileName":"transfer_balance.md","url":"transfer_balance.html","level":1},{"id":40,"parent_id":0,"title":"投诉相关接口","level":0},{"id":41,"parent_id":40,"title":"投诉列表","mdFileName":"complain_batch.md","url":"complain_batch.html","level":1},{"id":42,"parent_id":40,"title":"投诉详情","mdFileName":"complain_detail.md","url":"complain_detail.html","level":1},{"id":43,"parent_id":40,"title":"上传图片","mdFileName":"complain_upload.md","url":"complain_upload.html","level":1},{"id":44,"parent_id":40,"title":"处理投诉","mdFileName":"complain_feedback.md","url":"complain_feedback.html","level":1},{"id":45,"parent_id":40,"title":"回复用户","mdFileName":"complain_reply.md","url":"complain_reply.html","level":1},{"id":46,"parent_id":40,"title":"更新退款审批结果","mdFileName":"complain_refundprogress.md","url":"complain_refundprogress.html","level":1},{"id":47,"parent_id":40,"title":"处理完成","mdFileName":"complain_complete.md","url":"complain_complete.html","level":1},{"id":50,"parent_id":0,"title":"SDK下载","pageTitle":"接口说明","mdFileName":"sdk.md","url":"sdk.html","level":0}];
+                    initTree(catalogList);
+                </script>
+                <h1 id="V1 旧版接口文档"><a href="#V1 旧版接口文档">V1 旧版接口文档</a></h1><h2 id="目录"><a href="#目录">目录</a></h2><ul><li><a href="#协议规则">协议规则</a></li><li><a href="#页面跳转支付">页面跳转支付</a></li><li><a href="#API接口支付">API接口支付</a></li><li><a href="#支付结果通知">支付结果通知</a></li><li><a href="#md5-签名算法">MD5 签名算法</a></li><li><a href="#支付方式列表">支付方式列表</a></li><li><a href="#设备类型列表">设备类型列表</a></li><li><a href="#API：查询商户信息">API：查询商户信息</a></li><li><a href="#API：查询结算记录">API：查询结算记录</a></li><li><a href="#API：查询单个订单">API：查询单个订单</a></li><li><a href="#API：批量查询订单">API：批量查询订单</a></li><li><a href="#API：提交订单退款">API：提交订单退款</a></li><li><a href="#SDK下载">SDK下载</a></li></ul><hr><h2 id="协议规则"><a href="#协议规则">协议规则</a></h2><ul><li>请求数据格式：<code>application/x-www-form-urlencoded</code></li><li>返回数据格式：<code>JSON</code></li><li>签名算法：<code>MD5</code></li><li>字符编码：<code>UTF-8</code></li></ul><hr><h2 id="页面跳转支付"><a href="#页面跳转支付">页面跳转支付</a></h2><blockquote>此接口可用于用户前台直接发起支付，使用 form 表单跳转或拼接成 URL 跳转。</blockquote><p><strong>URL 地址：</strong> <code>{:config_get('apiurl', request()->siteurl)}submit.php</code></p><p><strong>请求方式：</strong> POST 或 GET（推荐 POST，不容易被劫持或屏蔽）</p><h3 id="请求参数说明"><a href="#请求参数说明">请求参数说明</a></h3><table><thead><tr><th align="left">字段名</th><th align="left">变量名</th><th align="left">必填</th><th align="left">类型</th><th align="left">示例值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">商户 ID</td><td align="left">pid</td><td align="left">是</td><td align="left">Int</td><td align="left">1001</td><td align="left"> </td></tr><tr><td align="left">支付方式</td><td align="left">type</td><td align="left">否</td><td align="left">String</td><td align="left">alipay</td><td align="left"><a href="#支付方式列表">支付方式列表</a></td></tr><tr><td align="left">商户订单号</td><td align="left">out_trade_no</td><td align="left">是</td><td align="left">String</td><td align="left">20160806151343349</td><td align="left"> </td></tr><tr><td align="left">异步通知地址</td><td align="left">notify_url</td><td align="left">是</td><td align="left">String</td><td align="left">http://www.pay.com/notify_url.php</td><td align="left">服务器异步通知地址</td></tr><tr><td align="left">跳转通知地址</td><td align="left">return_url</td><td align="left">是</td><td align="left">String</td><td align="left">http://www.pay.com/return_url.php</td><td align="left">页面跳转通知地址</td></tr><tr><td align="left">商品名称</td><td align="left">name</td><td align="left">是</td><td align="left">String</td><td align="left">VIP会员</td><td align="left">如超过 127 个字节会自动截取</td></tr><tr><td align="left">商品金额</td><td align="left">money</td><td align="left">是</td><td align="left">String</td><td align="left">1.00</td><td align="left">单位：元，最大 2 位小数</td></tr><tr><td align="left">业务扩展参数</td><td align="left">param</td><td align="left">否</td><td align="left">String</td><td align="left">没有请留空</td><td align="left">支付后原样返回</td></tr><tr><td align="left">签名字符串</td><td align="left">sign</td><td align="left">是</td><td align="left">String</td><td align="left">202cb962ac59075b964b07152d234b70</td><td align="left"><a href="#md5-签名算法">MD5 签名算法</a></td></tr><tr><td align="left">签名类型</td><td align="left">sign_type</td><td align="left">是</td><td align="left">String</td><td align="left">MD5</td><td align="left">默认为 MD5</td></tr></tbody></table><blockquote><strong>说明：</strong> 支付方式（<code>type</code>）不传会跳转到收银台支付。</blockquote><hr><h2 id="API接口支付"><a href="#API接口支付">API接口支付</a></h2><blockquote>此接口可用于服务器后端发起支付请求，会返回支付二维码链接或支付跳转 URL。</blockquote><p><strong>URL 地址：</strong> <code>{:config_get('apiurl', request()->siteurl)}mapi.php</code></p><p><strong>请求方式：</strong> POST</p><h3 id="请求参数说明"><a href="#请求参数说明">请求参数说明</a></h3><table><thead><tr><th align="left">字段名</th><th align="left">变量名</th><th align="left">必填</th><th align="left">类型</th><th align="left">示例值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">商户 ID</td><td align="left">pid</td><td align="left">是</td><td align="left">Int</td><td align="left">1001</td><td align="left"> </td></tr><tr><td align="left">支付方式</td><td align="left">type</td><td align="left">是</td><td align="left">String</td><td align="left">alipay</td><td align="left"><a href="#支付方式列表">支付方式列表</a></td></tr><tr><td align="left">商户订单号</td><td align="left">out_trade_no</td><td align="left">是</td><td align="left">String</td><td align="left">20160806151343349</td><td align="left"> </td></tr><tr><td align="left">异步通知地址</td><td align="left">notify_url</td><td align="left">是</td><td align="left">String</td><td align="left">http://www.pay.com/notify_url.php</td><td align="left">服务器异步通知地址</td></tr><tr><td align="left">跳转通知地址</td><td align="left">return_url</td><td align="left">否</td><td align="left">String</td><td align="left">http://www.pay.com/return_url.php</td><td align="left">页面跳转通知地址</td></tr><tr><td align="left">商品名称</td><td align="left">name</td><td align="left">是</td><td align="left">String</td><td align="left">VIP会员</td><td align="left">如超过 127 个字节会自动截取</td></tr><tr><td align="left">商品金额</td><td align="left">money</td><td align="left">是</td><td align="left">String</td><td align="left">1.00</td><td align="left">单位：元，最大 2 位小数</td></tr><tr><td align="left">用户 IP 地址</td><td align="left">clientip</td><td align="left">是</td><td align="left">String</td><td align="left">192.168.1.100</td><td align="left">用户发起支付的 IP 地址</td></tr><tr><td align="left">设备类型</td><td align="left">device</td><td align="left">否</td><td align="left">String</td><td align="left">pc</td><td align="left">根据用户浏览器 UA 判断；<a href="#设备类型列表">设备类型列表</a>；默认为 <code>pc</code></td></tr><tr><td align="left">业务扩展参数</td><td align="left">param</td><td align="left">否</td><td align="left">String</td><td align="left">没有请留空</td><td align="left">支付后原样返回</td></tr><tr><td align="left">签名字符串</td><td align="left">sign</td><td align="left">是</td><td align="left">String</td><td align="left">202cb962ac59075b964b07152d234b70</td><td align="left"><a href="#md5-签名算法">MD5 签名算法</a></td></tr><tr><td align="left">签名类型</td><td align="left">sign_type</td><td align="left">是</td><td align="left">String</td><td align="left">MD5</td><td align="left">默认为 MD5</td></tr></tbody></table><h3 id="返回结果（JSON）"><a href="#返回结果（JSON）">返回结果（JSON）</a></h3><table><thead><tr><th align="left">字段名</th><th align="left">变量名</th><th align="left">类型</th><th align="left">示例值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">返回状态码</td><td align="left">code</td><td align="left">Int</td><td align="left">1</td><td align="left">1 为成功，其它值为失败</td></tr><tr><td align="left">返回信息</td><td align="left">msg</td><td align="left">String</td><td align="left"> </td><td align="left">失败时返回原因</td></tr><tr><td align="left">订单号</td><td align="left">trade_no</td><td align="left">String</td><td align="left">20160806151343349</td><td align="left">支付订单号</td></tr><tr><td align="left">支付跳转 URL</td><td align="left">payurl</td><td align="left">String</td><td align="left"><code>{:config_get('apiurl', request()->siteurl)}pay/wxpay/202010903/</code></td><td align="left">若返回该字段，则直接跳转到该 URL 支付</td></tr><tr><td align="left">二维码链接</td><td align="left">qrcode</td><td align="left">String</td><td align="left">weixin://wxpay/bizpayurl?pr=04IPMKM</td><td align="left">若返回该字段，则根据该 URL 生成二维码</td></tr><tr><td align="left">小程序跳转 URL</td><td align="left">urlscheme</td><td align="left">String</td><td align="left">weixin://dl/business/?ticket=xxx</td><td align="left">若返回该字段，则使用 JS 跳转，可发起微信小程序支付</td></tr></tbody></table><blockquote><strong>说明：</strong> <code>payurl</code>、<code>qrcode</code>、<code>urlscheme</code> 三个参数只会返回其中一个。</blockquote><hr><h2 id="支付结果通知"><a href="#支付结果通知">支付结果通知</a></h2><p><strong>通知类型：</strong> 服务器异步通知（<code>notify_url</code>）、页面跳转通知（<code>return_url</code>）</p><p><strong>请求方式：</strong> GET</p><h3 id="请求参数说明"><a href="#请求参数说明">请求参数说明</a></h3><table><thead><tr><th align="left">字段名</th><th align="left">变量名</th><th align="left">必填</th><th align="left">类型</th><th align="left">示例值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">商户 ID</td><td align="left">pid</td><td align="left">是</td><td align="left">Int</td><td align="left">1001</td><td align="left"> </td></tr><tr><td align="left">平台订单号</td><td align="left">trade_no</td><td align="left">是</td><td align="left">String</td><td align="left">20160806151343349021</td><td align="left">支付系统侧订单号</td></tr><tr><td align="left">商户订单号</td><td align="left">out_trade_no</td><td align="left">是</td><td align="left">String</td><td align="left">20160806151343349</td><td align="left">商户系统内部的订单号</td></tr><tr><td align="left">支付方式</td><td align="left">type</td><td align="left">是</td><td align="left">String</td><td align="left">alipay</td><td align="left"><a href="#支付方式列表">支付方式列表</a></td></tr><tr><td align="left">商品名称</td><td align="left">name</td><td align="left">是</td><td align="left">String</td><td align="left">VIP会员</td><td align="left"> </td></tr><tr><td align="left">商品金额</td><td align="left">money</td><td align="left">是</td><td align="left">String</td><td align="left">1.00</td><td align="left"> </td></tr><tr><td align="left">支付状态</td><td align="left">trade_status</td><td align="left">是</td><td align="left">String</td><td align="left">TRADE_SUCCESS</td><td align="left">只有 <code>TRADE_SUCCESS</code> 表示成功</td></tr><tr><td align="left">业务扩展参数</td><td align="left">param</td><td align="left">否</td><td align="left">String</td><td align="left"> </td><td align="left"> </td></tr><tr><td align="left">签名字符串</td><td align="left">sign</td><td align="left">是</td><td align="left">String</td><td align="left">202cb962ac59075b964b07152d234b70</td><td align="left"><a href="#md5-签名算法">MD5 签名算法</a></td></tr><tr><td align="left">签名类型</td><td align="left">sign_type</td><td align="left">是</td><td align="left">String</td><td align="left">MD5</td><td align="left">默认为 MD5</td></tr></tbody></table><blockquote><strong>说明：</strong> 收到异步通知后，需返回 <strong><code>success</code></strong> 以表示服务器接收到了订单通知。</blockquote><hr><h2 id="MD5 签名算法"><a href="#MD5 签名算法">MD5 签名算法</a></h2><ol><li>将发送或接收到的所有参数按照参数名 ASCII 码从小到大排序（a-z），<strong><code>sign</code>、<code>sign_type</code> 和空值不参与签名</strong>。</li><li>将排序后的参数拼接成 URL 键值对格式，例如 <code>a=b&amp;c=d&amp;e=f</code>，<strong>参数值不要进行 URL 编码</strong>。</li><li>再将拼接好的字符串与商户密钥 <code>KEY</code> 进行 MD5 加密得出 <code>sign</code> 签名参数：<code>sign = md5( 拼接字符串 + KEY )</code>（注意：<code>+</code> 为各语言的拼接符，不是字符！），<strong>md5 结果为小写</strong>。</li><li>具体签名与发起支付的示例代码可下载 SDK 查看（见文末 <a href="#sdk-下载">SDK 下载</a>）。</li></ol><hr><h2 id="支付方式列表"><a href="#支付方式列表">支付方式列表</a></h2><table><thead><tr><th align="left">调用值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">alipay</td><td align="left">支付宝</td></tr><tr><td align="left">wxpay</td><td align="left">微信支付</td></tr><tr><td align="left">qqpay</td><td align="left">QQ 钱包</td></tr><tr><td align="left">bank</td><td align="left">银联支付</td></tr><tr><td align="left">jdpay</td><td align="left">京东支付</td></tr><tr><td align="left">paypal</td><td align="left">PayPal</td></tr><tr><td align="left">douyinpay</td><td align="left">抖音支付</td></tr></tbody></table><hr><h2 id="设备类型列表"><a href="#设备类型列表">设备类型列表</a></h2><table><thead><tr><th align="left">调用值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">pc</td><td align="left">电脑浏览器</td></tr><tr><td align="left">mobile</td><td align="left">手机浏览器</td></tr><tr><td align="left">qq</td><td align="left">手机 QQ 内浏览器</td></tr><tr><td align="left">wechat</td><td align="left">微信内浏览器</td></tr><tr><td align="left">alipay</td><td align="left">支付宝客户端</td></tr><tr><td align="left">douyin</td><td align="left">抖音 APP</td></tr><tr><td align="left">jump</td><td align="left">仅返回支付跳转 URL</td></tr></tbody></table><hr><h2 id="API：查询商户信息"><a href="#API：查询商户信息">API：查询商户信息</a></h2><p><strong>URL 地址：</strong></p><p><code>{:config_get('apiurl', request()->siteurl)}api.php?act=query&amp;pid={商户ID}&amp;key={商户密钥}</code></p><h3 id="请求参数说明"><a href="#请求参数说明">请求参数说明</a></h3><table><thead><tr><th align="left">字段名</th><th align="left">变量名</th><th align="left">必填</th><th align="left">类型</th><th align="left">示例值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">操作类型</td><td align="left">act</td><td align="left">是</td><td align="left">String</td><td align="left">query</td><td align="left">此 API 固定值</td></tr><tr><td align="left">商户 ID</td><td align="left">pid</td><td align="left">是</td><td align="left">Int</td><td align="left">1001</td><td align="left"> </td></tr><tr><td align="left">商户密钥</td><td align="left">key</td><td align="left">是</td><td align="left">String</td><td align="left">89unJUB8HZ54Hj7x4nUj56HN4nUzUJ8i</td><td align="left"> </td></tr></tbody></table><h3 id="返回结果"><a href="#返回结果">返回结果</a></h3><table><thead><tr><th align="left">字段名</th><th align="left">变量名</th><th align="left">类型</th><th align="left">示例值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">返回状态码</td><td align="left">code</td><td align="left">Int</td><td align="left">1</td><td align="left">1 为成功，其它值为失败</td></tr><tr><td align="left">商户 ID</td><td align="left">pid</td><td align="left">Int</td><td align="left">1001</td><td align="left"> </td></tr><tr><td align="left">商户密钥</td><td align="left">key</td><td align="left">String(32)</td><td align="left">89unJUB8HZ54Hj7x4nUj56HN4nUzUJ8i</td><td align="left"> </td></tr><tr><td align="left">商户状态</td><td align="left">active</td><td align="left">Int</td><td align="left">1</td><td align="left">1 为正常，0 为封禁</td></tr><tr><td align="left">商户余额</td><td align="left">money</td><td align="left">String</td><td align="left">0.00</td><td align="left">商户所拥有的余额</td></tr><tr><td align="left">结算方式</td><td align="left">type</td><td align="left">Int</td><td align="left">1</td><td align="left">1:支付宝,2:微信,3:QQ,4:银行卡</td></tr><tr><td align="left">结算账号</td><td align="left">account</td><td align="left">String</td><td align="left"><a href="mailto:admin@pay.com">admin@pay.com</a></td><td align="left">结算账号</td></tr><tr><td align="left">结算姓名</td><td align="left">username</td><td align="left">String</td><td align="left">张三</td><td align="left">结算姓名</td></tr><tr><td align="left">订单总数</td><td align="left">orders</td><td align="left">Int</td><td align="left">30</td><td align="left">订单总数统计</td></tr><tr><td align="left">今日订单</td><td align="left">order_today</td><td align="left">Int</td><td align="left">15</td><td align="left">今日订单数量</td></tr><tr><td align="left">昨日订单</td><td align="left">order_lastday</td><td align="left">Int</td><td align="left">15</td><td align="left">昨日订单数量</td></tr></tbody></table><hr><h2 id="API：查询结算记录"><a href="#API：查询结算记录">API：查询结算记录</a></h2><p><strong>URL 地址：</strong></p><p><code>{:config_get('apiurl', request()->siteurl)}api.php?act=settle&amp;pid={商户ID}&amp;key={商户密钥}</code></p><h3 id="请求参数说明"><a href="#请求参数说明">请求参数说明</a></h3><table><thead><tr><th align="left">字段名</th><th align="left">变量名</th><th align="left">必填</th><th align="left">类型</th><th align="left">示例值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">操作类型</td><td align="left">act</td><td align="left">是</td><td align="left">String</td><td align="left">settle</td><td align="left">此 API 固定值</td></tr><tr><td align="left">商户 ID</td><td align="left">pid</td><td align="left">是</td><td align="left">Int</td><td align="left">1001</td><td align="left"> </td></tr><tr><td align="left">商户密钥</td><td align="left">key</td><td align="left">是</td><td align="left">String</td><td align="left">89unJUB8HZ54Hj7x4nUj56HN4nUzUJ8i</td><td align="left"> </td></tr></tbody></table><h3 id="返回结果"><a href="#返回结果">返回结果</a></h3><table><thead><tr><th align="left">字段名</th><th align="left">变量名</th><th align="left">类型</th><th align="left">示例值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">返回状态码</td><td align="left">code</td><td align="left">Int</td><td align="left">1</td><td align="left">1 为成功</td></tr><tr><td align="left">返回信息</td><td align="left">msg</td><td align="left">String</td><td align="left">查询结算记录成功！</td><td align="left"> </td></tr><tr><td align="left">结算记录</td><td align="left">data</td><td align="left">Array</td><td align="left">结算记录列表</td><td align="left"> </td></tr></tbody></table><hr><h2 id="API：查询单个订单"><a href="#API：查询单个订单">API：查询单个订单</a></h2><p><strong>URL 地址：</strong></p><p><code>{:config_get('apiurl', request()->siteurl)}api.php?act=order&amp;pid={商户ID}&amp;key={商户密钥}&amp;out_trade_no={商户订单号}</code></p><p>（也可使用 <code>trade_no</code> 传系统订单号，见下表。）</p><h3 id="请求参数说明"><a href="#请求参数说明">请求参数说明</a></h3><table><thead><tr><th align="left">字段名</th><th align="left">变量名</th><th align="left">必填</th><th align="left">类型</th><th align="left">示例值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">操作类型</td><td align="left">act</td><td align="left">是</td><td align="left">String</td><td align="left">order</td><td align="left">此 API 固定值</td></tr><tr><td align="left">商户 ID</td><td align="left">pid</td><td align="left">是</td><td align="left">Int</td><td align="left">1001</td><td align="left"> </td></tr><tr><td align="left">商户密钥</td><td align="left">key</td><td align="left">是</td><td align="left">String</td><td align="left">89unJUB8HZ54Hj7x4nUj56HN4nUzUJ8i</td><td align="left"> </td></tr><tr><td align="left">系统订单号</td><td align="left">trade_no</td><td align="left">选择</td><td align="left">String</td><td align="left">20160806151343312</td><td align="left"> </td></tr><tr><td align="left">商户订单号</td><td align="left">out_trade_no</td><td align="left">选择</td><td align="left">String</td><td align="left">20160806151343349</td><td align="left"> </td></tr></tbody></table><p><strong>提示：</strong> 系统订单号与商户订单号二选一传入即可；若都传入，以系统订单号为准。</p><h3 id="返回结果"><a href="#返回结果">返回结果</a></h3><table><thead><tr><th align="left">字段名</th><th align="left">变量名</th><th align="left">类型</th><th align="left">示例值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">返回状态码</td><td align="left">code</td><td align="left">Int</td><td align="left">1</td><td align="left">1 为成功，其它值为失败</td></tr><tr><td align="left">返回信息</td><td align="left">msg</td><td align="left">String</td><td align="left">查询订单号成功！</td><td align="left"> </td></tr><tr><td align="left">平台订单号</td><td align="left">trade_no</td><td align="left">String</td><td align="left">2016080622555342651</td><td align="left">支付系统侧订单号</td></tr><tr><td align="left">商户订单号</td><td align="left">out_trade_no</td><td align="left">String</td><td align="left">20160806151343349</td><td align="left">商户系统内部的订单号</td></tr><tr><td align="left">第三方订单号</td><td align="left">api_trade_no</td><td align="left">String</td><td align="left">20160806151343349</td><td align="left">支付宝、微信等接口方订单号</td></tr><tr><td align="left">支付方式</td><td align="left">type</td><td align="left">String</td><td align="left">alipay</td><td align="left"><a href="#支付方式列表">支付方式列表</a></td></tr><tr><td align="left">商户 ID</td><td align="left">pid</td><td align="left">Int</td><td align="left">1001</td><td align="left">发起支付的商户 ID</td></tr><tr><td align="left">创建订单时间</td><td align="left">addtime</td><td align="left">String</td><td align="left">2016-08-06 22:55:52</td><td align="left"> </td></tr><tr><td align="left">完成交易时间</td><td align="left">endtime</td><td align="left">String</td><td align="left">2016-08-06 22:55:52</td><td align="left"> </td></tr><tr><td align="left">商品名称</td><td align="left">name</td><td align="left">String</td><td align="left">VIP会员</td><td align="left"> </td></tr><tr><td align="left">商品金额</td><td align="left">money</td><td align="left">String</td><td align="left">1.00</td><td align="left"> </td></tr><tr><td align="left">支付状态</td><td align="left">status</td><td align="left">Int</td><td align="left">0</td><td align="left">1 为支付成功，0 为未支付</td></tr><tr><td align="left">业务扩展参数</td><td align="left">param</td><td align="left">String</td><td align="left"> </td><td align="left">默认留空</td></tr><tr><td align="left">支付者账号</td><td align="left">buyer</td><td align="left">String</td><td align="left"> </td><td align="left">默认留空</td></tr></tbody></table><hr><h2 id="API：批量查询订单"><a href="#API：批量查询订单">API：批量查询订单</a></h2><p><strong>URL 地址：</strong></p><p><code>{:config_get('apiurl', request()->siteurl)}api.php?act=orders&amp;pid={商户ID}&amp;key={商户密钥}</code></p><h3 id="请求参数说明"><a href="#请求参数说明">请求参数说明</a></h3><table><thead><tr><th align="left">字段名</th><th align="left">变量名</th><th align="left">必填</th><th align="left">类型</th><th align="left">示例值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">操作类型</td><td align="left">act</td><td align="left">是</td><td align="left">String</td><td align="left">orders</td><td align="left">此 API 固定值</td></tr><tr><td align="left">商户 ID</td><td align="left">pid</td><td align="left">是</td><td align="left">Int</td><td align="left">1001</td><td align="left"> </td></tr><tr><td align="left">商户密钥</td><td align="left">key</td><td align="left">是</td><td align="left">String</td><td align="left">89unJUB8HZ54Hj7x4nUj56HN4nUzUJ8i</td><td align="left"> </td></tr><tr><td align="left">查询订单数量</td><td align="left">limit</td><td align="left">否</td><td align="left">Int</td><td align="left">20</td><td align="left">最大 50</td></tr><tr><td align="left">页码</td><td align="left">page</td><td align="left">否</td><td align="left">Int</td><td align="left">1</td><td align="left">当前查询的页码</td></tr></tbody></table><h3 id="返回结果"><a href="#返回结果">返回结果</a></h3><table><thead><tr><th align="left">字段名</th><th align="left">变量名</th><th align="left">类型</th><th align="left">示例值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">返回状态码</td><td align="left">code</td><td align="left">Int</td><td align="left">1</td><td align="left">1 为成功</td></tr><tr><td align="left">返回信息</td><td align="left">msg</td><td align="left">String</td><td align="left">查询结算记录成功！</td><td align="left"> </td></tr><tr><td align="left">订单列表</td><td align="left">data</td><td align="left">Array</td><td align="left"> </td><td align="left">订单列表</td></tr></tbody></table><hr><h2 id="API：提交订单退款"><a href="#API：提交订单退款">API：提交订单退款</a></h2><blockquote><strong>注意：</strong> 需要先在商户后台开启「订单退款 API」开关，才能调用该接口发起订单退款。</blockquote><p><strong>URL 地址：</strong> <code>{:config_get('apiurl', request()->siteurl)}api.php?act=refund</code></p><p><strong>请求方式：</strong> POST</p><h3 id="请求参数说明"><a href="#请求参数说明">请求参数说明</a></h3><table><thead><tr><th align="left">字段名</th><th align="left">变量名</th><th align="left">必填</th><th align="left">类型</th><th align="left">示例值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">商户 ID</td><td align="left">pid</td><td align="left">是</td><td align="left">Int</td><td align="left">1001</td><td align="left"> </td></tr><tr><td align="left">商户密钥</td><td align="left">key</td><td align="left">是</td><td align="left">String</td><td align="left">89unJUB8HZ54Hj7x4nUj56HN4nUzUJ8i</td><td align="left"> </td></tr><tr><td align="left">平台订单号</td><td align="left">trade_no</td><td align="left">特殊可选</td><td align="left">String</td><td align="left">20160806151343349021</td><td align="left">与 <code>out_trade_no</code> 不能同时为空；都传时以 <code>trade_no</code> 为准</td></tr><tr><td align="left">商户订单号</td><td align="left">out_trade_no</td><td align="left">特殊可选</td><td align="left">String</td><td align="left">20160806151343349</td><td align="left">下单时传入的商户订单号，须在商家系统中唯一</td></tr><tr><td align="left">退款金额</td><td align="left">money</td><td align="left">是</td><td align="left">String</td><td align="left">1.50</td><td align="left">少数通道需要与原订单金额一致</td></tr></tbody></table><h3 id="返回结果"><a href="#返回结果">返回结果</a></h3><table><thead><tr><th align="left">字段名</th><th align="left">变量名</th><th align="left">类型</th><th align="left">示例值</th><th align="left">描述</th></tr></thead><tbody><tr><td align="left">返回状态码</td><td align="left">code</td><td align="left">Int</td><td align="left">0</td><td align="left"><strong>0</strong> 为成功，其它为失败</td></tr><tr><td align="left">返回信息</td><td align="left">msg</td><td align="left">String</td><td align="left">退款成功</td><td align="left"> </td></tr></tbody></table><hr><h2 id="SDK下载"><a href="#SDK下载">SDK下载</a></h2><p><a href="/static/files/SDK.zip">SDK.zip</a></p><p>版本：<code>V1.3</code></p>            <div id="mask" style="display:none" onclick="clickMask()"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(function(){
+            var leftBarTimeout = null;
+            $('#leftbar').hover(function(e){
+                if(null !== leftBarTimeout)
+                {
+                    clearTimeout(leftBarTimeout);
+                    leftBarTimeout = null;
+                }
+                if(e.type === 'mouseenter')
+                {
+                    $('.left-show-hide').fadeIn(250);
+                }
+                else if($('#leftbar').css('left') == '0px')
+                {
+                    $('.left-show-hide').fadeOut(500);
+                }
+            });
+        });
+        function showLeftbar()
+        {
+            $('#leftbar').css('left', 0);
+            $('#body').css('padding-left','');
+            $('.left-show-hide > i.layui-icon').html('&#xe603;');
+        }
+        function hideLeftbar()
+        {
+            $('#leftbar').css('left', '-240px');
+            $('#body').css('padding-left',0);
+            $('.left-show-hide > i.layui-icon').html('&#xe602;');
+            $('.left-show-hide').fadeIn(250);
+        }
+        $('.left-show-hide').click(function(){
+            if($('#leftbar').css('left') == '0px')
+            {
+                hideLeftbar();
+            }
+            else
+            {
+                showLeftbar();
+            }
+        })
+    </script>
+</body>
+</html>

@@ -20,7 +20,7 @@ func TestChannelSharingRechargeRetainsOriginalPurposeWithoutDistributingBalanceT
 	if e != nil || d.Declared || len(d.Items) != 0 {
 		t.Fatal("balance recharge was distributed by ordinary payment rules", d, e)
 	}
-	if e = f.Store.markPaid(ctx, o.TradeNo, "local-recharge-receipt", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "WX_" + o.TradeNo}); e != nil {
+	if e = f.Store.markPaid(ctx, o.TradeNo, "local-recharge-receipt", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "WX_" + o.TradeNo}); e != nil {
 		t.Fatal(e)
 	}
 	b, e := f.Store.Balance(ctx, 751)

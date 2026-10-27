@@ -1,3 +1,4 @@
+import { openMerchantOrderDetails } from "./fixtures/merchant-order-navigation";
 import { test, expect } from "@playwright/test";
 const ok = (data: unknown, status = 200) => ({
   status,
@@ -65,7 +66,7 @@ test("authorization release confirms full amount, preserves unknown request and 
     );
   });
   await page.goto("/merchant/trade/order");
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   const modal = page.getByRole("dialog", { name: "订单详情" });
   await modal
     .getByRole("button", { name: "解除买家预授权冻结", exact: true })
@@ -153,7 +154,7 @@ test("server-approved unsent original release can be explicitly checked once; re
     );
   });
   await page.goto("/merchant/trade/order");
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   const modal = page.getByRole("dialog", { name: "订单详情" });
   await modal
     .getByRole("button", { name: "核对并解除原授权", exact: true })
@@ -218,7 +219,7 @@ test("paid orders and already-sent unknown releases never expose a new release e
     );
   });
   await page.goto("/merchant/trade/order");
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   let modal = page.getByRole("dialog", { name: "订单详情" });
   await expect(
     modal.getByRole("button", { name: "解除买家预授权冻结", exact: true }),
@@ -231,7 +232,7 @@ test("paid orders and already-sent unknown releases never expose a new release e
   ).toBeVisible();
   await modal.getByRole("button", { name: "关闭详情", exact: true }).click();
   paid = true;
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  await openMerchantOrderDetails(page);
   modal = page.getByRole("dialog", { name: "订单详情" });
   await expect(
     modal.getByRole("button", { name: "解除买家预授权冻结", exact: true }),

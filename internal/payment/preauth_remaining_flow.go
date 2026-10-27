@@ -3,24 +3,26 @@ package payment
 import (
 	"context"
 	"errors"
+	"github.com/jackc/pgx/v5"
 	adapter "goepay/internal/adapters/payment"
 )
 
 // ReleaseRemainingAuthorization consumes a separate confirmation for an exact
 // recent observation. The observation alone is never a funds authorization.
-func (g ProviderFlow) ReleaseRemainingAuthorization(ctx context.Context, mid int64, trade string, in PreauthRemainingReleaseInput, token, role string, check func(context.Context) error) (AuthorizationRelease, error) {
+func (g ProviderFlow) ReleaseRemainingAuthorization(ctx context.Context, mid int64, trade string, in PreauthRemainingReleaseInput, token, role string, check func(context.Context) error, checks ...func(context.Context, pgx.Tx) error) (AuthorizationRelease, error) {
 	var r AuthorizationRelease
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return r, ErrLiveDisabled
 	}
-	if g.Store == nil || check == nil {
+	checkTx, checkErr := observationCheckTx(checks)
+	if g.Store == nil || check == nil || checkErr != nil {
 		return r, ErrInvalid
 	}
-	q, e := g.ReadPreauthorizationObservation(ctx, in.ExpectedObservationID, token, role, check)
+	q, e := g.ReadPreauthorizationObservation(ctx, in.ExpectedObservationID, token, role, check, checkTx)
 	if e != nil || q.MerchantID != mid || q.TradeNo != trade {
 		return r, ErrPreauthObservation
 	}
-	if e = g.observationGuard(ctx, q, check); e != nil {
+	if e = g.observationGuard(ctx, q, check, checkTx); e != nil {
 		return r, e
 	}
 	o, attempt, p, e := g.owned(ctx, mid, trade)
@@ -43,7 +45,7 @@ func (g ProviderFlow) ReleaseRemainingAuthorization(ctx context.Context, mid int
 	if e != nil {
 		return r, e
 	}
-	if e = g.observationGuard(ctx, q, check); e != nil {
+	if e = g.observationGuard(ctx, q, check, checkTx); e != nil {
 		return g.releasePending(ctx, mid, trade, "reversal_pending", e)
 	}
 	payment, queryErr := p.Query(ctx, adapter.QueryRequest{TradeNo: trade})
@@ -62,11 +64,15 @@ func (g ProviderFlow) ReleaseRemainingAuthorization(ctx context.Context, mid int
 		}
 		return r, ErrState
 	}
-	closed := queryErr == nil && payment.State == "TRADE_CLOSED" && payment.TradeNo == trade && payment.Amount == o.Amount && payment.Currency == "CNY"
+	charge104, e := g.Store.AuthenticatedOrderCharge104(ctx, o)
+	if e != nil {
+		return r, e
+	}
+	closed := queryErr == nil && payment.State == "TRADE_CLOSED" && payment.TradeNo == trade && payment.Amount == charge104 && payment.Currency == "CNY"
 	if !closed && !authorizationTradeNotFound(queryErr) {
 		return g.releasePending(ctx, mid, trade, "reversal_pending", queryErr)
 	}
-	if e = g.observationGuard(ctx, q, check); e != nil {
+	if e = g.observationGuard(ctx, q, check, checkTx); e != nil {
 		return g.releasePending(ctx, mid, trade, "reversal_pending", e)
 	}
 	frozen, e := v.QueryAuthorization(ctx, adapter.AuthorizationRequest{TradeNo: trade, RequestNo: trade, AuthNo: a.AuthNo, Amount: a.Amount})
@@ -81,13 +87,13 @@ func (g ProviderFlow) ReleaseRemainingAuthorization(ctx context.Context, mid int
 			return g.releasePending(ctx, mid, trade, "reversal_pending", e)
 		}
 	}
-	guard := func(c context.Context) error { return g.observationGuard(c, q, check) }
-	r, e = g.Store.markPreauthRemainingSent(ctx, trade, r.SourceRevision, guard)
+	guardTx := func(c context.Context, tx pgx.Tx) error { return g.observationGuardTx(c, tx, q, checkTx) }
+	r, e = g.Store.markPreauthRemainingSent(ctx, trade, r.SourceRevision, guardTx)
 	if e != nil {
 		return g.releasePending(ctx, mid, trade, "reversal_pending", e)
 	}
 	// Losing permission after claiming does not reopen the send boundary.
-	if e = guard(ctx); e != nil {
+	if e = g.observationGuard(ctx, q, check, checkTx); e != nil {
 		return g.releasePending(ctx, mid, trade, "unknown", e)
 	}
 	_, e = v.UnfreezeAuthorization(ctx, adapter.AuthorizationRequest{TradeNo: trade, RequestNo: r.RequestNo, AuthNo: r.AuthNo, Amount: r.Amount})

@@ -20,7 +20,7 @@ func (g guarded) MiniProgram() (provider.MiniProgramConfig, bool) {
 	return p.MiniProgram()
 }
 func (g guarded) MiniLaunch(r provider.MiniLaunchRequest) (provider.CreateResult, error) {
-	if !g.allowLive {
+	if !g.writesEnabled() {
 		return provider.CreateResult{}, ErrLiveDisabled
 	}
 	p, ok := g.Provider.(provider.MiniLaunchProvider)

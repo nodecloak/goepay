@@ -34,6 +34,11 @@ func (s *Server) preauthorizationCapturePermission(ctx context.Context, o paymen
 	if e != nil || a.ChannelID != attempt.ChannelID || a.Amount != current.Amount || a.ReleaseState != "none" || a.CaptureState != "none" && !(allowClaimed && a.CaptureState == "processing") {
 		return payment.ErrState
 	}
+	resolved, e := s.paymentIntentServer(ctx, current.MerchantID, current.OutTradeNo, attempt.ChannelID)
+	if e != nil {
+		return e
+	}
+	s = resolved
 	p := s.ProviderFlow.Providers[attempt.ChannelID]
 	if p == nil || p.ID() != "alipay" {
 		return adapter.ErrUnsupported

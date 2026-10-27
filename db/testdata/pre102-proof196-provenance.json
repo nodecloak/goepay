@@ -1,0 +1,9 @@
+{
+  "synthetic_only": true,
+  "real_funds": false,
+  "production": false,
+  "origin": "actual frozen188 implementation on synthetic pre102 PostgreSQL, not current104 signing code",
+  "fixture_sha256": "b6f024e5e8858c556c08c062233f86a17377dcfdf46d0ecb2913ff3ad339d76a",
+  "frozen_manifest_sha256": "3d4e3ff878a7e2f4225a91a6d8ac01cebdb7c97bac2f38ecebb45ee510421536",
+  "writer_manifest_sha256": "c276b473557abe202813ddb42fe72bb1321428ab3bd81ec6b09aec8226d62c08"
+}

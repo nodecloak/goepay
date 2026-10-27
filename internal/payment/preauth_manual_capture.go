@@ -16,7 +16,7 @@ func (g ProviderFlow) CapturePreauthorization(ctx context.Context, merchantID in
 // CapturePreauthorizationChecked lets the authenticated console recheck its
 // current channel/policy permissions immediately before the financial send.
 func (g ProviderFlow) CapturePreauthorizationChecked(ctx context.Context, merchantID int64, tradeNo string, check func(context.Context) error) (Preauthorization, error) {
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return Preauthorization{}, ErrLiveDisabled
 	}
 	if g.Store == nil || !validProviderOrigin(g.CallbackBaseURL, g.LocalSimulation) {
@@ -46,10 +46,17 @@ func (g ProviderFlow) CapturePreauthorizationChecked(ctx context.Context, mercha
 	if e != nil {
 		return a, e
 	}
-	if a.CaptureState != "none" || a.ReleaseState != "none" || a.ChannelID != attempt.ChannelID || a.Amount != o.Amount || o.Status == "paid" || o.Status == "closed" || o.Status == "failed" {
+	charge104, e := g.Store.AuthenticatedOrderCharge104(ctx, o)
+	if e != nil {
+		return a, e
+	}
+	if a.CaptureState != "none" || a.ReleaseState != "none" || a.ChannelID != attempt.ChannelID || a.Amount != charge104 || o.Status == "paid" || o.Status == "closed" || o.Status == "failed" {
 		return a, ErrState
 	}
 	enabled := func() error {
+		if e := g.checkParentOrderWrite(ctx, merchantID, o.ID, attempt.ChannelID); e != nil {
+			return e
+		}
 		if e := g.Store.checkChannelWrite(ctx, attempt.ChannelID); e != nil {
 			return e
 		}
@@ -71,10 +78,10 @@ func (g ProviderFlow) CapturePreauthorizationChecked(ctx context.Context, mercha
 	}
 	payment, queryErr := p.Query(ctx, provider.QueryRequest{TradeNo: tradeNo})
 	if queryErr == nil && (payment.State == "SUCCESS" || payment.State == "TRADE_SUCCESS" || payment.State == "TRADE_FINISHED") {
-		if payment.TradeNo != tradeNo || payment.Amount != o.Amount || payment.Currency != "CNY" || payment.ProviderTradeNo == "" || payment.BuyerID != a.BuyerID {
+		if payment.TradeNo != tradeNo || payment.Amount != charge104 || payment.Currency != "CNY" || payment.ProviderTradeNo == "" || payment.BuyerID != a.BuyerID {
 			return a, provider.ErrAuthentication
 		}
-		if e = g.Store.markPaid(ctx, tradeNo, fmt.Sprintf("manual-preauth-query:%d:%s", a.ChannelID, payment.ProviderTradeNo), true, PaidReceipt{ChannelID: a.ChannelID, ProviderTradeNo: payment.ProviderTradeNo, BuyerID: payment.BuyerID}); e != nil {
+		if e = g.Store.markPaid(ctx, tradeNo, fmt.Sprintf("manual-preauth-query:%d:%s", a.ChannelID, payment.ProviderTradeNo), true, PaidReceipt{RealMoney: payment.Amount, ChannelID: a.ChannelID, ProviderTradeNo: payment.ProviderTradeNo, BuyerID: payment.BuyerID}); e != nil {
 			return a, e
 		}
 		return g.Store.Preauthorization(ctx, tradeNo)
@@ -97,7 +104,7 @@ func (g ProviderFlow) CapturePreauthorizationChecked(ctx context.Context, mercha
 	if e = enabled(); e != nil {
 		return a, e
 	}
-	claimed, owner, e := g.Store.BeginPreauthorizationCapture(ctx, tradeNo)
+	claimed, owner, e := g.Store.BeginPreauthorizationCapture(ctx, tradeNo, g.parentOrderWriteGuard(merchantID, o.ID, attempt.ChannelID))
 	if e != nil {
 		return claimed, e
 	}

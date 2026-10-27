@@ -46,9 +46,12 @@ func validateOriginalOrderAmount(ctx context.Context, tx pgx.Tx, group string, m
 		}
 		bounds[key] = n
 	}
-	if group != "" {
+	if group == "" {
+		group = "0"
+	}
+	{
 		gid, e := strconv.ParseInt(group, 10, 64)
-		if e != nil || gid < 1 {
+		if e != nil || gid < 0 {
 			return ErrState
 		}
 		var raw []byte

@@ -96,9 +96,13 @@ func (s *Store) generateSettlementPlanItem(ctx context.Context, run SettlementPl
 		return err
 	}
 	item := settlementPlanItemRecord{RunID: run.ID, View: SettlementPlanItemView{MerchantID: mid, State: "blocked"}}
+	itemPolicy := a.Scope.Policy
 	for _, m := range a.Scope.Merchants {
 		if m.MerchantID == mid {
 			item.View.RecipientConfigID = m.RecipientConfigID
+			if m.SettlementPolicy != nil {
+				itemPolicy = *m.SettlementPolicy
+			}
 		}
 	}
 	if item.View.RecipientConfigID <= 0 {
@@ -188,7 +192,7 @@ func (s *Store) generateSettlementPlanItem(ctx context.Context, run SettlementPl
 	if n := a.View.MaxDayGross - dayUsed; n < maximum {
 		maximum = n
 	}
-	if err = requireOutgoingFunds(ctx, tx, mid, 0); err != nil {
+	if err = s.requireOutgoingFunds(ctx, tx, mid, 0); err != nil {
 		return err
 	}
 	if err = tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); err != nil {
@@ -207,12 +211,12 @@ func (s *Store) generateSettlementPlanItem(ctx context.Context, run SettlementPl
 		item.View.Reason = "day_changed"
 		return s.commitSettlementPlanItem(ctx, tx, item, run, a.View)
 	}
-	funds, err := readFundsAvailability(ctx, tx, mid, &now)
+	funds, err := s.readFundsAvailability(ctx, tx, mid, &now)
 	if err != nil {
 		return err
 	}
-	quote, err := quoteScheduledSettlement(a.Scope.Policy, funds.LedgerAvailable, funds.Available, a.Scope.Policy.RetainedCents, maximum, now)
-	item.View.LedgerAvailable, item.View.Eligible, item.View.Retained = funds.LedgerAvailable, funds.Available, a.Scope.Policy.RetainedCents
+	quote, err := quoteScheduledSettlement(itemPolicy, funds.LedgerAvailable, funds.Available, itemPolicy.RetainedCents, maximum, now)
+	item.View.LedgerAvailable, item.View.Eligible, item.View.Retained = funds.LedgerAvailable, funds.Available, itemPolicy.RetainedCents
 	if err != nil || quote.Gross == 0 {
 		item.View.State, item.View.Reason = "skipped", "insufficient_funds"
 		if err != nil {

@@ -1,0 +1,86 @@
+{
+  "admin": {
+    "title": "授权域名",
+    "description": "",
+    "fields": [
+      {
+        "name": "merchant_id",
+        "label": "商户 ID",
+        "type": "string",
+        "required": false,
+        "max_length": 19
+      },
+      {
+        "name": "domain",
+        "label": "域名",
+        "description": "支持 example.com 或最左侧通配符 *.example.com；通配符匹配一层及多层子域，不含根域名。仅填写域名，不含协议、路径或端口；大小写及单个末尾点会规范化。商户新增或修改域名后须由管理员审核。",
+        "type": "string",
+        "required": true,
+        "max_length": 253
+      },
+      {
+        "name": "approved",
+        "label": "审核通过",
+        "type": "boolean",
+        "required": false,
+        "default": false
+      },
+      {
+        "name": "enabled",
+        "label": "启用",
+        "type": "boolean",
+        "required": false,
+        "default": true
+      }
+    ],
+    "permissions": {
+      "create": true,
+      "update": true,
+      "delete": true
+    },
+    "actions": []
+  },
+  "merchant": {
+    "title": "授权域名",
+    "description": "",
+    "fields": [
+      {
+        "name": "merchant_id",
+        "label": "商户 ID",
+        "type": "string",
+        "required": false,
+        "read_only": true,
+        "max_length": 19
+      },
+      {
+        "name": "domain",
+        "label": "域名",
+        "description": "支持 example.com 或最左侧通配符 *.example.com；通配符匹配一层及多层子域，不含根域名。仅填写域名，不含协议、路径或端口；大小写及单个末尾点会规范化。商户新增或修改域名后须由管理员审核。",
+        "type": "string",
+        "required": true,
+        "max_length": 253
+      },
+      {
+        "name": "approved",
+        "label": "审核通过",
+        "type": "boolean",
+        "required": false,
+        "read_only": true,
+        "default": false
+      },
+      {
+        "name": "enabled",
+        "label": "启用",
+        "type": "boolean",
+        "required": false,
+        "default": true
+      }
+    ],
+    "permissions": {
+      "create": true,
+      "update": true,
+      "delete": true
+    },
+    "actions": []
+  }
+}

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#f5f7fb">
+    <title>收银台 | {$sitename}</title>
+    <link href="/static/css/reset.css" rel="stylesheet" type="text/css">
+    <link href="/static/css/main12.css?v=1001" rel="stylesheet" type="text/css">
+</head>
+<body>
+    <header class="cashier-header">
+        <div class="cashier-header__inner">
+            <div class="brand">
+                <img src="/static/img/logo.png" alt="{$sitename}">
+            </div>
+            <div class="cashier-title">
+                <span class="cashier-title__icon" aria-hidden="true">¥</span>
+                <span>收银台</span>
+            </div>
+        </div>
+    </header>
+
+    <input type="hidden" name="trade_no" value="{$trade_no}">
+
+    <main class="cashier-main">
+        {if $other}
+        <div class="notice" role="alert">
+            <span class="notice__icon" aria-hidden="true">!</span>
+            <div>
+                <strong>支付方式维护中</strong>
+                当前支付方式暂时关闭维护，请选择其他方式完成支付。
+            </div>
+        </div>
+        {if in_array('qqpay',array_column($paytype,'name'))}
+        <div class="notice notice--success">
+            <span class="notice__icon" aria-hidden="true">i</span>
+            <div>
+                <strong>微信余额也可完成支付</strong>
+                可将微信余额转至 QQ 后选择 QQ 钱包支付，
+                <a href="/wxtoqq.html">查看操作教程</a>
+            </div>
+        </div>
+        {/if}
+        {else}
+        <section class="cashier-card order-card" aria-labelledby="order-heading">
+            <div class="order-info">
+                <h1 class="section-label" id="order-heading">订单信息</h1>
+                <ul class="order-meta">
+                    <li>
+                        <span class="order-meta__label">商品名称</span>
+                        <span class="order-meta__value">{$row.name}</span>
+                    </li>
+                    <li>
+                        <span class="order-meta__label">订单编号</span>
+                        <span class="order-meta__value">{$trade_no}</span>
+                    </li>
+                    <li>
+                        <span class="order-meta__label">创建时间</span>
+                        <span class="order-meta__value">{$row.addtime}</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="order-price">
+                <span class="order-price__label">订单金额</span>
+                <span class="order-price__value">¥<strong>{$row.money}</strong></span>
+            </div>
+        </section>
+        {/if}
+
+        <section class="cashier-card payment-card" aria-labelledby="payment-heading">
+            <div class="payment-heading">
+                <h2 class="section-label" id="payment-heading">选择支付方式</h2>
+                <span class="payment-heading__tip">请选择一种方式完成付款</span>
+            </div>
+            <ul class="types" role="radiogroup" aria-label="支付方式">
+                {volist name="paytype" id="rows"}
+                <li class="pay_li" value="{$rows.id}" role="radio" aria-checked="false" tabindex="0">
+                    <img src="/static/icon/{$rows.name}.png" alt="">
+                    <span>{$rows.showname}</span>
+                </li>
+                {/volist}
+            </ul>
+        </section>
+
+        <section class="cashier-card checkout-bar" aria-label="支付确认">
+            <div class="checkout-action">
+                <div class="checkout-total">
+                    需支付
+                    <strong>¥{$payAmount}</strong>{$feeText|raw}
+                </div>
+                <button type="button" class="immediate_pay">立即支付</button>
+            </div>
+        </section>
+    </main>
+
+    <div class="mt_agree" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+        <div class="mt_agree_main">
+            <h2 id="dialog-title">提示信息</h2>
+            <p id="errorContent"></p>
+            <button type="button" class="close_btn">确定</button>
+        </div>
+    </div>
+
+    <footer class="cashier-footer">
+        <p>© {$sitename} · 安全支付服务</p>
+    </footer>
+
+    <script src="{$cdnpublic}jquery/1.12.4/jquery.min.js"></script>
+    <script>
+        $(function () {
+            function selectPayment($item) {
+                $(".types .pay_li")
+                    .removeClass("active")
+                    .attr("aria-checked", "false");
+                $item.addClass("active").attr("aria-checked", "true");
+            }
+
+            $(".types").on("click", ".pay_li", function () {
+                selectPayment($(this));
+            });
+
+            $(".types").on("keydown", ".pay_li", function (event) {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    selectPayment($(this));
+                }
+            });
+
+            $(".close_btn").on("click", function () {
+                $(".mt_agree").fadeOut(150);
+            });
+
+            $(".immediate_pay").on("click", function () {
+                var $button = $(this);
+                var value = $(".types .active").attr("value");
+                var tradeNo = $("input[name='trade_no']").val();
+
+                if (!value) {
+                    $("#errorContent").text("请选择一种支付方式");
+                    $(".mt_agree").css("display", "flex").hide().fadeIn(150);
+                    return;
+                }
+
+                $button.prop("disabled", true).text("正在跳转...");
+                window.location.href = "/payment/submit?typeid=" +
+                    encodeURIComponent(value) + "&trade_no=" + encodeURIComponent(tradeNo);
+            });
+
+            selectPayment($(".types .pay_li").first());
+        });
+    </script>
+</body>
+</html>

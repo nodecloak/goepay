@@ -1,0 +1,320 @@
+[
+  {
+    "path": "/dashboard",
+    "name": "Dashboard",
+    "component": "/dashboard",
+    "meta": {
+      "title": "仪表盘",
+      "icon": "ri:pie-chart-line",
+      "keepAlive": false,
+      "fixedTab": true
+    }
+  },
+  {
+    "path": "/account",
+    "name": "Account",
+    "component": "/index/index",
+    "meta": {
+      "title": "账户中心",
+      "icon": "ri:user-settings-line"
+    },
+    "children": [
+      {
+        "path": "api-info",
+        "name": "ApiInfo",
+        "component": "/account/api-info",
+        "meta": {
+          "title": "API 信息",
+          "keepAlive": false
+        }
+      },
+      {
+        "path": "settings",
+        "name": "AccountSettings",
+        "component": "/account/settings",
+        "meta": {
+          "title": "账户设置",
+          "keepAlive": false
+        }
+      },
+      {
+        "path": "certificate",
+        "name": "Certificate",
+        "component": "/account/certificate",
+        "meta": {
+          "title": "实名认证",
+          "keepAlive": false
+        }
+      },
+      {
+        "path": "recharge",
+        "name": "Recharge",
+        "component": "/account/recharge",
+        "meta": {
+          "title": "余额充值",
+          "keepAlive": false
+        }
+      },
+      {
+        "path": "groupbuy",
+        "name": "GroupBuy",
+        "component": "/account/groupbuy",
+        "meta": {
+          "title": "购买会员",
+          "keepAlive": false
+        }
+      },
+      {
+        "path": "deposit",
+        "name": "Deposit",
+        "component": "/account/deposit",
+        "meta": {
+          "title": "保证金",
+          "keepAlive": false
+        }
+      },
+      {
+        "path": "internal-transfer",
+        "name": "InternalTransfer",
+        "component": "/account/internal-transfer",
+        "meta": {
+          "title": "站内转账",
+          "keepAlive": false
+        }
+      }
+    ]
+  },
+  {
+    "path": "/trade",
+    "name": "Trade",
+    "component": "/index/index",
+    "meta": {
+      "title": "交易管理",
+      "icon": "ri:bill-line"
+    },
+    "children": [
+      {
+        "path": "order",
+        "name": "OrderList",
+        "component": "/trade/order",
+        "meta": {
+          "title": "订单管理",
+          "keepAlive": true
+        }
+      },
+      {
+        "path": "refund",
+        "name": "RefundList",
+        "component": "/trade/refund",
+        "meta": {
+          "title": "退款记录",
+          "keepAlive": true
+        }
+      },
+      {
+        "path": "daily-stat",
+        "name": "DailyStat",
+        "component": "/trade/daily-stat",
+        "meta": {
+          "title": "每日交易统计",
+          "keepAlive": false
+        }
+      },
+      {
+        "path": "province-stat",
+        "name": "ProvinceStat",
+        "component": "/trade/province-stat",
+        "meta": {
+          "title": "地区数据统计",
+          "keepAlive": false
+        }
+      }
+    ]
+  },
+  {
+    "path": "/settle",
+    "name": "Settle",
+    "component": "/index/index",
+    "meta": {
+      "title": "结算管理",
+      "icon": "ri:exchange-box-line"
+    },
+    "children": [
+      {
+        "path": "list",
+        "name": "SettleList",
+        "component": "/settle/list",
+        "meta": {
+          "title": "结算记录",
+          "keepAlive": false
+        }
+      },
+      {
+        "path": "settings",
+        "name": "SettleSettings",
+        "component": "/settle/settings",
+        "meta": {
+          "title": "结算设置",
+          "keepAlive": false
+        }
+      },
+      {
+        "path": "apply",
+        "name": "SettleApply",
+        "component": "/settle/apply",
+        "meta": {
+          "title": "申请提现",
+          "keepAlive": false
+        }
+      }
+    ]
+  },
+  {
+    "path": "/transfer",
+    "name": "Transfer",
+    "component": "/transfer/list",
+    "meta": {
+      "title": "代付管理",
+      "icon": "ri:send-plane-line",
+      "keepAlive": false
+    }
+  },
+  {
+    "path": "/record",
+    "name": "Record",
+    "component": "/record/index",
+    "meta": {
+      "title": "资金明细",
+      "icon": "ri:bank-card-line",
+      "keepAlive": false
+    }
+  },
+  {
+    "path": "/domain",
+    "name": "Domain",
+    "component": "/domain/index",
+    "meta": {
+      "title": "授权域名",
+      "icon": "ri:global-line",
+      "keepAlive": false
+    }
+  },
+  {
+    "path": "/complain",
+    "name": "Complain",
+    "component": "/complain",
+    "meta": {
+      "title": "交易投诉",
+      "icon": "ri:feedback-line",
+      "keepAlive": true
+    }
+  },
+  {
+    "path": "/applyments",
+    "name": "ApplymentsManage",
+    "component": "/index/index",
+    "meta": {
+      "title": "商户进件",
+      "icon": "ri:file-check-line"
+    },
+    "children": [
+      {
+        "path": "merchant",
+        "name": "ApplyMerchant",
+        "component": "/applyments/merchant/index",
+        "meta": {
+          "title": "进件商户管理",
+          "keepAlive": true
+        }
+      },
+      {
+        "path": "create",
+        "name": "ApplyCreate",
+        "component": "/applyments/create/index",
+        "meta": {
+          "title": "新增商户进件",
+          "keepAlive": false
+        }
+      },
+      {
+        "path": "mchrisk",
+        "name": "MchRisk",
+        "component": "/applyments/mchrisk/index",
+        "meta": {
+          "title": "商户管控记录",
+          "keepAlive": false
+        }
+      },
+      {
+        "path": "form",
+        "name": "ApplyForm",
+        "component": "/applyments/form/index",
+        "meta": {
+          "title": "商户进件表单",
+          "isHide": true,
+          "keepAlive": false,
+          "isHideTab": true
+        }
+      }
+    ]
+  },
+  {
+    "path": "/profitsharing",
+    "name": "ProfitSharing",
+    "component": "/index/index",
+    "meta": {
+      "title": "订单分账",
+      "icon": "ri:exchange-2-line"
+    },
+    "children": [
+      {
+        "path": "receiver",
+        "name": "PsReceiver",
+        "component": "/profitsharing/receiver/index",
+        "meta": {
+          "title": "分账规则",
+          "keepAlive": true
+        }
+      },
+      {
+        "path": "order",
+        "name": "PsOrder",
+        "component": "/profitsharing/order/index",
+        "meta": {
+          "title": "分账记录",
+          "keepAlive": true
+        }
+      }
+    ]
+  },
+  {
+    "path": "/subchannel",
+    "name": "SubChannel",
+    "component": "/subchannel/index",
+    "meta": {
+      "title": "支付通道",
+      "icon": "ri:bank-card-line",
+      "keepAlive": false
+    }
+  },
+  {
+    "path": "/onecode",
+    "name": "Onecode",
+    "component": "/onecode/index",
+    "meta": {
+      "title": "聚合收款",
+      "icon": "ri:qr-code-line",
+      "keepAlive": false
+    }
+  },
+  {
+    "path": "/invite",
+    "name": "Invite",
+    "component": "/invite/index",
+    "meta": {
+      "title": "邀请返现",
+      "icon": "ri:share-fill",
+      "keepAlive": false
+    }
+  }
+]

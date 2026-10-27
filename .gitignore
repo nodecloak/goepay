@@ -5,8 +5,8 @@
 .cache/
 reference/
 .secrets/
-epay_pro/
-epay_release/
+epay_pro/runtime/
+epay_pro/file/
 bin/
 node_modules/
 web/node_modules/

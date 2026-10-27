@@ -8,7 +8,7 @@ import (
 
 // This is a separate birth family; existing v1/v2 fact encodings stay unchanged.
 func (s *Store) referralOrderSourceProof(o Order, terms, cost []byte) ([]byte, error) {
-	return s.referralDigest("order-source-v3/birth", []any{o.ID, o.TradeNo, o.MerchantID, terms, cost})
+	return s.referralDigest("order-source-v3/birth", withRuntimeFeeBirthMarker(o, []any{o.ID, o.TradeNo, o.MerchantID, terms, cost}))
 }
 
 func (s *Store) readReferralOrderSource(ctx context.Context, q referralReader, o Order, terms []byte) error {

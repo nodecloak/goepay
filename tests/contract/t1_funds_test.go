@@ -17,7 +17,7 @@ import (
 func TestT1BalanceAndConsoleCapabilitiesAgree(t *testing.T) {
 	s, pool, key := fixture(t)
 	ctx := context.Background()
-	if _, e := pool.Exec(ctx, `INSERT INTO backoffice_records(resource,body) VALUES('settings','{"key":"settle_type","value":"1"}'); UPDATE merchants SET profile='{"settle_type":"alipay"}' WHERE id=2`); e != nil {
+	if _, e := pool.Exec(ctx, `INSERT INTO backoffice_records(resource,body) VALUES('settings','{"key":"settle_type","value":"1"}'); UPDATE merchants SET profile='{"settle_type":"alipay","transfer_api_enabled":true}' WHERE id=2`); e != nil {
 		t.Fatal(e)
 	}
 	o, e := s.Store.CreateOrder(ctx, payment.CreateOrderInput{MerchantID: 2, OutTradeNo: "today", Amount: 1000})

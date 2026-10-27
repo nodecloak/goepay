@@ -5,6 +5,9 @@ import { readonly } from "../resources";
 import { merchantRecipientLabel } from "../pro-console-fields";
 import ResourceFields from "./ResourceFields.vue";
 import MerchantGroupPicker from "./MerchantGroupPicker.vue";
+import AdminMerchantCredentials from "./AdminMerchantCredentials.vue";
+import MerchantSignaturePolicy from "./MerchantSignaturePolicy.vue";
+import type { SignaturePolicy } from "../merchant-signature-policy";
 import type { ApiClient } from "../api";
 const props = defineProps<{
   client: ApiClient;
@@ -15,19 +18,39 @@ const props = defineProps<{
   disabled: boolean;
   recipient?: unknown;
   canEditRecipient: boolean;
+  merchantID?: string;
+  canManageCredentials?: boolean;
+  signaturePolicy?: unknown;
 }>();
 const emit = defineEmits<{
   change: [name: string, value: unknown];
   recipient: [];
+  credentialBusy: [merchantID: string, value: boolean];
+  credentialDraftsDiscard: [merchantID: string];
+  signaturePolicyObserved: [state: SignaturePolicy];
+  legacyAlgorithmDiscard: [merchantID: string, algorithm: "MD5" | "RSA"];
 }>();
 const tab = ref("basic"),
   root = ref<HTMLElement>(),
   id = useId();
-const apiNames = new Set(["api_key", "signature_algorithm", "rsa_public_key"]),
+const apiNames = new Set([
+    "api_key",
+    "signature_algorithm",
+    "rsa_public_key",
+    "keytype",
+  ]),
   statusNames = new Set(["enabled", "pay"]),
-  payoutNames = new Set(["transfer_api_enabled", "transfer_rate"]);
+  payoutNames = new Set(["transfer_api_enabled", "transfer_rate", "settle"]);
 const apiFields = computed(() =>
-    props.fields.filter((f) => apiNames.has(f.name)),
+    props.fields.filter(
+      (f) =>
+        apiNames.has(f.name) &&
+        !(
+          props.editing &&
+          (props.signaturePolicy === 0 || props.signaturePolicy === 1) &&
+          f.name === "signature_algorithm"
+        ),
+    ),
   ),
   tabs = computed(() => [
     { name: "basic", label: "基本信息" },
@@ -143,6 +166,7 @@ function keydown(event: KeyboardEvent) {
         <p class="muted merchant-editor-hint">
           手机、邮箱和网站是联系资料。登录账号及已审核支付域名分别管理。
         </p>
+
         <section
           v-for="g in groups"
           :key="g.name"
@@ -199,12 +223,39 @@ function keydown(event: KeyboardEvent) {
         <p class="muted merchant-editor-hint">
           已有密钥不回显；编辑时留空保留原值。修改后请同步商户支付配置。
         </p>
+        <p v-if="editing && (signaturePolicy === 0 || signaturePolicy === 1)">
+          当前签名方式：{{
+            signaturePolicy === 0 ? "MD5+RSA兼容" : "仅RSA"
+          }}。历史算法不决定当前方式。
+        </p>
         <ResourceFields
           :fields="apiFields"
           :values="values"
           :errors="errors"
           :editing="editing"
           @change="(name, value) => emit('change', name, value)"
+        />
+        <AdminMerchantCredentials
+          v-if="editing && canManageCredentials && merchantID && tab === 'api'"
+          :key="merchantID"
+          :client="client"
+          :merchant-i-d="merchantID"
+          :disabled="disabled"
+          @busy="(id, value) => emit('credentialBusy', id, value)"
+          @discard-drafts="(id) => emit('credentialDraftsDiscard', id)"
+        />
+        <MerchantSignaturePolicy
+          v-if="editing && canManageCredentials && merchantID && tab === 'api'"
+          :key="merchantID + '-policy'"
+          :client="client"
+          :merchant-i-d="merchantID"
+          :reload="0"
+          :disabled="disabled"
+          @busy="(id, value) => emit('credentialBusy', id, value)"
+          @observed="(state) => emit('signaturePolicyObserved', state)"
+          @discard-legacy-algorithm="
+            (id, algorithm) => emit('legacyAlgorithmDiscard', id, algorithm)
+          "
         />
       </div>
     </fieldset>

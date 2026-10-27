@@ -17,7 +17,16 @@ func (g ProviderFlow) owned(ctx context.Context, merchantID int64, tradeNo strin
 	if e != nil || o.MerchantID != merchantID {
 		return o, ProviderAttempt{}, nil, ErrNotFound
 	}
+	resolved, resolveErr := g.ParentPaymentIntent(ctx, o.MerchantID, o.OutTradeNo)
+	if resolveErr != nil {
+		return o, ProviderAttempt{}, nil, resolveErr
+	}
+	g = resolved
 	a, e := g.Store.ProviderAttempt(ctx, tradeNo)
+	if e != nil {
+		return o, a, nil, e
+	}
+	g, _, e = g.ForPaymentIntent(ctx, o.MerchantID, o.OutTradeNo, a.ChannelID)
 	if e != nil {
 		return o, a, nil, e
 	}
@@ -38,6 +47,10 @@ func (g ProviderFlow) Query(ctx context.Context, merchantID int64, tradeNo strin
 	if !p.Capabilities().Query {
 		return provider.QueryResult{}, provider.ErrUnsupported
 	}
+	charge104, e := g.Store.AuthenticatedOrderCharge104(ctx, o)
+	if e != nil {
+		return provider.QueryResult{}, e
+	}
 	var authorizationErr error
 	if a.Method == "preauth" {
 		authorizationErr = g.RefreshPreauthorization(ctx, tradeNo, a.ChannelID)
@@ -50,11 +63,11 @@ func (g ProviderFlow) Query(ctx context.Context, merchantID int64, tradeNo strin
 		// separately verified authorization evidence; transport or signature
 		// errors never turn into a successful query.
 		if a.Method == "preauth" && authorizationErr == nil && errors.As(e, &rejection) && rejection.Code == "40004:ACQ.TRADE_NOT_EXIST" {
-			return provider.QueryResult{TradeNo: tradeNo, State: "AUTHORIZED", Currency: "CNY", Amount: o.Amount}, nil
+			return provider.QueryResult{TradeNo: tradeNo, State: "AUTHORIZED", Currency: "CNY", Amount: charge104}, nil
 		}
 		return result, e
 	}
-	if result.TradeNo != tradeNo || result.Amount != o.Amount || result.Currency != "CNY" {
+	if result.TradeNo != tradeNo || result.Amount != charge104 || result.Currency != "CNY" {
 		return result, provider.ErrAuthentication
 	}
 	switch result.State {
@@ -62,7 +75,7 @@ func (g ProviderFlow) Query(ctx context.Context, merchantID int64, tradeNo strin
 		if result.ProviderTradeNo == "" {
 			return result, provider.ErrAuthentication
 		}
-		e = g.Store.markPaid(ctx, tradeNo, fmt.Sprintf("provider-query:%s:%s", p.ID(), result.ProviderTradeNo), true, PaidReceipt{ChannelID: a.ChannelID, ProviderTradeNo: result.ProviderTradeNo, BuyerID: result.BuyerID})
+		e = g.Store.markPaid(ctx, tradeNo, fmt.Sprintf("provider-query:%s:%s", p.ID(), result.ProviderTradeNo), true, PaidReceipt{RealMoney: result.Amount, ChannelID: a.ChannelID, ProviderTradeNo: result.ProviderTradeNo, BuyerID: result.BuyerID})
 	default:
 		if authorizationErr != nil {
 			return result, authorizationErr
@@ -70,12 +83,23 @@ func (g ProviderFlow) Query(ctx context.Context, merchantID int64, tradeNo strin
 	}
 	return result, e
 }
-func (s *Store) beginProviderOperation(ctx context.Context, kind, key string, o Order, a ProviderAttempt, refundID int64) (int64, string, bool, error) {
+func (s *Store) beginProviderOperation(ctx context.Context, kind, key string, o Order, a ProviderAttempt, refundID int64, access ...refundAccess179) (int64, string, bool, error) {
+	if len(access) > 1 || len(access) == 1 && (kind != "refund" || access[0] > refundMerchant179) {
+		return 0, "", false, ErrInvalid
+	}
 	tx, e := s.pool.Begin(ctx)
 	if e != nil {
 		return 0, "", false, e
 	}
 	defer tx.Rollback(ctx)
+	var admission refundAdmission179
+	if len(access) == 1 && access[0] != refundInternal179 {
+		admission.account, e = s.merchantAPIAccountTx(ctx, tx, o.MerchantID, false)
+		if e != nil {
+			return 0, "", false, e
+		}
+		admission.access = access[0]
+	}
 	var status string
 	if e = tx.QueryRow(ctx, "SELECT status FROM orders WHERE id=$1 FOR UPDATE", o.ID).Scan(&status); e != nil {
 		return 0, "", false, e
@@ -85,11 +109,12 @@ func (s *Store) beginProviderOperation(ctx context.Context, kind, key string, o 
 			return 0, "", false, e
 		}
 	}
+	var refundRecord Refund
 	if kind == "refund" {
 		if refundID <= 0 {
 			return 0, "", false, ErrInvalid
 		}
-		r, err := scanRefund(tx.QueryRow(ctx, "SELECT "+refundColumns+" FROM refunds WHERE id=$1", refundID))
+		r, err := scanRefund(tx.QueryRow(ctx, "SELECT "+refundColumns+" FROM refunds WHERE id=$1 FOR UPDATE", refundID))
 		if err != nil {
 			return 0, "", false, err
 		}
@@ -101,6 +126,7 @@ func (s *Store) beginProviderOperation(ctx context.Context, kind, key string, o 
 		if err = s.verifyReferralRefundEvidence(ctx, tx, r); err != nil {
 			return 0, "", false, err
 		}
+		refundRecord = r
 	}
 	var id int64
 	var state string
@@ -110,6 +136,42 @@ func (s *Store) beginProviderOperation(ctx context.Context, kind, key string, o 
 	}
 	if !errors.Is(e, pgx.ErrNoRows) {
 		return 0, "", false, e
+	}
+	if kind == "refund" && refundRecord.Status != "pending" {
+		// A stale caller must not claim a locally rejected or otherwise resolved
+		// reservation after another transaction released its funding.
+		return 0, "", false, ErrState
+	}
+	if kind == "refund" {
+		if e = s.checkOrderBusinessBatch185FirstSend(ctx, tx, refundRecord); e != nil {
+			return 0, "", false, e
+		}
+	}
+	if admission.access != refundInternal179 {
+		if e = s.checkRefundAdmission179(ctx, tx, admission); e != nil {
+			if errors.Is(e, ErrMerchantAPIDisabled) {
+				// The order/refund locks are shared with every send claim. Only a
+				// reservation with no claimed operation can be rejected locally.
+				var claimed bool
+				if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM provider_operations WHERE kind='refund' AND refund_id=$1)`, refundID).Scan(&claimed); err != nil {
+					return 0, "", false, err
+				}
+				if claimed {
+					return 0, "", false, ErrConflict
+				}
+				if err := s.resolveRefundTx(ctx, tx, refundID, "failed"); err != nil {
+					return 0, "", false, err
+				}
+				proof := providerRefundResultEvidence{RefundID: refundRecord.ID, OrderID: refundRecord.OrderID, Amount: refundRecord.Amount, RefundNo: refundRecord.RefundNo, PriorRefundState: refundRecord.Status, State: "failed", Source: "internal"}
+				if err := s.insertRefundResultEvidence(ctx, tx, refundRecord, proof); err != nil {
+					return 0, "", false, err
+				}
+				if err := tx.Commit(ctx); err != nil {
+					return 0, "", false, err
+				}
+			}
+			return 0, "", false, e
+		}
 	}
 	if kind == "close" && (status == "paid" || status == "closed" || a.State == "processing") {
 		return 0, "", false, ErrState
@@ -135,7 +197,7 @@ func (s *Store) providerOperationState(ctx context.Context, id int64, state stri
 	return e
 }
 func (g ProviderFlow) Close(ctx context.Context, merchantID int64, tradeNo string) error {
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return ErrLiveDisabled
 	}
 	o, a, p, e := g.owned(ctx, merchantID, tradeNo)
@@ -195,7 +257,16 @@ func (g ProviderFlow) Close(ctx context.Context, merchantID int64, tradeNo strin
 	return tx.Commit(ctx)
 }
 func (g ProviderFlow) Refund(ctx context.Context, merchantID int64, tradeNo, refundNo string, amount int64) (Refund, error) {
-	if !g.AllowLive {
+	return g.refund(ctx, merchantID, tradeNo, refundNo, amount, refundInternal179)
+}
+func (g ProviderFlow) RefundFromAPI(ctx context.Context, merchantID int64, tradeNo, refundNo string, amount int64) (Refund, error) {
+	return g.refund(ctx, merchantID, tradeNo, refundNo, amount, refundAPI179)
+}
+func (g ProviderFlow) RefundFromMerchant(ctx context.Context, merchantID int64, tradeNo, refundNo string, amount int64) (Refund, error) {
+	return g.refund(ctx, merchantID, tradeNo, refundNo, amount, refundMerchant179)
+}
+func (g ProviderFlow) refund(ctx context.Context, merchantID int64, tradeNo, refundNo string, amount int64, access refundAccess179) (Refund, error) {
+	if !g.paymentWritesEnabled() {
 		return Refund{}, ErrLiveDisabled
 	}
 	o, a, p, e := g.owned(ctx, merchantID, tradeNo)
@@ -205,14 +276,21 @@ func (g ProviderFlow) Refund(ctx context.Context, merchantID int64, tradeNo, ref
 	if !p.Capabilities().Refund {
 		return Refund{}, provider.ErrUnsupported
 	}
-	r, e := g.Store.ReserveRefund(ctx, merchantID, o.OutTradeNo, refundNo, amount)
+	var r Refund
+	if access == refundAPI179 {
+		r, e = g.Store.ReserveAPIRefund(ctx, merchantID, o.OutTradeNo, refundNo, amount)
+	} else if access == refundMerchant179 {
+		r, e = g.Store.ReserveMerchantRefund(ctx, merchantID, o.OutTradeNo, refundNo, amount)
+	} else {
+		r, e = g.Store.ReserveRefund(ctx, merchantID, o.OutTradeNo, refundNo, amount)
+	}
 	if e != nil {
 		return r, e
 	}
 	if r.Status == "succeeded" || r.Status == "failed" {
 		return r, nil
 	}
-	id, state, owner, e := g.Store.beginProviderOperation(ctx, "refund", fmt.Sprint(r.ID), o, a, r.ID)
+	id, state, owner, e := g.Store.beginProviderOperation(ctx, "refund", fmt.Sprint(r.ID), o, a, r.ID, access)
 	if e != nil {
 		return r, e
 	}
@@ -223,7 +301,11 @@ func (g ProviderFlow) Refund(ctx context.Context, merchantID int64, tradeNo, ref
 		return r, &provider.UnknownOutcome{Operation: "refund", Cause: ErrState}
 	}
 	providerRefundNo := fmt.Sprintf("RF%d", r.ID)
-	result, e := p.Refund(ctx, provider.RefundRequest{TradeNo: tradeNo, RefundNo: providerRefundNo, TotalAmount: o.Amount, Amount: amount})
+	charge104, e := g.Store.AuthenticatedOrderCharge104(ctx, o)
+	if e != nil {
+		return Refund{}, e
+	}
+	result, e := p.Refund(ctx, provider.RefundRequest{TradeNo: tradeNo, RefundNo: providerRefundNo, TotalAmount: charge104, Amount: amount})
 	if e != nil {
 		state = "unknown"
 		var rejection *provider.ProviderError
@@ -287,7 +369,11 @@ func (g ProviderFlow) QueryRefund(ctx context.Context, merchantID int64, refundN
 		return r, e
 	}
 	providerRefundNo := fmt.Sprintf("RF%d", r.ID)
-	result, e := p.QueryRefund(ctx, provider.RefundRequest{TradeNo: tradeNo, RefundNo: providerRefundNo, TotalAmount: o.Amount, Amount: r.Amount})
+	charge104, e := g.Store.AuthenticatedOrderCharge104(ctx, o)
+	if e != nil {
+		return r, e
+	}
+	result, e := p.QueryRefund(ctx, provider.RefundRequest{TradeNo: tradeNo, RefundNo: providerRefundNo, TotalAmount: charge104, Amount: r.Amount})
 	if e != nil {
 		return r, e
 	}

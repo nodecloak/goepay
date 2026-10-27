@@ -45,7 +45,7 @@ func (s *SMTP) SendMerchantNotice(ctx context.Context, to string, m merchantnoti
 		return ErrSMTP
 	}
 	contentType := mime.FormatMediaType("multipart/alternative", map[string]string{"boundary": alternatives.Boundary()})
-	header := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\nMIME-Version: 1.0\r\nContent-Type: %s\r\n\r\n", s.from, to, mime.BEncoding.Encode("UTF-8", m.Title), time.Now().UTC().Format(time.RFC1123Z), contentType)
+	header := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\nMIME-Version: 1.0\r\nContent-Type: %s\r\n\r\n", s.headerFrom(), to, mime.BEncoding.Encode("UTF-8", m.Title), time.Now().UTC().Format(time.RFC1123Z), contentType)
 	message := append([]byte(header), body.Bytes()...)
 	return s.send(ctx, to, message)
 }

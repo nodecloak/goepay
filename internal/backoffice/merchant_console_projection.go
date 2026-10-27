@@ -26,11 +26,13 @@ const merchantConsoleProjection = `jsonb_strip_nulls(jsonb_build_object(
  'group_id',CASE WHEN jsonb_typeof(profile->'group_id')='string' THEN profile->'group_id' END,
  'transfer_api_enabled',CASE WHEN jsonb_typeof(profile->'transfer_api_enabled')='boolean' THEN profile->'transfer_api_enabled' END,
  'transfer_rate',CASE WHEN jsonb_typeof(profile->'transfer_rate')='string' THEN profile->'transfer_rate' END))||jsonb_build_object(
- 'name',name,'enabled',enabled,'pay',COALESCE(to_jsonb(merchants)->>'pay','1'),'signature_algorithm',signature_algorithm,'id',merchants.id::text,
+ 'settle',merchant_settlement_permission(profile),'settlement_permission_revision',settlement_permission_revision::text,
+ 'name',name,'enabled',enabled,'pay',COALESCE(to_jsonb(merchants)->>'pay','1'),'signature_algorithm',signature_algorithm,'keytype',keytype,'id',merchants.id::text,
  'base_group_id',base_group_id::text,'group_baseline_unresolved',group_baseline_unresolved,
  'login_username',COALESCE((SELECT username FROM console_users WHERE role='merchant' AND subject_id=merchants.id ORDER BY id LIMIT 1),''),
  'available_minor',console_balances.available_minor,'frozen_minor',console_balances.frozen_minor,
- 'income_held_minor',console_balances.income_held_minor,'created_at',merchants.created_at,
+ 'income_held_minor',console_balances.income_held_minor,'created_at',CASE WHEN registration_time_known THEN to_jsonb(merchants.created_at) ELSE '""'::jsonb END,
+ 'registration_time_known',registration_time_known,
  'effective_group_id',COALESCE(console_effective_group.group_id::text,''),
  'effective_group_name',CASE WHEN console_effective_group.group_id IS NULL THEN '' ELSE COALESCE(console_group.body->>'name',CASE WHEN console_effective_group.group_id=0 THEN '默认用户组' ELSE '' END) END,
  'membership_expires_at',COALESCE(to_jsonb(console_membership.expires_at),'""'::jsonb),
@@ -42,10 +44,12 @@ const merchantConsoleProjection = `jsonb_strip_nulls(jsonb_build_object(
 func init() {
 	d := definitions["merchants"]
 	for _, f := range []Field{
+		{Name: "keytype", Label: "实际签名方式（空值沿用历史算法）", Type: "integer", ReadOnly: true},
 		{Name: "available_minor", Label: "账户余额（分）", Type: "string", ReadOnly: true},
 		{Name: "frozen_minor", Label: "冻结预留（分）", Type: "string", ReadOnly: true},
 		{Name: "income_held_minor", Label: "待解冻收入（分）", Type: "string", ReadOnly: true},
 		{Name: "created_at", Label: "注册时间", Type: "string", ReadOnly: true},
+		{Name: "registration_time_known", Label: "原注册时间已提供", Type: "boolean", ReadOnly: true},
 		{Name: "effective_group_id", Label: "当前有效用户组 ID", Type: "string", ReadOnly: true},
 		{Name: "effective_group_name", Label: "当前有效用户组", Type: "string", ReadOnly: true},
 		{Name: "membership_expires_at", Label: "会员到期时间", Type: "string", ReadOnly: true},

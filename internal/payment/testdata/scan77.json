@@ -1,0 +1,46 @@
+{
+  "fields": {
+    "attempt": {
+      "id": "1",
+      "order_id": "1",
+      "trade_no": "1000000000000000000",
+      "channel_id": "7",
+      "method": "scan",
+      "state": "processing",
+      "material_type": "",
+      "material": "",
+      "provider_trade_no": "",
+      "created_at": "2026-10-26T08:31:25.590713+08:00",
+      "updated_at": "2026-10-26T08:31:25.590713+08:00"
+    },
+    "order": {
+      "merchant_amount": "123",
+      "platform_fee": "0",
+      "fee_rate_bps": 0,
+      "fee_group_id": "0",
+      "fee_policy": "none",
+      "refund_fee_payer": "platform",
+      "version": "v1",
+      "id": "1",
+      "trade_no": "1000000000000000000",
+      "merchant_id": "78",
+      "out_trade_no": "legacy-before78",
+      "name": "Local barcode",
+      "type": "wxpay",
+      "amount": "123",
+      "notify_url": "",
+      "return_url": "",
+      "param": "",
+      "status": "created",
+      "created_at": "2026-10-26T08:31:25.545571+08:00",
+      "paid_at": null
+    }
+  },
+  "schema": "member72_35d31d858f2c151c",
+  "source_files": 1645,
+  "source_manifest_sha256": "cfdf6e68f579165049568914718c99fab7637cbb46126deb501279d7db6cd9ef",
+  "synthetic_only": true,
+  "dump_sha256": "1cdb564f32ef3609202ddbbbd85876ae2c878cf6224f82b964ab30ad6cd42a7d",
+  "dump_uncompressed_sha256": "78da09be0c30ecbc7c2c6c0489533ce2a05d735fc5d5ee6320e3ba3624be20d2",
+  "dump_uncompressed_bytes": 886146
+}

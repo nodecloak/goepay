@@ -3,9 +3,11 @@ package referralscheduler
 import (
 	"context"
 	"errors"
-	"github.com/jackc/pgx/v5"
-	"goepay/internal/payment"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+
+	"goepay/internal/payment"
 )
 
 type Store interface {
@@ -32,6 +34,14 @@ func (r Runner) RunOnce(ctx context.Context) (payment.ReferralDailyTickResult, e
 	}
 	operation, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+	if gate, ok := r.Store.(interface {
+		LegacyScheduledTaskAllowed(context.Context, string) (bool, error)
+	}); ok {
+		allowed, e := gate.LegacyScheduledTaskAllowed(operation, "referral_daily")
+		if e != nil || !allowed {
+			return empty, e
+		}
+	}
 	var day string
 	if err := r.Clock.QueryRow(operation, `SELECT ((pg_catalog.clock_timestamp() AT TIME ZONE 'UTC') + interval '8 hours')::date::text`).Scan(&day); err != nil {
 		return empty, err

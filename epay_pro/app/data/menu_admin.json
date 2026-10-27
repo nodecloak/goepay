@@ -1,0 +1,852 @@
+[
+  {
+    "path": "/dashboard",
+    "name": "Dashboard",
+    "component": "/dashboard",
+    "meta": {
+      "title": "仪表盘",
+      "icon": "ri:pie-chart-line",
+      "roles": [
+        "R_SUPER",
+        "R_ADMIN"
+      ],
+      "keepAlive": false,
+      "fixedTab": true
+    }
+  },
+  {
+    "path": "/trade",
+    "name": "TradeManage",
+    "component": "/index/index",
+    "meta": {
+      "title": "交易管理",
+      "icon": "ri:bill-line",
+      "roles": [
+        "R_SUPER",
+        "R_ADMIN"
+      ]
+    },
+    "children": [
+      {
+        "path": "order",
+        "name": "OrderList",
+        "component": "/trade/order/index",
+        "meta": {
+          "title": "订单管理",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "refund",
+        "name": "RefundList",
+        "component": "/trade/refund/index",
+        "meta": {
+          "title": "退款记录",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "blacklist",
+        "name": "BlackList",
+        "component": "/trade/blacklist/index",
+        "meta": {
+          "title": "黑名单管理",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "stat",
+        "name": "OrderStat",
+        "component": "",
+        "meta": {
+          "title": "交易统计",
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        },
+        "children": [
+          {
+            "path": "daily",
+            "name": "DailyStat",
+            "component": "/trade/daily-stat/index",
+            "meta": {
+              "title": "每日交易统计",
+              "keepAlive": true,
+              "roles": [
+                "R_SUPER",
+                "R_ADMIN"
+              ]
+            }
+          },
+          {
+            "path": "user",
+            "name": "UserTradeStat",
+            "component": "/trade/user-stat/index",
+            "meta": {
+              "title": "商户交易统计",
+              "roles": [
+                "R_SUPER",
+                "R_ADMIN"
+              ]
+            }
+          },
+          {
+            "path": "channel",
+            "name": "ChannelStat",
+            "component": "/trade/channel-stat/index",
+            "meta": {
+              "title": "通道数据统计",
+              "keepAlive": true,
+              "roles": [
+                "R_SUPER",
+                "R_ADMIN"
+              ]
+            }
+          },
+          {
+            "path": "province",
+            "name": "ProvinceStat",
+            "component": "/trade/province-stat/index",
+            "meta": {
+              "title": "地区数据统计",
+              "roles": [
+                "R_SUPER",
+                "R_ADMIN"
+              ]
+            }
+          },
+          {
+            "path": "buyer",
+            "name": "BuyerStat",
+            "component": "/trade/buyer-stat/index",
+            "meta": {
+              "title": "支付用户统计",
+              "keepAlive": true,
+              "roles": [
+                "R_SUPER",
+                "R_ADMIN"
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/profitsharing",
+    "name": "ProfitSharingManage",
+    "component": "/index/index",
+    "meta": {
+      "title": "分账管理",
+      "icon": "ri:exchange-2-line",
+      "roles": [
+        "R_SUPER",
+        "R_ADMIN"
+      ]
+    },
+    "children": [
+      {
+        "path": "receiver",
+        "name": "PsReceiver",
+        "component": "/profitsharing/receiver/index",
+        "meta": {
+          "title": "分账规则",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "order",
+        "name": "PsOrder",
+        "component": "/profitsharing/order/index",
+        "meta": {
+          "title": "分账记录",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "internal",
+        "name": "PsInternal",
+        "component": "/profitsharing/internal/index",
+        "meta": {
+          "title": "站内分账规则",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "/transfer",
+    "name": "TransferManage",
+    "component": "/index/index",
+    "meta": {
+      "title": "转账付款",
+      "icon": "ri:send-plane-line",
+      "roles": [
+        "R_SUPER",
+        "R_ADMIN"
+      ]
+    },
+    "children": [
+      {
+        "path": "list",
+        "name": "TransferList",
+        "component": "/transfer/transfer-list/index",
+        "meta": {
+          "title": "付款记录",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "stat",
+        "name": "TransferStat",
+        "component": "/transfer/transfer-stat/index",
+        "meta": {
+          "title": "付款账号统计",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "channel-stat",
+        "name": "TransferChannelStat",
+        "component": "/transfer/transfer-channel-stat/index",
+        "meta": {
+          "title": "通道数据统计",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "user-stat",
+        "name": "UserTransferStat",
+        "component": "/transfer/user-stat/index",
+        "meta": {
+          "title": "商户代付统计",
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "/settle",
+    "name": "SettleManage",
+    "component": "/index/index",
+    "meta": {
+      "title": "结算管理",
+      "icon": "ri:exchange-box-line",
+      "roles": [
+        "R_SUPER",
+        "R_ADMIN"
+      ]
+    },
+    "children": [
+      {
+        "path": "list",
+        "name": "SettleList",
+        "component": "/settle/settle-list/index",
+        "meta": {
+          "title": "结算管理",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "batch",
+        "name": "BatchSettle",
+        "component": "/settle/batch-settle/index",
+        "meta": {
+          "title": "批量结算",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "/merchant",
+    "name": "MerchantManage",
+    "component": "/index/index",
+    "meta": {
+      "title": "商户管理",
+      "icon": "ri:user-settings-line",
+      "roles": [
+        "R_SUPER",
+        "R_ADMIN"
+      ]
+    },
+    "children": [
+      {
+        "path": "merchant-list",
+        "name": "MerchantList",
+        "component": "/merchant/merchant-list/index",
+        "meta": {
+          "title": "商户列表",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "group-list",
+        "name": "GroupList",
+        "component": "/merchant/group-list/index",
+        "meta": {
+          "title": "用户组设置",
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "group-buy",
+        "name": "GroupBuy",
+        "component": "/merchant/group-buy/index",
+        "meta": {
+          "title": "用户组购买",
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "record",
+        "name": "Record",
+        "component": "/merchant/record/index",
+        "meta": {
+          "title": "资金明细",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "internal-transfer",
+        "name": "InternalTransfer",
+        "component": "/merchant/internal-transfer/index",
+        "meta": {
+          "title": "站内转账",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "domain",
+        "name": "Domain",
+        "component": "/merchant/domain/index",
+        "meta": {
+          "title": "授权域名",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "invite-code",
+        "name": "InviteCode",
+        "component": "/merchant/invite-code/index",
+        "meta": {
+          "title": "邀请码管理",
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "/payapi",
+    "name": "PayApiManage",
+    "component": "/index/index",
+    "meta": {
+      "title": "支付接口",
+      "icon": "ri:bank-card-line",
+      "roles": [
+        "R_SUPER",
+        "R_ADMIN"
+      ]
+    },
+    "children": [
+      {
+        "path": "pay-channel",
+        "name": "PayChannel",
+        "component": "/payapi/pay-channel/index",
+        "meta": {
+          "title": "支付通道",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "pay-type",
+        "name": "PayType",
+        "component": "/payapi/pay-type/index",
+        "meta": {
+          "title": "支付方式",
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "pay-roll",
+        "name": "PayRoll",
+        "component": "/payapi/pay-roll/index",
+        "meta": {
+          "title": "支付通道轮询",
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "pay-weixin",
+        "name": "PayWeixin",
+        "component": "/payapi/pay-weixin/index",
+        "meta": {
+          "title": "公众号小程序",
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "/applyments",
+    "name": "ApplymentsManage",
+    "component": "/index/index",
+    "meta": {
+      "title": "进件管理",
+      "icon": "ri:file-check-line",
+      "roles": [
+        "R_SUPER",
+        "R_ADMIN"
+      ]
+    },
+    "children": [
+      {
+        "path": "channel",
+        "name": "ApplyChannel",
+        "component": "/applyments/channel/index",
+        "meta": {
+          "title": "进件渠道配置",
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "merchant",
+        "name": "ApplyMerchant",
+        "component": "/applyments/merchant/index",
+        "meta": {
+          "title": "进件商户管理",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "subchannel",
+        "name": "SubChannelManage",
+        "component": "/applyments/subchannel/index",
+        "meta": {
+          "title": "子通道管理",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "mchrisk",
+        "name": "MchRisk",
+        "component": "/applyments/mchrisk/index",
+        "meta": {
+          "title": "商户管控记录",
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "form",
+        "name": "ApplyForm",
+        "component": "/applyments/form/index",
+        "meta": {
+          "title": "商户进件表单",
+          "isHide": true,
+          "keepAlive": false,
+          "isHideTab": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "/complain",
+    "name": "ComplainManage",
+    "component": "/index/index",
+    "meta": {
+      "title": "交易投诉",
+      "icon": "ri:feedback-line",
+      "roles": [
+        "R_SUPER",
+        "R_ADMIN"
+      ]
+    },
+    "children": [
+      {
+        "path": "list",
+        "name": "ComplainList",
+        "component": "/complain/complain-list/index",
+        "meta": {
+          "title": "投诉记录",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "charts",
+        "name": "ComplainCharts",
+        "component": "/complain/complain-charts/index",
+        "meta": {
+          "title": "投诉统计",
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "task",
+        "name": "ComplainTask",
+        "component": "/complain/complain-task/index",
+        "meta": {
+          "title": "同步任务",
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "/other",
+    "name": "OtherManage",
+    "component": "/index/index",
+    "meta": {
+      "title": "其他功能",
+      "icon": "ri:box-3-line",
+      "roles": [
+        "R_SUPER",
+        "R_ADMIN"
+      ]
+    },
+    "children": [
+      {
+        "path": "risk",
+        "name": "Risk",
+        "component": "/other/risk/index",
+        "meta": {
+          "title": "风控记录",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "get-token",
+        "name": "GetToken",
+        "component": "/other/get-token/index",
+        "meta": {
+          "title": "获取用户标识",
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "onecode",
+        "name": "OnecodeStyle",
+        "component": "/other/onecode/index",
+        "meta": {
+          "title": "聚合收款码样式",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "onecode/edit",
+        "name": "OnecodeStyleEdit",
+        "component": "/other/onecode/edit/index",
+        "meta": {
+          "title": "编辑收款码样式",
+          "isHide": true,
+          "keepAlive": false,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "/app",
+    "name": "AppManage",
+    "component": "/index/index",
+    "meta": {
+      "title": "应用管理",
+      "icon": "ri:apps-line",
+      "roles": [
+        "R_SUPER",
+        "R_ADMIN"
+      ]
+    },
+    "children": [
+      {
+        "path": "app-store",
+        "name": "AppStore",
+        "component": "/app/app-store/index",
+        "meta": {
+          "title": "应用市场",
+          "roles": [
+            "R_SUPER"
+          ]
+        }
+      },
+      {
+        "path": "plugin-list",
+        "name": "PluginList",
+        "component": "/app/plugin-list/index",
+        "meta": {
+          "title": "本地插件",
+          "roles": [
+            "R_SUPER"
+          ]
+        }
+      },
+      {
+        "path": "template",
+        "name": "TemplateConfig",
+        "component": "/app/template/index",
+        "meta": {
+          "title": "模板配置",
+          "roles": [
+            "R_SUPER"
+          ]
+        }
+      },
+      {
+        "path": "addon",
+        "name": "AddonConfig",
+        "component": "/app/addon/index",
+        "meta": {
+          "title": "扩展配置",
+          "roles": [
+            "R_SUPER"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "/system",
+    "name": "System",
+    "component": "/index/index",
+    "meta": {
+      "title": "系统管理",
+      "icon": "ri:settings-line",
+      "roles": [
+        "R_SUPER",
+        "R_ADMIN"
+      ]
+    },
+    "children": [
+      {
+        "path": "settings",
+        "name": "SystemSettings",
+        "component": "/system/settings",
+        "meta": {
+          "title": "系统设置",
+          "roles": [
+            "R_SUPER"
+          ]
+        }
+      },
+      {
+        "path": "cron",
+        "name": "SystemCron",
+        "component": "/system/cron",
+        "meta": {
+          "title": "计划任务",
+          "roles": [
+            "R_SUPER"
+          ]
+        }
+      },
+      {
+        "path": "anounce",
+        "name": "Anounce",
+        "component": "/system/anounce/index",
+        "meta": {
+          "title": "公告配置",
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "admin-user",
+        "name": "AdminUser",
+        "component": "/system/admin-user/index",
+        "meta": {
+          "title": "管理员列表",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER"
+          ]
+        }
+      },
+      {
+        "path": "log",
+        "name": "SystemLog",
+        "component": "/system/log/index",
+        "meta": {
+          "title": "登录日志",
+          "keepAlive": true,
+          "roles": [
+            "R_SUPER",
+            "R_ADMIN"
+          ]
+        }
+      },
+      {
+        "path": "runtime-log",
+        "name": "RuntimeLog",
+        "component": "/system/runtime-log/index",
+        "meta": {
+          "title": "运行日志",
+          "roles": [
+            "R_SUPER"
+          ]
+        }
+      },
+      {
+        "path": "clean",
+        "name": "SystemClean",
+        "component": "/system/clean/index",
+        "meta": {
+          "title": "数据清理",
+          "roles": [
+            "R_SUPER"
+          ]
+        }
+      },
+      {
+        "path": "update",
+        "name": "SystemUpdate",
+        "component": "/system/update/index",
+        "meta": {
+          "title": "系统更新",
+          "roles": [
+            "R_SUPER"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "system/change-password",
+    "name": "ChangePassword",
+    "component": "/system/change-password",
+    "meta": {
+      "title": "修改密码",
+      "isHide": true,
+      "keepAlive": false,
+      "isHideTab": true
+    }
+  }
+]

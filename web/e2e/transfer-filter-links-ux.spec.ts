@@ -61,7 +61,7 @@ for (const width of [1280, 375]) {
     for (const path of [
       "/admin/transfer/list?uid=0",
       "/admin/transfer/list?uid=1&uid=2",
-      "/admin/transfer/list?column=account&value=private",
+      "/admin/transfer/list?column=unsupported-private&value=private",
       "/admin/transfer/list?column=money&value=1.001",
       "/admin/transfer/list?unknown=x",
       "/merchant/transfer?uid=2",

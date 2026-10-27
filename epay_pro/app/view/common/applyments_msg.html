@@ -1,0 +1,17 @@
+{extend name="common/applyments_page" /}
+{block name="main"}
+<div class="panel panel-{$panel}">
+    <div class="panel-heading">
+        <h3 class="panel-title">提示信息</h3>
+    </div>
+    <div class="panel-body">
+        {$content|raw}
+        <hr/>
+        {if $back}
+        <a href="{$back}">&lt;&lt; 返回上一页</a>
+        {else/}
+        <a href="javascript:history.back(-1)">&lt;&lt; 返回上一页</a>
+        {/if}
+    </div>
+</div>
+{/block}

@@ -1,0 +1,45 @@
+<html class="weui-msg">
+<head>
+    <meta charset="UTF-8">
+    <meta id="viewport" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>{if $success}成功提示{else}错误提示{/if}</title>
+    <link href="/static/css/weui.min.css" rel="stylesheet">
+    <style>.page{position:absolute;top:0;right:0;bottom:0;left:0;overflow-y:auto;-webkit-overflow-scrolling:touch;box-sizing:border-box}</style>
+</head>
+<body>
+<div class="container">
+<div class="page">
+<div class="weui-msg">
+    <div class="weui-msg__icon-area">
+        {if $success}
+        <i class="weui-icon-success weui-icon_msg"></i>
+        {else}
+        <i class="weui-icon-warn weui-icon_msg"></i>
+        {/if}
+    </div>
+    <div class="weui-msg__text-area">
+        <h2 class="weui-msg__title">{$title|raw}</h2>
+        {if $desc}
+        <p class="weui-msg__desc">{$desc|raw}</p>
+        {/if}
+    </div>
+    <div class="weui-msg__opr-area">
+        <p class="weui-btn-area">
+            <a href="javascript:;" class="weui-btn weui-btn_default" id="Close">关闭</a>
+        </p>
+    </div>
+    <div class="weui-msg__extra-area">
+        <div class="weui-footer"><p class="weui-footer__links"></p></div>
+    </div>
+</div>
+</div>
+</div>
+<script src="{$cdnpublic}jquery/1.12.4/jquery.min.js"></script>
+<script src="/static/js/close.js"></script>
+<script>
+document.body.addEventListener('touchmove', function (event) {
+	event.preventDefault();
+},{ passive: false });
+</script>
+</body>
+</html>

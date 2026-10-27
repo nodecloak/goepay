@@ -29,7 +29,7 @@ func (s *Store) SettlementQuote(ctx context.Context, mid, amount int64) (Settlem
 	if e = tx.QueryRow(ctx, "SELECT enabled FROM merchants WHERE id=$1", mid).Scan(&enabled); e != nil {
 		return out, e
 	}
-	out.Policy, e = readSettlementPolicy(ctx, tx, false)
+	out.Policy, e = readMerchantSettlementPolicy(ctx, tx, mid, false)
 	if e != nil {
 		return out, e
 	}
@@ -37,7 +37,7 @@ func (s *Store) SettlementQuote(ctx context.Context, mid, amount int64) (Settlem
 	if e != nil {
 		return out, e
 	}
-	out.Funds, e = readFundsAvailability(ctx, tx, mid, nil)
+	out.Funds, e = s.readFundsAvailability(ctx, tx, mid, nil)
 	if e != nil {
 		return out, e
 	}

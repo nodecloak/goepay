@@ -158,15 +158,14 @@ func TestMerchantNotice80DailySnapshotUsesOrderCreationDayAndRetainsRefundedGros
 		{"daily-pending80", 2000, false, from.Add(2 * time.Hour)},
 		{"daily-excluded80", 9000, true, from.Add(-time.Second)},
 	} {
-		o, e := base.CreateOrder(ctx, payment.CreateOrderInput{MerchantID: 1000, OutTradeNo: row.no, Name: "report80", Type: "wxpay", Amount: row.amount})
-		if e != nil {
-			t.Fatal(e)
-		}
-		if _, e = pool.Exec(ctx, `UPDATE orders SET created_at=$2 WHERE id=$1`, o.ID, row.created); e != nil {
+		// Historical daily cohorts are imported pre104 orders. A current104
+		// order's birth timestamp is authenticated and must not be backdated.
+		var trade string
+		if e := pool.QueryRow(ctx, `INSERT INTO orders(trade_no,merchant_id,out_trade_no,name,type,amount,merchant_amount,platform_fee,fee_policy,refund_fee_payer,created_at) VALUES(nextval('trade_no_seq')::text,1000,$1,'report80','wxpay',$2,$2,0,'none','platform',$3) RETURNING trade_no`, row.no, row.amount, row.created).Scan(&trade); e != nil {
 			t.Fatal(e)
 		}
 		if row.paid {
-			if e = base.MarkPaid(ctx, o.TradeNo, "local-"+row.no); e != nil {
+			if e := base.MarkPaid(ctx, trade, "local-"+row.no); e != nil {
 				t.Fatal(e)
 			}
 		}

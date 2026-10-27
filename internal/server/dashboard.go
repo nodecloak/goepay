@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"goepay/internal/payment"
 	"net/http"
 	"runtime"
 	"sort"
@@ -12,7 +13,7 @@ import (
 // Every business figure is read in one PostgreSQL statement snapshot. Tenant
 // identity is supplied by the authenticated handler, never the query string.
 const dashboardSQL = `WITH
- merchant_group AS (SELECT m.id,m.group_baseline_unresolved AND NOT EXISTS(SELECT 1 FROM memberships WHERE merchant_id=m.id AND expires_at>now()) AS group_baseline_unresolved,COALESCE((SELECT group_id FROM memberships WHERE merchant_id=m.id AND expires_at>now()),NULLIF(m.base_group_id,0)) group_id FROM merchants m WHERE m.id=$1),
+ merchant_group AS (SELECT m.id,m.group_baseline_unresolved AND NOT EXISTS(SELECT 1 FROM memberships WHERE merchant_id=m.id AND expires_at>now()) AS group_baseline_unresolved,COALESCE((SELECT group_id FROM memberships WHERE merchant_id=m.id AND expires_at>now()),m.base_group_id) group_id FROM merchants m WHERE m.id=$1),
  fee_enabled AS (SELECT COALESCE((SELECT body->>'value' FROM backoffice_records WHERE resource='settings' AND body->>'key'='payment_fee_enabled'),'false') value),
  rate AS (SELECT CASE WHEN f.value='false' THEN 'disabled' WHEN f.value<>'true' OR g.group_baseline_unresolved THEN 'unavailable' WHEN g.group_id IS NULL THEN 'ready' WHEN b.body->>'enabled'='true' AND CASE WHEN COALESCE(b.body->>'rate_bps','0')~'^(0|[1-9][0-9]{0,4})$' THEN COALESCE(b.body->>'rate_bps','0')::numeric<=10000 ELSE false END THEN 'ready' ELSE 'unavailable' END state,COALESCE(b.body->>'rate_bps','0') rate_bps,COALESCE(b.body->>'name','默认用户组') group_name FROM merchant_group g CROSS JOIN fee_enabled f LEFT JOIN backoffice_records b ON b.id=g.group_id AND b.resource='groups'),
  order_totals AS (SELECT count(*) orders,count(*) FILTER(WHERE status='paid') paid FROM orders WHERE ($1::bigint=0 OR merchant_id=$1)),
@@ -47,8 +48,9 @@ const dashboardSQL = `WITH
  'todos',CASE WHEN $1=0 THEN jsonb_build_object('complaints',(SELECT count(*)::text FROM backoffice_records WHERE resource='complaints' AND body->>'status' IN('open','in_progress')),'merchant_audits',(SELECT count(*)::text FROM merchants WHERE pay=2),'settlements',(SELECT count(*)::text FROM ledger_requests WHERE kind='settlements' AND status='pending'),'transfers',(SELECT count(*)::text FROM transfers WHERE status IN('pending','unknown'))) END,
  'merchant',CASE WHEN $1>0 THEN (SELECT jsonb_build_object('id',id::text,'name',name,'pay',pay::text,'enabled',enabled) FROM merchants WHERE id=$1) END,
  'fee_schedule',CASE WHEN $1>0 THEN (SELECT jsonb_build_object('state',state,'group_name',group_name,'rate_bps',CASE WHEN state='disabled' THEN '0' WHEN state='ready' THEN rate_bps END,'source','merchant_group_payment_fee') FROM rate) END,
- 'announcements',COALESCE((SELECT jsonb_agg(to_jsonb(a)) FROM (SELECT id::text,body->>'title' title,body->>'content' content,created_at FROM backoffice_records WHERE resource='announcements' AND body->>'enabled'='true' AND body->>'audience' IN('all',CASE WHEN $1=0 THEN 'admin' ELSE 'merchant' END) ORDER BY id DESC LIMIT 10)a),'[]'::jsonb),
+ 'announcements',COALESCE((SELECT jsonb_agg(to_jsonb(a)) FROM (SELECT id::text,body->>'title' title,body->>'content' content,COALESCE(body->>'color','') color,CASE WHEN body->>'content_format'='html' THEN 'html' ELSE 'text' END content_format,created_at FROM backoffice_records WHERE resource='announcements' AND body->>'enabled'='true' AND body->>'audience' IN('all',CASE WHEN $1=0 THEN 'admin' ELSE 'merchant' END) ORDER BY CASE WHEN body->>'sort'~'^[1-9][0-9]{0,9}$' THEN (body->>'sort')::numeric ELSE 50 END ASC,backoffice_records.id DESC LIMIT 10)a),'[]'::jsonb),
  'recent_settlements',COALESCE((SELECT jsonb_agg(to_jsonb(p) ORDER BY p.created_at DESC) FROM pending_settlements p),'[]'::jsonb),
+ 'welcome_notice',CASE WHEN $1>0 THEN COALESCE((SELECT body->>'value' FROM backoffice_records WHERE resource='settings' AND body->>'key'='modal'),'') END,
  'runtime',CASE WHEN $1=0 THEN jsonb_build_object('postgresql',current_setting('server_version'),'server_time',clock_timestamp()) END
  )`
 
@@ -81,9 +83,18 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request, mid int64) {
 			run["web"] = "Go API / nginx"
 		}
 	} else {
-		channels := []map[string]string{}
+		channels := []map[string]any{}
 		ids := append([]int64{}, s.MerchantChannels[mid]...)
 		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+		currentFees := map[int64]payment.CurrentChannelFee{}
+		if s.ProviderFlow != nil {
+			var e error
+			currentFees, e = s.ProviderFlow.CurrentChannelFees(r.Context(), mid, ids)
+			if e != nil {
+				s.fail(w, e)
+				return
+			}
+		}
 		var previous int64
 		for _, id := range ids {
 			if id == previous {
@@ -92,11 +103,33 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request, mid int64) {
 			previous = id
 			if s.ProviderFlow != nil {
 				if provider := s.ProviderFlow.Providers[id]; provider != nil {
-					channels = append(channels, map[string]string{"channel_id": strconv.FormatInt(id, 10), "type": provider.ID()})
+					fee := currentFees[id]
+					channels = append(channels, map[string]any{"channel_id": strconv.FormatInt(id, 10), "type": provider.ID(), "fee_rate_bps": fee.RateBPS, "fee_source": fee.Source})
 				}
 			}
 		}
 		data["payment_channels"] = channels
+		if schedule, ok := data["fee_schedule"].(map[string]any); ok {
+			// A legacy summary is valid only if every displayed channel agrees.
+			var uniform any
+			if len(channels) == 0 && schedule["state"] == "disabled" {
+				uniform = "0"
+			}
+			for i, row := range channels {
+				fee, _ := row["fee_rate_bps"].(*int64)
+				if fee == nil {
+					uniform = nil
+					break
+				}
+				value := strconv.FormatInt(*fee, 10)
+				if i > 0 && uniform != value {
+					uniform = nil
+					break
+				}
+				uniform = value
+			}
+			schedule["rate_bps"], schedule["source"] = uniform, "current_runtime_channel_fee"
+		}
 	}
 	response(w, 200, 0, "", data)
 }

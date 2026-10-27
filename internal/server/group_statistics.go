@@ -50,7 +50,7 @@ func (s *Server) groupStatistics(w http.ResponseWriter, r *http.Request, role st
 	}
 	defer tx.Rollback(ctx)
 	name := "默认用户组"
-	if gid > 0 {
+	if gid >= 0 {
 		e = tx.QueryRow(ctx, `SELECT COALESCE(body->>'name','') FROM backoffice_records WHERE resource='groups' AND id=$1`, gid).Scan(&name)
 		if errors.Is(e, pgx.ErrNoRows) {
 			response(w, 404, -1, "group not found", nil)

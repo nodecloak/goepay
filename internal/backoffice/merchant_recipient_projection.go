@@ -20,5 +20,5 @@ func (s *Service) attachMerchantRecipients(ctx context.Context, items []Item) er
 	for i := range items {
 		items[i].Fields["settlement_recipient"] = views[items[i].ID]
 	}
-	return nil
+	return s.attachMerchantCoreRisk(ctx, items)
 }

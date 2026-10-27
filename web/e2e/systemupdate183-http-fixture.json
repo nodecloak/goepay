@@ -1,0 +1,194 @@
+{
+  "accepted": {
+    "applied": false,
+    "can_cancel": true,
+    "can_retry": false,
+    "error_code": "",
+    "intent": "2cc0b79130283c00fa03fe294f9b8f2c49a0a3fe6da90569bf439918e64c398c",
+    "progress": {
+      "phase": "queued",
+      "read_bytes": 0,
+      "total_bytes": 146927,
+      "total_files": 102,
+      "verified_files": 0
+    },
+    "revision": "1",
+    "state": "preparing",
+    "state_fingerprint": "adf1ddedb009527b101f14452300aedf8b67e4661a4291a1a418ba8634c6f8f5",
+    "target": {
+      "file_count": 102,
+      "fingerprint": "2cc0b79130283c00fa03fe294f9b8f2c49a0a3fe6da90569bf439918e64c398c",
+      "package_bytes": 146927,
+      "package_sha256": "e00a3d51f868fd39d46cad7a2672b8fc9a00d8bec2fe6798eac49db6c27a5d50",
+      "schema": 101,
+      "source_sha256": "2bec8aded6f510e5ce31c03872d0d06e7718ca486c6522091af6f419912d0dff",
+      "version": "0.2.0"
+    }
+  },
+  "applied": {
+    "applied": true,
+    "can_cancel": false,
+    "can_retry": false,
+    "error_code": "",
+    "intent": "2cc0b79130283c00fa03fe294f9b8f2c49a0a3fe6da90569bf439918e64c398c",
+    "progress": {
+      "phase": "applied",
+      "read_bytes": 146927,
+      "total_bytes": 146927,
+      "total_files": 102,
+      "verified_files": 102
+    },
+    "revision": "2",
+    "state": "applied",
+    "state_fingerprint": "e0ca8904460faa0009b153f275b3ca8a51fa7d58b23d3bca4d03d46d4e297f20",
+    "target": {
+      "file_count": 102,
+      "fingerprint": "2cc0b79130283c00fa03fe294f9b8f2c49a0a3fe6da90569bf439918e64c398c",
+      "package_bytes": 146927,
+      "package_sha256": "e00a3d51f868fd39d46cad7a2672b8fc9a00d8bec2fe6798eac49db6c27a5d50",
+      "schema": 101,
+      "source_sha256": "2bec8aded6f510e5ce31c03872d0d06e7718ca486c6522091af6f419912d0dff",
+      "version": "0.2.0"
+    }
+  },
+  "available": {
+    "can_prepare": true,
+    "check_status": "available",
+    "current_commit": "",
+    "current_source": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "current_version": "0.1.0",
+    "fingerprint": "2cc0b79130283c00fa03fe294f9b8f2c49a0a3fe6da90569bf439918e64c398c",
+    "latest_source": "2bec8aded6f510e5ce31c03872d0d06e7718ca486c6522091af6f419912d0dff",
+    "latest_version": "0.2.0",
+    "latest_version_name": "合成离线版本183",
+    "need_update": true,
+    "preparation": {
+      "applied": false,
+      "can_cancel": false,
+      "can_retry": false,
+      "error_code": "",
+      "intent": "2cc0b79130283c00fa03fe294f9b8f2c49a0a3fe6da90569bf439918e64c398c",
+      "progress": {
+        "phase": "idle",
+        "read_bytes": 0,
+        "total_bytes": 0,
+        "total_files": 0,
+        "verified_files": 0
+      },
+      "revision": "0",
+      "state": "none",
+      "state_fingerprint": "5390a0f446e9c9f649cc11daf7db71ffb4d60377e7f21531cd4f34e40808078b",
+      "target": null
+    },
+    "update_log": "line1\n\u003cscript\u003eliteral changelog\u003c/script\u003e"
+  },
+  "cancelled": {
+    "applied": false,
+    "can_cancel": false,
+    "can_retry": true,
+    "error_code": "",
+    "intent": "2cc0b79130283c00fa03fe294f9b8f2c49a0a3fe6da90569bf439918e64c398c",
+    "progress": {
+      "phase": "cancelled",
+      "read_bytes": 0,
+      "total_bytes": 146927,
+      "total_files": 102,
+      "verified_files": 0
+    },
+    "revision": "5",
+    "state": "cancelled",
+    "state_fingerprint": "f0688f036cda65a5b0e22f099900b75cac7c8f230cf9e07cb1bed2e74cf22e0d",
+    "target": {
+      "file_count": 102,
+      "fingerprint": "2cc0b79130283c00fa03fe294f9b8f2c49a0a3fe6da90569bf439918e64c398c",
+      "package_bytes": 146927,
+      "package_sha256": "e00a3d51f868fd39d46cad7a2672b8fc9a00d8bec2fe6798eac49db6c27a5d50",
+      "schema": 101,
+      "source_sha256": "2bec8aded6f510e5ce31c03872d0d06e7718ca486c6522091af6f419912d0dff",
+      "version": "0.2.0"
+    }
+  },
+  "cookie_or_bearer_exported": false,
+  "long_version": {
+    "applied": false,
+    "can_cancel": true,
+    "can_retry": false,
+    "error_code": "",
+    "intent": "ef962c6bc9cec3dd6a07031df26ecd38658cc04a86dcb1471ebbf59e2e473be4",
+    "progress": {
+      "phase": "prepared",
+      "read_bytes": 146927,
+      "total_bytes": 146927,
+      "total_files": 102,
+      "verified_files": 102
+    },
+    "revision": "2",
+    "state": "prepared",
+    "state_fingerprint": "ceb3eec985a10580fe0355d7b41dc2ccbf339ce9e78532ade7365cf06de35b3a",
+    "target": {
+      "file_count": 102,
+      "fingerprint": "ef962c6bc9cec3dd6a07031df26ecd38658cc04a86dcb1471ebbf59e2e473be4",
+      "package_bytes": 146927,
+      "package_sha256": "e00a3d51f868fd39d46cad7a2672b8fc9a00d8bec2fe6798eac49db6c27a5d50",
+      "schema": 101,
+      "source_sha256": "2bec8aded6f510e5ce31c03872d0d06e7718ca486c6522091af6f419912d0dff",
+      "version": "0.2.0-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "prepared": {
+    "applied": false,
+    "can_cancel": true,
+    "can_retry": false,
+    "error_code": "",
+    "intent": "2cc0b79130283c00fa03fe294f9b8f2c49a0a3fe6da90569bf439918e64c398c",
+    "progress": {
+      "phase": "prepared",
+      "read_bytes": 146927,
+      "total_bytes": 146927,
+      "total_files": 102,
+      "verified_files": 102
+    },
+    "revision": "2",
+    "state": "prepared",
+    "state_fingerprint": "e76e8d931d0a4a3dfb2fbc933729098f1cb3c213d52f7d4670b25bb1d8801ec7",
+    "target": {
+      "file_count": 102,
+      "fingerprint": "2cc0b79130283c00fa03fe294f9b8f2c49a0a3fe6da90569bf439918e64c398c",
+      "package_bytes": 146927,
+      "package_sha256": "e00a3d51f868fd39d46cad7a2672b8fc9a00d8bec2fe6798eac49db6c27a5d50",
+      "schema": 101,
+      "source_sha256": "2bec8aded6f510e5ce31c03872d0d06e7718ca486c6522091af6f419912d0dff",
+      "version": "0.2.0"
+    }
+  },
+  "schema_disposed": true,
+  "session_invalid_after_cleanup": true,
+  "source": "actual local Go HTTP and PostgreSQL",
+  "synthetic_only": true,
+  "unknown": {
+    "applied": false,
+    "can_cancel": true,
+    "can_retry": true,
+    "error_code": "",
+    "intent": "2cc0b79130283c00fa03fe294f9b8f2c49a0a3fe6da90569bf439918e64c398c",
+    "progress": {
+      "phase": "prepared",
+      "read_bytes": 0,
+      "total_bytes": 146927,
+      "total_files": 102,
+      "verified_files": 0
+    },
+    "revision": "2",
+    "state": "unknown",
+    "state_fingerprint": "3a3b8a8a43be4a070e0c8cd42b91cdf24c6304e43e940f84c41cb3cfa1b12e8e",
+    "target": {
+      "file_count": 102,
+      "fingerprint": "2cc0b79130283c00fa03fe294f9b8f2c49a0a3fe6da90569bf439918e64c398c",
+      "package_bytes": 146927,
+      "package_sha256": "e00a3d51f868fd39d46cad7a2672b8fc9a00d8bec2fe6798eac49db6c27a5d50",
+      "schema": 101,
+      "source_sha256": "2bec8aded6f510e5ce31c03872d0d06e7718ca486c6522091af6f419912d0dff",
+      "version": "0.2.0"
+    }
+  }
+}

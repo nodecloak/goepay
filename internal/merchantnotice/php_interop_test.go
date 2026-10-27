@@ -23,9 +23,15 @@ func TestOriginalProNotice80PHPTemplatesInterop(t *testing.T) {
 		At     int64          `json:"at"`
 		Params map[string]any `json:"params"`
 	}
-	cases := make([]fixture, 0, len(noticeSpecs))
+	// This is the pinned original Pro MsgNotice catalog. New Go-only internal
+	// sources (such as payment_disabled) have their own real delivery tests.
+	originalScenes := []string{"regaudit", "apply", "domain", "internal_transfer", "order", "settle", "login", "complain", "mchrisk", "balance", "group", "domain_audit", "channellimit", "daily_report"}
+	cases := make([]fixture, 0, len(originalScenes))
 	expected := map[string]Message{}
-	for scene := range noticeSpecs {
+	for _, scene := range originalScenes {
+		if _, ok := noticeSpecs[scene]; !ok {
+			t.Fatal("original Pro notice template missing", scene)
+		}
 		in := input80(scene)
 		in.Params["money"], in.Params["realmoney"], in.Params["msgmoney"] = "12.30", "12.00", "20.00"
 		params := map[string]any{}

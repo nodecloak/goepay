@@ -33,7 +33,14 @@ func TestOriginalOrderStatisticsUXSevenColumnsFiltersRefundsAndUnknownCost(t *te
 		{2, 5678, 8, "wxpay", "original-stat-other", true},
 		{1, 9, 8, "wxpay", "original-stat-small", true},
 	} {
-		o, err := s.Store.CreateOrder(ctx, payment.CreateOrderInput{MerchantID: in.mid, OutTradeNo: in.no, Name: "原统计本地合成", Type: in.kind, Amount: in.amount})
+		// Original-day reports cover imported historical births. Current104
+		// births authenticate created_at and cannot be backdated for a fixture.
+		var trade string
+		err := pool.QueryRow(ctx, `INSERT INTO orders(trade_no,merchant_id,out_trade_no,name,type,amount,merchant_amount,platform_fee,fee_policy,refund_fee_payer,created_at)VALUES(nextval('trade_no_seq')::text,$1,$2,'原统计本地合成',$3,$4,$4,0,'none','platform',$5)RETURNING trade_no`, in.mid, in.no, in.kind, in.amount, businessDate).Scan(&trade)
+		if err != nil {
+			t.Fatal(err)
+		}
+		o, err := s.Store.OrderByTradeNo(ctx, trade)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -44,9 +51,6 @@ func TestOriginalOrderStatisticsUXSevenColumnsFiltersRefundsAndUnknownCost(t *te
 			if err = s.Store.MarkPaid(ctx, o.TradeNo, "statistics:"+o.TradeNo); err != nil {
 				t.Fatal(err)
 			}
-		}
-		if _, err = pool.Exec(ctx, `UPDATE orders SET created_at=$2 WHERE id=$1`, o.ID, businessDate); err != nil {
-			t.Fatal(err)
 		}
 		if in.no == "original-stat-paid" {
 			refundable = o.TradeNo

@@ -167,25 +167,30 @@ type effectiveReferralPolicy struct {
 	Mode    string
 }
 
+// Policy values merge identically for original-order snapshots and the safe
+// current-policy explanation. Group nil values inherit enabled/rate only.
+func mergeEffectiveReferralPolicy(policy effectiveReferralPolicy, input ReferralPolicyInput) effectiveReferralPolicy {
+	policy.Basis, policy.Mode = input.Basis, input.Mode
+	if input.Enabled != nil {
+		policy.Enabled = *input.Enabled
+	}
+	if input.RateBPS != nil {
+		policy.RateBPS = *input.RateBPS
+	}
+	return policy
+}
+
 func (s *Store) effectiveReferralPolicy(ctx context.Context, tx pgx.Tx, payerGroup, promoterID int64) (effectiveReferralPolicy, [5]int64, bool, error) {
 	policy := effectiveReferralPolicy{Basis: "fee", Mode: "immediate"}
 	refs := [5]int64{0, 0, 0, payerGroup, 0}
-	var enabled, unresolved bool
-	var promoterGroup int64
-	err := tx.QueryRow(ctx, "SELECT enabled,group_baseline_unresolved,base_group_id FROM merchants WHERE id=$1 FOR SHARE", promoterID).Scan(&enabled, &unresolved, &promoterGroup)
+	group, err := s.referralPromoterGroup(ctx, tx, promoterID, true)
 	if err != nil {
 		return policy, refs, false, err
 	}
-	if unresolved {
+	if group.Unresolved {
 		return policy, refs, false, ErrState
 	}
-	var purchased int64
-	err = tx.QueryRow(ctx, "SELECT group_id FROM memberships WHERE merchant_id=$1 AND expires_at>statement_timestamp()", promoterID).Scan(&purchased)
-	if err == nil {
-		promoterGroup = purchased
-	} else if !errors.Is(err, pgx.ErrNoRows) {
-		return policy, refs, false, err
-	}
+	promoterGroup := group.GroupID
 	refs[4] = promoterGroup
 	for i, scope := range []struct {
 		kind string
@@ -202,14 +207,7 @@ func (s *Store) effectiveReferralPolicy(ctx context.Context, tx pgx.Tx, payerGro
 			return policy, refs, false, err
 		}
 		refs[i] = r.ID
-		policy.Basis = r.Basis
-		policy.Mode = r.Mode
-		if r.Enabled != nil {
-			policy.Enabled = *r.Enabled
-		}
-		if r.RateBPS != nil {
-			policy.RateBPS = *r.RateBPS
-		}
+		policy = mergeEffectiveReferralPolicy(policy, r.ReferralPolicyInput)
 	}
-	return policy, refs, enabled, nil
+	return policy, refs, group.Enabled, nil
 }

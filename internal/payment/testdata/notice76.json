@@ -1,0 +1,14 @@
+{
+  "fields": {
+    "event": 1,
+    "job": 3,
+    "lease": "7c59ca62c8dd88633c52896d7828453b"
+  },
+  "schema": "member72_3110375ac500a55f",
+  "source_files": 1645,
+  "source_manifest_sha256": "cfdf6e68f579165049568914718c99fab7637cbb46126deb501279d7db6cd9ef",
+  "synthetic_only": true,
+  "dump_sha256": "3150894443a6c386ee3c5dbfeaf9e566831dabf5956d7e5b60a6e7dc997835a3",
+  "dump_uncompressed_sha256": "9186adfad6165a0650a81695480d222cf9ef7b1c18dc78d7719f36fc2fe4a703",
+  "dump_uncompressed_bytes": 904731
+}

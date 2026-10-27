@@ -169,6 +169,17 @@ func (s *Server) referralConsole(w http.ResponseWriter, r *http.Request, role st
 		return true
 	}
 	switch parts[2] {
+	case "current-policy":
+		if r.URL.RawQuery != "" {
+			response(w, 400, -1, "query parameters not accepted", nil)
+			return true
+		}
+		out, e := s.Store.ReferralCurrentPolicy(ctx, session.User.ID, actor)
+		if e != nil {
+			s.fail(w, e)
+		} else {
+			response(w, 200, 0, "current common conditions only; payer group may vary; examples are not an order estimate or spendable balance", out)
+		}
 	case "overview":
 		if r.URL.RawQuery != "" {
 			response(w, 400, -1, "query parameters not accepted", nil)

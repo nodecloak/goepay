@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/ledger"
+	"goepay/internal/privatesearch"
 	"math"
 	"net/url"
 	"strings"
@@ -114,13 +115,13 @@ func validTransferRequest(r adapter.TransferRequest) bool {
 	}
 	return r.Type == "wxpay" || r.Type == "alipay" || r.Type == "bank"
 }
-func (s *Store) beginTransfer(ctx context.Context, merchantID, channelID int64, no string, r adapter.TransferRequest, validate func(adapter.TransferRequest) error, bankProduct, accountScope string) (Transfer, bool, error) {
+func (s *Store) beginTransfer(ctx context.Context, merchantID, channelID int64, no string, r adapter.TransferRequest, validate func(adapter.TransferRequest) error, bankProduct, accountScope string, apiOrigin ...bool) (Transfer, bool, error) {
 	tx, e := s.pool.Begin(ctx)
 	if e != nil {
 		return Transfer{}, false, e
 	}
 	defer tx.Rollback(ctx)
-	t, owner, e := s.beginTransferTx(ctx, tx, merchantID, channelID, no, r, validate, bankProduct, accountScope)
+	t, owner, e := s.beginTransferTx(ctx, tx, merchantID, channelID, no, r, validate, bankProduct, accountScope, apiOrigin...)
 	if e != nil {
 		return t, false, e
 	}
@@ -130,7 +131,7 @@ func (s *Store) beginTransfer(ctx context.Context, merchantID, channelID int64, 
 	return t, owner, nil
 }
 
-func (s *Store) beginTransferTx(ctx context.Context, tx pgx.Tx, merchantID, channelID int64, no string, r adapter.TransferRequest, validate func(adapter.TransferRequest) error, bankProduct, accountScope string) (Transfer, bool, error) {
+func (s *Store) beginTransferTx(ctx context.Context, tx pgx.Tx, merchantID, channelID int64, no string, r adapter.TransferRequest, validate func(adapter.TransferRequest) error, bankProduct, accountScope string, apiOrigin ...bool) (Transfer, bool, error) {
 	var e error
 	var profile []byte
 	var enabled bool
@@ -177,6 +178,18 @@ func (s *Store) beginTransferTx(ctx context.Context, tx pgx.Tx, merchantID, chan
 	}
 	if !errors.Is(e, ErrNotFound) {
 		return Transfer{}, false, e
+	}
+	if len(apiOrigin) > 1 {
+		return Transfer{}, false, ErrInvalid
+	}
+	if len(apiOrigin) == 1 && apiOrigin[0] {
+		m, e := s.merchantAPIAccountTx(ctx, tx, merchantID, false)
+		if e != nil {
+			return Transfer{}, false, e
+		}
+		if e = s.checkMerchantAPIAdmissionTx(ctx, tx, m, "transfer"); e != nil {
+			return Transfer{}, false, e
+		}
 	}
 	var cfg map[string]json.RawMessage
 	if json.Unmarshal(profile, &cfg) != nil {
@@ -235,6 +248,9 @@ func (s *Store) beginTransferTx(ctx context.Context, tx pgx.Tx, merchantID, chan
 	if _, e = tx.Exec(ctx, "INSERT INTO provider_transfer_attempts(transfer_id,channel_id,recipient_cipher) VALUES($1,$2,$3)", t.ID, channelID, cipher); e != nil {
 		return t, false, e
 	}
+	if e = s.indexPrivateSearchTx(ctx, tx, "transfer_intent", t.ID, merchantID, cipher, privatesearch.Fields{privatesearch.Account: r.Account, privatesearch.Name: r.Name, privatesearch.Remark: r.Remark}); e != nil {
+		return t, false, e
+	}
 	if e = s.bindTransferAccount(ctx, tx, t.ID, accountScope); e != nil {
 		return t, false, e
 	}
@@ -261,12 +277,23 @@ func (s *Store) beginTransferTx(ctx context.Context, tx pgx.Tx, merchantID, chan
 // Transfer submits one immutable recipient intent at most once. Unknown and
 // crashed attempts require query; they never trigger a replacement transfer.
 func (g ProviderFlow) Transfer(ctx context.Context, merchantID, channelID int64, no string, r adapter.TransferRequest) (Transfer, error) {
-	if !g.AllowLive {
+	return g.transfer(ctx, merchantID, channelID, no, r, false)
+}
+func (g ProviderFlow) TransferFromAPI(ctx context.Context, merchantID, channelID int64, no string, r adapter.TransferRequest) (Transfer, error) {
+	return g.transfer(ctx, merchantID, channelID, no, r, true)
+}
+func (g ProviderFlow) transfer(ctx context.Context, merchantID, channelID int64, no string, r adapter.TransferRequest, api bool) (Transfer, error) {
+	if !g.paymentWritesEnabled() {
 		return Transfer{}, ErrLiveDisabled
 	}
 	if g.Store == nil || merchantID <= 0 || channelID <= 0 || no == "" || len(no) > 128 {
 		return Transfer{}, ErrInvalid
 	}
+	resolved, resolveErr := g.parentTransferRuntime(ctx, merchantID, channelID, no)
+	if resolveErr != nil {
+		return Transfer{}, resolveErr
+	}
+	g = resolved
 	if e := g.Store.checkChannelWrite(ctx, channelID); e != nil {
 		return Transfer{}, e
 	}
@@ -308,7 +335,7 @@ func (g ProviderFlow) Transfer(ctx context.Context, merchantID, channelID int64,
 	if e != nil {
 		return Transfer{}, e
 	}
-	t, owner, e := g.Store.beginTransfer(ctx, merchantID, channelID, no, r, validate, product, accountScope)
+	t, owner, e := g.beginRuntimeParentTransfer(ctx, merchantID, channelID, no, r, validate, product, accountScope, api)
 	if e != nil || !owner {
 		return t, e
 	}
@@ -368,6 +395,11 @@ func (g ProviderFlow) QueryTransfer(ctx context.Context, merchantID int64, no st
 	if e != nil {
 		return t, e
 	}
+	resolved, resolveErr := g.ParentTransferIntent(ctx, t)
+	if resolveErr != nil {
+		return t, resolveErr
+	}
+	g = resolved
 	if e = g.Store.checkTransferAccount(ctx, g.Store.pool, t.ID, g.Providers[t.ChannelID]); e != nil {
 		return t, e
 	}
@@ -482,6 +514,11 @@ func (g ProviderFlow) TransferProof(ctx context.Context, merchantID int64, no st
 	if e != nil {
 		return result, e
 	}
+	resolved, resolveErr := g.ParentTransferIntent(ctx, t)
+	if resolveErr != nil {
+		return result, resolveErr
+	}
+	g = resolved
 	if e = g.Store.checkTransferAccount(ctx, g.Store.pool, t.ID, g.Providers[t.ChannelID]); e != nil {
 		return result, e
 	}
@@ -497,7 +534,7 @@ func (g ProviderFlow) TransferProof(ctx context.Context, merchantID int64, no st
 	e = g.Store.pool.QueryRow(ctx, "SELECT state,file_id,download_cipher FROM provider_transfer_proofs WHERE transfer_id=$1", t.ID).Scan(&state, &file, &encrypted)
 	owner := false
 	if errors.Is(e, pgx.ErrNoRows) {
-		if !g.AllowLive {
+		if !g.paymentWritesEnabled() {
 			return result, ErrLiveDisabled
 		}
 		tag, insertErr := g.Store.pool.Exec(ctx, "INSERT INTO provider_transfer_proofs(transfer_id,state) VALUES($1,'applying') ON CONFLICT DO NOTHING", t.ID)

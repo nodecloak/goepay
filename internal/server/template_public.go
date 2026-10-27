@@ -2,7 +2,10 @@ package server
 
 import (
 	"bytes"
+	"errors"
 	"goepay/internal/pagetemplate"
+	"goepay/internal/sitebrand193"
+	"goepay/internal/siteinfo"
 	"io"
 	"log/slog"
 	"net/http"
@@ -52,18 +55,35 @@ func (s *Server) templatePublic(w http.ResponseWriter, r *http.Request) bool {
 		http.Error(w, "method not allowed", 405)
 		return true
 	}
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'")
-	if !s.pageTemplateOpen(w, r, "home", pagetemplate.Page{Title: "在线支付服务", Sandbox: s.Sandbox}, nil) {
+	cfg, err := siteinfo.Load(r.Context(), s.Pool)
+	if err != nil {
+		http.Error(w, "website settings unavailable", 503)
 		return true
 	}
-	io.WriteString(w, "<p>请通过商户提供的付款链接发起支付，并核对订单金额和系统确认状态。</p></main></body></html>")
+	if siteHomepage191(w, r, cfg) {
+		return true
+	}
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'")
+	if !s.pageTemplateOpen(w, r, "home", pagetemplate.Page{Title: cfg.Title, BrandName: cfg.Name, Keywords: cfg.Keywords, Description: cfg.Description, Sandbox: s.Sandbox}, nil) {
+		return true
+	}
+	io.WriteString(w, "<p>请通过商户提供的付款链接发起支付，并核对订单金额和系统确认状态。</p>")
+	_ = siteContacts191.Execute(w, cfg)
+	io.WriteString(w, "</main></body></html>")
 	return true
 }
 
 type templateColors struct{ Background, Foreground string }
 
 func (s *Server) pageTemplateOpen(w http.ResponseWriter, r *http.Request, kind string, p pagetemplate.Page, colors *templateColors) bool {
+	if kind == "home" && !p.Preview {
+		logo, e := sitebrand193.New(s.Pool, s.CheckoutKey).Public(r.Context(), "logo")
+		if e != nil && !errors.Is(e, sitebrand193.ErrNotFound) {
+			http.Error(w, "website branding unavailable", 503)
+			return false
+		}
+		p.SiteLogo = logo != nil
+	}
 	appearance, e := pagetemplate.New(s.Pool).Resolve(r.Context(), kind)
 	if e != nil {
 		http.Error(w, "page appearance unavailable", 503)

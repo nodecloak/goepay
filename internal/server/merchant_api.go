@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"goepay/internal/compat"
 	"goepay/internal/ledger"
+	"goepay/internal/merchantpolicy"
 	"net/http"
 	"strconv"
 	"time"
@@ -23,6 +24,17 @@ func (s *Server) merchantInfo(w http.ResponseWriter, r *http.Request, legacy boo
 		return
 	}
 	profile := map[string]any{}
+	settleStatus := 0
+	if !legacy {
+		allowed, err := merchantpolicy.ResolveSettlementPermission(profileRaw)
+		if err != nil {
+			s.wire(w, false, nil, "merchant permission unavailable")
+			return
+		}
+		if allowed {
+			settleStatus = 1
+		}
+	}
 	if e = json.Unmarshal(profileRaw, &profile); e != nil {
 		s.wire(w, legacy, nil, "merchant unavailable")
 		return
@@ -71,7 +83,7 @@ func (s *Server) merchantInfo(w http.ResponseWriter, r *http.Request, legacy boo
 		s.wire(w, true, out, "")
 		return
 	}
-	s.wire(w, false, map[string]any{"pid": id, "status": 1, "pay_status": payStatus, "settle_status": intValue("settle_status", 0), "money": ledger.Format(balance.Available), "settle_type": intValue("settle_type", 0), "settle_account": stringValue("settle_account"), "settle_name": stringValue("settle_name"), "order_num": total, "order_num_today": todayCount, "order_num_lastday": yesterdayCount, "order_money_today": ledger.Format(todayMoney), "order_money_lastday": ledger.Format(yesterdayMoney)}, "")
+	s.wire(w, false, map[string]any{"pid": id, "status": 1, "pay_status": payStatus, "settle_status": settleStatus, "money": ledger.Format(balance.Available), "settle_type": intValue("settle_type", 0), "settle_account": stringValue("settle_account"), "settle_name": stringValue("settle_name"), "order_num": total, "order_num_today": todayCount, "order_num_lastday": yesterdayCount, "order_money_today": ledger.Format(todayMoney), "order_money_lastday": ledger.Format(yesterdayMoney)}, "")
 }
 func (s *Server) merchantOrders(w http.ResponseWriter, r *http.Request, legacy bool, id int64, p compat.Params) {
 	limit, offset := 20, 0
@@ -127,20 +139,21 @@ func (s *Server) merchantOrders(w http.ResponseWriter, r *http.Request, legacy b
 		s.wire(w, legacy, nil, "invalid status")
 		return
 	}
-	rows, e := s.Pool.Query(r.Context(), `SELECT o.trade_no,o.out_trade_no,o.type,o.name,o.amount,o.status,o.param,o.created_at,o.paid_at,COALESCE(NULLIF(b.buyer,''),z.buyer_id,''),COALESCE(v.provider_trade_no,NULLIF(a.provider_trade_no,''),''),f.refunded,CASE WHEN z.release_state='succeeded' THEN '' ELSE COALESCE(z.auth_no,'') END,i.held FROM orders o LEFT JOIN order_reporting b ON b.order_id=o.id LEFT JOIN verified_payment_receipts v ON v.order_id=o.id LEFT JOIN provider_attempts a ON a.order_id=o.id LEFT JOIN payment_authorizations z ON z.order_id=o.id LEFT JOIN LATERAL(SELECT COALESCE(sum(amount),0) AS refunded FROM refunds WHERE order_id=o.id AND status='succeeded') f ON true CROSS JOIN LATERAL(SELECT EXISTS(SELECT 1 FROM order_income_holds h WHERE h.order_id=o.id AND h.state='held') AS held) i WHERE o.merchant_id=$1 AND ($2::text='' OR ($2='1' AND o.status='paid' AND f.refunded<o.amount AND NOT i.held) OR ($2='2' AND o.status='paid' AND f.refunded=o.amount) OR ($2='3' AND o.status='paid' AND i.held AND f.refunded<o.amount) OR ($2='4' AND o.status<>'paid' AND z.order_id IS NOT NULL AND z.release_state<>'succeeded') OR ($2='0' AND o.status<>'paid' AND (z.order_id IS NULL OR z.release_state='succeeded'))) ORDER BY o.id DESC LIMIT $3 OFFSET $4`, id, status, limit, offset)
+	rows, e := s.Pool.Query(r.Context(), `SELECT o.id,o.trade_no,o.out_trade_no,o.type,o.name,o.amount,o.status,o.param,o.created_at,o.paid_at,COALESCE(NULLIF(b.buyer,''),z.buyer_id,''),COALESCE(v.provider_trade_no,NULLIF(a.provider_trade_no,''),''),f.refunded,CASE WHEN z.release_state='succeeded' THEN '' ELSE COALESCE(z.auth_no,'') END,i.held FROM orders o LEFT JOIN order_reporting b ON b.order_id=o.id LEFT JOIN verified_payment_receipts v ON v.order_id=o.id LEFT JOIN provider_attempts a ON a.order_id=o.id LEFT JOIN payment_authorizations z ON z.order_id=o.id LEFT JOIN LATERAL(SELECT COALESCE(sum(amount),0) AS refunded FROM refunds WHERE order_id=o.id AND status='succeeded') f ON true CROSS JOIN LATERAL(SELECT EXISTS(SELECT 1 FROM order_income_holds h WHERE h.order_id=o.id AND h.state='held') AS held) i WHERE o.merchant_id=$1 AND ($2::text='' OR ($2='1' AND o.status='paid' AND f.refunded<COALESCE((to_jsonb(o)->>'actual_charge_amount104')::bigint,o.amount) AND NOT i.held) OR ($2='2' AND o.status='paid' AND f.refunded=COALESCE((to_jsonb(o)->>'actual_charge_amount104')::bigint,o.amount)) OR ($2='3' AND o.status='paid' AND i.held AND f.refunded<COALESCE((to_jsonb(o)->>'actual_charge_amount104')::bigint,o.amount)) OR ($2='4' AND o.status<>'paid' AND z.order_id IS NOT NULL AND z.release_state<>'succeeded') OR ($2='0' AND o.status<>'paid' AND (z.order_id IS NULL OR z.release_state='succeeded'))) ORDER BY o.id DESC LIMIT $3 OFFSET $4`, id, status, limit, offset)
 	if e != nil {
 		s.wire(w, legacy, nil, "order list unavailable")
 		return
 	}
 	defer rows.Close()
 	items := []map[string]any{}
+	ids := []int64{}
 	for rows.Next() {
 		var trade, external, kind, name, state, param, buyer, upstream, authNo string
-		var amount, refunded int64
+		var orderID, amount, refunded int64
 		var created time.Time
 		var paid *time.Time
 		var incomeHeld bool
-		if e := rows.Scan(&trade, &external, &kind, &name, &amount, &state, &param, &created, &paid, &buyer, &upstream, &refunded, &authNo, &incomeHeld); e != nil {
+		if e := rows.Scan(&orderID, &trade, &external, &kind, &name, &amount, &state, &param, &created, &paid, &buyer, &upstream, &refunded, &authNo, &incomeHeld); e != nil {
 			s.wire(w, legacy, nil, "order list unavailable")
 			return
 		}
@@ -164,11 +177,49 @@ func (s *Server) merchantOrders(w http.ResponseWriter, r *http.Request, legacy b
 		if refunded > 0 && refunded < amount {
 			item["refundmoney"] = ledger.Format(refunded)
 		}
+		item["_id104"] = orderID
+		item["_refunded104"] = refunded
+		item["_state104"] = state
+		item["_held104"] = incomeHeld
+		ids = append(ids, orderID)
 		items = append(items, item)
 	}
 	if rows.Err() != nil {
 		s.wire(w, legacy, nil, "order list unavailable")
 		return
+	}
+	rows.Close()
+	charges, e := s.Store.OriginalOrderCharges104(r.Context(), id, ids)
+	if e != nil || len(charges) != len(ids) {
+		s.wire(w, legacy, nil, "original payment amounts unavailable")
+		return
+	}
+	for _, item := range items {
+		charge, ok := charges[item["_id104"].(int64)]
+		if !ok {
+			s.wire(w, legacy, nil, "original payment amount unavailable")
+			return
+		}
+		refunded := item["_refunded104"].(int64)
+		if refunded < 0 || refunded > charge {
+			s.wire(w, legacy, nil, "original refund amount unavailable")
+			return
+		}
+		if item["_state104"] == "paid" {
+			item["status"] = 1
+			if refunded == charge {
+				item["status"] = 2
+			} else if item["_held104"] == true {
+				item["status"] = 3
+			}
+		}
+		delete(item, "refundmoney")
+		if refunded > 0 && refunded < charge {
+			item["refundmoney"] = ledger.Format(refunded)
+		}
+		for _, key := range []string{"_id104", "_refunded104", "_state104", "_held104"} {
+			delete(item, key)
+		}
 	}
 	out := map[string]any{"data": items}
 	if legacy && releaseProfile {

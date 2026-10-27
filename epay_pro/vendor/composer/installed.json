@@ -1,0 +1,1151 @@
+{
+    "packages": [
+        {
+            "name": "cccyun/alipay-sdk",
+            "version": "1.10",
+            "version_normalized": "1.10.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/netcccyun/alipay-sdk-php.git",
+                "reference": "17987367ddecdc67b7a2b995ab896d711b464e72"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/netcccyun/alipay-sdk-php/zipball/17987367ddecdc67b7a2b995ab896d711b464e72",
+                "reference": "17987367ddecdc67b7a2b995ab896d711b464e72",
+                "shasum": ""
+            },
+            "require": {
+                "ext-bcmath": "*",
+                "ext-curl": "*",
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "ext-openssl": "*",
+                "php": ">=7.1"
+            },
+            "time": "2026-03-16T04:54:47+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "Alipay\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "caihong",
+                    "email": "admin@cccyun.cn"
+                }
+            ],
+            "description": "支付宝开放平台第三方 PHP SDK，基于官方最新版本，支持公钥和公钥证书2种模式。",
+            "keywords": [
+                "alipay",
+                "支付宝"
+            ],
+            "support": {
+                "issues": "https://github.com/netcccyun/alipay-sdk-php/issues",
+                "source": "https://github.com/netcccyun/alipay-sdk-php/tree/1.10"
+            },
+            "install-path": "../cccyun/alipay-sdk"
+        },
+        {
+            "name": "cccyun/qqpay-sdk",
+            "version": "1.3",
+            "version_normalized": "1.3.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/netcccyun/qqpay-sdk-php.git",
+                "reference": "9c84c698daba6fb733b5d6b7ad576dc3a4f72085"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/netcccyun/qqpay-sdk-php/zipball/9c84c698daba6fb733b5d6b7ad576dc3a4f72085",
+                "reference": "9c84c698daba6fb733b5d6b7ad576dc3a4f72085",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=7.1"
+            },
+            "time": "2026-03-16T04:57:40+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "QQPay\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "caihong",
+                    "email": "admin@cccyun.cn"
+                }
+            ],
+            "description": "QQ钱包支付第三方 PHP SDK，基于官方最新版本。",
+            "keywords": [
+                "QQ支付",
+                "qpay",
+                "qqpay"
+            ],
+            "support": {
+                "issues": "https://github.com/netcccyun/qqpay-sdk-php/issues",
+                "source": "https://github.com/netcccyun/qqpay-sdk-php/tree/1.3"
+            },
+            "install-path": "../cccyun/qqpay-sdk"
+        },
+        {
+            "name": "cccyun/wechatpay-sdk",
+            "version": "1.11",
+            "version_normalized": "1.11.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/netcccyun/wechatpay-sdk-php.git",
+                "reference": "2403c7118ea8fd7ffea73efd4254d4552338e94a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/netcccyun/wechatpay-sdk-php/zipball/2403c7118ea8fd7ffea73efd4254d4552338e94a",
+                "reference": "2403c7118ea8fd7ffea73efd4254d4552338e94a",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-json": "*",
+                "ext-libxml": "*",
+                "ext-openssl": "*",
+                "ext-simplexml": "*",
+                "php": ">=7.1"
+            },
+            "time": "2026-03-16T04:56:37+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "WeChatPay\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "caihong",
+                    "email": "admin@cccyun.cn"
+                }
+            ],
+            "description": "微信支付第三方 PHP SDK，基于官方最新版本，包含V2和V3两种接口。",
+            "keywords": [
+                "Wxpay",
+                "wechat",
+                "微信支付"
+            ],
+            "support": {
+                "issues": "https://github.com/netcccyun/wechatpay-sdk-php/issues",
+                "source": "https://github.com/netcccyun/wechatpay-sdk-php/tree/1.11"
+            },
+            "install-path": "../cccyun/wechatpay-sdk"
+        },
+        {
+            "name": "genkgo/php-asn1",
+            "version": "v2.9.0",
+            "version_normalized": "2.9.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/genkgo/php-asn1.git",
+                "reference": "dc535345d0ecc69181c6a1e17e57a625bd01f891"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/genkgo/php-asn1/zipball/dc535345d0ecc69181c6a1e17e57a625bd01f891",
+                "reference": "dc535345d0ecc69181c6a1e17e57a625bd01f891",
+                "shasum": ""
+            },
+            "require": {
+                "php": "~8.1.0 || ~8.2.0 || ~8.3.0 || ~8.4.0 || ~8.5.0"
+            },
+            "require-dev": {
+                "php-coveralls/php-coveralls": "~2.0",
+                "phpunit/phpunit": "^9.0"
+            },
+            "suggest": {
+                "ext-bcmath": "BCmath is the fallback extension for big integer calculations",
+                "ext-curl": "For loading OID information from the web if they have not bee defined statically",
+                "ext-gmp": "GMP is the preferred extension for big integer calculations",
+                "phpseclib/bcmath_compat": "BCmath polyfill for servers where neither GMP nor BCmath is available"
+            },
+            "time": "2026-01-06T11:43:05+00:00",
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "2.0.x-dev"
+                }
+            },
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "FG\\": "lib/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Frederik Bosch",
+                    "email": "f.bosch@genkgo.nl",
+                    "role": "Author"
+                },
+                {
+                    "name": "Friedrich Große",
+                    "email": "friedrich.grosse@gmail.com",
+                    "homepage": "https://github.com/FGrosse",
+                    "role": "Author"
+                },
+                {
+                    "name": "All contributors",
+                    "homepage": "https://github.com/genkgo/php-asn1/contributors"
+                }
+            ],
+            "description": "A PHP Framework that allows you to encode and decode arbitrary ASN.1 structures using the ITU-T X.690 Encoding Rules.",
+            "homepage": "https://github.com/FGrosse/PHPASN1",
+            "keywords": [
+                "DER",
+                "asn.1",
+                "asn1",
+                "ber",
+                "binary",
+                "decoding",
+                "encoding",
+                "x.509",
+                "x.690",
+                "x509",
+                "x690"
+            ],
+            "support": {
+                "issues": "https://github.com/genkgo/php-asn1/issues",
+                "source": "https://github.com/genkgo/php-asn1/tree/v2.9.0"
+            },
+            "install-path": "../genkgo/php-asn1"
+        },
+        {
+            "name": "lpilp/guomi",
+            "version": "v2.0.0",
+            "version_normalized": "2.0.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/lpilp/phpsm2sm3sm4.git",
+                "reference": "cca566775f5c60298cb7bf360dde08f4d9fc77ec"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/lpilp/phpsm2sm3sm4/zipball/cca566775f5c60298cb7bf360dde08f4d9fc77ec",
+                "reference": "cca566775f5c60298cb7bf360dde08f4d9fc77ec",
+                "shasum": ""
+            },
+            "require": {
+                "paragonie/ecc": "^2.0",
+                "php": ">=7.2"
+            },
+            "time": "2024-09-24T11:05:13+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "files": [
+                    "src/overwrite.php"
+                ],
+                "psr-4": {
+                    "Rtgm\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "recent"
+                }
+            ],
+            "description": "国密sm2",
+            "support": {
+                "issues": "https://github.com/lpilp/phpsm2sm3sm4/issues",
+                "source": "https://github.com/lpilp/phpsm2sm3sm4/tree/v2.0.0"
+            },
+            "install-path": "../lpilp/guomi"
+        },
+        {
+            "name": "paragonie/ecc",
+            "version": "v2.6.0",
+            "version_normalized": "2.6.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/paragonie/phpecc.git",
+                "reference": "1a49380410b8ce826bc7fd3de6324053e049205c"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/paragonie/phpecc/zipball/1a49380410b8ce826bc7fd3de6324053e049205c",
+                "reference": "1a49380410b8ce826bc7fd3de6324053e049205c",
+                "shasum": ""
+            },
+            "require": {
+                "ext-gmp": "*",
+                "genkgo/php-asn1": "^2",
+                "paragonie/sodium_compat": "^1|^2",
+                "php": "^7.1||^8.0"
+            },
+            "require-dev": {
+                "bitcoin/bips": "dev-master",
+                "c2sp/wycheproof": "dev-master",
+                "ext-json": "*",
+                "phpunit/phpunit": "^6|^7|^8|^9",
+                "squizlabs/php_codesniffer": "^2|^3",
+                "symfony/yaml": "^2.6|^3.0|^4|^5|^6|^7",
+                "vimeo/psalm": "^2|^3|^4|^5|^6"
+            },
+            "suggest": {
+                "ext-openssl": "(PHP 8.1, OpenSSL 3+) Improved performance, less worries about side-channels"
+            },
+            "time": "2026-08-20T07:00:03+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "Mdanter\\Ecc\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Paragon Initiative Enterprises",
+                    "email": "security@paragonie.com",
+                    "homepage": "https://paragonie.com",
+                    "role": "New Maintainer"
+                },
+                {
+                    "name": "Matyas Danter",
+                    "homepage": "http://matejdanter.com/",
+                    "role": "Previous Author"
+                },
+                {
+                    "name": "Thibaud Fabre",
+                    "email": "thibaud@aztech.io",
+                    "homepage": "http://aztech.io",
+                    "role": "Previous Maintainer"
+                },
+                {
+                    "name": "Thomas Kerin",
+                    "email": "afk11@users.noreply.github.com",
+                    "role": "Previous Maintainer"
+                }
+            ],
+            "description": "PHP Elliptic Curve Cryptography library",
+            "homepage": "https://github.com/phpecc/phpecc",
+            "keywords": [
+                "Diffie",
+                "ECDSA",
+                "Hellman",
+                "curve",
+                "ecdh",
+                "elliptic",
+                "nistp192",
+                "nistp224",
+                "nistp256",
+                "nistp384",
+                "nistp521",
+                "phpecc",
+                "secp256k1",
+                "secp256r1"
+            ],
+            "support": {
+                "issues": "https://github.com/paragonie/phpecc/issues",
+                "source": "https://github.com/paragonie/phpecc/tree/v2.6.0"
+            },
+            "install-path": "../paragonie/ecc"
+        },
+        {
+            "name": "paragonie/sodium_compat",
+            "version": "v2.5.2",
+            "version_normalized": "2.5.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/paragonie/sodium_compat.git",
+                "reference": "3246b36803c177847e677862fedeb7f937869adb"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/paragonie/sodium_compat/zipball/3246b36803c177847e677862fedeb7f937869adb",
+                "reference": "3246b36803c177847e677862fedeb7f937869adb",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.1",
+                "php-64bit": "*"
+            },
+            "require-dev": {
+                "infection/infection": "^0",
+                "nikic/php-fuzzer": "^0",
+                "phpunit/phpunit": "^7|^8|^9|^10|^11",
+                "vimeo/psalm": "^4|^5|^6"
+            },
+            "suggest": {
+                "ext-sodium": "Better performance, password hashing (Argon2i), secure memory management (memzero), and better security."
+            },
+            "time": "2026-08-18T23:46:48+00:00",
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "2.0.x-dev"
+                }
+            },
+            "installation-source": "dist",
+            "autoload": {
+                "files": [
+                    "autoload.php"
+                ],
+                "psr-4": {
+                    "ParagonIE\\Sodium\\": "namespaced/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "ISC"
+            ],
+            "authors": [
+                {
+                    "name": "Paragon Initiative Enterprises",
+                    "email": "security@paragonie.com"
+                },
+                {
+                    "name": "Frank Denis",
+                    "email": "jedisct1@pureftpd.org"
+                }
+            ],
+            "description": "Pure PHP implementation of libsodium; uses the PHP extension if it exists",
+            "keywords": [
+                "Authentication",
+                "BLAKE2b",
+                "ChaCha20",
+                "ChaCha20-Poly1305",
+                "Chapoly",
+                "Curve25519",
+                "Ed25519",
+                "EdDSA",
+                "Edwards-curve Digital Signature Algorithm",
+                "Elliptic Curve Diffie-Hellman",
+                "Poly1305",
+                "Pure-PHP cryptography",
+                "RFC 7748",
+                "RFC 8032",
+                "Salpoly",
+                "Salsa20",
+                "X25519",
+                "XChaCha20-Poly1305",
+                "XSalsa20-Poly1305",
+                "Xchacha20",
+                "Xsalsa20",
+                "aead",
+                "cryptography",
+                "ecdh",
+                "elliptic curve",
+                "elliptic curve cryptography",
+                "encryption",
+                "libsodium",
+                "php",
+                "public-key cryptography",
+                "secret-key cryptography",
+                "side-channel resistant"
+            ],
+            "support": {
+                "issues": "https://github.com/paragonie/sodium_compat/issues",
+                "source": "https://github.com/paragonie/sodium_compat/tree/v2.5.2"
+            },
+            "install-path": "../paragonie/sodium_compat"
+        },
+        {
+            "name": "phpmailer/phpmailer",
+            "version": "v7.1.1",
+            "version_normalized": "7.1.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/PHPMailer/PHPMailer.git",
+                "reference": "1bc1716a507a65e039d4ac9d9adebbbd0d346e15"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/PHPMailer/PHPMailer/zipball/1bc1716a507a65e039d4ac9d9adebbbd0d346e15",
+                "reference": "1bc1716a507a65e039d4ac9d9adebbbd0d346e15",
+                "shasum": ""
+            },
+            "require": {
+                "ext-ctype": "*",
+                "ext-filter": "*",
+                "ext-hash": "*",
+                "php": ">=5.5.0"
+            },
+            "require-dev": {
+                "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+                "doctrine/annotations": "^1.2.6 || ^1.13.3",
+                "php-parallel-lint/php-console-highlighter": "^1.0.0",
+                "php-parallel-lint/php-parallel-lint": "^1.3.2",
+                "phpcompatibility/php-compatibility": "^10.0.0@dev",
+                "squizlabs/php_codesniffer": "^3.13.5",
+                "yoast/phpunit-polyfills": "^1.0.4"
+            },
+            "suggest": {
+                "decomplexity/SendOauth2": "Adapter for using XOAUTH2 authentication",
+                "directorytree/imapengine": "For uploading sent messages via IMAP, see gmail example",
+                "ext-imap": "Needed to support advanced email address parsing according to RFC822",
+                "ext-mbstring": "Needed to send email in multibyte encoding charset or decode encoded addresses",
+                "ext-openssl": "Needed for secure SMTP sending and DKIM signing",
+                "greew/oauth2-azure-provider": "Needed for Microsoft Azure XOAUTH2 authentication",
+                "hayageek/oauth2-yahoo": "Needed for Yahoo XOAUTH2 authentication",
+                "league/oauth2-google": "Needed for Google XOAUTH2 authentication",
+                "psr/log": "For optional PSR-3 debug logging",
+                "symfony/polyfill-mbstring": "To support UTF-8 if the Mbstring PHP extension is not enabled (^1.2)",
+                "thenetworg/oauth2-azure": "Needed for Microsoft XOAUTH2 authentication"
+            },
+            "time": "2026-05-18T08:06:14+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "PHPMailer\\PHPMailer\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "LGPL-2.1-only"
+            ],
+            "authors": [
+                {
+                    "name": "Marcus Bointon",
+                    "email": "phpmailer@synchromedia.co.uk"
+                },
+                {
+                    "name": "Jim Jagielski",
+                    "email": "jimjag@gmail.com"
+                },
+                {
+                    "name": "Andy Prevost",
+                    "email": "codeworxtech@users.sourceforge.net"
+                },
+                {
+                    "name": "Brent R. Matzelle"
+                }
+            ],
+            "description": "PHPMailer is a full-featured email creation and transfer class for PHP",
+            "support": {
+                "issues": "https://github.com/PHPMailer/PHPMailer/issues",
+                "source": "https://github.com/PHPMailer/PHPMailer/tree/v7.1.1"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/Synchro",
+                    "type": "github"
+                }
+            ],
+            "install-path": "../phpmailer/phpmailer"
+        },
+        {
+            "name": "psr/container",
+            "version": "2.0.2",
+            "version_normalized": "2.0.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/php-fig/container.git",
+                "reference": "c71ecc56dfe541dbd90c5360474fbc405f8d5963"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/php-fig/container/zipball/c71ecc56dfe541dbd90c5360474fbc405f8d5963",
+                "reference": "c71ecc56dfe541dbd90c5360474fbc405f8d5963",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=7.4.0"
+            },
+            "time": "2021-11-05T16:47:00+00:00",
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "2.0.x-dev"
+                }
+            },
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "Psr\\Container\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "PHP-FIG",
+                    "homepage": "https://www.php-fig.org/"
+                }
+            ],
+            "description": "Common Container Interface (PHP FIG PSR-11)",
+            "homepage": "https://github.com/php-fig/container",
+            "keywords": [
+                "PSR-11",
+                "container",
+                "container-interface",
+                "container-interop",
+                "psr"
+            ],
+            "support": {
+                "issues": "https://github.com/php-fig/container/issues",
+                "source": "https://github.com/php-fig/container/tree/2.0.2"
+            },
+            "install-path": "../psr/container"
+        },
+        {
+            "name": "psr/http-message",
+            "version": "2.0",
+            "version_normalized": "2.0.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/php-fig/http-message.git",
+                "reference": "402d35bcb92c70c026d1a6a9883f06b2ead23d71"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/php-fig/http-message/zipball/402d35bcb92c70c026d1a6a9883f06b2ead23d71",
+                "reference": "402d35bcb92c70c026d1a6a9883f06b2ead23d71",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^7.2 || ^8.0"
+            },
+            "time": "2023-04-04T09:54:51+00:00",
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "2.0.x-dev"
+                }
+            },
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "Psr\\Http\\Message\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "PHP-FIG",
+                    "homepage": "https://www.php-fig.org/"
+                }
+            ],
+            "description": "Common interface for HTTP messages",
+            "homepage": "https://github.com/php-fig/http-message",
+            "keywords": [
+                "http",
+                "http-message",
+                "psr",
+                "psr-7",
+                "request",
+                "response"
+            ],
+            "support": {
+                "source": "https://github.com/php-fig/http-message/tree/2.0"
+            },
+            "install-path": "../psr/http-message"
+        },
+        {
+            "name": "psr/log",
+            "version": "3.0.2",
+            "version_normalized": "3.0.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/php-fig/log.git",
+                "reference": "f16e1d5863e37f8d8c2a01719f5b34baa2b714d3"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/php-fig/log/zipball/f16e1d5863e37f8d8c2a01719f5b34baa2b714d3",
+                "reference": "f16e1d5863e37f8d8c2a01719f5b34baa2b714d3",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.0.0"
+            },
+            "time": "2024-09-11T13:17:53+00:00",
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "3.x-dev"
+                }
+            },
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "Psr\\Log\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "PHP-FIG",
+                    "homepage": "https://www.php-fig.org/"
+                }
+            ],
+            "description": "Common interface for logging libraries",
+            "homepage": "https://github.com/php-fig/log",
+            "keywords": [
+                "log",
+                "psr",
+                "psr-3"
+            ],
+            "support": {
+                "source": "https://github.com/php-fig/log/tree/3.0.2"
+            },
+            "install-path": "../psr/log"
+        },
+        {
+            "name": "psr/simple-cache",
+            "version": "3.0.0",
+            "version_normalized": "3.0.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/php-fig/simple-cache.git",
+                "reference": "764e0b3939f5ca87cb904f570ef9be2d78a07865"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/php-fig/simple-cache/zipball/764e0b3939f5ca87cb904f570ef9be2d78a07865",
+                "reference": "764e0b3939f5ca87cb904f570ef9be2d78a07865",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.0.0"
+            },
+            "time": "2021-10-29T13:26:27+00:00",
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "3.0.x-dev"
+                }
+            },
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "Psr\\SimpleCache\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "PHP-FIG",
+                    "homepage": "https://www.php-fig.org/"
+                }
+            ],
+            "description": "Common interfaces for simple caching",
+            "keywords": [
+                "cache",
+                "caching",
+                "psr",
+                "psr-16",
+                "simple-cache"
+            ],
+            "support": {
+                "source": "https://github.com/php-fig/simple-cache/tree/3.0.0"
+            },
+            "install-path": "../psr/simple-cache"
+        },
+        {
+            "name": "topthink/framework",
+            "version": "v8.1.4",
+            "version_normalized": "8.1.4.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/top-think/framework.git",
+                "reference": "8e7b2b2364047cbf71a38c4e397a9ca0d4ef2b01"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/top-think/framework/zipball/8e7b2b2364047cbf71a38c4e397a9ca0d4ef2b01",
+                "reference": "8e7b2b2364047cbf71a38c4e397a9ca0d4ef2b01",
+                "shasum": ""
+            },
+            "require": {
+                "ext-ctype": "*",
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "php": ">=8.0.0",
+                "psr/http-message": "^1.0|^2.0",
+                "psr/log": "^1.0|^2.0|^3.0",
+                "psr/simple-cache": "^1.0|^2.0|^3.0",
+                "topthink/think-container": "^3.0",
+                "topthink/think-helper": "^3.1",
+                "topthink/think-orm": "^3.0|^4.0",
+                "topthink/think-validate": "^3.0"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.92",
+                "guzzlehttp/psr7": "^2.1.0",
+                "mikey179/vfsstream": "^1.6",
+                "mockery/mockery": "^1.2",
+                "phpunit/phpunit": "^9.5"
+            },
+            "time": "2026-01-15T02:45:10+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "files": [],
+                "psr-4": {
+                    "think\\": "src/think/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "liu21st",
+                    "email": "liu21st@gmail.com"
+                },
+                {
+                    "name": "yunwuxin",
+                    "email": "448901948@qq.com"
+                }
+            ],
+            "description": "The ThinkPHP Framework.",
+            "homepage": "http://thinkphp.cn/",
+            "keywords": [
+                "framework",
+                "orm",
+                "thinkphp"
+            ],
+            "support": {
+                "issues": "https://github.com/top-think/framework/issues",
+                "source": "https://github.com/top-think/framework/tree/v8.1.4"
+            },
+            "install-path": "../topthink/framework"
+        },
+        {
+            "name": "topthink/think-container",
+            "version": "v3.0.2",
+            "version_normalized": "3.0.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/top-think/think-container.git",
+                "reference": "b2df244be1e7399ad4c8be1ccc40ed57868f730a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/top-think/think-container/zipball/b2df244be1e7399ad4c8be1ccc40ed57868f730a",
+                "reference": "b2df244be1e7399ad4c8be1ccc40ed57868f730a",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.0",
+                "psr/container": "^2.0",
+                "topthink/think-helper": "^3.1"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^9.5"
+            },
+            "time": "2025-04-07T03:21:51+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "files": [],
+                "psr-4": {
+                    "think\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "liu21st",
+                    "email": "liu21st@gmail.com"
+                }
+            ],
+            "description": "PHP Container & Facade Manager",
+            "support": {
+                "issues": "https://github.com/top-think/think-container/issues",
+                "source": "https://github.com/top-think/think-container/tree/v3.0.2"
+            },
+            "install-path": "../topthink/think-container"
+        },
+        {
+            "name": "topthink/think-helper",
+            "version": "v3.1.12",
+            "version_normalized": "3.1.12.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/top-think/think-helper.git",
+                "reference": "fe277121112a8f1c872e169a733ca80bb11c4acb"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/top-think/think-helper/zipball/fe277121112a8f1c872e169a733ca80bb11c4acb",
+                "reference": "fe277121112a8f1c872e169a733ca80bb11c4acb",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=7.1.0"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^9.5"
+            },
+            "time": "2025-12-26T09:58:29+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "files": [
+                    "src/helper.php"
+                ],
+                "psr-4": {
+                    "think\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "yunwuxin",
+                    "email": "448901948@qq.com"
+                }
+            ],
+            "description": "The ThinkPHP6 Helper Package",
+            "support": {
+                "issues": "https://github.com/top-think/think-helper/issues",
+                "source": "https://github.com/top-think/think-helper/tree/v3.1.12"
+            },
+            "install-path": "../topthink/think-helper"
+        },
+        {
+            "name": "topthink/think-orm",
+            "version": "v4.0.51",
+            "version_normalized": "4.0.51.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/top-think/think-orm.git",
+                "reference": "46abe2f824eb3bcb117d4c0ce93b203b592b79f7"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/top-think/think-orm/zipball/46abe2f824eb3bcb117d4c0ce93b203b592b79f7",
+                "reference": "46abe2f824eb3bcb117d4c0ce93b203b592b79f7",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "ext-pdo": "*",
+                "php": ">=8.0.0",
+                "psr/log": ">=1.0",
+                "psr/simple-cache": "^3.0",
+                "topthink/think-helper": "^3.1",
+                "topthink/think-validate": "^3.0"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^9.6|^10"
+            },
+            "suggest": {
+                "ext-mongodb": "provide mongodb support"
+            },
+            "time": "2025-12-18T13:11:52+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "files": [
+                    "src/helper.php",
+                    "stubs/load_stubs.php"
+                ],
+                "psr-4": {
+                    "think\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "liu21st",
+                    "email": "liu21st@gmail.com"
+                }
+            ],
+            "description": "the PHP Database&ORM Framework",
+            "keywords": [
+                "database",
+                "orm"
+            ],
+            "support": {
+                "issues": "https://github.com/top-think/think-orm/issues",
+                "source": "https://github.com/top-think/think-orm/tree/v4.0.51"
+            },
+            "install-path": "../topthink/think-orm"
+        },
+        {
+            "name": "topthink/think-template",
+            "version": "v3.0.2",
+            "version_normalized": "3.0.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/top-think/think-template.git",
+                "reference": "0b88bd449f0f7626dd75b05f557c8bc208c08b0c"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/top-think/think-template/zipball/0b88bd449f0f7626dd75b05f557c8bc208c08b0c",
+                "reference": "0b88bd449f0f7626dd75b05f557c8bc208c08b0c",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.0.0",
+                "psr/simple-cache": ">=1.0"
+            },
+            "time": "2024-10-16T03:41:06+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "think\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "liu21st",
+                    "email": "liu21st@gmail.com"
+                }
+            ],
+            "description": "the php template engine",
+            "support": {
+                "issues": "https://github.com/top-think/think-template/issues",
+                "source": "https://github.com/top-think/think-template/tree/v3.0.2"
+            },
+            "install-path": "../topthink/think-template"
+        },
+        {
+            "name": "topthink/think-validate",
+            "version": "v3.0.7",
+            "version_normalized": "3.0.7.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/top-think/think-validate.git",
+                "reference": "85063f6d4ef8ed122f17a36179dc3e0949b30988"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/top-think/think-validate/zipball/85063f6d4ef8ed122f17a36179dc3e0949b30988",
+                "reference": "85063f6d4ef8ed122f17a36179dc3e0949b30988",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.0",
+                "topthink/think-container": ">=3.0"
+            },
+            "time": "2025-06-11T05:51:40+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "files": [
+                    "src/helper.php"
+                ],
+                "psr-4": {
+                    "think\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "liu21st",
+                    "email": "liu21st@gmail.com"
+                }
+            ],
+            "description": "think validate",
+            "support": {
+                "issues": "https://github.com/top-think/think-validate/issues",
+                "source": "https://github.com/top-think/think-validate/tree/v3.0.7"
+            },
+            "install-path": "../topthink/think-validate"
+        },
+        {
+            "name": "topthink/think-view",
+            "version": "v2.0.5",
+            "version_normalized": "2.0.5.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/top-think/think-view.git",
+                "reference": "b42009b98199b5a3833d3d6fd18c8a55aa511fad"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/top-think/think-view/zipball/b42009b98199b5a3833d3d6fd18c8a55aa511fad",
+                "reference": "b42009b98199b5a3833d3d6fd18c8a55aa511fad",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.0.0",
+                "topthink/think-template": "^3.0"
+            },
+            "time": "2025-03-19T07:04:19+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "think\\view\\driver\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "liu21st",
+                    "email": "liu21st@gmail.com"
+                }
+            ],
+            "description": "thinkphp template driver",
+            "support": {
+                "issues": "https://github.com/top-think/think-view/issues",
+                "source": "https://github.com/top-think/think-view/tree/v2.0.5"
+            },
+            "install-path": "../topthink/think-view"
+        }
+    ],
+    "dev": false,
+    "dev-package-names": []
+}

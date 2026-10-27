@@ -19,6 +19,7 @@ import {
   type CollectionStyleView,
 } from "../collection-style";
 import ResourcePage from "./ResourcePage.vue";
+import MerchantScanShortcut192 from "./MerchantScanShortcut192.vue";
 interface GeneratedCode {
   code_id: string;
   recipient_name: string;
@@ -274,6 +275,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="collection-generator">
     <div class="toolbar">
+      <MerchantScanShortcut192 :client="client" :own-session="ownSession" />
       <button :disabled="busy || loading" @click="load">重新读取</button
       ><button :disabled="busy" @click="history = !history">
         {{ history ? "返回生成收款码" : "历史收款码" }}

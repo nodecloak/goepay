@@ -192,7 +192,7 @@ func (f *sharingExecutionFixture) paid(t *testing.T, no string, second bool) Ord
 	if _, e = f.Flow.Submit(ctx, o.TradeNo, 7, "native", "127.0.0.1", ""); e != nil {
 		t.Fatal(e)
 	}
-	if e = f.Store.markPaid(ctx, o.TradeNo, "paid-"+no, true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "WX_" + o.TradeNo}); e != nil {
+	if e = f.Store.markPaid(ctx, o.TradeNo, "paid-"+no, true, PaidReceipt{RealMoney: 100, ChannelID: 7, ProviderTradeNo: "WX_" + o.TradeNo}); e != nil {
 		t.Fatal(e)
 	}
 	return o

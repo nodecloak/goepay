@@ -18,5 +18,6 @@ func init() {
 	open.Options = []Option{{Label: "缺省（与系统设置一致）", Value: "_"}, {Label: "缺省（旧值0）", Value: "0"}, {Label: "只开启每日自动结算", Value: "1"}, {Label: "只开启手动申请结算", Value: "2"}, {Label: "开启自动+手动结算", Value: "3"}}
 	g.fields = append(g.fields, open, text("settle_rate", "结算手续费率 settle_rate（%，空继承，0免手续费）", false, 16))
 	g.description += " 余额阈值转账按有效会员组的settle_open/settle_rate执行；仅手动结算组仍占原5人选择，不补位。settle_rate为百分比，最多两位小数。"
+	g.description += " settle_rate也用于新手动提现及普通定时申请；空继承全局，明确0免手续费，其余费用上下限、留存和日限制保留对应规则。已有申请沿用原费用快照，修改不会自动创建申请或付款。"
 	definitions["groups"] = g
 }

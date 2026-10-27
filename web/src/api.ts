@@ -1,5 +1,7 @@
 import type { Area } from "./menu";
 import { isAdminFundsAction } from "./funds-authorization";
+import { parseMerchantKeySession } from "./merchant-api-switches";
+import { isPersonalMerchantID } from "./merchant-personal-settings";
 export interface FundsActionRequest {
   target: string;
   body: Record<string, unknown>;
@@ -23,6 +25,7 @@ export class ApiError extends Error {
     public status: number,
     public code: number,
     public retryAfterSeconds?: number,
+    public responseDecoded = true,
   ) {
     super(message);
   }
@@ -91,11 +94,22 @@ export class ApiClient {
       headers["X-Payment-Authorization"] = options.paymentAuthorization;
     }
     if (method !== "GET") {
-      if (!this.csrfToken && path !== "/login")
+      if (
+        !this.csrfToken &&
+        path !== "/login" &&
+        !(
+          this.area === "merchant" &&
+          path === "/key-login" &&
+          method === "POST"
+        )
+      )
         throw new Error("会话已失效，请重新登录");
       headers["Content-Type"] = "application/json";
       if (this.csrfToken) headers["X-CSRF-Token"] = this.csrfToken;
     }
+    const keyLogin = this.area === "merchant" && path === "/key-login";
+    const requestArea = this.area;
+    const requestCSRF = this.csrfToken;
     const response = await fetch(`/console/v1/${this.area}${path}`, {
       method,
       credentials: "same-origin",
@@ -108,9 +122,22 @@ export class ApiClient {
     try {
       payload = await response.json();
     } catch {
-      throw new ApiError("服务器返回格式错误，请稍后重试", response.status, -1);
+      throw new ApiError(
+        "服务器返回格式错误，请稍后重试",
+        response.status,
+        -1,
+        undefined,
+        false,
+      );
     }
-    if (response.status === 401) {
+    if (keyLogin && requestCSRF !== this.csrfToken)
+      throw new Error("登录上下文已变化，请重新检查登录状态");
+    if (
+      response.status === 401 &&
+      requestArea === this.area &&
+      requestCSRF === this.csrfToken &&
+      !options.signal?.aborted
+    ) {
       this.csrfToken = "";
       this.onUnauthorized?.();
     }
@@ -144,13 +171,20 @@ export class ApiClient {
         ))
     )
       throw new Error("GBK 仅用于原结算批次的支付宝及网商银行附件");
+    const requestArea = this.area;
+    const requestCSRF = this.csrfToken;
     const response = await fetch(`/console/v1/${this.area}${path}`, {
       method: "GET",
       credentials: "same-origin",
       headers: { Accept: "text/csv" },
       signal: options.signal,
     });
-    if (response.status === 401) {
+    if (
+      response.status === 401 &&
+      requestArea === this.area &&
+      requestCSRF === this.csrfToken &&
+      !options.signal?.aborted
+    ) {
       this.csrfToken = "";
       this.onUnauthorized?.();
     }
@@ -241,17 +275,75 @@ export class ApiClient {
       URL.revokeObjectURL(url);
     }
   }
-  async login(username: string, password: string, code?: string) {
+  async login(
+    username: string,
+    password: string,
+    code?: string,
+    options: { captcha?: Record<string, string>; signal?: AbortSignal } = {},
+  ) {
+    const proof = options.captcha || {};
+    const allowedProof = new Set([
+      "captcha_token",
+      "geetest_challenge",
+      "geetest_validate",
+      "geetest_seccode",
+      "captcha_id",
+      "lot_number",
+      "pass_token",
+      "gen_time",
+      "captcha_output",
+    ]);
+    if (
+      (this.area !== "merchant" && Object.keys(proof).length) ||
+      Object.entries(proof).some(
+        ([key, value]) => !allowedProof.has(key) || typeof value !== "string",
+      )
+    )
+      throw Error("登录验证码字段无效");
+    const area = this.area,
+      csrf = this.csrfToken;
     const s = await this.request<Session>("/login", {
       method: "POST",
-      body: { username, password, ...(code ? { code } : {}) },
+      body: { ...proof, username, password, ...(code ? { code } : {}) },
+      signal: options.signal,
     });
+    if (
+      options.signal?.aborted ||
+      area !== this.area ||
+      csrf !== this.csrfToken
+    )
+      throw Error("登录上下文已变化，请重新检查登录状态");
     this.csrfToken = s.csrf_token;
     return s;
   }
   async logout() {
     await this.request("/logout", { method: "POST", body: {} });
     this.csrfToken = "";
+  }
+  async merchantKeyLogin(
+    merchantID: string,
+    apiKey: string,
+    code: string,
+    signal?: AbortSignal,
+  ) {
+    if (
+      this.area !== "merchant" ||
+      !isPersonalMerchantID(merchantID) ||
+      !apiKey ||
+      apiKey.length > 512
+    )
+      throw new Error("请填写完整商户ID和商户密钥");
+    const stamp = this.csrfToken;
+    const value = await this.request<unknown>("/key-login", {
+      method: "POST",
+      body: { merchant_id: merchantID, api_key: apiKey, code },
+      signal,
+    });
+    if (stamp !== this.csrfToken || this.area !== "merchant")
+      throw new Error("登录上下文已变化，请重新检查登录状态");
+    const s = parseMerchantKeySession(value, merchantID);
+    this.csrfToken = s.csrf_token;
+    return s;
   }
 }
 export const validAmount = (x: string) =>

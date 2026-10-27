@@ -1,0 +1,30 @@
+{
+    "name": "aliyun",
+    "title": "阿里云邮件推送",
+    "author": "官方",
+    "link": "https://www.aliyun.com/product/directmail",
+    "version": "1.0",
+    "icon": "aliyun.png",
+    "desc": "",
+    "inputs": {
+        "AccessKeyId": {
+            "name": "AccessKeyId",
+            "type": "input",
+            "required": true,
+            "note": ""
+        },
+        "AccessKeySecret": {
+            "name": "AccessKeySecret",
+            "type": "input",
+            "required": true,
+            "note": ""
+        },
+        "from": {
+            "name": "发件人邮箱",
+            "type": "input",
+            "required": true,
+            "note": ""
+        }
+    },
+    "note": "<a href=\"https://www.aliyun.com/product/directmail\" target=\"_blank\" rel=\"noreferrer\">阿里云邮件推送</a>｜<a href=\"https://usercenter.console.aliyun.com/#/manage/ak\" target=\"_blank\" rel=\"noreferrer\">获取 AK/SK</a>"
+}

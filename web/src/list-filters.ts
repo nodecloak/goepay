@@ -32,6 +32,7 @@ export const freshListFilters = () => ({
   type: "",
   merchant_id: "",
   channel_id: "",
+  subchannel_id: "",
   from: "",
   to: "",
   buyer: "",
@@ -136,11 +137,17 @@ export function readListRouteQuery(
     ...Object.keys(filters),
   ]);
   if (kind === "orders")
-    for (const key of ["include_archived", "trade_no", "out_trade_no"])
+    for (const key of [
+      "include_archived",
+      "trade_no",
+      "out_trade_no",
+      "subchannel",
+    ])
       allowed.add(key);
   if (kind === "refunds")
     for (const key of ["refund_no", "out_refund_no", "trade_no"])
       allowed.add(key);
+  if (kind === "ledger") allowed.add("trade_no");
   const values: Record<string, string> = {};
   for (const [key, v] of Object.entries(raw)) {
     if (!allowed.has(key) || typeof v !== "string" || /[\x00\r\n]/.test(v))
@@ -159,6 +166,21 @@ export function readListRouteQuery(
       return fail();
     filters.merchant_id = values.uid;
   }
+  if (values.subchannel !== undefined) {
+    if (
+      !id(values.subchannel) ||
+      (filters.subchannel_id && filters.subchannel_id !== values.subchannel)
+    )
+      return fail();
+    filters.subchannel_id = values.subchannel;
+  }
+  if (values.subchannel_id !== undefined && !id(values.subchannel_id))
+    return fail();
+  if (
+    filters.subchannel_id &&
+    (kind !== "orders" || !id(filters.subchannel_id))
+  )
+    return fail();
   if (
     (filters.merchant_id && !id(filters.merchant_id)) ||
     (filters.channel_id && !id(filters.channel_id))
@@ -203,9 +225,13 @@ export function readListRouteQuery(
     return fail();
   if (
     filters.search_field &&
-    !(kind === "refunds" ? refundSearchFields : orderSearchFields).some(
-      (v) => v.value === filters.search_field,
-    )
+    !(
+      kind === "ledger"
+        ? [{ value: "trade_no" }]
+        : kind === "refunds"
+          ? refundSearchFields
+          : orderSearchFields
+    ).some((v) => v.value === filters.search_field)
   )
     return fail();
   const statuses =
@@ -244,6 +270,12 @@ export function readListRouteQuery(
   if (
     kind !== "orders" &&
     kind !== "refunds" &&
+    !(
+      kind === "ledger" &&
+      filters.search_field === "trade_no" &&
+      !values.column &&
+      !values.value
+    ) &&
     [filters.search_field, values.column, values.value].some(Boolean)
   )
     return fail();
@@ -310,12 +342,15 @@ export function appendListFilters(
       "client_ip",
       "income_status",
       "notification_state",
+      "subchannel_id",
       "search_field",
     );
   if (
     kind === "refunds" &&
     refundSearchFields.some((f) => f.value === filters.search_field)
   )
+    keys.push("search_field");
+  if (kind === "ledger" && filters.search_field === "trade_no")
     keys.push("search_field");
   for (const key of keys) {
     const value = filters[key].trim();

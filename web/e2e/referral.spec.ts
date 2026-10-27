@@ -1,4 +1,6 @@
+import { publicSiteFixture191 } from "./fixtures/site191";
 import { test, expect } from "@playwright/test";
+import currentPolicies from "./referral170-policies.json" with { type: "json" };
 test.use({ trace: "off" });
 const ok = (data: unknown) => ({
   status: 200,
@@ -23,6 +25,8 @@ test("super policy writes require explicit confirmation and original CAS body wh
     refund_policy: "any_successful_refund_voids_reward",
   };
   await page.route("**/console/v1/**", (route) => {
+    const siteReply191 = publicSiteFixture191(route);
+    if (siteReply191) return siteReply191;
     const p = new URL(route.request().url()).pathname;
     if (p.endsWith("/session"))
       return route.fulfill(
@@ -96,6 +100,8 @@ test("promotion fragment is stripped before API reads and submits only explicit 
   let submits = 0,
     mail = 0;
   await page.route("**/console/v1/**", (route) => {
+    const siteReply191 = publicSiteFixture191(route);
+    if (siteReply191) return siteReply191;
     const r = route.request(),
       p = new URL(r.url()).pathname;
     expect(
@@ -187,10 +193,18 @@ test("referral merchant owns token rotation and sees historical flows rather tha
 }) => {
   let version = 0,
     rotates = 0,
+    currentPolicyReads = 0,
     unexpectedReads = 0;
   const bearer = "rp_" + "A".repeat(43);
   await page.route("**/console/v1/**", (route) => {
+    const siteReply191 = publicSiteFixture191(route);
+    if (siteReply191) return siteReply191;
     const p = new URL(route.request().url()).pathname;
+    if (p === "/console/v1/public/layout") {
+      expect(route.request().method()).toBe("GET");
+      expect(new URL(route.request().url()).search).toBe("");
+      return route.fulfill(ok({ zhuce: "", footer: "", format: "html" }));
+    }
     if (p.endsWith("/session"))
       return route.fulfill(
         ok({
@@ -209,6 +223,12 @@ test("referral merchant owns token rotation and sees historical flows rather tha
           yesterday_issued: "100",
         }),
       );
+    if (p.endsWith("/referral/current-policy")) {
+      expect(route.request().method()).toBe("GET");
+      expect(new URL(route.request().url()).search).toBe("");
+      currentPolicyReads++;
+      return route.fulfill(ok(currentPolicies[0]));
+    }
     if (p.endsWith("/referral/token/rotate")) {
       rotates++;
       expect(route.request().postDataJSON()).toEqual({
@@ -282,6 +302,7 @@ test("referral merchant owns token rotation and sees historical flows rather tha
   ).toBeVisible();
   await expect(page.getByText(/不代表当前可提现余额/)).toBeVisible();
   expect(unexpectedReads).toBe(0);
+  expect(currentPolicyReads).toBe(1);
   await page
     .getByRole("button", { name: "发行或轮换推广令牌", exact: true })
     .click();

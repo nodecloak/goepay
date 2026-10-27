@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"goepay/internal/identity"
+	"goepay/internal/mailpolicy194"
 	"goepay/internal/payment"
 )
 
@@ -34,6 +35,12 @@ var (
 type Sender interface {
 	SendVerification(context.Context, string, string, string) error
 }
+
+// SenderPreparer resolves a dynamic account without I/O inside the original
+// admission transaction. Only its fixed sender may run after commit.
+type SenderPreparer interface {
+	PrepareVerification(context.Context, pgx.Tx) (Sender, error)
+}
 type SenderFunc func(context.Context, string, string, string) error
 
 func (f SenderFunc) SendVerification(ctx context.Context, email, purpose, code string) error {
@@ -45,6 +52,7 @@ type Service struct {
 	store  *payment.Store
 	key    []byte
 	sender Sender
+	rates  *mailpolicy194.Store
 }
 type VerificationRequest struct{ Purpose, Email, Source string }
 type Challenge struct {
@@ -72,7 +80,7 @@ func New(pool *pgxpool.Pool, store *payment.Store, key []byte, sender Sender) (*
 	}
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte("goepay/public-enrollment/v1"))
-	return &Service{pool: pool, store: store, key: mac.Sum(nil), sender: sender}, nil
+	return &Service{pool: pool, store: store, key: mac.Sum(nil), sender: sender, rates: mailpolicy194.FromMaster(pool, key)}, nil
 }
 func (s *Service) Capabilities(ctx context.Context) (Capabilities, error) {
 	tx, e := s.pool.Begin(ctx)
@@ -138,9 +146,9 @@ func limit(ctx context.Context, tx pgx.Tx, key []byte, seconds, max int) error {
 	var n int
 	e := tx.QueryRow(ctx, `INSERT INTO enrollment_limits(key_hash,window_start,attempts) VALUES($1,statement_timestamp(),1)
 	 ON CONFLICT(key_hash) DO UPDATE SET
-	 attempts=CASE WHEN enrollment_limits.window_start<=statement_timestamp()-($2::integer*interval '1 second') THEN 1 ELSE LEAST(enrollment_limits.attempts+1,$3::integer+1) END,
+	 attempts=CASE WHEN enrollment_limits.window_start<=statement_timestamp()-($2::integer*interval '1 second') THEN 1 ELSE LEAST(enrollment_limits.attempts::bigint+1,2147483647)::integer END,
 	 window_start=CASE WHEN enrollment_limits.window_start<=statement_timestamp()-($2::integer*interval '1 second') THEN statement_timestamp() ELSE enrollment_limits.window_start END
-	 RETURNING attempts`, key, seconds, max).Scan(&n)
+	 RETURNING attempts`, key, seconds).Scan(&n)
 	if e != nil {
 		return e
 	}
@@ -170,6 +178,19 @@ func (s *Service) Issue(ctx context.Context, in VerificationRequest) (Challenge,
 		return out, e
 	}
 	defer tx.Rollback(ctx)
+	// Take the platform policy lock before registration setting row locks.
+	// Keep it until this attempt's durable budgets and challenge are committed.
+	rates, managed, e := s.rates.Effective(ctx, tx)
+	if e != nil {
+		return out, ErrUnavailable
+	}
+	delivery := s.sender
+	if prepare, ok := s.sender.(SenderPreparer); ok {
+		delivery, e = prepare.PrepareVerification(ctx, tx)
+		if e != nil || delivery == nil {
+			return out, ErrUnavailable
+		}
+	}
 	if in.Purpose == "register" {
 		open, _, e := policy(ctx, tx)
 		if e != nil {
@@ -181,15 +202,20 @@ func (s *Service) Issue(ctx context.Context, in VerificationRequest) (Challenge,
 	}
 	// All replicas lock source first, then mailbox. Both budgets include failed
 	// delivery attempts, so transport failure cannot enable a send storm.
-	if e = limit(ctx, tx, s.digest("send-source", source), 86400, 11); e != nil {
+	if e = limit(ctx, tx, s.digest("send-source", source), 86400, rates.IPDaily); e != nil {
 		return out, commitRejection(ctx, tx, e)
 	}
-	if e = limit(ctx, tx, s.digest("send-email", email), 86400, 7); e != nil {
+	if e = limit(ctx, tx, s.digest("send-email", email), 86400, rates.EmailDaily); e != nil {
 		return out, commitRejection(ctx, tx, e)
+	}
+	if managed {
+		if e = limit(ctx, tx, s.digest("send-source-gap194", source), rates.IPInterval, 1); e != nil {
+			return out, commitRejection(ctx, tx, e)
+		}
 	}
 	eh := s.digest("email", email)
 	var recent bool
-	if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM enrollment_challenges WHERE email_hash=$1 AND created_at>statement_timestamp()-interval '60 seconds')", eh).Scan(&recent); e != nil {
+	if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM enrollment_challenges WHERE email_hash=$1 AND created_at>statement_timestamp()-($2::integer*interval '1 second'))", eh, rates.EmailInterval).Scan(&recent); e != nil {
 		return out, e
 	}
 	if recent {
@@ -228,7 +254,7 @@ func (s *Service) Issue(ctx context.Context, in VerificationRequest) (Challenge,
 		return out, e
 	}
 	deliveryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	e = s.sender.SendVerification(deliveryCtx, email, in.Purpose, code)
+	e = delivery.SendVerification(deliveryCtx, email, in.Purpose, code)
 	cancel()
 	finishCtx, finishCancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer finishCancel()
@@ -252,6 +278,12 @@ func (s *Service) verify(ctx context.Context, tx pgx.Tx, purpose, id, email, sou
 	if e := limit(ctx, tx, s.digest("verify-email", email), 900, 30); e != nil {
 		return nil, e
 	}
+	return s.verifyProof197(ctx, tx, purpose, id, email, source, code)
+}
+
+// Authenticated contact changes acquire shared verification budgets before
+// merchant/session/flow locks, then use the same proof verifier and attempt cap.
+func (s *Service) verifyProof197(ctx context.Context, tx pgx.Tx, purpose, id, email, source, code string) (*recoveryTarget, error) {
 	if len(id) != 43 {
 		return nil, ErrCode
 	}
@@ -501,6 +533,13 @@ func (s *Service) Recover(ctx context.Context, in RecoverInput) error {
 		return e
 	}
 	if target != nil {
+		currentEmail, sourceErr := s.currentEmail197(ctx, tx, target.MerchantID)
+		if sourceErr != nil {
+			return sourceErr
+		}
+		if currentEmail != email {
+			return rejectExpiredWork(ctx, tx, outer, ErrCode)
+		}
 		var username string
 		e = tx.QueryRow(ctx, `SELECT u.username FROM enrollment_emails e JOIN console_users u ON u.username=e.username AND u.role='merchant' AND u.subject_id=e.merchant_id JOIN merchants m ON m.id=e.merchant_id
 		 WHERE e.email_hash=$1 AND e.merchant_id=$2 AND u.auth_version=$3 AND u.enabled AND m.enabled FOR UPDATE OF u`, s.digest("email", email), target.MerchantID, target.AuthVersion).Scan(&username)

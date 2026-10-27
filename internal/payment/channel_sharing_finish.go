@@ -71,7 +71,7 @@ func (s *Store) scanSharingFinish(ctx context.Context, tx referralReader, row pg
 	if e != nil {
 		return r, e
 	}
-	if e = s.verifySharingPayment(r.Payment); e != nil {
+	if e = s.verifySharingPayment(ctx, tx, r.Payment); e != nil {
 		return r, e
 	}
 	if e = tx.QueryRow(ctx, "SELECT account_id FROM channel_sharing_fundings WHERE order_id=$1", r.OrderID).Scan(&r.FundingAccount); e != nil {
@@ -158,8 +158,8 @@ func (s *Store) ChannelSharingFinishes(ctx context.Context, mid int64, limit int
 	}
 	return views, tx.Commit(ctx)
 }
-func sharingFinishFromPS(o Order, p sharingOrderRecord) sharingFinishRecord {
-	return sharingFinishRecord{ChannelSharingFinishView: ChannelSharingFinishView{OrderID: o.ID, MerchantID: o.MerchantID, TradeNo: o.TradeNo, ExternalNo: p.ExternalNo, ProviderTradeNo: p.ProviderTradeNo, State: "succeeded", Source: "sharing", GrossAmount: o.Amount, MerchantNet: o.MerchantAmount, SharedAmount: o.MerchantAmount - p.ReleasedAmount, ExpectedUnsplit: o.Amount - (o.MerchantAmount - p.ReleasedAmount), ReleaseAmount: p.ReleasedAmount, FundsReleased: true, Sharing: &p.ChannelSharingOrderView}}
+func sharingFinishFromPS(o Order, p sharingOrderRecord, charge int64) sharingFinishRecord {
+	return sharingFinishRecord{ChannelSharingFinishView: ChannelSharingFinishView{OrderID: o.ID, MerchantID: o.MerchantID, TradeNo: o.TradeNo, ExternalNo: p.ExternalNo, ProviderTradeNo: p.ProviderTradeNo, State: "succeeded", Source: "sharing", GrossAmount: charge, MerchantNet: o.MerchantAmount, SharedAmount: o.MerchantAmount - p.ReleasedAmount, ExpectedUnsplit: charge - (o.MerchantAmount - p.ReleasedAmount), ReleaseAmount: p.ReleasedAmount, FundsReleased: true, Sharing: &p.ChannelSharingOrderView}}
 }
 func (s *Store) previewSharingFinish(ctx context.Context, tx pgx.Tx, mid int64, trade string, actor TransferBatchActor) (sharingFinishRecord, error) {
 	var r sharingFinishRecord
@@ -167,6 +167,10 @@ func (s *Store) previewSharingFinish(ctx context.Context, tx pgx.Tx, mid int64, 
 		return r, ErrInvalid
 	}
 	o, e := scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE merchant_id=$1 AND trade_no=$2", mid, trade))
+	if e != nil {
+		return r, e
+	}
+	charge, e := s.authenticatedChargeValue104(ctx, tx, o)
 	if e != nil {
 		return r, e
 	}
@@ -183,7 +187,7 @@ func (s *Store) previewSharingFinish(ctx context.Context, tx pgx.Tx, mid int64, 
 	} else if !errors.Is(e, ErrNotFound) {
 		return r, e
 	}
-	r = sharingFinishRecord{ChannelSharingFinishView: ChannelSharingFinishView{PreviousFailedID: previous, OrderID: o.ID, MerchantID: mid, TradeNo: trade, GrossAmount: o.Amount, MerchantNet: o.MerchantAmount, ExpectedUnsplit: o.Amount, ReleaseAmount: o.MerchantAmount, Source: "finish", State: "eligible"}, Actor: actor}
+	r = sharingFinishRecord{ChannelSharingFinishView: ChannelSharingFinishView{PreviousFailedID: previous, OrderID: o.ID, MerchantID: mid, TradeNo: trade, GrossAmount: charge, MerchantNet: o.MerchantAmount, ExpectedUnsplit: charge, ReleaseAmount: o.MerchantAmount, Source: "finish", State: "eligible"}, Actor: actor}
 	r.Payment, e = scanSharingPayment(ctx, tx, tx.QueryRow(ctx, "SELECT "+sharingPaymentColumns+" FROM provider_attempt_sharing WHERE order_id=$1", o.ID))
 	if errors.Is(e, pgx.ErrNoRows) {
 		return r, ErrState
@@ -191,7 +195,7 @@ func (s *Store) previewSharingFinish(ctx context.Context, tx pgx.Tx, mid int64, 
 	if e != nil {
 		return r, e
 	}
-	if e = s.verifySharingPayment(r.Payment); e != nil {
+	if e = s.verifySharingPayment(ctx, tx, r.Payment); e != nil {
 		return r, e
 	}
 	var valid, conflicting bool
@@ -204,7 +208,7 @@ func (s *Store) previewSharingFinish(ctx context.Context, tx pgx.Tx, mid int64, 
 	original, e := s.scanSharingOrder(ctx, tx, tx.QueryRow(ctx, "SELECT "+sharingOrderColumns+" FROM channel_sharing_orders WHERE order_id=$1", o.ID))
 	if e == nil {
 		if original.FundsReleased {
-			return sharingFinishFromPS(o, original), nil
+			return sharingFinishFromPS(o, original, charge), nil
 		}
 		if original.State != "failed" || original.Completed || original.LastObservationID != 0 {
 			return r, ErrState

@@ -26,6 +26,12 @@ import (
 )
 
 func (s *Server) providerCreate(w http.ResponseWriter, r *http.Request, legacy bool, merchantID int64, p compat.Params) {
+	resolved, resolveErr := s.withParentRuntime(r.Context(), merchantID, p["out_trade_no"])
+	if resolveErr != nil {
+		s.wire(w, legacy, nil, "payment channel source could not be confirmed")
+		return
+	}
+	s = resolved
 	if s.ProviderFlow == nil || !s.ProviderFlow.AllowLive || len(s.CheckoutKey) < 32 {
 		s.wire(w, legacy, nil, "payment providers unavailable")
 		return
@@ -39,7 +45,8 @@ func (s *Server) providerCreate(w http.ResponseWriter, r *http.Request, legacy b
 	if splitErr != nil {
 		ip = r.RemoteAddr
 	}
-	if p["clientip"] != "" {
+	direct := r.URL.Path == "/submit.php" || r.URL.Path == "/api/pay/submit"
+	if !direct && p["clientip"] != "" {
 		parsed := net.ParseIP(p["clientip"])
 		if parsed == nil {
 			s.wire(w, legacy, nil, "invalid client IP")
@@ -47,6 +54,13 @@ func (s *Server) providerCreate(w http.ResponseWriter, r *http.Request, legacy b
 		}
 		ip = parsed.String()
 	}
+	source := "signed_api_clientip"
+	baseline := p["clientip"]
+	if direct {
+		source = "direct_http"
+		baseline = ip
+	}
+	r = r.WithContext(payment.WithCoreRiskCustomerIP(r.Context(), baseline, source))
 	routeParams := compat.Params{}
 	for k, v := range p {
 		routeParams[k] = v
@@ -57,6 +71,12 @@ func (s *Server) providerCreate(w http.ResponseWriter, r *http.Request, legacy b
 		s.wire(w, legacy, nil, "payment channel not permitted")
 		return
 	}
+	resolved, e = s.paymentIntentServer(r.Context(), merchantID, p["out_trade_no"], channelID)
+	if e != nil {
+		s.wire(w, legacy, nil, "payment account could not be confirmed")
+		return
+	}
+	s = resolved
 	if method == "scan" {
 		s.providerScanCreate(w, r, legacy, merchantID, channelID, ip, amount, p)
 		return
@@ -93,6 +113,11 @@ func (s *Server) providerCreate(w http.ResponseWriter, r *http.Request, legacy b
 		return
 	}
 	checkout := s.checkoutURL(order.TradeNo, "checkout")
+	material, e := s.coreRiskPublicPaymentMaterial(r.Context(), order, attempt)
+	if e != nil {
+		s.wire(w, legacy, nil, "original scan protection unavailable; query the original order")
+		return
+	}
 	if r.URL.Path == "/submit.php" || r.URL.Path == "/api/pay/submit" {
 		http.Redirect(w, r, checkout, http.StatusFound)
 		return
@@ -105,7 +130,7 @@ func (s *Server) providerCreate(w http.ResponseWriter, r *http.Request, legacy b
 		data["pay_info"] = checkout
 		if p["method"] != "jump" && (attempt.MaterialType == "qrcode" || attempt.MaterialType == "html") {
 			data["pay_type"] = attempt.MaterialType
-			data["pay_info"] = attempt.Material
+			data["pay_info"] = material
 		}
 		if p["method"] != "jump" && ((method == "app" && attempt.MaterialType == "app") || ((method == "jsapi" || method == "mini") && attempt.MaterialType == "jsapi")) {
 			data["pay_type"] = attempt.MaterialType
@@ -167,6 +192,18 @@ func (s *Server) providerRoute(merchantID int64, p compat.Params) (int64, string
 	if method == "jsapi" && p["type"] == "alipay" && p["is_applet"] == "1" {
 		method = "mini"
 	}
+	if method == "app" && !hasProviderMethod(provider.Capabilities().Methods, "app") {
+		flow, err := s.ProviderFlow.SelectParentPayment(merchantID, channelID, "applet", true)
+		if err == nil && hasProviderMethod(flow.Providers[channelID].Capabilities().Methods, "applet") {
+			method = "applet"
+		}
+	}
+	flow, selectErr := s.ProviderFlow.SelectParentPayment(merchantID, channelID, method, p["is_applet"] == "1" || method == "applet")
+	if selectErr != nil {
+		return 0, "", payment.ErrConflict
+	}
+	s.ProviderFlow = &flow
+	provider = flow.Providers[channelID]
 	if p["type"] == "alipay" {
 		onlyPreauth := len(provider.Capabilities().Methods) > 0
 		hasPreauth := false
@@ -230,6 +267,8 @@ func (s *Server) checkoutURL(trade, purpose string) string {
 	path := "/checkout/" + url.PathEscape(trade)
 	if purpose == "return" {
 		path += "/return"
+	} else if purpose == "scan-region" || purpose == "scan-region-continue" {
+		path += "/" + purpose
 	}
 	expires := strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10)
 	q := url.Values{"expires": {expires}, "token": {s.checkoutToken(trade, purpose, expires)}}
@@ -263,6 +302,16 @@ func (s *Server) providerCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, e := strconv.ParseInt(parts[0], 10, 64)
+	if e != nil || id <= 0 || strconv.FormatInt(id, 10) != parts[0] || parts[1] == "" {
+		http.NotFound(w, r)
+		return
+	}
+	original, resolveErr := s.originalOrderServer(r.Context(), parts[1], id)
+	if resolveErr != nil {
+		http.Error(w, "original payment account unavailable", 503)
+		return
+	}
+	s = original
 	provider := s.ProviderFlow.Providers[id]
 	if e != nil || provider == nil || parts[1] == "" {
 		http.NotFound(w, r)
@@ -315,12 +364,12 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	}
 	purpose := "checkout"
 	if len(parts) == 2 {
-		if parts[1] != "return" && parts[1] != "qr.png" {
+		if parts[1] != "return" && parts[1] != "qr.png" && parts[1] != "scan-region" && parts[1] != "scan-region-continue" {
 			http.NotFound(w, r)
 			return
 		}
-		if parts[1] == "return" {
-			purpose = "return"
+		if parts[1] == "return" || parts[1] == "scan-region" || parts[1] == "scan-region-continue" {
+			purpose = parts[1]
 		}
 	}
 	if !s.checkoutAuthorized(r, parts[0], purpose) {
@@ -336,6 +385,11 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	charge104, e := s.Store.AuthenticatedOrderCharge104(r.Context(), order)
+	if e != nil {
+		http.Error(w, "original payment amount unavailable", 503)
+		return
+	}
 	if s.oauthCheckout(w, r, order) {
 		return
 	}
@@ -345,6 +399,10 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	attempt, e := s.Store.ProviderAttempt(r.Context(), order.TradeNo)
 	if e != nil {
 		http.NotFound(w, r)
+		return
+	}
+	if purpose == "scan-region" || purpose == "scan-region-continue" {
+		s.coreRiskScanCheckout(w, r, order, attempt, purpose)
 		return
 	}
 	if purpose == "return" {
@@ -391,7 +449,12 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		png, e := qrcode.Encode(attempt.Material, qrcode.Medium, 320)
+		material, e := s.coreRiskPublicPaymentMaterial(r.Context(), order, attempt)
+		if e != nil {
+			http.Error(w, "original scan protection unavailable", 503)
+			return
+		}
+		png, e := qrcode.Encode(material, qrcode.Medium, 320)
 		if e != nil {
 			http.Error(w, "QR generation unavailable", 500)
 			return
@@ -408,7 +471,7 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	nonce := base64.RawStdEncoding.EncodeToString(nonceBytes)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action http: https:; script-src 'nonce-"+nonce+"'")
-	if !s.pageTemplateOpen(w, r, "pay", pagetemplate.Page{Title: "支付收银台", TradeNo: order.TradeNo, Amount: ledger.Format(order.Amount), OrderName: order.Name, Sandbox: s.Sandbox}, nil) {
+	if !s.pageTemplateOpen(w, r, "pay", pagetemplate.Page{Title: "支付收银台", TradeNo: order.TradeNo, Amount: ledger.Format(charge104), OrderName: order.Name, Sandbox: s.Sandbox}, nil) {
 		return
 	}
 	if purpose == "return" {
@@ -433,6 +496,11 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, "<p>订单正在核实，请稍后查单。</p></main></body></html>")
 		return
 	}
+	material, e := s.coreRiskPublicPaymentMaterial(r.Context(), order, attempt)
+	if e != nil {
+		http.Error(w, "original scan protection unavailable", 503)
+		return
+	}
 	switch attempt.MaterialType {
 	case "html":
 		io.WriteString(w, attempt.Material)
@@ -448,13 +516,13 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 			label = "授权二维码"
 			io.WriteString(w, "<p>授权材料仅用于买家确认冻结，实际扣款成功后才入账。</p>")
 		}
-		fmt.Fprintf(w, `<p>请使用%s扫描%s。</p><img width="320" height="320" alt="%s" src="%s"><p>%s</p>`, clientName, label, label, html.EscapeString(qrURL.String()), html.EscapeString(attempt.Material))
+		fmt.Fprintf(w, `<p>请使用%s扫描%s。</p><img width="320" height="320" alt="%s" src="%s"><p>%s</p>`, clientName, label, label, html.EscapeString(qrURL.String()), html.EscapeString(material))
 	case "jump", "urlscheme":
-		if !s.checkoutJumpAllowed(attempt.Material) {
+		if !s.checkoutJumpAllowed(material) {
 			http.Error(w, "invalid payment material", 500)
 			return
 		}
-		fmt.Fprintf(w, `<a href="%s">继续支付</a>`, html.EscapeString(attempt.Material))
+		fmt.Fprintf(w, `<a href="%s">继续支付</a>`, html.EscapeString(material))
 	case "jsapi":
 		if order.Type == "alipay" {
 			params, _ := json.Marshal(map[string]string{"tradeNO": attempt.Material})
@@ -580,8 +648,12 @@ func (s *Server) providerOperation(w http.ResponseWriter, r *http.Request, legac
 		}
 		refundNo = "rf" + base64.RawURLEncoding.EncodeToString(b)
 	}
-	refund, e := s.ProviderFlow.Refund(r.Context(), merchantID, order.TradeNo, refundNo, amount)
+	refund, e := s.ProviderFlow.RefundFromAPI(r.Context(), merchantID, order.TradeNo, refundNo, amount)
 	if e != nil {
+		if refund.ID == 0 || errors.Is(e, payment.ErrMerchantAPIAdmission) {
+			s.wire(w, legacy, nil, "refund request rejected")
+			return
+		}
 		var unknown *provider.UnknownOutcome
 		if errors.As(e, &unknown) {
 			if existing, lookupError := s.Store.Refund(r.Context(), merchantID, refundNo); lookupError == nil && (existing.Status == "pending" || existing.Status == "unknown") {

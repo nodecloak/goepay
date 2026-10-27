@@ -14,7 +14,7 @@ func (g ProviderFlow) QueueSettlementAuto(ctx context.Context, limit int) (int64
 	if g.Store == nil || limit < 1 || limit > 100 {
 		return 0, ErrInvalid
 	}
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return 0, ErrLiveDisabled
 	}
 	tx, e := g.Store.pool.Begin(ctx)
@@ -22,6 +22,12 @@ func (g ProviderFlow) QueueSettlementAuto(ctx context.Context, limit int) (int64
 		return 0, e
 	}
 	defer tx.Rollback(ctx)
+	filter := ""
+	args := []any{limit}
+	if scope, ok := ctx.Value(scheduledAutoQueueScopeKey{}).(scheduledAutoQueueScope); ok {
+		filter = ` AND r.id=ANY($2::bigint[]) AND a.id=ANY($3::bigint[])`
+		args = append(args, scope.RunIDs, scope.AuthorityIDs)
+	}
 	rows, e := tx.Query(ctx, `SELECT r.plan_id,h.authorization_id,i.request_id
  FROM settlement_auto_heads h JOIN settlement_auto_authorizations a ON a.id=h.authorization_id
  JOIN settlement_plans p ON p.id=h.plan_id JOIN settlement_plan_runs r ON r.plan_id=p.id AND r.authorization_id=a.generation_authorization_id AND r.plan_revision=a.plan_revision
@@ -34,7 +40,7 @@ func (g ProviderFlow) QueueSettlementAuto(ctx context.Context, limit int) (int64
  AND NOT EXISTS(SELECT 1 FROM settlement_plan_revocations WHERE authorization_id=a.generation_authorization_id)
  AND l.status IN('pending','approved') AND (sp.request_id IS NULL OR sp.send_state='unsent')
  AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.event_key='settlement-auto:'||a.id::text||':'||l.id::text)
- ORDER BY l.id LIMIT $1`, limit)
+ `+filter+` ORDER BY l.id LIMIT $1`, args...)
 	if e != nil {
 		return 0, e
 	}

@@ -16,6 +16,12 @@ import (
 )
 
 func TestPreauthOnlyChannelUsesDedicatedCreationAndHonestSDKMaterial(t *testing.T) {
+	runChannel168PreauthOnlyChannelUsesDedicatedCreationAndHonestSDKMaterial(t, nil)
+}
+func TestChannel168PreauthOnlyChannelUsesDedicatedCreationAndHonestSDKMaterial(t *testing.T) {
+	runChannel168PreauthOnlyChannelUsesDedicatedCreationAndHonestSDKMaterial(t, installChannel168Fees)
+}
+func runChannel168PreauthOnlyChannelUsesDedicatedCreationAndHonestSDKMaterial(t *testing.T, channelFees channel168FixturePolicy) {
 	s, pool, key := fixture(t)
 	calls := 0
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; t.Error("freeze signing reached upstream") }))
@@ -27,6 +33,9 @@ func TestPreauthOnlyChannelUsesDedicatedCreationAndHonestSDKMaterial(t *testing.
 	s.ProviderFlow = &payment.ProviderFlow{Store: s.Store, Providers: map[int64]adapter.Provider{9: ali}, AllowLive: true, CallbackBaseURL: "https://pay.example.invalid"}
 	s.CheckoutKey = bytes.Repeat([]byte{9}, 32)
 	s.MerchantChannels = map[int64][]int64{2: {9}}
+	if channelFees != nil {
+		applyChannel168Fixture(t, s, channelFees)
+	}
 	for _, method := range []string{"jsapi", "app", "web"} {
 		p := compat.Params{"pid": "2", "type": "alipay", "method": method, "channel_id": "9", "out_trade_no": "preauth-" + method, "name": "test", "money": "1.00", "sign_type": "RSA", "timestamp": strconv.FormatInt(time.Now().Unix(), 10)}
 		if method == "jsapi" {
@@ -101,5 +110,11 @@ func TestPreauthOnlyChannelUsesDedicatedCreationAndHonestSDKMaterial(t *testing.
 	var captures int
 	if e = pool.QueryRow(context.Background(), "SELECT count(*) FROM payment_authorizations").Scan(&captures); e != nil || captures != 0 {
 		t.Fatal("freeze material falsely authorized", captures, e)
+	}
+	if channelFees != nil {
+		var successes int
+		if e = pool.QueryRow(context.Background(), `SELECT count(*) FROM runtime_channel_success_events`).Scan(&successes); e != nil || successes != 0 {
+			t.Fatal("authorization material consumed successful daily quota", successes, e)
+		}
 	}
 }

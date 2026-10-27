@@ -4,6 +4,37 @@ export function accountSettingsReadFixture(
   path: string,
   merchantID = "1000",
 ): unknown | undefined {
+  if (path.endsWith("/account/email"))
+    return {
+      email: "",
+      verified: false,
+      email_enabled: false,
+      requires: "password",
+      fingerprint: "a".repeat(64),
+      email_interval: 60,
+    };
+  if (path.endsWith("/account/api-switches"))
+    return {
+      merchant_id: merchantID,
+      keylogin: 1,
+      refund: 1,
+      transfer: 0,
+      configured: false,
+      revision: "0",
+      fingerprint: "a".repeat(64),
+      can_update: true,
+      transfer_granted: false,
+    };
+  if (path.endsWith("/account/personal-settings"))
+    return {
+      merchant_id: merchantID,
+      qq: "",
+      pay_minmoney: "",
+      pay_maxmoney: "",
+      bounds_valid: true,
+      fingerprint: "a".repeat(64),
+      can_update: true,
+    };
   if (path.endsWith("/account/notice"))
     return {
       id: "0",

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import OrderActionMenu from "./OrderActionMenu.vue";
+import MerchantOrderActionMenu from "./MerchantOrderActionMenu.vue";
+import type { MerchantOrderActionID } from "../order-actions";
 import type { OrderActionID } from "../order-actions";
 import { beijingTimestamp } from "../console-datetime";
 import {
@@ -15,6 +17,7 @@ const props = defineProps<{
   orders?: boolean;
   refunds?: boolean;
   adminOrders?: boolean;
+  merchantOrders?: boolean;
   orderActionsDisabled?: boolean;
   selectable?: boolean;
   selectedTrades?: string[];
@@ -27,6 +30,10 @@ const emit = defineEmits<{
   refund: [row: Record<string, unknown>];
   detail: [row: Record<string, unknown>];
   "order-action": [row: Record<string, unknown>, action: OrderActionID];
+  "merchant-order-action": [
+    row: Record<string, unknown>,
+    action: MerchantOrderActionID,
+  ];
   blacklist: [row: Record<string, unknown>, kind: "ip" | "buyer"];
 }>();
 function select(row: Record<string, unknown>, checked: boolean) {
@@ -272,32 +279,39 @@ function associatedOrder(value: unknown): boolean {
           </td>
           <td v-if="orders || $slots.actions" class="operation-cell">
             <slot name="actions" :row="row"
-              ><button
-                v-if="orders"
-                class="link-button"
-                @click="$emit('detail', row)"
-              >
-                详情</button
-              ><OrderActionMenu
-                v-if="orders && adminOrders"
+              ><MerchantOrderActionMenu
+                v-if="orders && merchantOrders"
                 :row="row"
                 :disabled="orderActionsDisabled"
-                @action="$emit('order-action', row, $event)"
-              /><button
-                v-else
-                class="link-button"
-                :disabled="!canRefundListOrder(row)"
-                :title="
-                  row.income_status === 'held'
-                    ? '请先解冻订单收入'
-                    : !canRefundListOrder(row)
-                      ? '当前订单不可申请退款'
-                      : ''
-                "
-                @click="canRefundListOrder(row) && $emit('refund', row)"
-              >
-                申请退款
-              </button></slot
+                @action="emit('merchant-order-action', row, $event)"
+              /><template v-else
+                ><button
+                  v-if="orders"
+                  class="link-button"
+                  @click="$emit('detail', row)"
+                >
+                  详情</button
+                ><OrderActionMenu
+                  v-if="orders && adminOrders"
+                  :row="row"
+                  :disabled="orderActionsDisabled"
+                  @action="$emit('order-action', row, $event)"
+                /><button
+                  v-else
+                  class="link-button"
+                  :disabled="!canRefundListOrder(row)"
+                  :title="
+                    row.income_status === 'held'
+                      ? '请先解冻订单收入'
+                      : !canRefundListOrder(row)
+                        ? '当前订单不可申请退款'
+                        : ''
+                  "
+                  @click="canRefundListOrder(row) && $emit('refund', row)"
+                >
+                  申请退款
+                </button></template
+              ></slot
             >
           </td>
         </tr>

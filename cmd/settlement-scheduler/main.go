@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"errors"
-	"goepay/internal/bootstrap"
-	"goepay/internal/platform/jobs"
-	"goepay/internal/settlementscheduler"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"goepay/internal/bootstrap"
+	"goepay/internal/platform/jobs"
+	"goepay/internal/settlementscheduler"
 )
 
 func run(ctx context.Context) error {
@@ -27,7 +28,7 @@ func run(ctx context.Context) error {
 	}
 	defer pool.Close()
 	slog.Info("settlement scheduler started; generates pending applications only")
-	return (settlementscheduler.Runner{Scheduler: settlementscheduler.Scheduler{Store: store, Enabled: true}, Queue: jobs.Queue{Pool: pool}, Handler: settlementscheduler.Handler{Store: store}}).Run(ctx)
+	return (settlementscheduler.Runner{Scheduler: settlementscheduler.Scheduler{Store: store, Enabled: true}, Queue: jobs.Queue{Pool: pool, Policy: store}, Handler: settlementscheduler.Handler{Store: store}}).Run(ctx)
 }
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

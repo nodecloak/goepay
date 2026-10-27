@@ -80,6 +80,10 @@ func TestGroupStatisticsUXExactAmountsCurrentMembershipAndWeightedDays(t *testin
 		}
 		return v
 	}()
+	var auditsBefore int
+	if e = pool.QueryRow(ctx, `SELECT count(*) FROM backoffice_audit`).Scan(&auditsBefore); e != nil {
+		t.Fatal(e)
+	}
 	data := get(gid)
 	if data["group_id"] != fmt.Sprint(gid) || data["group_name"] != "统计143组" || data["cohort"] != "current_effective_group" {
 		t.Fatalf("wrong group context %+v", data)
@@ -115,7 +119,7 @@ func TestGroupStatisticsUXExactAmountsCurrentMembershipAndWeightedDays(t *testin
 		t.Fatalf("report mutated financial rows %v", e)
 	}
 	var audits int
-	if e = pool.QueryRow(ctx, `SELECT count(*) FROM backoffice_audit`).Scan(&audits); e != nil || audits != 0 {
+	if e = pool.QueryRow(ctx, `SELECT count(*) FROM backoffice_audit`).Scan(&audits); e != nil || audits != auditsBefore {
 		t.Fatalf("report wrote audit %d %v", audits, e)
 	}
 }

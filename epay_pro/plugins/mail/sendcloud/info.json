@@ -1,0 +1,30 @@
+{
+    "name": "sendcloud",
+    "title": "搜狐 SendCloud",
+    "author": "官方",
+    "link": "https://www.sendcloud.net/",
+    "version": "1.0",
+    "icon": "sendcloud.png",
+    "desc": "",
+    "inputs": {
+        "api_user": {
+            "name": "API_USER",
+            "type": "input",
+            "required": true,
+            "note": ""
+        },
+        "api_key": {
+            "name": "API_KEY",
+            "type": "input",
+            "required": true,
+            "note": ""
+        },
+        "from": {
+            "name": "发件人邮箱",
+            "type": "input",
+            "required": true,
+            "note": ""
+        }
+    },
+    "note": "<a href=\"https://www.sendcloud.net/\" target=\"_blank\" rel=\"noreferrer\">SendCloud 官网</a>"
+}

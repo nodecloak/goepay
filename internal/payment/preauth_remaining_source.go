@@ -295,9 +295,9 @@ func (s *Store) bindPreauthRemainingRelease(ctx context.Context, mid int64, trad
 	return out, e
 }
 
-func (s *Store) markPreauthRemainingSent(ctx context.Context, trade string, revision int64, check func(context.Context) error) (AuthorizationRelease, error) {
+func (s *Store) markPreauthRemainingSent(ctx context.Context, trade string, revision int64, checkTx func(context.Context, pgx.Tx) error) (AuthorizationRelease, error) {
 	var out AuthorizationRelease
-	if check == nil {
+	if checkTx == nil {
 		return out, ErrInvalid
 	}
 	tx, e := s.pool.Begin(ctx)
@@ -331,7 +331,7 @@ func (s *Store) markPreauthRemainingSent(ctx context.Context, trade string, revi
 		return out, e
 	}
 	v := all[len(all)-1]
-	if s.observationAlive(ctx, tx, v.observation) != nil || check(ctx) != nil {
+	if s.observationAlive(ctx, tx, v.observation) != nil || checkTx(ctx, tx) != nil {
 		return out, ErrPreauthObservation
 	}
 	c := preauthRemainingClaim{OrderID: id, SourceID: v.ID, Revision: v.Revision}
@@ -354,7 +354,7 @@ func (s *Store) markPreauthRemainingSent(ctx context.Context, trade string, revi
 	if _, e = tx.Exec(ctx, `UPDATE payment_authorizations SET release_state='processing',updated_at=now() WHERE order_id=$1`, id); e != nil {
 		return out, e
 	}
-	if s.observationAlive(ctx, tx, v.observation) != nil || check(ctx) != nil {
+	if s.observationAlive(ctx, tx, v.observation) != nil || checkTx(ctx, tx) != nil {
 		return out, ErrPreauthObservation
 	}
 	out, e = s.readAuthorizationReleaseTx(ctx, tx, id)

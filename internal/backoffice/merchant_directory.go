@@ -93,7 +93,7 @@ func ParseMerchantDirectoryQuery(v url.Values) (*MerchantDirectoryFilter, string
 		f.Status = "pay_" + raw
 	}
 	switch f.Status {
-	case "", "pay_0", "pay_1", "pay_2", "status_0", "status_1":
+	case "", "pay_0", "pay_1", "pay_2", "status_0", "status_1", "settle_0", "settle_1":
 	default:
 		return nil, "", ErrInvalid
 	}
@@ -152,6 +152,8 @@ func merchantDirectorySQL(f *MerchantDirectoryFilter, search string) (string, st
 		where += " AND NOT merchants.enabled"
 	case "status_1":
 		where += " AND merchants.enabled"
+	case "settle_0", "settle_1":
+		where += " AND merchant_settlement_permission(merchants.profile)=" + bind(f.Status[len(f.Status)-1:]) + "::text"
 	default:
 		return "", "", nil, ErrInvalid
 	}
@@ -163,6 +165,9 @@ func merchantDirectorySQL(f *MerchantDirectoryFilter, search string) (string, st
 	}
 	if f.PromoterID != nil {
 		where += " AND EXISTS(SELECT 1 FROM referral_relations rel WHERE rel.invited_id=merchants.id AND rel.promoter_id=" + bind(*f.PromoterID) + "::bigint)"
+	}
+	if !f.From.IsZero() || !f.To.IsZero() {
+		where += " AND merchants.registration_time_known"
 	}
 	if !f.From.IsZero() {
 		where += " AND merchants.created_at>=" + bind(f.From) + "::timestamptz"

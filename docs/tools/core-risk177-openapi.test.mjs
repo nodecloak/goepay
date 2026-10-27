@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { installCoreRisk177API } from './core-risk177-openapi.mjs';
+const schemas={OrderBatch105:{type:'object',description:'preserve batch semantics'},SystemUpdate183:{type:'object',description:'preserve Build identity'},ParentAccount103:{type:'object',description:'preserve private parent source'},RuntimeChannelPolicy:{oneOf:[{type:'object',properties:{fee_anchor:{type:'string'}}}]}},paths={'/untouched-186':{get:{operationId:'unchanged186'}}};
+const old=structuredClone({schemas,paths});installCoreRisk177API(schemas,paths);
+for(const k of['OrderBatch105','SystemUpdate183','ParentAccount103'])assert.deepEqual(schemas[k],old.schemas[k]);assert.deepEqual(paths['/untouched-186'],old.paths['/untouched-186']);
+assert.equal(Object.keys(schemas.CoreRiskSettings.properties).length,25);assert.deepEqual(schemas.CoreRiskSettings.properties.check_pay_regoin.enum,['0','1','2']);assert.equal(Object.keys(schemas.CoreRiskGroupConfig.properties).length,2);assert.ok(schemas.CoreRiskGroupConfigInput.properties.check_pay_regoin.enum.includes('_'));
+assert.ok(schemas.RuntimeChannelPolicy.oneOf[0].properties.fee_anchor);assert.ok(schemas.RuntimeChannelPolicy.oneOf[0].properties.core_risk);
+for(const[route,methods]of Object.entries(paths))if(route.includes('/payment-risk'))for(const[method,op]of Object.entries(methods))if(method!=='get')assert.ok(op.parameters.some(p=>p.in==='header'&&p.name==='X-CSRF-Token'&&p.required));
+const once=structuredClone({schemas,paths});installCoreRisk177API(schemas,paths);assert.deepEqual({schemas,paths},once);
+console.log(JSON.stringify({pure_additive:true,idempotent:true,preserves_186_105_183_103:true,global_fields:25,group_fields:2}));

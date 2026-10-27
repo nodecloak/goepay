@@ -29,6 +29,7 @@ type WechatV3Config struct {
 	VerificationKeys                  map[string]*rsa.PublicKey
 	HTTPClient                        *http.Client
 	Methods                           []string
+	MiniProgram                       *MiniProgramConfig
 	H5SiteURL, H5SiteName             string
 }
 type wechatV3Client struct{ config WechatV3Config }

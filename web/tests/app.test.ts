@@ -44,17 +44,39 @@ describe("console login", () => {
   it("keeps users on login when credentials are rejected and shows the server error", async () => {
     const fetcher = vi
       .fn()
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ code: 401, message: "请登录" }), {
-          status: 401,
-        }),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ code: 401, message: "用户名或密码错误" }),
-          { status: 401 },
-        ),
-      );
+      .mockImplementation((url: string, options?: RequestInit) => {
+        if (url === "/console/v1/admin/session")
+          return Promise.resolve(
+            new Response(JSON.stringify({ code: 401, message: "请登录" }), {
+              status: 401,
+            }),
+          );
+        if (url === "/console/v1/admin/login" && options?.method === "POST")
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({ code: 401, message: "用户名或密码错误" }),
+              { status: 401 },
+            ),
+          );
+        if (url === "/console/v1/public/layout")
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                code: 0,
+                data: { zhuce: "", footer: "", format: "html" },
+              }),
+            ),
+          );
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              code: -1,
+              message: "optional public data unavailable",
+            }),
+            { status: 503 },
+          ),
+        );
+      });
     vi.stubGlobal("fetch", fetcher);
     const router = createRouter({
       history: createMemoryHistory(),

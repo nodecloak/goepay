@@ -34,7 +34,7 @@ func TestTransferSearchUXListsCountPaginationCSVAndOwnerUseSameFilters(t *testin
 			t.Fatal(e)
 		}
 		for i := 0; i < 2; i++ {
-			v, e := flow.Transfer(ctx, mid, 7, fmt.Sprintf("merchant151-%d-%d", mid, i), adapter.TransferRequest{Type: "alipay", Account: "local151@example.invalid", Amount: int64(103 + i)})
+			v, e := flow.Transfer(ctx, mid, 7, fmt.Sprintf("merchant151-%d-%d", mid, i), adapter.TransferRequest{Type: "alipay", Account: "local151@example.invalid", Name: "本地姓名158", Remark: fmt.Sprintf("local-remark158-%d", i), Amount: int64(103 + i)})
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -80,7 +80,7 @@ func TestTransferSearchUXListsCountPaginationCSVAndOwnerUseSameFilters(t *testin
 		for _, v := range []struct {
 			field, value string
 			count        int
-		}{{"biz_no", records[0].BizNo, 1}, {"out_biz_no", records[0].TransferNo, 1}, {"pay_order_no", "ali-transfer-1", 2}, {"money", "1.03", 1}, {"biz_no", "' OR 1=1--", 0}, {"money", "1.05", 0}} {
+		}{{"biz_no", records[0].BizNo, 1}, {"out_biz_no", records[0].TransferNo, 1}, {"pay_order_no", "ali-transfer-1", 2}, {"money", "1.03", 1}, {"biz_no", "' OR 1=1--", 0}, {"money", "1.05", 0}, {"account", "LOCAL151@", 2}, {"username", "姓名158", 2}, {"desc", "remark158-0", 1}, {"account", "%", 0}} {
 			q := url.Values{"merchant_id": {"1"}, "search_field": {v.field}, "q": {v.value}, "channel_id": {"7"}, "status": {"pending"}, "from": {day}, "to": {day}, "limit": {"1"}, "page": {"1"}}
 			items, total := list(scope.role, scope.token, q)
 			if total != v.count || len(items) != min(v.count, 1) {
@@ -107,7 +107,7 @@ func TestTransferSearchUXListsCountPaginationCSVAndOwnerUseSameFilters(t *testin
 				}
 			}
 		}
-		for _, q := range []url.Values{{"search_field": {"account"}, "q": {"private"}}, {"search_field": {"money"}, "q": {"1.001"}}, {"search_field": {"biz_no", "money"}, "q": {"1"}}, {"search_field": {"biz_no"}, "q": {"a\x00b"}}, {"unknown": {"x"}}, {"merchant_id": {"01"}}, {"channel_id": {"07"}}, {"page": {"1", "2"}}, {"limit": {"01"}}} {
+		for _, q := range []url.Values{{"search_field": {"unsupported-private"}, "q": {"private"}}, {"search_field": {"money"}, "q": {"1.001"}}, {"search_field": {"biz_no", "money"}, "q": {"1"}}, {"search_field": {"biz_no"}, "q": {"a\x00b"}}, {"unknown": {"x"}}, {"merchant_id": {"01"}}, {"channel_id": {"07"}}, {"page": {"1", "2"}}, {"limit": {"01"}}} {
 			if w := request(scope.role, scope.token, q); w.Code != 400 {
 				t.Fatal("invalid original filter accepted", w.Code)
 			}

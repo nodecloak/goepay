@@ -5,9 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"goepay/internal/platform/jobs"
 	"io"
 	"strconv"
+
+	"goepay/internal/platform/jobs"
 )
 
 const GenerateKind = "settlement-plan.generate"
@@ -53,6 +54,13 @@ func (h Handler) Handle(ctx context.Context, j jobs.Job) error {
 	}
 	if h.Store == nil {
 		return ErrUnavailable
+	}
+	if gate, ok := h.Store.(interface {
+		VerifyScheduledJobClaim(context.Context, jobs.Job) error
+	}); ok {
+		if e := gate.VerifyScheduledJobClaim(ctx, j); e != nil {
+			return e
+		}
 	}
 	return h.Store.GenerateSettlementPlanRun(ctx, id)
 }

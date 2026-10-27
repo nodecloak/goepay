@@ -1,0 +1,40 @@
+{
+    "name": "aliyun",
+    "title": "阿里云短信",
+    "author": "官方",
+    "link": "https://www.aliyun.com/product/sms",
+    "version": "1.1",
+    "icon": "aliyun.png",
+    "desc": "",
+    "inputs": {
+        "AccessKeyId": {
+            "name": "AccessKeyId",
+            "type": "input",
+            "required": true,
+            "note": ""
+        },
+        "AccessKeySecret": {
+            "name": "AccessKeySecret",
+            "type": "input",
+            "required": true,
+            "note": ""
+        },
+        "sign": {
+            "name": "短信签名",
+            "type": "input",
+            "required": true,
+            "note": "已申请并报备的短信签名内容"
+        },
+        "product": {
+            "name": "产品类别",
+            "type": "select",
+            "required": true,
+            "options": [
+                "短信服务",
+                "号码认证服务（仅支持验证码短信）"
+            ],
+            "value": "0"
+        }
+    },
+    "note": "<a href=\"https://dysms.console.aliyun.com/dysms.htm\" target=\"_blank\" rel=\"noreferrer\">阿里云短信控制台</a>、<a href=\"https://dypns.console.aliyun.com/smsServiceOverview\" target=\"_blank\" rel=\"noreferrer\">阿里号码认证服务控制台</a>"
+}

@@ -15,6 +15,18 @@ func consoleOrderSearch(q url.Values, kind, fallback string) (string, any, error
 		return "", nil, errListFilter
 	}
 	raw, field := q.Get("q"), q.Get("search_field")
+	if values, exists := q["trade_no"]; exists && (kind == "ledger" || kind == "refunds") {
+		if len(values) != 1 || values[0] == "" || len(values[0]) > 64 || strings.ContainsAny(values[0], "\x00\r\n") || (raw != "" && raw != values[0]) || (field != "" && field != "trade_no") {
+			return "", nil, errListFilter
+		}
+		raw, field = values[0], "trade_no"
+	}
+	if kind == "ledger" && field == "trade_no" {
+		if raw == "" || len(raw) > 64 || strings.ContainsAny(raw, "\x00\r\n") {
+			return "", nil, errListFilter
+		}
+		return consoleOrderLedgerReference, raw, nil
+	}
 	if kind == "refunds" && strings.ContainsAny(raw, "\x00\r\n") {
 		return "", nil, errListFilter
 	}
@@ -72,8 +84,10 @@ func consoleOrderSearch(q url.Values, kind, fallback string) (string, any, error
 		expression = "COALESCE(NULLIF(console_report.buyer,''),console_authorization.buyer_id,'')"
 	case "ip":
 		expression, mode = "console_report.client_ip", "ip"
-	case "money", "realmoney":
+	case "money":
 		expression, mode = "o.amount", "money"
+	case "realmoney":
+		expression, mode = "COALESCE((to_jsonb(o)->>'actual_charge_amount104')::bigint,o.amount)", "money"
 	case "getmoney":
 		expression, mode = "o.merchant_amount", "money"
 	default:

@@ -16,6 +16,13 @@ var ErrLiveDisabled = errors.New("live financial operations disabled")
 // ProviderFlow persists an attempt before external I/O. It deliberately never
 // retries an attempt whose outcome is unknown. Operators must reconcile it.
 type ProviderFlow struct {
+	SubchannelFactories map[int64]provider.SubchannelFactory
+	boundParents        map[int64]RuntimeChannel
+	// ParentFactories are process-local trusted constructors, never request JSON.
+	ParentFactories        map[int64]provider.ParentAccountFactory
+	parentBindings         map[int64]*parentExecutionBinding
+	parentLive             func() bool
+	parentOperator         func(int64, int64) bool
 	ChannelAutoStopEnabled bool
 	// Original barcode recovery can cancel a payment. It requires its own
 	// explicit execution policy in addition to the ordinary provider write gate.
@@ -36,11 +43,16 @@ func (g ProviderFlow) Submit(ctx context.Context, tradeNo string, channelID int6
 	if method == "preauth" || method == "scan" || method == "applet" {
 		return ProviderAttempt{}, provider.ErrUnsupported
 	}
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return ProviderAttempt{}, ErrLiveDisabled
 	}
 	if g.Store == nil {
 		return ProviderAttempt{}, ErrInvalid
+	}
+	var resolveErr error
+	g, resolveErr = g.forPaymentTrade(ctx, tradeNo, channelID)
+	if resolveErr != nil {
+		return ProviderAttempt{}, resolveErr
 	}
 	if e := g.Store.checkChannelWrite(ctx, channelID); e != nil {
 		return ProviderAttempt{}, e
@@ -78,7 +90,11 @@ func (g ProviderFlow) Submit(ctx context.Context, tradeNo string, channelID int6
 	if e != nil {
 		return ProviderAttempt{}, e
 	}
-	request := provider.CreateRequest{TradeNo: tradeNo, Subject: subject, Method: method, NotifyURL: notify, ReturnURL: providerReturn, ClientIP: clientIP, OpenID: openID, Amount: o.Amount}
+	charge104, e := g.Store.AuthenticatedOrderCharge104(ctx, o)
+	if e != nil {
+		return ProviderAttempt{}, e
+	}
+	request := provider.CreateRequest{TradeNo: tradeNo, Subject: subject, Method: method, NotifyURL: notify, ReturnURL: providerReturn, ClientIP: clientIP, OpenID: openID, Amount: charge104}
 	appID := ""
 	if identity, ok := p.(provider.ApplicationIdentity); ok {
 		appID = identity.ApplicationID()
@@ -138,8 +154,17 @@ func validProviderOrigin(raw string, local bool) bool {
 	return u.Hostname() == "localhost" || ip != nil && ip.IsLoopback()
 }
 func (g ProviderFlow) HandleNotification(ctx context.Context, channelID int64, tradeNo string, headers http.Header, raw []byte) error {
+	resolved, resolveErr := g.parentPaymentTrade(ctx, tradeNo)
+	if resolveErr != nil {
+		return resolveErr
+	}
+	g = resolved
 	if g.Store == nil {
 		return ErrInvalid
+	}
+	g, resolveErr = g.forPaymentTrade(ctx, tradeNo, channelID)
+	if resolveErr != nil {
+		return resolveErr
 	}
 	p := g.Providers[channelID]
 	v, ok := p.(provider.NotificationVerifier)
@@ -160,12 +185,16 @@ func (g ProviderFlow) HandleNotification(ctx context.Context, channelID int64, t
 	if e != nil {
 		return e
 	}
-	event, e := v.VerifyNotification(ctx, headers, raw, provider.ExpectedPayment{TradeNo: tradeNo, Amount: o.Amount})
+	charge104, e := g.Store.AuthenticatedOrderCharge104(ctx, o)
 	if e != nil {
 		return e
 	}
-	if event.State != "SUCCESS" || event.Currency != "CNY" || event.Amount != o.Amount || event.TradeNo != tradeNo || event.EventID == "" {
+	event, e := v.VerifyNotification(ctx, headers, raw, provider.ExpectedPayment{TradeNo: tradeNo, Amount: charge104})
+	if e != nil {
+		return e
+	}
+	if event.State != "SUCCESS" || event.Currency != "CNY" || event.Amount != charge104 || event.TradeNo != tradeNo || event.EventID == "" {
 		return provider.ErrAuthentication
 	}
-	return g.Store.markPaid(ctx, tradeNo, fmt.Sprintf("%d:%s", channelID, event.EventID), true, PaidReceipt{ChannelID: channelID, ProviderTradeNo: event.ProviderTradeNo, BuyerID: event.BuyerID})
+	return g.Store.markPaid(ctx, tradeNo, fmt.Sprintf("%d:%s", channelID, event.EventID), true, PaidReceipt{RealMoney: event.Amount, ChannelID: channelID, ProviderTradeNo: event.ProviderTradeNo, BuyerID: event.BuyerID})
 }

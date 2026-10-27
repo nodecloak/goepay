@@ -158,6 +158,9 @@ func (s *Store) FreezeOrderIncome(ctx context.Context, merchantID int64, tradeNo
 	if e != nil {
 		return h, e
 	}
+	if e = checkOrderBusinessBatch185LocalFinal(ctx, tx); e != nil {
+		return h, e
+	}
 	return h, tx.Commit(ctx)
 }
 func (s *Store) UnfreezeOrderIncome(ctx context.Context, merchantID int64, tradeNo string, holdID int64, actor IncomeHoldActor) (OrderIncomeHold, error) {
@@ -207,6 +210,9 @@ func (s *Store) UnfreezeOrderIncome(ctx context.Context, merchantID int64, trade
 	}
 	h, _, _, e = s.readIncomeHold(ctx, tx, h)
 	if e != nil {
+		return h, e
+	}
+	if e = checkOrderBusinessBatch185LocalFinal(ctx, tx); e != nil {
 		return h, e
 	}
 	return h, tx.Commit(ctx)

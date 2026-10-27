@@ -31,7 +31,7 @@ func TestVerifiedReceiptAtomicIdentityAndClientIP(t *testing.T) {
 	if e := s.SetOrderClientIP(ctx, orders[0].ID, "not-an-ip"); e == nil {
 		t.Fatal("invalid IP accepted")
 	}
-	r := PaidReceipt{ChannelID: 7, ProviderTradeNo: "verified-upstream-number", BuyerID: "trusted-buyer"}
+	r := PaidReceipt{RealMoney: 100, ChannelID: 7, ProviderTradeNo: "verified-upstream-number", BuyerID: "trusted-buyer"}
 	for i := 0; i < 2; i++ {
 		if e := s.markPaid(ctx, orders[0].TradeNo, "event", true, r); e != nil {
 			t.Fatal(e)

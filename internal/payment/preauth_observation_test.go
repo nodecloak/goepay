@@ -3,6 +3,7 @@ package payment
 import (
 	"context"
 	"encoding/json"
+	"github.com/jackc/pgx/v5"
 	adapter "goepay/internal/adapters/payment"
 	"strings"
 	"sync"
@@ -57,6 +58,12 @@ func observationFixture68(t *testing.T) (*Store, ProviderFlow, Order, string, *o
 	return s, ProviderFlow{Store: s, Providers: map[int64]adapter.Provider{7: p}}, o, token, p
 }
 func observationCheck68(context.Context) error { return nil }
+func observationCheckTx68(ctx context.Context, tx pgx.Tx) error {
+	if tx == nil {
+		return ErrPreauthObservation
+	}
+	return observationCheck68(ctx)
+}
 func observationFinancial68(t *testing.T, s *Store, trade string) string {
 	t.Helper()
 	var raw []byte
@@ -77,7 +84,7 @@ func TestPreauthObservation68SingleReadAndNoFinancialMutation(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			q, e := g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68)
+			q, e := g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68, observationCheckTx68)
 			if e == nil {
 				mu.Lock()
 				last = q
@@ -89,7 +96,7 @@ func TestPreauthObservation68SingleReadAndNoFinancialMutation(t *testing.T) {
 	if p.reads.Load() != 1 {
 		t.Fatal("duplicate original query", p.reads.Load())
 	}
-	q, e := g.ReadPreauthorizationObservation(ctx, last.ID, token, "merchant", observationCheck68)
+	q, e := g.ReadPreauthorizationObservation(ctx, last.ID, token, "merchant", observationCheck68, observationCheckTx68)
 	if e != nil || q.Status != "verified" || !q.RestKnown || q.RestAmount == nil || *q.RestAmount != 450 || !q.SourceVerified {
 		t.Fatal(q, e)
 	}
@@ -100,7 +107,7 @@ func TestPreauthObservation68SingleReadAndNoFinancialMutation(t *testing.T) {
 	if after := observationFinancial68(t, s, o.TradeNo); after != before {
 		t.Fatal("query changed financial state", before, after)
 	}
-	if _, e = g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68); e != nil || p.reads.Load() != 1 {
+	if _, e = g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68, observationCheckTx68); e != nil || p.reads.Load() != 1 {
 		t.Fatal("replay queried again", e, p.reads.Load())
 	}
 }
@@ -141,7 +148,7 @@ func TestPreauthObservation68UnknownAndBadEvidenceNeverInventRemainder(t *testin
 			}
 			in := PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("c", 64)}
 			before := observationFinancial68(t, s, o.TradeNo)
-			q, e := g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68)
+			q, e := g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68, observationCheckTx68)
 			if e != nil || q.Status != "unknown" || q.RestKnown || q.RestAmount != nil || q.SourceVerified {
 				t.Fatal(q, e)
 			}
@@ -149,7 +156,7 @@ func TestPreauthObservation68UnknownAndBadEvidenceNeverInventRemainder(t *testin
 			if strings.Contains(string(raw), `"rest_amount"`) {
 				t.Fatal("unknown became zero", string(raw))
 			}
-			if _, e = g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68); e != nil || p.reads.Load() != 1 {
+			if _, e = g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68, observationCheckTx68); e != nil || p.reads.Load() != 1 {
 				t.Fatal("unknown original query repeated", e, p.reads.Load())
 			}
 			if observationFinancial68(t, s, o.TradeNo) != before {
@@ -191,7 +198,8 @@ func TestPreauthObservation68OriginalSessionAndMerchantRevisionDuringIO(t *testi
 				}
 				return nil
 			}
-			q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("d", 64)}, token, "merchant", check)
+			checkTx := func(c context.Context, _ pgx.Tx) error { return check(c) }
+			q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("d", 64)}, token, "merchant", check, checkTx)
 			if e == nil || q.SourceVerified || q.RestAmount != nil || p.reads.Load() != 1 {
 				t.Fatal("revoked query returned evidence", q, e, p.reads.Load())
 			}
@@ -209,7 +217,7 @@ func TestPreauthObservation68AuditRollbackAndNoRetryAfterResultLoss(t *testing.T
 	if _, e := s.pool.Exec(ctx, `CREATE FUNCTION fault_observation68() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN IF NEW.operation='claimed' THEN RAISE EXCEPTION 'synthetic claim audit fault';END IF;RETURN NEW;END$$;CREATE TRIGGER fault_observation68 BEFORE INSERT ON preauth_observation_events FOR EACH ROW EXECUTE FUNCTION fault_observation68()`); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68); e == nil || p.reads.Load() != 0 {
+	if _, e := g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68, observationCheckTx68); e == nil || p.reads.Load() != 0 {
 		t.Fatal("uncommitted query audit allowed network", e, p.reads.Load())
 	}
 	var rows int
@@ -219,18 +227,18 @@ func TestPreauthObservation68AuditRollbackAndNoRetryAfterResultLoss(t *testing.T
 	if _, e := s.pool.Exec(ctx, `CREATE OR REPLACE FUNCTION fault_observation68() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN IF NEW.operation='verified' THEN RAISE EXCEPTION 'synthetic result audit fault';END IF;RETURN NEW;END$$`); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68); e == nil || p.reads.Load() != 1 {
+	if _, e := g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68, observationCheckTx68); e == nil || p.reads.Load() != 1 {
 		t.Fatal("result fault fixture", e, p.reads.Load())
 	}
 	if _, e := s.pool.Exec(ctx, `DROP TRIGGER fault_observation68 ON preauth_observation_events`); e != nil {
 		t.Fatal(e)
 	}
-	q, e := g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68)
+	q, e := g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68, observationCheckTx68)
 	if e != nil || q.Status != "unknown" || p.reads.Load() != 1 {
 		t.Fatal("lost result repeated original query", q, e, p.reads.Load())
 	}
 	in.ClientRequestNo = strings.Repeat("f", 64)
-	q, e = g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68)
+	q, e = g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68, observationCheckTx68)
 	if e != nil || q.Status != "verified" || p.reads.Load() != 2 {
 		t.Fatal("new explicit id could not read", q, e, p.reads.Load())
 	}
@@ -239,7 +247,7 @@ func TestPreauthObservation68CurrentOwnerHistoricalReadAndDelegation(t *testing.
 	s, g, o, token, p := observationFixture68(t)
 	ctx := context.Background()
 	p.remaining = 0
-	q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("1", 64)}, token, "merchant", observationCheck68)
+	q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("1", 64)}, token, "merchant", observationCheck68, observationCheckTx68)
 	if e != nil || q.RestAmount == nil || *q.RestAmount != 0 || !q.RestKnown {
 		t.Fatal(q, e)
 	}
@@ -250,17 +258,17 @@ func TestPreauthObservation68CurrentOwnerHistoricalReadAndDelegation(t *testing.
 	if _, e = s.pool.Exec(ctx, `INSERT INTO console_sessions(token_hash,username,role,subject_id,csrf,expires_at,auth_version)SELECT $1,username,role,subject_id,'synthetic',clock_timestamp()+interval '1 hour',auth_version FROM console_users WHERE username='observation-owner68'`, lookupSessionHash(next)); e != nil {
 		t.Fatal(e)
 	}
-	if _, e = g.ReadPreauthorizationObservation(ctx, q.ID, token, "merchant", observationCheck68); e == nil {
+	if _, e = g.ReadPreauthorizationObservation(ctx, q.ID, token, "merchant", observationCheck68, observationCheckTx68); e == nil {
 		t.Fatal("deleted original session read")
 	}
-	historical, e := g.ReadPreauthorizationObservation(ctx, q.ID, next, "merchant", observationCheck68)
+	historical, e := g.ReadPreauthorizationObservation(ctx, q.ID, next, "merchant", observationCheck68, observationCheckTx68)
 	if e != nil || !historical.SourceVerified || p.reads.Load() != 1 {
 		t.Fatal("fresh own session could not read history without network", e, p.reads.Load())
 	}
 	if _, e = s.pool.Exec(ctx, `INSERT INTO console_session_issuers(token_hash,issuer_session_hash,issuer_username,issuer_id,issuer_auth_version)VALUES($1,$2,'synthetic-issuer',1,1)`, lookupSessionHash(next), lookupSessionHash(strings.Repeat("i", 43))); e != nil {
 		t.Fatal(e)
 	}
-	if _, e = g.ReadPreauthorizationObservation(ctx, q.ID, next, "merchant", observationCheck68); e == nil {
+	if _, e = g.ReadPreauthorizationObservation(ctx, q.ID, next, "merchant", observationCheck68, observationCheckTx68); e == nil {
 		t.Fatal("delegated session read history")
 	}
 }
@@ -269,7 +277,7 @@ func TestPreauthObservation68HMACAndMissingAuditRejectOfflineDamage(t *testing.T
 		t.Run(kind, func(t *testing.T) {
 			s, g, o, token, _ := observationFixture68(t)
 			ctx := context.Background()
-			q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("2", 64)}, token, "merchant", observationCheck68)
+			q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("2", 64)}, token, "merchant", observationCheck68, observationCheckTx68)
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -287,7 +295,7 @@ func TestPreauthObservation68HMACAndMissingAuditRejectOfflineDamage(t *testing.T
 			if e != nil {
 				t.Fatal(e)
 			}
-			if _, e = g.ReadPreauthorizationObservation(ctx, q.ID, token, "merchant", observationCheck68); e == nil {
+			if _, e = g.ReadPreauthorizationObservation(ctx, q.ID, token, "merchant", observationCheck68, observationCheckTx68); e == nil {
 				t.Fatal("damaged observation accepted", kind)
 			}
 		})
@@ -300,14 +308,14 @@ func TestPreauthObservation68MandatoryPolicyAndOwnerBeforeQuery(t *testing.T) {
 	if _, e := g.ObservePreauthorization(ctx, in, token, "merchant", nil); e == nil {
 		t.Fatal("nil policy accepted")
 	}
-	if _, e := g.ObservePreauthorization(ctx, in, strings.Repeat("x", 43), "merchant", observationCheck68); e == nil {
+	if _, e := g.ObservePreauthorization(ctx, in, strings.Repeat("x", 43), "merchant", observationCheck68, observationCheckTx68); e == nil {
 		t.Fatal("fake session")
 	}
-	if _, e := g.ObservePreauthorization(ctx, in, token, "admin", observationCheck68); e == nil {
+	if _, e := g.ObservePreauthorization(ctx, in, token, "admin", observationCheck68, observationCheckTx68); e == nil {
 		t.Fatal("caller relabelled admin")
 	}
 	lookupTestSession(t, s, strings.Repeat("y", 43), "observation-other68", 1069)
-	if _, e := g.ObservePreauthorization(ctx, in, strings.Repeat("y", 43), "merchant", observationCheck68); e == nil {
+	if _, e := g.ObservePreauthorization(ctx, in, strings.Repeat("y", 43), "merchant", observationCheck68, observationCheckTx68); e == nil {
 		t.Fatal("foreign owner")
 	}
 	if p.reads.Load() != 0 {
@@ -332,12 +340,12 @@ func TestPreauthObservation68PhysicalAccountChangeAndOriginalProof(t *testing.T)
 		t.Fatal("AppID fallback treated as physical seller")
 	}
 	p.before = func() { g.Providers[7] = &observationChangedAccount68{p} }
-	if q, e := g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68); e == nil || q.SourceVerified || q.RestAmount != nil {
+	if q, e := g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68, observationCheckTx68); e == nil || q.SourceVerified || q.RestAmount != nil {
 		t.Fatal("changed physical seller returned evidence", q, e)
 	}
 	g.Providers[7] = p
 	p.before = nil
-	q, e := g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68)
+	q, e := g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68, observationCheckTx68)
 	if e != nil || q.Status != "unknown" || p.reads.Load() != 1 {
 		t.Fatal("restoring seller revived old observation", q, e, p.reads.Load())
 	}
@@ -345,7 +353,7 @@ func TestPreauthObservation68PhysicalAccountChangeAndOriginalProof(t *testing.T)
 		t.Fatal(e)
 	}
 	in.ClientRequestNo = strings.Repeat("6", 64)
-	if _, e = g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68); e == nil || p.reads.Load() != 1 {
+	if _, e = g.ObservePreauthorization(ctx, in, token, "merchant", observationCheck68, observationCheckTx68); e == nil || p.reads.Load() != 1 {
 		t.Fatal("historical original account proof inferred", e, p.reads.Load())
 	}
 }
@@ -359,7 +367,8 @@ func TestPreauthObservation68PermissionLostAfterClaimBeforeRead(t *testing.T) {
 		}
 		return nil
 	}
-	if _, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("7", 64)}, token, "merchant", check); e == nil || p.reads.Load() != 0 {
+	checkTx := func(c context.Context, _ pgx.Tx) error { return check(c) }
+	if _, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("7", 64)}, token, "merchant", check, checkTx); e == nil || p.reads.Load() != 0 {
 		t.Fatal("policy lost before read still queried", e, p.reads.Load())
 	}
 	var count int
@@ -380,7 +389,7 @@ func TestPreauthObservation68DeadlineRecheckedAfterAudit(t *testing.T) {
 			if _, e := s.pool.Exec(ctx, sql); e != nil {
 				t.Fatal(e)
 			}
-			if q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("8", 64)}, token, "merchant", observationCheck68); e == nil || q.SourceVerified || q.RestAmount != nil {
+			if q, e := g.ObservePreauthorization(ctx, PreauthObservationInput{MerchantID: o.MerchantID, TradeNo: o.TradeNo, ClientRequestNo: strings.Repeat("8", 64)}, token, "merchant", observationCheck68, observationCheckTx68); e == nil || q.SourceVerified || q.RestAmount != nil {
 				t.Fatal("expired observation published", q, e)
 			}
 			expected := int32(0)

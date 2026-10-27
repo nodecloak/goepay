@@ -1,0 +1,194 @@
+[
+  {
+    "basis": "fee",
+    "current_group": {
+      "base_group_id": "1",
+      "id": "1",
+      "source": "base"
+    },
+    "enabled": true,
+    "example": {
+      "basis_amount": "10000",
+      "order_estimate": null,
+      "order_estimate_status": "unknown",
+      "percentage_amount": "3333"
+    },
+    "inheritance": {
+      "basis": "global",
+      "enabled": "global",
+      "mode": "global",
+      "rate_bps": "global"
+    },
+    "merchant_id": "1",
+    "mode": "immediate",
+    "payer_group_dependent": false,
+    "payment_fee_enabled": true,
+    "rate_bps": 3333,
+    "refund_policy": "any_successful_refund_voids_reward",
+    "status": "active"
+  },
+  {
+    "basis": "fee",
+    "current_group": {
+      "base_group_id": "1",
+      "id": "1",
+      "source": "base"
+    },
+    "enabled": true,
+    "example": {
+      "basis_amount": "10000",
+      "order_estimate": null,
+      "order_estimate_status": "unknown",
+      "percentage_amount": "3333"
+    },
+    "inheritance": {
+      "basis": "global",
+      "enabled": "global",
+      "mode": "global",
+      "rate_bps": "global"
+    },
+    "merchant_id": "1",
+    "mode": "immediate",
+    "payer_group_dependent": true,
+    "payment_fee_enabled": true,
+    "rate_bps": 3333,
+    "refund_policy": "any_successful_refund_voids_reward",
+    "status": "conditional"
+  },
+  {
+    "basis": "profit",
+    "current_group": {
+      "base_group_id": "1",
+      "expires_at": "2026-10-27T12:29:07.030204+08:00",
+      "id": "2",
+      "source": "membership"
+    },
+    "enabled": true,
+    "example": {
+      "basis_amount": "10000",
+      "order_estimate": null,
+      "order_estimate_status": "unknown",
+      "percentage_amount": "3333"
+    },
+    "inheritance": {
+      "basis": "promoter_group",
+      "enabled": "promoter_group",
+      "mode": "promoter_group",
+      "rate_bps": "promoter_group"
+    },
+    "merchant_id": "1",
+    "mode": "daily",
+    "payer_group_dependent": false,
+    "payment_fee_enabled": true,
+    "rate_bps": 3333,
+    "refund_policy": "any_successful_refund_voids_reward",
+    "status": "active"
+  },
+  {
+    "basis": "fee",
+    "current_group": {
+      "base_group_id": "1",
+      "id": "1",
+      "source": "base"
+    },
+    "enabled": true,
+    "example": {
+      "basis_amount": "10000",
+      "order_estimate": null,
+      "order_estimate_status": "unknown",
+      "percentage_amount": "3333"
+    },
+    "inheritance": {
+      "basis": "global",
+      "enabled": "global",
+      "mode": "global",
+      "rate_bps": "global"
+    },
+    "merchant_id": "1",
+    "mode": "immediate",
+    "payer_group_dependent": true,
+    "payment_fee_enabled": true,
+    "rate_bps": 3333,
+    "refund_policy": "any_successful_refund_voids_reward",
+    "status": "conditional"
+  },
+  {
+    "basis": "unknown",
+    "current_group": {
+      "base_group_id": null,
+      "id": null,
+      "source": "unknown"
+    },
+    "enabled": null,
+    "example": null,
+    "inheritance": {
+      "basis": "default",
+      "enabled": "default",
+      "mode": "default",
+      "rate_bps": "default"
+    },
+    "merchant_id": "1",
+    "mode": "unknown",
+    "payer_group_dependent": false,
+    "payment_fee_enabled": true,
+    "rate_bps": null,
+    "refund_policy": "any_successful_refund_voids_reward",
+    "status": "unknown"
+  },
+  {
+    "basis": "gross",
+    "current_group": {
+      "base_group_id": "1",
+      "id": "1",
+      "source": "base"
+    },
+    "enabled": false,
+    "example": {
+      "basis_amount": "10000",
+      "order_estimate": null,
+      "order_estimate_status": "unknown",
+      "percentage_amount": "3333"
+    },
+    "inheritance": {
+      "basis": "promoter_group",
+      "enabled": "promoter_group",
+      "mode": "promoter_group",
+      "rate_bps": "global"
+    },
+    "merchant_id": "1",
+    "mode": "immediate",
+    "payer_group_dependent": true,
+    "payment_fee_enabled": true,
+    "rate_bps": 3333,
+    "refund_policy": "any_successful_refund_voids_reward",
+    "status": "disabled"
+  },
+  {
+    "basis": "gross",
+    "current_group": {
+      "base_group_id": "1",
+      "id": "1",
+      "source": "base"
+    },
+    "enabled": false,
+    "example": {
+      "basis_amount": "10000",
+      "order_estimate": null,
+      "order_estimate_status": "unknown",
+      "percentage_amount": "3333"
+    },
+    "inheritance": {
+      "basis": "promoter_group",
+      "enabled": "promoter_group",
+      "mode": "promoter_group",
+      "rate_bps": "global"
+    },
+    "merchant_id": "1",
+    "mode": "immediate",
+    "payer_group_dependent": true,
+    "payment_fee_enabled": false,
+    "rate_bps": 3333,
+    "refund_policy": "any_successful_refund_voids_reward",
+    "status": "budget_disabled"
+  }
+]

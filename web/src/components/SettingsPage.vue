@@ -1,13 +1,26 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount } from "vue";
+import CorePaymentRisk from "./CorePaymentRisk.vue";
+import PaymentDefend206 from "./PaymentDefend206.vue";
+import { computed, ref, watch, toRaw, onBeforeUnmount } from "vue";
 import { ApiClient, ApiError } from "../api";
 import type { ResourceSchema } from "../resources";
 import BusinessNoticeEvents from "./BusinessNoticeEvents.vue";
+import RichTextEditor from "./RichTextEditor.vue";
+import PlatformMerchantAccessSettings from "./PlatformMerchantAccessSettings.vue";
+import ScanpaySettings192 from "./ScanpaySettings192.vue";
+import ScanJSSettings202 from "./ScanJSSettings202.vue";
+import SiteBrandSettings193 from "./SiteBrandSettings193.vue";
+import MailSettings195 from "./MailSettings195.vue";
+import CaptchaKeySettings203 from "./CaptchaKeySettings203.vue";
+import BuyerFeeSettings104 from "./BuyerFeeSettings104.vue";
+import { siteKeys191 } from "../site191";
+const emit = defineEmits<{ siteChanged: [] }>();
 import {
   settingsTabs,
   settingDefinition,
   settingDisplay,
   settingStorage,
+  settingInitialValue,
   type SettingsTab,
   type SettingDefinition,
 } from "../settings";
@@ -22,15 +35,24 @@ const props = defineProps<{
   ownSession: boolean;
 }>();
 const active = ref<SettingsTab>("site"),
+  coreRiskBusy = ref(false),
+  paymentDefendBusy = ref(false),
+  scanpayBusy = ref(false),
+  scanJSBusy = ref(false),
+  brandBusy = ref(false),
+  mailBusy = ref(false),
   schema = ref<ResourceSchema | null>(null),
   definitions = ref<SettingDefinition[]>([]),
   records = ref<Record<string, SettingRecord>>({}),
   values = ref<Record<string, string>>({}),
   loading = ref(false),
   busy = ref(false),
+  platformBusy = ref(false),
   uncertain = ref(false),
   error = ref(""),
   notice = ref("");
+const scanBusy = computed(() => scanpayBusy.value || scanJSBusy.value);
+const riskBusy = computed(() => coreRiskBusy.value || paymentDefendBusy.value);
 const canWrite = computed(
   () =>
     props.adminClass === "super" &&
@@ -46,32 +68,99 @@ function writable(d: SettingDefinition) {
   );
 }
 const fields = computed(() =>
-  definitions.value.filter((d) => d.tab === active.value),
+  definitions.value
+    .filter((d) => d.tab === active.value)
+    .filter(
+      (d) =>
+        !["test_pay_uid", "captcha_open_test"].includes(d.key) ||
+        values.value.test_open === "1",
+    )
+    .filter(
+      (d) =>
+        !(
+          d.key === "site_name" &&
+          definitions.value.some((x) => x.key === "sitename")
+        ) &&
+        !(
+          d.key === "support_email" &&
+          definitions.value.some((x) => x.key === "email")
+        ) &&
+        !(
+          d.key === "mail_name" &&
+          definitions.value.some((x) => x.key === "mail_recv")
+        ),
+    ),
 );
 function original(d: SettingDefinition) {
   const r = records.value[d.key];
-  return r ? settingDisplay(d, r.value) : "";
+  return r ? settingDisplay(d, r.value) : settingInitialValue(d);
 }
 function dirty(d: SettingDefinition) {
   return values.value[d.key] !== original(d);
 }
 const changed = computed(() => fields.value.filter(dirty));
 let controller: AbortController | undefined,
-  alive = true;
+  alive = true,
+  epoch = 0,
+  readyClient: ApiClient | undefined,
+  readyCSRF = "";
+function resetContext() {
+  epoch++;
+  controller?.abort();
+  paymentDefendBusy.value = false;
+  schema.value = null;
+  definitions.value = [];
+  records.value = {};
+  values.value = {};
+  busy.value = false;
+  loading.value = false;
+  uncertain.value = true;
+  notice.value = "";
+  readyClient = undefined;
+  readyCSRF = "";
+}
+function context() {
+  return {
+    epoch,
+    client: toRaw(props.client),
+    csrf: toRaw(props.client).csrfToken,
+  };
+}
+function currentContext(stamp: ReturnType<typeof context>) {
+  if (!alive || stamp.epoch !== epoch) return false;
+  if (
+    stamp.client !== toRaw(props.client) ||
+    stamp.csrf !== toRaw(props.client).csrfToken
+  ) {
+    resetContext();
+    error.value = "会话已变化，请刷新核对设置";
+    return false;
+  }
+  return true;
+}
 async function load() {
-  if (busy.value) return;
+  if (
+    busy.value ||
+    platformBusy.value ||
+    riskBusy.value ||
+    scanBusy.value ||
+    brandBusy.value ||
+    mailBusy.value
+  )
+    return;
   controller?.abort();
   const c = new AbortController();
   controller = c;
+  const stamp = context();
   loading.value = true;
   error.value = "";
   uncertain.value = true;
   try {
-    const loaded = await props.client.request<ResourceSchema>(
+    const loaded = await stamp.client.request<ResourceSchema>(
       "/resources/settings/schema",
       { signal: c.signal },
     );
-    if (c.signal.aborted || !alive) return;
+    if (c.signal.aborted || !currentContext(stamp)) return;
     const options = loaded.fields.find((f) => f.name === "key")?.options || [];
     const defs = options.map((o) => {
       const key = typeof o === "string" ? o : String(o.value),
@@ -87,11 +176,11 @@ async function load() {
       total = 1,
       page = 1;
     while (offset < total) {
-      const data = await props.client.request<{
+      const data = await stamp.client.request<{
         items: SettingRecord[];
         total: number;
       }>(`/resources/settings?page=${page}&limit=100`, { signal: c.signal });
-      if (c.signal.aborted || !alive) return;
+      if (c.signal.aborted || !currentContext(stamp)) return;
       if (
         !Number.isSafeInteger(data.total) ||
         data.total < 0 ||
@@ -119,27 +208,51 @@ async function load() {
     const draft = Object.fromEntries(
       defs.map((d) => [
         d.key,
-        found[d.key] ? settingDisplay(d, found[d.key]!.value) : "",
+        found[d.key]
+          ? settingDisplay(d, found[d.key]!.value)
+          : settingInitialValue(d),
       ]),
     );
     schema.value = loaded;
     definitions.value = defs;
     records.value = found;
     values.value = draft;
+    readyClient = stamp.client;
+    readyCSRF = stamp.csrf;
     uncertain.value = false;
   } catch (e) {
-    if (!c.signal.aborted && alive)
+    if (!c.signal.aborted && currentContext(stamp))
       error.value = e instanceof Error ? e.message : "设置读取失败";
   } finally {
-    if (!c.signal.aborted && alive) loading.value = false;
+    if (!c.signal.aborted && currentContext(stamp)) loading.value = false;
   }
 }
 async function save() {
-  if (!canWrite.value || busy.value || uncertain.value || !changed.value.length)
+  if (
+    !canWrite.value ||
+    busy.value ||
+    platformBusy.value ||
+    riskBusy.value ||
+    scanBusy.value ||
+    brandBusy.value ||
+    mailBusy.value ||
+    uncertain.value ||
+    !changed.value.length
+  )
     return;
+  const stamp = context();
+  if (!readyCSRF || readyClient !== stamp.client || readyCSRF !== stamp.csrf) {
+    resetContext();
+    error.value = "会话已变化，请刷新核对设置";
+    return;
+  }
+  controller?.abort();
+  const c = new AbortController();
+  controller = c;
   error.value = "";
   notice.value = "";
   let saved = 0;
+  let siteSaved = false;
   try {
     const pending = changed.value.map((d) => ({
       definition: d,
@@ -150,10 +263,11 @@ async function save() {
     for (const entry of pending) {
       const { definition: d, value, record } = entry;
       if (record) {
-        const current = await props.client.request<SettingRecord>(
+        const current = await stamp.client.request<SettingRecord>(
           `/resources/settings/${encodeURIComponent(record.id)}`,
+          { signal: c.signal },
         );
-        if (!alive) return;
+        if (c.signal.aborted || !currentContext(stamp)) return;
         if (current.key !== record.key || current.value !== record.value)
           throw new ApiError(`${d.label}已由其它操作修改，请刷新核对`, 409, -1);
       }
@@ -162,16 +276,18 @@ async function save() {
         (!record && !schema.value?.permissions.create)
       )
         throw new ApiError(`${d.label}没有保存权限`, 403, -1);
-      const row = await props.client.request<SettingRecord>(
+      if (!currentContext(stamp) || c.signal.aborted) return;
+      const row = await stamp.client.request<SettingRecord>(
         record
           ? `/resources/settings/${encodeURIComponent(record.id)}`
           : "/resources/settings",
         {
           method: record ? "PUT" : "POST",
           body: record ? { value } : { key: d.key, value },
+          signal: c.signal,
         },
       );
-      if (!alive) return;
+      if (c.signal.aborted || !currentContext(stamp)) return;
       if (
         !row ||
         !/^[1-9]\d*$/.test(row.id) ||
@@ -182,10 +298,11 @@ async function save() {
       records.value[d.key] = row;
       values.value[d.key] = settingDisplay(d, row.value);
       saved++;
+      if ((siteKeys191 as readonly string[]).includes(d.key)) siteSaved = true;
     }
     notice.value = `已保存${saved}项设置`;
   } catch (e) {
-    if (!alive) return;
+    if (c.signal.aborted || !currentContext(stamp)) return;
     error.value = e instanceof Error ? e.message : "保存失败";
     if (saved) notice.value = `已保存${saved}项，其余设置未完成`;
     if (
@@ -196,10 +313,21 @@ async function save() {
       error.value += "；请刷新核对后再保存";
     }
   } finally {
-    if (alive) busy.value = false;
+    if (!c.signal.aborted && currentContext(stamp) && siteSaved)
+      emit("siteChanged");
+    if (!c.signal.aborted && currentContext(stamp)) busy.value = false;
   }
 }
 function navigate(event: KeyboardEvent, index: number) {
+  if (
+    busy.value ||
+    platformBusy.value ||
+    riskBusy.value ||
+    scanBusy.value ||
+    brandBusy.value ||
+    mailBusy.value
+  )
+    return;
   if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
   event.preventDefault();
   const next =
@@ -224,9 +352,18 @@ const guidance: Partial<Record<SettingsTab, string>> = {
   advanced:
     "Go服务的运行参数通过部署配置管理；原PHP/Swoole脚本和在线执行功能不适用。",
 };
-onMounted(load);
+watch(
+  () => [props.client, props.adminClass, props.ownSession] as const,
+  () => {
+    resetContext();
+    error.value = "";
+    void load();
+  },
+  { immediate: true },
+);
 onBeforeUnmount(() => {
   alive = false;
+  epoch++;
   controller?.abort();
 });
 </script>
@@ -234,7 +371,20 @@ onBeforeUnmount(() => {
   <section class="panel settings-page">
     <div class="toolbar">
       <span class="muted">按分类维护平台设置</span
-      ><button :disabled="loading || busy" @click="load">刷新设置</button>
+      ><button
+        :disabled="
+          loading ||
+          busy ||
+          platformBusy ||
+          riskBusy ||
+          scanBusy ||
+          mailBusy ||
+          brandBusy
+        "
+        @click="load"
+      >
+        刷新设置
+      </button>
     </div>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
@@ -247,7 +397,9 @@ onBeforeUnmount(() => {
         :aria-selected="active === tab[0]"
         :aria-controls="`settings-panel-${tab[0]}`"
         :tabindex="active === tab[0] ? 0 : -1"
-        :disabled="busy"
+        :disabled="
+          busy || platformBusy || riskBusy || scanBusy || mailBusy || brandBusy
+        "
         @click="active = tab[0]"
         @keydown="navigate($event, index)"
       >
@@ -262,18 +414,84 @@ onBeforeUnmount(() => {
       <p v-if="loading" role="status">正在读取设置…</p>
       <template v-else-if="schema">
         <h2>{{ settingsTabs.find((t) => t[0] === active)?.[1] }}</h2>
+        <MailSettings195
+          v-if="active === 'mail'"
+          :client="client"
+          :admin-class="adminClass"
+          :own-session="ownSession"
+          @busy="mailBusy = $event"
+        />
+        <SiteBrandSettings193
+          v-if="active === 'site'"
+          :client="client"
+          :admin-class="adminClass"
+          :own-session="ownSession"
+          @busy="brandBusy = $event"
+        />
+        <CaptchaKeySettings203
+          v-if="active === 'site'"
+          :client="client"
+          :admin-class="adminClass"
+          :own-session="ownSession"
+        />
         <p v-if="!canWrite" class="muted">
           当前为只读查看，修改需要本人超级管理员会话。
         </p>
         <p v-if="guidance[active]" class="muted">{{ guidance[active] }}</p>
+        <PlatformMerchantAccessSettings
+          v-if="active === 'site' || active === 'merchant'"
+          :key="active"
+          :client="client"
+          :admin-class="adminClass"
+          :own-session="ownSession"
+          :field="active === 'site' ? 'close_keylogin' : 'user_refund'"
+          @busy="platformBusy = $event"
+        />
         <div v-if="active === 'merchant'" class="toolbar">
           <a href="/admin/merchant/group-buy">用户组购买设置</a
           ><a href="/admin/merchant/group-list">用户组设置</a>
         </div>
+        <ScanpaySettings192
+          v-if="active === 'merchant'"
+          :client="client"
+          :admin-class="adminClass"
+          :own-session="ownSession"
+          @busy="scanpayBusy = $event"
+        />
+        <ScanJSSettings202
+          v-if="active === 'merchant'"
+          :client="client"
+          :admin-class="adminClass"
+          :own-session="ownSession"
+          @busy="scanJSBusy = $event"
+        />
         <div v-if="active === 'risk'" class="toolbar">
           <a href="/admin/trade/blacklist">黑名单管理</a
           ><a href="/admin/system/order-subject-policies">订单名称限制</a>
         </div>
+        <template v-if="active === 'risk'">
+          <div :inert="paymentDefendBusy">
+            <CorePaymentRisk
+              :client="client"
+              :allowed="adminClass === 'super' && ownSession"
+              @busy="coreRiskBusy = $event"
+            />
+          </div>
+          <PaymentDefend206
+            :client="client"
+            :admin-class="adminClass"
+            :own-session="ownSession"
+            :disabled="
+              busy ||
+              coreRiskBusy ||
+              platformBusy ||
+              scanBusy ||
+              brandBusy ||
+              mailBusy
+            "
+            @busy="paymentDefendBusy = $event"
+          />
+        </template>
         <div v-if="active === 'complaint'" class="toolbar">
           <a href="/admin/complain/task">投诉同步任务</a>
         </div>
@@ -286,8 +504,19 @@ onBeforeUnmount(() => {
         <div v-if="active === 'anounce'" class="toolbar">
           <a href="/admin/system/anounce">公告管理</a>
         </div>
-        <p v-if="!fields.length" class="empty">
-          该分类当前没有可在线维护的设置项。
+        <BuyerFeeSettings104
+          v-if="active === 'pay'"
+          kind="global"
+          :client="client"
+          :allowed="ownSession && adminClass === 'super'"
+          @busy="platformBusy = $event"
+        />
+        <p v-if="!fields.length && active !== 'mail'" class="empty">
+          {{
+            active === "site" || active === "merchant" || active === "risk"
+              ? "该分类暂无其它通用设置项。"
+              : "该分类当前没有可在线维护的设置项。"
+          }}
         </p>
         <form v-else @submit.prevent="save">
           <div class="settings-fields">
@@ -303,7 +532,16 @@ onBeforeUnmount(() => {
                 :id="`setting-${d.key}`"
                 v-model="values[d.key]"
                 :aria-label="d.label"
-                :disabled="!writable(d) || busy || uncertain"
+                :disabled="
+                  !writable(d) ||
+                  busy ||
+                  platformBusy ||
+                  riskBusy ||
+                  scanBusy ||
+                  mailBusy ||
+                  brandBusy ||
+                  uncertain
+                "
               >
                 <option value="" disabled>未配置（使用系统默认）</option>
                 <option
@@ -319,6 +557,21 @@ onBeforeUnmount(() => {
                   {{ o.label }}
                 </option>
               </select>
+              <RichTextEditor
+                v-else-if="d.kind === 'html'"
+                v-model="values[d.key]!"
+                :label="d.label"
+                :disabled="
+                  !writable(d) ||
+                  busy ||
+                  platformBusy ||
+                  riskBusy ||
+                  scanBusy ||
+                  mailBusy ||
+                  brandBusy ||
+                  uncertain
+                "
+              />
               <input
                 v-else
                 :id="`setting-${d.key}`"
@@ -332,7 +585,16 @@ onBeforeUnmount(() => {
                       ? 'numeric'
                       : undefined
                 "
-                :disabled="!writable(d) || busy || uncertain"
+                :disabled="
+                  !writable(d) ||
+                  busy ||
+                  platformBusy ||
+                  riskBusy ||
+                  scanBusy ||
+                  mailBusy ||
+                  brandBusy ||
+                  uncertain
+                "
                 maxlength="1000"
                 placeholder="未配置，使用系统默认"
               />
@@ -341,7 +603,14 @@ onBeforeUnmount(() => {
                 v-if="dirty(d)"
                 type="button"
                 class="link-button"
-                :disabled="busy"
+                :disabled="
+                  busy ||
+                  platformBusy ||
+                  riskBusy ||
+                  scanBusy ||
+                  mailBusy ||
+                  brandBusy
+                "
                 @click="values[d.key] = original(d)"
               >
                 撤销此项编辑
@@ -351,7 +620,16 @@ onBeforeUnmount(() => {
           <div class="toolbar">
             <button
               class="primary"
-              :disabled="!canWrite || busy || uncertain || !changed.length"
+              :disabled="
+                !canWrite ||
+                busy ||
+                platformBusy ||
+                scanBusy ||
+                mailBusy ||
+                brandBusy ||
+                uncertain ||
+                !changed.length
+              "
             >
               {{ busy ? "正在保存…" : "保存本页设置" }}</button
             ><span class="muted"

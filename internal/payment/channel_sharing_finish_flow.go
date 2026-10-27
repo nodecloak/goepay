@@ -57,6 +57,9 @@ func (g ProviderFlow) claimSharingFinish(ctx context.Context, mid int64, trade, 
 		return r, false, e
 	}
 	r.OutNo = "PF" + hex.EncodeToString(nonce)
+	if e = g.checkParentOrderWriteTx(ctx, tx, mid, r.OrderID, r.Payment.ChannelID); e != nil {
+		return r, false, e
+	}
 	if _, e = g.sharingFinishProvider(ctx, tx, r); e != nil {
 		return r, false, e
 	}
@@ -89,6 +92,9 @@ func (g ProviderFlow) claimSharingFinish(ctx context.Context, mid int64, trade, 
 	if _, e = tx.Exec(ctx, "INSERT INTO jobs(event_key,kind,payload,run_at) VALUES($1,'channel-sharing-finish.reconcile',jsonb_build_object('finish_id',$2::bigint),statement_timestamp()+interval '30 seconds')", fmt.Sprintf("channel-sharing-finish:%d:reconcile", r.ID), r.ID); e != nil {
 		return r, false, e
 	}
+	if e = g.checkParentOrderWriteTx(ctx, tx, mid, r.OrderID, r.Payment.ChannelID); e != nil {
+		return r, false, e
+	}
 	if e = tx.Commit(ctx); e != nil {
 		return r, false, e
 	}
@@ -96,11 +102,14 @@ func (g ProviderFlow) claimSharingFinish(ctx context.Context, mid int64, trade, 
 	return r, true, nil
 }
 func (g ProviderFlow) SubmitChannelSharingFinish(ctx context.Context, mid int64, trade, no string, actor TransferBatchActor) (ChannelSharingFinishView, error) {
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return ChannelSharingFinishView{}, ErrLiveDisabled
 	}
 	r, owner, e := g.claimSharingFinish(ctx, mid, trade, no, actor)
 	if e != nil || !owner {
+		return r.ChannelSharingFinishView, e
+	}
+	if e = g.checkParentOrderWrite(ctx, mid, r.OrderID, r.Payment.ChannelID); e != nil {
 		return r.ChannelSharingFinishView, e
 	}
 	p, e := g.sharingFinishProvider(ctx, g.Store.pool, r)

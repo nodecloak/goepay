@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
+	adapter "goepay/internal/adapters/payment"
 	"os"
 
 	"goepay/internal/channelconfig"
@@ -35,9 +37,30 @@ func configuredReadOnlyFlow(store *payment.Store) (*payment.ProviderFlow, error)
 	if e != nil {
 		return nil, errors.New("cannot load reconciliation configuration")
 	}
-	providers, e := channelconfig.Build(imp, false)
-	if e != nil || len(providers) == 0 {
+	var parentAccounts []adapter.ParentStartupAccount
+	if store != nil {
+		parentAccounts, e = store.ParentStartupAccounts(context.Background())
+		if e != nil {
+			return nil, errors.New("invalid parent reconciliation accounts")
+		}
+	}
+	startup, e := channelconfig.PrepareParentStartup(imp, parentAccounts)
+	if e != nil {
+		return nil, errors.New("invalid parent reconciliation accounts")
+	}
+	imp = startup.Import
+	providers, e := startup.BuildProviders(channelconfig.BuildOptions{})
+	if e != nil || !startup.HasRegisteredSources() {
 		return nil, errors.New("invalid reconciliation providers")
 	}
-	return &payment.ProviderFlow{Store: store, Providers: providers, AllowLive: false}, nil
+	factories, e := startup.BuildSubchannelFactories(channelconfig.BuildOptions{})
+	if e != nil {
+		return nil, errors.New("invalid reconciliation child templates")
+	}
+	flow := &payment.ProviderFlow{SubchannelFactories: factories, Store: store, Providers: providers, AllowLive: false}
+	parentFactories, e := startup.BuildFactories(channelconfig.ParentBuildOptions{})
+	if e != nil || flow.InstallParentAccountFactories(parentFactories) != nil {
+		return nil, errors.New("invalid parent reconciliation factories")
+	}
+	return flow, nil
 }

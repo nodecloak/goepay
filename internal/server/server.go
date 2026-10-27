@@ -5,39 +5,63 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/subtle"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"goepay/db"
-	provider "goepay/internal/adapters/payment"
-	"goepay/internal/backoffice"
-	"goepay/internal/businessnotice"
-	"goepay/internal/channelconfig"
-	"goepay/internal/compat"
-	"goepay/internal/identity"
-	"goepay/internal/ledger"
-	"goepay/internal/merchantnotice"
-	"goepay/internal/migration"
-	"goepay/internal/payment"
-	"goepay/internal/platform/httpclient"
-	"goepay/internal/printing"
 	"io"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"goepay/db"
+	provider "goepay/internal/adapters/payment"
+	"goepay/internal/backoffice"
+	"goepay/internal/businessnotice"
+	"goepay/internal/captcha203"
+	"goepay/internal/channelconfig"
+	"goepay/internal/compat"
+	"goepay/internal/identity"
+	"goepay/internal/ledger"
+	"goepay/internal/logincaptcha205"
+	"goepay/internal/merchantnotice"
+	"goepay/internal/migration"
+	"goepay/internal/orderalias120"
+	"goepay/internal/payment"
+	"goepay/internal/paymentdefend206"
+	"goepay/internal/platform/httpclient"
+	"goepay/internal/printing"
+	"goepay/internal/publictestpay203"
+	"goepay/internal/systemupdate"
 )
 
 type Server struct {
-	FundsActionResolver                     func(context.Context, identity.FundsQuerier, string, json.RawMessage) (identity.FundsAction, map[string]string, error)
-	MFA                                     *identity.MFA
-	ProviderFlow                            *payment.ProviderFlow
-	OAuthProviders                          map[int64]provider.WebOAuthProvider
-	MiniOAuthProviders                      map[int64]provider.MiniOAuthProvider
-	IdentityProfiles                        map[int64]channelconfig.IdentityProfile
+	OrderAPITradeAlias120 *orderalias120.Store
+	PaymentDefend206      *paymentdefend206.Store
+	PublicTestPay203      *publictestpay203.Service
+	LoginCaptcha205       *logincaptcha205.Service
+	Mail195TestEnabled    bool
+	// Private-PKI trust supplied by the host/test harness, never HTTP input.
+	Mail195SMTPRoots  *x509.CertPool
+	SystemUpdate      *systemupdate.Service
+	SystemUpdateBuild func(int64) systemupdate.Build
+	// Child execution identity is private and immutable for an intent. Runtime
+	// write gates are read from the original server again after authorization I/O.
+	subchannelPolicySource *Server
+	FundsActionResolver    func(context.Context, identity.FundsQuerier, string, json.RawMessage) (identity.FundsAction, map[string]string, error)
+	MFA                    *identity.MFA
+	ProviderFlow           *payment.ProviderFlow
+	OAuthProviders         map[int64]provider.WebOAuthProvider
+	MiniOAuthProviders     map[int64]provider.MiniOAuthProvider
+	IdentityProfiles       map[int64]channelconfig.IdentityProfile
+	// Configure before serving. Requests share the immutable profile catalogue;
+	// a future reload must publish an entire new Server snapshot.
+	ScanJSProfiles202                       map[int64]channelconfig.ScanJSProfile202
+	ScanJSSiteOrigin202                     string
 	IdentityProfileEnabled                  bool
 	IdentityProfileCallbackBaseURL          string
 	ApplicationAuthorizationProfiles        map[int64]channelconfig.ApplicationAuthorizationProfile
@@ -54,14 +78,11 @@ type Server struct {
 	MerchantNotice                          *merchantnotice.Store
 	BusinessNotice                          *businessnotice.Store
 	LegacyRefundHistory                     *migration.RefundHistoryReader
+	CombinedOrderHistory204                 *migration.CombinedOrderHistoryReader
 	Sessions                                *identity.Sessions
 	PlatformKey                             *rsa.PrivateKey
 	Sandbox                                 bool
-	mu                                      sync.Mutex
-	attempts                                map[string]attempt
-	lastAttemptCleanup                      time.Time
-	collectionAttempts                      map[string]attempt
-	lastCollectionCleanup                   time.Time
+	limitState                              *requestLimitState
 }
 type attempt struct {
 	count int
@@ -83,7 +104,19 @@ func (s *Server) Handler() http.Handler {
 			bodyLimit += 8192
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, bodyLimit)
+		peerIP, _, peerError := net.SplitHostPort(r.RemoteAddr)
+		if peerError != nil {
+			peerIP = r.RemoteAddr
+		}
+		transportIP, _, transportError := net.SplitHostPort(TransportPeer(r))
+		if transportError != nil {
+			transportIP = TransportPeer(r)
+		}
+		r = r.WithContext(payment.WithCoreRiskRequest(r.Context(), payment.CoreRiskRequest{PeerIP: peerIP, TransportIP: transportIP, Forwarded: TransportPeer(r) != r.RemoteAddr, Source: "direct_http"}))
 		if s.collectionStyleAsset(w, r) {
+			return
+		}
+		if s.siteBrandPublic193(w, r) {
 			return
 		}
 		if s.templatePublic(w, r) {
@@ -99,6 +132,24 @@ func (s *Server) Handler() http.Handler {
 			return
 		}
 		if s.IdentityLookupPublic(w, r) {
+			return
+		}
+		if r.URL.Path == "/console/v1/public/site" {
+			s.publicSite191(w, r)
+			return
+		}
+		if r.URL.Path == "/console/v1/public/layout" {
+			s.publicAnnouncementLayout(w, r)
+			return
+		}
+		if r.URL.Path == "/console/v1/public/merchant-access" {
+			s.publicMerchantAccess(w, r)
+			return
+		}
+		if s.loginCaptchaRoutes205(w, r) {
+			return
+		}
+		if s.publicTestPayRoutes203(w, r) {
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/console/v1/public/") {
@@ -168,6 +219,15 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	}
 	role, action := parts[0], parts[1]
 	cookieName := "goepay_" + role
+	if role == "merchant" && action == "key-login" {
+		if len(parts) != 2 {
+			identityHeaders(w)
+			response(w, 404, -1, "not found", nil)
+			return
+		}
+		s.merchantKeyLogin(w, r)
+		return
+	}
 	if action == "login" && r.Method == "POST" {
 		s.login(w, r, role, cookieName)
 		return
@@ -220,6 +280,15 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if !s.auditDelegatedRequest(w, r, session) {
 		return
 	}
+	if s.captchaSettingsConsole203(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.orderAPITradeAliasConsole120(w, r, role, session, parts, c.Value, s.OrderAPITradeAlias120) {
+		return
+	}
+	if s.paymentDefendSettingsConsole206(w, r, role, session, parts, c.Value, s.PaymentDefend206) {
+		return
+	}
 	if s.ssoConsole(w, r, role, session, parts, c.Value) {
 		return
 	}
@@ -252,6 +321,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.legacyRefundHistoryConsole(w, r, role, session, parts) {
 		return
 	}
+	if s.combinedOrdersConsole204(w, r, role, session, parts) {
+		return
+	}
 	if s.preauthorizationObservationConsole(w, r, role, session, parts, c.Value) {
 		return
 	}
@@ -261,6 +333,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.notificationResendConsole(w, r, role, session, parts) {
 		return
 	}
+	if s.notificationReturnConsole200(w, r, role, session, parts, c.Value) {
+		return
+	}
 	if s.preauthorizationRemainingConsole(w, r, role, session, parts, c.Value) {
 		return
 	}
@@ -268,6 +343,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.orderBlacklistConsole(w, r, role, session, parts) {
+		return
+	}
+	if s.orderBusinessBatchConsole(w, r, role, session, parts, c.Value) {
 		return
 	}
 	if s.orderBatchControlsConsole(w, r, role, session, parts) {
@@ -324,6 +402,54 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.merchantNoticeConsole(w, r, role, session, parts) {
 		return
 	}
+	if s.adminMerchantSignaturePolicy(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.systemUpdateConsole(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.mailFrequency194(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.mailAccounts195(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.siteBrandConsole193(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.scanJSSettingsConsole202(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.merchantScanPlatform192(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.platformMerchantAccessSettings(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.buyerMinimumConsole104(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.runtimeChannelLimits(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.paymentSubchannelConsole(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.paymentParentChannels(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.runtimeChannelPolicies(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.scheduledTasks(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.adminMerchantCredentials(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.corePaymentRisk(w, r, role, session, parts, c.Value) {
+		return
+	}
 	if s.businessNoticeConsole(w, r, role, session, parts) {
 		return
 	}
@@ -345,6 +471,12 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.operations(w, r, role, session, parts) {
 		return
 	}
+	if s.merchantScanJS202(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.merchantScanConsole192(w, r, role, session, parts, c.Value) {
+		return
+	}
 	if s.account(w, r, role, session, parts) {
 		return
 	}
@@ -361,7 +493,7 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if action == "session" && r.Method == "GET" {
-		response(w, 200, 0, "", map[string]any{"user": session.User, "csrf_token": session.CSRF, "delegated_by": session.Issuer})
+		response(w, 200, 0, "", map[string]any{"user": consoleSessionUser(session.User), "csrf_token": session.CSRF, "delegated_by": session.Issuer})
 		return
 	}
 	if action == "logout" && r.Method == "POST" {
@@ -458,6 +590,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, role, cookieName 
 		Username string `json:"username"`
 		Password string `json:"password"`
 		Code     string `json:"code"`
+		captcha203.Proof
 	}
 	if !decode(w, r, &in) {
 		return
@@ -485,6 +618,19 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, role, cookieName 
 		response(w, 503, -1, "database unavailable", nil)
 		return
 	}
+	var loginCaptcha *logincaptcha205.Service
+	var captchaGrant logincaptcha205.Grant
+	if role == "merchant" {
+		var captchaError error
+		loginCaptcha, captchaError = s.loginCaptchaService205()
+		if captchaError == nil {
+			captchaGrant, captchaError = loginCaptcha.Consume(r.Context(), r, in.Username, in.Proof)
+		}
+		if captchaError != nil {
+			LoginCaptchaError205(w, captchaError)
+			return
+		}
+	}
 	var hash, name, adminClass string
 	var id, authVersion int64
 	e := s.Pool.QueryRow(r.Context(), "SELECT subject_id,display_name,password_hash,auth_version,admin_class FROM console_users WHERE username=$1 AND role=$2 AND enabled", in.Username, role).Scan(&id, &name, &hash, &authVersion, &adminClass)
@@ -504,15 +650,24 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, role, cookieName 
 		response(w, 401, -1, "invalid credentials or authenticator code", nil)
 		return
 	}
-	token, csrf, e := s.Sessions.Create(u)
+	var token, csrf string
+	if role == "merchant" {
+		token, csrf, e = loginCaptcha.IssueSession(r.Context(), captchaGrant, u, s.Sessions)
+	} else {
+		token, csrf, e = s.Sessions.Create(u)
+	}
 	if e != nil {
-		s.fail(w, e)
+		if role == "merchant" {
+			LoginCaptchaError205(w, e)
+		} else {
+			s.fail(w, e)
+		}
 		return
 	}
 	verifiedLogin = u
 	success = true
 	http.SetCookie(w, &http.Cookie{Name: cookieName, Value: token, Path: "/console/v1/" + role, HttpOnly: true, Secure: s.Sessions.Secure, SameSite: http.SameSiteStrictMode, MaxAge: 43200})
-	response(w, 200, 0, "", map[string]any{"user": u, "csrf_token": csrf})
+	response(w, 200, 0, "", map[string]any{"user": consoleSessionUser(u), "csrf_token": csrf})
 }
 func (s *Server) fail(w http.ResponseWriter, e error) {
 	if errors.Is(e, identity.ErrFundsAuthorization) || errors.Is(e, identity.ErrFundsNotConfigured) || errors.Is(e, identity.ErrFundsAuthentication) || errors.Is(e, identity.ErrFundsRateLimited) || errors.Is(e, identity.ErrFundsBusy) || errors.Is(e, identity.ErrFundsInvalid) {
@@ -583,7 +738,7 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/api.php" {
-		if m.SignatureAlgorithm != "MD5" || subtle.ConstantTimeCompare([]byte(p["key"]), []byte(m.APIKey)) != 1 {
+		if !(compat.Credentials{Algorithm: m.SignatureAlgorithm, Keytype: m.Keytype}).Allows("MD5") || subtle.ConstantTimeCompare([]byte(p["key"]), []byte(m.APIKey)) != 1 {
 			s.wire(w, true, nil, "authentication failed")
 			return
 		}
@@ -603,15 +758,15 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		cred := compat.Credentials{MD5Key: m.APIKey, Algorithm: m.SignatureAlgorithm}
+		cred := compat.Credentials{MD5Key: m.APIKey, Algorithm: m.SignatureAlgorithm, Keytype: m.Keytype}
 		if cred.Algorithm == "" {
 			cred.Algorithm = "MD5"
 		}
-		if !legacy && cred.Algorithm != "RSA" {
+		if !legacy && (p["sign_type"] != "RSA" || !cred.Allows("RSA")) {
 			s.wire(w, legacy, nil, "RSA merchant credentials required")
 			return
 		}
-		if cred.Algorithm == "RSA" {
+		if p["sign_type"] == "RSA" && cred.Allows("RSA") {
 			cred.PublicKey, e = compat.ParsePublicKey(m.RSAPublicKey)
 			if e != nil {
 				s.wire(w, legacy, nil, "RSA credentials unavailable")
@@ -629,6 +784,7 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	switch route {
 	case "/api/pay/create", "/api/pay/submit":
+		r = r.WithContext(s.paymentDefendContext206(r.Context()))
 		if p["method"] == "scan" {
 			if r.Method != "POST" {
 				s.wire(w, legacy, nil, "scan requires POST")
@@ -807,32 +963,33 @@ func (s *Server) schemaReady(r *http.Request) error {
 }
 
 func (s *Server) allowLogin(remote, role, username string, now time.Time) bool {
+	limits := s.sharedRequestLimits()
 	ip, _, err := net.SplitHostPort(remote)
 	if err != nil {
 		ip = remote
 	}
 	key := fmt.Sprintf("%x", sha256.Sum256([]byte(ip+"\x00"+role+"\x00"+strings.ToLower(username))))
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.attempts == nil {
-		s.attempts = map[string]attempt{}
+	limits.mu.Lock()
+	defer limits.mu.Unlock()
+	if limits.attempts == nil {
+		limits.attempts = map[string]attempt{}
 	}
-	if s.lastAttemptCleanup.IsZero() || now.Sub(s.lastAttemptCleanup) >= time.Minute || len(s.attempts) >= 10000 {
-		for k, a := range s.attempts {
+	if limits.lastAttemptCleanup.IsZero() || now.Sub(limits.lastAttemptCleanup) >= time.Minute || len(limits.attempts) >= 10000 {
+		for k, a := range limits.attempts {
 			if now.Sub(a.since) >= 15*time.Minute {
-				delete(s.attempts, k)
+				delete(limits.attempts, k)
 			}
 		}
-		s.lastAttemptCleanup = now
+		limits.lastAttemptCleanup = now
 	}
-	a, exists := s.attempts[key]
-	if !exists && len(s.attempts) >= 10000 {
+	a, exists := limits.attempts[key]
+	if !exists && len(limits.attempts) >= 10000 {
 		return false
 	}
 	if now.Sub(a.since) >= 15*time.Minute {
 		a = attempt{since: now}
 	}
 	a.count++
-	s.attempts[key] = a
+	limits.attempts[key] = a
 	return a.count <= 10
 }

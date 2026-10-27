@@ -1,0 +1,1 @@
+import{p as n}from"./index-IIq1IliX.js";function e(e){return n.get({url:"./pluginmanage/pluginList",params:{type:e}})}function r(){return n.get({url:"./pluginmanage/refreshPlugins"})}function a(e){return n.post({url:"./pluginmanage/deletePlugin",params:{id:e}})}export{a,e as b,r as f};

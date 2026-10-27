@@ -10,20 +10,23 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"goepay/internal/merchantpolicy"
 )
 
 type settlementScopeMerchant struct {
-	MerchantID         int64                              `json:"merchant_id,string"`
-	PreferenceID       int64                              `json:"preference_id,string"`
-	PreferenceRevision int64                              `json:"preference_revision,string"`
-	PreferenceHash     []byte                             `json:"preference_hash"`
-	RecipientConfigID  int64                              `json:"recipient_config_id,string"`
-	RecipientHash      []byte                             `json:"recipient_hash"`
-	Recipient          SettlementRecipientView            `json:"recipient"`
-	Enabled            bool                               `json:"enabled"`
-	BaseGroupID        int64                              `json:"base_group_id,string"`
-	Unresolved         bool                               `json:"group_unresolved"`
-	Threshold          *settlementThresholdMerchantPolicy `json:"threshold,omitempty"`
+	MerchantID                   int64                              `json:"merchant_id,string"`
+	PreferenceID                 int64                              `json:"preference_id,string"`
+	PreferenceRevision           int64                              `json:"preference_revision,string"`
+	PreferenceHash               []byte                             `json:"preference_hash"`
+	RecipientConfigID            int64                              `json:"recipient_config_id,string"`
+	RecipientHash                []byte                             `json:"recipient_hash"`
+	Recipient                    SettlementRecipientView            `json:"recipient"`
+	Enabled                      bool                               `json:"enabled"`
+	BaseGroupID                  int64                              `json:"base_group_id,string"`
+	Unresolved                   bool                               `json:"group_unresolved"`
+	Threshold                    *settlementThresholdMerchantPolicy `json:"threshold,omitempty"`
+	SettlementPolicy             *SettlementPolicy                  `json:"settlement_policy,omitempty"`
+	SettlementPermissionRevision int64                              `json:"settlement_permission_revision,string,omitempty"`
 }
 
 type settlementPlanScope struct {
@@ -95,6 +98,14 @@ func (s *Store) settlementPlanStaticScope(ctx context.Context, q referralReader,
 		if !v.Enabled || v.Unresolved {
 			return out, ErrState
 		}
+		permission, e := merchantpolicy.ReadSettlementPermission(ctx, q, mid, false)
+		if e != nil {
+			return out, e
+		}
+		if !permission.Allowed {
+			return out, ErrState
+		}
+		v.SettlementPermissionRevision = permission.Revision
 		pref, e := s.readSettlementPreference(ctx, q, mid)
 		if e != nil {
 			return out, e
@@ -120,6 +131,15 @@ func (s *Store) settlementPlanStaticScope(ctx context.Context, q referralReader,
 				return out, e
 			}
 			v.Threshold = &policy
+		} else {
+			policy, e := readMerchantSettlementPolicy(ctx, q, mid, false)
+			if e != nil {
+				return out, e
+			}
+			if e = validateScheduledSettlementPolicy(policy); e != nil {
+				return out, e
+			}
+			v.SettlementPolicy = &policy
 		}
 		out.Merchants = append(out.Merchants, v)
 	}
@@ -195,6 +215,16 @@ func (s *Store) readSettlementPlanAuthorization(ctx context.Context, q fundsRead
 		}
 		if (r.Scope.Threshold != nil) != (m.Threshold != nil) {
 			return r, ErrConflict
+		}
+		if m.SettlementPolicy != nil {
+			if r.Scope.Threshold != nil || validateScheduledSettlementPolicy(*m.SettlementPolicy) != nil {
+				return r, ErrConflict
+			}
+			globalFields := *m.SettlementPolicy
+			globalFields.FeeRateBPS = r.Scope.Policy.FeeRateBPS
+			if globalFields != r.Scope.Policy {
+				return r, ErrConflict
+			}
 		}
 		if m.Threshold != nil {
 			v := m.Threshold

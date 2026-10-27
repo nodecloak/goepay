@@ -26,6 +26,10 @@ func (s *Store) ReferralRefundPreview(ctx context.Context, q referralReader, ord
 	if err != nil {
 		return result, err
 	}
+	charge104, _, err := s.authenticatedOrderChargeReader104(ctx, q, o)
+	if err != nil {
+		return result, err
+	}
 	result.OriginalFee = o.PlatformFee
 	if p, handled, err := s.dailyRefundPreview(ctx, q, o, refundNo, amount); handled || err != nil {
 		return p, err
@@ -78,7 +82,7 @@ func (s *Store) ReferralRefundPreview(ctx context.Context, q referralReader, ord
 	if err = q.QueryRow(ctx, `SELECT COALESCE(sum(amount),0),COALESCE(sum(merchant_amount),0),COALESCE(sum(fee_amount),0) FROM refunds WHERE order_id=$1 AND status<>'failed'`, orderID).Scan(&usedGross, &usedMerchant, &result.PriorFeeUsed); err != nil {
 		return result, err
 	}
-	if usedGross > o.Amount || amount > o.Amount-usedGross {
+	if usedGross > charge104 || amount > charge104-usedGross {
 		return result, ErrInvalid
 	}
 	if o.RefundFeePayer == "platform" {

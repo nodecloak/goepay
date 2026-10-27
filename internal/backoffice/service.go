@@ -5,14 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"goepay/internal/businessnotice"
-	"goepay/internal/collectionstyle"
-	"goepay/internal/ledger"
-	notice "goepay/internal/merchantnotice"
-	"goepay/internal/payment"
 	"net"
 	"net/mail"
 	"net/url"
@@ -20,6 +12,17 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"goepay/internal/businessnotice"
+	"goepay/internal/collectionstyle"
+	"goepay/internal/ledger"
+	notice "goepay/internal/merchantnotice"
+	"goepay/internal/payment"
+	"goepay/internal/siteinfo"
 )
 
 var (
@@ -50,10 +53,14 @@ type Page struct {
 	Page, Limit int
 }
 type Service struct {
-	RechargeValidate func(context.Context, int64, map[string]string) error
-	RechargeStart    func(context.Context, int64, string, map[string]string) (string, error)
-	pool             *pgxpool.Pool
-	store            *payment.Store
+	// Supplied by the host from its actual configured providers, never the
+	// unrelated editable channel directory or a request-supplied identity.
+	GroupChannelAllowed  func(int64, string) bool
+	GroupRoutingChannels func() ([]GroupPaymentChannel, error)
+	RechargeValidate     func(context.Context, int64, map[string]string) error
+	RechargeStart        func(context.Context, int64, string, map[string]string) (string, error)
+	pool                 *pgxpool.Pool
+	store                *payment.Store
 }
 
 func New(pool *pgxpool.Pool, store *payment.Store) *Service {
@@ -68,7 +75,7 @@ func authorized(p Principal, d definition, write bool) bool {
 func definitionFor(p Principal, r string, write bool) (definition, error) {
 	// Legacy plaintext settings are retained for historical inspection only.
 	// New recipient versions use the dedicated encrypted workflow.
-	if (r == "settlement-settings" || r == "template-configs") && write {
+	if (r == "settlement-settings" || r == "template-configs" || r == "cron-tasks") && write {
 		return definition{}, ErrForbidden
 	}
 	d, ok := definitions[r]
@@ -103,6 +110,8 @@ var (
 )
 
 func validate(p Principal, d definition, raw map[string]json.RawMessage, current map[string]any, create bool) (map[string]any, error) {
+	d = layoutSettingDefinition(d, raw, current)
+	d = siteSettingDefinition191(d, raw, current)
 	fields := map[string]Field{}
 	for _, f := range d.fields {
 		fields[f.Name] = f
@@ -213,6 +222,8 @@ func validate(p Principal, d definition, raw map[string]json.RawMessage, current
 }
 func validateSpecific(resource string, v map[string]any) error {
 	switch resource {
+	case "announcements":
+		return validateAnnouncement(v)
 	case "groups":
 		if err := validateGroupPaymentRates(v); err != nil {
 			return err
@@ -233,8 +244,8 @@ func validateSpecific(resource string, v map[string]any) error {
 		return e
 	case "domains":
 		domain, _ := v["domain"].(string)
-		domain = strings.ToLower(domain)
-		if !domainPattern.MatchString(domain) || net.ParseIP(domain) != nil {
+		domain, valid := normalizeAuthorizationDomain(domain)
+		if !valid {
 			return ErrInvalid
 		}
 		v["domain"] = domain
@@ -247,7 +258,18 @@ func validateSpecific(resource string, v map[string]any) error {
 		}
 	case "settings":
 		key := fmt.Sprint(v["key"])
+		if originalLayoutSetting(key) {
+			if _, ok := v["value"].(string); !ok {
+				return ErrInvalid
+			}
+		}
 		value := fmt.Sprint(v["value"])
+		if validatePublicTestPaySetting203(key, value) != nil {
+			return ErrInvalid
+		}
+		if known, err := siteinfo.Validate(key, value); known && err != nil {
+			return ErrInvalid
+		}
 		if known, err := notice.ValidatePlatformSetting(key, value); known && err != nil {
 			return ErrInvalid
 		}
@@ -255,6 +277,10 @@ func validateSpecific(resource string, v map[string]any) error {
 			return ErrInvalid
 		}
 		switch key {
+		case "auto_check_notify", "check_notify_count", "check_notify_notice":
+			if payment.ValidateScheduledNotificationSetting(key, value) != nil {
+				return ErrInvalid
+			}
 		case "msgconfig_risk", "msgtelegram_chatid", "qqbot_openid", "mail_recv", "mail_name":
 			if payment.ValidateAdminNoticeSetting(key, value) != nil {
 				return ErrInvalid
@@ -264,7 +290,7 @@ func validateSpecific(resource string, v map[string]any) error {
 			if e != nil || n < 0 || n > 100000000000 {
 				return ErrInvalid
 			}
-		case "transfer_alipay":
+		case "transfer_alipay", "test_pay_uid":
 			n, e := strconv.ParseInt(value, 10, 64)
 			if e != nil || n < 0 || strconv.FormatInt(n, 10) != value {
 				return ErrInvalid
@@ -389,12 +415,15 @@ func (s *Service) Create(ctx context.Context, p Principal, r string, in map[stri
 		return s.createAdministrator(ctx, p, d, in)
 	}
 	if r == "settings" {
+		if e = rejectPlatformSetting179(in, nil); e != nil {
+			return Item{}, e
+		}
 		if e = validateMerchantNoticeRaw(in, nil); e != nil {
 			return Item{}, e
 		}
 	}
 	if r == "groups" {
-		if e = validateGroupPaymentRatesRaw(in); e != nil {
+		if in, e = normalizeGroupPaymentInfo(in); e != nil {
 			return Item{}, e
 		}
 	}
@@ -423,6 +452,11 @@ func (s *Service) Create(ctx context.Context, p Principal, r string, in map[stri
 	}
 	if e = validatePaymentLimitSetting(ctx, tx, r, 0, v); e != nil {
 		return Item{}, e
+	}
+	if r == "groups" {
+		if e = s.validateGroupRoutingReferences(ctx, tx, v); e != nil {
+			return Item{}, e
+		}
 	}
 	if e = validateRelations(ctx, tx, r, 0, ownerID, v); e != nil {
 		return Item{}, e
@@ -469,7 +503,20 @@ func (s *Service) Get(ctx context.Context, p Principal, r string, id int64) (Ite
 	if e != nil {
 		return Item{}, businessError(e)
 	}
-	return Item{ID: id, Fields: decodeFields(raw)}, nil
+	fields, e := decodeResourceFields(r, raw)
+	if e != nil {
+		return Item{}, e
+	}
+	if r == "settings" && fields["key"] == "__platform_merchant_access179" {
+		return Item{}, ErrNotFound
+	}
+	item := Item{ID: id, Fields: fields}
+	if r == "groups" {
+		if e = s.attachGroupCoreRisk(ctx, []Item{item}); e != nil {
+			return Item{}, e
+		}
+	}
+	return item, nil
 }
 func (s *Service) List(ctx context.Context, p Principal, r string, q Query) (Page, error) {
 	d, e := definitionFor(p, r, false)
@@ -489,6 +536,9 @@ func (s *Service) List(ctx context.Context, p Principal, r string, q Query) (Pag
 		return s.listSpecial(ctx, p, r, q)
 	}
 	where := "resource=$1 AND ($2::text='admin' OR owner_id=$3 OR $4::boolean) AND ($5::text='' OR strpos(lower(body::text),lower($5))>0)"
+	if r == "settings" {
+		where += " AND body->>'key' IS DISTINCT FROM '__platform_merchant_access179'"
+	}
 	if r == "invitation-codes" {
 		where += " AND body->>'archived' IS DISTINCT FROM 'true'"
 	}
@@ -496,7 +546,16 @@ func (s *Service) List(ctx context.Context, p Principal, r string, q Query) (Pag
 	if e = s.pool.QueryRow(ctx, "SELECT count(*) FROM backoffice_records WHERE "+where, r, p.Role, p.SubjectID, d.merchantRead, q.Search).Scan(&page.Total); e != nil {
 		return page, e
 	}
-	rows, e := s.pool.Query(ctx, "SELECT id,body FROM backoffice_records WHERE "+where+" ORDER BY id DESC LIMIT $6 OFFSET $7", r, p.Role, p.SubjectID, d.merchantRead, q.Search, q.Limit, (q.Page-1)*q.Limit)
+	order := "id DESC"
+	projection := "id,body"
+	if r == "groups" {
+		order = "CASE WHEN id=0 THEN 0 ELSE 1 END,id DESC"
+	}
+	if r == "announcements" {
+		order = "CASE WHEN body->>'sort'~'^[1-9][0-9]{0,9}$' THEN (body->>'sort')::numeric ELSE 50 END ASC,id DESC"
+		projection = "id,body || jsonb_build_object('created_at',created_at)"
+	}
+	rows, e := s.pool.Query(ctx, "SELECT "+projection+" FROM backoffice_records WHERE "+where+" ORDER BY "+order+" LIMIT $6 OFFSET $7", r, p.Role, p.SubjectID, d.merchantRead, q.Search, q.Limit, (q.Page-1)*q.Limit)
 	if e != nil {
 		return page, e
 	}
@@ -507,9 +566,20 @@ func (s *Service) List(ctx context.Context, p Principal, r string, q Query) (Pag
 		if e = rows.Scan(&id, &raw); e != nil {
 			return page, e
 		}
-		page.Items = append(page.Items, Item{ID: id, Fields: decodeFields(raw)})
+		fields, e := decodeResourceFields(r, raw)
+		if e != nil {
+			return Page{}, e
+		}
+		page.Items = append(page.Items, Item{ID: id, Fields: fields})
 	}
-	return page, rows.Err()
+	if e = rows.Err(); e != nil {
+		return page, e
+	}
+	rows.Close()
+	if r == "groups" {
+		e = s.attachGroupCoreRisk(ctx, page.Items)
+	}
+	return page, e
 }
 func (s *Service) Update(ctx context.Context, p Principal, r string, id int64, in map[string]json.RawMessage) (Item, error) {
 	return s.update(ctx, p, r, id, in, "")
@@ -526,7 +596,7 @@ func (s *Service) update(ctx context.Context, p Principal, r string, id int64, i
 		return s.updateAdministrator(ctx, p, d, id, in)
 	}
 	if r == "groups" {
-		if e = validateGroupPaymentRatesRaw(in); e != nil {
+		if in, e = normalizeGroupPaymentInfo(in); e != nil {
 			return Item{}, e
 		}
 	}
@@ -572,6 +642,9 @@ func (s *Service) update(ctx context.Context, p Principal, r string, id int64, i
 		}
 	}
 	if r == "settings" {
+		if e = rejectPlatformSetting179(in, decodeFields(raw)); e != nil {
+			return Item{}, e
+		}
 		if fmt.Sprint(decodeFields(raw)["key"]) == "group_buy" {
 			return Item{}, ErrForbidden
 		}
@@ -579,7 +652,11 @@ func (s *Service) update(ctx context.Context, p Principal, r string, id int64, i
 			return Item{}, e
 		}
 	}
-	v, e := validate(p, d, in, decodeFields(raw), false)
+	currentFields, e := decodeResourceFields(r, raw)
+	if e != nil {
+		return Item{}, e
+	}
+	v, e := validate(p, d, in, currentFields, false)
 	if e != nil {
 		return Item{}, e
 	}
@@ -604,6 +681,11 @@ func (s *Service) update(ctx context.Context, p Principal, r string, id int64, i
 	var own any
 	if oid > 0 {
 		own = oid
+	}
+	if _, changed := in["info"]; r == "groups" && changed {
+		if e = s.validateGroupRoutingReferences(ctx, tx, v); e != nil {
+			return Item{}, e
+		}
 	}
 	if e = validateRelations(ctx, tx, r, id, oid, v); e != nil {
 		return Item{}, e
@@ -643,6 +725,9 @@ func (s *Service) update(ctx context.Context, p Principal, r string, id int64, i
 	return Item{ID: id, Fields: v}, nil
 }
 func (s *Service) Delete(ctx context.Context, p Principal, r string, id int64) error {
+	if r == "groups" && id == 0 {
+		return ErrForbidden
+	}
 	d, e := definitionFor(p, r, true)
 	if e != nil {
 		return e
@@ -658,6 +743,18 @@ func (s *Service) Delete(ctx context.Context, p Principal, r string, id int64) e
 		return e
 	}
 	defer tx.Rollback(ctx)
+	if e = lockPaymentLimitSettings(ctx, tx, r); e != nil {
+		return e
+	}
+	if r == "settings" {
+		var key string
+		if e = tx.QueryRow(ctx, `SELECT body->>'key' FROM backoffice_records WHERE resource='settings' AND id=$1 FOR UPDATE`, id).Scan(&key); e != nil {
+			return businessError(e)
+		}
+		if protectedPlatformSetting179(key) {
+			return ErrForbidden
+		}
+	}
 	if r == "collection-codes" {
 		var generated bool
 		var raw []byte

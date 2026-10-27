@@ -157,7 +157,7 @@ func TestChannelSharingFinishAlipayStandaloneIsClosedBeforeGrantAndProviderIO(t 
 	if _, e = g.Submit(ctx, o.TradeNo, 7, "app", "127.0.0.1", ""); e != nil {
 		t.Fatal(e)
 	}
-	if e = s.markPaid(ctx, o.TradeNo, "ali-finish-original-receipt", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "ALI_" + o.TradeNo}); e != nil {
+	if e = s.markPaid(ctx, o.TradeNo, "ali-finish-original-receipt", true, PaidReceipt{RealMoney: 100, ChannelID: 7, ProviderTradeNo: "ALI_" + o.TradeNo}); e != nil {
 		t.Fatal(e)
 	}
 	guarded := WithFundsActionGuard(ctx, func(context.Context, pgx.Tx, string, string) error {

@@ -9,6 +9,7 @@ type TransferRecipientDisplay struct {
 	Type          string
 	AccountMasked string
 	NameMasked    string
+	Remark        string
 }
 
 func (s *Store) TransferRecipientDisplay(id, amount int64, cipher []byte) (TransferRecipientDisplay, error) {
@@ -29,5 +30,7 @@ func (s *Store) TransferRecipientDisplay(id, amount int64, cipher []byte) (Trans
 	// Reuse the settlement masking policy: no name characters, at most the last
 	// four account runes, and no suffix at all for short accounts.
 	view := recipientView("", 0, SettlementRecipientInput{Account: r.Account, Name: r.Name})
-	return TransferRecipientDisplay{Type: r.Type, AccountMasked: view.AccountMasked, NameMasked: view.NameMasked}, nil
+	// Only the original business remark is displayed, never the separate title
+	// or a value reconstructed from the merchant's current profile.
+	return TransferRecipientDisplay{Type: r.Type, AccountMasked: view.AccountMasked, NameMasked: view.NameMasked, Remark: r.Remark}, nil
 }

@@ -144,7 +144,7 @@ func TestChannelSharingReturnAlipaySignedRoyaltyEvidenceIsRequiredForOriginalCre
 	if _, e = flow.Submit(ctx, o.TradeNo, 7, "app", "127.0.0.1", ""); e != nil {
 		t.Fatal(e)
 	}
-	if e = s.markPaid(ctx, o.TradeNo, "ali-return-receipt", true, PaidReceipt{ChannelID: 7, ProviderTradeNo: "ALI_" + o.TradeNo}); e != nil {
+	if e = s.markPaid(ctx, o.TradeNo, "ali-return-receipt", true, PaidReceipt{RealMoney: o.Amount, ChannelID: 7, ProviderTradeNo: "ALI_" + o.TradeNo}); e != nil {
 		t.Fatal(e)
 	}
 	ps, e := flow.SubmitChannelSharing(ctx, 751, o.TradeNo, "ali-return-original-sharing", channelSharingActor)

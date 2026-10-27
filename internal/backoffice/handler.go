@@ -68,6 +68,9 @@ func body(w http.ResponseWriter, r *http.Request) (map[string]json.RawMessage, b
 // Serve runs only after the application's authentication, account-enabled, and
 // CSRF middleware have validated Principal. parts begin with the resource ID.
 func (s *Service) Serve(w http.ResponseWriter, r *http.Request, p Principal, parts []string) {
+	if s.serveGroupRoutingCatalog(w, r, p, parts) {
+		return
+	}
 	if s.serveCase(w, r, p, parts) {
 		return
 	}
@@ -133,7 +136,7 @@ func (s *Service) Serve(w http.ResponseWriter, r *http.Request, p Principal, par
 		return
 	}
 	id, e := strconv.ParseInt(parts[1], 10, 64)
-	if e != nil || id <= 0 {
+	if e != nil || id < 0 || id == 0 && (resource != "groups" || parts[1] != "0") {
 		write(w, 400, nil, "invalid ID")
 		return
 	}

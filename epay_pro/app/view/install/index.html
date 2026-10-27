@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>彩虹易支付 - 安装向导</title>
+    <link href="//lib.baomitu.com/twitter-bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="//lib.baomitu.com/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="//lib.baomitu.com/limonte-sweetalert2/11.14.5/sweetalert2.min.css" rel="stylesheet">
+    <link href="/static/css/install.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner-wrap"></div>
+    <div class="loading-text" id="loadingText">正在处理中...</div>
+</div>
+
+<!-- Header -->
+<div class="install-header">
+    <h1><i class="bi bi-cloud-check"></i> 彩虹易支付</h1>
+    <p>系统安装向导</p>
+</div>
+
+<div class="install-container">
+    <div class="install-card">
+
+        <!-- Stepper -->
+        <div class="stepper" id="stepper">
+            <div class="stepper-item active" id="stepperItem1">
+                <span class="stepper-number" id="stepNum1">1</span>
+                <span class="stepper-label">环境检测</span>
+            </div>
+            <div class="stepper-item" id="stepperItem2">
+                <span class="stepper-number" id="stepNum2">2</span>
+                <span class="stepper-label">参数配置</span>
+            </div>
+            <div class="stepper-item" id="stepperItem3">
+                <span class="stepper-number" id="stepNum3">3</span>
+                <span class="stepper-label">管理员配置</span>
+            </div>
+            <div class="stepper-item" id="stepperItem4">
+                <span class="stepper-number" id="stepNum4">4</span>
+                <span class="stepper-label">安装完成</span>
+            </div>
+        </div>
+
+        <!-- Step panels -->
+        <div class="step-content">
+
+            <!-- Step 1: Environment Check -->
+            <div class="step-panel active" id="stepPanel1">
+                <div class="section-title"><i class="bi bi-cpu"></i> 系统环境检测</div>
+                <p style="color:#64748b; font-size:14px; margin-bottom:20px;">安装前请确保您的服务器环境满足以下要求</p>
+                <div id="envCheckResult">
+                    <div class="text-center" style="padding: 40px 0;">
+                        <button class="btn btn-primary-gradient btn-lg" onclick="checkEnv()">
+                            <i class="bi bi-play-circle"></i> 开始检测
+                        </button>
+                    </div>
+                </div>
+                <div class="text-end mt-3" id="envNextBtn" style="display:none">
+                    <button class="btn btn-primary-gradient" onclick="goToStep(2)">
+                        下一步 <i class="bi bi-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Configuration Form -->
+            <div class="step-panel" id="stepPanel2">
+                <form id="installForm" onsubmit="return false;">
+
+                    <div class="form-section">
+                        <div class="section-title"><i class="bi bi-database"></i> 数据库信息</div>
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label class="form-label">数据库地址</label>
+                                <input type="text" class="form-control" name="db_host" value="localhost" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">数据库端口</label>
+                                <input type="text" class="form-control" name="db_port" value="3306" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">数据库用户名</label>
+                                <input type="text" class="form-control" name="db_user" required placeholder="请输入数据库用户名">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">数据库密码</label>
+                                <input type="text" class="form-control" name="db_pass" placeholder="请输入数据库密码">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">数据库名称</label>
+                                <input type="text" class="form-control" name="db_name" required placeholder="请输入数据库名称">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">数据表前缀</label>
+                                <input type="text" class="form-control" name="db_prefix" value="pay_" disabled>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="section-title"><i class="bi bi-lightning-charge"></i> 缓存配置</div>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">缓存类型</label>
+                                <select class="form-select" name="cache_driver" id="cacheDriver" onchange="toggleRedis()">
+                                    <option value="file" selected>文件缓存</option>
+                                    <option value="redis">Redis</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="redisConfig" style="display:none; margin-top:16px;">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Redis 地址</label>
+                                    <input type="text" class="form-control" name="redis_host" value="127.0.0.1">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Redis 端口</label>
+                                    <input type="text" class="form-control" name="redis_port" value="6379">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Redis 密码</label>
+                                    <input type="text" class="form-control" name="redis_pass" placeholder="无密码请留空">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Redis 数据库编号</label>
+                                    <input type="number" class="form-control" name="redis_db" value="0" min="0">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="button" class="btn btn-outline-secondary" style="border-radius:8px; padding:10px 24px;" onclick="goToStep(1)">
+                            <i class="bi bi-arrow-left"></i> 上一步
+                        </button>
+                        <button type="button" class="btn btn-primary-gradient" onclick="submitConfig()">
+                            下一步 <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Step 3: Admin Configuration -->
+            <div class="step-panel" id="stepPanel3">
+                <form id="adminForm" onsubmit="return false;">
+                    <div class="form-section">
+                        <div class="section-title"><i class="bi bi-person-gear"></i> 管理员信息</div>
+                        <p style="color:#64748b; font-size:14px; margin-bottom:16px;">用于登录后台管理系统</p>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">管理员账号</label>
+                                <input type="text" class="form-control" name="admin_user" value="admin" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">管理员密码</label>
+                                <input type="text" class="form-control" name="admin_pass" required minlength="6" placeholder="请输入管理员密码" autocomplete="off">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="button" class="btn btn-outline-secondary" style="border-radius:8px; padding:10px 24px;" onclick="goToStep(2)">
+                            <i class="bi bi-arrow-left"></i> 上一步
+                        </button>
+                        <button type="button" class="btn btn-primary-gradient" onclick="submitAdminAndInstall()">
+                            <i class="bi bi-check2-circle"></i> 提交安装
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Step 4: Success -->
+            <div class="step-panel" id="stepPanel4">
+                <div class="text-center" style="padding: 36px 0;">
+                    <div class="result-icon success">
+                        <i class="bi bi-check-lg"></i>
+                    </div>
+                    <h4 style="font-weight: 700; color: #1e293b; margin-bottom: 10px;">安装成功！</h4>
+                    <p style="color: #64748b; margin-bottom: 8px;">彩虹易支付系统已成功安装</p>
+                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 32px;">
+                        <i class="bi bi-shield-check"></i> 后台路径：/admin，你可以在后台修改成自定义路径
+                    </p>
+                    <a href="/" class="btn btn-primary-gradient me-2"><i class="bi bi-house-door"></i> 网站首页</a>
+                    <a href="/admin/" class="btn btn-outline-secondary" style="border-radius:8px; padding:10px 28px;"><i class="bi bi-gear"></i> 后台管理</a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="install-footer">Powered by 彩虹易支付</div>
+</div>
+
+<script src="//lib.baomitu.com/twitter-bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="//lib.baomitu.com/limonte-sweetalert2/11.14.5/sweetalert2.min.js"></script>
+{literal}
+<script>
+var currentStep = 1;
+var envPassed = false;
+var pendingInstallMode = 'new';
+
+function showLoading(text) {
+    document.getElementById('loadingText').textContent = text || '正在处理中...';
+    document.getElementById('loadingOverlay').classList.add('show');
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').classList.remove('show');
+}
+
+function showMsg(msg, type) {
+    var iconMap = { error: 'error', warning: 'warning', success: 'success', info: 'info' };
+    Swal.fire({
+        icon: iconMap[type] || 'info',
+        title: type === 'error' ? '操作失败' : (type === 'warning' ? '提示' : (type === 'success' ? '成功' : '提示')),
+        text: msg,
+        confirmButtonText: '我知道了'
+    });
+}
+
+function showError(msg) { showMsg(msg, 'error'); }
+function showWarning(msg) { showMsg(msg, 'warning'); }
+function showSuccess(msg) { showMsg(msg, 'success'); }
+
+function goToStep(step) {
+    if (step === 2 && !envPassed) {
+        showWarning('请先完成环境检测');
+        return;
+    }
+    currentStep = step;
+    for (var i = 1; i <= 4; i++) {
+        var item = document.getElementById('stepperItem' + i);
+        var panel = document.getElementById('stepPanel' + i);
+        var num = document.getElementById('stepNum' + i);
+        if (!item || !panel) continue;
+        item.classList.remove('active', 'completed');
+        panel.classList.remove('active');
+        if (i < step) {
+            item.classList.add('completed');
+            num.innerHTML = '<i class="bi bi-check-lg"></i>';
+        } else {
+            num.textContent = i;
+        }
+        if (i === step) {
+            item.classList.add('active');
+            panel.classList.add('active');
+        }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function checkEnv() {
+    showLoading('正在检测系统环境...');
+    fetch('/install/check_env', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            hideLoading();
+            if (res.code !== 200) {
+                showError(res.msg);
+                return;
+            }
+            renderEnvResult(res.data);
+        })
+        .catch(function(e) {
+            hideLoading();
+            showError('检测请求失败：' + e.message);
+        });
+}
+
+function renderEnvResult(data) {
+    var items = data.items;
+    var html = '<div class="table-responsive"><table class="table env-table mb-0">';
+    html += '<thead><tr><th style="width:45%">检测项</th><th style="width:35%">当前状态</th><th style="width:20%">结果</th></tr></thead><tbody>';
+    for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        var icon = item.pass
+            ? '<i class="bi bi-check-circle-fill check-pass" style="font-size:18px;"></i>'
+            : '<i class="bi bi-x-circle-fill check-fail" style="font-size:18px;"></i>';
+        html += '<tr><td>' + item.name + '</td><td><span class="' + (item.pass ? 'check-pass' : 'check-fail') + '">' + item.current + '</span></td><td>' + icon + '</td></tr>';
+    }
+    html += '</tbody></table></div>';
+
+    if (!data.pass) {
+        html += '<div class="alert alert-danger d-flex align-items-center mt-3 mb-0" style="border-radius:10px; font-size:14px;">';
+        html += '<i class="bi bi-exclamation-triangle-fill me-2"></i> 环境检测未通过，请修复上述问题后重新检测</div>';
+        html += '<div class="text-center mt-3"><button class="btn btn-outline-primary" style="border-radius:8px;" onclick="checkEnv()"><i class="bi bi-arrow-clockwise"></i> 重新检测</button></div>';
+    }
+
+    document.getElementById('envCheckResult').innerHTML = html;
+
+    if (data.pass) {
+        envPassed = true;
+        document.getElementById('envNextBtn').style.display = 'block';
+    } else {
+        envPassed = false;
+        document.getElementById('envNextBtn').style.display = 'none';
+    }
+}
+
+function toggleRedis() {
+    var driver = document.getElementById('cacheDriver').value;
+    document.getElementById('redisConfig').style.display = driver === 'redis' ? 'block' : 'none';
+}
+
+function getFormData() {
+    var form = document.getElementById('installForm');
+    if (!form) return {};
+    var data = {};
+    var inputs = form.querySelectorAll('input, select');
+    for (var i = 0; i < inputs.length; i++) {
+        data[inputs[i].name] = inputs[i].value;
+    }
+    return data;
+}
+
+function getAdminData() {
+    var form = document.getElementById('adminForm');
+    if (!form) return {};
+    var data = {};
+    var inputs = form.querySelectorAll('input, select');
+    for (var i = 0; i < inputs.length; i++) {
+        data[inputs[i].name] = inputs[i].value;
+    }
+    return data;
+}
+
+function submitConfig() {
+    var data = getFormData();
+    if (!data.db_host || !data.db_port || !data.db_user || !data.db_name) {
+        showWarning('请填写完整的数据库信息');
+        return;
+    }
+
+    showLoading('正在检测连接信息...');
+    fetch('/install/check_config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: buildQuery(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        hideLoading();
+        if (res.code !== 200) {
+            showError(res.msg);
+            return;
+        }
+        if (res.data.tables_exist) {
+            showTableExistDialog();
+        } else {
+            pendingInstallMode = 'new';
+            goToStep(3);
+        }
+    })
+    .catch(function(e) {
+        hideLoading();
+        showError('请求失败：' + e.message);
+    });
+}
+
+function showTableExistDialog() {
+    Swal.fire({
+        icon: 'warning',
+        title: '检测到已有数据',
+        html: '<p style="color:#475569; line-height:1.7; margin:0;">系统检测到你已安装过彩虹易支付，请选择安装方式：</p>',
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: '<i class="bi bi-skip-forward-fill"></i> 跳过安装数据表',
+        denyButtonText: '<i class="bi bi-arrow-counterclockwise"></i> 强制全新安装',
+        cancelButtonText: '取消',
+        confirmButtonColor: '#6366f1',
+        denyButtonColor: '#ef4444',
+        reverseButtons: false
+    }).then(function(result) {
+        if (result.isConfirmed) {
+            // 跳过安装数据表：直接提交安装（保留原有数据/管理员），不进入管理员配置步骤
+            doInstall('skip');
+        } else if (result.isDenied) {
+            Swal.fire({
+                icon: 'warning',
+                title: '操作确认',
+                text: '全新安装将会清空所有数据，是否继续？',
+                showCancelButton: true,
+                confirmButtonText: '确认安装',
+                cancelButtonText: '取消',
+                confirmButtonColor: '#ef4444'
+            }).then(function(r2) {
+                if (r2.isConfirmed) {
+                    pendingInstallMode = 'force';
+                    goToStep(3);
+                }
+            });
+        }
+    });
+}
+
+function submitAdminAndInstall() {
+    var admin = getAdminData();
+    if (!admin.admin_user) {
+        showWarning('请填写管理员账号');
+        return;
+    }
+    if (!admin.admin_pass || admin.admin_pass.length < 6) {
+        showWarning('管理员密码不能少于6位');
+        return;
+    }
+    doInstall(pendingInstallMode || 'new');
+}
+
+function doInstall(mode) {
+    var data = getFormData();
+    var admin = getAdminData();
+    data.mode = mode;
+    if (mode !== 'skip') {
+        data.admin_user = admin.admin_user || '';
+        data.admin_pass = admin.admin_pass || '';
+    }
+
+    showLoading('正在安装系统，请勿关闭页面...');
+    fetch('/install/do_install', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: buildQuery(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        hideLoading();
+        if (res.code !== 200) {
+            showError(res.msg);
+            return;
+        }
+        goToStep(4);
+    })
+    .catch(function(e) {
+        hideLoading();
+        showError('安装请求失败：' + e.message);
+    });
+}
+
+function buildQuery(data) {
+    var parts = [];
+    for (var key in data) {
+        if (data.hasOwnProperty(key)) {
+            parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(data[key]));
+        }
+    }
+    return parts.join('&');
+}
+</script>
+{/literal}
+</body>
+</html>

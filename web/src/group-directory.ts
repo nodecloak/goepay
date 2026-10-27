@@ -30,12 +30,31 @@ export function groupDirectoryRates(row: Record<string, unknown>): {
       rates = readGroupPaymentRates(row.info);
     const lines = [{ label: "统一分成", value: unified + "%" }];
     for (const type of groupPaymentTypes) {
-      const rate = rates[type.key]?.rate;
-      if (rate === undefined) continue;
+      const setting = rates[type.key];
+      if (setting === undefined) continue;
+      const rate = setting.rate ?? "";
       const inherited = rate === "" || /^0+(?:\.0{1,2})?$/.test(rate);
+      const route =
+        setting.channel === undefined
+          ? ""
+          : setting.channel === "0"
+            ? "关闭"
+            : setting.channel === "-1"
+              ? "随机可用"
+              : setting.channel === "-3"
+                ? "随机可用轮询组"
+                : setting.channel === "-4"
+                  ? "顺序可用"
+                  : setting.channel === "-5"
+                    ? "首个可用通道"
+                    : setting.type === "roll"
+                      ? "轮询组 #" + setting.channel
+                      : "通道 #" + setting.channel;
       lines.push({
         label: type.label,
-        value: inherited ? "继承统一分成" + unified + "%" : rate + "%",
+        value:
+          (route ? route + " · " : "") +
+          (inherited ? "继承统一分成" + unified + "%" : rate + "%"),
       });
     }
     return { lines, error: "" };

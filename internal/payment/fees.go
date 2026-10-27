@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"github.com/jackc/pgx/v5"
+	"goepay/internal/grouppolicy"
 	"strconv"
+	"time"
 )
 
 // calculateFee mirrors Release's rounding of merchant retained money, rather than
@@ -20,6 +22,7 @@ func calculateFee(gross, feeRateBPS int64) (net, fee int64, err error) {
 }
 
 type feeSnapshot struct {
+	CustomerCharge104       *buyerChargeQuote104
 	Policy, Payer           string
 	Rate, GroupID, Net, Fee int64
 }
@@ -62,10 +65,10 @@ func feePolicy(ctx context.Context, tx pgx.Tx, group, kind string, gross int64) 
 	}
 	f.Policy = "merchant_deduct"
 	if group == "" {
-		return f, nil
+		group = "0"
 	}
 	f.GroupID, e = strconv.ParseInt(group, 10, 64)
-	if e != nil || f.GroupID <= 0 {
+	if e != nil || f.GroupID < 0 {
 		return f, ErrInvalid
 	}
 	var raw string
@@ -142,6 +145,12 @@ func (s *Store) createOrderWithPrintOrigin(ctx context.Context, in CreateOrderIn
 		return Order{}, e
 	}
 	defer tx.Rollback(ctx)
+	if e = CheckPaymentDefend206Tx(ctx, tx); e != nil {
+		return Order{}, e
+	}
+	if e = routeOrderLock(ctx, tx, in.MerchantID, in.OutTradeNo); e != nil {
+		return Order{}, e
+	}
 	var enabled bool
 	var payStatus int
 	var group string
@@ -172,6 +181,9 @@ func (s *Store) createOrderWithPrintOrigin(ctx context.Context, in CreateOrderIn
 		if e = validateOrderReplay(existing, in); e != nil {
 			return Order{}, e
 		}
+		if _, _, e = s.authenticatedOrderCharge104(ctx, tx, existing); e != nil {
+			return Order{}, e
+		}
 		if e = s.validateOrderPurposeReplay(ctx, tx, existing, purpose); e != nil {
 			return Order{}, e
 		}
@@ -185,31 +197,82 @@ func (s *Store) createOrderWithPrintOrigin(ctx context.Context, in CreateOrderIn
 	}
 	// The merchant lock serializes purchases and administrator assignments with
 	// this new-order snapshot. Expiration never changes an existing order.
-	var purchased string
-	e = tx.QueryRow(ctx, "SELECT group_id::text FROM memberships WHERE merchant_id=$1 AND expires_at>now()", in.MerchantID).Scan(&purchased)
-	if e == nil {
-		group = purchased
-	} else if !errors.Is(e, pgx.ErrNoRows) {
-		return Order{}, e
-	}
-	if e = validateOriginalOrderAmount(ctx, tx, group, in.MerchantID, in.Amount); e != nil {
-		return Order{}, e
-	}
-	f, e := feePolicy(ctx, tx, group, in.Type, in.Amount)
+	var groupDeadline time.Time
+	quote, routed, e := s.readRouteFeeQuote(ctx, tx, in.MerchantID, in.OutTradeNo)
 	if e != nil {
 		return Order{}, e
+	}
+	var f feeSnapshot
+	if routed {
+		if !quote.matches(in) {
+			return Order{}, ErrConflict
+		}
+		if e = quote.deadline(ctx, tx); e != nil {
+			return Order{}, e
+		}
+		f = quote.snapshot()
+		in.PaymentCost = quote.costQuote()
+		groupDeadline = quote.facts.GroupValidUntil
+	} else {
+		if in.Type == "alipay" || in.Type == "wxpay" {
+			routing, err := s.GroupPaymentRoutingTx(ctx, tx, in.MerchantID, in.Type)
+			if err != nil {
+				return Order{}, err
+			}
+			if routing.Choice.Kind() == grouppolicy.Disabled {
+				return Order{}, ErrState
+			}
+			group = strconv.FormatInt(routing.GroupID, 10)
+			groupDeadline = routing.ValidUntil
+		} else {
+			var purchased string
+			e = tx.QueryRow(ctx, "SELECT group_id::text FROM memberships WHERE merchant_id=$1 AND expires_at>now()", in.MerchantID).Scan(&purchased)
+			if e == nil {
+				group = purchased
+			} else if !errors.Is(e, pgx.ErrNoRows) {
+				return Order{}, e
+			}
+		}
+		if e = validateOriginalOrderAmount(ctx, tx, group, in.MerchantID, in.Amount); e != nil {
+			return Order{}, e
+		}
+		f, e = feePolicy(ctx, tx, group, in.Type, in.Amount)
+		if e != nil {
+			return Order{}, e
+		}
+		f, e = s.quoteBuyerCharge104(ctx, tx, in.MerchantID, 0, in.Amount, f)
+		if e != nil {
+			return Order{}, e
+		}
+	}
+	if !groupDeadline.IsZero() {
+		var at time.Time
+		if e = tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&at); e != nil {
+			return Order{}, e
+		}
+		if !at.Before(groupDeadline) {
+			return Order{}, ErrState
+		}
 	}
 	var trade string
 	if e = tx.QueryRow(ctx, "SELECT nextval('trade_no_seq')::text").Scan(&trade); e != nil {
 		return Order{}, e
 	}
-	o, e := scanOrder(tx.QueryRow(ctx, "INSERT INTO orders(trade_no,merchant_id,out_trade_no,name,type,amount,notify_url,return_url,param,version,fee_policy,fee_rate_bps,fee_group_id,merchant_amount,platform_fee,refund_fee_payer) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) ON CONFLICT(merchant_id,out_trade_no) DO NOTHING RETURNING "+orderColumns, trade, in.MerchantID, in.OutTradeNo, in.Name, in.Type, in.Amount, in.NotifyURL, in.ReturnURL, in.Param, in.Version, f.Policy, f.Rate, f.GroupID, f.Net, f.Fee, f.Payer))
+	var actualCharge104 *int64
+	if f.CustomerCharge104 != nil {
+		value := f.CustomerCharge104.Charge
+		actualCharge104 = &value
+	}
+	o, e := scanOrder(tx.QueryRow(ctx, "INSERT INTO orders(trade_no,merchant_id,out_trade_no,name,type,amount,notify_url,return_url,param,version,fee_policy,fee_rate_bps,fee_group_id,merchant_amount,platform_fee,refund_fee_payer,runtime_fee_quote_required,actual_charge_amount104,actual_charge_required104) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) ON CONFLICT(merchant_id,out_trade_no) DO NOTHING RETURNING "+orderColumns, trade, in.MerchantID, in.OutTradeNo, in.Name, in.Type, in.Amount, in.NotifyURL, in.ReturnURL, in.Param, in.Version, f.Policy, f.Rate, f.GroupID, f.Net, f.Fee, f.Payer, routed, actualCharge104, actualCharge104 != nil))
 	if errors.Is(e, ErrNotFound) {
 		o, e = scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE merchant_id=$1 AND out_trade_no=$2", in.MerchantID, in.OutTradeNo))
 		if e != nil {
 			return Order{}, e
 		}
 		if e = validateOrderReplay(o, in); e != nil {
+			return Order{}, e
+		}
+		if _, _, e = s.authenticatedOrderCharge104(ctx, tx, o); e != nil {
 			return Order{}, e
 		}
 		if e = s.validateOrderPurposeReplay(ctx, tx, o, purpose); e != nil {
@@ -226,6 +289,13 @@ func (s *Store) createOrderWithPrintOrigin(ctx context.Context, in CreateOrderIn
 	if e = validateOrderReplay(o, in); e != nil {
 		return Order{}, e
 	}
+	var sourceRoute104 []byte
+	if routed {
+		sourceRoute104 = quote.proof
+	}
+	if e = s.insertBuyerSource104(ctx, tx, o, f.CustomerCharge104, sourceRoute104); e != nil {
+		return Order{}, e
+	}
 	if purpose == "recharge" {
 		if _, e = tx.Exec(ctx, "INSERT INTO recharge_intents(order_id,created_by) VALUES($1,$2)", o.ID, actor); e != nil {
 			return Order{}, e
@@ -236,6 +306,14 @@ func (s *Store) createOrderWithPrintOrigin(ctx context.Context, in CreateOrderIn
 	}
 	if e = s.writePrintOrigin(ctx, tx, o, purpose, collectionID); e != nil {
 		return Order{}, e
+	}
+	if routed {
+		if e = s.insertOrderRouteFeeTerms(ctx, tx, o, quote); e != nil {
+			return Order{}, e
+		}
+		if e = quote.deadline(ctx, tx); e != nil {
+			return Order{}, e
+		}
 	}
 	return o, tx.Commit(ctx)
 }

@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 const big = "9223372036854775807";
-async function fixture(page: Page, fail = false) {
+async function fixture(page: Page, fail = false, includeDefault = false) {
   const reads: URL[] = [],
     writes: Record<string, unknown>[] = [];
   const record = {
@@ -63,6 +63,9 @@ async function fixture(page: Page, fail = false) {
       else
         data = {
           items: [
+            ...(includeDefault
+              ? [{ id: "0", name: "系统默认商户", enabled: true }]
+              : []),
             {
               id: u.searchParams.get("page") === "2" ? "2" : "1",
               name: "普通用户组",
@@ -87,6 +90,23 @@ async function fixture(page: Page, fail = false) {
   return { reads, writes, dialog };
 }
 for (const width of [1280, 375]) {
+  test(`real default group catalog preserves positive selection and one canonical default option at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const f = await fixture(page, false, true),
+      select = f.dialog.getByLabel("用户组", { exact: true });
+    await expect(select).toHaveValue(big);
+    await expect(select).toContainText("当前大编号组");
+    await expect(
+      select.getByRole("option", { name: "系统默认商户", exact: true }),
+    ).toHaveCount(1);
+    expect(f.writes).toHaveLength(0);
+    await select.selectOption("");
+    await f.dialog.getByRole("button", { name: "保存", exact: true }).click();
+    await expect.poll(() => f.writes.length).toBe(1);
+    expect(f.writes[0]!.group_id).toBe("");
+  });
   test(`original group selector searches without submitting and writes a canonical explicit group at ${width}px`, async ({
     page,
   }, info) => {

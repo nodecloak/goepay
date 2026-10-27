@@ -1,0 +1,12 @@
+{
+  "fields": {
+    "merchant_id": 7633
+  },
+  "schema": "member72_d5329fa841bc2a33",
+  "source_files": 1645,
+  "source_manifest_sha256": "cfdf6e68f579165049568914718c99fab7637cbb46126deb501279d7db6cd9ef",
+  "synthetic_only": true,
+  "dump_sha256": "9c51ec3b91276e29538f95af7d447c8858c4179cb39220a3e328484ef5030a44",
+  "dump_uncompressed_sha256": "27dcd3da1dd7d74e929b55cdc43a146119d50b6161136831f510f350f476ddf4",
+  "dump_uncompressed_bytes": 872249
+}

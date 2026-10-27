@@ -53,7 +53,7 @@ func (g ProviderFlow) claimChannelSharingOrder(ctx context.Context, mid int64, t
 	if !r.Payment.Declared || r.Payment.Purpose != "payment" || recharge {
 		return r, false, ErrState
 	}
-	if e = s.verifySharingPayment(r.Payment); e != nil {
+	if e = s.verifySharingPayment(ctx, tx, r.Payment); e != nil {
 		return r, false, e
 	}
 	var valid, conflicting bool
@@ -79,6 +79,9 @@ func (g ProviderFlow) claimChannelSharingOrder(ctx context.Context, mid int64, t
 		return r, false, e
 	}
 	r.OutNo = "PS" + hex.EncodeToString(nonce)
+	if e = g.checkParentOrderWriteTx(ctx, tx, mid, r.OrderID, r.Payment.ChannelID); e != nil {
+		return r, false, e
+	}
 	p, e := g.sharingOrderProvider(ctx, tx, r)
 	if e != nil {
 		return r, false, e
@@ -117,6 +120,9 @@ func (g ProviderFlow) claimChannelSharingOrder(ctx context.Context, mid int64, t
 	if _, e = tx.Exec(ctx, "INSERT INTO jobs(event_key,kind,payload,run_at) VALUES($1,'channel-sharing.reconcile',jsonb_build_object('sharing_id',$2::bigint),statement_timestamp()+interval '30 seconds')", fmt.Sprintf("channel-sharing:%d:reconcile", r.ID), r.ID); e != nil {
 		return r, false, e
 	}
+	if e = g.checkParentOrderWriteTx(ctx, tx, mid, r.OrderID, r.Payment.ChannelID); e != nil {
+		return r, false, e
+	}
 	if e = tx.Commit(ctx); e != nil {
 		return r, false, e
 	}
@@ -128,7 +134,7 @@ func (g ProviderFlow) claimChannelSharingOrder(ctx context.Context, mid int64, t
 	return r, true, nil
 }
 func (g ProviderFlow) SubmitChannelSharing(ctx context.Context, mid int64, trade, no string, actor TransferBatchActor) (ChannelSharingOrderView, error) {
-	if !g.AllowLive {
+	if !g.paymentWritesEnabled() {
 		return ChannelSharingOrderView{}, ErrLiveDisabled
 	}
 	r, owner, e := g.claimChannelSharingOrder(ctx, mid, trade, no, actor)
@@ -137,6 +143,9 @@ func (g ProviderFlow) SubmitChannelSharing(ctx context.Context, mid int64, trade
 	}
 	if !owner {
 		return r.ChannelSharingOrderView, nil
+	}
+	if e = g.checkParentOrderWrite(ctx, mid, r.OrderID, r.Payment.ChannelID); e != nil {
+		return r.ChannelSharingOrderView, e
 	}
 	p, e := g.sharingOrderProvider(ctx, g.Store.pool, r)
 	if e == nil {

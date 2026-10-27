@@ -1,0 +1,15 @@
+// Pure additive installer. No IO, parent schema mutation, or payment execution.
+export function installBuyerCharge104API({paths,schemas,object,str,ref,content}) {
+ const hash=str(null,{pattern:'^[a-f0-9]{64}$'}),id=str(null,{pattern:'^[1-9][0-9]{0,18}$'}),revision=str(null,{pattern:'^(0|[1-9][0-9]{0,18})$'}),money=str('人民币元，最多两位小数。',{pattern:'^(0|[1-9][0-9]*)(\\.[0-9]{1,2})?$'}),bool={type:'boolean'};
+ const rate=str('空字符串表示买家承担全部实际手续费；否则为0到100的规范十进制百分比，最多12位小数。',{pattern:'^$|^(0|[1-9][0-9]{0,2})(\\.[0-9]{1,12})?$'});
+ const merchant={merchant_id:id,mode:{type:'integer',enum:[0,1]},mode_feerate:rate,configured:bool,revision,fingerprint:hash,can_update:{type:'boolean',const:true},partial_available:{type:'boolean',const:true}};
+ schemas.BuyerCharge104Merchant=object(merchant,Object.keys(merchant));
+ const minimum={kind:str(null,{enum:['global','parent']}),channel_id:str(null,{pattern:'^(0|[1-9][0-9]{0,18})$'}),payfee_lessthan:str('父通道允许留空；父两项均正才整对覆盖全局，否则使用全局整对。'),payfee_mincost:str('父通道空、0或仅填一项均不关闭全局。'),effective_payfee_lessthan:money,effective_payfee_mincost:money,configured:bool,revision,fingerprint:hash,can_update:{type:'boolean',const:true}};
+ schemas.BuyerCharge104Minimum=object(minimum,Object.keys(minimum));
+ schemas.BuyerCharge104OrderProjection=object({amount:str('商户原金额M，整数分。'),realmoney:str('仅charge_verified104=true时为认证实付C，整数分；无法认证为空字符串。'),charge_verified104:bool,remaining_refund_amount:str('认证C扣除成功退款后的金额，整数分；无法确认时为空字符串。')},['amount','realmoney','charge_verified104','remaining_refund_amount']);
+ const envelope=name=>object({code:{type:'integer',const:0},message:str(),data:ref(name)},['code','message','data']);
+ const errors={'400':{description:'严格字段/query/重复或大小写混用错误。'},'403':{description:'需要原持久会话和CSRF；父/全局仅非委托super。'},'409':{description:'来源、会话或CAS变化；重新读取后确认。'},'422':{description:'mode/费率/金额范围或精度无效。'},'503':{description:'结果无法确认；先GET，禁止自动重发。'}};
+ const op=(operationId,name,admin,body,parent=false)=>({operationId,summary:operationId,description:'设置仅影响真正新报价/订单；旧报价、旧订单及原证明字节不重价。Pro先舍入名义手续费，最低费为替换值，部分买家加费上限为该名义费；商户净得截0，实际手续费=C-N。商户通知及原支付查询money仍是M。',security:[{[admin?'AdminSession':'MerchantSession']:[]}],parameters:parent?[{in:'path',name:'channel_id',required:true,schema:id}]:[],...(body?{requestBody:{required:true,content:content(object(body,Object.keys(body)))}}:{}),responses:{'200':{description:name,content:content(envelope(name))},...errors}});
+ paths['/console/v1/merchant/account/buyer-fees']={get:op('buyerCharge104MerchantInspect','BuyerCharge104Merchant',false),patch:op('buyerCharge104MerchantSave','BuyerCharge104Merchant',false,{mode:merchant.mode,mode_feerate:rate,expected_fingerprint:hash})};
+ for(const [path,parent] of [['global',false],['parents/{channel_id}',true]])paths['/console/v1/admin/buyer-fees/'+path]={get:op(parent?'buyerCharge104ParentInspect':'buyerCharge104GlobalInspect','BuyerCharge104Minimum',true,null,parent),patch:op(parent?'buyerCharge104ParentSave':'buyerCharge104GlobalSave','BuyerCharge104Minimum',true,{payfee_lessthan:str(),payfee_mincost:str(),expected_fingerprint:hash},parent)};
+}
