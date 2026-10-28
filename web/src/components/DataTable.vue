@@ -348,33 +348,33 @@ function associatedOrder(value: unknown): boolean {
   right: 0;
   min-width: 80px;
   width: 80px;
-  background: #fff;
+  background: var(--bg-card);
   z-index: 1;
-  box-shadow: -4px 0 5px -5px #909399;
+  box-shadow: -4px 0 5px -5px var(--line-control);
 }
 .trade-table th.operation-cell {
-  background: #f9fafb;
+  background: var(--bg-raised);
   z-index: 2;
 }
 .trade-table tbody tr:hover .operation-cell {
-  background: #f5f7fa;
+  background: var(--bg-raised);
 }
 .badge[data-state="paid"],
 .badge[data-state="succeeded"],
 .badge[data-state="released"] {
-  color: #167245;
-  background: #e8f7ef;
+  color: var(--success-text);
+  background: var(--success-soft);
 }
 .badge[data-state="failed"],
 .badge[data-state="dead"] {
-  color: #b42318;
-  background: #fff0ed;
+  color: var(--danger-text);
+  background: var(--danger-soft);
 }
 .badge[data-state="pending"],
 .badge[data-state="unknown"],
 .badge[data-state="held"] {
-  color: #965c00;
-  background: #fff6dd;
+  color: var(--warning-text);
+  background: var(--warning-soft);
 }
 small.cell {
   display: block;

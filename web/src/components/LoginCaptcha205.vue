@@ -263,7 +263,7 @@ defineExpose({ verify, invalidate, reload });
   cursor: pointer;
 }
 .login-captcha205 button:focus-visible {
-  outline: 2px solid var(--color-primary, #2563eb);
+  outline: 2px solid var(--color-primary, var(--focus));
   outline-offset: 3px;
 }
 .login-captcha205 button:disabled {
@@ -271,6 +271,6 @@ defineExpose({ verify, invalidate, reload });
   opacity: 0.55;
 }
 .login-captcha205-error {
-  color: var(--color-danger, #b91c1c);
+  color: var(--color-danger, var(--danger-text));
 }
 </style>

@@ -174,7 +174,7 @@ function bankName(code: string, key: string) {
   min-width: 0;
   margin: 1rem 0;
   padding: 1rem;
-  border: 1px solid var(--border, #dce3ec);
+  border: 1px solid var(--border, var(--line));
   border-radius: 8px;
 }
 .batch-recipient-fields {

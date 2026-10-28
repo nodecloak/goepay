@@ -534,7 +534,7 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 .event-delivery-facts dt {
-  color: var(--muted, #606266);
+  color: var(--muted, var(--ink));
   font-size: 13px;
 }
 .event-delivery-facts dd {
@@ -594,16 +594,16 @@ onBeforeUnmount(() => {
 }
 .event-confirm {
   padding: 14px;
-  border: 1px solid var(--line, #dcdfe6);
+  border: 1px solid var(--line, var(--line-control));
   border-radius: 6px;
-  background: var(--surface-alt, #f5f7fa);
+  background: var(--surface-alt, var(--bg-raised));
 }
 .event-confirm p {
   margin: 0;
 }
 .refund-event-settings button:focus-visible,
 .refund-event-settings input:focus-visible {
-  outline: 2px solid var(--primary, #409eff);
+  outline: 2px solid var(--primary, var(--focus));
   outline-offset: 3px;
 }
 .sr-only {

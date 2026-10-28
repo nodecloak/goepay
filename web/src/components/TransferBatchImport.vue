@@ -245,7 +245,7 @@ onBeforeUnmount(reset);
 </template>
 <style scoped>
 .import-panel {
-  border: 1px solid var(--border, #dce3ec);
+  border: 1px solid var(--border, var(--line));
   border-radius: 8px;
   padding: 1rem;
   margin-block: 1rem;

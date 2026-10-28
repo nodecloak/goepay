@@ -209,25 +209,25 @@ const data = computed(() => {
 .transfer-actions {
   position: sticky;
   right: 0;
-  background: var(--panel, #fff);
+  background: var(--panel, var(--bg-card));
   min-width: 100px;
   z-index: 1;
   box-shadow: -2px 0 4px #00000008;
 }
 th.transfer-actions {
-  background: var(--table-header, #f8fafc);
+  background: var(--table-header, var(--bg-raised));
 }
 .transfer-status.success {
-  color: #15803d;
+  color: var(--success-text);
 }
 .transfer-status.danger {
-  color: #b91c1c;
+  color: var(--danger-text);
 }
 .transfer-status.processing {
-  color: #b45309;
+  color: var(--warning-text);
 }
 .transfer-status.neutral {
-  color: #64748b;
+  color: var(--ink-muted);
 }
 .transfer-confirm {
   color: #07c160;

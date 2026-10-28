@@ -206,7 +206,7 @@ table {
 th,
 td {
   padding: 6px;
-  border-bottom: 1px solid var(--line, #e5e5e5);
+  border-bottom: 1px solid var(--line, var(--line));
   text-align: left;
 }
 </style>

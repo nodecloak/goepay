@@ -313,7 +313,7 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   padding: 12px;
-  background: #0008;
+  background: var(--scrim);
   box-sizing: border-box;
 }
 .combined-card204 {
@@ -326,10 +326,10 @@ onBeforeUnmount(() => {
   min-width: 0;
   overflow: hidden;
   padding: 20px;
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: white;
-  color: #303133;
+  background: var(--bg-card);
+  color: var(--ink);
   box-shadow: 0 12px 40px #0003;
 }
 .combined-card204 header {
@@ -355,7 +355,7 @@ onBeforeUnmount(() => {
 .combined-intro204,
 .combined-source204,
 .combined-unknown204 {
-  color: #606266;
+  color: var(--ink);
 }
 .combined-table204 {
   min-width: 0;
@@ -364,7 +364,7 @@ onBeforeUnmount(() => {
   max-height: 55dvh;
   overflow: auto;
   overscroll-behavior: contain;
-  border: 1px solid #dcdfe6;
+  border: 1px solid var(--line-control);
 }
 .combined-table204 table {
   border-collapse: collapse;
@@ -377,14 +377,14 @@ onBeforeUnmount(() => {
   padding: 10px 12px;
   text-align: left;
   vertical-align: top;
-  border-right: 1px solid #ebeef5;
-  border-bottom: 1px solid #ebeef5;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 .combined-table204 th {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #f5f7fa;
+  background: var(--bg-raised);
   white-space: nowrap;
 }
 .combined-table204 td:first-child {
@@ -398,7 +398,7 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 .combined-table204 tbody tr:nth-child(even) {
-  background: #fafafa;
+  background: var(--bg-raised);
 }
 .combined-money204 {
   white-space: nowrap;
@@ -409,13 +409,13 @@ onBeforeUnmount(() => {
   min-width: 3em;
 }
 .combined-status204-1 {
-  color: #276b36;
+  color: var(--success-text);
 }
 .combined-status204-2 {
-  color: #b42318;
+  color: var(--danger-text);
 }
 .combined-status204-4 {
-  color: #9a6700;
+  color: var(--warning-text);
 }
 .combined-unknown204 {
   display: block;
@@ -428,7 +428,7 @@ onBeforeUnmount(() => {
 }
 .combined-card204 button:focus-visible,
 .combined-table204:focus-visible {
-  outline: 2px solid #409eff;
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 @media (max-width: 480px) {

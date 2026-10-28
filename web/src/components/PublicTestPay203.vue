@@ -739,7 +739,7 @@ onBeforeUnmount(() => {
 .public-testpay203 {
   width: min(560px, calc(100% - 32px));
   margin: 40px auto;
-  color: var(--text, #303133);
+  color: var(--text, var(--ink));
 }
 .public-testpay203 header {
   display: flex;
@@ -775,8 +775,8 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
 }
 .testpay-card input[readonly] {
-  background: var(--surface-alt, #f5f7fa);
-  color: var(--muted, #606266);
+  background: var(--surface-alt, var(--bg-raised));
+  color: var(--muted, var(--ink));
 }
 .testpay-money {
   display: flex;
@@ -799,14 +799,14 @@ onBeforeUnmount(() => {
 .testpay-card footer {
   text-align: center;
   font-size: 12px;
-  color: var(--muted, #606266);
+  color: var(--muted, var(--ink));
   margin-top: 32px;
   overflow-wrap: anywhere;
 }
 .testpay-card input:focus-visible,
 .testpay-card button:focus-visible,
 .testpay-card [role="alert"]:focus {
-  outline: 2px solid var(--primary, #409eff);
+  outline: 2px solid var(--primary, var(--focus));
   outline-offset: 3px;
 }
 @media (max-width: 600px) {

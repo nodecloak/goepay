@@ -235,30 +235,30 @@ function checkAll(event: Event) {
 .settlement-actions {
   position: sticky;
   right: 0;
-  background: var(--panel, #fff);
+  background: var(--panel, var(--bg-card));
   min-width: 145px;
   z-index: 1;
   box-shadow: -2px 0 4px #00000008;
 }
 th.settlement-actions {
-  background: var(--table-header, #f8fafc);
+  background: var(--table-header, var(--bg-raised));
 }
 .settlement-actions .row-actions {
   max-width: 180px;
 }
 .settlement-status.waiting {
-  color: #2563eb;
+  color: var(--primary-text);
 }
 .settlement-status.processing {
-  color: #b45309;
+  color: var(--warning-text);
 }
 .settlement-status.success {
-  color: #15803d;
+  color: var(--success-text);
 }
 .settlement-status.danger {
-  color: #b91c1c;
+  color: var(--danger-text);
 }
 .settlement-status.neutral {
-  color: #64748b;
+  color: var(--ink-muted);
 }
 </style>

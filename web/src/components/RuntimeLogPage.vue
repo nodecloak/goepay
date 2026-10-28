@@ -215,7 +215,7 @@ onBeforeUnmount(clear);
 .badge[data-state="error"],
 .badge[data-state="critical"],
 .badge[data-state="emergency"] {
-  color: #b42318;
-  background: #fff0ed;
+  color: var(--danger-text);
+  background: var(--danger-soft);
 }
 </style>

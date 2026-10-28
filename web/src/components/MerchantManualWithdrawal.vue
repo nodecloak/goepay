@@ -85,10 +85,10 @@ onMounted(async () => {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--panel, #fff);
+  background: var(--panel, var(--bg-card));
   padding-block: 8px;
   margin-top: -8px;
-  border-bottom: 1px solid var(--line, #ebeef5);
+  border-bottom: 1px solid var(--line, var(--line));
 }
 .manual-withdrawal-header h2 {
   margin: 0;

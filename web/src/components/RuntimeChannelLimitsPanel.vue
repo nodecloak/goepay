@@ -493,8 +493,8 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
 }
 .usage {
-  background: var(--surface-soft, #f4f7fb);
-  border: 1px solid var(--border, #dce3ed);
+  background: var(--surface-soft, var(--bg-raised));
+  border: 1px solid var(--border, var(--line));
   border-radius: 6px;
   padding: 12px;
   margin: 16px 0;
@@ -537,7 +537,7 @@ onBeforeUnmount(() => {
   margin-top: 16px;
 }
 .limits-confirm:focus {
-  outline: 2px solid var(--primary, #409eff);
+  outline: 2px solid var(--primary, var(--focus));
   outline-offset: 2px;
 }
 @media (max-width: 540px) {

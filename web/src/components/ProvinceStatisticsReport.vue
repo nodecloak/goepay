@@ -7,6 +7,8 @@ import {
   provincePaths,
   provinceMoney,
   provinceCount,
+  provinceMapPalette,
+  provinceEmptyColour,
   type ProvinceRegion,
 } from "../province-statistics";
 import CsvExportButton from "./CsvExportButton.vue";
@@ -22,7 +24,7 @@ const ranges = [
   { key: "15days", label: "近15天" },
   { key: "30days", label: "近30天" },
 ];
-const mapPalette = ["#e0f3ff", "#80bdff", "#409eff", "#1a6fd1", "#0d3d80"];
+const mapPalette = provinceMapPalette;
 const data = ref<ReturnType<typeof provinceStatisticsData> | null>(null),
   totalMoney = ref(""),
   totalCount = ref(""),
@@ -283,7 +285,10 @@ function choose(name: string, click = false) {
                 v-for="boundary in paths"
                 :key="boundary.name"
                 :d="boundary.path"
-                :fill="regions.get(boundary.name)?.colour || '#f0f5ff'"
+                :style="{
+                  fill:
+                    regions.get(boundary.name)?.colour || provinceEmptyColour,
+                }"
                 fill-rule="evenodd"
                 role="button"
                 tabindex="0"
@@ -408,9 +413,9 @@ function choose(name: string, click = false) {
   padding: 6px 10px;
 }
 .province-ranges button[aria-pressed="true"] {
-  color: #fff;
-  background: #409eff;
-  border-color: #409eff;
+  color: var(--on-primary);
+  background: var(--primary);
+  border-color: var(--primary-text);
 }
 .province-total {
   display: flex;
@@ -420,7 +425,7 @@ function choose(name: string, click = false) {
   margin: 18px 0;
 }
 .province-total strong {
-  color: #409eff;
+  color: var(--primary-text);
   font-size: 24px;
   overflow-wrap: anywhere;
 }
@@ -439,7 +444,7 @@ function choose(name: string, click = false) {
   overflow: hidden;
 }
 .province-map path {
-  stroke: #c8d6e5;
+  stroke: var(--line-control);
   stroke-width: 0.8;
   cursor: pointer;
   vector-effect: non-scaling-stroke;
@@ -449,17 +454,17 @@ function choose(name: string, click = false) {
   text-anchor: middle;
   dominant-baseline: middle;
   font-size: 10px;
-  fill: #303133;
+  fill: var(--ink);
   paint-order: stroke;
-  stroke: #fff;
+  stroke: var(--bg-card);
   stroke-width: 2px;
   stroke-linejoin: round;
 }
 .province-map path:hover,
 .province-map path:focus,
 .province-map path[aria-pressed="true"] {
-  fill: #ffd666;
-  stroke: #b76e00;
+  fill: var(--warning-text);
+  stroke: var(--warning-text);
   stroke-width: 2;
   outline: none;
 }
@@ -500,7 +505,7 @@ function choose(name: string, click = false) {
   grid-template-columns: 24px minmax(0, 1fr);
   gap: 6px 10px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  border-bottom: 1px solid var(--border, var(--line));
   align-items: center;
 }
 .province-ranking li strong,
@@ -510,14 +515,14 @@ function choose(name: string, click = false) {
 }
 .province-rank {
   grid-row: span 3;
-  background: #eef0f5;
+  background: var(--bg-raised);
   border-radius: 50%;
   text-align: center;
   line-height: 24px;
 }
 .rank-leading {
-  background: #e0f3ff;
-  color: #1a6fd1;
+  background: var(--primary-soft);
+  color: var(--primary-text);
 }
 .province-ranking .link-button {
   justify-self: start;

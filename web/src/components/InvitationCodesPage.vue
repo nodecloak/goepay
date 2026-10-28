@@ -560,14 +560,14 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 .invitation-page .status-danger {
-  background: #fef0f0;
-  color: #f56c6c;
-  border-color: #fde2e2;
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  border-color: var(--danger-soft);
 }
 .invitation-page .status-success {
-  background: #f0f9eb;
-  color: #67c23a;
-  border-color: #e1f3d8;
+  background: var(--success-soft);
+  color: var(--success-text);
+  border-color: var(--success-soft);
 }
 .invitation-filters label {
   display: flex;

@@ -754,7 +754,7 @@ onBeforeUnmount(() => {
 .account-profile-facts dt {
   flex: 0 0 130px;
   text-align: right;
-  color: var(--muted, #606266);
+  color: var(--muted, var(--ink));
 }
 .account-profile-facts dd {
   margin: 0;
@@ -772,31 +772,31 @@ onBeforeUnmount(() => {
   background: transparent;
   padding: 0;
   min-height: 28px;
-  color: var(--primary, #409eff);
+  color: var(--primary, var(--primary-text));
   font-size: inherit;
 }
 .account-password-value .link-button:disabled {
-  color: var(--muted, #909399);
+  color: var(--muted, var(--ink-muted));
 }
 .account-password-value .badge.success {
-  color: #3f7f20;
-  background: #f0f9eb;
-  border-color: #d1edc4;
+  color: var(--success-text);
+  background: var(--success-soft);
+  border-color: var(--success-soft);
 }
 .account-password-value .badge.danger {
-  color: #b63838;
-  background: #fef0f0;
-  border-color: #fbc4c4;
+  color: var(--danger-text);
+  background: var(--danger-soft);
+  border-color: var(--danger-soft);
 }
 .account-password-value .badge.info {
-  color: #606266;
-  background: #f4f4f5;
-  border-color: #d3d4d6;
+  color: var(--ink);
+  background: var(--bg-raised);
+  border-color: var(--line-control);
 }
 .account-password-value button:focus-visible,
 .account-password-dialog button:focus-visible,
 .account-password-dialog input:focus-visible {
-  outline: 2px solid var(--accent, #409eff);
+  outline: 2px solid var(--accent, var(--focus));
   outline-offset: 2px;
 }
 .account-password-dialog {

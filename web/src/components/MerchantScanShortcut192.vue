@@ -86,14 +86,14 @@ onBeforeUnmount(() => {
 .scan-entry-overlay192 {
   position: fixed;
   inset: 0;
-  background: #0006;
+  background: var(--scrim);
   z-index: 1300;
   display: grid;
   place-items: center;
   padding: 16px;
 }
 .scan-entry-dialog192 {
-  background: #fff;
+  background: var(--bg-card);
   box-sizing: border-box;
   padding: 24px;
   border-radius: 8px;
@@ -107,7 +107,7 @@ onBeforeUnmount(() => {
 .scan-entry-dialog192 p {
   font-size: 14px;
   line-height: 1.6;
-  color: #606266;
+  color: var(--ink);
 }
 .scan-entry-dialog192 img {
   display: block;
@@ -118,6 +118,6 @@ onBeforeUnmount(() => {
 .scan-entry-dialog192 a {
   display: block;
   margin: 12px;
-  color: #409eff;
+  color: var(--primary-text);
 }
 </style>

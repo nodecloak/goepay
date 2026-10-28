@@ -165,7 +165,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .site-brand-settings193 {
   padding: 16px 0;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--line);
   margin-bottom: 20px;
 }
 .brand-slots193 {

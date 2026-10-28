@@ -138,9 +138,9 @@ const data = computed(() => {
   max-width: 240px;
 }
 .incoming {
-  color: #167245;
+  color: var(--success-text);
 }
 .outgoing {
-  color: #b42318;
+  color: var(--danger-text);
 }
 </style>

@@ -57,14 +57,14 @@ export function statisticsTrend(
   const definitions =
     area === "merchant"
       ? [
-          { key: "realmoney", name: "订单金额", color: "#1677ff" },
-          { key: "getmoney", name: "分成金额", color: "#18a058" },
-          { key: "refundmoney", name: "退款金额", color: "#e6a23c" },
+          { key: "realmoney", name: "订单金额", color: "var(--chart-1)" },
+          { key: "getmoney", name: "分成金额", color: "var(--chart-2)" },
+          { key: "refundmoney", name: "退款金额", color: "var(--chart-3)" },
         ]
       : [
-          { key: "realmoney", name: "支付金额", color: "#1677ff" },
-          { key: "refundmoney", name: "退款金额", color: "#e6a23c" },
-          { key: "profitmoney", name: "手续费利润", color: "#18a058" },
+          { key: "realmoney", name: "支付金额", color: "var(--chart-1)" },
+          { key: "refundmoney", name: "退款金额", color: "var(--chart-3)" },
+          { key: "profitmoney", name: "手续费利润", color: "var(--chart-2)" },
         ];
   let low = 0n,
     high = 1n;

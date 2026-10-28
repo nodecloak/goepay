@@ -250,7 +250,8 @@ const visibleRows = computed(() =>
             x2="600"
             :y1="y"
             :y2="y"
-            stroke="var(--border,#e5e7eb)"
+            style="stroke: var(--chart-grid)"
+            stroke-dasharray="3 3"
           />
           <g v-for="s in visibleSeries" :key="s.key">
             <polyline
@@ -258,7 +259,7 @@ const visibleRows = computed(() =>
               :key="index"
               :points="segment"
               fill="none"
-              :stroke="s.color"
+              :style="{ stroke: s.color }"
               stroke-width="2"
             />
             <circle
@@ -267,7 +268,7 @@ const visibleRows = computed(() =>
               :cx="point.x"
               :cy="point.y"
               r="3.5"
-              :fill="s.color"
+              :style="{ fill: s.color }"
             >
               <title>{{ point.day }} {{ s.name }}：{{ point.value }} 元</title>
             </circle>
@@ -344,7 +345,7 @@ const visibleRows = computed(() =>
   max-height: 320px;
 }
 .original-statistics-trend text {
-  fill: var(--text-secondary, #606266);
+  fill: var(--text-secondary, var(--ink));
   font-size: 12px;
 }
 .trend-legend {

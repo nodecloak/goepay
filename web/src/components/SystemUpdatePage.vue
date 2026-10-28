@@ -470,12 +470,12 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 10px;
   padding: 20px;
-  border: 1px solid #e7eaf0;
+  border: 1px solid var(--line);
   border-radius: 5px;
   min-width: 0;
 }
 .version-columns span {
-  color: #6b7280;
+  color: var(--ink-muted);
 }
 .version-columns strong {
   font-size: 24px;
@@ -483,11 +483,11 @@ onBeforeUnmount(() => {
 }
 .version-columns small {
   overflow-wrap: anywhere;
-  color: #6b7280;
+  color: var(--ink-muted);
 }
 .update-record,
 .preparation {
-  border-top: 1px solid #edf0f5;
+  border-top: 1px solid var(--line);
   margin-top: 24px;
   padding-top: 16px;
 }
@@ -507,7 +507,7 @@ onBeforeUnmount(() => {
 .actual-progress progress {
   flex: 1;
   min-width: 120px;
-  accent-color: #409eff;
+  accent-color: var(--primary);
 }
 .update-buttons {
   display: flex;
@@ -520,7 +520,7 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   z-index: 1500;
-  background: #0006;
+  background: var(--scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -543,7 +543,7 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 .error {
-  color: #c0392b;
+  color: var(--danger-text);
 }
 @media (max-width: 600px) {
   .system-update-page {

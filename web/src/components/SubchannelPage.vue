@@ -1350,10 +1350,10 @@ onBeforeUnmount(() => {
 .subchannel-info {
   margin-bottom: 1rem;
   padding: 0.8rem 1rem;
-  border: 1px solid #cfe2ff;
+  border: 1px solid var(--primary-soft);
   border-radius: 6px;
-  background: #f1f7ff;
-  color: #24486d;
+  background: var(--primary-soft);
+  color: var(--ink);
   font-size: 0.88rem;
 }
 .subchannel-toolbar {
@@ -1362,7 +1362,7 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 0.65rem;
   padding: 1rem;
-  border-bottom: 1px solid #e8edf3;
+  border-bottom: 1px solid var(--line);
 }
 .subchannel-toolbar > label {
   display: grid;
@@ -1413,17 +1413,17 @@ onBeforeUnmount(() => {
   padding: 0.8rem 0.9rem;
   text-align: left;
   vertical-align: middle;
-  border-bottom: 1px solid #e8edf3;
+  border-bottom: 1px solid var(--line);
 }
 .subchannel-table th {
   white-space: nowrap;
   font-weight: 500;
-  color: #5d718e;
-  background: #f8fafc;
+  color: var(--ink);
+  background: var(--bg-raised);
 }
 .subchannel-table small {
   display: block;
-  color: #7a8ba3;
+  color: var(--ink-muted);
   font-size: 0.75rem;
   margin-top: 0.3rem;
 }
@@ -1441,7 +1441,7 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 .subchannel-name .unavailable {
-  color: #b76c15;
+  color: var(--warning-text);
 }
 .subchannel-paytype {
   display: inline-flex;
@@ -1449,25 +1449,25 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   padding: 0.2rem 0.4rem;
   white-space: nowrap;
-  background: #eaf4ff;
-  color: #1677be;
+  background: var(--primary-soft);
+  color: var(--primary-text);
 }
 .subchannel-paytype.wxpay {
-  background: #eaf7ed;
-  color: #16853c;
+  background: var(--success-soft);
+  color: var(--success-text);
 }
 .subchannel-state {
   padding: 0.25rem 0.5rem;
-  background: #f3f5f8;
+  background: var(--bg-raised);
 }
 .subchannel-state.enabled {
-  background: #eaf7ed;
-  color: #228440;
+  background: var(--success-soft);
+  color: var(--success-text);
 }
 .subchannel-empty {
   text-align: center !important;
   height: 150px;
-  color: #8290a8;
+  color: var(--ink-muted);
 }
 .subchannel-pagination {
   display: flex;
@@ -1485,7 +1485,7 @@ onBeforeUnmount(() => {
 .subchannel-stat-note {
   margin: 0;
   padding: 0 1rem 1rem;
-  color: #7a8ba3;
+  color: var(--ink-muted);
   font-size: 0.76rem;
   line-height: 1.6;
 }
@@ -1502,7 +1502,7 @@ onBeforeUnmount(() => {
 }
 .subchannel-dialog .subchannel-id {
   font-size: 0.8rem;
-  color: #6c7f99;
+  color: var(--ink-muted);
 }
 .subchannel-form {
   display: grid;
@@ -1525,8 +1525,8 @@ onBeforeUnmount(() => {
 }
 .subchannel-param {
   padding: 0.7rem;
-  background: #f8fafc;
-  border: 1px solid #edf0f5;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
   border-radius: 5px;
 }
 .subchannel-form a {

@@ -353,7 +353,7 @@ onBeforeUnmount(() => {
 </template>
 <style scoped>
 .merchant-credentials {
-  border-top: 1px solid var(--line, #ebeef5);
+  border-top: 1px solid var(--line, var(--line));
   margin-top: 20px;
   padding-top: 16px;
 }
@@ -371,9 +371,9 @@ onBeforeUnmount(() => {
 .credential-result {
   margin-top: 14px;
   padding: 12px;
-  border: 1px solid #dcdfe6;
+  border: 1px solid var(--line-control);
   border-radius: 6px;
-  background: #fafbfc;
+  background: var(--bg-raised);
 }
 .merchant-credentials textarea {
   width: 100%;

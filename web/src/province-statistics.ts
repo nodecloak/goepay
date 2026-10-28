@@ -1,5 +1,17 @@
 import boundaries from "./data/province-boundaries.json";
 import labelCoordinates from "./data/province-labels.json";
+// Five-step amount scale drawn from the kit's first chart colour, mixed into
+// the card surface, so the map reads on both the dark and the light theme.
+const mapStep = (percent: number) =>
+  `color-mix(in srgb, var(--chart-1) ${percent}%, var(--bg-card))`;
+export const provinceMapPalette = [
+  mapStep(18),
+  mapStep(38),
+  mapStep(58),
+  mapStep(80),
+  "var(--chart-1)",
+];
+export const provinceEmptyColour = "var(--bg-raised)";
 export function provinceRange(
   preset: string,
   now = new Date(),
@@ -104,20 +116,20 @@ export function provinceStatisticsData(rows: Record<string, unknown>[]) {
         name: row.name,
         money: money(a),
         count: n.toString(),
-        colour: "#f0f5ff",
+        colour: provinceEmptyColour,
       });
     }
   }
   let max = 0n;
   for (const v of sums.values()) if (v.amount > max) max = v.amount;
-  const palette = ["#e0f3ff", "#80bdff", "#409eff", "#1a6fd1", "#0d3d80"];
+  const palette = provinceMapPalette;
   const regions: ProvinceRegion[] = [...sums].map(([name, v]) => ({
     name,
     money: money(v.amount),
     count: v.count.toString(),
     colour:
       v.count === 0n
-        ? "#f0f5ff"
+        ? provinceEmptyColour
         : palette[Number((v.amount * 5n) / (max + 1n))],
   }));
   const rank = regions
