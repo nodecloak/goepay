@@ -476,7 +476,7 @@ onBeforeUnmount(() => {
 }
 .email-binding197-row button {
   margin-left: auto;
-  min-height: 36px;
+  min-height: var(--control-h);
 }
 .email-binding197-code {
   display: flex;

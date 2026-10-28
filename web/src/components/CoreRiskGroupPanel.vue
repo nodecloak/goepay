@@ -221,7 +221,7 @@ label {
 }
 select {
   width: 100%;
-  min-height: 36px;
+  min-height: var(--control-h);
 }
 p {
   overflow-wrap: anywhere;

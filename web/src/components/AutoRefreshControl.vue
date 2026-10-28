@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onBeforeUnmount } from "vue";
+import ShellIcon from "./ShellIcon.vue";
 const props = defineProps<{
   refresh: () => Promise<void>;
   blocked?: boolean;
@@ -70,10 +71,11 @@ onBeforeUnmount(() => {
   <div class="auto-refresh">
     <button
       type="button"
+      class="auto-refresh-toggle"
       :aria-expanded="expanded"
       @click="expanded = !expanded"
     >
-      自动刷新</button
+      <ShellIcon name="refresh" />自动刷新</button
     ><span v-if="active" class="muted" role="status">{{
       paused ? "已暂停" : "每 " + interval + " 秒刷新"
     }}</span>
@@ -96,25 +98,65 @@ onBeforeUnmount(() => {
 .auto-refresh,
 .auto-options {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   flex-wrap: wrap;
   min-width: 0;
 }
+.auto-refresh {
+  position: relative;
+  max-width: 100%;
+  font-size: 12px;
+}
+.auto-refresh-toggle {
+  min-height: var(--control-h-sm);
+  padding: 0 10px;
+  font-size: 12px;
+}
+.auto-refresh-toggle .shell-icon {
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
 .auto-options {
-  flex-basis: 100%;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 15;
+  flex-wrap: nowrap;
+  padding: var(--space-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+  white-space: nowrap;
 }
 .auto-options label {
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 0;
+  font-size: 13px;
 }
 .auto-options input {
   width: 72px;
   min-width: 0;
+  margin: 0;
 }
-.auto-refresh {
-  max-width: 100%;
+.auto-options .error {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+@media (max-width: 768px) {
+  .auto-options {
+    position: static;
+    flex-wrap: wrap;
+    white-space: normal;
+  }
 }
 </style>

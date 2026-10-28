@@ -330,7 +330,7 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   background: var(--bg-card);
   color: var(--ink);
-  box-shadow: 0 12px 40px #0003;
+  box-shadow: var(--shadow-modal);
 }
 .combined-card204 header {
   display: flex;

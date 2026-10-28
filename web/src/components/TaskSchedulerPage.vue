@@ -853,7 +853,7 @@ onBeforeUnmount(() => {
   background: var(--bg-card);
   border-radius: 0.55rem;
   padding: 1.2rem;
-  box-shadow: 0 1rem 3rem #0003;
+  box-shadow: var(--shadow-modal);
   overflow-wrap: anywhere;
 }
 .task-dialog header {

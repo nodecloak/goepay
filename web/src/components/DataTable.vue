@@ -89,7 +89,18 @@ function associatedOrder(value: unknown): boolean {
               "
             />
           </th>
-          <th v-for="c in visibleColumns" :key="c.key" scope="col">
+          <th
+            v-for="c in visibleColumns"
+            :key="c.key"
+            scope="col"
+            :class="[
+              'col-' + c.key,
+              {
+                'money-cell':
+                  c.key.includes('money') || c.key.includes('amount'),
+              },
+            ]"
+          >
             {{
               refunds && c.key === "trade_no"
                 ? "关联订单号"
@@ -128,12 +139,16 @@ function associatedOrder(value: unknown): boolean {
           <td
             v-for="c in visibleColumns"
             :key="c.key"
-            :class="{
-              'identifier-cell':
-                (orders || refunds) &&
-                ['trade_no', 'refund_no'].includes(c.key),
-              'money-cell': c.key.includes('money') || c.key.includes('amount'),
-            }"
+            :class="[
+              'col-' + c.key,
+              {
+                'identifier-cell':
+                  (orders || refunds) &&
+                  ['trade_no', 'refund_no'].includes(c.key),
+                'money-cell':
+                  c.key.includes('money') || c.key.includes('amount'),
+              },
+            ]"
           >
             <template v-if="refunds && c.key === 'refund_no'">
               <span class="cell">{{
@@ -175,6 +190,15 @@ function associatedOrder(value: unknown): boolean {
               @click="emit('detail', row)"
             >
               {{ row.trade_no }}
+            </button>
+            <button
+              v-else-if="orders && c.key === 'trade_no' && row.trade_no"
+              type="button"
+              class="link-button trade-link"
+              :aria-label="'查看订单详情 ' + row.trade_no"
+              @click="emit('detail', row)"
+            >
+              {{ consoleValue(c.key, row[c.key], orders) }}
             </button>
             <span
               v-else
@@ -333,53 +357,72 @@ function associatedOrder(value: unknown): boolean {
 </template>
 <style scoped>
 .trade-table .identifier-cell {
-  min-width: 216px;
-  width: 280px;
+  min-width: 200px;
+  width: 240px;
 }
-.trade-table .cell:not(.badge):not(.numeric) {
+.trade-table td {
+  white-space: nowrap;
+}
+.trade-table td.identifier-cell,
+.trade-table td.col-name,
+.trade-table td.col-param {
+  white-space: normal;
+}
+.trade-table td.col-name {
+  min-width: 140px;
+  max-width: 240px;
+}
+.trade-table td.col-param {
+  min-width: 96px;
+  max-width: 240px;
+}
+.trade-table .identifier-cell .cell:not(.badge),
+.trade-table .col-name .cell,
+.trade-table .col-param .cell {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.trade-table .money-cell .cell {
-  white-space: nowrap;
+.trade-link {
+  padding: 0;
+  min-height: 0;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: left;
+}
+.trade-link:hover {
+  background: transparent;
+  text-decoration: underline;
 }
 .trade-table .operation-cell {
   position: sticky;
   right: 0;
-  min-width: 80px;
-  width: 80px;
+  min-width: 96px;
+  width: 96px;
+  white-space: nowrap;
+  text-align: center;
   background: var(--bg-card);
   z-index: 1;
   box-shadow: -4px 0 5px -5px var(--line-control);
+}
+.trade-table td.operation-cell > .link-button {
+  min-height: 24px;
+  padding: 0 4px;
+  vertical-align: middle;
 }
 .trade-table th.operation-cell {
   background: var(--bg-raised);
   z-index: 2;
 }
 .trade-table tbody tr:hover .operation-cell {
-  background: var(--bg-raised);
-}
-.badge[data-state="paid"],
-.badge[data-state="succeeded"],
-.badge[data-state="released"] {
-  color: var(--success-text);
-  background: var(--success-soft);
-}
-.badge[data-state="failed"],
-.badge[data-state="dead"] {
-  color: var(--danger-text);
-  background: var(--danger-soft);
-}
-.badge[data-state="pending"],
-.badge[data-state="unknown"],
-.badge[data-state="held"] {
-  color: var(--warning-text);
-  background: var(--warning-soft);
+  background: var(--bg-hover);
 }
 small.cell {
   display: block;
   font-size: 12px;
-  margin-top: 4px;
+  line-height: 18px;
+  margin-top: 2px;
 }
 .refund-merchant-no {
   white-space: pre-wrap;

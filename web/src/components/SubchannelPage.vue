@@ -1367,6 +1367,7 @@ onBeforeUnmount(() => {
 .subchannel-toolbar > label {
   display: grid;
   gap: 0.3rem;
+  margin: 0;
   font-size: 0.8rem;
   min-width: 100px;
   max-width: 180px;
@@ -1375,6 +1376,7 @@ onBeforeUnmount(() => {
 .subchannel-toolbar select {
   width: 100%;
   min-width: 0;
+  margin-top: 0;
 }
 .subchannel-tools {
   display: flex;

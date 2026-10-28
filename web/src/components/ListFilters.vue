@@ -1,13 +1,19 @@
 <script setup lang="ts">
 import type { ListFilters } from "../list-filters";
 import type { Area } from "../menu";
+import ShellIcon from "./ShellIcon.vue";
 defineProps<{ kind: string; area: Area }>();
 const filters = defineModel<ListFilters>({ required: true });
 defineEmits<{ reset: [] }>();
 </script>
 <template>
   <details class="list-filters">
-    <summary>更多筛选</summary>
+    <summary>
+      <ShellIcon name="filter" />更多筛选<ShellIcon
+        name="chevronDown"
+        class="list-filters-chevron"
+      />
+    </summary>
     <div class="list-filter-fields">
       <label v-if="kind === 'orders'"
         >通知状态筛选<select
@@ -88,9 +94,11 @@ defineEmits<{ reset: [] }>();
         >客户 IP 筛选<input v-model="filters.client_ip" maxlength="45"
       /></label>
     </div>
-    <p class="muted">
-      日期按北京时间（UTC+8），包含开始和结束当天；状态以服务端已验证结果为准。
-    </p>
-    <button type="button" @click="$emit('reset')">清空筛选</button>
+    <div class="list-filters-foot">
+      <p class="muted">
+        日期按北京时间（UTC+8），包含开始和结束当天；状态以服务端已验证结果为准。
+      </p>
+      <button type="button" @click="$emit('reset')">清空筛选</button>
+    </div>
   </details>
 </template>
