@@ -63,7 +63,17 @@ export function readPaymentStatisticsDay(value: unknown): PaymentStatisticsDay {
   for (const item of day.items) {
     const v = row(item);
     if (
-      !["alipay", "wxpay", "sandbox"].includes(item.type) ||
+      ![
+        "alipay",
+        "wxpay",
+        "qqpay",
+        "bank",
+        "jdpay",
+        "paypal",
+        "douyinpay",
+        "ecny",
+        "sandbox",
+      ].includes(item.type) ||
       types.has(item.type)
     )
       return invalid();

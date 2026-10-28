@@ -907,7 +907,7 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 			s.wire(w, legacy, nil, "order not found")
 			return
 		}
-		if s.ProviderFlow != nil && (o.Type == "wxpay" || o.Type == "alipay") && o.Status != "paid" {
+		if s.ProviderFlow != nil && provider.CatalogPayType(o.Type) && o.Status != "paid" {
 			if _, e := s.ProviderFlow.Query(r.Context(), id, o.TradeNo); e != nil {
 				s.wire(w, legacy, nil, "provider query unavailable")
 				return

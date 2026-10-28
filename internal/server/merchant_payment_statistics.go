@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-var paymentStatisticsMethods = []struct{ kind, name string }{{"alipay", "支付宝"}, {"wxpay", "微信支付"}, {"sandbox", "本地模拟"}}
+var paymentStatisticsMethods = []struct{ kind, name string }{{"alipay", "支付宝"}, {"wxpay", "微信支付"}, {"qqpay", "QQ钱包"}, {"bank", "银联支付"}, {"jdpay", "京东支付"}, {"paypal", "PayPal"}, {"douyinpay", "抖音支付"}, {"ecny", "数字人民币"}, {"sandbox", "本地模拟"}}
 
 func paymentStatisticsRow(g *originalStatisticsGroup, kind, name string) map[string]any {
 	rate := g.row("", false)["successRate"]

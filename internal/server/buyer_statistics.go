@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"github.com/jackc/pgx/v5"
+	provider "goepay/internal/adapters/payment"
 	"goepay/internal/backoffice"
 	"goepay/internal/identity"
 	"net/http"
@@ -44,7 +45,7 @@ func (s *Server) originalBuyerStatistics(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	kind := q.Get("type")
-	if kind != "" && kind != "alipay" && kind != "wxpay" && kind != "sandbox" {
+	if kind != "" && !provider.CatalogPayType(kind) && kind != "sandbox" {
 		invalid()
 		return
 	}

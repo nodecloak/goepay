@@ -11,13 +11,14 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/subtle"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"goepay/internal/compat"
 	"html"
 	"io"
 	"net/http"
@@ -226,16 +227,56 @@ func signEqual(want, got string, ignoreCase bool) bool {
 // keys keep their stricter rules elsewhere.
 const pluginMinRSABits = 1024
 
+// pluginKeyDER accepts one PEM block or bare base64 (the plugins' config
+// fields hold the key text without headers).
+func pluginKeyDER(text string) ([]byte, error) {
+	text = strings.TrimSpace(text)
+	if block, rest := pem.Decode([]byte(text)); block != nil {
+		if strings.TrimSpace(string(rest)) != "" {
+			return nil, ErrInvalid
+		}
+		return block.Bytes, nil
+	}
+	der, e := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(text), ""))
+	if e != nil || len(der) == 0 {
+		return nil, ErrInvalid
+	}
+	return der, nil
+}
+
 func pluginPrivateKey(text string) (*rsa.PrivateKey, error) {
-	k, e := compat.ParsePrivateKey(text)
-	if e != nil || k.N.BitLen() < pluginMinRSABits {
+	der, e := pluginKeyDER(text)
+	if e != nil {
+		return nil, ErrInvalid
+	}
+	var k *rsa.PrivateKey
+	if parsed, err := x509.ParsePKCS8PrivateKey(der); err == nil {
+		k, _ = parsed.(*rsa.PrivateKey)
+	} else if pk, err := x509.ParsePKCS1PrivateKey(der); err == nil {
+		k = pk
+	}
+	if k == nil || k.N.BitLen() < pluginMinRSABits || k.Validate() != nil {
 		return nil, ErrInvalid
 	}
 	return k, nil
 }
+
+// pluginPublicKey accepts PKIX, PKCS#1 or an X.509 certificate (many
+// acquirers hand out their verification key as a .cer), PEM or bare base64.
 func pluginPublicKey(text string) (*rsa.PublicKey, error) {
-	k, e := compat.ParsePublicKey(text)
-	if e != nil || k.N.BitLen() < pluginMinRSABits {
+	der, e := pluginKeyDER(text)
+	if e != nil {
+		return nil, ErrInvalid
+	}
+	var k *rsa.PublicKey
+	if parsed, err := x509.ParsePKIXPublicKey(der); err == nil {
+		k, _ = parsed.(*rsa.PublicKey)
+	} else if pk, err := x509.ParsePKCS1PublicKey(der); err == nil {
+		k = pk
+	} else if c, err := x509.ParseCertificate(der); err == nil {
+		k, _ = c.PublicKey.(*rsa.PublicKey)
+	}
+	if k == nil || k.N.BitLen() < pluginMinRSABits {
 		return nil, ErrInvalid
 	}
 	return k, nil

@@ -67,6 +67,10 @@ func (s *Server) providerCreate(w http.ResponseWriter, r *http.Request, legacy b
 	}
 	routeParams["clientip"] = ip
 	channelID, method, e := s.providerRoutedRequest(r.Context(), merchantID, routeParams)
+	if errors.Is(e, errPayTypeClosed) {
+		s.wire(w, legacy, nil, "支付方式(type)不存在")
+		return
+	}
 	if e != nil {
 		s.wire(w, legacy, nil, "payment channel not permitted")
 		return
@@ -150,7 +154,7 @@ func (s *Server) providerCreate(w http.ResponseWriter, r *http.Request, legacy b
 	s.wire(w, legacy, data, "")
 }
 func (s *Server) providerRoute(merchantID int64, p compat.Params) (int64, string, error) {
-	if p["type"] != "wxpay" && p["type"] != "alipay" {
+	if !provider.CatalogPayType(p["type"]) {
 		return 0, "", payment.ErrInvalid
 	}
 	allowed := s.MerchantChannels[merchantID]

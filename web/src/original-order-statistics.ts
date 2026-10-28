@@ -19,7 +19,18 @@ export function originalStatisticsQuery(
     return bad("商户统计范围只能来自当前会话");
   if (
     !["daily", "channels"].includes(report) ||
-    !["", "alipay", "wxpay", "sandbox"].includes(f.type)
+    ![
+      "",
+      "alipay",
+      "wxpay",
+      "qqpay",
+      "bank",
+      "jdpay",
+      "paypal",
+      "douyinpay",
+      "ecny",
+      "sandbox",
+    ].includes(f.type)
   )
     return bad("请选择有效支付方式");
   const id = (s: string) =>

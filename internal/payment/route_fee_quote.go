@@ -453,7 +453,7 @@ func (s *Store) validateRouteFeeAttempt(ctx context.Context, tx pgx.Tx, o Order,
 		if e = tx.QueryRow(ctx, `SELECT to_regclass(current_schema()||'.payment_subchannel_routes') IS NOT NULL`).Scan(&childSchema); e != nil {
 			return e
 		}
-		if childSchema && (o.Type == "alipay" || o.Type == "wxpay") {
+		if childSchema && catalogPayType(o.Type) {
 			group, e := s.GroupPaymentRoutingTx(ctx, tx, o.MerchantID, o.Type)
 			if e != nil {
 				return e

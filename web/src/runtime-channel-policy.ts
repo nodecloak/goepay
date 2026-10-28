@@ -75,7 +75,16 @@ export function readRuntimeChannelPolicy(raw: unknown): RuntimeChannelPolicy {
   ]);
   if (
     !id(v.channel_id) ||
-    !(v.pay_type === "alipay" || v.pay_type === "wxpay") ||
+    ![
+      "alipay",
+      "wxpay",
+      "qqpay",
+      "bank",
+      "jdpay",
+      "paypal",
+      "douyinpay",
+      "ecny",
+    ].includes(v.pay_type as string) ||
     !Array.isArray(v.methods) ||
     v.methods.length === 0 ||
     v.methods.length > 32 ||

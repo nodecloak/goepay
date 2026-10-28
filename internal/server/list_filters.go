@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	provider "goepay/internal/adapters/payment"
 	"net"
 	"net/url"
 	"strconv"
@@ -110,7 +111,7 @@ func consoleListFilters(q url.Values, role, kind, tenant string, mid int64, args
 		bind(expression+"=$%d", raw)
 	}
 	if raw := q.Get("type"); raw != "" {
-		if (kind != "orders" && kind != "refunds") || (raw != "alipay" && raw != "wxpay" && raw != "sandbox") {
+		if (kind != "orders" && kind != "refunds") || (!provider.CatalogPayType(raw) && raw != "sandbox") {
 			return "", nil, errListFilter
 		}
 		bind("o.type=$%d", raw)
