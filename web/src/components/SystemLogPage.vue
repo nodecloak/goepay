@@ -267,6 +267,6 @@ small.cell {
   font-size: 12px;
 }
 .log-failed {
-  color: #b42318;
+  color: var(--danger-text);
 }
 </style>

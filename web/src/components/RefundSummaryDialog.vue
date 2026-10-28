@@ -143,21 +143,21 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 20px 0;
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--border, var(--line));
 }
 .refund-summary-grid > div {
   min-width: 0;
   padding: 12px;
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  border-bottom: 1px solid var(--border, var(--line));
 }
 .refund-summary-grid > div:nth-child(odd) {
-  border-right: 1px solid var(--border, #e5e7eb);
+  border-right: 1px solid var(--border, var(--line));
 }
 .refund-summary-grid > div:nth-last-child(-n + 2) {
   border-bottom: 0;
 }
 .refund-summary-grid dt {
-  color: var(--text-secondary, #64748b);
+  color: var(--text-secondary, var(--ink-muted));
   font-size: 13px;
 }
 .refund-summary-grid dd {

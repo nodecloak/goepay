@@ -523,7 +523,7 @@ onBeforeUnmount(() => {
 .defend-rules fieldset {
   min-width: 0;
   margin: 1rem 0;
-  border: 1px solid var(--line, #d9dde5);
+  border: 1px solid var(--line, var(--line-control));
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
 }

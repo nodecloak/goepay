@@ -261,9 +261,9 @@ onBeforeUnmount(() => {
 .channel-stop-panel {
   margin-bottom: 20px;
   padding: 16px;
-  border: 1px solid var(--border, #e7eaec);
+  border: 1px solid var(--border, var(--line));
   border-radius: 3px;
-  background: var(--surface, #fff);
+  background: var(--surface, var(--bg-card));
 }
 .channel-stop-panel h3 {
   margin: 0;
@@ -275,7 +275,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--border, #e7eaec);
+  border-bottom: 1px solid var(--border, var(--line));
 }
 .channel-stop-row > div {
   min-width: 0;
@@ -290,7 +290,7 @@ onBeforeUnmount(() => {
 .channel-stop-confirm {
   margin-top: 16px;
   padding: 16px;
-  background: var(--bg, #f3f3f4);
+  background: var(--bg, var(--bg-raised));
   overflow-wrap: anywhere;
 }
 .channel-stop-confirm label {
@@ -302,8 +302,8 @@ onBeforeUnmount(() => {
   margin-top: 12px;
 }
 .channel-stop-panel .danger {
-  color: #b42318;
-  background: #fee4e2;
+  color: var(--danger-text);
+  background: var(--danger-soft);
 }
 @media (max-width: 480px) {
   .channel-stop-row {

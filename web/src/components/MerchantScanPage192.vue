@@ -601,9 +601,9 @@ onBeforeUnmount(() => {
 <style scoped>
 .scan-cashier192 {
   min-height: 100dvh;
-  background: #f5f6fa;
+  background: var(--bg-raised);
   padding: 20px 16px;
-  color: #303133;
+  color: var(--ink);
   box-sizing: border-box;
 }
 .scan-cashier192 header {
@@ -620,14 +620,14 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 .scan-cashier192 a {
-  color: #606266;
+  color: var(--ink);
   font-size: 14px;
   text-decoration: none;
 }
 .scan-card192 {
   max-width: 460px;
   margin: auto;
-  background: white;
+  background: var(--bg-card);
   border-radius: 8px;
   padding: 24px;
   box-sizing: border-box;
@@ -641,7 +641,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   font-size: 34px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--line);
   margin-top: 16px;
   padding: 8px 0;
 }
@@ -654,12 +654,12 @@ onBeforeUnmount(() => {
   min-width: 0;
   font-size: 42px;
   font-weight: 500;
-  color: #303133;
+  color: var(--ink);
 }
 .remark192 {
   border: 0 !important;
   padding: 12px 0 !important;
-  color: #909399 !important;
+  color: var(--ink-muted) !important;
   box-shadow: none !important;
   background: none !important;
 }
@@ -667,7 +667,7 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1px;
-  background: #ebeef5;
+  background: var(--line);
   margin: 12px -8px 20px;
 }
 .scan-keypad192 button {
@@ -675,22 +675,22 @@ onBeforeUnmount(() => {
   border-radius: 0;
   font-size: 26px;
   height: 65px;
-  background: #fff;
+  background: var(--bg-card);
   box-shadow: none;
 }
 .scan-main192 {
   width: 100%;
   margin: 12px 0;
   min-height: 46px;
-  background: #409eff !important;
-  border-color: #409eff !important;
-  color: #fff;
+  background: var(--primary) !important;
+  border-color: var(--primary-text) !important;
+  color: var(--on-primary);
 }
 .scan-charge192 {
   font-size: 24px;
 }
 .scan-success192 {
-  color: #67c23a;
+  color: var(--success-text);
 }
 .scan-trade192 {
   overflow-wrap: anywhere;
@@ -702,7 +702,7 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   z-index: 1300;
-  background: #0006;
+  background: var(--scrim);
   display: grid;
   place-items: center;
   padding: 16px;
@@ -710,7 +710,7 @@ onBeforeUnmount(() => {
 .scan-dialog192 {
   width: min(100%, 380px);
   box-sizing: border-box;
-  background: #fff;
+  background: var(--bg-card);
   padding: 22px;
   border-radius: 8px;
 }

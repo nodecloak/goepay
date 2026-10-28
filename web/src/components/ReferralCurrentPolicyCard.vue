@@ -245,21 +245,21 @@ const sourceLabel = (source: string) =>
   gap: 0.65rem 0.75rem;
 }
 .policy-facts dt {
-  color: var(--muted, #64748b);
+  color: var(--muted, var(--ink-muted));
 }
 .policy-facts dd {
   margin: 0;
   overflow-wrap: anywhere;
 }
 .rate strong {
-  color: var(--primary, #2563eb);
+  color: var(--primary, var(--primary-text));
   font-size: 1.35rem;
 }
 .example {
-  border: 1px solid var(--border, #e2e8f0);
+  border: 1px solid var(--border, var(--line));
   border-radius: 8px;
   padding: 1rem;
-  background: var(--surface-muted, #f8fafc);
+  background: var(--surface-muted, var(--bg-raised));
 }
 .example h4 {
   margin: 0 0 0.75rem;
@@ -271,7 +271,7 @@ const sourceLabel = (source: string) =>
   margin-bottom: 0;
 }
 .conditions {
-  color: var(--muted, #64748b);
+  color: var(--muted, var(--ink-muted));
   margin-bottom: 0;
 }
 .current-policy p {

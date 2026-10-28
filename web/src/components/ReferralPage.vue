@@ -432,7 +432,7 @@ onBeforeUnmount(() => {
 }
 .referral-stats div {
   padding: 1rem;
-  background: var(--surface-muted, #f4f7fa);
+  background: var(--surface-muted, var(--bg-raised));
   border-radius: 8px;
 }
 .referral-stats dd {

@@ -367,7 +367,7 @@ onBeforeUnmount(() => controller?.abort());
 }
 .matrix-summary {
   font-weight: 600;
-  background: var(--bg-soft, #f6f8fc);
+  background: var(--bg-soft, var(--bg-raised));
 }
 .matrix-sort {
   border: 0;
@@ -385,7 +385,7 @@ table {
 th,
 td {
   padding: 13px 16px;
-  border-bottom: 1px solid var(--border, #e8edf4);
+  border-bottom: 1px solid var(--border, var(--line));
   text-align: right;
   white-space: nowrap;
 }

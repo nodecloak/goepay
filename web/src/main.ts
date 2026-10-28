@@ -2,8 +2,11 @@ import { createApp } from "vue";
 import { createRouter, createWebHistory } from "vue-router";
 import App from "./App.vue";
 import "./style.css";
+import { applyTheme, storedTheme } from "./theme";
 import { capturePromotionPrefill } from "./referral";
 import { installDocumentBoundary202 } from "./document-boundary202";
+// Apply the remembered colour theme before anything renders.
+applyTheme(storedTheme());
 // Strip bearer prefill before constructing router history or issuing requests.
 capturePromotionPrefill();
 const router = createRouter({

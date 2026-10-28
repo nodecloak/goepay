@@ -156,10 +156,10 @@ const mixSegments = computed(() => {
       offset,
       color:
         row.type === "wxpay"
-          ? "#47b57c"
+          ? "var(--chart-2)"
           : row.type === "alipay"
-            ? "#5d87ff"
-            : ["#f5a742", "#9b7ede", "#54b7c8"][i % 3],
+            ? "var(--chart-1)"
+            : ["var(--chart-3)", "var(--chart-4)", "var(--chart-6)"][i % 3],
     };
     offset += percentage;
     return segment;
@@ -368,7 +368,7 @@ const quickLinks = computed(() =>
               cy="80"
               r="56"
               fill="none"
-              stroke="#f0f2f5"
+              style="stroke: var(--chart-grid)"
               stroke-width="18"
             />
             <circle
@@ -378,7 +378,7 @@ const quickLinks = computed(() =>
               cy="80"
               r="56"
               fill="none"
-              :stroke="segment.color"
+              :style="{ stroke: segment.color }"
               stroke-width="18"
               pathLength="100"
               :stroke-dasharray="
@@ -690,7 +690,7 @@ const quickLinks = computed(() =>
 }
 .mix-track {
   height: 12px;
-  background: #f0f2f5;
+  background: var(--bg-raised);
   border-radius: 6px;
   overflow: hidden;
   margin-top: 12px;
@@ -701,10 +701,10 @@ const quickLinks = computed(() =>
   border-radius: 6px;
 }
 .alipay {
-  background: #5d87ff;
+  background: var(--primary);
 }
 .wechat {
-  background: #47b57c;
+  background: var(--success);
 }
 .mix-row p {
   font-size: 12px;
@@ -731,7 +731,7 @@ const quickLinks = computed(() =>
 }
 .dashboard-shortcuts a {
   padding: 12px 18px;
-  background: #f3f6ff;
+  background: var(--primary-soft);
   border-radius: 6px;
 }
 .dashboard-announcement {

@@ -182,20 +182,20 @@ onBeforeUnmount(cleanup);
   white-space: nowrap;
   font-size: 13px;
   margin-left: 8px;
-  border: 1px solid #d9dce3;
+  border: 1px solid var(--line-control);
   border-radius: 4px;
-  background: #909399;
-  color: #fff;
+  background: var(--bg-raised);
+  color: var(--ink);
   min-width: 36px;
   min-height: 28px;
   font-weight: 600;
   cursor: pointer;
 }
 .order-menu-trigger:hover {
-  background: #82848a;
+  background: var(--bg-hover);
 }
 .order-menu-trigger:focus-visible {
-  outline: 2px solid #409eff;
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 .order-action-menu {
@@ -206,11 +206,11 @@ onBeforeUnmount(cleanup);
   overflow-y: auto;
   box-sizing: border-box;
   padding: 6px;
-  background: #fff;
-  border: 1px solid #ebeef5;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
   border-radius: 10px;
   box-shadow: 0 4px 16px #0002;
-  color: #606266;
+  color: var(--ink);
 }
 .order-action-menu button,
 .order-action-menu a {
@@ -233,25 +233,25 @@ onBeforeUnmount(cleanup);
 .order-action-menu button:focus-visible,
 .order-action-menu a:hover,
 .order-action-menu a:focus-visible {
-  background: #ecf5ff;
-  color: #409eff;
-  outline: 2px solid #8bbdff;
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
 .related-menu-trigger {
-  background: #fff;
-  color: #606266;
+  background: var(--bg-card);
+  color: var(--ink);
   font-weight: 400;
   min-height: 32px;
 }
 .related-menu-trigger:hover {
-  background: #ecf5ff;
-  color: #409eff;
+  background: var(--primary-soft);
+  color: var(--primary-text);
 }
 .order-action-divider {
   height: 1px;
   margin: 6px 0;
-  background: #ebeef5;
+  background: var(--line);
 }
 @media (prefers-reduced-motion: reduce) {
   .order-action-menu {

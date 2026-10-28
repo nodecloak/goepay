@@ -391,7 +391,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .rich-editor {
   min-width: 0;
-  border: 1px solid var(--border, #dce3ed);
+  border: 1px solid var(--border, var(--line));
   border-radius: 5px;
   overflow: hidden;
 }
@@ -401,8 +401,8 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 4px;
   padding: 8px;
-  background: var(--surface-soft, #f5f7fa);
-  border-bottom: 1px solid var(--border, #dce3ed);
+  background: var(--surface-soft, var(--bg-raised));
+  border-bottom: 1px solid var(--border, var(--line));
 }
 .rich-toolbar button {
   min-height: 30px;
@@ -430,7 +430,7 @@ onBeforeUnmount(() => {
   outline-offset: -2px;
 }
 .rich-input[contenteditable="false"] {
-  background: #f7f8fa;
+  background: var(--bg-raised);
 }
 .rich-source {
   width: min(760px, calc(100vw - 32px));
@@ -453,6 +453,6 @@ onBeforeUnmount(() => {
 }
 .error {
   margin: 8px 12px;
-  color: var(--danger, #c93636);
+  color: var(--danger, var(--danger-text));
 }
 </style>

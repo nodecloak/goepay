@@ -360,9 +360,9 @@ onBeforeUnmount(() => clear());
   flex: none;
   margin: 2px 0 0;
   padding: 0;
-  border: 1px solid #c0c4cc;
+  border: 1px solid var(--line-control);
   border-radius: 11px;
-  background: #c0c4cc;
+  background: var(--line-control);
   cursor: pointer;
 }
 .switch-row input::after {
@@ -373,17 +373,17 @@ onBeforeUnmount(() => clear());
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--bg-card);
 }
 .switch-row input:checked {
-  border-color: #409eff;
-  background: #409eff;
+  border-color: var(--primary-text);
+  background: var(--primary);
 }
 .switch-row input:checked::after {
   left: 20px;
 }
 .switch-row input:focus-visible {
-  outline: 2px solid #165dba;
+  outline: 2px solid var(--primary-text);
   outline-offset: 3px;
 }
 .switch-row input:disabled {
@@ -419,7 +419,7 @@ onBeforeUnmount(() => clear());
 }
 .confirm-switches {
   padding: 14px;
-  background: var(--surface-alt, #f5f7fa);
+  background: var(--surface-alt, var(--bg-raised));
   border: 1px solid var(--line);
   border-radius: 8px;
 }

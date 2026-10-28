@@ -15,6 +15,12 @@ import {
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
+  applyTheme,
+  saveTheme,
+  storedTheme,
+  type ConsoleTheme,
+} from "./theme";
+import {
   merchantLoginEntry205,
   merchantLoginReturn205,
 } from "./login-document205";
@@ -803,6 +809,12 @@ async function login() {
     }
   }
 }
+const theme = ref<ConsoleTheme>(storedTheme());
+function toggleTheme() {
+  theme.value = theme.value === "dark" ? "light" : "dark";
+  applyTheme(theme.value);
+  saveTheme(theme.value);
+}
 async function logout() {
   busy.value = true;
   error.value = "";
@@ -1375,6 +1387,13 @@ onBeforeUnmount(() => {
     <template #account>
       <div class="account">
         <span>{{ session.user.name }}</span
+        ><button
+          type="button"
+          class="theme-toggle"
+          :aria-label="theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'"
+          @click="toggleTheme"
+        >
+          {{ theme === "dark" ? "浅色" : "深色" }}</button
         ><RouterLink
           :to="
             '/' +
@@ -1382,7 +1401,9 @@ onBeforeUnmount(() => {
             (area === 'admin' ? '/system/change-password' : '/account/settings')
           "
           >账户安全</RouterLink
-        ><button :disabled="busy" @click="logout">退出登录</button>
+        ><button class="logout" :disabled="busy" @click="logout">
+          退出登录
+        </button>
       </div>
     </template>
     <main class="content">

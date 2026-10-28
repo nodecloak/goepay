@@ -464,12 +464,12 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 16px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--border, #ebeef5);
+  border-bottom: 1px solid var(--border, var(--line));
   font-size: 14px;
 }
 .email-binding197-row > span:first-child {
   min-width: 84px;
-  color: var(--muted, #606266);
+  color: var(--muted, var(--ink));
 }
 .email-binding197-row > span:nth-child(2) {
   overflow-wrap: anywhere;

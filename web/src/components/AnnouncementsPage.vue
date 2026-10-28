@@ -540,7 +540,7 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  border-bottom: 1px solid var(--border, var(--line));
   padding: 16px 4px;
 }
 .announcement-row:last-of-type {

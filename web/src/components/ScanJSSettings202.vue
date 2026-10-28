@@ -300,7 +300,7 @@ onBeforeUnmount(() => {
 </template>
 <style scoped>
 .scan-js-settings202 {
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--line);
   border-radius: 6px;
   padding: 16px;
   margin: 16px 0;

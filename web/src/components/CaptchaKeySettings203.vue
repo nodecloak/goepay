@@ -411,8 +411,8 @@ onBeforeUnmount(() => {
 .captcha-confirm {
   margin-top: 18px;
   padding: 14px;
-  background: var(--surface-alt, #f5f7fa);
-  border: 1px solid var(--line, #dcdfe6);
+  background: var(--surface-alt, var(--bg-raised));
+  border: 1px solid var(--line, var(--line-control));
   border-radius: 6px;
 }
 .captcha-confirm p {
@@ -420,7 +420,7 @@ onBeforeUnmount(() => {
 }
 .captcha-key203 button:focus-visible,
 .captcha-key203 input:focus-visible {
-  outline: 2px solid var(--primary, #409eff);
+  outline: 2px solid var(--primary, var(--focus));
   outline-offset: 3px;
 }
 </style>

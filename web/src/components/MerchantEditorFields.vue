@@ -264,7 +264,7 @@ function keydown(event: KeyboardEvent) {
 <style scoped>
 .merchant-editor-tabs {
   display: flex;
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  border-bottom: 1px solid var(--border, var(--line));
   gap: 24px;
   margin: 12px 0 18px;
 }
@@ -272,17 +272,17 @@ function keydown(event: KeyboardEvent) {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--muted, #64748b);
+  color: var(--muted, var(--ink-muted));
   padding: 10px 0 12px;
   margin-bottom: -1px;
   border-bottom: 2px solid transparent;
 }
 .merchant-editor-tabs button[aria-selected="true"] {
-  color: var(--primary, #409eff);
+  color: var(--primary, var(--primary-text));
   border-bottom-color: currentColor;
 }
 .merchant-editor-tabs button:focus-visible {
-  outline: 2px solid var(--primary, #409eff);
+  outline: 2px solid var(--primary, var(--focus));
   outline-offset: 3px;
 }
 fieldset {
@@ -299,7 +299,7 @@ fieldset {
 .merchant-editor-group h3 {
   font-size: 14px;
   font-weight: 600;
-  color: var(--primary, #409eff);
+  color: var(--primary, var(--primary-text));
   margin: 0 0 10px;
 }
 .merchant-editor-hint {

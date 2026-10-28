@@ -1340,9 +1340,9 @@ onMounted(() => {
 .sharing-page select {
   width: 100%;
   padding: 11px;
-  border: 1px solid #beced6;
+  border: 1px solid var(--line-control);
   border-radius: 5px;
-  background: white;
+  background: var(--bg-card);
   color: var(--ink);
   font: inherit;
 }

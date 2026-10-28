@@ -6,7 +6,7 @@ const props = defineProps<{ days: PaymentStatisticsDay[] }>();
 const series = computed(() => paymentTrendSeries(props.days)),
   hidden = ref<string[]>([]),
   active = ref("");
-const colors = ["#5d87ff", "#13a18e", "#f39c12"];
+const colors = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)"];
 function toggle(type: string) {
   hidden.value = hidden.value.includes(type)
     ? hidden.value.filter((t) => t !== type)
@@ -37,14 +37,15 @@ function toggle(type: string) {
         x2="650"
         :y1="y"
         :y2="y"
-        stroke="var(--border,#e5e7eb)"
+        style="stroke: var(--chart-grid)"
+        stroke-dasharray="3 3"
       />
       <template v-for="(s, index) in series" :key="s.type">
         <g v-if="!hidden.includes(s.type)">
           <polyline
             :points="s.points.map((p) => p.x + ',' + p.y).join(' ')"
             fill="none"
-            :stroke="colors[index]"
+            :style="{ stroke: colors[index] }"
             stroke-width="2"
           />
           <circle
@@ -53,7 +54,7 @@ function toggle(type: string) {
             :cx="p.x"
             :cy="p.y"
             r="4"
-            :fill="colors[index]"
+            :style="{ fill: colors[index] }"
             :tabindex="hidden.includes(s.type) ? -1 : 0"
             :aria-label="p.date + ' ' + s.name + ' ¥' + p.money"
             @focus="active = p.date + ' ' + s.name + ' ¥' + p.money"
@@ -88,7 +89,7 @@ function toggle(type: string) {
 }
 .payment-amount-trend text {
   font-size: 12px;
-  fill: var(--muted, #64748b);
+  fill: var(--muted, var(--ink-muted));
 }
 .payment-amount-trend figcaption {
   font-weight: 600;

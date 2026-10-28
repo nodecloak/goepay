@@ -260,7 +260,7 @@ watch(busy, (value) => emit("busy", value), { flush: "sync" });
 </template>
 <style scoped>
 .platform-access {
-  border: 1px solid var(--border, #d8dee9);
+  border: 1px solid var(--border, var(--line-control));
   border-radius: 8px;
   padding: 16px;
   margin: 16px 0;
@@ -281,7 +281,7 @@ watch(busy, (value) => emit("busy", value), { flush: "sync" });
   min-width: 40px;
   height: 22px;
   border-radius: 12px;
-  background: #6b7280;
+  background: var(--line-control);
   border: 0;
   position: relative;
   cursor: pointer;
@@ -294,16 +294,16 @@ watch(busy, (value) => emit("busy", value), { flush: "sync" });
   top: 3px;
   left: 3px;
   border-radius: 50%;
-  background: white;
+  background: var(--bg-card);
 }
 .platform-switch input:checked {
-  background: #2563eb;
+  background: var(--primary);
 }
 .platform-switch input:checked::before {
   left: 21px;
 }
 .platform-switch input:focus-visible {
-  outline: 3px solid #93c5fd;
+  outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
 .platform-switch input:disabled {

@@ -768,7 +768,7 @@ onBeforeUnmount(() => {
 .muted,
 .task-table small,
 .task-fields small {
-  color: #5b6472;
+  color: var(--ink);
 }
 .task-table-wrap {
   overflow: auto;
@@ -781,12 +781,12 @@ onBeforeUnmount(() => {
 .task-table th,
 .task-table td {
   padding: 0.8rem 0.65rem;
-  border-bottom: 1px solid #dce3eb;
+  border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
 }
 .task-table th {
-  background: #f5f7fa;
+  background: var(--bg-raised);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -806,20 +806,20 @@ onBeforeUnmount(() => {
 .task-scheduler button {
   cursor: pointer;
   min-height: 2.3rem;
-  border: 1px solid #ccd6e2;
+  border: 1px solid var(--line-control);
   border-radius: 0.35rem;
-  background: #fff;
-  color: #23415d;
+  background: var(--bg-card);
+  color: var(--ink);
   padding: 0.4rem 0.7rem;
 }
 .task-scheduler button:hover:not(:disabled) {
-  background: #edf5fc;
-  border-color: #7fa6cf;
+  background: var(--primary-soft);
+  border-color: var(--primary-text);
 }
 .task-scheduler button:focus-visible,
 .task-fields input:focus-visible,
 .task-fields select:focus-visible {
-  outline: 3px solid #2369a6;
+  outline: 3px solid var(--primary-text);
   outline-offset: 2px;
 }
 .task-scheduler button:disabled {
@@ -830,17 +830,17 @@ onBeforeUnmount(() => {
   margin-top: 1.2rem;
 }
 .task-error {
-  color: #a82222;
+  color: var(--danger-text);
   overflow-wrap: anywhere;
 }
 .task-notice {
-  color: #16623c;
+  color: var(--success-text);
   overflow-wrap: anywhere;
 }
 .task-backdrop {
   position: fixed;
   inset: 0;
-  background: #17253680;
+  background: var(--scrim);
   z-index: 1300;
   display: grid;
   place-items: center;
@@ -850,7 +850,7 @@ onBeforeUnmount(() => {
   width: min(46rem, 100%);
   max-height: 88vh;
   overflow: auto;
-  background: white;
+  background: var(--bg-card);
   border-radius: 0.55rem;
   padding: 1.2rem;
   box-shadow: 0 1rem 3rem #0003;
@@ -866,7 +866,7 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 .task-dialog footer {
-  border-top: 1px solid #dce3eb;
+  border-top: 1px solid var(--line);
   padding-top: 1rem;
   margin-top: 1rem;
   justify-content: flex-end;
@@ -888,9 +888,9 @@ onBeforeUnmount(() => {
   min-width: 0;
   box-sizing: border-box;
   padding: 0.5rem;
-  border: 1px solid #a9b8c9;
+  border: 1px solid var(--line-control);
   border-radius: 0.3rem;
-  background: #fff;
+  background: var(--bg-card);
 }
 .task-fields .task-check {
   flex-direction: row;
@@ -907,8 +907,8 @@ onBeforeUnmount(() => {
 }
 .task-confirm {
   padding: 1rem;
-  border: 1px solid #cadcec;
-  background: #f4f8fc;
+  border: 1px solid var(--line-control);
+  background: var(--bg-raised);
   border-radius: 0.35rem;
 }
 .task-confirm button {
@@ -920,7 +920,7 @@ onBeforeUnmount(() => {
 }
 .task-history li {
   padding: 1rem;
-  border: 1px solid #dce3eb;
+  border: 1px solid var(--line);
   border-radius: 0.35rem;
   margin: 0.8rem 0;
 }
@@ -953,7 +953,7 @@ onBeforeUnmount(() => {
     display: none;
   }
   .task-table tr {
-    border: 1px solid #dce3eb;
+    border: 1px solid var(--line);
     border-radius: 0.4rem;
     margin: 0.8rem 0;
     padding: 0.4rem;
@@ -967,7 +967,7 @@ onBeforeUnmount(() => {
     content: attr(data-label);
     display: block;
     font-size: 0.78rem;
-    color: #637083;
+    color: var(--ink);
     margin-bottom: 0.2rem;
   }
   .task-actions {
