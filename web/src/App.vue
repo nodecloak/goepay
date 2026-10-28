@@ -118,6 +118,8 @@ import PrintingSettingsPage from "./components/PrintingSettingsPage.vue";
 import MerchantNoticeSettings from "./components/MerchantNoticeSettings.vue";
 import LegacyRefundHistoryPanel from "./components/LegacyRefundHistoryPanel.vue";
 import TemplatePage from "./components/TemplatePage.vue";
+import AppStorePage from "./components/AppStorePage.vue";
+import LocalPluginsPage from "./components/LocalPluginsPage.vue";
 import SettlementSchedulePage from "./components/SettlementSchedulePage.vue";
 import { consumePromotionPrefill } from "./referral";
 const promotionPrefill = ref(consumePromotionPrefill());
@@ -858,6 +860,7 @@ async function load() {
     kind.value === "printing" ||
     kind.value === "merchant-notice" ||
     kind.value === "template" ||
+    kind.value === "app-store" ||
     kind.value === "transfers" ||
     kind.value === "transfer-batches" ||
     kind.value === "redpacks"
@@ -1444,6 +1447,7 @@ onBeforeUnmount(() => {
               'printing',
               'merchant-notice',
               'template',
+              'app-store',
               'transfers',
             ].includes(kind)
           "
@@ -1487,6 +1491,7 @@ onBeforeUnmount(() => {
         :own-session="!!session && !session.delegated_by"
         :admin-class="session?.user.admin_class"
       />
+      <AppStorePage v-else-if="kind === 'app-store'" />
       <SettlementSchedulePage
         v-else-if="kind === 'settlement-schedule'"
         :client="client"
@@ -1702,7 +1707,8 @@ onBeforeUnmount(() => {
             :admin-class="session.user.admin_class"
           />
           <template v-if="path === '/app/plugin-list'"
-            ><h2>本地扩展资料</h2>
+            ><LocalPluginsPage />
+            <h2 class="operation-heading">本地扩展资料</h2>
             <ResourcePage
               :key="path + 'config'"
               :client="client"

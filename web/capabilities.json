@@ -658,9 +658,13 @@
     "path": "/app/app-store",
     "title": "应用管理 / 应用市场",
     "hidden": false,
-    "status": "deferred",
-    "capabilities": [],
-    "limitations": "应用市场依赖外部市场服务及插件授权，本轮按约定暂缓接入。本地扩展资料与实际运行能力可在“本地插件”中查看。"
+    "status": "partial",
+    "capabilities": [
+      "builtin-plugin-catalog",
+      "original-market-list-reference",
+      "plugin-detail"
+    ],
+    "limitations": "Go 版插件随服务内置；不在线购买、下载、安装或执行 PHP 插件，原应用市场列表仅供对照。已内置：支付宝、微信支付、支付宝/微信分账、SMTP 发信、默认模板。"
   },
   {
     "area": "admin",
@@ -670,6 +674,8 @@
     "hidden": false,
     "status": "partial",
     "capabilities": [
+      "builtin-plugin-list",
+      "plugin-detail",
       "read-operation-information"
     ],
     "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"

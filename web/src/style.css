@@ -2065,3 +2065,55 @@ legend {
     margin-left: 0;
   }
 }
+
+/* Category tabs as pills (应用市场, 本地插件) and plugin name cells. */
+.pill-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 12px;
+}
+.pill-tabs button {
+  min-height: var(--control-h);
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+}
+.pill-tabs button:hover {
+  background: var(--bg-hover);
+  color: var(--ink);
+}
+.pill-tabs button[aria-selected="true"] {
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  font-weight: 500;
+}
+.plugin-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.plugin-name > img,
+.plugin-mark {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: var(--radius-xs);
+  object-fit: contain;
+}
+.plugin-mark {
+  display: inline-grid;
+  place-content: center;
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+.plugin-name > .badge {
+  font-weight: 400;
+}

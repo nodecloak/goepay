@@ -232,6 +232,7 @@ export type ViewKind =
   | "printing"
   | "merchant-notice"
   | "template"
+  | "app-store"
   | "unavailable";
 export function viewKind(area: Area, path: string): ViewKind {
   if (area === "merchant" && path === "/onecode") return "collection-generator";
@@ -251,6 +252,7 @@ export function viewKind(area: Area, path: string): ViewKind {
   )
     return "merchant-notice";
   if (area === "admin" && path === "/app/template") return "template";
+  if (area === "admin" && path === "/app/app-store") return "app-store";
   if (
     (area === "admin" && path === "/system/printing") ||
     (area === "merchant" && path === "/account/printing")
