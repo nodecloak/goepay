@@ -204,3 +204,100 @@ func TestPluginPaypalApprovalLinkParsing(t *testing.T) {
 		t.Fatal("empty", got)
 	}
 }
+
+func TestPluginPaypalQuery(t *testing.T) {
+	var orderStatus, captureReply string
+	var captureCalled bool
+	var captureReqID string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/v1/oauth2/token":
+			io.WriteString(w, `{"access_token":"tok-1"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/v2/checkout/orders/ORD1":
+			io.WriteString(w, orderStatus)
+		case r.Method == http.MethodPost && r.URL.Path == "/v2/checkout/orders/ORD1/capture":
+			captureCalled = true
+			captureReqID = r.Header.Get("PayPal-Request-Id")
+			io.WriteString(w, captureReply)
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer srv.Close()
+	p := paypalTestPlugin(t, srv.URL, "USD", "1")
+	req := QueryRequest{TradeNo: "T1", ProviderTradeNo: "ORD1"}
+
+	// APPROVED -> capture -> COMPLETED success (idempotency header set).
+	orderStatus = `{"id":"ORD1","status":"APPROVED"}`
+	captureReply = `{"id":"ORD1","status":"COMPLETED","purchase_units":[{"payments":{"captures":[{"id":"CAP9","status":"COMPLETED","amount":{"currency_code":"USD","value":"19.99"}}]}}]}`
+	q, e := p.Query(context.Background(), req)
+	if e != nil || q.State != "SUCCESS" || q.ProviderTradeNo != "CAP9" || q.Currency != "CNY" {
+		t.Fatal("approved->capture", q, e)
+	}
+	if !captureCalled || captureReqID != "T1" {
+		t.Fatal("capture not called with idempotency id", captureCalled, captureReqID)
+	}
+
+	// COMPLETED order (already captured) -> success without re-capture.
+	captureCalled = false
+	orderStatus = `{"id":"ORD1","status":"COMPLETED","purchase_units":[{"payments":{"captures":[{"id":"CAP9","status":"COMPLETED","amount":{"currency_code":"USD","value":"19.99"}}]}}]}`
+	if q, e = p.Query(context.Background(), req); e != nil || q.State != "SUCCESS" || q.ProviderTradeNo != "CAP9" {
+		t.Fatal("completed", q, e)
+	}
+	if captureCalled {
+		t.Fatal("completed order must not re-capture")
+	}
+
+	// CREATED / PAYER_ACTION_REQUIRED -> NOTPAY.
+	for _, s := range []string{`{"id":"ORD1","status":"CREATED"}`, `{"id":"ORD1","status":"PAYER_ACTION_REQUIRED"}`} {
+		orderStatus = s
+		if q, e = p.Query(context.Background(), req); e != nil || q.State != "NOTPAY" {
+			t.Fatal("pending", s, q, e)
+		}
+	}
+
+	// VOIDED -> CLOSED.
+	orderStatus = `{"id":"ORD1","status":"VOIDED"}`
+	if q, e = p.Query(context.Background(), req); e != nil || q.State != "CLOSED" {
+		t.Fatal("voided", q, e)
+	}
+
+	// APPROVED but capture declined -> definitive refusal.
+	orderStatus = `{"id":"ORD1","status":"APPROVED"}`
+	captureReply = `{"id":"ORD1","status":"COMPLETED","purchase_units":[{"payments":{"captures":[{"id":"CAPx","status":"DECLINED","amount":{"currency_code":"USD","value":"19.99"}}]}}]}`
+	var pe *ProviderError
+	if _, e = p.Query(context.Background(), req); !errors.As(e, &pe) {
+		t.Fatal("declined must be definitive", e)
+	}
+}
+
+func TestPluginPaypalQueryOutcomes(t *testing.T) {
+	var status int
+	var reply string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/oauth2/token" {
+			io.WriteString(w, `{"access_token":"tok-1"}`)
+			return
+		}
+		w.WriteHeader(status)
+		io.WriteString(w, reply)
+	}))
+	defer srv.Close()
+	p := paypalTestPlugin(t, srv.URL, "USD", "1")
+	req := QueryRequest{TradeNo: "T1", ProviderTradeNo: "ORD1"}
+	var unknown *UnknownOutcome
+	// Unreadable 2xx order reply.
+	status, reply = 200, `not json`
+	if _, e := p.Query(context.Background(), req); !errors.As(e, &unknown) {
+		t.Fatal("unreadable order", e)
+	}
+	// 5xx.
+	status, reply = 503, `down`
+	if _, e := p.Query(context.Background(), req); !errors.As(e, &unknown) {
+		t.Fatal("5xx", e)
+	}
+	// Missing order id is a local invalid.
+	if _, e := p.Query(context.Background(), QueryRequest{TradeNo: "T1"}); !errors.Is(e, ErrInvalid) {
+		t.Fatal("missing order id", e)
+	}
+}

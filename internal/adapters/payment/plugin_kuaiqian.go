@@ -29,6 +29,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/pkcs12"
 )
@@ -252,29 +253,25 @@ func kuaiqianFen(cents int64) string {
 	return strconv.FormatInt(cents, 10)
 }
 
-// kuaiqianOrderTime derives the orderTime (date('YmdHis')) from the create
-// request's expiry when present, else leaves the field driven by the trade
-// number prefix is not possible; the upstream requires the field, so we use a
-// fixed deterministic value from the request is not available — the gateway
-// only checks the signature covers it. We send the trade number's leading 14
-// digits when they look like a timestamp, otherwise a zeroed stamp; the
-// original used the live clock, which is non-deterministic and not security
-// relevant here.
-func kuaiqianOrderTime(r CreateRequest) string {
-	if len(r.TradeNo) >= 14 {
-		ts := r.TradeNo[:14]
-		allDigits := true
-		for i := 0; i < len(ts); i++ {
-			if ts[i] < '0' || ts[i] > '9' {
-				allDigits = false
-				break
-			}
-		}
-		if allDigits {
-			return ts
-		}
+// kuaiqianNow is the clock used for orderTime; tests replace it so signature
+// vectors stay deterministic.
+var kuaiqianNow = time.Now
+
+// kuaiqianShanghai is the Asia/Shanghai location the original date('YmdHis')
+// renders in (PHP runs on China time). It falls back to a fixed +08:00 offset
+// when the tz database is unavailable.
+var kuaiqianShanghai = func() *time.Location {
+	if loc, e := time.LoadLocation("Asia/Shanghai"); e == nil {
+		return loc
 	}
-	return "19700101000000"
+	return time.FixedZone("CST", 8*3600)
+}()
+
+// kuaiqianOrderTime renders the orderTime (date('YmdHis')) from the live
+// Asia/Shanghai clock, exactly as the original PHP does. GOEPAY trade numbers
+// do not carry the creation time, so the clock is the only correct source.
+func kuaiqianOrderTime(CreateRequest) string {
+	return kuaiqianNow().In(kuaiqianShanghai).Format("20060102150405")
 }
 
 // NotificationMethods: the original notify() reads $_GET.
