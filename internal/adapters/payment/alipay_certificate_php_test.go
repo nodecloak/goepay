@@ -1,7 +1,6 @@
 package payment
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -14,16 +13,15 @@ import (
 	"math/big"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"goepay/internal/testphp"
 )
 
 func TestOriginalAlipayCertificateSerialPHPInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("GOEPAY_PHP_INTEROP=1 required")
-	}
+	testphp.Require(t)
 	cfg, _, platform, root := alipayCertificateFixture(t)
 	// Keep the original trusted root and append an independent RSA root with
 	// a large serial plus an EC root. The source SDK concatenates only the
@@ -52,12 +50,12 @@ func TestOriginalAlipayCertificateSerialPHPInterop(t *testing.T) {
 		t.Fatal(e)
 	}
 	dir := t.TempDir()
-	helper, e := os.ReadFile(filepath.Join("..", "..", "..", "epay_pro", "vendor", "cccyun", "alipay-sdk", "src", "Aop", "AlipayCertHelper.php"))
+	helper, e := os.ReadFile(testphp.Path(t, "epay_pro/vendor/cccyun/alipay-sdk/src/Aop/AlipayCertHelper.php"))
 	if e != nil {
 		t.Fatal(e)
 	}
 	files := map[string][]byte{"helper.php": helper, "app.pem": []byte(cfg.CertificateMode.ApplicationPEM), "platform.pem": []byte(cfg.CertificateMode.PlatformPEM), "root.pem": []byte(cfg.CertificateMode.RootPEM), "run.php": []byte(`<?php require '/work/helper.php';echo json_encode(['app'=>Alipay\Aop\AlipayCertHelper::getCertSN('/work/app.pem'),'platform'=>Alipay\Aop\AlipayCertHelper::getCertSN('/work/platform.pem'),'root'=>Alipay\Aop\AlipayCertHelper::getRootCertSN('/work/root.pem'),'serial'=>openssl_x509_parse(file_get_contents('/work/app.pem'))['serialNumber']]);`)}
-	aop, e := os.ReadFile(filepath.Join("..", "..", "..", "epay_pro", "vendor", "cccyun", "alipay-sdk", "src", "Aop", "AopClient.php"))
+	aop, e := os.ReadFile(testphp.Path(t, "epay_pro/vendor/cccyun/alipay-sdk/src/Aop/AopClient.php"))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -84,9 +82,7 @@ func TestOriginalAlipayCertificateSerialPHPInterop(t *testing.T) {
 		params[k] = v[0]
 	}
 	payload, _ := json.Marshal(map[string]any{"private": base64.StdEncoding.EncodeToString(x509.MarshalPKCS1PrivateKey(cfg.PrivateKey)), "params": params})
-	command := exec.CommandContext(ctx, "docker", "run", "--rm", "--network", "none", "-i", "--mount", "type=bind,src="+dir+",dst=/work,readonly", "php:8.2-cli", "php", "/work/run.php")
-	command.Stdin = bytes.NewReader(payload)
-	raw, e := command.CombinedOutput()
+	raw, e := testphp.Run(t, ctx, testphp.Spec{Mounts: []testphp.Mount{{Source: dir, Target: "/work"}}, Args: []string{"/work/run.php"}, Input: payload})
 	if e != nil {
 		t.Fatalf("PHP certificate helper: %v %s", e, raw)
 	}

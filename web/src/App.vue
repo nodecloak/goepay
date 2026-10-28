@@ -91,6 +91,7 @@ import AutoRefreshControl from "./components/AutoRefreshControl.vue";
 import OrderBlacklistDialog from "./components/OrderBlacklistDialog.vue";
 import DashboardOverview from "./components/DashboardOverview.vue";
 import TransferBatchPage from "./components/TransferBatchPage.vue";
+import RedpackPage from "./components/RedpackPage.vue";
 import SettlementBatchesPage from "./components/SettlementBatchesPage.vue";
 import ListFilters from "./components/ListFilters.vue";
 import {
@@ -652,7 +653,10 @@ async function initialize() {
       } else if (area.value === "merchant") {
         if (merchantLoginDocument205.value && route.query.reauth === "password")
           notice.value = "请使用当前有效密码重新登录";
-        else if (merchantLoginDocument205.value && route.query.reauth === "security")
+        else if (
+          merchantLoginDocument205.value &&
+          route.query.reauth === "security"
+        )
           notice.value = "请重新登录以继续操作";
         void loadLoginPlatformAccess();
       }
@@ -847,7 +851,8 @@ async function load() {
     kind.value === "merchant-notice" ||
     kind.value === "template" ||
     kind.value === "transfers" ||
-    kind.value === "transfer-batches"
+    kind.value === "transfer-batches" ||
+    kind.value === "redpacks"
   )
     return;
   if (listRouteError.value) {
@@ -1058,7 +1063,14 @@ watch(
     }
     const target =
       !session.value && !merchantLoginDocument205.value
-        ? merchantLoginEntry205(route.fullPath, notice.value === "密码已修改，请重新登录" ? "password" : notice.value ? "security" : "")
+        ? merchantLoginEntry205(
+            route.fullPath,
+            notice.value === "密码已修改，请重新登录"
+              ? "password"
+              : notice.value
+                ? "security"
+                : "",
+          )
         : session.value && merchantLoginDocument205.value
           ? merchantLoginReturn205(route.query.return)
           : "";
@@ -1708,6 +1720,11 @@ onBeforeUnmount(() => {
       />
       <TransferBatchPage
         v-else-if="kind === 'transfer-batches'"
+        :key="area + path"
+        :client="client"
+      />
+      <RedpackPage
+        v-else-if="kind === 'redpacks'"
         :key="area + path"
         :client="client"
       />

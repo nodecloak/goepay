@@ -1,7 +1,6 @@
 package payment
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -9,16 +8,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"goepay/internal/testphp"
 )
 
 func TestOriginalProviderPHPInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("GOEPAY_PHP_INTEROP=1 required")
-	}
+	testphp.Require(t)
 	key, e := rsa.GenerateKey(rand.Reader, 2048)
 	if e != nil {
 		t.Fatal(e)
@@ -29,7 +27,7 @@ func TestOriginalProviderPHPInterop(t *testing.T) {
 	}
 	dir := t.TempDir()
 	for name, source := range map[string]string{"wx.php": "wechatpay-sdk/src/BaseService.php", "ali.php": "alipay-sdk/src/Aop/AopClient.php"} {
-		b, e := os.ReadFile(filepath.Join("..", "..", "..", "epay_pro", "vendor", "cccyun", source))
+		b, e := os.ReadFile(testphp.Path(t, "epay_pro/vendor/cccyun"+"/"+source))
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -58,9 +56,7 @@ func TestOriginalProviderPHPInterop(t *testing.T) {
 	payload, _ := json.Marshal(map[string]any{"params": params, "private_key": base64.StdEncoding.EncodeToString(x509.MarshalPKCS1PrivateKey(key)), "public_key": base64.StdEncoding.EncodeToString(der)})
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "--network", "none", "-i", "--mount", "type=bind,src="+dir+",dst=/work,readonly", "php:8.2-cli", "php", "/work/runner.php")
-	cmd.Stdin = bytes.NewReader(payload)
-	out, e := cmd.CombinedOutput()
+	out, e := testphp.Run(t, ctx, testphp.Spec{Mounts: []testphp.Mount{{Source: dir, Target: "/work"}}, Args: []string{"/work/runner.php"}, Input: payload})
 	if e != nil {
 		t.Fatalf("PHP error %v %s", e, out)
 	}

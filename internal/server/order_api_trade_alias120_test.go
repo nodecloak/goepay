@@ -398,7 +398,9 @@ func TestOrderAPITradeAlias120ActualHTTPPersistentSessionsAndRevocation(t *testi
 					t.Fatal(err)
 				}
 			case "expired":
-				if _, err := f.p.Exec(t.Context(), `UPDATE console_sessions SET expires_at=clock_timestamp()-interval '1 second' WHERE username='admin168' AND role='admin'`); err != nil {
+				// Well past expiry on both clocks: the test PostgreSQL container's
+				// clock can run seconds ahead of the host's.
+				if _, err := f.p.Exec(t.Context(), `UPDATE console_sessions SET expires_at=clock_timestamp()-interval '10 minutes' WHERE username='admin168' AND role='admin'`); err != nil {
 					t.Fatal(err)
 				}
 			case "auth-version":
@@ -419,7 +421,11 @@ func TestOrderAPITradeAlias120ActualHTTPPersistentSessionsAndRevocation(t *testi
 				want = 503
 			}
 			for _, method := range []string{"GET", "PATCH"} {
-				w := f.request("admin", f.token, f.csrf, method, f.path(), orderAlias120Body("REVOKED-ALIAS", prior.Fingerprint))
+				body := ""
+				if method == "PATCH" {
+					body = orderAlias120Body("REVOKED-ALIAS", prior.Fingerprint)
+				}
+				w := f.request("admin", f.token, f.csrf, method, f.path(), body)
 				if w.Code != want {
 					t.Fatalf("%s %s must verify original persistent session: HTTP=%d want%d", change, method, w.Code, want)
 				}
@@ -479,7 +485,11 @@ func TestOrderAPITradeAlias120ActualHTTPUnknownOriginalSourceCannotBecomeEmptyAl
 	before := f.business(t)
 	q, r := f.provider.counts()
 	for _, method := range []string{"GET", "PATCH"} {
-		orderAlias120Closed(t, f.request("admin", f.token, f.csrf, method, "unknown-origin120/api-trade-alias", orderAlias120Body("UNSAFE-REINITIALIZATION", strings.Repeat("a", 64))))
+		body := ""
+		if method == "PATCH" {
+			body = orderAlias120Body("UNSAFE-REINITIALIZATION", strings.Repeat("a", 64))
+		}
+		orderAlias120Closed(t, f.request("admin", f.token, f.csrf, method, "unknown-origin120/api-trade-alias", body))
 	}
 	w := f.request("admin", f.token, "", "GET", "unknown-origin120", "")
 	if w.Code == 200 && strings.Contains(w.Body.String(), `"can_edit_api_trade_alias":true`) {
@@ -597,6 +607,7 @@ func TestOrderAPITradeAlias120ActualHTTPStrictShapeAndUnsupportedMethods(t *test
 		{"missing alias", "PATCH", "", fmt.Sprintf(`{"expected_fingerprint":%q}`, prior.Fingerprint), 400},
 		{"null body", "PATCH", "", `null`, 400},
 		{"trailing JSON", "PATCH", "", valid + ` {}`, 400},
+		{"GET with PATCH body", "GET", "", valid, 400},
 		{"query override read", "GET", "?merchant_id=2", ``, 400},
 		{"query override write", "PATCH", "?trade_no=other", valid, 400},
 		{"old POST method", "POST", "", valid, 405},

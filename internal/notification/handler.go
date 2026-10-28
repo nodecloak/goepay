@@ -29,6 +29,30 @@ type Handler struct {
 	Client      *http.Client
 	PlatformKey *rsa.PrivateKey
 	Now         func() time.Time
+	// Planner selects how a notification leaves the platform (中转代理). When
+	// nil, delivery is always direct. When set, a planning error fails the
+	// delivery closed — a configured proxy is never silently bypassed.
+	Planner DeliveryPlanner
+}
+
+// Delivery is how one notification is sent. Mode 0 = direct, 1 = through a
+// proxy server (Client is a proxied client), 2 = through a proxy-API relay.
+type Delivery struct {
+	Mode           int
+	Client         *http.Client
+	API            ProxyAPIDeliverer
+	APIURL, APIKey string
+}
+
+// ProxyAPIDeliverer posts the target URL to a mode-2 relay and returns its
+// response. httpclient.ProxyAPIClient satisfies it.
+type ProxyAPIDeliverer interface {
+	Deliver(ctx context.Context, apiURL, apikey, target string) (int, string, error)
+}
+
+// DeliveryPlanner resolves the current 中转代理 plan at send time.
+type DeliveryPlanner interface {
+	DeliveryPlan(ctx context.Context) (Delivery, error)
 }
 
 // URL constructs both notify and return URLs with the current timestamp on each retry.
@@ -113,15 +137,48 @@ func (h Handler) Handle(ctx context.Context, j jobs.Job) error {
 	if e != nil {
 		return e
 	}
+	delivery := Delivery{Mode: 0}
+	if h.Planner != nil {
+		delivery, e = h.Planner.DeliveryPlan(ctx)
+		if e != nil {
+			if ctx.Err() != nil {
+				return errors.New("notification delivery interrupted")
+			}
+			// A configured proxy that cannot be resolved fails the delivery;
+			// it is never silently sent direct.
+			return observedDeliveryFailure(j, "proxy", "notification proxy unavailable")
+		}
+	}
+	if delivery.Mode == 2 {
+		if delivery.API == nil {
+			return observedDeliveryFailure(j, "proxy", "notification proxy unavailable")
+		}
+		status, body, de := delivery.API.Deliver(ctx, delivery.APIURL, delivery.APIKey, target)
+		if de != nil {
+			if ctx.Err() != nil {
+				return errors.New("notification delivery interrupted")
+			}
+			return observedDeliveryFailure(j, "transport", "notification transport failed")
+		}
+		if status != http.StatusOK || !httpclient.ProxyAPIAcknowledged(body) {
+			return observedDeliveryFailure(j, "ack", fmt.Sprintf("notification not acknowledged (HTTP %d)", status))
+		}
+		return nil
+	}
+	client := h.Client
+	if delivery.Mode == 1 {
+		if delivery.Client == nil {
+			return observedDeliveryFailure(j, "proxy", "notification proxy unavailable")
+		}
+		client = delivery.Client
+	} else if client == nil {
+		client = httpclient.New()
+	}
 	req, e := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if e != nil {
 		return errors.New("invalid notification request")
 	}
 	req.Header.Set("User-Agent", "GOEPAY-Notify/1.0")
-	client := h.Client
-	if client == nil {
-		client = httpclient.New()
-	}
 	response, e := client.Do(req)
 	if e != nil {
 		if ctx.Err() != nil {

@@ -173,11 +173,29 @@ func (w *WechatJSSDK202) currentTicket(ctx context.Context) (string, error) {
 }
 
 func (w *WechatJSSDK202) Sign(ctx context.Context, page string) (WechatJSConfig202, error) {
-	var out WechatJSConfig202
 	u, err := url.Parse(page)
 	if err != nil || len(page) > 2048 || strings.ContainsAny(page, "\r\n\x00") || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Opaque != "" || u.Fragment != "" || strings.Contains(page, "#") || u.Path != "/merchant/scanpay" || u.EscapedPath() != "/merchant/scanpay" {
-		return out, ErrWechatJSSDK202
+		return WechatJSConfig202{}, ErrWechatJSSDK202
 	}
+	return w.sign(ctx, page, "scanQRCode")
+}
+
+// WechatTransferJSSigner signs the 商家转账（新） payee page, whose only API is
+// requestMerchantTransfer (original paypage/wxtrans.php getJsapiConfig).
+type WechatTransferJSSigner interface {
+	SignMerchantTransfer(context.Context, string) (WechatJSConfig202, error)
+}
+
+func (w *WechatJSSDK202) SignMerchantTransfer(ctx context.Context, page string) (WechatJSConfig202, error) {
+	u, err := url.Parse(page)
+	if err != nil || len(page) > 2048 || strings.ContainsAny(page, "\r\n\x00") || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Opaque != "" || u.Fragment != "" || strings.Contains(page, "#") || u.Path != "/pay/wxtrans" || u.EscapedPath() != "/pay/wxtrans" {
+		return WechatJSConfig202{}, ErrWechatJSSDK202
+	}
+	return w.sign(ctx, page, "requestMerchantTransfer")
+}
+
+func (w *WechatJSSDK202) sign(ctx context.Context, page, api string) (WechatJSConfig202, error) {
+	var out WechatJSConfig202
 	ticket, err := w.currentTicket(ctx)
 	if err != nil {
 		return out, err
@@ -186,7 +204,7 @@ func (w *WechatJSSDK202) Sign(ctx context.Context, page string) (WechatJSConfig2
 	if _, err = rand.Read(nonce[:]); err != nil {
 		return out, ErrWechatJSSDK202
 	}
-	out = WechatJSConfig202{AppID: w.appID, Timestamp: w.now().Unix(), NonceStr: hex.EncodeToString(nonce[:]), JSAPIList: []string{"scanQRCode"}}
+	out = WechatJSConfig202{AppID: w.appID, Timestamp: w.now().Unix(), NonceStr: hex.EncodeToString(nonce[:]), JSAPIList: []string{api}}
 	// WeChat signs these lexicographically ordered keys with raw values.
 	raw := fmt.Sprintf("jsapi_ticket=%s&noncestr=%s&timestamp=%d&url=%s", ticket, out.NonceStr, out.Timestamp, page)
 	digest := sha1.Sum([]byte(raw))

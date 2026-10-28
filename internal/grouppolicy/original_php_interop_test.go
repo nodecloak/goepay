@@ -6,19 +6,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"goepay/internal/testphp"
 )
 
 // Executes the actual local Release class. The fake SQL port contains only
 // synthetic channel metadata; no original application bootstrap or credentials.
 func TestOriginalGroupRoutingPHPInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("GOEPAY_PHP_INTEROP=1 requires the pinned offline PHP image and original class")
-	}
-	reference, err := filepath.Abs(filepath.Join("..", "..", "epay_release", "includes", "lib", "Channel.php"))
+	testphp.Require(t)
+	reference, err := filepath.Abs(testphp.Path(t, "epay_release/includes/lib/Channel.php"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,8 +36,7 @@ func TestOriginalGroupRoutingPHPInterop(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "--pull", "never", "--network", "none", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--mount", "type=bind,source="+reference+",target=/reference/Channel.php,readonly", "--mount", "type=bind,source="+harness+",target=/runner.php,readonly", "sha256:2d72ff4b0cfe82e22f01f15223bc4ab4c825d318cb2e3275554cd32299a5ea50", "php", "/runner.php")
-	out, err := cmd.CombinedOutput()
+	out, err := testphp.Run(t, ctx, testphp.Spec{Mounts: []testphp.Mount{{Source: reference, Target: "/reference/Channel.php"}, {Source: harness, Target: "/runner.php"}}, Args: []string{"/runner.php"}})
 	if err != nil {
 		t.Fatalf("offline original class: %v: %s", err, out)
 	}

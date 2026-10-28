@@ -28,6 +28,9 @@ type BuildOptions struct {
 	ScanRecovery          bool
 	// Reference to the original runtime policy, shared by restored providers.
 	RuntimeWriteAllowed func() bool
+	// Site switch 微信V3转账产品类型 = 商家转账（新）; nil keeps WeChat V3
+	// channels without merchant-transfer bills.
+	WechatMerchantTransfer func() bool
 }
 
 // BuildWithOptions retains all ordinary write guards. ScanRecovery adds the
@@ -51,7 +54,7 @@ func BuildWithOptions(imp Import, options BuildOptions) (map[int64]provider.Prov
 		switch c.Plugin {
 		case "wxpay":
 			if c.Config["wechat_api_version"] == "v3" {
-				p, e = buildWechatV3(c)
+				p, e = buildWechatV3(c, options)
 				break
 			}
 			if version := c.Config["wechat_api_version"]; version != "" && version != "v2" {
@@ -331,6 +334,17 @@ func (g guarded) TransferTypes() []string {
 		return append([]string{}, p.TransferTypes()...)
 	}
 	return nil
+}
+
+func (g guarded) UsesMerchantTransfer() bool {
+	p, ok := g.Provider.(provider.MerchantTransferProduct)
+	return ok && p.UsesMerchantTransfer()
+}
+func (g guarded) MerchantTransferConfirmation(pkg string) (string, string, string) {
+	if p, ok := g.Provider.(provider.MerchantTransferProduct); ok {
+		return p.MerchantTransferConfirmation(pkg)
+	}
+	return "", "", ""
 }
 
 func (g guarded) ValidateTransfer(r provider.TransferRequest) error {

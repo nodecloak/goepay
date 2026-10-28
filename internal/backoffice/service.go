@@ -267,6 +267,18 @@ func validateSpecific(resource string, v map[string]any) error {
 		if validatePublicTestPaySetting203(key, value) != nil {
 			return ErrInvalid
 		}
+		if known, err := validateCombineSetting207(key, value); known && err != nil {
+			return ErrInvalid
+		}
+		if known, err := validateMerchantTransferSetting(key, value); known && err != nil {
+			return ErrInvalid
+		}
+		if known, err := validateProxySetting(key, value); known && err != nil {
+			return ErrInvalid
+		}
+		if known, err := validateRedpackSetting(key, value); known && err != nil {
+			return ErrInvalid
+		}
 		if known, err := siteinfo.Validate(key, value); known && err != nil {
 			return ErrInvalid
 		}

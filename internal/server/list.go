@@ -216,6 +216,12 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 		return
 	}
 	rows.Close()
+	if kind == "transfers" {
+		if e = s.attachTransferConfirmURLs(r.Context(), items); e != nil {
+			s.fail(w, e)
+			return
+		}
+	}
 	if kind == "orders" && role == "admin" {
 		if e = s.consoleOrderCharges104(r.Context(), 0, items); e != nil {
 			s.fail(w, e)

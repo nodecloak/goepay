@@ -1,7 +1,6 @@
 package payment
 
 import (
-	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/base64"
@@ -9,16 +8,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"goepay/internal/testphp"
 )
 
 func TestOriginalAlipayOrderCodePHPInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("GOEPAY_PHP_INTEROP=1 required")
-	}
+	testphp.Require(t)
 	merchant, platform := testKey(t), testKey(t)
 	var captured map[string]string
 	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +41,7 @@ func TestOriginalAlipayOrderCodePHPInterop(t *testing.T) {
 	}
 	dir := t.TempDir()
 	for name, source := range map[string]string{"aop.php": "AopClient.php", "request.php": "AlipayRequest.php"} {
-		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "epay_pro", "vendor", "cccyun", "alipay-sdk", "src", "Aop", source))
+		raw, err := os.ReadFile(testphp.Path(t, "epay_pro/vendor/cccyun/alipay-sdk/src/Aop"+"/"+source))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -65,9 +63,7 @@ echo json_encode(['valid'=>$sign->invoke($aop,$in['params'],'RSA2')===$in['param
 	payload, _ := json.Marshal(map[string]any{"private_key": base64.StdEncoding.EncodeToString(x509.MarshalPKCS1PrivateKey(merchant)), "params": captured})
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "--network", "none", "-i", "--mount", "type=bind,src="+dir+",dst=/work,readonly", "php:8.2-cli", "php", "/work/runner.php")
-	cmd.Stdin = bytes.NewReader(payload)
-	raw, err := cmd.CombinedOutput()
+	raw, err := testphp.Run(t, ctx, testphp.Spec{Mounts: []testphp.Mount{{Source: dir, Target: "/work"}}, Args: []string{"/work/runner.php"}, Input: payload})
 	if err != nil {
 		t.Fatalf("original PHP AOP failed: %v %s", err, raw)
 	}

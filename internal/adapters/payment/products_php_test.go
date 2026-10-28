@@ -1,27 +1,25 @@
 package payment
 
 import (
-	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"goepay/internal/testphp"
 )
 
 func TestOriginalAPPProductsPHPInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("GOEPAY_PHP_INTEROP=1 required")
-	}
+	testphp.Require(t)
 	key := testKey(t)
 	dir := t.TempDir()
 	for name, source := range map[string]string{"wx.php": "wechatpay-sdk/src/BaseService.php", "wx_payment.php": "wechatpay-sdk/src/PaymentService.php", "ali.php": "alipay-sdk/src/Aop/AopClient.php", "ali_request.php": "alipay-sdk/src/Aop/AlipayRequest.php"} {
-		raw, e := os.ReadFile(filepath.Join("..", "..", "..", "epay_pro", "vendor", "cccyun", source))
+		raw, e := os.ReadFile(testphp.Path(t, "epay_pro/vendor/cccyun"+"/"+source))
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -68,9 +66,7 @@ echo json_encode(['wx'=>$app->invoke($wx,'synthetic-prepay'),'wx_go_sign'=>$make
 	payload, _ := json.Marshal(map[string]any{"private_key": base64.StdEncoding.EncodeToString(x509.MarshalPKCS1PrivateKey(key)), "wx": wxApp, "ali": aliParams})
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "--network", "none", "-i", "--mount", "type=bind,src="+dir+",dst=/work,readonly", "php:8.2-cli", "php", "/work/runner.php")
-	cmd.Stdin = bytes.NewReader(payload)
-	raw, e := cmd.CombinedOutput()
+	raw, e := testphp.Run(t, ctx, testphp.Spec{Mounts: []testphp.Mount{{Source: dir, Target: "/work"}}, Args: []string{"/work/runner.php"}, Input: payload})
 	if e != nil {
 		t.Fatalf("PHP SDK failed: %v %s", e, raw)
 	}

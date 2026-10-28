@@ -318,6 +318,12 @@ func (g ProviderFlow) transfer(ctx context.Context, merchantID, channelID int64,
 	if !supported {
 		return Transfer{}, adapter.ErrUnsupported
 	}
+	// 商家转账（新） settings are checked before anything is reserved.
+	if merchantTransferChannel(p, r.Type) {
+		if _, e := g.Store.MerchantTransferScene(ctx); e != nil {
+			return Transfer{}, e
+		}
+	}
 	var validate func(adapter.TransferRequest) error
 	if v, ok := p.(interface {
 		ValidateTransfer(adapter.TransferRequest) error
@@ -444,12 +450,18 @@ func (g ProviderFlow) QueryTransfer(ctx context.Context, merchantID int64, no st
 	if state == "succeeded" && result.ProviderTransferNo == "" {
 		return t, adapter.ErrAuthentication
 	}
-	if e = g.Store.resolveProviderTransfer(ctx, t.ID, state, result.ProviderTransferNo, result.PayDate); e != nil {
+	if e = g.Store.resolveProviderTransferPackage(ctx, t.ID, state, result.ProviderTransferNo, result.PayDate, result.PackageInfo); e != nil {
 		return t, e
 	}
 	return g.Store.Transfer(ctx, merchantID, no)
 }
 func (s *Store) resolveProviderTransfer(ctx context.Context, id int64, state, providerNo, payDate string) error {
+	return s.resolveProviderTransferPackage(ctx, id, state, providerNo, payDate, "")
+}
+
+// resolveProviderTransferPackage also records a 商家转账 package_info, in the
+// same transaction, for a bill still waiting for the payee.
+func (s *Store) resolveProviderTransferPackage(ctx context.Context, id int64, state, providerNo, payDate, pkg string) error {
 	if len(providerNo) > 256 || len(payDate) > 64 {
 		return ErrInvalid
 	}
@@ -495,6 +507,11 @@ func (s *Store) resolveProviderTransfer(ctx context.Context, id int64, state, pr
 	}
 	if state == "succeeded" {
 		s.recordMerchantNoticeSettlement(ctx, tx, id)
+	}
+	if state == "pending" || state == "unknown" {
+		if e = recordTransferPackageTx(ctx, tx, id, pkg); e != nil {
+			return e
+		}
 	}
 	return tx.Commit(ctx)
 }

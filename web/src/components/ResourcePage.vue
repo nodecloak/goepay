@@ -36,6 +36,7 @@ import ResourceFields from "./ResourceFields.vue";
 import MerchantEditorFields from "./MerchantEditorFields.vue";
 import GroupEditorFields from "./GroupEditorFields.vue";
 import CoreRiskGroupPanel from "./CoreRiskGroupPanel.vue";
+import PaymentDefend206GroupPanel from "./PaymentDefend206GroupPanel.vue";
 import GroupStatisticsDialog from "./GroupStatisticsDialog.vue";
 import PaymentStatisticsDialog from "./PaymentStatisticsDialog.vue";
 import AccountLoginLogDialog from "./AccountLoginLogDialog.vue";
@@ -335,9 +336,14 @@ const mode = ref<"create" | "edit" | "detail" | "delete" | null>(null),
   values = ref<Record<string, unknown>>({}),
   fieldErrors = ref<Record<string, string>>({});
 const groupRiskBusy = ref(false);
+const groupDefendBusy = ref(false);
 const credentialsBusy = ref(false),
   editingBusy = computed(
-    () => busy.value || credentialsBusy.value || groupRiskBusy.value,
+    () =>
+      busy.value ||
+      credentialsBusy.value ||
+      groupRiskBusy.value ||
+      groupDefendBusy.value,
   );
 const canManageMerchantCredentials = computed(
   () =>
@@ -391,6 +397,7 @@ function resetContext() {
   busy.value = false;
   credentialsBusy.value = false;
   groupRiskBusy.value = false;
+  groupDefendBusy.value = false;
   mode.value = null;
   selected.value = {};
   values.value = {};
@@ -1403,6 +1410,14 @@ onBeforeUnmount(resetContext);
               :allowed="true"
               :disabled="busy"
               @busy="groupRiskBusy = $event"
+            />
+            <PaymentDefend206GroupPanel
+              :key="'defend-' + String(selected.id)"
+              :client="client"
+              :group-i-d="String(selected.id)"
+              :allowed="true"
+              :disabled="busy"
+              @busy="groupDefendBusy = $event"
             />
           </template>
         </GroupEditorFields>

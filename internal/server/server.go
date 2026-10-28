@@ -42,9 +42,14 @@ import (
 type Server struct {
 	OrderAPITradeAlias120 *orderalias120.Store
 	PaymentDefend206      *paymentdefend206.Store
-	PublicTestPay203      *publictestpay203.Service
-	LoginCaptcha205       *logincaptcha205.Service
-	Mail195TestEnabled    bool
+	// Create-order Geetest v4 (pay_verify_type 1/2). Nil verifier = unavailable.
+	PaymentDefendCaptcha206 *captcha203.Store
+	// ProxyConnectivity overrides the 测试连通性 probe in tests.
+	ProxyConnectivity        func(context.Context, httpclient.ProxyConfig) (string, error)
+	PaymentDefendVerifier206 captcha203.Verifier
+	PublicTestPay203         *publictestpay203.Service
+	LoginCaptcha205          *logincaptcha205.Service
+	Mail195TestEnabled       bool
 	// Private-PKI trust supplied by the host/test harness, never HTTP input.
 	Mail195SMTPRoots  *x509.CertPool
 	SystemUpdate      *systemupdate.Service
@@ -132,6 +137,12 @@ func (s *Server) Handler() http.Handler {
 			return
 		}
 		if s.IdentityLookupPublic(w, r) {
+			return
+		}
+		if s.redpackPublic(w, r) {
+			return
+		}
+		if s.wxtransPublic(w, r) {
 			return
 		}
 		if r.URL.Path == "/console/v1/public/site" {
@@ -283,6 +294,12 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.captchaSettingsConsole203(w, r, role, session, parts, c.Value) {
 		return
 	}
+	if s.proxyCredentialsConsole(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.proxyConnectivityConsole(w, r, role, session, parts, c.Value) {
+		return
+	}
 	if s.orderAPITradeAliasConsole120(w, r, role, session, parts, c.Value, s.OrderAPITradeAlias120) {
 		return
 	}
@@ -373,6 +390,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.transferConsole(w, r, role, session, parts) {
+		return
+	}
+	if s.redpackConsole(w, r, role, session, parts) {
 		return
 	}
 	if s.transferBatchConsole(w, r, role, session, parts) {
@@ -676,6 +696,10 @@ func (s *Server) fail(w http.ResponseWriter, e error) {
 	}
 	status := 500
 	msg := "internal error"
+	if original, ok := payment.MerchantTransferSetupMessage(e); ok {
+		response(w, 422, -1, original, nil)
+		return
+	}
 	switch {
 	case errors.Is(e, payment.ErrNotFound):
 		status = 404
@@ -725,6 +749,13 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 	p, e := compat.Parse(r.Form)
 	if e != nil {
 		s.wire(w, legacy, nil, "invalid parameters")
+		return
+	}
+	// Platform verification fields are added after merchant signing:
+	// remove them before verification; only the browser submit may carry them.
+	defendPlatform := takeDefend206Platform(p)
+	if defendPlatform.present && route != "/api/pay/submit" {
+		s.wire(w, legacy, nil, "payment verification failed")
 		return
 	}
 	id, e := strconv.ParseInt(p["pid"], 10, 64)
@@ -784,7 +815,8 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	switch route {
 	case "/api/pay/create", "/api/pay/submit":
-		r = r.WithContext(s.paymentDefendContext206(r.Context()))
+		defendAdmission := &defend206Admission{merchantID: id, outTradeNo: p["out_trade_no"]}
+		r = r.WithContext(s.paymentDefendContext206(r.Context(), defendAdmission))
 		if p["method"] == "scan" {
 			if r.Method != "POST" {
 				s.wire(w, legacy, nil, "scan requires POST")
@@ -818,6 +850,13 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 				s.wire(w, legacy, nil, "payment rejected by configured policy")
 				return
 			}
+		}
+		defendAdmission.clientIP = buyerIP
+		if route == "/api/pay/submit" {
+			defendAdmission.clientIP = clientIP // direct browser: the real peer, as providerCreate
+		}
+		if s.paymentDefendAdmit206(w, r, legacy, route, id, p, defendPlatform, defendAdmission, clientIP) {
+			return
 		}
 		if p["type"] != "sandbox" {
 			s.providerCreate(w, r, legacy, id, p)

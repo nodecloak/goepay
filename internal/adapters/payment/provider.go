@@ -48,11 +48,17 @@ type CreateRequest struct {
 	ExpiresAt                                                        *time.Time
 }
 type CreateResult struct{ MaterialType, Material, ProviderTradeNo string }
-type QueryRequest struct{ TradeNo, ProviderTradeNo string }
+type QueryRequest struct {
+	TradeNo, ProviderTradeNo string
+	// CombineSubs routes a WeChat v3 combined order to the combined
+	// query/close endpoints and binds the result to exactly these shares.
+	CombineSubs []CombineSub
+}
 type QueryResult struct {
 	TradeNo, ProviderTradeNo, State, Currency string
 	BuyerID                                   string
 	Amount                                    int64
+	CombinePaid                               []CombinePaidSub
 	scanObservation                           *ScanObservationReceipt
 }
 type RefundRequest struct {
@@ -66,10 +72,21 @@ type RefundResult struct {
 type ExpectedPayment struct {
 	TradeNo, AppID, MerchantID string
 	Amount                     int64
+	// CombineSubs, when set, are the recorded sub-orders of a WeChat v3
+	// combined order; only a combined notification covering exactly these
+	// shares is accepted for it.
+	CombineSubs []CombineSub
+}
+
+// CombinePaidSub is one verified paid sub-order of a combined payment.
+type CombinePaidSub struct {
+	TradeNo, TransactionID string
+	Amount                 int64
 }
 type PaymentEvent struct {
 	EventID, TradeNo, ProviderTradeNo, BuyerID, State, Currency string
 	Amount                                                      int64
+	CombinePaid                                                 []CombinePaidSub
 }
 type Provider interface {
 	ID() string
@@ -91,6 +108,11 @@ type ApplicationIdentity interface{ ApplicationID() string }
 // CreateValidator performs local validation without allocating a durable
 // attempt or making an external call. Financial orchestration invokes it first.
 type CreateValidator interface{ ValidateCreate(CreateRequest) error }
+
+// CombineCreator sends one order as a provider combined order (WeChat v3).
+type CombineCreator interface {
+	CombineCreate(context.Context, CreateRequest, []CombineSub) (CreateResult, error)
+}
 
 func validPaymentURL(raw string) bool {
 	u, e := url.Parse(raw)
