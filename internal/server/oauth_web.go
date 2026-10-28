@@ -298,7 +298,7 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 		reject(503)
 		return
 	}
-	attempt, e := s.ProviderFlow.Submit(s.paymentDefendContext206(r.Context()), b.TradeNo, b.ChannelID, b.Method, originalIP, identity.SubjectID)
+	attempt, e := s.ProviderFlow.Submit(s.paymentDefendContinuation206(r.Context(), b.MerchantID, b.TradeNo), b.TradeNo, b.ChannelID, b.Method, originalIP, identity.SubjectID)
 	if e != nil && attempt.ID == 0 {
 		reject(503)
 		return

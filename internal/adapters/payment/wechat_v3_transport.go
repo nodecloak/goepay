@@ -31,6 +31,9 @@ type WechatV3Config struct {
 	Methods                           []string
 	MiniProgram                       *MiniProgramConfig
 	H5SiteURL, H5SiteName             string
+	// MerchantTransfer reads the site switch 微信V3转账产品类型 = 商家转账（新）.
+	// Nil means the channel never carries merchant-transfer bills.
+	MerchantTransfer func() bool
 }
 type wechatV3Client struct{ config WechatV3Config }
 

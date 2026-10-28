@@ -103,7 +103,13 @@ CREATE FUNCTION login205_delay() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN PER
 CREATE TRIGGER login205_delay BEFORE INSERT ON console_sessions FOR EACH ROW EXECUTE FUNCTION login205_delay()`); e != nil {
 		t.Fatal(e)
 	}
-	g.until = time.Now().UTC().Add(2 * time.Second)
+	// alive() judges the deadline by the database clock, so set it from that
+	// clock; the test PostgreSQL VM clock drifts seconds from the host clock.
+	var dbClock time.Time
+	if e := p.QueryRow(t.Context(), `SELECT clock_timestamp()`).Scan(&dbClock); e != nil {
+		t.Fatal(e)
+	}
+	g.until = dbClock.UTC().Add(2 * time.Second)
 	_, _, issueError := s.IssueSession(t.Context(), g, u, sessions)
 	if !errors.Is(issueError, ErrInvalid) {
 		t.Fatal("last session write extended the original grant deadline", issueError)

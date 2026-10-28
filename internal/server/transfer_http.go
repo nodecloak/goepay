@@ -193,7 +193,16 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 		return true
 	}
 	if len(parts) == 3 && r.Method == "GET" {
-		response(w, 200, 0, "", map[string]any{"transfer": transfer, "recipient": map[string]any{"type": transfer.Type, "account": transfer.Account, "name": transfer.Name, "title": transfer.Title, "bank_code": transfer.BankCode}})
+		detail := map[string]any{"transfer": transfer, "recipient": map[string]any{"type": transfer.Type, "account": transfer.Account, "name": transfer.Name, "title": transfer.Title, "bank_code": transfer.BankCode}}
+		links, le := s.transferConfirmURLs(r.Context(), []int64{transfer.ID})
+		if le != nil {
+			s.fail(w, le)
+			return true
+		}
+		if link := links[transfer.ID]; link != "" {
+			detail["confirm_url"] = link
+		}
+		response(w, 200, 0, "", detail)
 		return true
 	}
 	if len(parts) != 4 || r.Method != "POST" {

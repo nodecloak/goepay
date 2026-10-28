@@ -1,22 +1,19 @@
 package merchantnotice
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
+
+	"goepay/internal/testphp"
 )
 
 func TestOriginalProNotice80PHPTemplatesInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("GOEPAY_PHP_INTEROP=1 required")
-	}
+	testphp.Require(t)
 	type fixture struct {
 		Scene  string         `json:"scene"`
 		Site   string         `json:"site"`
@@ -79,12 +76,7 @@ func runNoticePHP80(t *testing.T, script string, payload []byte) []byte {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	const image = "sha256:2d72ff4b0cfe82e22f01f15223bc4ab4c825d318cb2e3275554cd32299a5ea50"
-	actual, e := exec.CommandContext(ctx, "docker", "image", "inspect", "--format", "{{.Id}}", "php:8.2-cli").Output()
-	if e != nil || strings.TrimSpace(string(actual)) != image {
-		t.Fatal("exact preinstalled local PHP image required")
-	}
-	source := filepath.Join("..", "..", "epay_pro", "app", "lib", "MsgNotice.php")
+	source := testphp.Path(t, "epay_pro/app/lib/MsgNotice.php")
 	raw, e := os.ReadFile(source)
 	if e != nil {
 		t.Fatal(e)
@@ -97,9 +89,7 @@ func runNoticePHP80(t *testing.T, script string, payload []byte) []byte {
 	if e = os.WriteFile(filepath.Join(dir, "runner.php"), []byte(script), 0600); e != nil {
 		t.Fatal(e)
 	}
-	command := exec.CommandContext(ctx, "docker", "run", "--rm", "--network", "none", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", "64", "--memory", "128m", "-i", "--mount", "type=bind,src="+dir+",dst=/work,readonly", image, "php", "/work/runner.php")
-	command.Stdin = bytes.NewReader(payload)
-	out, e := command.CombinedOutput()
+	out, e := testphp.Run(t, ctx, testphp.Spec{Mounts: []testphp.Mount{{Source: dir, Target: "/work"}}, Args: []string{"/work/runner.php"}, Input: payload})
 	if e != nil {
 		t.Fatalf("isolated public PHP renderer failed: %v %s", e, out)
 	}

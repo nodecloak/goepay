@@ -326,6 +326,20 @@ func (s *Store) markPaid(ctx context.Context, tradeNo, eventID string, allowLate
 		if e := recordPaidReceipt(ctx, tx, o.ID, receipts[0]); e != nil {
 			return e
 		}
+		// A combined order is paid only together with every sub-order, in
+		// this same ledger transaction; an ordinary receipt never pays it.
+		subs, e := s.combineSubOrdersTx(ctx, tx, o.ID, true)
+		if e != nil {
+			return e
+		}
+		if (len(subs) > 0) != (len(receipts[0].CombinePaid) > 0) {
+			return ErrConflict
+		}
+		if len(subs) > 0 {
+			if e = s.MarkCombineSubOrdersPaidTx(ctx, tx, o.ID, receipts[0].CombinePaid); e != nil {
+				return e
+			}
+		}
 		// Authorization is only captured after the same trusted receipt that
 		// credits this order. Keep that state change in the ledger transaction.
 		if _, e = tx.Exec(ctx, "UPDATE payment_authorizations a SET capture_state='succeeded',updated_at=now() FROM provider_attempts p WHERE a.order_id=$1 AND a.channel_id=$2 AND p.order_id=a.order_id AND p.method='preauth'", o.ID, receipts[0].ChannelID); e != nil {

@@ -47,7 +47,13 @@ func TestScheduler171SettleActuallyGeneratesPendingWithoutGrantingAutomaticPayme
 	if e != nil || len(history.Items) != 1 || history.Items[0].Counts == nil || history.Items[0].Counts.Generated != 1 || history.Items[0].Counts.AwaitingAuthorization != 1 {
 		t.Fatal("pending automatic authority not reported", history, e)
 	}
-	if v[0].LastRunTime == nil || v[0].LastRunTime.After(time.Now().Add(time.Second)) {
+	// LastRunTime is written by the database clock; compare it with the same
+	// clock (the test PostgreSQL VM clock drifts seconds from the host clock).
+	var dbClock time.Time
+	if e = s.pool.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&dbClock); e != nil {
+		t.Fatal(e)
+	}
+	if v[0].LastRunTime == nil || v[0].LastRunTime.After(dbClock.Add(time.Second)) {
 		t.Fatal("no actual start time")
 	}
 }

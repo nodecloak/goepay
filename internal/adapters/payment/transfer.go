@@ -7,6 +7,14 @@ import "context"
 type TransferRequest struct {
 	TransferNo, Type, Account, Name, Title, Remark, BankCode string
 	Amount                                                   int64
+	// WeChat 商家转账（新）: scene id and report background, exactly the original
+	// transfer_wxpay_scene_id / transfer_wxpay_info_type / _content settings
+	// ('|'-separated). Kept as text so the request stays comparable. These are
+	// json omitempty so an ordinary transfer serializes (and therefore hashes
+	// and encrypts) byte-for-byte as before these fields existed.
+	SceneID        string `json:"SceneID,omitempty"`
+	ReportTypes    string `json:"ReportTypes,omitempty"`
+	ReportContents string `json:"ReportContents,omitempty"`
 }
 type TransferResult struct {
 	AlipayBank                                     *AlipayBankEvidence
@@ -14,6 +22,9 @@ type TransferResult struct {
 	BankFeeKnown                                   bool
 	TransferNo, ProviderTransferNo, State, PayDate string
 	Amount                                         int64
+	// PackageInfo is WeChat's package_info for a bill waiting for the payee
+	// to confirm (WAIT_USER_CONFIRM) with requestMerchantTransfer.
+	PackageInfo string
 }
 
 const BankProductAlipay = "alipay_bankcard"

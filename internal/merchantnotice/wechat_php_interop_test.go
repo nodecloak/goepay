@@ -2,14 +2,13 @@ package merchantnotice
 
 import (
 	"encoding/json"
-	"os"
 	"testing"
+
+	"goepay/internal/testphp"
 )
 
 func TestOriginalProNotice80PHPWechatMappingsInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("GOEPAY_PHP_INTEROP=1 required")
-	}
+	testphp.Require(t)
 	type fixture struct {
 		Scene  string            `json:"scene"`
 		Params map[string]string `json:"params"`

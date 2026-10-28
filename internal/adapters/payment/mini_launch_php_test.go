@@ -1,22 +1,20 @@
 package payment
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"goepay/internal/testphp"
 )
 
 func TestOriginalMiniLaunchEncodingPHPInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("GOEPAY_PHP_INTEROP=1 required")
-	}
-	source, e := os.ReadFile(filepath.Join("..", "..", "..", "epay_pro", "app", "common.php"))
+	testphp.Require(t)
+	source, e := os.ReadFile(testphp.Path(t, "epay_pro/app/common.php"))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -43,9 +41,7 @@ func TestOriginalMiniLaunchEncodingPHPInterop(t *testing.T) {
 	payload, _ := json.Marshal(map[string]string{"wx_complete": wxComplete, "ali_complete": aliComplete, "path": "pages/pay/index", "appid": "aliapp", "money": "1.01"})
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "--network", "none", "-i", "--mount", "type=bind,src="+dir+",dst=/work,readonly", "php:8.2-cli", "php", "/work/runner.php")
-	cmd.Stdin = bytes.NewReader(payload)
-	output, e := cmd.CombinedOutput()
+	output, e := testphp.Run(t, ctx, testphp.Spec{Mounts: []testphp.Mount{{Source: dir, Target: "/work"}}, Args: []string{"/work/runner.php"}, Input: payload})
 	if e != nil {
 		t.Fatalf("PHP encoding %v %s", e, output)
 	}

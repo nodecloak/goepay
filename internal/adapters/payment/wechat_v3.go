@@ -135,6 +135,12 @@ func (w *WechatV3) Create(ctx context.Context, r CreateRequest) (CreateResult, e
 	if e != nil {
 		return CreateResult{}, e
 	}
+	return w.createMaterial(r, target, raw)
+}
+
+// createMaterial maps a signed v3 create response to buyer material. Any
+// unexpected shape is an unknown outcome: the caller must query, not resend.
+func (w *WechatV3) createMaterial(r CreateRequest, target string, raw []byte) (CreateResult, error) {
 	fail := func() (CreateResult, error) {
 		return CreateResult{}, &UnknownOutcome{Operation: target, Cause: ErrAuthentication}
 	}
@@ -233,6 +239,9 @@ func (w *WechatV3) Query(ctx context.Context, r QueryRequest) (QueryResult, erro
 	if !v3TradeNumber.MatchString(r.TradeNo) {
 		return QueryResult{}, ErrInvalid
 	}
+	if len(r.CombineSubs) > 0 {
+		return w.combineQuery(ctx, r)
+	}
 	raw, e := w.call(ctx, "GET", "/v3/pay/transactions/out-trade-no/"+url.PathEscape(r.TradeNo)+"?mchid="+url.QueryEscape(w.config.MerchantID), nil)
 	if e != nil {
 		return QueryResult{}, e
@@ -242,6 +251,9 @@ func (w *WechatV3) Query(ctx context.Context, r QueryRequest) (QueryResult, erro
 func (w *WechatV3) Close(ctx context.Context, r QueryRequest) error {
 	if !v3TradeNumber.MatchString(r.TradeNo) {
 		return ErrInvalid
+	}
+	if len(r.CombineSubs) > 0 {
+		return w.combineClose(ctx, r)
 	}
 	raw, e := w.call(ctx, "POST", "/v3/pay/transactions/out-trade-no/"+url.PathEscape(r.TradeNo)+"/close", map[string]string{"mchid": w.config.MerchantID})
 	if e != nil {
@@ -322,6 +334,14 @@ func (w *WechatV3) VerifyNotification(_ context.Context, h http.Header, raw []by
 	decrypted, e := DecryptWechatResource(w.config.APIv3Key, EncryptedResource{Algorithm: v3String(resource, "algorithm"), Nonce: v3String(resource, "nonce"), AssociatedData: v3String(resource, "associated_data"), Ciphertext: v3Text(resource, "ciphertext", 1<<20)})
 	if e != nil {
 		return PaymentEvent{}, e
+	}
+	if len(expected.CombineSubs) > 0 {
+		paid, e := w.combineTransaction(decrypted, expected.TradeNo, expected.CombineSubs)
+		if e != nil || paid.State != "SUCCESS" || paid.Amount != expected.Amount || expected.AppID != "" && expected.AppID != w.config.AppID || expected.MerchantID != "" && expected.MerchantID != w.config.MerchantID {
+			return PaymentEvent{}, ErrAuthentication
+		}
+		paid.EventID = id
+		return paid, nil
 	}
 	payment, e := w.transaction(decrypted, QueryRequest{TradeNo: expected.TradeNo})
 	if e != nil || payment.State != "SUCCESS" || expected.Amount <= 0 || payment.Amount != expected.Amount || expected.AppID != "" && expected.AppID != w.config.AppID || expected.MerchantID != "" && expected.MerchantID != w.config.MerchantID {
