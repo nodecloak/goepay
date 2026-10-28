@@ -207,7 +207,8 @@ button > .shell-icon:first-child {
   margin-right: 6px;
   vertical-align: -2px;
 }
-button > .shell-icon:only-child {
+.icon-button > .shell-icon,
+.icon-button > .shell-icon:first-child {
   margin-right: 0;
 }
 input {
@@ -899,6 +900,9 @@ body:has(.login-layout[data-area="merchant"]) {
 .content > .panel:not(.records),
 .content > div > .panel:not(.records) {
   padding: var(--space-5);
+}
+.content > .panel.settings-page {
+  padding: 0;
 }
 .alert {
   padding: 10px 14px;

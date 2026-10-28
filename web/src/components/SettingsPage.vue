@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import CorePaymentRisk from "./CorePaymentRisk.vue";
 import PaymentDefend206 from "./PaymentDefend206.vue";
-import { computed, ref, watch, toRaw, onBeforeUnmount } from "vue";
+import { computed, ref, watch, toRaw, onBeforeUnmount, useId } from "vue";
 import { ApiClient, ApiError } from "../api";
 import type { ResourceSchema } from "../resources";
+import ShellIcon from "./ShellIcon.vue";
 import BusinessNoticeEvents from "./BusinessNoticeEvents.vue";
 import RichTextEditor from "./RichTextEditor.vue";
 import PlatformMerchantAccessSettings from "./PlatformMerchantAccessSettings.vue";
@@ -18,6 +19,9 @@ import { siteKeys191 } from "../site191";
 const emit = defineEmits<{ siteChanged: [] }>();
 import {
   settingsTabs,
+  settingsTitles,
+  settingsBlocks,
+  requiredSettings,
   settingDefinition,
   settingDisplay,
   settingStorage,
@@ -96,6 +100,44 @@ function original(d: SettingDefinition) {
   const r = records.value[d.key];
   return r ? settingDisplay(d, r.value) : settingInitialValue(d);
 }
+// Fields and the separately saved blocks, in the original console's order.
+const blocks = computed(() => settingsBlocks(active.value, fields.value));
+// Inputs are tied to this form by id, so the ordered rows can sit between
+// blocks that carry their own forms and buttons.
+const formId = `settings-form-${useId()}`;
+const tabIcons: Record<SettingsTab, string> = {
+  site: "st-globe",
+  merchant: "st-store",
+  pay: "st-card",
+  complaint: "st-alert",
+  risk: "shield",
+  settle: "st-coin",
+  transfer: "st-transfer",
+  oauth: "st-login",
+  notice: "st-bell",
+  certificate: "st-badge",
+  ocr: "st-scan",
+  anounce: "st-doc",
+  mail: "st-mail",
+  sms: "st-message",
+  iptype: "st-pin",
+  proxy: "st-server",
+  advanced: "settings",
+};
+const links: Partial<Record<SettingsTab, [string, string][]>> = {
+  merchant: [
+    ["/admin/merchant/group-buy", "用户组购买设置"],
+    ["/admin/merchant/group-list", "用户组设置"],
+  ],
+  risk: [
+    ["/admin/trade/blacklist", "黑名单管理"],
+    ["/admin/system/order-subject-policies", "订单名称限制"],
+  ],
+  complaint: [["/admin/complain/task", "投诉同步任务"]],
+  settle: [["/admin/settle/plans", "自动结算计划"]],
+  notice: [["/admin/merchant/notice", "商户消息提醒"]],
+  anounce: [["/admin/system/anounce", "公告管理"]],
+};
 function dirty(d: SettingDefinition) {
   return values.value[d.key] !== original(d);
 }
@@ -329,17 +371,25 @@ function navigate(event: KeyboardEvent, index: number) {
     mailBusy.value
   )
     return;
-  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  if (
+    ![
+      "ArrowLeft",
+      "ArrowRight",
+      "ArrowUp",
+      "ArrowDown",
+      "Home",
+      "End",
+    ].includes(event.key)
+  )
+    return;
   event.preventDefault();
+  const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : -1;
   const next =
     event.key === "Home"
       ? 0
       : event.key === "End"
         ? settingsTabs.length - 1
-        : (index +
-            (event.key === "ArrowRight" ? 1 : -1) +
-            settingsTabs.length) %
-          settingsTabs.length;
+        : (index + step + settingsTabs.length) % settingsTabs.length;
   active.value = settingsTabs[next]![0];
   document.getElementById(`settings-tab-${active.value}`)?.focus();
 }
@@ -369,7 +419,7 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="panel settings-page">
-    <div class="toolbar">
+    <div class="settings-head">
       <span class="muted">按分类维护平台设置</span
       ><button
         :disabled="
@@ -383,163 +433,177 @@ onBeforeUnmount(() => {
         "
         @click="load"
       >
-        刷新设置
+        <ShellIcon name="refresh" />刷新设置
       </button>
     </div>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
-    <div class="settings-tabs" role="tablist" aria-label="系统设置分类">
-      <button
-        v-for="(tab, index) in settingsTabs"
-        :id="`settings-tab-${tab[0]}`"
-        :key="tab[0]"
-        role="tab"
-        :aria-selected="active === tab[0]"
-        :aria-controls="`settings-panel-${tab[0]}`"
-        :tabindex="active === tab[0] ? 0 : -1"
-        :disabled="
-          busy || platformBusy || riskBusy || scanBusy || mailBusy || brandBusy
-        "
-        @click="active = tab[0]"
-        @keydown="navigate($event, index)"
+    <div class="settings-layout">
+      <div
+        class="settings-tabs"
+        role="tablist"
+        aria-label="系统设置分类"
+        aria-orientation="vertical"
       >
-        {{ tab[1] }}
-      </button>
-    </div>
-    <div
-      :id="`settings-panel-${active}`"
-      role="tabpanel"
-      :aria-labelledby="`settings-tab-${active}`"
-    >
-      <p v-if="loading" role="status">正在读取设置…</p>
-      <template v-else-if="schema">
-        <h2>{{ settingsTabs.find((t) => t[0] === active)?.[1] }}</h2>
-        <MailSettings195
-          v-if="active === 'mail'"
-          :client="client"
-          :admin-class="adminClass"
-          :own-session="ownSession"
-          @busy="mailBusy = $event"
-        />
-        <SiteBrandSettings193
-          v-if="active === 'site'"
-          :client="client"
-          :admin-class="adminClass"
-          :own-session="ownSession"
-          @busy="brandBusy = $event"
-        />
-        <CaptchaKeySettings203
-          v-if="active === 'site'"
-          :client="client"
-          :admin-class="adminClass"
-          :own-session="ownSession"
-        />
-        <ProxyCredentialSettings
-          v-if="active === 'proxy'"
-          :client="client"
-          :admin-class="adminClass"
-          :own-session="ownSession"
-        />
-        <p v-if="!canWrite" class="muted">
-          当前为只读查看，修改需要本人超级管理员会话。
-        </p>
-        <p v-if="guidance[active]" class="muted">{{ guidance[active] }}</p>
-        <PlatformMerchantAccessSettings
-          v-if="active === 'site' || active === 'merchant'"
-          :key="active"
-          :client="client"
-          :admin-class="adminClass"
-          :own-session="ownSession"
-          :field="active === 'site' ? 'close_keylogin' : 'user_refund'"
-          @busy="platformBusy = $event"
-        />
-        <div v-if="active === 'merchant'" class="toolbar">
-          <a href="/admin/merchant/group-buy">用户组购买设置</a
-          ><a href="/admin/merchant/group-list">用户组设置</a>
-        </div>
-        <ScanpaySettings192
-          v-if="active === 'merchant'"
-          :client="client"
-          :admin-class="adminClass"
-          :own-session="ownSession"
-          @busy="scanpayBusy = $event"
-        />
-        <ScanJSSettings202
-          v-if="active === 'merchant'"
-          :client="client"
-          :admin-class="adminClass"
-          :own-session="ownSession"
-          @busy="scanJSBusy = $event"
-        />
-        <div v-if="active === 'risk'" class="toolbar">
-          <a href="/admin/trade/blacklist">黑名单管理</a
-          ><a href="/admin/system/order-subject-policies">订单名称限制</a>
-        </div>
-        <template v-if="active === 'risk'">
-          <div :inert="paymentDefendBusy">
-            <CorePaymentRisk
-              :client="client"
-              :allowed="adminClass === 'super' && ownSession"
-              @busy="coreRiskBusy = $event"
-            />
-          </div>
-          <PaymentDefend206
+        <button
+          v-for="(tab, index) in settingsTabs"
+          :id="`settings-tab-${tab[0]}`"
+          :key="tab[0]"
+          role="tab"
+          :aria-selected="active === tab[0]"
+          :aria-controls="`settings-panel-${tab[0]}`"
+          :tabindex="active === tab[0] ? 0 : -1"
+          :disabled="
+            busy ||
+            platformBusy ||
+            riskBusy ||
+            scanBusy ||
+            mailBusy ||
+            brandBusy
+          "
+          @click="active = tab[0]"
+          @keydown="navigate($event, index)"
+        >
+          <ShellIcon :name="tabIcons[tab[0]]" />{{ tab[1] }}
+        </button>
+      </div>
+      <div
+        :id="`settings-panel-${active}`"
+        class="settings-panel"
+        role="tabpanel"
+        :aria-labelledby="`settings-tab-${active}`"
+      >
+        <p v-if="loading" role="status">正在读取设置…</p>
+        <template v-else-if="schema">
+          <h2>{{ settingsTitles[active] }}</h2>
+          <form
+            v-if="fields.length"
+            :id="formId"
+            class="settings-form"
+            aria-label="系统设置表单"
+            @submit.prevent="save"
+          ></form>
+          <p v-if="!canWrite" class="muted">
+            当前为只读查看，修改需要本人超级管理员会话。
+          </p>
+          <p v-if="guidance[active]" class="muted">{{ guidance[active] }}</p>
+          <nav
+            v-if="links[active]"
+            class="settings-links"
+            aria-label="相关设置"
+          >
+            <a v-for="link in links[active]" :key="link[0]" :href="link[0]">{{
+              link[1]
+            }}</a>
+          </nav>
+          <MailSettings195
+            v-if="active === 'mail'"
             :client="client"
             :admin-class="adminClass"
             :own-session="ownSession"
-            :disabled="
-              busy ||
-              coreRiskBusy ||
-              platformBusy ||
-              scanBusy ||
-              brandBusy ||
-              mailBusy
-            "
-            @busy="paymentDefendBusy = $event"
+            @busy="mailBusy = $event"
           />
-        </template>
-        <div v-if="active === 'complaint'" class="toolbar">
-          <a href="/admin/complain/task">投诉同步任务</a>
-        </div>
-        <div v-if="active === 'settle'" class="toolbar">
-          <a href="/admin/settle/plans">自动结算计划</a>
-        </div>
-        <div v-if="active === 'notice'" class="toolbar">
-          <a href="/admin/merchant/notice">商户消息提醒</a>
-        </div>
-        <div v-if="active === 'anounce'" class="toolbar">
-          <a href="/admin/system/anounce">公告管理</a>
-        </div>
-        <BuyerFeeSettings104
-          v-if="active === 'pay'"
-          kind="global"
-          :client="client"
-          :allowed="ownSession && adminClass === 'super'"
-          @busy="platformBusy = $event"
-        />
-        <p v-if="!fields.length && active !== 'mail'" class="empty">
-          {{
-            active === "site" || active === "merchant" || active === "risk"
-              ? "该分类暂无其它通用设置项。"
-              : "该分类当前没有可在线维护的设置项。"
-          }}
-        </p>
-        <form v-else @submit.prevent="save">
-          <div class="settings-fields">
+          <template v-if="active === 'risk'">
+            <div :inert="paymentDefendBusy">
+              <CorePaymentRisk
+                :client="client"
+                :allowed="adminClass === 'super' && ownSession"
+                @busy="coreRiskBusy = $event"
+              />
+            </div>
+            <PaymentDefend206
+              :client="client"
+              :admin-class="adminClass"
+              :own-session="ownSession"
+              :disabled="
+                busy ||
+                coreRiskBusy ||
+                platformBusy ||
+                scanBusy ||
+                brandBusy ||
+                mailBusy
+              "
+              @busy="paymentDefendBusy = $event"
+            />
+          </template>
+          <template v-for="block in blocks" :key="block.key">
+            <h3 v-if="block.type === 'group'" class="settings-group">
+              {{ block.title }}
+            </h3>
+            <div v-else-if="block.type === 'embed'" class="settings-embed">
+              <SiteBrandSettings193
+                v-if="block.embed === 'brand'"
+                :client="client"
+                :admin-class="adminClass"
+                :own-session="ownSession"
+                @busy="brandBusy = $event"
+              />
+              <CaptchaKeySettings203
+                v-else-if="block.embed === 'captcha-key'"
+                :client="client"
+                :admin-class="adminClass"
+                :own-session="ownSession"
+              />
+              <PlatformMerchantAccessSettings
+                v-else-if="
+                  block.embed === 'keylogin' || block.embed === 'user-refund'
+                "
+                :key="block.embed"
+                :client="client"
+                :admin-class="adminClass"
+                :own-session="ownSession"
+                :field="
+                  block.embed === 'keylogin' ? 'close_keylogin' : 'user_refund'
+                "
+                @busy="platformBusy = $event"
+              />
+              <ScanpaySettings192
+                v-else-if="block.embed === 'scanpay'"
+                :client="client"
+                :admin-class="adminClass"
+                :own-session="ownSession"
+                @busy="scanpayBusy = $event"
+              />
+              <ScanJSSettings202
+                v-else-if="block.embed === 'scanjs'"
+                :client="client"
+                :admin-class="adminClass"
+                :own-session="ownSession"
+                @busy="scanJSBusy = $event"
+              />
+              <BuyerFeeSettings104
+                v-else-if="block.embed === 'buyer-fee'"
+                kind="global"
+                :client="client"
+                :allowed="ownSession && adminClass === 'super'"
+                @busy="platformBusy = $event"
+              />
+              <ProxyCredentialSettings
+                v-else-if="block.embed === 'proxy-credentials'"
+                :client="client"
+                :admin-class="adminClass"
+                :own-session="ownSession"
+              />
+            </div>
             <div
-              v-for="d in fields"
-              :key="d.key"
+              v-else
               class="setting-field"
-              :class="{ 'setting-dirty': dirty(d) }"
+              :class="{
+                'setting-dirty': dirty(block.definition),
+                'setting-required': requiredSettings.has(block.key),
+              }"
             >
-              <label :for="`setting-${d.key}`">{{ d.label }}</label>
+              <label :for="`setting-${block.key}`">{{
+                block.definition.label
+              }}</label>
               <select
-                v-if="d.kind === 'select'"
-                :id="`setting-${d.key}`"
-                v-model="values[d.key]"
-                :aria-label="d.label"
+                v-if="block.definition.kind === 'select'"
+                :id="`setting-${block.key}`"
+                v-model="values[block.key]"
+                :form="formId"
+                :aria-label="block.definition.label"
                 :disabled="
-                  !writable(d) ||
+                  !writable(block.definition) ||
                   busy ||
                   platformBusy ||
                   riskBusy ||
@@ -552,23 +616,29 @@ onBeforeUnmount(() => {
                 <option value="" disabled>未配置（使用系统默认）</option>
                 <option
                   v-if="
-                    values[d.key] &&
-                    !d.options?.some((o) => o.value === values[d.key])
+                    values[block.key] &&
+                    !block.definition.options?.some(
+                      (o) => o.value === values[block.key],
+                    )
                   "
-                  :value="values[d.key]"
+                  :value="values[block.key]"
                 >
-                  当前值：{{ values[d.key] }}（待核对）
+                  当前值：{{ values[block.key] }}（待核对）
                 </option>
-                <option v-for="o in d.options" :key="o.value" :value="o.value">
+                <option
+                  v-for="o in block.definition.options"
+                  :key="o.value"
+                  :value="o.value"
+                >
                   {{ o.label }}
                 </option>
               </select>
               <RichTextEditor
-                v-else-if="d.kind === 'html'"
-                v-model="values[d.key]!"
-                :label="d.label"
+                v-else-if="block.definition.kind === 'html'"
+                v-model="values[block.key]!"
+                :label="block.definition.label"
                 :disabled="
-                  !writable(d) ||
+                  !writable(block.definition) ||
                   busy ||
                   platformBusy ||
                   riskBusy ||
@@ -580,19 +650,20 @@ onBeforeUnmount(() => {
               />
               <input
                 v-else
-                :id="`setting-${d.key}`"
-                v-model="values[d.key]"
-                :aria-label="d.label"
-                :type="d.kind === 'email' ? 'email' : 'text'"
+                :id="`setting-${block.key}`"
+                v-model="values[block.key]"
+                :form="formId"
+                :aria-label="block.definition.label"
+                :type="block.definition.kind === 'email' ? 'email' : 'text'"
                 :inputmode="
-                  d.kind === 'money'
+                  block.definition.kind === 'money'
                     ? 'decimal'
-                    : d.kind === 'integer'
+                    : block.definition.kind === 'integer'
                       ? 'numeric'
                       : undefined
                 "
                 :disabled="
-                  !writable(d) ||
+                  !writable(block.definition) ||
                   busy ||
                   platformBusy ||
                   riskBusy ||
@@ -604,9 +675,11 @@ onBeforeUnmount(() => {
                 maxlength="1000"
                 placeholder="未配置，使用系统默认"
               />
-              <small v-if="d.hint" class="muted">{{ d.hint }}</small>
+              <small v-if="block.definition.hint" class="muted">{{
+                block.definition.hint
+              }}</small>
               <button
-                v-if="dirty(d)"
+                v-if="dirty(block.definition)"
                 type="button"
                 class="link-button"
                 :disabled="
@@ -617,15 +690,24 @@ onBeforeUnmount(() => {
                   mailBusy ||
                   brandBusy
                 "
-                @click="values[d.key] = original(d)"
+                @click="values[block.key] = original(block.definition)"
               >
                 撤销此项编辑
               </button>
             </div>
-          </div>
-          <div class="toolbar">
+          </template>
+          <p v-if="!fields.length && active !== 'mail'" class="empty">
+            {{
+              active === "site" || active === "merchant" || active === "risk"
+                ? "该分类暂无其它通用设置项。"
+                : "该分类当前没有可在线维护的设置项。"
+            }}
+          </p>
+          <div v-if="fields.length" class="settings-actions">
             <button
+              type="submit"
               class="primary"
+              :form="formId"
               :disabled="
                 !canWrite ||
                 busy ||
@@ -646,64 +728,348 @@ onBeforeUnmount(() => {
               }}。未编辑的默认项不会写入。</span
             >
           </div>
-        </form>
-        <BusinessNoticeEvents
-          v-if="active === 'notice'"
-          :client="client"
-          :own-session="ownSession"
-          :admin-class="adminClass"
-        />
-      </template>
+          <BusinessNoticeEvents
+            v-if="active === 'notice'"
+            :client="client"
+            :own-session="ownSession"
+            :admin-class="adminClass"
+          />
+        </template>
+      </div>
     </div>
   </section>
 </template>
 <style scoped>
+.settings-page {
+  overflow: hidden;
+}
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.settings-head button {
+  min-height: var(--control-h-sm);
+  padding: 0 10px;
+  font-size: 12px;
+}
+.settings-page > .alert {
+  margin: 12px 20px 0;
+}
+/* Left menu, right form: the original console's settings layout. */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  min-height: 560px;
+}
 .settings-tabs {
   display: flex;
-  overflow-x: auto;
-  gap: 8px;
-  border-bottom: 1px solid var(--line);
-  margin: 12px 0 24px;
-  padding: 0 0 8px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px;
+  border-right: 1px solid var(--line);
 }
 .settings-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
   white-space: nowrap;
-  background: none;
-  border-color: transparent;
-  flex-shrink: 0;
 }
-.settings-tabs button[aria-selected="true"] {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-  border-radius: 0;
+.settings-tabs button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--ink);
 }
-.settings-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
-  gap: 22px 28px;
+.settings-tabs button[aria-selected="true"],
+.settings-tabs button[aria-selected="true"]:hover {
+  background: var(--primary-soft);
+  color: var(--primary-text);
 }
-.setting-field {
+.settings-tabs button .shell-icon {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: none;
+}
+.settings-panel {
   min-width: 0;
+  padding: 20px 24px 28px;
 }
-.setting-field label {
-  display: block;
-  margin-bottom: 8px;
+.settings-panel > h2 {
+  margin: 0 0 20px;
 }
-.setting-field input,
-.setting-field select {
+.settings-panel > p.muted {
+  margin: -8px 0 16px;
+  font-size: 12px;
+}
+.settings-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0 0 20px;
+  font-size: 13px;
+}
+.settings-group {
+  max-width: 960px;
+  margin: 28px 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.settings-panel > h3.settings-group:first-of-type {
+  margin-top: 4px;
+}
+/* One field per row: label on the left, control on the right. */
+.setting-field {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  column-gap: 16px;
+  row-gap: 4px;
+  align-items: center;
+  max-width: 960px;
+  margin: 0 0 16px;
+}
+.setting-field > label {
+  grid-column: 1;
+  margin: 0;
+  text-align: right;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.setting-required > label::before {
+  content: "* ";
+  color: var(--danger-text);
+}
+.setting-field > :not(label) {
+  grid-column: 2;
+}
+.setting-field > input,
+.setting-field > select {
   width: 100%;
   min-width: 0;
 }
-.setting-field small {
+.setting-field:has(> .rich-editor) {
+  align-items: start;
+}
+.setting-field:has(> .rich-editor) > label {
+  padding-top: 6px;
+}
+.setting-field > small {
   display: block;
+  font-size: 12px;
   line-height: 1.6;
-  margin-top: 6px;
 }
-.setting-dirty input,
-.setting-dirty select {
-  border-color: var(--accent);
+.setting-field > .link-button {
+  justify-self: start;
+  min-height: 0;
+  padding: 0;
+  font-size: 12px;
 }
-.settings-page form > .toolbar {
-  margin-top: 26px;
+.setting-dirty > input,
+.setting-dirty > select {
+  border-color: var(--primary-text);
+}
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  max-width: 960px;
+  margin-top: 24px;
+  padding: 16px 0 0 176px;
+  border-top: 1px solid var(--line);
+}
+.settings-actions .muted {
+  font-size: 12px;
+}
+/* Separately saved blocks read as form rows too: their heading sits in the
+   label column and their controls in the value column. */
+.settings-embed {
+  max-width: 960px;
+  margin: 0 0 16px;
+}
+.settings-embed :deep(.platform-access),
+.settings-embed :deep(.scanpay-settings192),
+.settings-embed :deep(.scan-js-settings202),
+.settings-embed :deep(.captcha-key203),
+.settings-embed :deep(.buyer-fee104),
+.settings-embed :deep(.proxy-credentials) {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  column-gap: 16px;
+  align-items: start;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.settings-embed :deep(.captcha-heading),
+.settings-embed :deep(.buyer-fee104 > .toolbar),
+.settings-embed :deep(.proxy-heading) {
+  display: contents;
+}
+.settings-embed :deep(.platform-access > h3),
+.settings-embed :deep(.scanpay-settings192 > h3),
+.settings-embed :deep(.scan-js-settings202 > h3),
+.settings-embed :deep(.captcha-heading > h2),
+.settings-embed :deep(.buyer-fee104 > .toolbar > h2),
+.settings-embed :deep(.proxy-heading > h2) {
+  grid-column: 1;
+  margin: 0;
+  padding-top: 7px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.settings-embed :deep(.platform-access > :not(h3)),
+.settings-embed :deep(.scanpay-settings192 > :not(h3)),
+.settings-embed :deep(.scan-js-settings202 > :not(h3)),
+.settings-embed :deep(.captcha-key203 > :not(.captcha-heading)),
+.settings-embed :deep(.captcha-heading > button),
+.settings-embed :deep(.buyer-fee104 > :not(.toolbar)),
+.settings-embed :deep(.buyer-fee104 > .toolbar > button),
+.settings-embed :deep(.proxy-credentials > :not(.proxy-heading)),
+.settings-embed :deep(.proxy-heading > button) {
+  grid-column: 2;
+  min-width: 0;
+}
+.settings-embed :deep(.captcha-heading > button),
+.settings-embed :deep(.buyer-fee104 > .toolbar > button),
+.settings-embed :deep(.proxy-heading > button),
+.settings-embed :deep(button) {
+  justify-self: start;
+}
+.settings-embed :deep(.platform-access p),
+.settings-embed :deep(.scanpay-settings192 p),
+.settings-embed :deep(.scan-js-settings202 p),
+.settings-embed :deep(.captcha-key203 p),
+.settings-embed :deep(.proxy-credentials p) {
+  margin: 6px 0;
+  font-size: 12px;
+}
+.settings-embed :deep(.platform-switch),
+.settings-embed :deep(.scanpay-switch192),
+.settings-embed :deep(.scan-js-switch202) {
+  margin: 8px 0;
+}
+/* Logos: one row per picture, label left, preview box and picker right. */
+.settings-embed :deep(.site-brand-settings193) {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.settings-embed :deep(.site-brand-settings193 > button),
+.settings-embed :deep(.site-brand-settings193 > p) {
+  margin-left: 176px;
+}
+.settings-embed :deep(.brand-slots193) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  margin: 12px 0;
+}
+.settings-embed :deep(.brand-slot193) {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  column-gap: 16px;
+  row-gap: 8px;
+  align-items: start;
+}
+.settings-embed :deep(.brand-slot193 > label) {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  margin: 0;
+  padding-top: 6px;
+  text-align: right;
+  font-size: 13px;
+}
+.settings-embed :deep(.brand-slot193 > :not(label)) {
+  grid-column: 2;
+}
+.settings-embed :deep(.brand-slot193 > img) {
+  justify-self: start;
+  width: auto;
+  height: 96px;
+  max-width: 240px;
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed var(--line-control);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  object-fit: contain;
+}
+.settings-embed :deep(.brand-slot193 > input) {
+  max-width: 360px;
+}
+@media (max-width: 768px) {
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+  .settings-tabs {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .settings-tabs button {
+    flex: none;
+    width: auto;
+    height: 34px;
+    min-height: 34px;
+    padding: 0 10px;
+  }
+  .settings-panel {
+    padding: 16px;
+  }
+  .setting-field,
+  .settings-embed :deep(.platform-access),
+  .settings-embed :deep(.scanpay-settings192),
+  .settings-embed :deep(.scan-js-settings202),
+  .settings-embed :deep(.captcha-key203),
+  .settings-embed :deep(.buyer-fee104),
+  .settings-embed :deep(.proxy-credentials),
+  .settings-embed :deep(.brand-slot193) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .setting-field > label,
+  .settings-embed :deep(.brand-slot193 > label) {
+    text-align: left;
+    grid-row: auto;
+  }
+  .setting-field > :not(label),
+  .settings-embed :deep(.brand-slot193 > :not(label)) {
+    grid-column: 1;
+  }
+  .settings-embed :deep(h2),
+  .settings-embed :deep(h3) {
+    text-align: left;
+  }
+  .settings-embed :deep(*) {
+    grid-column: 1 !important;
+  }
+  .settings-embed :deep(.site-brand-settings193 > button),
+  .settings-embed :deep(.site-brand-settings193 > p) {
+    margin-left: 0;
+  }
+  .settings-actions {
+    padding-left: 0;
+  }
 }
 </style>

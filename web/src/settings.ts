@@ -19,6 +19,206 @@ export const settingsTabs = [
   ["advanced", "高级设置"],
 ] as const;
 export type SettingsTab = (typeof settingsTabs)[number][0];
+/** Panel titles as the original console shows them (网站信息配置 …). */
+export const settingsTitles: Record<SettingsTab, string> = {
+  site: "网站信息配置",
+  merchant: "商户相关配置",
+  pay: "支付相关配置",
+  complaint: "交易投诉配置",
+  risk: "风控检测配置",
+  settle: "结算规则配置",
+  transfer: "转账付款配置",
+  oauth: "快捷登录配置",
+  notice: "消息提醒配置",
+  certificate: "实名认证配置",
+  ocr: "OCR文字识别配置",
+  anounce: "公告排版配置",
+  mail: "邮箱配置",
+  sms: "短信配置",
+  iptype: "IP地址配置",
+  proxy: "中转代理配置",
+  advanced: "高级设置",
+};
+/** Separately saved setting blocks that sit between ordinary fields. */
+export type SettingsEmbed =
+  | "brand"
+  | "captcha-key"
+  | "keylogin"
+  | "scanpay"
+  | "scanjs"
+  | "user-refund"
+  | "buyer-fee"
+  | "proxy-credentials";
+type LayoutEntry = string | { group: string } | { embed: SettingsEmbed };
+// Field order follows the original epay_pro settings pages. A trailing "*"
+// matches a key prefix; keys not listed keep their server order at the end.
+const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
+  site: [
+    "sitename",
+    "site_name",
+    "title",
+    "keywords",
+    "description",
+    "orgname",
+    "email",
+    "support_email",
+    "kfqq",
+    "kfqq_url",
+    "wework_url",
+    "qqqun",
+    "login_subtitle",
+    { embed: "brand" },
+    "test_open",
+    "test_pay_uid",
+    "captcha_open_test",
+    "captcha_id",
+    { embed: "captcha-key" },
+    "captcha_version",
+    "captcha_open_login",
+    "homepage",
+    "homepage_url",
+    { embed: "keylogin" },
+  ],
+  merchant: [
+    { group: "登录&注册配置" },
+    "registration_open",
+    "registration_invite_required",
+    "user_review",
+    { group: "商户功能配置" },
+    { embed: "scanpay" },
+    { embed: "scanjs" },
+    "enforce_domains",
+    { embed: "user-refund" },
+    "refund_fee_payer",
+  ],
+  pay: [
+    "pay_maxmoney",
+    "pay_minmoney",
+    "payment_fee_enabled",
+    { embed: "buyer-fee" },
+    "wxcombine_open",
+    "wxcombine_minmoney",
+    "wxcombine_submoney",
+  ],
+  settle: [
+    "settle_open",
+    "settle_type",
+    "settlement_daily_limit",
+    "settlement_minimum_cents",
+    "settlement_maximum_cents",
+    "settlement_fee_rate_bps",
+    "settlement_fee_minimum_cents",
+    "settlement_fee_maximum_cents",
+    "settlement_retained_cents",
+    "auto_settle_money",
+  ],
+  transfer: [
+    "transfer_enabled",
+    "transfer_name",
+    "transfer_desc",
+    "transfer_alipay",
+    "transfer_wxpay_type",
+    "transfer_wxpay_scene_id",
+    "transfer_wxpay_info_type",
+    "transfer_wxpay_info_content",
+    { group: "代付配置" },
+    "user_transfer",
+    "user_transfer_red",
+    "transfer_minmoney",
+    "transfer_maxmoney",
+    "transfer_maxlimit",
+  ],
+  notice: [
+    "msgconfig_regaudit",
+    "msgconfig_apply",
+    "msgconfig_domain",
+    "msgconfig_risk",
+    "mail_recv",
+    "mail_name",
+    "msgtelegram_chatid",
+    "qqbot_openid",
+    "telegramnotice",
+    "qqbotnotice",
+    "msgconfig_order",
+    "msgconfig_settle",
+    "msgconfig_login",
+    "msgconfig_complain",
+    "msgconfig_mchrisk",
+    "msgconfig_balance",
+    "msgconfig_group",
+    "msgconfig_domain_audit",
+    "msgconfig_daily_report",
+    "msgconfig_*",
+    "wxnotice_tpl_order*",
+    "wxnotice_tpl_settle*",
+    "wxnotice_tpl_login*",
+    "wxnotice_tpl_complain*",
+    "wxnotice_tpl_balance*",
+    "wxnotice_tpl_*",
+    "voicenotice",
+  ],
+  anounce: ["modal", "zhuce", "footer"],
+  proxy: [
+    "proxy",
+    "proxy_server",
+    "proxy_port",
+    "proxy_user",
+    "proxy_type",
+    "proxy_apiurl",
+    { embed: "proxy-credentials" },
+  ],
+};
+export type SettingsBlock =
+  | { type: "group"; key: string; title: string }
+  | { type: "field"; key: string; definition: SettingDefinition }
+  | { type: "embed"; key: string; embed: SettingsEmbed };
+/** Ordered page content for one tab: headings, fields and embedded blocks. */
+export function settingsBlocks(
+  tab: SettingsTab,
+  fields: readonly SettingDefinition[],
+): SettingsBlock[] {
+  const used = new Set<string>(),
+    blocks: SettingsBlock[] = [];
+  const matches = (pattern: string, key: string) =>
+    pattern.endsWith("*")
+      ? key.startsWith(pattern.slice(0, -1))
+      : pattern === key;
+  for (const entry of settingsLayout[tab] ?? []) {
+    if (typeof entry === "string") {
+      for (const d of fields)
+        if (!used.has(d.key) && matches(entry, d.key)) {
+          used.add(d.key);
+          blocks.push({ type: "field", key: d.key, definition: d });
+        }
+    } else if ("group" in entry)
+      blocks.push({
+        type: "group",
+        key: "group:" + entry.group,
+        title: entry.group,
+      });
+    else
+      blocks.push({
+        type: "embed",
+        key: "embed:" + entry.embed,
+        embed: entry.embed,
+      });
+  }
+  for (const d of fields)
+    if (!used.has(d.key))
+      blocks.push({ type: "field", key: d.key, definition: d });
+  // A heading is shown only when something follows it before the next one.
+  return blocks.filter(
+    (b, i) =>
+      b.type !== "group" ||
+      (!!blocks[i + 1] && blocks[i + 1]!.type !== "group"),
+  );
+}
+/** Settings the original console marks as required. */
+export const requiredSettings: ReadonlySet<string> = new Set([
+  "sitename",
+  "site_name",
+  "homepage",
+]);
 export interface SettingDefinition {
   key: string;
   label: string;
@@ -53,18 +253,18 @@ const labels: Record<
 > = {
   site_name: ["site", "网站名称", "text"],
   sitename: ["site", "网站名称", "text"],
-  title: ["site", "网站标题", "text"],
-  keywords: ["site", "网站关键词", "text"],
+  title: ["site", "首页标题", "text"],
+  keywords: ["site", "关键字", "text"],
   description: ["site", "网站描述", "text"],
-  orgname: ["site", "公司名称", "text"],
+  orgname: ["site", "公司/组织名称", "text"],
   email: ["site", "联系邮箱", "email"],
   kfqq: ["site", "客服QQ", "text"],
   kfqq_url: ["site", "客服QQ链接", "text"],
   wework_url: ["site", "企业微信链接", "text"],
   qqqun: ["site", "加群链接", "text"],
-  login_subtitle: ["site", "登录页面标语", "text"],
-  homepage: ["site", "网站首页", "select"],
-  homepage_url: ["site", "自定义首页地址", "text"],
+  login_subtitle: ["site", "登录页副标题", "text"],
+  homepage: ["site", "首页显示模式", "select"],
+  homepage_url: ["site", "显示网址URL", "text"],
   support_email: ["site", "客服邮箱", "email"],
   modal: ["anounce", "用户中心弹出公告", "html"],
   zhuce: ["anounce", "用户注册页面公告", "html"],
@@ -72,7 +272,7 @@ const labels: Record<
   registration_open: ["merchant", "开放商户注册", "select"],
   registration_invite_required: ["merchant", "注册必须邀请码", "select"],
   user_review: ["merchant", "新商户审核", "select"],
-  enforce_domains: ["pay", "校验授权域名", "select"],
+  enforce_domains: ["merchant", "校验授权域名", "select"],
   payment_fee_enabled: ["pay", "支付手续费", "select"],
   test_open: ["site", "测试支付", "select"],
   test_pay_uid: ["site", "测试支付收款商户ID", "integer"],
@@ -82,7 +282,7 @@ const labels: Record<
   captcha_open_login: ["site", "登录开启验证码", "select"],
   pay_maxmoney: ["pay", "最大支付金额（元）", "money"],
   pay_minmoney: ["pay", "最小支付金额（元）", "money"],
-  refund_fee_payer: ["pay", "退款手续费承担方", "select"],
+  refund_fee_payer: ["merchant", "退款手续费承担方", "select"],
   wxcombine_open: ["pay", "微信开启合单支付", "select"],
   wxcombine_minmoney: ["pay", "合单支付最小金额（元）", "money"],
   wxcombine_submoney: ["pay", "合单支付子单最大金额（元）", "money"],
@@ -116,7 +316,7 @@ const labels: Record<
   transfer_maxlimit: ["transfer", "每日同账户转账次数", "integer"],
   transfer_desc: ["transfer", "默认转账备注", "text"],
   transfer_name: ["transfer", "支付宝转账标题", "text"],
-  auto_settle_money: ["transfer", "余额自动转账阈值（元）", "money"],
+  auto_settle_money: ["settle", "余额自动转账阈值（元）", "money"],
   transfer_alipay: ["transfer", "支付宝自动转账通道ID", "integer"],
   user_transfer: ["transfer", "代付功能（原系统开关）", "select"],
   user_transfer_red: ["transfer", "用户中心创建红包功能", "select"],
@@ -161,6 +361,7 @@ const scenes: Record<string, string> = {
   apply: "手动提现申请",
   domain: "域名与站内转账待审核",
   risk: "管理员异常事件",
+  wxtransfer: "转账确认",
 };
 const templateFields: Record<string, string> = {
   no: "平台订单号",
@@ -201,10 +402,10 @@ export function settingDefinition(
     d.options = [option("0", "无需审核"), option("1", "需管理员审核")];
   if (key === "homepage")
     d.options = [
-      option("0", "默认首页"),
-      option("1", "商户登录页面"),
-      option("2", "自定义首页"),
-      option("3", "空白页面"),
+      option("0", "默认显示首页"),
+      option("1", "直接跳转登录页面"),
+      option("2", "显示其它指定网址"),
+      option("3", "显示空白页"),
     ];
   if (key === "settle_type")
     d.options = [option("0", "T+0"), option("1", "T+1")];

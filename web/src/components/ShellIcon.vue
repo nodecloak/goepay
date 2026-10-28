@@ -30,6 +30,26 @@ const paths: Record<string, string> = {
   search: "M17.5 11a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0zM16 16l4.5 4.5",
   filter: "M4 5h16l-6 7.5V19l-4 2v-8.5z",
   info: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM12 11v5.5M12 7.5v.5",
+  // Settings menu icons.
+  "st-globe":
+    "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9M12 3c-2.5 2.6-3.8 5.6-3.8 9s1.3 6.4 3.8 9",
+  "st-store": "M4 9h16l-1.6-5H5.6zM5 9v11h14V9M9.5 20v-5.5h5V20",
+  "st-card": "M3 6h18v12H3zM3 10h18M7 15h4",
+  "st-alert": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM12 7.5V13M12 16.5v.5",
+  "st-coin":
+    "M20.5 12a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0zM9 7.5l3 4 3-4M12 11.5V17M9 12.5h6M9 15h6",
+  "st-transfer": "M4 8h15l-3.5-3.5M20 16H5l3.5 3.5",
+  "st-login": "M10 4h9v16h-9M4 12h11M11.5 8.5 15 12l-3.5 3.5",
+  "st-bell": "M6 16v-5a6 6 0 1 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0",
+  "st-badge": "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM8 12.5l3 3 5-6",
+  "st-scan": "M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M8 9h8M8 12h8M8 15h5",
+  "st-doc": "M6 3h9l4 4v14H6zM14.5 3v4.5H19M9 12h7M9 16h7",
+  "st-mail": "M3 6h18v12H3zM3.5 6.5 12 13l8.5-6.5",
+  "st-message": "M4 5h16v11H9l-5 4zM8 9.5h8M8 12.5h5",
+  "st-pin":
+    "M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21zM14.5 9.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z",
+  "st-server":
+    "M4 4h16v7H4zM4 13h16v7H4zM8 7.5h.01M8 16.5h.01M12 7.5h4M12 16.5h4",
 };
 const path = computed(() => {
   const name = props.name || "grid";
