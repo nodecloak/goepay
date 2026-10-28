@@ -208,7 +208,14 @@ func BuildWithOptions(imp Import, options BuildOptions) (map[int64]provider.Prov
 			}
 			p, e = provider.NewAlipay(provider.AlipayConfig{EnableScanCancellation: options.ScanRecovery, EnableChannelSharing: sharing, EnableChannelSharingReturn: sharingReturn, AppID: c.Config["appid"], SellerID: c.Config["appmchid"], PrivateKey: private, PublicKey: public, CertificateMode: certificates, EnableBankTransfer: bank, BankTransferScene: scene, BankTransferReports: reports, PreauthVoucher: preauthVoucherOnly(c.AppTypes), PreauthVoucherProductCode: c.Config["preauth_voucher_product_code"], NativeOrderCode: orderCode && !native, MiniProgram: mini, Methods: methods, HTTPClient: httpclient.New()})
 		default:
-			return nil, provider.ErrUnsupported
+			if _, ok := provider.LookupPlugin(c.Plugin); !ok {
+				return nil, provider.ErrUnsupported
+			}
+			// Ported plugins never take part in channel profit sharing.
+			if sharing || sharingReturn {
+				return nil, ErrImport
+			}
+			p, e = provider.BuildPluginChannel(provider.PluginChannel{ID: c.ID, Plugin: c.Plugin, PayType: c.Config["pay_type"], AppTypes: c.AppTypes, Config: pluginInputs(c.Config), Certificates: c.Certificates, HTTPClient: httpclient.New()})
 		}
 		if e != nil {
 			return nil, ErrImport
@@ -243,6 +250,57 @@ func BuildWithOptions(imp Import, options BuildOptions) (map[int64]provider.Prov
 // ledger. Existing imports with no collection mode retain their old behavior.
 func supportedCollectionMode(c Channel) bool {
 	return (c.Mode == nil || *c.Mode == 0) && (c.Config["mode"] == "" || c.Config["mode"] == "0")
+}
+
+// pluginChannelKeys are the generic channel keys the factory itself consumes;
+// everything else in a plugin channel's config belongs to the plugin.
+var pluginChannelKeys = map[string]bool{"pay_type": true, "costrate": true, "mode": true, "account_mode": true, "ecommerce": true}
+
+func pluginInputs(config map[string]string) map[string]string {
+	out := map[string]string{}
+	for k, v := range config {
+		if !pluginChannelKeys[k] {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+// KnownChannelPlugin reports the native adapters and every ported plugin.
+func KnownChannelPlugin(name string) bool {
+	if name == "wxpay" || name == "alipay" {
+		return true
+	}
+	_, ok := provider.LookupPlugin(name)
+	return ok
+}
+
+// ChannelPayType is the pay type a channel serves: the plugin name for the
+// native adapters, the configured pay_type for ported plugins.
+func ChannelPayType(c Channel) string {
+	if c.Plugin == "wxpay" || c.Plugin == "alipay" {
+		return c.Plugin
+	}
+	return c.Config["pay_type"]
+}
+
+func (g guarded) NotificationAck(err error) (int, string, string) {
+	if p, ok := g.Provider.(provider.NotificationAcker); ok {
+		return p.NotificationAck(err)
+	}
+	return 0, "", ""
+}
+func (g guarded) NotificationMethods() []string {
+	if p, ok := g.Provider.(provider.NotificationMethodsProvider); ok {
+		return p.NotificationMethods()
+	}
+	return nil
+}
+func (g guarded) PluginName() string {
+	if p, ok := g.Provider.(provider.PluginIdentity); ok {
+		return p.PluginName()
+	}
+	return ""
 }
 
 type guarded struct {

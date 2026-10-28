@@ -35,14 +35,18 @@ func NewPaymentCostEstimate(p Provider, raw string) (PaymentCostEstimate, error)
 	if !ok || account.TransferAccountIdentity() == "" {
 		return out, ErrInvalid
 	}
+	_, plugin := p.(PluginIdentity)
 	switch p.ID() {
 	case "wxpay":
 	case "alipay":
-		if !strings.HasPrefix(account.TransferAccountIdentity(), "seller:") || len(account.TransferAccountIdentity()) <= len("seller:") {
+		if !plugin && (!strings.HasPrefix(account.TransferAccountIdentity(), "seller:") || len(account.TransferAccountIdentity()) <= len("seller:")) {
 			return out, ErrInvalid
 		}
 	default:
-		return out, ErrInvalid
+		// Ported plugins identify the upstream merchant account themselves.
+		if !plugin {
+			return out, ErrInvalid
+		}
 	}
 	scope, err := TransferAccountScope(p)
 	if err != nil {

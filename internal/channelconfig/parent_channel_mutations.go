@@ -17,7 +17,7 @@ func (f *ParentChannelFactory) PayType() string {
 	if f == nil {
 		return ""
 	}
-	return f.origin.Plugin
+	return ChannelPayType(f.origin)
 }
 func (f *ParentChannelFactory) BootstrapSnapshot(id int64) (adapter.ParentChannelExecution, []byte, error) {
 	return f.BuildSnapshot(id, f.Bootstrap())
@@ -97,7 +97,7 @@ func (f *ParentChannelFactory) NewSnapshot(id int64, in adapter.ParentChannelAcc
 		return adapter.ParentChannelExecution{}, nil, ErrImport
 	}
 	c := Channel{ID: id, Plugin: f.origin.Plugin, Config: map[string]string{}, Certificates: map[string]string{}}
-	for _, key := range []string{"wechat_api_version", "sign_type"} {
+	for _, key := range []string{"wechat_api_version", "sign_type", "pay_type"} {
 		if value := f.origin.Config[key]; value != "" {
 			c.Config[key] = value
 		}
