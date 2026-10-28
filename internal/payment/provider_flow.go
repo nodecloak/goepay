@@ -117,7 +117,7 @@ func (g ProviderFlow) Submit(ctx context.Context, tradeNo string, channelID int6
 	if e != nil || !owner {
 		return attempt, e
 	}
-	material, e := p.Create(ctx, request)
+	material, e := g.createMaybeCombined207(ctx, p, o, request)
 	if e != nil {
 		state := "unknown"
 		var reject *provider.ProviderError
@@ -189,12 +189,24 @@ func (g ProviderFlow) HandleNotification(ctx context.Context, channelID int64, t
 	if e != nil {
 		return e
 	}
-	event, e := v.VerifyNotification(ctx, headers, raw, provider.ExpectedPayment{TradeNo: tradeNo, Amount: charge104})
+	subs, e := g.Store.CombineSubOrders(ctx, o.ID)
 	if e != nil {
 		return e
 	}
-	if event.State != "SUCCESS" || event.Currency != "CNY" || event.Amount != charge104 || event.TradeNo != tradeNo || event.EventID == "" {
+	expected := provider.ExpectedPayment{TradeNo: tradeNo, Amount: charge104}
+	for _, sub := range subs {
+		expected.CombineSubs = append(expected.CombineSubs, provider.CombineSub{TradeNo: sub.SubTradeNo, Amount: sub.Amount})
+	}
+	event, e := v.VerifyNotification(ctx, headers, raw, expected)
+	if e != nil {
+		return e
+	}
+	if event.State != "SUCCESS" || event.Currency != "CNY" || event.Amount != charge104 || event.TradeNo != tradeNo || event.EventID == "" || len(event.CombinePaid) != len(subs) {
 		return provider.ErrAuthentication
 	}
-	return g.Store.markPaid(ctx, tradeNo, fmt.Sprintf("%d:%s", channelID, event.EventID), true, PaidReceipt{RealMoney: event.Amount, ChannelID: channelID, ProviderTradeNo: event.ProviderTradeNo, BuyerID: event.BuyerID})
+	receipt := PaidReceipt{RealMoney: event.Amount, ChannelID: channelID, ProviderTradeNo: event.ProviderTradeNo, BuyerID: event.BuyerID}
+	for _, paid := range event.CombinePaid {
+		receipt.CombinePaid = append(receipt.CombinePaid, CombinePaid207{SubTradeNo: paid.TradeNo, TransactionID: paid.TransactionID, Amount: paid.Amount})
+	}
+	return g.Store.markPaid(ctx, tradeNo, fmt.Sprintf("%d:%s", channelID, event.EventID), true, receipt)
 }

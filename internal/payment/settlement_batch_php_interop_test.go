@@ -8,19 +8,16 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
+
+	"goepay/internal/testphp"
 )
 
 func TestOriginalSettlementBatches84FourCSVFormatsPHPInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("GOEPAY_PHP_INTEROP=1 required")
-	}
-	const image = "sha256:2d72ff4b0cfe82e22f01f15223bc4ab4c825d318cb2e3275554cd32299a5ea50"
-	source := filepath.Join("..", "..", "epay_release", "admin", "download.php")
+	testphp.Require(t)
+	source := testphp.Path(t, "epay_release/admin/download.php")
 	raw, err := os.ReadFile(source)
 	if err != nil {
 		t.Fatal(err)
@@ -38,12 +35,7 @@ func TestOriginalSettlementBatches84FourCSVFormatsPHPInterop(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	actual, err := exec.CommandContext(ctx, "docker", "image", "inspect", "--format", "{{.Id}}", "php:8.2-cli").Output()
-	if err != nil || strings.TrimSpace(string(actual)) != image {
-		t.Fatal("exact installed PHP image required", err)
-	}
-	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "--network", "none", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", "64", "--memory", "128m", "--mount", "type=bind,src="+dir+",dst=/work,readonly", image, "php", "/work/runner.php")
-	out, err := cmd.CombinedOutput()
+	out, err := testphp.Run(t, ctx, testphp.Spec{Mounts: []testphp.Mount{{Source: dir, Target: "/work"}}, Args: []string{"/work/runner.php"}})
 	if err != nil {
 		t.Fatal("isolated original CSV execution", err, string(out))
 	}

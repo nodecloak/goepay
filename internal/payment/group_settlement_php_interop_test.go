@@ -6,17 +6,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"goepay/internal/testphp"
 )
 
 func TestOriginalGroupSettlementConfigPHPInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("GOEPAY_PHP_INTEROP=1 requires pinned offline PHP and local original group config helper")
-	}
-	ref, e := filepath.Abs(filepath.Join("..", "..", "epay_release", "includes", "functions.php"))
+	testphp.Require(t)
+	ref, e := filepath.Abs(testphp.Path(t, "epay_release/includes/functions.php"))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -35,8 +34,7 @@ func TestOriginalGroupSettlementConfigPHPInterop(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "--pull", "never", "--network", "none", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--mount", "type=bind,source="+ref+",target=/reference/functions.php,readonly", "--mount", "type=bind,source="+runner+",target=/runner.php,readonly", "sha256:2d72ff4b0cfe82e22f01f15223bc4ab4c825d318cb2e3275554cd32299a5ea50", "php", "/runner.php")
-	out, e := cmd.CombinedOutput()
+	out, e := testphp.Run(t, ctx, testphp.Spec{Mounts: []testphp.Mount{{Source: ref, Target: "/reference/functions.php"}, {Source: runner, Target: "/runner.php"}}, Args: []string{"/runner.php"}})
 	if e != nil {
 		t.Fatalf("offline original config helper: %v: %s", e, out)
 	}

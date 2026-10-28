@@ -18,6 +18,7 @@ import (
 	"goepay/internal/notification"
 	"goepay/internal/platform/httpclient"
 	"goepay/internal/platform/jobs"
+	"goepay/internal/proxyconfig"
 	"goepay/internal/reconciliation"
 )
 
@@ -45,6 +46,14 @@ func main() {
 	}
 	q := jobs.Queue{Pool: pool, Policy: store}
 	h := notification.Handler{Store: store, Client: httpclient.New(), PlatformKey: key}
+	if master, merr := hex.DecodeString(os.Getenv("GOEPAY_MASTER_KEY")); merr == nil && len(master) == 32 {
+		if proxyStore, perr := proxyconfig.FromMaster(pool, master); perr == nil {
+			// 中转代理: pick direct / proxy server / proxy API per the stored
+			// settings at each send. A configured-but-unresolvable proxy fails
+			// the delivery closed rather than sending direct.
+			h.Planner = proxyPlanner{store: proxyStore}
+		}
+	}
 	flow, e := configuredReadOnlyFlow(store)
 	if e != nil {
 		slog.Error("reconciliation configuration rejected")
@@ -110,6 +119,20 @@ func main() {
 		}
 	}
 	reconciler := reconciliation.Handler{Pool: pool, Flow: flow}
+	// Unclaimed red packets past 24h become 已过期. Claims already enforce the
+	// deadline, and nothing is reserved for them, so this only updates status.
+	go func() {
+		for ctx.Err() == nil {
+			if _, err := store.ExpireRedpacks(ctx); err != nil && ctx.Err() == nil {
+				slog.Error("red packet expiry failed")
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Minute):
+			}
+		}
+	}()
 	slog.Info("payment worker started", "provider_reconciliation", flow != nil, "scan_recovery", recoveryFlow != nil)
 	for ctx.Err() == nil {
 		var j jobs.Job

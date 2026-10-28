@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, nextTick, ref } from "vue";
+import QRCode from "qrcode";
 import type { Area } from "../menu";
 import { transferReadActions } from "../transfers";
 import { originalTransferColumns, readTransferListRow } from "../transfer-list";
@@ -13,6 +14,28 @@ const emit = defineEmits<{
   query: [row: Record<string, unknown>];
 }>();
 const columns = computed(() => originalTransferColumns(props.area));
+// Original showQrcode: the payee scans the 确认收款 link in WeChat.
+const confirm = ref<{ url: string; image: string } | null>(null),
+  copied = ref(""),
+  dialog = ref<HTMLElement | null>(null);
+async function showConfirm(link: string) {
+  const url = new URL(link, window.location.origin).href;
+  copied.value = "";
+  confirm.value = {
+    url,
+    image: await QRCode.toDataURL(url, { width: 230, margin: 2 }),
+  };
+  await nextTick();
+  dialog.value?.focus();
+}
+async function copyConfirm() {
+  try {
+    await navigator.clipboard.writeText(confirm.value!.url);
+    copied.value = "链接已复制";
+  } catch {
+    copied.value = "复制失败，请长按二维码下方链接手动复制";
+  }
+}
 const data = computed(() => {
   try {
     const rows = props.items.map(readTransferListRow);
@@ -83,10 +106,19 @@ const data = computed(() => {
                 >付款时间：{{ row.payDate }}</small
               ></template
             >
-            <span
-              v-else-if="column.key === 'status'"
-              :class="'transfer-status ' + row.tone"
-              >{{ row.status }}</span
+            <template v-else-if="column.key === 'status'"
+              ><span :class="'transfer-status ' + row.tone">{{
+                row.status
+              }}</span
+              ><button
+                v-if="row.confirmURL"
+                type="button"
+                class="link-button transfer-secondary transfer-confirm"
+                :disabled="busy"
+                @click="showConfirm(row.confirmURL)"
+              >
+                确认收款
+              </button></template
             >
             <template v-else>{{
               row[column.key as keyof typeof row]
@@ -117,6 +149,26 @@ const data = computed(() => {
         </tr>
       </tbody>
     </table>
+  </div>
+  <div v-if="confirm" class="modal-backdrop" @click.self="confirm = null">
+    <section
+      ref="dialog"
+      tabindex="-1"
+      role="dialog"
+      aria-modal="true"
+      aria-label="确认收款二维码"
+      class="modal panel transfer-confirm-qr"
+      @keydown.esc.prevent="confirm = null"
+    >
+      <h3>收款方使用微信扫描以下二维码</h3>
+      <img :src="confirm.image" width="230" height="230" alt="确认收款二维码" />
+      <p class="muted transfer-confirm-link">{{ confirm.url }}</p>
+      <p v-if="copied" class="muted" role="status">{{ copied }}</p>
+      <div class="toolbar">
+        <button type="button" @click="copyConfirm">复制链接</button>
+        <button type="button" @click="confirm = null">关闭</button>
+      </div>
+    </section>
   </div>
 </template>
 <style scoped>
@@ -176,5 +228,16 @@ th.transfer-actions {
 }
 .transfer-status.neutral {
   color: #64748b;
+}
+.transfer-confirm {
+  color: #07c160;
+}
+.transfer-confirm-qr {
+  text-align: center;
+  max-width: 320px;
+}
+.transfer-confirm-link {
+  overflow-wrap: anywhere;
+  font-size: 12px;
 }
 </style>

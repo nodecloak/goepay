@@ -1,27 +1,25 @@
 package payment
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"goepay/internal/testphp"
 )
 
 //go:embed buyer_charge104_release.php
 var originalBuyerFee104PHP string
 
 func TestOriginalBuyerCharge104ReadableReleasePHPInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("explicit pinned offline PHP and original Release fee branch required")
-	}
-	reference, e := filepath.Abs(filepath.Join("..", "..", "epay_release", "includes", "lib", "api", "Pay.php"))
+	testphp.Require(t)
+	reference, e := filepath.Abs(testphp.Path(t, "epay_release/includes/lib/api/Pay.php"))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -60,9 +58,7 @@ func TestOriginalBuyerCharge104ReadableReleasePHPInterop(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-i", "--pull", "never", "--network", "none", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--mount", "type=bind,source="+reference+",target=/reference/Pay.php,readonly", "--mount", "type=bind,source="+runner+",target=/runner.php,readonly", "sha256:2d72ff4b0cfe82e22f01f15223bc4ab4c825d318cb2e3275554cd32299a5ea50", "php", "/runner.php")
-	cmd.Stdin = bytes.NewReader(body)
-	out, e := cmd.CombinedOutput()
+	out, e := testphp.Run(t, ctx, testphp.Spec{Mounts: []testphp.Mount{{Source: reference, Target: "/reference/Pay.php"}, {Source: runner, Target: "/runner.php"}}, Args: []string{"/runner.php"}, Input: body})
 	if e != nil {
 		t.Fatal("actual original Release fee branch", e, string(out))
 	}

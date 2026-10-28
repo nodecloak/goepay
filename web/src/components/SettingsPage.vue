@@ -12,6 +12,7 @@ import ScanJSSettings202 from "./ScanJSSettings202.vue";
 import SiteBrandSettings193 from "./SiteBrandSettings193.vue";
 import MailSettings195 from "./MailSettings195.vue";
 import CaptchaKeySettings203 from "./CaptchaKeySettings203.vue";
+import ProxyCredentialSettings from "./ProxyCredentialSettings.vue";
 import BuyerFeeSettings104 from "./BuyerFeeSettings104.vue";
 import { siteKeys191 } from "../site191";
 const emit = defineEmits<{ siteChanged: [] }>();
@@ -348,7 +349,6 @@ const guidance: Partial<Record<SettingsTab, string>> = {
   ocr: "OCR业务插件按本轮范围暂缓。",
   sms: "当前尚未接入短信业务插件。",
   iptype: "当前不提供在线IP归属服务配置，未采集的地域统计显示未知。",
-  proxy: "当前没有在线中转代理配置功能。",
   advanced:
     "Go服务的运行参数通过部署配置管理；原PHP/Swoole脚本和在线执行功能不适用。",
 };
@@ -430,6 +430,12 @@ onBeforeUnmount(() => {
         />
         <CaptchaKeySettings203
           v-if="active === 'site'"
+          :client="client"
+          :admin-class="adminClass"
+          :own-session="ownSession"
+        />
+        <ProxyCredentialSettings
+          v-if="active === 'proxy'"
           :client="client"
           :admin-class="adminClass"
           :own-session="ownSession"

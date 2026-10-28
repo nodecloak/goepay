@@ -6,6 +6,7 @@ import (
 	"errors"
 	adapter "goepay/internal/adapters/payment"
 	"os"
+	"time"
 
 	"goepay/internal/channelconfig"
 	"goepay/internal/payment"
@@ -49,16 +50,18 @@ func configuredReadOnlyFlow(store *payment.Store) (*payment.ProviderFlow, error)
 		return nil, errors.New("invalid parent reconciliation accounts")
 	}
 	imp = startup.Import
-	providers, e := startup.BuildProviders(channelconfig.BuildOptions{})
+	// Read-only reconciliation must still query 商家转账（新） bills.
+	merchantTransfer := store.MerchantTransferSwitch(15 * time.Second)
+	providers, e := startup.BuildProviders(channelconfig.BuildOptions{WechatMerchantTransfer: merchantTransfer})
 	if e != nil || !startup.HasRegisteredSources() {
 		return nil, errors.New("invalid reconciliation providers")
 	}
-	factories, e := startup.BuildSubchannelFactories(channelconfig.BuildOptions{})
+	factories, e := startup.BuildSubchannelFactories(channelconfig.BuildOptions{WechatMerchantTransfer: merchantTransfer})
 	if e != nil {
 		return nil, errors.New("invalid reconciliation child templates")
 	}
 	flow := &payment.ProviderFlow{SubchannelFactories: factories, Store: store, Providers: providers, AllowLive: false}
-	parentFactories, e := startup.BuildFactories(channelconfig.ParentBuildOptions{})
+	parentFactories, e := startup.BuildFactories(channelconfig.ParentBuildOptions{BuildOptions: channelconfig.BuildOptions{WechatMerchantTransfer: merchantTransfer}})
 	if e != nil || flow.InstallParentAccountFactories(parentFactories) != nil {
 		return nil, errors.New("invalid parent reconciliation factories")
 	}

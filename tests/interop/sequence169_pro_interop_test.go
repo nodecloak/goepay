@@ -7,20 +7,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"goepay/internal/testphp"
 )
 
 //go:embed sequence169_pro.php
 var sequence169ProFacade string
 
 func TestSequence169ProGlobalParentSequencePHPInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("GOEPAY_PHP_INTEROP=1 requires pinned offline PHP and the original Pro class")
-	}
-	reference, e := filepath.Abs(filepath.Join("..", "..", "epay_pro", "app", "lib", "Channel.php"))
+	testphp.Require(t)
+	reference, e := filepath.Abs(testphp.Path(t, "epay_pro/app/lib/Channel.php"))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -38,8 +37,7 @@ func TestSequence169ProGlobalParentSequencePHPInterop(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "--pull", "never", "--network", "none", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--mount", "type=bind,source="+reference+",target=/original.php,readonly", "--mount", "type=bind,source="+runner+",target=/synthetic.php,readonly", "sha256:2d72ff4b0cfe82e22f01f15223bc4ab4c825d318cb2e3275554cd32299a5ea50", "php", "/synthetic.php", "/original.php")
-	out, e := cmd.CombinedOutput()
+	out, e := testphp.Run(t, ctx, testphp.Spec{Mounts: []testphp.Mount{{Source: reference, Target: "/original.php"}, {Source: runner, Target: "/synthetic.php"}}, Args: []string{"/synthetic.php", "/original.php"}})
 	if e != nil {
 		t.Fatalf("offline original Pro class: %v: %s", e, out)
 	}

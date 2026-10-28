@@ -83,6 +83,14 @@ export const supplementalMenus: Record<Area, MenuNode[]> = {
       children: [],
     },
     {
+      id: "Redpacks",
+      title: "创建红包",
+      path: "/transfer/red",
+      hidden: false,
+      roles: ["R_SUPER", "R_ADMIN"],
+      children: [],
+    },
+    {
       id: "TransferBatches",
       title: "批量付款",
       path: "/transfer/batches",
@@ -141,6 +149,14 @@ export const supplementalMenus: Record<Area, MenuNode[]> = {
       children: [],
     },
     {
+      id: "MerchantRedpacks",
+      title: "创建红包",
+      path: "/transfer/red",
+      hidden: false,
+      roles: [],
+      children: [],
+    },
+    {
       id: "MerchantTransferBatches",
       title: "批量付款",
       path: "/transfer/batches",
@@ -192,6 +208,7 @@ export type ViewKind =
   | "refunds"
   | "transfers"
   | "transfer-batches"
+  | "redpacks"
   | "merchants"
   | "ledger"
   | "resource"
@@ -249,6 +266,7 @@ export function viewKind(area: Area, path: string): ViewKind {
     return "channel-sharing";
   if (area === "admin" && path === "/other/get-token") return "identity-lookup";
   if (path === "/transfer/batches") return "transfer-batches";
+  if (path === "/transfer/red") return "redpacks";
   if (commerceFor(area, path)) return "commerce";
   if (area === "admin" && path === "/system/change-password") return "account";
   if (area === "admin" && operationPages[path]) return "operation";

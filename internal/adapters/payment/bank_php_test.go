@@ -1,7 +1,6 @@
 package payment
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -11,20 +10,19 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"goepay/internal/testphp"
 )
 
 func TestOriginalWechatBankOAEPInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("GOEPAY_PHP_INTEROP=1 required")
-	}
+	testphp.Require(t)
 	key := testKey(t)
 	dir := t.TempDir()
 	for name, source := range map[string]string{"base.php": "BaseService.php", "transfer.php": "TransferService.php"} {
-		raw, e := os.ReadFile(filepath.Join("..", "..", "..", "epay_pro", "vendor", "cccyun", "wechatpay-sdk", "src", source))
+		raw, e := os.ReadFile(testphp.Path(t, "epay_pro/vendor/cccyun/wechatpay-sdk/src"+"/"+source))
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -53,9 +51,7 @@ echo json_encode(['cipher'=>$cipher,'valid'=>$valid&&$plain===$in['plain']]);`
 	payload, _ := json.Marshal(map[string]any{"public_key": string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: public})), "private_key": string(pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})), "plain": plain, "go_cipher": base64.StdEncoding.EncodeToString(cipher)})
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "--network", "none", "-i", "--mount", "type=bind,src="+dir+",dst=/work,readonly", "php:8.2-cli", "php", "/work/runner.php")
-	cmd.Stdin = bytes.NewReader(payload)
-	raw, e := cmd.CombinedOutput()
+	raw, e := testphp.Run(t, ctx, testphp.Spec{Mounts: []testphp.Mount{{Source: dir, Target: "/work"}}, Args: []string{"/work/runner.php"}, Input: payload})
 	if e != nil {
 		t.Fatalf("PHP bank SDK failed %v %s", e, raw)
 	}

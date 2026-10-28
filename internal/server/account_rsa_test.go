@@ -1,14 +1,12 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
 	"goepay/internal/compat"
-	"os"
-	"os/exec"
+	"goepay/internal/testphp"
 	"testing"
 	"time"
 )
@@ -48,9 +46,7 @@ func TestGenerateMerchantRSAFixedPHPCompatibleFormats(t *testing.T) {
 }
 
 func TestGenerateMerchantRSAPHPInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("GOEPAY_PHP_INTEROP=1 requires local Docker PHP")
-	}
+	testphp.Require(t)
 	public, private, e := generateMerchantRSA()
 	if e != nil {
 		t.Fatal(e)
@@ -65,9 +61,7 @@ func TestGenerateMerchantRSAPHPInterop(t *testing.T) {
 	script := `$v=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR);$priv=openssl_pkey_get_private($v['private']);$pub=openssl_pkey_get_public($v['public']);if(!$priv||!$pub||openssl_verify($v['canonical'],base64_decode($v['signature'],true),$pub,OPENSSL_ALGO_SHA256)!==1)exit(2);if(!openssl_sign($v['canonical'],$sig,$priv,OPENSSL_ALGO_SHA256))exit(3);echo base64_encode($sig);`
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	command := exec.CommandContext(ctx, "docker", "run", "--rm", "--network", "none", "-i", "php:8.2-cli", "php", "-r", script)
-	command.Stdin = bytes.NewReader(input)
-	output, e := command.Output()
+	output, e := testphp.Run(t, ctx, testphp.Spec{Mounts: nil, Args: []string{"-r", script}, Input: input})
 	if e != nil {
 		t.Fatal("local PHP interoperability failed")
 	}

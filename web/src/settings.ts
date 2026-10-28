@@ -83,6 +83,9 @@ const labels: Record<
   pay_maxmoney: ["pay", "最大支付金额（元）", "money"],
   pay_minmoney: ["pay", "最小支付金额（元）", "money"],
   refund_fee_payer: ["pay", "退款手续费承担方", "select"],
+  wxcombine_open: ["pay", "微信开启合单支付", "select"],
+  wxcombine_minmoney: ["pay", "合单支付最小金额（元）", "money"],
+  wxcombine_submoney: ["pay", "合单支付子单最大金额（元）", "money"],
   settlement_minimum_cents: ["settle", "最低结算金额（元）", "money", "cents"],
   settlement_maximum_cents: ["settle", "结算申请上限（元）", "money", "cents"],
   settlement_fee_rate_bps: ["settle", "结算手续费率（%）", "money", "bps"],
@@ -116,6 +119,15 @@ const labels: Record<
   auto_settle_money: ["transfer", "余额自动转账阈值（元）", "money"],
   transfer_alipay: ["transfer", "支付宝自动转账通道ID", "integer"],
   user_transfer: ["transfer", "代付功能（原系统开关）", "select"],
+  user_transfer_red: ["transfer", "用户中心创建红包功能", "select"],
+  transfer_wxpay_type: ["transfer", "微信V3转账产品类型", "select"],
+  transfer_wxpay_scene_id: ["transfer", "微信商家转账-场景ID", "text"],
+  transfer_wxpay_info_type: ["transfer", "微信商家转账-报备信息类型", "text"],
+  transfer_wxpay_info_content: [
+    "transfer",
+    "微信商家转账-报备信息内容",
+    "text",
+  ],
   telegramnotice: ["notice", "Telegram提醒", "select"],
   qqbotnotice: ["notice", "QQ Bot提醒", "select"],
   voicenotice: ["notice", "语音提醒", "select"],
@@ -128,6 +140,12 @@ const labels: Record<
     "管理员资金操作二次验证",
     "select",
   ],
+  proxy: ["proxy", "中转代理开关", "select"],
+  proxy_server: ["proxy", "代理IP", "text"],
+  proxy_port: ["proxy", "代理端口", "integer"],
+  proxy_user: ["proxy", "代理账号", "text"],
+  proxy_type: ["proxy", "代理协议", "select"],
+  proxy_apiurl: ["proxy", "API接口地址", "text"],
 };
 const scenes: Record<string, string> = {
   order: "订单支付成功",
@@ -214,11 +232,54 @@ export function settingDefinition(
       "test_open",
       "captcha_open_test",
       "captcha_open_login",
+      "wxcombine_open",
+      "user_transfer_red",
     ].includes(key)
   )
     d.options = switchOptions;
+  if (key === "wxcombine_open")
+    d.hint =
+      "仅微信官方V3直连通道支持；开启后达到最小金额的订单拆分为3-50个子单合单支付。";
+  if (key === "wxcombine_minmoney")
+    d.hint = "订单金额达到此值时使用合单支付；0或不填则不使用合单。";
+  if (key === "wxcombine_submoney")
+    d.hint = "子单金额超过此值时增加子单数，最多50个子单。";
   if (key === "captcha_version")
     d.options = [option("0", "V3.0"), option("1", "V4.0")];
+  if (key === "proxy") {
+    d.options = [
+      option("0", "关闭"),
+      option("1", "代理服务器"),
+      option("2", "代理API"),
+    ];
+    d.hint =
+      "开启后，支付成功异步回调时使用中转代理访问商户网站，可解决仅限国内访问的回调，并避免本站服务器IP泄露。代理密码、API接口密钥在下方单独加密保存。";
+  }
+  if (key === "proxy_type")
+    d.options = [
+      option("http", "HTTP"),
+      option("https", "HTTPS"),
+      option("sock4", "SOCK4"),
+      option("sock5", "SOCK5"),
+      option("sock5h", "SOCK5H"),
+    ];
+  if (key === "proxy_apiurl") d.hint = "填写代理API站点URL，支持子目录。";
+  if (key === "transfer_wxpay_type") {
+    d.options = [
+      option("0", "商家转账到零钱（旧）"),
+      option("1", "商家转账（新）"),
+    ];
+    d.hint =
+      "微信官方V3直连通道的转账产品。本系统V3通道仅支持商家转账（新），收款方需在微信内扫码确认收款；选择旧版时V3通道不提供微信转账。";
+  }
+  if (key === "transfer_wxpay_scene_id")
+    d.hint = "可前往“微信商户平台-产品中心-商家转账”中申请。如：1001-现金营销";
+  if (key === "transfer_wxpay_info_type")
+    d.hint =
+      "请根据产品文档确认当前转账场景下需传入的信息类型，需按要求填入，有多个类型时用|隔开";
+  if (key === "transfer_wxpay_info_content")
+    d.hint =
+      "请根据信息类型，描述当前这笔转账单的转账背景，有多个类型时用|隔开";
   if (key.startsWith("msgconfig_")) {
     const scene = key.slice(10);
     d.tab = "notice";
@@ -306,6 +367,41 @@ export function settingStorage(d: SettingDefinition, input: string): string {
     throw Error(`${d.label}：请填写明确的设置值，未配置的项目无需保存`);
   if (d.kind === "select" && !d.options?.some((o) => o.value === value))
     throw Error(`${d.label}：请选择有效选项`);
+  if (d.key === "transfer_wxpay_scene_id" && !/^[0-9]{1,8}$/.test(value))
+    throw Error(`${d.label}：请填写数字场景ID，如1001`);
+  if (
+    d.key === "proxy_port" &&
+    (!/^[1-9]\d*$/.test(value) || Number(value) > 65535)
+  )
+    throw Error("代理端口：请输入1-65535的端口号");
+  if (
+    ["proxy_server", "proxy_user"].includes(d.key) &&
+    (value.length > 255 || /[\u0000-\u001f\u007f ]/.test(value))
+  )
+    throw Error(`${d.label}：请勿包含空格或控制字符`);
+  if (d.key === "proxy_apiurl") {
+    let u: URL | null = null;
+    try {
+      u = new URL(value);
+    } catch {
+      u = null;
+    }
+    if (!u || !["http:", "https:"].includes(u.protocol) || value.length > 2048)
+      throw Error("API接口地址：请填写http(s)开头的完整站点URL");
+  }
+  if (
+    ["transfer_wxpay_info_type", "transfer_wxpay_info_content"].includes(d.key)
+  ) {
+    const limit = d.key === "transfer_wxpay_info_type" ? 15 : 32,
+      parts = value.split("|");
+    if (
+      parts.length > 8 ||
+      parts.some(
+        (v) => !v || [...v].length > limit || /[\u0000-\u001f]/.test(v),
+      )
+    )
+      throw Error(`${d.label}：每项1-${limit}个字，最多8项，用|隔开`);
+  }
   if (
     d.kind === "integer" &&
     (!/^(0|[1-9]\d*)$/.test(value) || BigInt(value) > 9223372036854775807n)

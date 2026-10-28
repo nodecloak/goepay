@@ -1,0 +1,17 @@
+{
+  "epay_pro/public/static/files/SDK.zip": "aed03c52396dafbf3be3c636d4fcef51bb3f1bc829b20024eedf6dd032614f2d",
+  "epay_pro/public/static/files/SDK_2.0.zip": "33de95841095f99fe8ccd1c16148b71671ed1319b3912205c53a794449a442b0",
+  "epay_pro/vendor/cccyun/wechatpay-sdk/src/BaseService.php": "6af077fa9fcfdfc4c8819f59e8bd8f71c1beb2ff3aa52139e10b13af71b45516",
+  "epay_pro/vendor/cccyun/wechatpay-sdk/src/PaymentService.php": "35524c8d500dc7940080e8dac468f2adc0494ca1368e242e297350ddd37aade5",
+  "epay_pro/vendor/cccyun/wechatpay-sdk/src/TransferService.php": "ee7f547ba09956ec4c13e1da5c807f895df049c894bf17398307ef9a1842734b",
+  "epay_pro/vendor/cccyun/alipay-sdk/src/Aop/AopClient.php": "74313681597302e81eabf4ef5401a2ac94d7f6cdf45015124240bd0808e6b9e8",
+  "epay_pro/vendor/cccyun/alipay-sdk/src/Aop/AlipayRequest.php": "171f32bc2cb710a2f5186bfd21152bb453576690785f12bf58860168be6215c9",
+  "epay_pro/vendor/cccyun/alipay-sdk/src/Aop/AlipayCertHelper.php": "be9c7b0ea0ba411cd740a7136a1c8e6e305361f77dcd7157675325d35d3023f7",
+  "epay_pro/app/common.php": "38ca73a9c17181dce4fe90cdfba04321745a1b4c95272a0db9725224ce6600ec",
+  "epay_pro/app/lib/MsgNotice.php": "796574ee7ddc6d39a1677649566cd5283e47bf63a47220458cb190f2759ffcba",
+  "epay_pro/app/lib/Channel.php": "65c6d57bcd4678fe805834e6927a34576be31f382a821d717743e06cf8803de8",
+  "epay_release/includes/lib/Channel.php": "ae0ce2a8a0d6958c838fa70c889a0eae55cf806d21608eeec9ccb194c3bc3635",
+  "epay_release/includes/functions.php": "5c90a36916e984c7f558b76c7f470e550b58cbe073fa8bd8382e130006202865",
+  "epay_release/includes/lib/api/Pay.php": "083e4a941d734f85df3eb6d98b1aec873e8090f196af91c4c694a9c31c73a0f6",
+  "epay_release/admin/download.php": "c4def4e03af461d890a4fd83e41a9b0ccbff230ee2e7c0e3fa551d9d3893aaab"
+}

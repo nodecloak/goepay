@@ -87,6 +87,12 @@ func main() {
 		slog.Error("invalid payment verification policy protection configuration")
 		os.Exit(1)
 	}
+	app.PaymentDefendCaptcha206, e = captcha203.NewStore(pool, seed)
+	if e != nil {
+		slog.Error("invalid payment verification captcha protection configuration")
+		os.Exit(1)
+	}
+	app.PaymentDefendVerifier206 = captcha203.NewGeetestVerifier(nil)
 	app.OrderAPITradeAlias120, e = server.NewOrderAPITradeAliasStore120ForMaster(app, seed)
 	if e != nil {
 		slog.Error("invalid order alias protection configuration")

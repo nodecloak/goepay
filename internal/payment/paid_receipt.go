@@ -12,6 +12,8 @@ type PaidReceipt struct {
 	RealMoney                int64 `json:"-"`
 	ChannelID                int64
 	ProviderTradeNo, BuyerID string
+	// CombinePaid is the verified per-sub-order payment of a combined order.
+	CombinePaid []CombinePaid207 `json:"-"`
 }
 
 func recordPaidReceipt(ctx context.Context, tx pgx.Tx, orderID int64, r PaidReceipt) error {

@@ -122,10 +122,19 @@ func (t *guardedTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	return t.base.RoundTrip(req)
 }
 func (t *guardedTransport) CloseIdleConnections() { t.base.CloseIdleConnections() }
+
+// tunedTransport returns the bounded transport shared by every builder: the
+// same TLS floor, timeouts and connection caps, with the given proxy selector
+// and dialer. Proxy is the function the std library consults for an HTTP/
+// SOCKS5 proxy (nil = direct); dial is how the proxy (or, direct, the pinned
+// target) is reached.
+func tunedTransport(proxy func(*http.Request) (*url.URL, error), dial func(context.Context, string, string) (net.Conn, error)) *http.Transport {
+	return &http.Transport{Proxy: proxy, DialContext: dial, TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12}, TLSHandshakeTimeout: 5 * time.Second, ResponseHeaderTimeout: 5 * time.Second, IdleConnTimeout: 30 * time.Second, MaxIdleConns: 32, MaxIdleConnsPerHost: 4, MaxConnsPerHost: 8, MaxResponseHeaderBytes: 32 << 10, ForceAttemptHTTP2: true}
+}
 func New() *http.Client {
 	dialer := &net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}
 	guard := safeDialer{resolver: net.DefaultResolver, dial: dialer.DialContext}
-	transport := &http.Transport{Proxy: nil, DialContext: guard.DialContext, TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12}, TLSHandshakeTimeout: 5 * time.Second, ResponseHeaderTimeout: 5 * time.Second, IdleConnTimeout: 30 * time.Second, MaxIdleConns: 32, MaxIdleConnsPerHost: 4, MaxConnsPerHost: 8, MaxResponseHeaderBytes: 32 << 10, ForceAttemptHTTP2: true}
+	transport := tunedTransport(nil, guard.DialContext)
 	return &http.Client{Timeout: 10 * time.Second, Transport: &guardedTransport{base: transport}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 }
 
