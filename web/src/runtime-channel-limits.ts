@@ -115,7 +115,16 @@ export function readRuntimeChannelLimits(raw: unknown): RuntimeChannelLimits {
   const normalized = normalizeChannelLimits(v as unknown as ChannelLimitFields);
   if (
     channelLimitKeys.some((k) => normalized[k] !== v[k]) ||
-    !["alipay", "wxpay"].includes(v.pay_type as string) ||
+    ![
+      "alipay",
+      "wxpay",
+      "qqpay",
+      "bank",
+      "jdpay",
+      "paypal",
+      "douyinpay",
+      "ecny",
+    ].includes(v.pay_type as string) ||
     typeof v.configured !== "boolean" ||
     typeof v.can_update !== "boolean" ||
     v.timezone !== "UTC+08:00" ||

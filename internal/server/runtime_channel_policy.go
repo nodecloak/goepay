@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	provider "goepay/internal/adapters/payment"
 	"goepay/internal/identity"
 	"goepay/internal/payment"
 )
@@ -105,7 +106,7 @@ func (s *Server) runtimeChannelPolicies(w http.ResponseWriter, r *http.Request, 
 		}
 		ids := []int64{}
 		for id, p := range s.ProviderFlow.Providers {
-			if p != nil && (p.ID() == "alipay" || p.ID() == "wxpay") {
+			if p != nil && provider.CatalogPayType(p.ID()) {
 				ids = append(ids, id)
 			}
 		}

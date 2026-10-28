@@ -22,7 +22,7 @@ type GroupPaymentRouting struct {
 
 func (s *Store) GroupPaymentRoutingTx(ctx context.Context, tx pgx.Tx, mid int64, kind string) (GroupPaymentRouting, error) {
 	var out GroupPaymentRouting
-	if tx == nil || mid <= 0 || kind != "alipay" && kind != "wxpay" {
+	if tx == nil || mid <= 0 || !catalogPayType(kind) {
 		return out, ErrInvalid
 	}
 	g, e := merchantpolicy.ReadEffectiveGroup(ctx, tx, mid, true)

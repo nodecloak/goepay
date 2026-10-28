@@ -1,6 +1,12 @@
 export const groupPaymentTypes = [
   { key: "alipay", label: "支付宝" },
   { key: "wxpay", label: "微信支付" },
+  { key: "qqpay", label: "QQ钱包" },
+  { key: "bank", label: "银联支付" },
+  { key: "jdpay", label: "京东支付" },
+  { key: "paypal", label: "PayPal" },
+  { key: "douyinpay", label: "抖音支付" },
+  { key: "ecny", label: "数字人民币" },
   { key: "sandbox", label: "本地模拟支付" },
 ] as const;
 export type GroupPaymentSetting = {

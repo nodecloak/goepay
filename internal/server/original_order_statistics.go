@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	provider "goepay/internal/adapters/payment"
 	"goepay/internal/identity"
 	"math/big"
 	"net/http"
@@ -36,7 +37,7 @@ func parseOriginalStatisticsQuery(values url.Values, daily bool) (originalStatis
 		return q, invalid
 	}
 	q.kind = values.Get("type")
-	if q.kind != "" && q.kind != "alipay" && q.kind != "wxpay" && q.kind != "sandbox" {
+	if q.kind != "" && !provider.CatalogPayType(q.kind) && q.kind != "sandbox" {
 		return q, invalid
 	}
 	for key, target := range map[string]*int64{"uid": &q.merchant, "channel": &q.channel} {

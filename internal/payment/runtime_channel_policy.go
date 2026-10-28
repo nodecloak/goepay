@@ -41,7 +41,7 @@ func (g ProviderFlow) RuntimeChannel(id int64) (RuntimeChannel, error) {
 	}
 	var out RuntimeChannel
 	p := g.Providers[id]
-	if g.Store == nil || id <= 0 || p == nil || (p.ID() != "alipay" && p.ID() != "wxpay") {
+	if g.Store == nil || id <= 0 || p == nil || !adapter.CatalogPayType(p.ID()) {
 		return out, ErrInvalid
 	}
 	methods := append([]string(nil), p.Capabilities().Methods...)

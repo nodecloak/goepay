@@ -27,9 +27,12 @@ it("refuses malformed and unsupported rate structures without silently dropping 
     { alipay: { rate: 99.5 } },
     { alipay: { rate: null } },
     { alipay: { rate: "99", channel: 7 } },
-    { bank: { rate: "99" } },
+    { fakepay: { rate: "99" } },
   ]) {
     expect(groupPaymentRatesError(invalid)).not.toBe("");
     expect(() => setGroupPaymentRate(invalid, "wxpay", "99")).toThrow();
   }
+  // The original catalog pay types are accepted the same way as alipay/wxpay.
+  for (const type of ["qqpay", "bank", "jdpay", "paypal", "douyinpay", "ecny"])
+    expect(groupPaymentRatesError({ [type]: { rate: "99" } })).toBe("");
 });

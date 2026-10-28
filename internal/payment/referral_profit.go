@@ -32,7 +32,8 @@ func (s *Store) prepareReferralProfit(o Order, charge104, rate int64, q *Payment
 	}
 	e := q.estimate
 	var scope []string
-	if json.Unmarshal([]byte(e.AccountScope), &scope) != nil || len(scope) != 4 || scope[0] != o.Type || scope[0] != e.Provider || scope[1] != e.AppID || scope[1] == "" || scope[2] == "" || scope[3] != "account" || e.Provider == "alipay" && (!strings.HasPrefix(scope[2], "seller:") || len(scope[2]) <= 7) || e.Provider != "alipay" && e.Provider != "wxpay" || !isLowerHex64(e.Revision) {
+	plugin := strings.HasPrefix(e.AppID, "plugin:")
+	if json.Unmarshal([]byte(e.AccountScope), &scope) != nil || len(scope) != 4 || scope[0] != o.Type || scope[0] != e.Provider || scope[1] != e.AppID || scope[1] == "" || scope[2] == "" || scope[3] != "account" || !plugin && e.Provider == "alipay" && (!strings.HasPrefix(scope[2], "seller:") || len(scope[2]) <= 7) || !plugin && e.Provider != "alipay" && e.Provider != "wxpay" || plugin && !catalogPayType(e.Provider) || !isLowerHex64(e.Revision) {
 		return nil, ErrInvalid
 	}
 	calc, err := calculateReferralProfitCost(charge104, o.PlatformFee, e.RateUnits, rate)

@@ -1,6 +1,7 @@
 package server
 
 import (
+	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/backoffice"
 	"strconv"
 )
@@ -20,7 +21,7 @@ func (s *Server) groupPaymentChannels() ([]backoffice.GroupPaymentChannel, error
 			return nil, backoffice.ErrInvalid
 		}
 		kind := provider.ID()
-		if kind != "alipay" && kind != "wxpay" {
+		if !adapter.CatalogPayType(kind) {
 			continue
 		}
 		methods := append([]string(nil), provider.Capabilities().Methods...)

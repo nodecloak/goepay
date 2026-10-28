@@ -110,6 +110,11 @@ func knownPayType(t string) bool {
 	return false
 }
 
+// CatalogPayType reports whether t is one of the original platform's pay types
+// (pre_type). Generic collection/accounting sites use it to accept the full
+// ported catalog instead of only the native alipay/wxpay adapters.
+func CatalogPayType(t string) bool { return knownPayType(t) }
+
 // LookupPlugin returns a registered (ported) plugin.
 func LookupPlugin(name string) (PluginSpec, bool) {
 	pluginMu.RLock()

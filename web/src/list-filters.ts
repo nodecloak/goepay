@@ -252,7 +252,17 @@ export function readListRouteQuery(
   if (
     filters.type &&
     (!["orders", "refunds"].includes(kind) ||
-      !["alipay", "wxpay", "sandbox"].includes(filters.type))
+      ![
+        "alipay",
+        "wxpay",
+        "qqpay",
+        "bank",
+        "jdpay",
+        "paypal",
+        "douyinpay",
+        "ecny",
+        "sandbox",
+      ].includes(filters.type))
   )
     return fail();
   if (filters.channel_id && !["orders", "refunds"].includes(kind))

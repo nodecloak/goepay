@@ -95,10 +95,17 @@ export function consoleValue(
   if (key === "type")
     return (
       (
-        { alipay: "支付宝", wxpay: "微信支付", sandbox: "本地模拟" } as Record<
-          string,
-          string
-        >
+        {
+          alipay: "支付宝",
+          wxpay: "微信支付",
+          qqpay: "QQ钱包",
+          bank: "银联支付",
+          jdpay: "京东支付",
+          paypal: "PayPal",
+          douyinpay: "抖音支付",
+          ecny: "数字人民币",
+          sandbox: "本地模拟",
+        } as Record<string, string>
       )[String(value)] ?? displayValue(value)
     );
   if (key === "enabled")
