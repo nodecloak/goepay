@@ -1,0 +1,233 @@
+{
+  "schema": 1,
+  "scope": "test-only-zero-new-containers",
+  "workspace": "E:/GOEPAY/.tools/work197-a21a8474-8f06-40c6-adb1-2dbbb232418e",
+  "baseline": "E:/GOEPAY/.tools/test197-09fd3a1a-b80d-4485-8d4d-3e21498ce44e",
+  "source_files": [
+    {
+      "name": "docs/superpowers/plans/2026-10-27-php-interop-zero-containers.md",
+      "change": "added",
+      "sha256": "d2fd8b03171276894d26b5b06bd48f97709d861f8e69eeeafcac3892233b3f2a"
+    },
+    {
+      "name": "docs/testing/php-interop-zero-containers.md",
+      "change": "added",
+      "sha256": "a3e25de563a0e27ba390813da619e3de4d78758c76f9ef93021520ee73113b57"
+    },
+    {
+      "name": "scripts/phpinterop/references.json",
+      "change": "added",
+      "sha256": "9f41d0d489fa448bde676d12147d7a38ff4e3724ed484bf218e9c9cb3bdba863"
+    },
+    {
+      "name": "scripts/phpinterop/prepare.py",
+      "change": "added",
+      "sha256": "55f335782f6725b0b5265ec578f4fe70ea1c4be0c6b120a1b1edecb326cd3685"
+    },
+    {
+      "name": "scripts/phpinterop/prepare_test.py",
+      "change": "added",
+      "sha256": "64781ac6bcc6faea7805404af9dbd22de4c580693c715d14858b21130788a8a8"
+    },
+    {
+      "name": "scripts/phpinterop/guard.c",
+      "change": "added",
+      "sha256": "212be8ee12c0a90a3f1e764b07ed479ef30e7ad0848370cfda797ac47198ea37"
+    },
+    {
+      "name": "scripts/phpinterop/bootstrap.php",
+      "change": "added",
+      "sha256": "cc6b2220ec573e803d5821f33173a56b9c750c8fbb2cd6320b600a9222c79c59"
+    },
+    {
+      "name": "scripts/phpinterop/executor.mjs",
+      "change": "added",
+      "sha256": "9d25450af52d1b658898cabb503cceb2d46fca790dd9d8a916249d1f7afffe0f"
+    },
+    {
+      "name": "scripts/phpinterop/install.mjs",
+      "change": "added",
+      "sha256": "de58fb12c03ea41a4c55301a9ac0cddffd172b12176a13ccfac82726c3fa3ab9"
+    },
+    {
+      "name": "scripts/phpinterop/install-runtime.ps1",
+      "change": "added",
+      "sha256": "6590df86019eadd3f6778cd148615a3f05e72ccc184ff0e5c81896b157538547"
+    },
+    {
+      "name": "internal/testphp/interop.go",
+      "change": "added",
+      "sha256": "4311bd10c318829a84b1071efc4845d64a177d0274a7744697e1cd7ee1287afd"
+    },
+    {
+      "name": "internal/testphp/interop_test.go",
+      "change": "added",
+      "sha256": "9287d20ae48a399fa093927df4299c577adcde2bca12156a4b5f533f829f19ef"
+    },
+    {
+      "name": "internal/testphp/sandbox/policy.json",
+      "change": "added",
+      "sha256": "3e465f73ea7fa10166490e0abf4fa633e6c1d2580ee2903bcfb0b56aa3568e39"
+    },
+    {
+      "name": "internal/testphp/sandbox/main_linux_amd64.go",
+      "change": "added",
+      "sha256": "11a93da7fc7bbb52ba93337df827634ea4aa48ab62794d29a499553b50e82271"
+    },
+    {
+      "name": "internal/testphp/sandbox/main_other.go",
+      "change": "added",
+      "sha256": "01506e25e79e4db874937005b1e2ec0258efc07a36efaece851d9d112ddd5b0b"
+    },
+    {
+      "name": "internal/testphp/sandbox/filter_linux_amd64_test.go",
+      "change": "added",
+      "sha256": "1ff353d06c4d0cdf1f1d6df0213fb7fd3c15586c04620eaa44de7a3dcbf9819e"
+    },
+    {
+      "name": "internal/compat/php_interop_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "b673ac9b2da0c14f2efa2d7a2a953fb72c89d9c4ab316596f0fd830de5876a3c"
+    },
+    {
+      "name": "internal/adapters/payment/php_interop_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "12494825c743c0f879787bd8fd3314227930fb8e0e9b899411f032688370676d"
+    },
+    {
+      "name": "internal/adapters/payment/scan_php_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "f5965a191258b1f0183f071d7d4b206c09836ca674db564791cbff020ed163c4"
+    },
+    {
+      "name": "internal/adapters/payment/products_php_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "50945e49e8b4c1c6f6be3696f83505e4b7d35353c296ebb8a5aa76e6b8cadf8f"
+    },
+    {
+      "name": "internal/adapters/payment/bank_php_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "40d26c66be0dbcb00636fbaaa386b8f897030d71b6c9c35c65ddfb6c3d760eda"
+    },
+    {
+      "name": "internal/adapters/payment/mini_launch_php_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "743ad81317853b4d0426a396c072c5291aefc1248965be0699dbf26b3e1bce35"
+    },
+    {
+      "name": "internal/adapters/payment/alipay_order_code_php_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "f52716c90d438345cb16931a4f00a47a4ccdb8ee649ae13143bb2ad1a751f20c"
+    },
+    {
+      "name": "internal/adapters/payment/alipay_certificate_php_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "a35c003f5048af2241e451842dc70bc77db1250640c56b940ef745a762f746a6"
+    },
+    {
+      "name": "internal/server/account_rsa_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "5ccf316c3c83142e3b34fd2d88481c9de32a1c8a59354d188a813ff928499986"
+    },
+    {
+      "name": "internal/merchantnotice/php_interop_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "42167c724ce0c1cd339bcee4a815d5fc75b8051d189289496400a07ff00ea850"
+    },
+    {
+      "name": "internal/merchantnotice/wechat_php_interop_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "b1a8e69f58d2e78e0ef9a7f6f7a7c8c63ea4c61af3bfcf418916954b3b5c9174"
+    },
+    {
+      "name": "internal/payment/settlement_batch_php_interop_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "5299f343e8d431a7325605425d1453fc6f80d20247ac333c8ec50b3e20e54d48"
+    },
+    {
+      "name": "internal/payment/buyer_charge104_php_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "cdd6716386246250770803c7286b89787c5d9ae70527913543d7053f919e29d9"
+    },
+    {
+      "name": "internal/payment/group_settlement_php_interop_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "b4d8bbcaa63580ba80622dd5ab1b5b9a4e068fb1bd9718b2dbfb5fb24f94c08d"
+    },
+    {
+      "name": "internal/grouppolicy/original_php_interop_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "fbef03b519bc7a19b4a4a0240eb10271037c1402b79e2f57d7b0e9b2f898e181"
+    },
+    {
+      "name": "tests/interop/sequence169_pro_interop_test.go",
+      "change": "modified-test-launcher-only",
+      "sha256": "0ebe2a7d580d9a4eb9a290993250fb9f95bdf14cdead52e844f86741b500caa5"
+    }
+  ],
+  "static_evidence": {
+    "original_reference_files": 15,
+    "reference_hash_mismatches": 0,
+    "unchanged_go_raw_string_literals": 53,
+    "existing_result_assertion_call_lines": 153,
+    "result_assertion_call_changes": 0,
+    "removed_centralized_legacy_image_preflight_fatal_lines": 2,
+    "go_formatter_syntax_files": 21,
+    "python_ast_files": 2,
+    "node_syntax_files": 2,
+    "powershell_ast_files": 1
+  },
+  "not_executed": [
+    "Go compilation by this implementation agent",
+    "C compilation by this implementation agent",
+    "PHP compilation or execution",
+    "Go/C/PHP tests and real runtime preflight",
+    "docker image save by this implementation agent",
+    "runner entry",
+    "runtime installation",
+    "external network",
+    "real runtime archive preparation by this implementation agent"
+  ],
+  "runtime_proof_status": "pending-root-idle-execution",
+  "namespace_isolated": false,
+  "note": "This inventory excludes itself. Hash SOURCE.json separately. No current actual-PHP PASS is claimed.",
+  "followup_oci_chain": {
+    "pure_fixture_red": ".tools/phpinterop-oci-chain-red-v1.txt",
+    "red_exit_code": 1,
+    "red_reason": "existing prepare() raises archive image/config digest mismatch",
+    "pure_fixture_green": ".tools/phpinterop-oci-chain-green-v1.txt",
+    "green_exit_code": 0,
+    "pure_python_tests": 15,
+    "actual_readonly_receipt": ".tools/phpinterop-oci-chain-actual-readonly-v1.json",
+    "actual_compressed_layer_digests_and_diffids": 10,
+    "actual_index_digest": "sha256:2d72ff4b0cfe82e22f01f15223bc4ab4c825d318cb2e3275554cd32299a5ea50",
+    "actual_manifest_digest": "sha256:2c471bb4e432ee11b129b0a5fb5cb2bba54e631a4d386b2cf930535933d332c5",
+    "actual_config_digest": "sha256:3a2593e27d31943cec22155f6c9d9a913e46b97168e026fffc37cb22c50cd054",
+    "docker_called": false,
+    "runner_entered": false,
+    "php_executed": false
+  },
+  "followup_virtual_posix": {
+    "pure_fixture_red": ".tools/phpinterop-virtual-posix-red-v1.txt",
+    "red_exit_code": 1,
+    "red_failures": 8,
+    "red_errors": 2,
+    "pure_fixture_green": ".tools/phpinterop-virtual-posix-green-v3.txt",
+    "green_exit_code": 0,
+    "pure_python_tests": 22,
+    "complete_real_layer_scan": ".tools/phpinterop-rootdir-path-scan-v2.json",
+    "root_directory_metadata": 1,
+    "legal_virtual_colon_filenames": 488,
+    "colon_filename_prefix": "var/lib/dpkg/info",
+    "dangerous_virtual_paths": 0,
+    "merged_virtual_nodes": 12202,
+    "runtime_selection_files": 342,
+    "runtime_selection_bytes": 48238878,
+    "export_paths_with_colon": 0,
+    "strict_safe_name_changed": false,
+    "docker_called": false,
+    "runner_entered": false,
+    "php_executed": false,
+    "virtual_controls_rejected": "C0, DEL and C1"
+  }
+}

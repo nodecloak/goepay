@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"goepay/internal/identity"
 	"goepay/internal/payment"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,10 @@ import (
 
 func TestSettlementBatches84HTTPOriginalFieldsExportAndAuthority(t *testing.T) {
 	s, pool, _ := fixture(t)
+	// The original 205 merchant login writes its session row in the same
+	// transaction as the captcha grant, so the HTTP flow needs the durable
+	// persistent session repository rather than the fixture's in-memory default.
+	s.Sessions = identity.NewPersistentSessions(pool, false)
 	ctx := context.Background()
 	h := s.Handler()
 	o, err := s.Store.CreateOrder(ctx, payment.CreateOrderInput{MerchantID: 1, OutTradeNo: "seed-batches84-http", Amount: 1000})

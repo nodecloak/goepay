@@ -55,7 +55,11 @@ func (g ProviderFlow) Query(ctx context.Context, merchantID int64, tradeNo strin
 	if a.Method == "preauth" {
 		authorizationErr = g.RefreshPreauthorization(ctx, tradeNo, a.ChannelID)
 	}
-	result, e := p.Query(ctx, provider.QueryRequest{TradeNo: tradeNo})
+	query, e := g.Store.combineQueryRequest207(ctx, tradeNo)
+	if e != nil {
+		return provider.QueryResult{}, e
+	}
+	result, e := p.Query(ctx, query)
 	if e != nil {
 		var rejection *provider.ProviderError
 		// A freeze authorization legitimately has no payment transaction yet.
@@ -75,7 +79,14 @@ func (g ProviderFlow) Query(ctx context.Context, merchantID int64, tradeNo strin
 		if result.ProviderTradeNo == "" {
 			return result, provider.ErrAuthentication
 		}
-		e = g.Store.markPaid(ctx, tradeNo, fmt.Sprintf("provider-query:%s:%s", p.ID(), result.ProviderTradeNo), true, PaidReceipt{RealMoney: result.Amount, ChannelID: a.ChannelID, ProviderTradeNo: result.ProviderTradeNo, BuyerID: result.BuyerID})
+		if len(result.CombinePaid) != len(query.CombineSubs) {
+			return result, provider.ErrAuthentication
+		}
+		receipt := PaidReceipt{RealMoney: result.Amount, ChannelID: a.ChannelID, ProviderTradeNo: result.ProviderTradeNo, BuyerID: result.BuyerID}
+		for _, paid := range result.CombinePaid {
+			receipt.CombinePaid = append(receipt.CombinePaid, CombinePaid207{SubTradeNo: paid.TradeNo, TransactionID: paid.TransactionID, Amount: paid.Amount})
+		}
+		e = g.Store.markPaid(ctx, tradeNo, fmt.Sprintf("provider-query:%s:%s", p.ID(), result.ProviderTradeNo), true, receipt)
 	default:
 		if authorizationErr != nil {
 			return result, authorizationErr
@@ -220,7 +231,11 @@ func (g ProviderFlow) Close(ctx context.Context, merchantID int64, tradeNo strin
 		}
 		return &provider.UnknownOutcome{Operation: "close", Cause: ErrState}
 	}
-	e = p.Close(ctx, provider.QueryRequest{TradeNo: tradeNo})
+	closeRequest, e := g.Store.combineQueryRequest207(ctx, tradeNo)
+	if e != nil {
+		return e
+	}
+	e = p.Close(ctx, closeRequest)
 	if e != nil {
 		state = "unknown"
 		var rejection *provider.ProviderError
@@ -305,6 +320,23 @@ func (g ProviderFlow) refund(ctx context.Context, merchantID int64, tradeNo, ref
 	if e != nil {
 		return Refund{}, e
 	}
+	if subs, e := g.Store.CombineSubOrders(ctx, o.ID); e != nil {
+		return Refund{}, e
+	} else if len(subs) > 0 {
+		plan, e := g.Store.planCombineRefund207(ctx, r.ID, o.ID, amount, providerRefundNo)
+		if e != nil {
+			g.Store.resolveProviderRefund(ctx, id, r.ID, "failed")
+			return r, e
+		}
+		state, sendErr := g.combineRefund207(ctx, p, r.ID, plan, true)
+		if save := g.Store.resolveProviderRefund(ctx, id, r.ID, state); save != nil {
+			return r, &provider.UnknownOutcome{Operation: "persist refund result", Cause: errors.Join(sendErr, save)}
+		}
+		if sendErr != nil {
+			return r, sendErr
+		}
+		return g.Store.Refund(ctx, merchantID, refundNo)
+	}
 	result, e := p.Refund(ctx, provider.RefundRequest{TradeNo: tradeNo, RefundNo: providerRefundNo, TotalAmount: charge104, Amount: amount})
 	if e != nil {
 		state = "unknown"
@@ -372,6 +404,22 @@ func (g ProviderFlow) QueryRefund(ctx context.Context, merchantID int64, refundN
 	charge104, e := g.Store.AuthenticatedOrderCharge104(ctx, o)
 	if e != nil {
 		return r, e
+	}
+	if subs, e := g.Store.CombineSubOrders(ctx, o.ID); e != nil {
+		return r, e
+	} else if len(subs) > 0 {
+		plan, e := g.Store.planCombineRefund207(ctx, r.ID, o.ID, r.Amount, providerRefundNo)
+		if e != nil {
+			return r, e
+		}
+		state, queryErr := g.combineRefund207(ctx, p, r.ID, plan, false)
+		if queryErr != nil || state == "pending" || state == "unknown" {
+			return r, queryErr
+		}
+		if e = g.Store.resolveProviderRefund(ctx, id, r.ID, state); e != nil {
+			return r, e
+		}
+		return g.Store.Refund(ctx, merchantID, refundNo)
 	}
 	result, e := p.QueryRefund(ctx, provider.RefundRequest{TradeNo: tradeNo, RefundNo: providerRefundNo, TotalAmount: charge104, Amount: r.Amount})
 	if e != nil {

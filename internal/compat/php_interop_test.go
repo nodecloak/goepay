@@ -2,7 +2,6 @@ package compat
 
 import (
 	"archive/zip"
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -14,18 +13,17 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"goepay/internal/testphp"
 )
 
 // TestPHPSDKInterop executes the original bundled SDK code, with no payment
-// endpoint call. Opt in with GOEPAY_PHP_INTEROP=1 and an available Docker daemon.
+// endpoint call. Opt in with GOEPAY_PHP_INTEROP=1 and the verified existing runtime.
 func TestPHPSDKInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("set GOEPAY_PHP_INTEROP=1 for Docker PHP original SDK interoperability")
-	}
+	testphp.Require(t)
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
@@ -44,7 +42,7 @@ func TestPHPSDKInterop(t *testing.T) {
 			if version == "v2" {
 				archiveName = "SDK_2.0.zip"
 			}
-			archive, err := zip.OpenReader(filepath.Join("..", "..", "epay_pro", "public", "static", "files", archiveName))
+			archive, err := zip.OpenReader(testphp.Path(t, "epay_pro/public/static/files"+"/"+archiveName))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -104,9 +102,7 @@ func TestPHPSDKInterop(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
-			cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "--network", "none", "-i", "--mount", "type=bind,src="+dir+",dst=/work,readonly", "php:8.2-cli", "php", "/work/runner.php")
-			cmd.Stdin = bytes.NewReader(payload)
-			output, err := cmd.CombinedOutput()
+			output, err := testphp.Run(t, ctx, testphp.Spec{Mounts: []testphp.Mount{{Source: dir, Target: "/work"}}, Args: []string{"/work/runner.php"}, Input: payload})
 			if err != nil {
 				t.Fatalf("PHP SDK run: %v %s", err, output)
 			}

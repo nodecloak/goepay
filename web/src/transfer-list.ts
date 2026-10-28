@@ -100,6 +100,16 @@ export function readTransferListRow(value: unknown) {
     if (!Object.hasOwn(labels, state)) throw Error();
     if (["reversed", "reversal_pending"].includes(String(raw.bank_lifecycle)))
       state = String(raw.bank_lifecycle);
+    // 商家转账（新）: the signed payee link of a bill waiting for confirmation.
+    const confirm = Object.hasOwn(raw, "confirm_url") ? raw.confirm_url : "";
+    if (
+      typeof confirm !== "string" ||
+      confirm.length > 1024 ||
+      (confirm !== "" &&
+        (!/^(https:\/\/[^\s/?#@]+)?\/pay\/wxtrans\?[^\s#]+$/.test(confirm) ||
+          !["pending", "unknown"].includes(state)))
+    )
+      throw Error();
     const recorded = beijingTimestamp(raw.created_at),
       createdAt =
         typeof recorded === "string" &&
@@ -132,6 +142,7 @@ export function readTransferListRow(value: unknown) {
       // Missing time stays unknown even when the ledger records success.
       payDate: text("pay_date") ? beijingTimestamp(text("pay_date")) : "未记录",
       state,
+      confirmURL: confirm,
       status: labels[state]!,
       tone:
         state === "succeeded"

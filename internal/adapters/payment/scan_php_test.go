@@ -1,7 +1,6 @@
 package payment
 
 import (
-	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/base64"
@@ -10,16 +9,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"goepay/internal/testphp"
 )
 
 func TestOriginalScanSignaturePHPInterop(t *testing.T) {
-	if os.Getenv("GOEPAY_PHP_INTEROP") != "1" {
-		t.Skip("GOEPAY_PHP_INTEROP=1 required")
-	}
+	testphp.Require(t)
 	key := testKey(t)
 	const apiKey = "0123456789abcdef0123456789abcdef"
 	var wxParams, aliParams map[string]string
@@ -60,7 +58,7 @@ func TestOriginalScanSignaturePHPInterop(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{"wx.php": "wechatpay-sdk/src/BaseService.php", "wx_payment.php": "wechatpay-sdk/src/PaymentService.php", "ali.php": "alipay-sdk/src/Aop/AopClient.php"}
 	for name, source := range files {
-		raw, e := os.ReadFile(filepath.Join("..", "..", "..", "epay_pro", "vendor", "cccyun", source))
+		raw, e := os.ReadFile(testphp.Path(t, "epay_pro/vendor/cccyun"+"/"+source))
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -75,9 +73,7 @@ func TestOriginalScanSignaturePHPInterop(t *testing.T) {
 	payload, _ := json.Marshal(map[string]any{"wx": wxParams, "ali": aliParams, "private": base64.StdEncoding.EncodeToString(x509.MarshalPKCS1PrivateKey(key))})
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	command := exec.CommandContext(ctx, "docker", "run", "--rm", "--network", "none", "-i", "--mount", "type=bind,src="+dir+",dst=/work,readonly", "php:8.2-cli", "php", "/work/run.php")
-	command.Stdin = bytes.NewReader(payload)
-	raw, e := command.CombinedOutput()
+	raw, e := testphp.Run(t, ctx, testphp.Spec{Mounts: []testphp.Mount{{Source: dir, Target: "/work"}}, Args: []string{"/work/run.php"}, Input: payload})
 	if e != nil {
 		t.Fatalf("scan PHP interop: %v %s", e, raw)
 	}

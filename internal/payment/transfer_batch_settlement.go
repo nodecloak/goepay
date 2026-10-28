@@ -19,7 +19,20 @@ func (g ProviderFlow) sendClaimedTransfer(ctx context.Context, t Transfer, tp ad
 	if e := g.Store.checkChannelWrite(ctx, t.ChannelID); e != nil {
 		return t, e
 	}
-	result, e := tp.Transfer(ctx, transferRequest(t))
+	req := transferRequest(t)
+	if merchantTransferChannel(g.Providers[t.ChannelID], t.Type) {
+		// The bill carries the site scene/report settings. Without them
+		// nothing is sent, so the transfer definitely failed.
+		var scene error
+		if req, scene = g.Store.merchantTransferRequest(ctx, req); scene != nil {
+			if save := g.Store.resolveProviderTransfer(ctx, t.ID, "failed", "", ""); save != nil {
+				return t, errors.Join(scene, save)
+			}
+			current, _ := g.Store.Transfer(ctx, t.MerchantID, t.TransferNo)
+			return current, scene
+		}
+	}
+	result, e := tp.Transfer(ctx, req)
 	if e != nil {
 		state := "unknown"
 		if t.Type != "bank" && definiteAuthenticatedTransferRejection(e, g.Providers[t.ChannelID], t.Type) {
@@ -45,7 +58,7 @@ func (g ProviderFlow) sendClaimedTransfer(ctx context.Context, t Transfer, tp ad
 	if state == "succeeded" && result.ProviderTransferNo == "" {
 		state = "unknown"
 	}
-	if e = g.Store.resolveProviderTransfer(ctx, t.ID, state, result.ProviderTransferNo, result.PayDate); e != nil {
+	if e = g.Store.resolveProviderTransferPackage(ctx, t.ID, state, result.ProviderTransferNo, result.PayDate, result.PackageInfo); e != nil {
 		return t, &adapter.UnknownOutcome{Operation: "persist transfer", Cause: e}
 	}
 	return g.Store.Transfer(ctx, t.MerchantID, t.TransferNo)

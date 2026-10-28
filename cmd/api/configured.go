@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 var errConfiguredProviders = errors.New("invalid explicitly configured payment providers")
@@ -75,7 +76,9 @@ func configureProviders(app *server.Server, mode string, master []byte, origin s
 		return errConfiguredProviders
 	}
 	imp = startup.Import
-	providers, e := startup.BuildProviders(channelconfig.BuildOptions{AllowLive: allowWrites, ScanRecovery: scanRecovery})
+	// 微信V3转账产品类型 is a site setting; providers read it through this switch.
+	merchantTransfer := app.Store.MerchantTransferSwitch(15 * time.Second)
+	providers, e := startup.BuildProviders(channelconfig.BuildOptions{AllowLive: allowWrites, ScanRecovery: scanRecovery, WechatMerchantTransfer: merchantTransfer})
 	if e != nil || !startup.HasRegisteredSources() {
 		return errConfiguredProviders
 	}
@@ -124,12 +127,12 @@ func configureProviders(app *server.Server, mode string, master []byte, origin s
 	}
 	key := sha256.Sum256(append([]byte("checkout-signing:"), master...))
 	app.CheckoutKey = key[:]
-	childFactories, e := startup.BuildSubchannelFactories(channelconfig.BuildOptions{AllowLive: allowWrites, ScanRecovery: scanRecovery, EnableSubchannelOAuth: oauthEnabled == "true"})
+	childFactories, e := startup.BuildSubchannelFactories(channelconfig.BuildOptions{AllowLive: allowWrites, ScanRecovery: scanRecovery, EnableSubchannelOAuth: oauthEnabled == "true", WechatMerchantTransfer: merchantTransfer})
 	if e != nil {
 		return errConfiguredProviders
 	}
 	flow := &payment.ProviderFlow{SubchannelFactories: childFactories, Store: app.Store, Providers: providers, MerchantChannels: mapping, AllowLive: allowWrites, ScanRecoveryEnabled: scanRecovery, LocalSimulation: false, CallbackBaseURL: strings.TrimRight(origin, "/")}
-	parentFactories, e := startup.BuildFactories(channelconfig.ParentBuildOptions{BuildOptions: channelconfig.BuildOptions{AllowLive: allowWrites, ScanRecovery: scanRecovery, RuntimeWriteAllowed: func() bool { return flow.AllowLive }}, OAuthEnabled: oauthEnabled == "true", WebOAuthAllowed: func() bool { return app.OAuthProviders != nil }, MiniOAuthAllowed: func() bool { return app.MiniOAuthProviders != nil }})
+	parentFactories, e := startup.BuildFactories(channelconfig.ParentBuildOptions{BuildOptions: channelconfig.BuildOptions{AllowLive: allowWrites, ScanRecovery: scanRecovery, RuntimeWriteAllowed: func() bool { return flow.AllowLive }, WechatMerchantTransfer: merchantTransfer}, OAuthEnabled: oauthEnabled == "true", WebOAuthAllowed: func() bool { return app.OAuthProviders != nil }, MiniOAuthAllowed: func() bool { return app.MiniOAuthProviders != nil }})
 	if e != nil || flow.InstallParentAccountFactories(parentFactories) != nil {
 		return errConfiguredProviders
 	}
