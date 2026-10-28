@@ -395,7 +395,11 @@ async function prepareRetry(row: Finish) {
 }
 .finish-panel label {
   display: grid;
-  gap: 7px;
+  gap: 6px;
+  margin: 0;
+}
+.finish-panel label > input {
+  margin-top: 0;
 }
 .finish-panel button {
   align-self: end;
@@ -422,9 +426,10 @@ async function prepareRetry(row: Finish) {
   max-width: 620px;
   margin: auto;
   padding: 20px;
-  background: var(--paper);
-  box-shadow: 0 5px 35px #172e4040;
-  border: 2px solid var(--accent);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-modal);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
   z-index: 30;
 }
 .finish-confirm button + button {

@@ -229,7 +229,7 @@ const sourceLabel = (source: string) =>
   margin: 0;
 }
 .current-policy button {
-  min-height: 44px;
+  min-height: var(--control-h);
 }
 .policy-status {
   font-weight: 600;

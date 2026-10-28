@@ -413,14 +413,14 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 .referral button {
-  min-height: 44px;
+  min-height: var(--control-h);
   margin: 0.3rem 0.5rem 0.3rem 0;
 }
 .referral input {
   display: block;
   max-width: 100%;
   width: 100%;
-  min-height: 44px;
+  min-height: var(--control-h);
 }
 .referral p {
   overflow-wrap: anywhere;

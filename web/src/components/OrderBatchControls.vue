@@ -351,14 +351,17 @@ onBeforeUnmount(() => {
 <style scoped>
 .batch-controls {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   flex-wrap: wrap;
-  padding: 0 20px 16px;
+  padding: 0;
+  font-size: 13px;
+  color: var(--ink-muted);
 }
 .batch-controls select {
   width: auto;
   max-width: 100%;
+  margin: 0;
 }
 .batch-dialog {
   max-width: 640px;

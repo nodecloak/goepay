@@ -238,7 +238,7 @@ function checkAll(event: Event) {
   background: var(--panel, var(--bg-card));
   min-width: 145px;
   z-index: 1;
-  box-shadow: -2px 0 4px #00000008;
+  box-shadow: -4px 0 5px -5px var(--line-control);
 }
 th.settlement-actions {
   background: var(--table-header, var(--bg-raised));

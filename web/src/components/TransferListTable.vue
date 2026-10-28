@@ -212,7 +212,7 @@ const data = computed(() => {
   background: var(--panel, var(--bg-card));
   min-width: 100px;
   z-index: 1;
-  box-shadow: -2px 0 4px #00000008;
+  box-shadow: -4px 0 5px -5px var(--line-control);
 }
 th.transfer-actions {
   background: var(--table-header, var(--bg-raised));
@@ -230,7 +230,7 @@ th.transfer-actions {
   color: var(--ink-muted);
 }
 .transfer-confirm {
-  color: #07c160;
+  color: var(--chart-2);
 }
 .transfer-confirm-qr {
   text-align: center;

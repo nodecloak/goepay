@@ -571,11 +571,25 @@ onBeforeUnmount(() => {
 }
 .invitation-filters label {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
+  white-space: nowrap;
+  font-size: 13px;
 }
 .invitation-filters input {
   width: min(240px, 100%);
+  margin: 0;
+}
+.invitation-filters select {
+  width: auto;
+  min-width: 120px;
+  margin: 0;
+}
+.invitation-filters.toolbar {
+  align-items: center;
+}
+.invitation-page .invitation-filters.toolbar > :last-child {
+  margin-left: 0;
 }
 .invitation-actions {
   flex-wrap: wrap;

@@ -258,11 +258,11 @@ onBeforeUnmount(reset);
 .import-panel input,
 .import-panel select {
   max-width: 100%;
-  min-height: 44px;
+  min-height: var(--control-h);
 }
 .import-panel button {
   margin: 0.3rem 0.5rem 0.3rem 0;
-  min-height: 44px;
+  min-height: var(--control-h);
 }
 .import-panel table {
   min-width: 600px;

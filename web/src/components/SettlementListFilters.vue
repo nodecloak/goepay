@@ -101,18 +101,25 @@ function change(
 .settlement-filters {
   display: grid;
   gap: 12px;
-  margin-bottom: 18px;
+  margin-bottom: 0;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--line);
+}
+.settlement-filters .toolbar-actions {
+  gap: var(--space-2);
 }
 .settlement-filter-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px 16px;
 }
 .settlement-filter-grid label {
   display: grid;
   gap: 6px;
   min-width: 0;
   margin: 0;
+  font-size: 12px;
+  color: var(--ink-muted);
 }
 .settlement-filter-grid input,
 .settlement-filter-grid select {

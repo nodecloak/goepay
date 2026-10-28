@@ -18,6 +18,18 @@ const paths: Record<string, string> = {
   link: "M10 13a5 5 0 0 0 7 0l4-4a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-4 4a5 5 0 0 0 7 7l2-2",
   close: "m6 6 12 12M6 18 18 6",
   chevron: "m9 5 7 7-7 7",
+  // Icons below are the payment-admin UI kit's own line icons.
+  sun: "M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
+  moon: "M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z",
+  refresh: "M20 12a8 8 0 1 1-2.3-5.7M20 4v4.5h-4.5",
+  chevronDown: "M6 9l6 6 6-6",
+  chevronLeft: "M15 6l-6 6 6 6",
+  chevronRight: "M9 6l6 6-6 6",
+  more: "M6.3 12a1.3 1.3 0 1 1-2.6 0 1.3 1.3 0 0 1 2.6 0zM13.3 12a1.3 1.3 0 1 1-2.6 0 1.3 1.3 0 0 1 2.6 0zM20.3 12a1.3 1.3 0 1 1-2.6 0 1.3 1.3 0 0 1 2.6 0z",
+  export: "M12 4v11M7.5 10.5 12 15l4.5-4.5M4 17v3h16v-3",
+  search: "M17.5 11a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0zM16 16l4.5 4.5",
+  filter: "M4 5h16l-6 7.5V19l-4 2v-8.5z",
+  info: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM12 11v5.5M12 7.5v.5",
 };
 const path = computed(() => {
   const name = props.name || "grid";
@@ -39,7 +51,7 @@ const path = computed(() => {
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    stroke-width="1.6"
+    stroke-width="1.8"
     stroke-linecap="round"
     stroke-linejoin="round"
     aria-hidden="true"

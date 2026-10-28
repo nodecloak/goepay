@@ -14,12 +14,7 @@ import {
   nextTick,
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import {
-  applyTheme,
-  saveTheme,
-  storedTheme,
-  type ConsoleTheme,
-} from "./theme";
+import { applyTheme, saveTheme, storedTheme, type ConsoleTheme } from "./theme";
 import {
   merchantLoginEntry205,
   merchantLoginReturn205,
@@ -110,6 +105,7 @@ import {
 import PublicEnrollment from "./components/PublicEnrollment.vue";
 import PublicTestPay203 from "./components/PublicTestPay203.vue";
 import CsvExportButton from "./components/CsvExportButton.vue";
+import ShellIcon from "./components/ShellIcon.vue";
 import PaymentPasswordSettings from "./components/PaymentPasswordSettings.vue";
 import FundsAuthorizationModal from "./components/FundsAuthorizationModal.vue";
 import SettlementRecipientPage from "./components/SettlementRecipientPage.vue";
@@ -1389,11 +1385,12 @@ onBeforeUnmount(() => {
         <span>{{ session.user.name }}</span
         ><button
           type="button"
-          class="theme-toggle"
+          class="theme-toggle icon-button"
           :aria-label="theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'"
+          :title="theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'"
           @click="toggleTheme"
         >
-          {{ theme === "dark" ? "浅色" : "深色" }}</button
+          <ShellIcon :name="theme === 'dark' ? 'sun' : 'moon'" /></button
         ><RouterLink
           :to="
             '/' +
@@ -1453,7 +1450,7 @@ onBeforeUnmount(() => {
           :disabled="loading"
           @click="load"
         >
-          {{ loading ? "正在更新…" : "刷新数据" }}
+          <ShellIcon name="refresh" />{{ loading ? "正在更新…" : "刷新数据" }}
         </button>
       </div>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
@@ -1779,9 +1776,9 @@ onBeforeUnmount(() => {
           :merchant-id="String(session?.user.id ?? '')"
           :own-session="!!session && !session.delegated_by"
       /></template>
-      <section v-else class="panel records">
+      <template v-else>
         <form
-          class="toolbar"
+          class="toolbar list-filter-card panel"
           @submit.prevent="
             pageNumber = 1;
             load();
@@ -1841,7 +1838,7 @@ onBeforeUnmount(() => {
                   ? 'decimal'
                   : 'text'
               "
-            /><button :disabled="loading">查询</button>
+            /><button class="primary" :disabled="loading">查询</button>
           </div>
           <ListFilters
             v-model="listFilters"
@@ -1849,116 +1846,126 @@ onBeforeUnmount(() => {
             :area="area"
             @reset="resetListFilters"
           />
-          <AutoRefreshControl
-            v-if="kind === 'orders'"
-            :key="area + path"
-            :refresh="load"
-            :blocked="
-              loading ||
-              busy ||
-              !!orderAction ||
-              !!merchantOrderAction ||
-              !!orderDetails ||
-              !!refundRow ||
-              orderBatchOpen ||
-              !!blacklistSelection ||
-              !!listRouteError
-            "
-          />
-          <CsvExportButton
-            v-if="['orders', 'refunds', 'ledger'].includes(kind)"
-            :client="client"
-            :path="listCSVPath"
-            :filename="`${kind}-filtered.csv`"
-            :disabled="loading || !!listRouteError"
-          />
-          <button
-            v-if="kind === 'refunds'"
-            type="button"
-            :disabled="loading || busy || !!listRouteError"
-            @click="openRefundSummary"
-          >
-            退款统计
-          </button>
-          <label
-            v-if="kind === 'orders' && area === 'admin'"
-            class="archived-order-toggle"
-            ><input
-              v-model="includeArchivedOrders"
-              type="checkbox"
-              @change="
-                pageNumber = 1;
-                load();
-              "
-            />显示已删除订单</label
-          >
         </form>
-        <div v-if="loading" class="loading-row" role="status">
-          正在加载记录…
-        </div>
-        <OrderBatchControls
-          v-if="kind === 'orders' && area === 'admin' && !error"
-          :key="area + path"
-          :client="client"
-          :items="items"
-          :selected="selectedOrderTrades"
-          :own-session="!!session && !session.delegated_by"
-          :admin-class="session?.user.admin_class"
-          @busy="orderBatchBusy = $event"
-          @active="orderBatchOpen = $event"
-          @updated="load"
-        />
-        <DataTable
-          v-if="!loading && !error"
-          :items="items"
-          :columns="columns"
-          :orders="kind === 'orders'"
-          :refunds="kind === 'refunds'"
-          :admin-orders="kind === 'orders' && area === 'admin'"
-          :merchant-orders="kind === 'orders' && area === 'merchant'"
-          :selectable="kind === 'orders' && area === 'admin'"
-          :selected-trades="selectedOrderTrades"
-          @selection-change="selectedOrderTrades = $event"
-          :order-actions-disabled="
-            orderBatchBusy ||
-            merchantOrderBusy ||
-            !!merchantOrderAction ||
-            (area === 'admin' &&
-              (!!session?.delegated_by ||
-                !['super', 'operator'].includes(
-                  session?.user.admin_class || '',
-                )))
-          "
-          @refund="openRefund"
-          @detail="openOrderDetails"
-          @order-action="(row, action) => (orderAction = { row, action })"
-          @merchant-order-action="openMerchantOrderAction"
-          @blacklist="openBlacklist"
-        />
-        <div class="pagination">
-          <span>共 {{ total }} 条记录</span>
-          <div>
+        <section class="panel records">
+          <div
+            v-if="['orders', 'refunds', 'ledger'].includes(kind)"
+            class="table-tools"
+          >
+            <CsvExportButton
+              v-if="['orders', 'refunds', 'ledger'].includes(kind)"
+              :client="client"
+              :path="listCSVPath"
+              :filename="`${kind}-filtered.csv`"
+              :disabled="loading || !!listRouteError"
+            />
             <button
-              :disabled="pageNumber <= 1 || loading"
-              @click="
-                pageNumber--;
-                load();
-              "
+              v-if="kind === 'refunds'"
+              type="button"
+              class="soft-button"
+              :disabled="loading || busy || !!listRouteError"
+              @click="openRefundSummary"
             >
-              上一页</button
-            ><span>第 {{ pageNumber }} 页</span
-            ><button
-              :disabled="pageNumber * listLimit >= total || loading"
-              @click="
-                pageNumber++;
-                load();
-              "
-            >
-              下一页
+              退款统计
             </button>
+            <OrderBatchControls
+              v-if="kind === 'orders' && area === 'admin' && !error"
+              :key="area + path"
+              :client="client"
+              :items="items"
+              :selected="selectedOrderTrades"
+              :own-session="!!session && !session.delegated_by"
+              :admin-class="session?.user.admin_class"
+              @busy="orderBatchBusy = $event"
+              @active="orderBatchOpen = $event"
+              @updated="load"
+            />
+            <div class="table-tools-end">
+              <label
+                v-if="kind === 'orders' && area === 'admin'"
+                class="archived-order-toggle"
+                ><input
+                  v-model="includeArchivedOrders"
+                  type="checkbox"
+                  @change="
+                    pageNumber = 1;
+                    load();
+                  "
+                />显示已删除订单</label
+              >
+              <AutoRefreshControl
+                v-if="kind === 'orders'"
+                :key="area + path"
+                :refresh="load"
+                :blocked="
+                  loading ||
+                  busy ||
+                  !!orderAction ||
+                  !!merchantOrderAction ||
+                  !!orderDetails ||
+                  !!refundRow ||
+                  orderBatchOpen ||
+                  !!blacklistSelection ||
+                  !!listRouteError
+                "
+              />
+            </div>
           </div>
-        </div>
-      </section>
+          <div v-if="loading" class="loading-row" role="status">
+            正在加载记录…
+          </div>
+          <DataTable
+            v-if="!loading && !error"
+            :items="items"
+            :columns="columns"
+            :orders="kind === 'orders'"
+            :refunds="kind === 'refunds'"
+            :admin-orders="kind === 'orders' && area === 'admin'"
+            :merchant-orders="kind === 'orders' && area === 'merchant'"
+            :selectable="kind === 'orders' && area === 'admin'"
+            :selected-trades="selectedOrderTrades"
+            @selection-change="selectedOrderTrades = $event"
+            :order-actions-disabled="
+              orderBatchBusy ||
+              merchantOrderBusy ||
+              !!merchantOrderAction ||
+              (area === 'admin' &&
+                (!!session?.delegated_by ||
+                  !['super', 'operator'].includes(
+                    session?.user.admin_class || '',
+                  )))
+            "
+            @refund="openRefund"
+            @detail="openOrderDetails"
+            @order-action="(row, action) => (orderAction = { row, action })"
+            @merchant-order-action="openMerchantOrderAction"
+            @blacklist="openBlacklist"
+          />
+          <div class="pagination">
+            <span>共 {{ total }} 条记录</span>
+            <div>
+              <button
+                :disabled="pageNumber <= 1 || loading"
+                @click="
+                  pageNumber--;
+                  load();
+                "
+              >
+                上一页</button
+              ><span>第 {{ pageNumber }} 页</span
+              ><button
+                :disabled="pageNumber * listLimit >= total || loading"
+                @click="
+                  pageNumber++;
+                  load();
+                "
+              >
+                下一页
+              </button>
+            </div>
+          </div>
+        </section>
+      </template>
       <LegacyRefundHistoryPanel
         v-if="authorized && kind === 'refunds'"
         :key="area + path + 'legacy-history'"

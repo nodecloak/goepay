@@ -172,7 +172,7 @@ small {
   display: block;
 }
 button {
-  min-height: 44px;
+  min-height: var(--control-h);
   margin: 0.3rem 0.5rem 0.3rem 0;
 }
 </style>

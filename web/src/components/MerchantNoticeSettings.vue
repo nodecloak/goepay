@@ -295,6 +295,9 @@ onBeforeUnmount(() => {
   gap: 0.75rem;
   flex-wrap: wrap;
 }
+.notice-owner label {
+  margin: 0;
+}
 .notice-target {
   min-width: 0;
 }
