@@ -161,7 +161,11 @@ onBeforeUnmount(() => controller?.abort());
         :own-session="ownSession"
         :admin-class="adminClass" /></template
   ></RuntimeLogPage>
-  <section v-else class="panel records">
+  <section
+    v-else
+    class="panel records"
+    :class="{ 'cleanup-card': operation === 'cleanup' }"
+  >
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
     <template v-if="operation === 'cleanup'"
@@ -170,8 +174,11 @@ onBeforeUnmount(() => controller?.abort());
         <p class="muted">
           仅清理截止日期前已过期的登录会话和登录尝试计数。交易、账本和业务记录不在清理范围内。
         </p>
-        <form class="report-filter toolbar" @submit.prevent="inspectCleanup">
-          <label
+        <form
+          class="report-filter toolbar cleanup-form"
+          @submit.prevent="inspectCleanup"
+        >
+          <label class="filter-inline"
             >清理截止日期（UTC+08:00）<input
               v-model="cutoffDate"
               type="date"
@@ -180,7 +187,7 @@ onBeforeUnmount(() => controller?.abort());
                 preview = null;
                 confirm = false;
               " /></label
-          ><button :disabled="busy">预览清理范围</button>
+          ><button class="primary" :disabled="busy">预览清理范围</button>
         </form>
         <dl v-if="preview" class="record-detail">
           <dt>截止时间</dt>
@@ -289,3 +296,23 @@ onBeforeUnmount(() => controller?.abort());
     </section>
   </div>
 </template>
+<style scoped>
+.cleanup-card {
+  max-width: 720px;
+}
+.cleanup-form {
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+.cleanup-form .filter-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.cleanup-form .filter-inline input {
+  min-width: 200px;
+}
+</style>

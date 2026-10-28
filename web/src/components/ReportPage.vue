@@ -17,6 +17,7 @@ import {
 } from "../reports";
 import DataTable from "./DataTable.vue";
 import CsvExportButton from "./CsvExportButton.vue";
+import ShellIcon from "./ShellIcon.vue";
 import MerchantMatrixReport from "./MerchantMatrixReport.vue";
 import BuyerStatisticsReport from "./BuyerStatisticsReport.vue";
 import OriginalOrderStatistics from "./OriginalOrderStatistics.vue";
@@ -146,42 +147,40 @@ onBeforeUnmount(() => controller?.abort());
     :client="client"
     :report="report"
   />
-  <section v-else class="panel records">
+  <div v-else class="report-page">
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <template v-if="complaintOverview">
-      <h2>投诉数据统计&amp;排行榜</h2>
-      <p class="resource-description muted">
-        本地已登记投诉，包含所有处理状态。按北京时间统计今日、昨日和近7日；近7日比率为投诉条数
-        ÷ 同期已支付订单数，无支付订单时显示未知。未登记的上游投诉不计入。
-      </p>
-      <div v-if="summary" class="stats-grid">
-        <article
-          v-for="day in [
-            { key: 'today', label: '今日投诉' },
-            { key: 'yesterday', label: '昨日投诉' },
-          ]"
-          :key="day.key"
-          class="stat"
-        >
-          <h3>{{ day.label }}</h3>
-          <strong>{{ summary[`${day.key}_count`] ?? "—" }} 条</strong>
-          <p>投诉金额：{{ summary[`${day.key}_money`] ?? "未知" }} 元</p>
-          <p>
-            支付宝 {{ summary[`${day.key}_alipay`] ?? "—" }} · 微信
-            {{ summary[`${day.key}_wxpay`] ?? "—" }}
-          </p>
-        </article>
-      </div>
-    </template>
+    <div
+      v-if="complaintOverview && summary"
+      class="stat-grid complaint-stat-grid"
+    >
+      <section
+        v-for="day in [
+          { key: 'today', label: '今日投诉' },
+          { key: 'yesterday', label: '昨日投诉' },
+        ]"
+        :key="day.key"
+        class="panel stat"
+      >
+        <span class="stat-icon"><ShellIcon name="shield" /></span>
+        <p>{{ day.label }}</p>
+        <strong>{{ summary[`${day.key}_count`] ?? "—" }}</strong>
+        <p class="card-sub">
+          总投诉 <b>{{ summary[`${day.key}_count`] ?? "—" }}</b> · 支付宝
+          <b>{{ summary[`${day.key}_alipay`] ?? "—" }}</b> · 微信
+          <b>{{ summary[`${day.key}_wxpay`] ?? "—" }}</b>
+        </p>
+        <span>投诉金额 {{ summary[`${day.key}_money`] ?? "未知" }} 元</span>
+      </section>
+    </div>
     <form
-      class="toolbar report-filter"
+      class="toolbar list-filter-card panel"
       @submit.prevent="
         page = 1;
         load();
       "
     >
-      <template v-if="!complaintOverview"
-        ><label
+      <template v-if="!complaintOverview">
+        <label class="filter-inline"
           >快捷范围<select
             v-model="shortcut"
             aria-label="统计日期快捷范围"
@@ -194,60 +193,134 @@ onBeforeUnmount(() => controller?.abort());
             <option value="last30">最近30天</option>
           </select></label
         >
-        <label
-          >开始日期<input
+        <span class="filter-inline date-range"
+          >日期<input
             v-model="from"
             type="date"
-            @input="shortcut = ''" /></label
-        ><label
-          >结束日期<input
+            aria-label="开始日期"
+            @input="shortcut = ''" /><span class="date-range-sep">–</span
+          ><input
             v-model="to"
             type="date"
-            @input="shortcut = ''" /></label></template
-      ><button :disabled="loading">
-        {{ complaintOverview ? "刷新统计" : "查询统计" }}</button
-      ><button
-        type="button"
-        :disabled="loading || !items.length"
-        @click="download"
-      >
-        导出本页 CSV
-      </button>
-      <CsvExportButton
-        :client="client"
-        :path="csvPath"
-        :filename="`${report}-filtered.csv`"
-        :disabled="loading || !validDateRange(from, to)"
-      />
-    </form>
-    <p v-if="!complaintOverview" class="resource-description muted">
-      业务日期按 UTC+08:00 统计。未指定日期时查询最近 30
-      天；未采集的维度会显示为未知。
-    </p>
-    <div v-if="loading" class="loading-row" role="status">正在汇总统计…</div>
-    <DataTable v-else-if="!error" :columns="columns" :items="items" />
-    <div class="pagination">
-      <span>共 {{ total }} 条统计</span>
-      <div>
-        <button
-          :disabled="page <= 1 || loading"
-          @click="
-            page--;
-            load();
-          "
-        >
-          上一页</button
-        ><span>第 {{ page }} 页</span
-        ><button
-          :disabled="page * 20 >= total || loading"
-          @click="
-            page++;
-            load();
-          "
-        >
-          下一页
+            aria-label="结束日期"
+            @input="shortcut = ''"
+        /></span>
+      </template>
+      <div class="filter-actions">
+        <button class="primary" :disabled="loading">
+          {{ complaintOverview ? "刷新统计" : "查询统计" }}
         </button>
       </div>
-    </div>
-  </section>
+    </form>
+    <section class="panel records">
+      <div class="table-tools">
+        <button
+          type="button"
+          :disabled="loading || !items.length"
+          @click="download"
+        >
+          <ShellIcon name="export" />导出本页 CSV
+        </button>
+        <CsvExportButton
+          :client="client"
+          :path="csvPath"
+          :filename="`${report}-filtered.csv`"
+          :disabled="loading || !validDateRange(from, to)"
+        />
+        <span class="table-summary"
+          >共 <strong>{{ total }}</strong> 条统计</span
+        >
+      </div>
+      <p v-if="!complaintOverview" class="table-note">
+        业务日期按 UTC+08:00 统计。未指定日期时查询最近 30
+        天；未采集的维度会显示为未知。
+      </p>
+      <p v-else class="table-note">
+        本地已登记投诉，包含所有处理状态。按北京时间统计今日、昨日和近7日；近7日比率为投诉条数
+        ÷ 同期已支付订单数，无支付订单时显示未知。未登记的上游投诉不计入。
+      </p>
+      <div v-if="loading" class="loading-row" role="status">正在汇总统计…</div>
+      <DataTable v-else-if="!error" :columns="columns" :items="items" />
+      <div class="pagination">
+        <span>共 {{ total }} 条统计</span>
+        <div>
+          <button
+            :disabled="page <= 1 || loading"
+            @click="
+              page--;
+              load();
+            "
+          >
+            上一页</button
+          ><span>第 {{ page }} 页</span
+          ><button
+            :disabled="page * 20 >= total || loading"
+            @click="
+              page++;
+              load();
+            "
+          >
+            下一页
+          </button>
+        </div>
+      </div>
+    </section>
+  </div>
 </template>
+<style scoped>
+.report-page {
+  display: flex;
+  flex-direction: column;
+}
+.complaint-stat-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: var(--space-4);
+}
+.card-sub {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-top: 6px;
+}
+.card-sub b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.filter-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+}
+.date-range {
+  gap: 4px;
+}
+.date-range input {
+  width: auto;
+}
+.date-range-sep {
+  color: var(--ink-muted);
+}
+.filter-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
+}
+.table-summary {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.table-note {
+  margin: 0 var(--space-5) var(--space-3);
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+@media (max-width: 760px) {
+  .complaint-stat-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>

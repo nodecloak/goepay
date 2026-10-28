@@ -12,6 +12,7 @@ import {
   type ProvinceRegion,
 } from "../province-statistics";
 import CsvExportButton from "./CsvExportButton.vue";
+import ShellIcon from "./ShellIcon.vue";
 const props = defineProps<{ client: ApiClient }>(),
   preset = ref("today"),
   uid = ref(""),
@@ -38,6 +39,17 @@ const paths = provincePaths(),
     () => new Map(data.value?.regions.map((r) => [r.name, r]) ?? []),
   ),
   admin = computed(() => props.client.area === "admin");
+// Declutter the dark map: label only provinces that carry data (or the top
+// ranks) plus whichever region is currently selected, so labels stop
+// overlapping empty provinces.
+const labelledProvinces = computed(() => {
+  const names = new Set<string>();
+  for (const region of data.value?.rank ?? []) names.add(region.name);
+  for (const region of data.value?.regions ?? [])
+    if (region.count !== "0") names.add(region.name);
+  if (selected.value) names.add(selected.value.name);
+  return names;
+});
 let controller: AbortController | undefined,
   alive = true,
   drag: {
@@ -182,8 +194,18 @@ function choose(name: string, click = false) {
 </script>
 <template>
   <section class="panel records province-statistics">
-    <form class="toolbar" @submit.prevent="load">
-      <button type="button" :disabled="loading" @click="load">刷新</button>
+    <form
+      class="toolbar list-filter-card panel province-filter"
+      @submit.prevent="load"
+    >
+      <button
+        type="button"
+        class="filter-refresh"
+        :disabled="loading"
+        @click="load"
+      >
+        <ShellIcon name="refresh" />刷新
+      </button>
       <div class="province-ranges" role="group" aria-label="统计日期范围">
         <button
           v-for="range in ranges"
@@ -197,21 +219,21 @@ function choose(name: string, click = false) {
         </button>
       </div>
       <template v-if="admin"
-        ><label
+        ><label class="filter-inline"
           >商户号<input
             v-model="uid"
             aria-label="商户号"
             placeholder="商户号"
             inputmode="numeric"
             maxlength="19" /></label
-        ><label
+        ><label class="filter-inline"
           >通道ID<input
             v-model="channel"
             aria-label="通道ID"
             placeholder="通道ID"
             inputmode="numeric"
             maxlength="19" /></label
-        ><button :disabled="loading">查询</button></template
+        ><button class="primary" :disabled="loading">查询</button></template
       >
       <button type="button" :disabled="loading" @click="reset">重置</button
       ><CsvExportButton
@@ -220,14 +242,7 @@ function choose(name: string, click = false) {
         filename="province-statistics.csv"
         :disabled="loading || !data || !!error"
       />
-    </form>
-    <p class="muted">
-      按北京时间订单创建日期统计已支付金额与笔数。地区来自已记录资料，未记录或未匹配的地区单独保留，不根据支付IP猜测。
-    </p>
-    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <p v-if="loading" role="status">正在读取地区统计…</p>
-    <template v-else-if="data && !error">
-      <div class="province-total">
+      <div v-if="data && !error" class="province-total filter-total">
         <span>累计交易金额</span
         ><strong
           >¥<span>{{ totalMoney }}</span></strong
@@ -235,6 +250,13 @@ function choose(name: string, click = false) {
           >（<span>{{ totalCount }}</span> 笔）</span
         >
       </div>
+    </form>
+    <p class="muted province-note">
+      按北京时间订单创建日期统计已支付金额与笔数。地区来自已记录资料，未记录或未匹配的地区单独保留，不根据支付IP猜测。
+    </p>
+    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+    <p v-if="loading" role="status">正在读取地区统计…</p>
+    <template v-else-if="data && !error">
       <p class="muted">
         未匹配地区（含未知）：{{ data.unmappedMoney }} 元，{{
           data.unmappedCount
@@ -318,7 +340,7 @@ function choose(name: string, click = false) {
                 :key="'label-' + boundary.name"
               >
                 <text
-                  v-if="boundary.label"
+                  v-if="boundary.label && labelledProvinces.has(boundary.name)"
                   :x="boundary.label.x"
                   :y="boundary.label.y"
                   class="province-label"
@@ -349,10 +371,13 @@ function choose(name: string, click = false) {
             /><span>高</span>
           </div>
         </section>
-        <section class="province-ranking">
+        <section class="province-ranking panel">
           <h2>Top 10 省份</h2>
-          <p v-if="!data.rank.length" class="empty">暂无已记录地区的数据</p>
-          <ol>
+          <div v-if="!data.rank.length" class="province-ranking-empty">
+            <ShellIcon name="chart" />
+            <p class="empty">暂无已记录地区的数据</p>
+          </div>
+          <ol v-else>
             <li v-for="(region, index) in data.rank" :key="region.name">
               <span
                 class="province-rank"
@@ -404,6 +429,30 @@ function choose(name: string, click = false) {
 .province-statistics {
   min-width: 0;
 }
+.province-filter.list-filter-card {
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+  align-items: center;
+}
+.filter-refresh,
+.province-filter .filter-inline {
+  margin: 0;
+}
+.province-filter .filter-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.province-filter .filter-inline input {
+  width: auto;
+  margin: 0;
+}
+.province-note {
+  margin: 0 0 var(--space-3);
+  font-size: 12px;
+  line-height: 1.7;
+}
 .province-ranges {
   display: flex;
   flex-wrap: wrap;
@@ -424,10 +473,16 @@ function choose(name: string, click = false) {
   align-items: baseline;
   margin: 18px 0;
 }
+.province-total.filter-total {
+  margin: 0 0 0 auto;
+}
 .province-total strong {
   color: var(--primary-text);
   font-size: 24px;
   overflow-wrap: anywhere;
+}
+.province-total.filter-total strong {
+  font-size: 20px;
 }
 .province-layout {
   display: grid;
@@ -442,12 +497,18 @@ function choose(name: string, click = false) {
   width: 100%;
   max-height: 600px;
   overflow: hidden;
+  background: color-mix(in srgb, var(--bg-raised) 60%, var(--bg-card));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
 }
 .province-map path {
-  stroke: var(--line-control);
-  stroke-width: 0.8;
+  stroke: var(--ink-muted);
+  stroke-width: 0.9;
   cursor: pointer;
   vector-effect: non-scaling-stroke;
+  /* Lift every province above the near-black background so empty regions are
+     still distinguishable on the dark theme; data fills still show through. */
+  fill-opacity: 0.92;
 }
 .province-label {
   pointer-events: none;
@@ -492,8 +553,31 @@ function choose(name: string, click = false) {
 .selected-province {
   overflow-wrap: anywhere;
 }
+.province-ranking {
+  padding: var(--space-4) var(--space-5);
+  align-self: start;
+}
 .province-ranking h2 {
   font-size: 16px;
+  margin: 0 0 var(--space-3);
+}
+.province-ranking-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 180px;
+  text-align: center;
+  color: var(--ink-muted);
+}
+.province-ranking-empty .shell-icon {
+  width: 32px;
+  height: 32px;
+  opacity: 0.5;
+}
+.province-ranking-empty .empty {
+  margin: 0;
 }
 .province-ranking ol {
   list-style: none;

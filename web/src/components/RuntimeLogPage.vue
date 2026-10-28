@@ -4,6 +4,7 @@ import { ApiClient } from "../api";
 import { reportDateRange } from "../reports";
 import { beijingTimestamp } from "../console-datetime";
 import RuntimeLogCleanup from "./RuntimeLogCleanup.vue";
+import ShellIcon from "./ShellIcon.vue";
 const props = defineProps<{
   client: ApiClient;
   ownSession?: boolean;
@@ -97,22 +98,23 @@ onMounted(load);
 onBeforeUnmount(clear);
 </script>
 <template>
-  <section class="panel records runtime-log-page">
-    <form
-      class="toolbar"
-      @submit.prevent="
-        page = 1;
-        load();
-      "
-    >
-      <label
-        >日期<input
-          v-model="date"
-          type="date"
-          :max="today"
-          aria-label="日期"
-          required /></label
-      ><button :disabled="loading">查询</button
+  <form
+    class="toolbar list-filter-card panel"
+    @submit.prevent="
+      page = 1;
+      load();
+    "
+  >
+    <span class="filter-inline date-range"
+      >日期<input
+        v-model="date"
+        type="date"
+        :max="today"
+        aria-label="日期"
+        required
+    /></span>
+    <div class="filter-actions">
+      <button class="primary" :disabled="loading">查询</button
       ><button
         type="button"
         :disabled="loading"
@@ -122,20 +124,28 @@ onBeforeUnmount(clear);
           $nextTick(load);
         "
       >
-        重置</button
-      ><button type="button" :disabled="loading" @click="load">刷新</button
-      ><button
-        v-if="canWrite"
-        type="button"
-        class="danger-button"
-        @click="cleanup = true"
-      >
-        清除日志
+        重置
       </button>
-    </form>
-    <p class="muted">
-      按北京时间查看本服务已保存的运行事件；部署前或数据库不可用时未保存的终端输出不在列表中。
-    </p>
+    </div>
+  </form>
+  <section class="panel records runtime-log-page">
+    <div class="table-tools">
+      <span class="muted"
+        >按北京时间查看本服务已保存的运行事件；部署前或数据库不可用时未保存的终端输出不在列表中。</span
+      >
+      <div class="table-tools-end">
+        <button type="button" :disabled="loading" @click="load">
+          <ShellIcon name="refresh" />刷新</button
+        ><button
+          v-if="canWrite"
+          type="button"
+          class="danger-button"
+          @click="cleanup = true"
+        >
+          清除日志
+        </button>
+      </div>
+    </div>
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <p v-if="loading" role="status">正在读取运行日志…</p>
     <div v-else-if="!error" class="table-scroll">
@@ -186,8 +196,16 @@ onBeforeUnmount(clear);
         </button>
       </div>
     </div>
-    <details @toggle="auditOpen = ($event.target as HTMLDetailsElement).open">
-      <summary>查看独立保留的业务审计</summary>
+    <details
+      class="list-filters runtime-audit-disclosure"
+      @toggle="auditOpen = ($event.target as HTMLDetailsElement).open"
+    >
+      <summary>
+        <ShellIcon name="filter" />查看独立保留的业务审计<ShellIcon
+          name="chevronDown"
+          class="list-filters-chevron"
+        />
+      </summary>
       <slot v-if="auditOpen" name="audit" />
     </details>
     <RuntimeLogCleanup
@@ -209,8 +227,8 @@ onBeforeUnmount(clear);
   overflow-wrap: anywhere;
   max-width: 700px;
 }
-.runtime-log-page details {
-  margin-top: 16px;
+.runtime-audit-disclosure {
+  margin: 16px var(--space-5) 0;
 }
 .badge[data-state="error"],
 .badge[data-state="critical"],

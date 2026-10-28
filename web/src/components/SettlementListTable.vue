@@ -136,9 +136,18 @@ function checkAll(event: Event) {
               }}</small></template
             >
             <template v-else-if="column.key === 'status'"
-              ><span :class="'settlement-status ' + row.tone">{{
-                row.status
-              }}</span
+              ><span
+                class="badge"
+                :data-state="
+                  {
+                    waiting: 'warn',
+                    processing: 'warn',
+                    success: 'on',
+                    danger: 'bad',
+                    neutral: 'none',
+                  }[row.tone] || 'none'
+                "
+                >{{ row.status }}</span
               ><small class="settlement-secondary muted">{{ row.hint }}</small
               ><template v-if="area === 'merchant'"
                 ><button
@@ -245,20 +254,5 @@ th.settlement-actions {
 }
 .settlement-actions .row-actions {
   max-width: 180px;
-}
-.settlement-status.waiting {
-  color: var(--primary-text);
-}
-.settlement-status.processing {
-  color: var(--warning-text);
-}
-.settlement-status.success {
-  color: var(--success-text);
-}
-.settlement-status.danger {
-  color: var(--danger-text);
-}
-.settlement-status.neutral {
-  color: var(--ink-muted);
 }
 </style>

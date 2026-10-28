@@ -548,7 +548,9 @@ onBeforeUnmount(() => {
         </form>
       </section>
       <section v-if="section === 'security'" class="panel account-section">
-        <h2>修改登录密码</h2>
+        <h2>
+          {{ client.area === "admin" ? "修改管理员密码" : "修改登录密码" }}
+        </h2>
         <form @submit.prevent="changePassword">
           <label
             >当前密码<input
@@ -738,10 +740,23 @@ onBeforeUnmount(() => {
   </div>
 </template>
 <style scoped>
+.account-section {
+  min-width: 0;
+}
+.account-section form label {
+  display: block;
+  min-width: 0;
+}
+.account-section form input,
+.account-section form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
 .account-profile-facts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 20px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px 20px;
   margin: 16px 0;
   font-size: 14px;
 }
@@ -752,9 +767,9 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 .account-profile-facts dt {
-  flex: 0 0 130px;
+  flex: 0 0 120px;
   text-align: right;
-  color: var(--muted, var(--ink));
+  color: var(--muted, var(--ink-muted));
 }
 .account-profile-facts dd {
   margin: 0;
@@ -771,7 +786,7 @@ onBeforeUnmount(() => {
   border: 0;
   background: transparent;
   padding: 0;
-  min-height: 28px;
+  min-height: var(--control-h);
   color: var(--primary, var(--primary-text));
   font-size: inherit;
 }

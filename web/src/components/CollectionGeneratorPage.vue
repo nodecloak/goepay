@@ -360,6 +360,7 @@ onBeforeUnmount(() => {
                 v-model="style"
                 aria-label="选择收款码风格"
               >
+                <option value="" disabled>请选择收款码风格</option>
                 <option value="0">普通二维码</option>
                 <option v-for="item in styles" :key="item.id" :value="item.id">
                   {{

@@ -217,17 +217,21 @@ onBeforeUnmount(() => {
 <template>
   <section class="panel records buyer-statistics">
     <form
-      class="toolbar report-filter"
+      class="toolbar list-filter-card panel"
       @submit.prevent="
         page = 1;
         load();
       "
     >
-      <label
-        >查询日期（开始）<input v-model="from" type="date" required
-      /></label>
-      <label>查询日期（结束）<input v-model="to" type="date" required /></label>
-      <label
+      <span class="filter-inline date-range"
+        >查询日期<input
+          v-model="from"
+          type="date"
+          aria-label="开始日期"
+          required /><span class="date-range-sep">–</span
+        ><input v-model="to" type="date" aria-label="结束日期" required
+      /></span>
+      <label class="filter-inline"
         >支付方式<select v-model="type" aria-label="支付方式">
           <option value="">所有支付方式</option>
           <option value="alipay">支付宝</option>
@@ -235,28 +239,32 @@ onBeforeUnmount(() => {
           <option value="sandbox">本地模拟</option>
         </select></label
       >
-      <label
+      <label class="filter-inline"
         >统计方式<select v-model="method" aria-label="统计方式">
           <option value="0">支付账号统计</option>
           <option value="1">支付IP统计</option>
           <option value="2">支付手机号统计</option>
         </select></label
       >
-      <button type="submit" :disabled="loading">查询</button>
-      <button
-        type="button"
-        :disabled="loading"
-        @click="
-          from = today.from;
-          to = today.to;
-          type = '';
-          method = '0';
-          page = 1;
-          $nextTick(load);
-        "
-      >
-        重置
-      </button>
+      <div class="filter-actions">
+        <button type="submit" class="primary" :disabled="loading">查询</button>
+        <button
+          type="button"
+          :disabled="loading"
+          @click="
+            from = today.from;
+            to = today.to;
+            type = '';
+            method = '0';
+            page = 1;
+            $nextTick(load);
+          "
+        >
+          重置
+        </button>
+      </div>
+    </form>
+    <div class="table-tools">
       <CsvExportButton
         :client="client"
         :path="csvPath"
@@ -265,8 +273,11 @@ onBeforeUnmount(() => {
           loading || !applied || !!unavailable || !validDateRange(from, to)
         "
       />
-    </form>
-    <p class="muted">
+      <span class="table-summary"
+        >共 <strong>{{ total }}</strong> 条记录</span
+      >
+    </div>
+    <p class="table-note">
       只统计查询日期内已付款订单，日期按北京时间。未记录的账号或IP不合并为虚构用户；付款金额可按行刷新。
     </p>
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
@@ -410,6 +421,39 @@ onBeforeUnmount(() => {
 <style scoped>
 .buyer-statistics {
   min-width: 0;
+}
+.filter-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+}
+.date-range {
+  gap: 4px;
+}
+.date-range input {
+  width: auto;
+}
+.date-range-sep {
+  color: var(--ink-muted);
+}
+.filter-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
+}
+.table-summary {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.table-note {
+  margin: 0 var(--space-5) var(--space-3);
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.7;
 }
 .buyer-statistics td {
   overflow-wrap: anywhere;

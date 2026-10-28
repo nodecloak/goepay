@@ -234,6 +234,7 @@ onBeforeUnmount(() => {
         尚未准备出款。缺失申请费用快照、独立资金或收款快照时不能出款；银行卡须匹配明确可用的银行产品。
       </p>
       <p v-if="caps?.reason" class="alert">{{ caps.reason }}</p>
+      <hr class="payout-divider" aria-hidden="true" />
       <template v-if="actions.prepare && !uncertain"
         ><label
           >出款通道<select
@@ -316,3 +317,27 @@ onBeforeUnmount(() => {
     </template>
   </section>
 </template>
+<style scoped>
+.detail-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-3) 0;
+  font-size: 14px;
+}
+.detail-grid dt {
+  color: var(--ink-muted);
+  text-align: right;
+  min-width: 120px;
+}
+.detail-grid dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.payout-divider {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: var(--space-4) 0;
+}
+</style>

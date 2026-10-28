@@ -234,9 +234,9 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="panel" aria-label="邀请返现政策">
-    <h2>邀请返现政策</h2>
-    <p>
+  <section class="panel" aria-label="订单返现政策">
+    <h2>订单返现</h2>
+    <p class="muted">
       可选择原订单手续费或订单金额作为比例基数；两种奖励均不超过原订单平台手续费。任意成功退款撤销整笔奖励。比例0–10000
       BPS（100
       BPS=1%）；未启用政策不发奖，旧订单不追补。政策变更需本人管理员资金授权。
@@ -258,14 +258,14 @@ onBeforeUnmount(() => {
       ><button :disabled="busy || loading || !permitted">读取政策版本</button>
     </form>
     <section v-if="current">
-      <p>
+      <p class="muted">
         当前修订 {{ current.revision }}。{{
           current.revision === "0"
             ? "尚未配置本范围政策；全局缺省不发奖，用户组未配置项继承。"
             : "仅新订单使用本版本的有效配置，原奖励及退款来源不改写。"
         }}
       </p>
-      <p>
+      <p class="muted">
         覆盖顺序：全局 → 付款商户组 →
         推广商户组；启用和比例空项继承，比例0是明确覆盖。存在用户组政策时，其基数明确覆盖，不继承上层基数；发奖时机也明确覆盖。
       </p>

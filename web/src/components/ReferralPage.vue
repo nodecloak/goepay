@@ -324,88 +324,102 @@ onBeforeUnmount(() => {
       :available="dailyAvailable"
       :promoter-id="token.merchant_id"
     />
-    <h3>已邀请商户</h3>
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>关系ID</th>
-            <th>商户ID</th>
-            <th>注册时间</th>
-            <th>令牌版本</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in invitees" :key="row.id">
-            <td>{{ row.id }}</td>
-            <td>{{ row.invited_id }}</td>
-            <td>{{ row.created_at }}</td>
-            <td>{{ row.token_version }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p v-if="!loading && !invitees.length">暂无邀请关系</p>
-    <button
-      :disabled="loading || busy || inviteCursor === '0'"
-      @click="
-        inviteCursor = '0';
-        load();
-      "
-    >
-      关系首页</button
-    ><button
-      :disabled="loading || busy || !inviteNext"
-      @click="
-        inviteCursor = inviteNext;
-        load();
-      "
-    >
-      下一页关系
-    </button>
-    <h3>邀请奖励流水</h3>
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>奖励ID</th>
-            <th>原订单号</th>
-            <th>受邀商户</th>
-            <th>原发放金额（元）</th>
-            <th>状态</th>
-            <th>时间</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in rewards" :key="row.id">
-            <td>{{ row.id }}</td>
-            <td>{{ row.trade_no }}</td>
-            <td>{{ row.invited_id }}</td>
-            <td>{{ referralAmount(row.amount) }}</td>
-            <td>{{ states[row.state] }}</td>
-            <td>{{ row.created_at }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p v-if="!loading && !rewards.length">暂无奖励流水</p>
-    <button
-      :disabled="loading || busy || rewardCursor === '0'"
-      @click="
-        rewardCursor = '0';
-        load();
-      "
-    >
-      奖励首页</button
-    ><button
-      :disabled="loading || busy || !rewardNext"
-      @click="
-        rewardCursor = rewardNext;
-        load();
-      "
-    >
-      下一页奖励
-    </button>
+    <section class="referral-sublist" aria-label="已邀请商户">
+      <h3>已邀请商户</h3>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>关系ID</th>
+              <th>商户ID</th>
+              <th>注册时间</th>
+              <th>令牌版本</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in invitees" :key="row.id">
+              <td>{{ row.id }}</td>
+              <td>{{ row.invited_id }}</td>
+              <td>{{ row.created_at }}</td>
+              <td>{{ row.token_version }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p v-if="!loading && !invitees.length">暂无邀请关系</p>
+      <div class="pagination">
+        <span>共 {{ invitees.length }} 条</span>
+        <div>
+          <button
+            :disabled="loading || busy || inviteCursor === '0'"
+            @click="
+              inviteCursor = '0';
+              load();
+            "
+          >
+            关系首页</button
+          ><button
+            :disabled="loading || busy || !inviteNext"
+            @click="
+              inviteCursor = inviteNext;
+              load();
+            "
+          >
+            下一页关系
+          </button>
+        </div>
+      </div>
+    </section>
+    <section class="referral-sublist" aria-label="邀请奖励流水">
+      <h3>邀请奖励流水</h3>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>奖励ID</th>
+              <th>原订单号</th>
+              <th>受邀商户</th>
+              <th>原发放金额（元）</th>
+              <th>状态</th>
+              <th>时间</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in rewards" :key="row.id">
+              <td>{{ row.id }}</td>
+              <td>{{ row.trade_no }}</td>
+              <td>{{ row.invited_id }}</td>
+              <td>{{ referralAmount(row.amount) }}</td>
+              <td>{{ states[row.state] }}</td>
+              <td>{{ row.created_at }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p v-if="!loading && !rewards.length">暂无奖励流水</p>
+      <div class="pagination">
+        <span>共 {{ rewards.length }} 条</span>
+        <div>
+          <button
+            :disabled="loading || busy || rewardCursor === '0'"
+            @click="
+              rewardCursor = '0';
+              load();
+            "
+          >
+            奖励首页</button
+          ><button
+            :disabled="loading || busy || !rewardNext"
+            @click="
+              rewardCursor = rewardNext;
+              load();
+            "
+          >
+            下一页奖励
+          </button>
+        </div>
+      </div>
+    </section>
   </section>
 </template>
 <style scoped>
@@ -438,6 +452,16 @@ onBeforeUnmount(() => {
 .referral-stats dd {
   margin: 0.5rem 0 0;
   font-weight: 700;
+}
+.referral-sublist {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  margin-top: var(--space-4);
+  min-width: 0;
+}
+.referral-sublist > h3 {
+  margin: 0 0 var(--space-3);
 }
 .referral table {
   min-width: 580px;

@@ -47,6 +47,8 @@ import RuleExecutionPanel from "./RuleExecutionPanel.vue";
 import CollectionCodePanel from "./CollectionCodePanel.vue";
 import MerchantDirectoryFilters from "./MerchantDirectoryFilters.vue";
 import ActionDropdown from "./ActionDropdown.vue";
+import ShellIcon from "./ShellIcon.vue";
+import AddonConfigGroups from "./AddonConfigGroups.vue";
 import {
   newMerchantDirectory,
   merchantDirectoryColumns,
@@ -167,6 +169,42 @@ const canDelegate = computed(
       (a) => (typeof a === "string" ? a : a.name) === "sso",
     ),
 );
+// The original console heads these short configuration lists with
+// "系统共有 N 个…".
+const summaryNoun = computed(
+  () =>
+    (
+      ({
+        groups: "用户组",
+        "pay-rolls": "轮询组",
+        "pay-types": "支付方式",
+      }) as Record<string, string>
+    )[props.resource] ?? "",
+);
+const showBusinessNotices = computed(
+  () =>
+    props.resource === "settings" &&
+    props.client.area === "admin" &&
+    props.ownSession === true &&
+    ["super", "operator"].includes(props.adminClass ?? ""),
+);
+// Tag colour for an on/off style value (正常 green, 已禁用 red, …).
+function stateTag(key: string, value: unknown): string {
+  if (key === "enabled")
+    return value === true ? "on" : value === false ? "bad" : "none";
+  if (key === "pay")
+    return (
+      ({ "0": "bad", "1": "on", "2": "warn" } as Record<string, string>)[
+        String(value)
+      ] ?? "none"
+    );
+  if (key === "settle")
+    return (
+      ({ "0": "off", "1": "on" } as Record<string, string>)[String(value)] ??
+      "none"
+    );
+  return "none";
+}
 const entityLabel = computed(
   () =>
     (
@@ -559,7 +597,13 @@ async function refreshCase() {
   }
 }
 async function load() {
-	if(props.resource==='channels'&&props.client.area==='admin'&&props.ownSession===true&&props.adminClass==='super')return;
+  if (
+    props.resource === "channels" &&
+    props.client.area === "admin" &&
+    props.ownSession === true &&
+    props.adminClass === "super"
+  )
+    return;
   merchantStatisticsID.value = undefined;
   merchantStatisticsReturn = undefined;
   groupStatisticsID.value = undefined;
@@ -791,11 +835,21 @@ onMounted(() => {
 onBeforeUnmount(resetContext);
 </script>
 <template>
-  <template v-if="resource==='channels'&&client.area==='admin'&&ownSession===true&&adminClass==='super'">
-    <ParentChannelPage :client="client" :allowed="ownSession===true&&adminClass==='super'" />
+  <template
+    v-if="
+      resource === 'channels' &&
+      client.area === 'admin' &&
+      ownSession === true &&
+      adminClass === 'super'
+    "
+  >
+    <ParentChannelPage
+      :client="client"
+      :allowed="ownSession === true && adminClass === 'super'"
+    />
     <ChannelStopPanel :client="client" />
   </template>
-  <section v-else-if="!entry || !mode" class="panel records">
+  <template v-else-if="!entry || !mode">
     <RuntimeChannelPolicyPanel
       v-if="
         resource === 'channels' &&
@@ -816,12 +870,9 @@ onBeforeUnmount(resetContext);
     />
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
-    <p v-if="schema?.description" class="resource-description muted">
-      {{ schema.description }}
-    </p>
     <form
       v-if="!entry"
-      class="toolbar"
+      class="toolbar list-filter-card panel resource-filter"
       @submit.prevent="
         page = 1;
         load();
@@ -847,8 +898,8 @@ onBeforeUnmount(resetContext);
         ><input
           :id="'search-' + resource"
           v-model="query"
-          placeholder="搜索记录"
-        /><button :disabled="loading">查询</button>
+          :placeholder="resource === 'merchants' ? '搜索内容' : '搜索记录'"
+        /><button class="primary" :disabled="loading">查询</button>
       </div>
       <MerchantDirectoryFilters
         v-if="resource === 'merchants'"
@@ -856,19 +907,62 @@ onBeforeUnmount(resetContext);
         :disabled="loading || busy"
         @clear="clearMerchantFilters"
       />
-      <div class="toolbar-actions">
-        <button type="button" :disabled="loading || busy" @click="load">
-          刷新</button
-        ><a
+    </form>
+    <template v-if="resource === 'addon-configs' && !entry">
+      <AddonConfigGroups
+        :items="items"
+        :fields="listFields"
+        :entity-label="entityLabel"
+        :can-create="schema?.permissions.create === true"
+        :can-update="schema?.permissions.update === true"
+        :can-delete="schema?.permissions.delete === true"
+        :busy="busy"
+        :loading="loading"
+        :note="schema?.description"
+        @create="open('create')"
+        @refresh="load"
+        @open="(action, row) => open(action, row)"
+      />
+      <div v-if="total > items.length" class="pagination panel addon-pager">
+        <span>共 {{ total }} 条记录</span>
+        <div>
+          <button
+            :disabled="page <= 1 || loading"
+            @click="
+              page--;
+              load();
+            "
+          >
+            上一页</button
+          ><span>第 {{ page }} 页</span
+          ><button
+            :disabled="page * limit >= total || loading"
+            @click="
+              page++;
+              load();
+            "
+          >
+            下一页
+          </button>
+        </div>
+      </div>
+    </template>
+    <section
+      v-else-if="!entry || schema?.description || showBusinessNotices"
+      class="panel records"
+    >
+      <div v-if="!entry" class="table-tools">
+        <a
           v-if="
             schema?.permissions.create && resource === 'onboarding-applications'
           "
+          class="button-link primary"
           :href="
             client.area === 'merchant'
               ? '/merchant/applyments/create'
               : '/admin/applyments/form'
           "
-          >新增{{ entityLabel }}</a
+          ><ShellIcon name="plus" />新增{{ entityLabel }}</a
         ><button
           v-if="
             schema?.permissions.create && resource !== 'onboarding-applications'
@@ -878,327 +972,360 @@ onBeforeUnmount(resetContext);
           :disabled="busy"
           @click="open('create')"
         >
-          新增{{ entityLabel }}
+          <ShellIcon name="plus" />新增{{ entityLabel }}
         </button>
+        <span v-if="summaryNoun" class="table-summary"
+          >系统共有<strong>{{ total }}</strong
+          >个{{ summaryNoun }}</span
+        >
+        <div class="table-tools-end">
+          <button type="button" :disabled="loading || busy" @click="load">
+            <ShellIcon name="refresh" />刷新
+          </button>
+        </div>
       </div>
-    </form>
-    <div v-if="loading" class="loading-row" role="status">正在加载记录…</div>
-    <div v-else-if="schema && !entry" class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">
-              {{
-                resource === "merchants"
-                  ? hasGroupProjection
+      <p v-if="schema?.description" class="table-note">
+        {{ schema.description }}
+      </p>
+      <div v-if="loading" class="loading-row" role="status">正在加载记录…</div>
+      <div v-else-if="schema && !entry" class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">
+                {{
+                  resource === "merchants"
+                    ? hasGroupProjection
+                      ? isOriginalMerchantList
+                        ? "商户号/用户组"
+                        : "商户号 / 用户组"
+                      : "商户号"
+                    : resource === "groups"
+                      ? "GID"
+                      : "编号"
+                }}
+              </th>
+              <th
+                v-for="field in listFields"
+                :key="field.name"
+                scope="col"
+                :title="
+                  isOriginalMerchantList && field.name === 'created_at'
+                    ? '注册时间为北京时间'
+                    : isOriginalMerchantList && field.name === 'available_minor'
+                      ? '金额单位：元'
+                      : undefined
+                "
+              >
+                {{
+                  resource === "merchants"
                     ? isOriginalMerchantList
-                      ? "商户号/用户组"
-                      : "商户号 / 用户组"
-                    : "商户号"
-                  : resource === "groups"
-                    ? "GID"
-                    : "编号"
-              }}
-            </th>
-            <th
-              v-for="field in listFields"
-              :key="field.name"
-              scope="col"
-              :title="
-                isOriginalMerchantList && field.name === 'created_at'
-                  ? '注册时间为北京时间'
-                  : isOriginalMerchantList && field.name === 'available_minor'
-                    ? '金额单位：元'
-                    : undefined
-              "
-            >
-              {{
-                resource === "merchants"
-                  ? isOriginalMerchantList
-                    ? field.label
-                    : hasContactProjection && field.name === contactAnchor
-                      ? "联系方式"
-                      : field.name === "created_at" &&
-                          schema.fields.some((f) => f.name === "url")
-                        ? "注册时间 / 域名"
-                        : consoleColumnLabel(field.name, field.label)
-                  : field.label
-              }}
-            </th>
-            <th v-if="resource === 'groups'" scope="col">通道与费率</th>
-            <th scope="col">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in items" :key="String(row.id)">
-            <td>
-              {{ row.id }}
-              <small
-                v-if="isOriginalMerchantList && typeof row.name === 'string'"
-                class="merchant-balance-detail"
-                >{{ row.name }}</small
-              >
-              <template v-if="hasGroupProjection">
-                <small class="merchant-balance-detail muted">{{
-                  merchantGroupLabel(row)
-                }}</small>
+                      ? field.label
+                      : hasContactProjection && field.name === contactAnchor
+                        ? "联系方式"
+                        : field.name === "created_at" &&
+                            schema.fields.some((f) => f.name === "url")
+                          ? "注册时间 / 域名"
+                          : consoleColumnLabel(field.name, field.label)
+                    : field.label
+                }}
+              </th>
+              <th v-if="resource === 'groups'" scope="col">通道与费率</th>
+              <th scope="col">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in items" :key="String(row.id)">
+              <td>
+                {{ row.id }}
                 <small
-                  v-if="
-                    typeof row.membership_expires_at === 'string' &&
-                    row.membership_expires_at
-                  "
-                  class="merchant-balance-detail muted"
-                  >{{
-                    row.group_membership_active === true
-                      ? "成员有效期至"
-                      : "原成员到期时间"
-                  }}（北京时间）：{{
-                    consoleValue(
-                      "membership_expires_at",
-                      row.membership_expires_at,
+                  v-if="isOriginalMerchantList && typeof row.name === 'string'"
+                  class="merchant-balance-detail"
+                  >{{ row.name }}</small
+                >
+                <template v-if="hasGroupProjection">
+                  <small class="merchant-balance-detail muted">{{
+                    merchantGroupLabel(row)
+                  }}</small>
+                  <small
+                    v-if="
+                      typeof row.membership_expires_at === 'string' &&
+                      row.membership_expires_at
+                    "
+                    class="merchant-balance-detail muted"
+                    >{{
+                      row.group_membership_active === true
+                        ? "成员有效期至"
+                        : "原成员到期时间"
+                    }}（北京时间）：{{
+                      consoleValue(
+                        "membership_expires_at",
+                        row.membership_expires_at,
+                      )
+                    }}</small
+                  >
+                </template>
+              </td>
+              <td v-for="field in listFields" :key="field.name">
+                <template v-if="isOriginalMerchantList && field.name === 'pay'">
+                  <span class="badge-stack merchant-state-tags">
+                    <span class="badge" :data-state="stateTag('pay', row.pay)"
+                      >收款配置：{{ merchantFieldValue("pay", row.pay) }}</span
+                    >
+                    <span
+                      class="badge"
+                      :data-state="stateTag('enabled', row.enabled)"
+                      >账户：{{ consoleValue("enabled", row.enabled) }}</span
+                    >
+                    <span
+                      v-if="row.settle !== undefined"
+                      class="badge"
+                      :data-state="stateTag('settle', row.settle)"
+                      >结算：{{
+                        merchantFieldValue("settle", row.settle)
+                      }}</span
+                    >
+                  </span>
+                  <small class="merchant-balance-detail muted">{{
+                    effectiveRiskDescription(
+                      row.core_risk,
+                      row.enabled === true,
+                      row.pay,
                     )
-                  }}</small
+                  }}</small>
+                </template>
+                <template
+                  v-else-if="
+                    hasContactProjection && field.name === contactAnchor
+                  "
                 >
-              </template>
-            </td>
-            <td v-for="field in listFields" :key="field.name">
-              <template v-if="isOriginalMerchantList && field.name === 'pay'">
-                <span class="cell"
-                  >收款配置：{{ merchantFieldValue("pay", row.pay) }}</span
+                  <small
+                    v-for="contact in [
+                      { key: 'phone', label: '手机' },
+                      { key: 'email', label: '邮箱' },
+                      { key: 'qq', label: 'QQ' },
+                    ].filter(
+                      (c) =>
+                        fields.some((f) => f.name === c.key) &&
+                        typeof row[c.key] === 'string' &&
+                        row[c.key],
+                    )"
+                    :key="contact.key"
+                    class="merchant-balance-detail"
+                    >{{ contact.label }}：{{ row[contact.key] }}</small
+                  >
+                  <span v-if="!row.phone && !row.email && !row.qq">—</span>
+                </template>
+                <span
+                  v-else-if="field.name === 'enabled'"
+                  class="badge"
+                  :data-state="stateTag('enabled', row.enabled)"
+                  >{{ consoleValue("enabled", row.enabled) }}</span
                 >
-                <small class="merchant-balance-detail muted"
-                  >账户：{{ consoleValue("enabled", row.enabled) }}</small
+                <span
+                  v-else
+                  class="cell"
+                  :class="{
+                    'balance-strong':
+                      isOriginalMerchantList &&
+                      field.name === 'available_minor',
+                  }"
+                  >{{
+                    isOriginalMerchantList && field.name === "available_minor"
+                      ? "¥" + merchantFieldValue(field.name, row[field.name])
+                      : resource === "merchants"
+                        ? merchantFieldValue(field.name, row[field.name])
+                        : field.name === "enabled"
+                          ? consoleValue(field.name, row[field.name])
+                          : field.type === "boolean"
+                            ? row[field.name]
+                              ? "是"
+                              : "否"
+                            : displayValue(row[field.name])
+                  }}</span
                 >
-                <small class="merchant-balance-detail muted">{{
-                  effectiveRiskDescription(
-                    row.core_risk,
-                    row.enabled === true,
-                    row.pay,
-                  )
-                }}</small>
+                <template
+                  v-if="
+                    resource === 'merchants' && field.name === 'available_minor'
+                  "
+                >
+                  <small
+                    v-if="row.frozen_minor !== undefined"
+                    class="merchant-balance-detail muted"
+                    >冻结预留：{{
+                      consoleValue("frozen_minor", row.frozen_minor)
+                    }}</small
+                  >
+                  <small
+                    v-if="row.income_held_minor !== undefined"
+                    class="merchant-balance-detail muted"
+                    >待解冻收入：{{
+                      consoleValue("income_held_minor", row.income_held_minor)
+                    }}</small
+                  >
+                </template>
                 <small
-                  v-if="row.settle !== undefined"
-                  class="merchant-balance-detail muted"
-                  >结算：{{ merchantFieldValue("settle", row.settle) }}</small
-                >
-              </template>
-              <template
-                v-else-if="hasContactProjection && field.name === contactAnchor"
-              >
-                <small
-                  v-for="contact in [
-                    { key: 'phone', label: '手机' },
-                    { key: 'email', label: '邮箱' },
-                    { key: 'qq', label: 'QQ' },
-                  ].filter(
-                    (c) =>
-                      fields.some((f) => f.name === c.key) &&
-                      typeof row[c.key] === 'string' &&
-                      row[c.key],
-                  )"
-                  :key="contact.key"
+                  v-if="
+                    resource === 'merchants' &&
+                    field.name === 'created_at' &&
+                    typeof row.url === 'string' &&
+                    row.url
+                  "
                   class="merchant-balance-detail"
-                  >{{ contact.label }}：{{ row[contact.key] }}</small
+                  >网站：{{ row.url }}</small
                 >
-                <span v-if="!row.phone && !row.email && !row.qq">—</span>
-              </template>
-              <span v-else class="cell">{{
-                isOriginalMerchantList && field.name === "available_minor"
-                  ? "¥" + merchantFieldValue(field.name, row[field.name])
-                  : resource === "merchants"
-                    ? merchantFieldValue(field.name, row[field.name])
-                    : field.name === "enabled"
-                      ? consoleValue(field.name, row[field.name])
-                      : field.type === "boolean"
-                        ? row[field.name]
-                          ? "是"
-                          : "否"
-                        : displayValue(row[field.name])
-              }}</span>
-              <template
-                v-if="
-                  resource === 'merchants' && field.name === 'available_minor'
+                <template
+                  v-if="hasDomainProjection && field.name === 'created_at'"
+                >
+                  <small
+                    v-for="domain in approvedMerchantDomains(
+                      row.approved_domains,
+                    )"
+                    :key="domain"
+                    class="merchant-balance-detail muted"
+                    >{{ domain }}</small
+                  >
+                </template>
+              </td>
+              <td v-if="resource === 'groups'">
+                <p v-if="groupDirectoryRates(row).error" class="muted">
+                  {{ groupDirectoryRates(row).error }}
+                </p>
+                <template v-else>
+                  <small
+                    v-for="rate in groupDirectoryRates(row).lines"
+                    :key="rate.label"
+                    class="merchant-balance-detail"
+                    >{{ rate.label }}：{{ rate.value }}</small
+                  >
+                  <small class="merchant-balance-detail muted"
+                    >继承商户通道配置</small
+                  >
+                </template>
+              </td>
+              <td>
+                <div class="row-actions">
+                  <RouterLink
+                    v-if="
+                      resource === 'groups' &&
+                      client.area === 'admin' &&
+                      groupUsersHref(row.id)
+                    "
+                    :to="groupUsersHref(row.id)!"
+                    >用户</RouterLink
+                  >
+                  <button
+                    v-if="canReadGroupStatistics"
+                    class="link-button"
+                    :disabled="
+                      busy || loading || mode !== null || !!groupStatisticsID
+                    "
+                    @click="openGroupStatistics(row.id)"
+                  >
+                    统计
+                  </button>
+                  <button
+                    v-if="resource !== 'groups'"
+                    class="link-button"
+                    :disabled="busy"
+                    @click="open('detail', row)"
+                  >
+                    详情</button
+                  ><a
+                    v-if="
+                      schema.permissions.update &&
+                      resource === 'onboarding-applications'
+                    "
+                    :href="`/${client.area}/applyments/form?id=${encodeURIComponent(String(row.id))}`"
+                    >编辑</a
+                  ><button
+                    v-if="
+                      schema.permissions.update &&
+                      resource !== 'onboarding-applications'
+                    "
+                    class="link-button"
+                    :disabled="busy"
+                    @click="open('edit', row)"
+                  >
+                    编辑</button
+                  ><button
+                    v-if="schema.permissions.delete"
+                    class="link-button danger-text"
+                    :disabled="busy"
+                    @click="open('delete', row)"
+                  >
+                    删除
+                  </button>
+                  <button
+                    v-if="canDelegate"
+                    class="link-button"
+                    :disabled="busy"
+                    @click="delegation = row"
+                  >
+                    代登录商户
+                  </button>
+                  <ActionDropdown
+                    v-if="resource === 'merchants' && client.area === 'admin'"
+                    :label="`商户关联记录 ${row.id}`"
+                    :items="merchantRelatedLinks(row.id)"
+                    trigger-text="更多"
+                    :disabled="
+                      busy ||
+                      loading ||
+                      mode !== null ||
+                      !!merchantLogID ||
+                      !!merchantStatisticsID ||
+                      !!manualWithdrawalID
+                    "
+                    @action="(action) => merchantRelatedAction(action, row.id)"
+                  />
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!items.length">
+              <td
+                :colspan="
+                  listFields.length + 2 + (resource === 'groups' ? 1 : 0)
                 "
+                class="empty"
               >
-                <small
-                  v-if="row.frozen_minor !== undefined"
-                  class="merchant-balance-detail muted"
-                  >冻结预留：{{
-                    consoleValue("frozen_minor", row.frozen_minor)
-                  }}</small
-                >
-                <small
-                  v-if="row.income_held_minor !== undefined"
-                  class="merchant-balance-detail muted"
-                  >待解冻收入：{{
-                    consoleValue("income_held_minor", row.income_held_minor)
-                  }}</small
-                >
-              </template>
-              <small
-                v-if="
-                  resource === 'merchants' &&
-                  field.name === 'created_at' &&
-                  typeof row.url === 'string' &&
-                  row.url
-                "
-                class="merchant-balance-detail"
-                >网站：{{ row.url }}</small
-              >
-              <template
-                v-if="hasDomainProjection && field.name === 'created_at'"
-              >
-                <small
-                  v-for="domain in approvedMerchantDomains(
-                    row.approved_domains,
-                  )"
-                  :key="domain"
-                  class="merchant-balance-detail muted"
-                  >{{ domain }}</small
-                >
-              </template>
-            </td>
-            <td v-if="resource === 'groups'">
-              <p v-if="groupDirectoryRates(row).error" class="muted">
-                {{ groupDirectoryRates(row).error }}
-              </p>
-              <template v-else>
-                <small
-                  v-for="rate in groupDirectoryRates(row).lines"
-                  :key="rate.label"
-                  class="merchant-balance-detail"
-                  >{{ rate.label }}：{{ rate.value }}</small
-                >
-                <small class="merchant-balance-detail muted"
-                  >继承商户通道配置</small
-                >
-              </template>
-            </td>
-            <td>
-              <div class="row-actions">
-                <RouterLink
-                  v-if="
-                    resource === 'groups' &&
-                    client.area === 'admin' &&
-                    groupUsersHref(row.id)
-                  "
-                  :to="groupUsersHref(row.id)!"
-                  >用户</RouterLink
-                >
-                <button
-                  v-if="canReadGroupStatistics"
-                  class="link-button"
-                  :disabled="
-                    busy || loading || mode !== null || !!groupStatisticsID
-                  "
-                  @click="openGroupStatistics(row.id)"
-                >
-                  统计
-                </button>
-                <ActionDropdown
-                  v-if="resource === 'merchants' && client.area === 'admin'"
-                  :label="`商户关联记录 ${row.id}`"
-                  :items="merchantRelatedLinks(row.id)"
-                  trigger-text="更多"
-                  :disabled="
-                    busy ||
-                    loading ||
-                    mode !== null ||
-                    !!merchantLogID ||
-                    !!merchantStatisticsID ||
-                    !!manualWithdrawalID
-                  "
-                  @action="(action) => merchantRelatedAction(action, row.id)"
-                />
-                <button
-                  v-if="canDelegate"
-                  class="link-button"
-                  :disabled="busy"
-                  @click="delegation = row"
-                >
-                  代登录商户
-                </button>
-                <button
-                  v-if="resource !== 'groups'"
-                  class="link-button"
-                  :disabled="busy"
-                  @click="open('detail', row)"
-                >
-                  详情</button
-                ><a
-                  v-if="
-                    schema.permissions.update &&
-                    resource === 'onboarding-applications'
-                  "
-                  :href="`/${client.area}/applyments/form?id=${encodeURIComponent(String(row.id))}`"
-                  >编辑</a
-                ><button
-                  v-if="
-                    schema.permissions.update &&
-                    resource !== 'onboarding-applications'
-                  "
-                  class="link-button"
-                  :disabled="busy"
-                  @click="open('edit', row)"
-                >
-                  编辑</button
-                ><button
-                  v-if="schema.permissions.delete"
-                  class="link-button danger-text"
-                  :disabled="busy"
-                  @click="open('delete', row)"
-                >
-                  删除
-                </button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="!items.length">
-            <td
-              :colspan="listFields.length + 2 + (resource === 'groups' ? 1 : 0)"
-              class="empty"
-            >
-              暂无记录，可通过上方操作添加
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div v-if="!entry" class="pagination">
-      <span>共 {{ total }} 条记录</span>
-      <div>
-        <button
-          :disabled="page <= 1 || loading"
-          @click="
-            page--;
-            load();
-          "
-        >
-          上一页</button
-        ><span>第 {{ page }} 页</span
-        ><button
-          :disabled="page * limit >= total || loading"
-          @click="
-            page++;
-            load();
-          "
-        >
-          下一页
-        </button>
+                暂无记录，可通过上方操作添加
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-    </div>
-    <BusinessNoticeEvents
-      v-if="
-        resource === 'settings' &&
-        client.area === 'admin' &&
-        ownSession &&
-        ['super', 'operator'].includes(adminClass ?? '')
-      "
-      :client="client"
-      :own-session="ownSession"
-      :admin-class="adminClass"
-    />
-  </section>
+      <div v-if="!entry" class="pagination">
+        <span>共 {{ total }} 条记录</span>
+        <div>
+          <button
+            :disabled="page <= 1 || loading"
+            @click="
+              page--;
+              load();
+            "
+          >
+            上一页</button
+          ><span>第 {{ page }} 页</span
+          ><button
+            :disabled="page * limit >= total || loading"
+            @click="
+              page++;
+              load();
+            "
+          >
+            下一页
+          </button>
+        </div>
+      </div>
+      <BusinessNoticeEvents
+        v-if="showBusinessNotices"
+        :client="client"
+        :own-session="ownSession"
+        :admin-class="adminClass"
+      />
+    </section>
+  </template>
   <MerchantManualWithdrawal
     v-if="manualWithdrawalID && canManualWithdraw"
     :client="client"

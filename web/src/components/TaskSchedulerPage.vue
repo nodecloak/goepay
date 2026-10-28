@@ -129,6 +129,18 @@ function scheduleLabel(t: ScheduledTask) {
     ? "仅一次"
     : "每 " + t.schedule.interval + " " + labelFrequency(t.schedule.frequency);
 }
+function taskStateShort(t: ScheduledTask) {
+  if (!t.available) return "不可用";
+  if (t.control_mode === "legacy_managed") return "未接管";
+  if (!t.configured) return "未配置";
+  return t.enabled ? "已开启" : "已关闭";
+}
+function taskStateBadge(t: ScheduledTask) {
+  if (!t.available) return "none";
+  if (t.control_mode === "legacy_managed") return "warn";
+  if (!t.configured) return "none";
+  return t.enabled ? "on" : "off";
+}
 async function load() {
   if (!ensure() || busy.value || modal.value) return;
   const { c, current, client } = begin();
@@ -451,7 +463,7 @@ onBeforeUnmount(() => {
           时间均为 UTC+8。立即运行只安排一次待执行任务，完成结果以执行记录为准。
         </p>
         <button ref="refresh" :disabled="loading || !!modal" @click="load">
-          刷新任务列表
+          <ShellIcon name="refresh" />刷新任务列表
         </button>
       </div>
       <p class="muted">
@@ -462,58 +474,48 @@ onBeforeUnmount(() => {
       <p v-if="catalogError" role="alert" class="task-error">
         {{ catalogError }}
       </p>
-      <div v-if="items.length" class="task-table-wrap">
-        <table class="task-table">
-          <thead>
-            <tr>
-              <th>任务名称</th>
-              <th>任务开关</th>
-              <th>执行频率</th>
-              <th>上次真实开始</th>
-              <th>下次安排</th>
-              <th>最近状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in items" :key="item.task">
-              <td data-label="任务名称">
-                <strong>{{ item.name }}</strong
-                ><small>{{ item.task }}</small>
-                <p v-if="!item.available">{{ item.unavailable_reason }}</p>
-              </td>
-              <td data-label="任务开关">{{ scheduledTaskModeLabel(item) }}</td>
-              <td data-label="执行频率">{{ scheduleLabel(item) }}</td>
-              <td data-label="上次真实开始">
-                {{ displayTime(item.last_run_time) }}
-              </td>
-              <td data-label="下次安排">
-                {{ displayTime(item.next_run_time) }}
-              </td>
-              <td data-label="最近状态">{{ labelStatus(item.last_status) }}</td>
-              <td data-label="操作" class="task-actions">
-                <button
-                  :disabled="!item.can_update"
-                  @click="open('config', item, $event)"
-                >
-                  配置</button
-                ><button
-                  :disabled="!item.can_run"
-                  @click="open('run', item, $event)"
-                >
-                  立即运行</button
-                ><button @click="open('history', item, $event)">
-                  执行记录
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div v-if="items.length" class="job-cards">
+        <article v-for="item in items" :key="item.task" class="job-card">
+          <header class="job-card-head">
+            <strong class="job-name">{{ item.name }}</strong>
+            <span class="badge" :data-state="taskStateBadge(item)">{{
+              taskStateShort(item)
+            }}</span>
+          </header>
+          <p class="job-key muted">{{ item.task }}</p>
+          <p class="job-mode muted">{{ scheduledTaskModeLabel(item) }}</p>
+          <p v-if="!item.available" class="job-unavailable muted">
+            {{ item.unavailable_reason }}
+          </p>
+          <dl class="job-meta">
+            <dt>执行频率</dt>
+            <dd>{{ scheduleLabel(item) }}</dd>
+            <dt>上次执行</dt>
+            <dd>{{ displayTime(item.last_run_time) }}</dd>
+            <dt>下次执行</dt>
+            <dd>{{ displayTime(item.next_run_time) }}</dd>
+            <dt>最近状态</dt>
+            <dd>{{ labelStatus(item.last_status) }}</dd>
+          </dl>
+          <footer class="job-card-actions">
+            <button
+              :disabled="!item.can_update"
+              @click="open('config', item, $event)"
+            >
+              配置</button
+            ><button
+              :disabled="!item.can_run"
+              @click="open('run', item, $event)"
+            >
+              立即运行</button
+            ><button @click="open('history', item, $event)">执行记录</button>
+          </footer>
+        </article>
       </div>
-      <div class="task-diagnostics">
-        <button @click="legacyOpen = !legacyOpen">
+      <div class="task-diagnostics table-tools">
+        <button class="soft-button" @click="legacyOpen = !legacyOpen">
           {{ legacyOpen ? "收起旧计划资料" : "旧计划资料（只读）" }}</button
-        ><button @click="queueOpen = !queueOpen">
+        ><button class="soft-button" @click="queueOpen = !queueOpen">
           {{ queueOpen ? "收起任务队列" : "查看任务队列（诊断）" }}
         </button>
       </div>
@@ -766,42 +768,64 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 .muted,
-.task-table small,
 .task-fields small {
-  color: var(--ink);
+  color: var(--ink-muted);
 }
-.task-table-wrap {
-  overflow: auto;
+.job-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
 }
-.task-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
+.job-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  padding: var(--space-4);
+  min-width: 0;
 }
-.task-table th,
-.task-table td {
-  padding: 0.8rem 0.65rem;
-  border-bottom: 1px solid var(--line);
-  text-align: left;
-  vertical-align: top;
+.job-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
-.task-table th {
-  background: var(--bg-raised);
-  font-weight: 600;
-  white-space: nowrap;
-}
-.task-table small {
-  display: block;
+.job-name {
+  min-width: 0;
   overflow-wrap: anywhere;
-  margin-top: 0.3rem;
 }
-.task-table td p {
-  max-width: 22rem;
-  margin: 0.45rem 0 0;
+.job-key,
+.job-mode,
+.job-unavailable {
+  margin: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.job-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px var(--space-3);
+  margin: var(--space-2) 0 0;
   font-size: 0.85rem;
 }
-.task-actions {
-  min-width: 11rem;
+.job-meta dt {
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+.job-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.job-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
 }
 .task-scheduler button {
   cursor: pointer;
@@ -943,36 +967,6 @@ onBeforeUnmount(() => {
   margin-bottom: 0;
 }
 @media (max-width: 680px) {
-  .task-table,
-  .task-table tbody,
-  .task-table tr,
-  .task-table td {
-    display: block;
-  }
-  .task-table thead {
-    display: none;
-  }
-  .task-table tr {
-    border: 1px solid var(--line);
-    border-radius: 0.4rem;
-    margin: 0.8rem 0;
-    padding: 0.4rem;
-  }
-  .task-table td {
-    border: 0;
-    padding: 0.45rem;
-    white-space: normal;
-  }
-  .task-table td::before {
-    content: attr(data-label);
-    display: block;
-    font-size: 0.78rem;
-    color: var(--ink);
-    margin-bottom: 0.2rem;
-  }
-  .task-actions {
-    min-width: 0;
-  }
   .task-fields {
     grid-template-columns: 1fr;
   }

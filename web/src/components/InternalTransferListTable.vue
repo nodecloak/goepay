@@ -107,7 +107,17 @@ const data = computed(() => {
           <td :class="row.direction === 'in' ? 'incoming' : 'outgoing'">
             {{ row.direction === "in" ? "+" : "-" }}{{ row.amount }}
           </td>
-          <td>{{ row.status }}</td>
+          <td>
+            <span
+              class="badge"
+              :data-state="
+                { pending: 'warn', approved: 'on', rejected: 'bad' }[
+                  row.state
+                ] || 'none'
+              "
+              >{{ row.status }}</span
+            >
+          </td>
           <td class="transfer-remark">{{ row.remark }}</td>
           <td>{{ row.created }}</td>
           <td>{{ row.completed }}</td>

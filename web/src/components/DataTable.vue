@@ -10,6 +10,7 @@ import {
   consoleColumnLabel,
   isCredentialField,
   canRefundListOrder,
+  ledgerTerm,
 } from "../pro-console-fields";
 const props = defineProps<{
   items: Record<string, unknown>[];
@@ -21,6 +22,7 @@ const props = defineProps<{
   orderActionsDisabled?: boolean;
   selectable?: boolean;
   selectedTrades?: string[];
+  ledger?: boolean;
 }>();
 const visibleColumns = computed(() =>
   props.columns.filter((c) => !isCredentialField(c.key)),
@@ -218,14 +220,21 @@ function associatedOrder(value: unknown): boolean {
                     : (row[c.key] ?? ''),
                 )
               "
+              :title="
+                ledger && (c.key === 'description' || c.key === 'kind')
+                  ? String(row[c.key] ?? '')
+                  : undefined
+              "
               >{{
-                consoleValue(
-                  c.key,
-                  c.key === "status" && adminOrders
-                    ? row.admin_status || row[c.key]
-                    : row[c.key],
-                  orders,
-                )
+                ledger && (c.key === "description" || c.key === "kind")
+                  ? ledgerTerm(c.key, row[c.key])
+                  : consoleValue(
+                      c.key,
+                      c.key === "status" && adminOrders
+                        ? row.admin_status || row[c.key]
+                        : row[c.key],
+                      orders,
+                    )
               }}</span
             >
             <small

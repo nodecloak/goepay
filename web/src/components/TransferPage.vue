@@ -22,6 +22,7 @@ import DataTable from "./DataTable.vue";
 import TransferListTable from "./TransferListTable.vue";
 import { hasOriginalTransferProjection } from "../transfer-list";
 import CsvExportButton from "./CsvExportButton.vue";
+import ShellIcon from "./ShellIcon.vue";
 import bankCodes from "../data/wechat-bank-codes.json";
 import bankNames from "../data/wechat-bank-names.json";
 import {
@@ -134,7 +135,7 @@ function closeDetails() {
       (
         rowButton ||
         recordsPanel.value?.querySelector<HTMLButtonElement>(
-          ".transfer-list-filters button:not(:disabled)",
+          ".table-tools button:not(:disabled)",
         )
       )?.focus();
     }
@@ -508,48 +509,50 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
+  <p
+    v-if="area === 'admin' && appliedFilters.merchant_id && !routeContext.error"
+    class="resource-description"
+  >
+    商户号：{{ appliedFilters.merchant_id }}
+  </p>
+  <RouterLink
+    v-if="appliedFilters.merchant_id || routeContext.error"
+    :to="baseRoute"
+    >清空筛选</RouterLink
+  >
+  <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+  <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
+  <form class="toolbar list-filter-card panel" @submit.prevent="applyFilters">
+    <TransferListFilters
+      v-model="draftFilters"
+      :area="area"
+      :loading="loading || busy"
+      :blocked="!!routeContext.error"
+      @reset="resetFilters"
+    />
+  </form>
   <section ref="recordsPanel" class="panel records">
-    <p
-      v-if="
-        area === 'admin' && appliedFilters.merchant_id && !routeContext.error
-      "
-      class="resource-description"
-    >
-      商户号：{{ appliedFilters.merchant_id }}
-    </p>
-    <RouterLink
-      v-if="appliedFilters.merchant_id || routeContext.error"
-      :to="baseRoute"
-      >清空筛选</RouterLink
-    >
-    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
-    <form class="toolbar" @submit.prevent="applyFilters">
-      <TransferListFilters
-        v-model="draftFilters"
-        :area="area"
-        :loading="loading || busy"
-        :blocked="!!routeContext.error"
-        @reset="resetFilters"
-      />
+    <div class="table-tools">
       <button
         type="button"
         class="primary"
         :disabled="busy"
         @click="openCreate"
       >
-        申请付款
+        <ShellIcon name="plus" />申请付款
       </button>
-      <a :href="`/${area}/transfer/batches`" class="button secondary"
+      <a :href="`/${area}/transfer/batches`" class="button soft-button"
         >批量转账</a
       >
-      <CsvExportButton
-        :client="client"
-        :path="csvPath"
-        filename="transfers-filtered.csv"
-        :disabled="loading || !!routeContext.error || !!draftError"
-      />
-    </form>
+      <div class="table-tools-end">
+        <CsvExportButton
+          :client="client"
+          :path="csvPath"
+          filename="transfers-filtered.csv"
+          :disabled="loading || !!routeContext.error || !!draftError"
+        />
+      </div>
+    </div>
     <div v-if="loading" class="loading-row" role="status">
       正在读取付款记录…
     </div>

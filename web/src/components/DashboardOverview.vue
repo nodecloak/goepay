@@ -601,11 +601,16 @@ const quickLinks = computed(() =>
   margin: 0;
 }
 .dashboard-overview .stat .card-sub {
-  margin: 16px 0 0;
+  margin: 12px 0 0;
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-start;
+  align-items: baseline;
+  gap: 6px;
   font-size: 12px;
+  color: var(--ink-muted);
+}
+.dashboard-overview .stat .card-sub b {
+  color: var(--primary-text);
 }
 .card-sub b {
   color: var(--ink);
