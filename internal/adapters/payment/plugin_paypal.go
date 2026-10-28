@@ -166,7 +166,7 @@ func (p *paypalPlugin) methods() []string {
 }
 
 func (p *paypalPlugin) Capabilities() Capabilities {
-	return Capabilities{Methods: p.methods(), Refund: true}
+	return Capabilities{Methods: p.methods(), Query: true, Refund: true}
 }
 
 func (p *paypalPlugin) ValidateCreate(r CreateRequest) error {
@@ -293,6 +293,129 @@ func paypalStatusCode(s string) string {
 		return "REJECTED"
 	}
 	return s
+}
+
+// Query confirms an order, mirroring the original return()'s capture-on-return
+// (there is no notify we can trust). QueryRequest.ProviderTradeNo carries the
+// PayPal order id we returned from Create; PayPal has no public "find order by
+// invoice_id" endpoint without extra state, so the order id is required.
+//
+//	GET /v2/checkout/orders/{id}:
+//	  CREATED / PAYER_ACTION_REQUIRED -> NOTPAY (payer has not approved yet)
+//	  VOIDED                          -> CLOSED
+//	  COMPLETED                       -> already captured; verify the capture
+//	  APPROVED                        -> POST .../capture (idempotent via the
+//	                                     PayPal-Request-Id = our trade number)
+//	then SUCCESS only when a capture is COMPLETED with the expected amount and
+//	currency. A capture business refusal (e.g. INSTRUMENT_DECLINED) is
+//	definitive; transport/5xx/unreadable stay UnknownOutcome.
+func (p *paypalPlugin) Query(ctx context.Context, r QueryRequest) (QueryResult, error) {
+	orderID := strings.TrimSpace(r.ProviderTradeNo)
+	if r.TradeNo == "" || orderID == "" {
+		return QueryResult{}, ErrInvalid
+	}
+	tok, e := p.paypalToken(ctx)
+	if e != nil {
+		return QueryResult{}, e
+	}
+	headers := map[string]string{"Authorization": "Bearer " + tok, "Accept": "application/json"}
+	raw, e := p.getURLWithHeaders(ctx, "paypal.order", p.apiHost+"/v2/checkout/orders/"+paypalPathSafe(orderID), headers)
+	if e != nil {
+		return QueryResult{}, e
+	}
+	out, e := callbackJSON(raw)
+	if e != nil {
+		return QueryResult{}, &UnknownOutcome{Operation: "paypal.order", Cause: e}
+	}
+	switch jsonText(out, "status") {
+	case "CREATED", "PAYER_ACTION_REQUIRED", "SAVED":
+		return QueryResult{TradeNo: r.TradeNo, ProviderTradeNo: orderID, State: "NOTPAY", Currency: "CNY"}, nil
+	case "VOIDED":
+		return QueryResult{TradeNo: r.TradeNo, ProviderTradeNo: orderID, State: "CLOSED", Currency: "CNY"}, nil
+	case "COMPLETED":
+		return p.paypalCaptureResult(r.TradeNo, orderID, out)
+	case "APPROVED":
+		body := []byte("{}")
+		raw, e := p.pluginCall(ctx, "paypal.capture", http.MethodPost,
+			p.apiHost+"/v2/checkout/orders/"+paypalPathSafe(orderID)+"/capture", body,
+			"application/json; charset=utf-8",
+			map[string]string{"Authorization": "Bearer " + tok, "Accept": "application/json", "PayPal-Request-Id": r.TradeNo})
+		if e != nil {
+			return QueryResult{}, e
+		}
+		cap, e := callbackJSON(raw)
+		if e != nil {
+			return QueryResult{}, &UnknownOutcome{Operation: "paypal.capture", Cause: e}
+		}
+		return p.paypalCaptureResult(r.TradeNo, orderID, cap)
+	default:
+		return QueryResult{TradeNo: r.TradeNo, ProviderTradeNo: orderID, State: "NOTPAY", Currency: "CNY"}, nil
+	}
+}
+
+// paypalCaptureResult reads purchase_units[0].payments.captures[0] of an order
+// (the shape returned by both GET orders and the capture call) and maps it to a
+// QueryResult, verifying the capture is COMPLETED for the expected amount and
+// settlement currency. A capture whose own status names a decline is a
+// definitive refusal.
+func (p *paypalPlugin) paypalCaptureResult(tradeNo, orderID string, out map[string]any) (QueryResult, error) {
+	capture := paypalFirstCapture(out)
+	if capture == nil {
+		// No capture recorded yet under a COMPLETED/APPROVED order: unknown,
+		// query again rather than declaring either outcome.
+		return QueryResult{}, &UnknownOutcome{Operation: "paypal.capture", Cause: errPaypalNoCapture}
+	}
+	status := jsonText(capture, "status")
+	if status != "COMPLETED" {
+		if status == "PENDING" {
+			return QueryResult{TradeNo: tradeNo, ProviderTradeNo: orderID, State: "NOTPAY", Currency: "CNY"}, nil
+		}
+		// DECLINED / FAILED / etc. — a definitive refusal carrying the code.
+		return QueryResult{}, rejected("PAYPAL_CAPTURE_" + paypalStatusCode(status))
+	}
+	amt, _ := capture["amount"].(map[string]any)
+	if amt == nil {
+		return QueryResult{}, &UnknownOutcome{Operation: "paypal.capture", Cause: errPaypalNoCapture}
+	}
+	if jsonText(amt, "currency_code") != p.currencyCode {
+		return QueryResult{}, rejected("PAYPAL_CAPTURE_CURRENCY")
+	}
+	captureID := jsonText(capture, "id")
+	return QueryResult{TradeNo: tradeNo, ProviderTradeNo: captureID, State: "SUCCESS", Currency: "CNY"}, nil
+}
+
+var errPaypalNoCapture = &paypalStaticError{"paypal: no capture in order"}
+
+type paypalStaticError struct{ s string }
+
+func (e *paypalStaticError) Error() string { return e.s }
+
+// paypalFirstCapture digs out purchase_units[0].payments.captures[0].
+func paypalFirstCapture(out map[string]any) map[string]any {
+	units, ok := out["purchase_units"].([]any)
+	if !ok || len(units) == 0 {
+		return nil
+	}
+	u0, ok := units[0].(map[string]any)
+	if !ok {
+		return nil
+	}
+	payments, ok := u0["payments"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	caps, ok := payments["captures"].([]any)
+	if !ok || len(caps) == 0 {
+		return nil
+	}
+	c0, _ := caps[0].(map[string]any)
+	return c0
+}
+
+// getURLWithHeaders is a GET carrying auth headers (the kit's getURL sends
+// none); kept local so plugin_kit stays untouched.
+func (p *paypalPlugin) getURLWithHeaders(ctx context.Context, operation, target string, headers map[string]string) ([]byte, error) {
+	return p.pluginCall(ctx, operation, http.MethodGet, target, nil, "", headers)
 }
 
 // paypalPathSafe rejects a provider id that could escape the URL path; PayPal

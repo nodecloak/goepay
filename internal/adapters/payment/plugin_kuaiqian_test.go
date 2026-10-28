@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 // kuaiqianTestPlugin builds a plugin with in-memory RSA keys, bypassing PFX
@@ -86,6 +87,12 @@ func TestPluginKuaiqianSignString(t *testing.T) {
 
 func TestPluginKuaiqianCreateForm(t *testing.T) {
 	p, _ := kuaiqianTestPlugin(t, "wxpay")
+	// Pin the clock so orderTime (live Asia/Shanghai date('YmdHis')) is
+	// deterministic; restore after the test.
+	saved := kuaiqianNow
+	kuaiqianNow = func() time.Time { return time.Date(2026, 10, 29, 9, 30, 15, 0, time.UTC) }
+	defer func() { kuaiqianNow = saved }()
+
 	if got := p.Capabilities().Methods; len(got) != 1 || got[0] != "h5" {
 		t.Fatal(got)
 	}
@@ -95,12 +102,13 @@ func TestPluginKuaiqianCreateForm(t *testing.T) {
 		t.Fatal(res, e)
 	}
 	// Form posts to the mobile gateway, escapes the subject, carries wxpay's
-	// payType 26-2 and the fen amount 100000.
+	// payType 26-2 and the fen amount 1000 (cents == fen).
 	if !strings.Contains(res.Material, `action="`+kuaiqianMobileGateway+`"`) || strings.Contains(res.Material, "<b>") || !strings.Contains(res.Material, `value="1000"`) || !strings.Contains(res.Material, `name="signMsg"`) || !strings.Contains(res.Material, `value="26-2"`) {
 		t.Fatal(res.Material)
 	}
-	// orderTime derived from the 14-digit trade number prefix.
-	if !strings.Contains(res.Material, `value="20261029000001"`) {
+	// orderId is the trade number; orderTime is the pinned clock in +08:00
+	// (2026-10-29 09:30:15 UTC = 17:30:15 CST).
+	if !strings.Contains(res.Material, `name="orderId" value="20261029000001"`) || !strings.Contains(res.Material, `name="orderTime" value="20261029173015"`) {
 		t.Fatal("orderId/orderTime", res.Material)
 	}
 	// Unserved method rejected.
