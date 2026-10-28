@@ -107,9 +107,17 @@ const data = computed(() => {
               ></template
             >
             <template v-else-if="column.key === 'status'"
-              ><span :class="'transfer-status ' + row.tone">{{
-                row.status
-              }}</span
+              ><span
+                class="badge"
+                :data-state="
+                  {
+                    success: 'on',
+                    danger: 'bad',
+                    processing: 'warn',
+                    neutral: 'none',
+                  }[row.tone] || 'none'
+                "
+                >{{ row.status }}</span
               ><button
                 v-if="row.confirmURL"
                 type="button"
@@ -216,18 +224,6 @@ const data = computed(() => {
 }
 th.transfer-actions {
   background: var(--table-header, var(--bg-raised));
-}
-.transfer-status.success {
-  color: var(--success-text);
-}
-.transfer-status.danger {
-  color: var(--danger-text);
-}
-.transfer-status.processing {
-  color: var(--warning-text);
-}
-.transfer-status.neutral {
-  color: var(--ink-muted);
 }
 .transfer-confirm {
   color: var(--chart-2);

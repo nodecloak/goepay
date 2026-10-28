@@ -372,3 +372,64 @@ export function merchantFieldValue(key: string, value: unknown): string {
     return value === true ? "生效中" : value === false ? "未生效" : "未知";
   return consoleValue(key, value);
 }
+
+// 资金明细 shows the ledger's own description and account codes. The service
+// writes them in English; show the Chinese name, keep unknown text as it is.
+const ledgerAccounts: Record<string, string> = {
+  available: "可用余额",
+  reserved: "冻结预留",
+  clearing: "清算账户",
+  fees: "平台手续费",
+  fee_reserved: "手续费预留",
+  deposit: "保证金",
+  deposit_reserved: "保证金冻结",
+  order_income_hold: "收入冻结",
+  bank_fee_expense: "银行手续费支出",
+  bank_service_fee_hold: "银行服务费预留",
+};
+const ledgerDescriptions: Record<string, string> = {
+  "payment net credit": "订单收入入账",
+  "historical payment net credit": "历史订单收入入账",
+  "payment platform fee": "订单平台手续费",
+  "refund platform fee": "退款手续费",
+  "refund platform fee reserve": "退款手续费预留",
+  "legacy refund": "退款",
+  "transfer reserve": "付款预留",
+  "transfer succeeded": "付款成功",
+  "transfer failed": "付款失败退回",
+  "transfer platform fee": "付款手续费",
+  "deposit release": "保证金释放",
+  "original payment fee referral reward": "邀请返现奖励",
+  "unfreeze original legacy income": "历史收入解冻",
+  "bank transfer principal": "银行转账本金",
+  "bank transfer service fee held": "银行转账服务费预留",
+  "bank provider fee expense": "银行通道手续费",
+  "alipay bank principal": "支付宝转银行卡本金",
+  "alipay bank service fee held": "支付宝转银行卡服务费预留",
+  "verified alipay bank refund principal": "支付宝转银行卡退回本金",
+  "verified alipay bank refund reservation": "支付宝转银行卡退回预留",
+  "verified alipay bank refund service fee": "支付宝转银行卡退回服务费",
+  "verified bank provider fee return": "银行通道手续费退回",
+  "verified bank return original reservation": "银行退回原预留",
+  "verified bank return principal": "银行退回本金",
+  "verified bank return service fee": "银行退回服务费",
+};
+const ledgerOutcomes: Record<string, string> = {
+  approved: "已通过",
+  rejected: "已驳回",
+  succeeded: "成功",
+  failed: "失败",
+};
+export function ledgerTerm(key: string, value: unknown): string {
+  if (key === "kind")
+    return ledgerAccounts[String(value)] ?? consoleValue(key, value);
+  if (key !== "description" || typeof value !== "string")
+    return consoleValue(key, value);
+  const exact = ledgerDescriptions[value];
+  if (exact) return exact;
+  // "deposit release approved", "legacy refund failed", …
+  const cut = value.lastIndexOf(" "),
+    base = ledgerDescriptions[value.slice(0, cut)],
+    outcome = ledgerOutcomes[value.slice(cut + 1)];
+  return cut > 0 && base && outcome ? `${base}（${outcome}）` : value;
+}

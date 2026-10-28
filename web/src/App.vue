@@ -1645,7 +1645,10 @@ onBeforeUnmount(() => {
           }
         "
       />
-      <div v-else-if="kind === 'account'">
+      <div
+        v-else-if="kind === 'account'"
+        :class="{ 'account-security-grid': area === 'admin' }"
+      >
         <AccountPage
           :key="path"
           :client="client"
@@ -1673,6 +1676,11 @@ onBeforeUnmount(() => {
             }
           "
         />
+        <PaymentPasswordSettings
+          v-if="area === 'admin'"
+          :key="area + 'funds-security'"
+          :client="client"
+        />
         <TotpSettings
           v-if="path !== '/account/api-info'"
           :key="area + 'totp'"
@@ -1682,11 +1690,6 @@ onBeforeUnmount(() => {
             notice = '身份验证设置已更新，请重新登录';
             error = '';
           "
-        />
-        <PaymentPasswordSettings
-          v-if="area === 'admin'"
-          :key="area + 'funds-security'"
-          :client="client"
         />
       </div>
       <div v-else-if="kind === 'operation'">
@@ -1926,6 +1929,7 @@ onBeforeUnmount(() => {
             :columns="columns"
             :orders="kind === 'orders'"
             :refunds="kind === 'refunds'"
+            :ledger="kind === 'ledger'"
             :admin-orders="kind === 'orders' && area === 'admin'"
             :merchant-orders="kind === 'orders' && area === 'merchant'"
             :selectable="kind === 'orders' && area === 'admin'"

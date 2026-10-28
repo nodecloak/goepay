@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink, useRouter } from "vue-router";
 import { readLinkedMerchantRoute } from "../list-filters";
+import ShellIcon from "./ShellIcon.vue";
 import {
   ref,
   computed,
@@ -498,14 +499,14 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section v-if="!application || !dialog" class="panel records">
+  <template v-if="!application || !dialog">
     <form
       v-if="internalMerchantList && !application"
-      class="filters internal-transfer-filters"
+      class="toolbar list-filter-card panel internal-transfer-filters"
       aria-label="站内转账筛选"
       @submit.prevent="applyInternalFilters"
     >
-      <label
+      <label class="filter-inline"
         >方向<select
           v-model="internalDraft.direction"
           aria-label="方向"
@@ -516,7 +517,7 @@ onBeforeUnmount(() => {
           <option value="in">转入</option>
         </select></label
       >
-      <label
+      <label class="filter-inline"
         >状态<select
           v-model="internalDraft.status"
           aria-label="状态"
@@ -528,15 +529,17 @@ onBeforeUnmount(() => {
           <option value="rejected">已拒绝</option>
         </select></label
       >
-      <button class="primary" :disabled="loading || busy">查询</button>
-      <button
-        type="button"
-        data-action="reset-internal-transfers"
-        :disabled="loading || busy"
-        @click="resetInternalFilters"
-      >
-        重置
-      </button>
+      <div class="filter-actions">
+        <button class="primary" :disabled="loading || busy">查询</button>
+        <button
+          type="button"
+          data-action="reset-internal-transfers"
+          :disabled="loading || busy"
+          @click="resetInternalFilters"
+        >
+          重置
+        </button>
+      </div>
     </form>
     <SettlementListFilters
       v-if="workflow === 'settlements' && !application"
@@ -571,171 +574,209 @@ onBeforeUnmount(() => {
     >
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
-    <p class="resource-description muted">
-      {{
-        workflow === "settlements"
-          ? "结算申请会独立预占申请总额；核准后仍需另行准备并明确发送钱包出款，审批通过不代表支付成功。缺失费用、资金归属或收款快照的历史记录不能出款；银行卡不适用本钱包流程。拒绝或已证明未发送的取消会释放对应冻结资金。"
-          : workflow === "profitsharing"
-            ? "站内分账申请由已支付订单和启用规则生成，核准后转入站内收款商户账户。生成申请时同样由服务端执行 T+0/T+1 可出账政策，本页面不手动创建分账或执行上游渠道分账。"
-            : "站内转账仅在本平台商户账户之间转移余额。请核对商户编号和金额。"
-      }}
-    </p>
-    <div class="toolbar">
-      <div class="toolbar-actions">
-        <button v-if="!application" :disabled="loading" @click="load">
-          刷新</button
-        ><button
-          v-if="workflow === 'settlements' && !application"
-          :disabled="loading || !!settlementRouteError"
-          @click="openStatistics"
-        >
-          结算统计</button
-        ><button
+    <section class="panel records">
+      <div class="table-tools">
+        <button
           v-if="workflow !== 'profitsharing'"
+          type="button"
           class="primary"
           :disabled="busy"
           @click="openCreate"
         >
-          {{ workflow === "settlements" ? "申请结算" : "发起站内转账" }}
+          <ShellIcon name="plus" />{{
+            workflow === "settlements" ? "申请结算" : "发起站内转账"
+          }}
         </button>
-      </div>
-      <button
-        v-if="area === 'admin' && workflow === 'settlements'"
-        :disabled="!checked.length || busy || loading"
-        @click="
-          batchMode = true;
-          dialog = 'approve';
-        "
-      >
-        核准所选 {{ checked.length }} 条申请
-      </button>
-      <a
-        v-if="
-          area === 'admin' &&
-          workflow === 'settlements' &&
-          checked.length &&
-          !busy
-        "
-        :href="
-          '/admin/settle/batch?request_ids=' +
-          encodeURIComponent(checked.join(','))
-        "
-        >将所选 {{ checked.length }} 条申请生成结算批次</a
-      >
-    </div>
-    <div v-if="loading" class="loading-row" role="status">
-      {{ internalMerchantList ? "正在加载站内转账…" : "正在加载申请…" }}
-    </div>
-    <InternalTransferListTable
-      v-else-if="internalMerchantList && !application"
-      :items="items"
-    />
-    <SettlementListTable
-      v-else-if="
-        !application &&
-        workflow === 'settlements' &&
-        hasOriginalSettlementProjection(items)
-      "
-      :items="items"
-      :area="area"
-      :checked="checked"
-      :busy="busy"
-      @check="check"
-      @decision="openDecision"
-      @payout="(id) => (payoutRequestId = id)"
-    />
-    <div v-else-if="!application" class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th v-if="area === 'admin' && workflow === 'settlements'">选择</th>
-            <th v-for="column in columns" :key="column.key">
-              {{ column.label }}
-            </th>
-            <th v-if="area === 'admin' || workflow === 'settlements'">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in items" :key="String(row.id)">
-            <td v-if="area === 'admin' && workflow === 'settlements'">
-              <input
-                type="checkbox"
-                :aria-label="'选择申请 ' + row.id"
-                :disabled="row.status !== 'pending'"
-                :checked="checked.includes(String(row.id))"
-                @change="
-                  check(
-                    String(row.id),
-                    ($event.target as HTMLInputElement).checked,
-                  )
-                "
-              />
-            </td>
-            <td v-for="column in columns" :key="column.key">
-              {{ displayValue(row[column.key]) }}
-            </td>
-            <td v-if="area === 'admin' || workflow === 'settlements'">
-              <div
-                v-if="area === 'admin' && row.status === 'pending'"
-                class="row-actions"
-              >
-                <button
-                  class="link-button"
-                  @click="openDecision(row, 'approve')"
-                >
-                  核准</button
-                ><button
-                  class="link-button danger-text"
-                  @click="openDecision(row, 'reject')"
-                >
-                  拒绝
-                </button>
-              </div>
-              <button
-                v-else-if="
-                  workflow === 'settlements' && row.status === 'approved'
-                "
-                class="link-button"
-                @click="payoutRequestId = String(row.id)"
-              >
-                核对结算出款
-              </button>
-              <span v-else class="muted">已处理</span>
-            </td>
-          </tr>
-          <tr v-if="!items.length">
-            <td class="empty" :colspan="columns.length + 2">暂无申请</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div v-if="!application" class="pagination">
-      <span
-        >共 {{ total }}
-        {{ internalMerchantList ? "条转账记录" : "条申请" }}</span
-      >
-      <div>
         <button
-          :disabled="page <= 1 || loading"
-          @click="
-            page--;
-            load();
-          "
+          v-if="workflow === 'settlements' && !application"
+          type="button"
+          class="soft-button"
+          :disabled="loading || !!settlementRouteError"
+          @click="openStatistics"
         >
-          上一页</button
-        ><span>第 {{ page }} 页</span
-        ><button
-          :disabled="page * limit >= total || loading"
-          @click="
-            page++;
-            load();
-          "
-        >
-          下一页
+          结算统计
         </button>
+        <div class="table-tools-end">
+          <button
+            v-if="area === 'admin' && workflow === 'settlements'"
+            type="button"
+            :disabled="!checked.length || busy || loading"
+            @click="
+              batchMode = true;
+              dialog = 'approve';
+            "
+          >
+            核准所选 {{ checked.length }} 条申请
+          </button>
+          <a
+            v-if="
+              area === 'admin' &&
+              workflow === 'settlements' &&
+              checked.length &&
+              !busy
+            "
+            :href="
+              '/admin/settle/batch?request_ids=' +
+              encodeURIComponent(checked.join(','))
+            "
+            >将所选 {{ checked.length }} 条申请生成结算批次</a
+          >
+          <button v-if="!application" :disabled="loading" @click="load">
+            <ShellIcon name="refresh" />刷新
+          </button>
+        </div>
       </div>
-    </div>
-  </section>
+      <p
+        class="table-note"
+        :title="
+          workflow === 'settlements'
+            ? '结算申请会独立预占申请总额；核准后仍需另行准备并明确发送钱包出款，审批通过不代表支付成功。缺失费用、资金归属或收款快照的历史记录不能出款；银行卡不适用本钱包流程。拒绝或已证明未发送的取消会释放对应冻结资金。'
+            : workflow === 'profitsharing'
+              ? '站内分账申请由已支付订单和启用规则生成，核准后转入站内收款商户账户。生成申请时同样由服务端执行 T+0/T+1 可出账政策，本页面不手动创建分账或执行上游渠道分账。'
+              : '站内转账仅在本平台商户账户之间转移余额。请核对商户编号和金额。'
+        "
+      >
+        {{
+          workflow === "settlements"
+            ? "结算申请会独立预占申请总额；核准后仍需另行准备并明确发送钱包出款，审批通过不代表支付成功。缺失费用、资金归属或收款快照的历史记录不能出款；银行卡不适用本钱包流程。拒绝或已证明未发送的取消会释放对应冻结资金。"
+            : workflow === "profitsharing"
+              ? "站内分账申请由已支付订单和启用规则生成，核准后转入站内收款商户账户。生成申请时同样由服务端执行 T+0/T+1 可出账政策，本页面不手动创建分账或执行上游渠道分账。"
+              : "站内转账仅在本平台商户账户之间转移余额。请核对商户编号和金额。"
+        }}
+      </p>
+      <div v-if="loading" class="loading-row" role="status">
+        {{ internalMerchantList ? "正在加载站内转账…" : "正在加载申请…" }}
+      </div>
+      <InternalTransferListTable
+        v-else-if="internalMerchantList && !application"
+        :items="items"
+      />
+      <SettlementListTable
+        v-else-if="
+          !application &&
+          workflow === 'settlements' &&
+          hasOriginalSettlementProjection(items)
+        "
+        :items="items"
+        :area="area"
+        :checked="checked"
+        :busy="busy"
+        @check="check"
+        @decision="openDecision"
+        @payout="(id) => (payoutRequestId = id)"
+      />
+      <div v-else-if="!application" class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th v-if="area === 'admin' && workflow === 'settlements'">
+                选择
+              </th>
+              <th v-for="column in columns" :key="column.key">
+                {{ column.label }}
+              </th>
+              <th v-if="area === 'admin' || workflow === 'settlements'">
+                操作
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in items" :key="String(row.id)">
+              <td v-if="area === 'admin' && workflow === 'settlements'">
+                <input
+                  type="checkbox"
+                  :aria-label="'选择申请 ' + row.id"
+                  :disabled="row.status !== 'pending'"
+                  :checked="checked.includes(String(row.id))"
+                  @change="
+                    check(
+                      String(row.id),
+                      ($event.target as HTMLInputElement).checked,
+                    )
+                  "
+                />
+              </td>
+              <td v-for="column in columns" :key="column.key">
+                <span
+                  v-if="column.key === 'status'"
+                  class="badge"
+                  :data-state="
+                    {
+                      pending: 'warn',
+                      approved: 'on',
+                      succeeded: 'on',
+                      paid: 'on',
+                      rejected: 'bad',
+                      failed: 'bad',
+                    }[String(row.status)] || 'none'
+                  "
+                  >{{ displayValue(row.status) }}</span
+                >
+                <template v-else>{{ displayValue(row[column.key]) }}</template>
+              </td>
+              <td v-if="area === 'admin' || workflow === 'settlements'">
+                <div
+                  v-if="area === 'admin' && row.status === 'pending'"
+                  class="row-actions"
+                >
+                  <button
+                    class="link-button"
+                    @click="openDecision(row, 'approve')"
+                  >
+                    核准</button
+                  ><button
+                    class="link-button danger-text"
+                    @click="openDecision(row, 'reject')"
+                  >
+                    拒绝
+                  </button>
+                </div>
+                <button
+                  v-else-if="
+                    workflow === 'settlements' && row.status === 'approved'
+                  "
+                  class="link-button"
+                  @click="payoutRequestId = String(row.id)"
+                >
+                  核对结算出款
+                </button>
+                <span v-else class="muted">已处理</span>
+              </td>
+            </tr>
+            <tr v-if="!items.length">
+              <td class="empty" :colspan="columns.length + 2">暂无申请</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-if="!application" class="pagination">
+        <span
+          >共 {{ total }}
+          {{ internalMerchantList ? "条转账记录" : "条申请" }}</span
+        >
+        <div>
+          <button
+            :disabled="page <= 1 || loading"
+            @click="
+              page--;
+              load();
+            "
+          >
+            上一页</button
+          ><span>第 {{ page }} 页</span
+          ><button
+            :disabled="page * limit >= total || loading"
+            @click="
+              page++;
+              load();
+            "
+          >
+            下一页
+          </button>
+        </div>
+      </div>
+    </section>
+  </template>
   <SettlementStatistics
     v-if="statisticsOpen"
     :client="client"
@@ -910,31 +951,7 @@ onBeforeUnmount(() => {
   </div>
 </template>
 <style scoped>
-.internal-transfer-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--line);
-}
-.internal-transfer-filters label {
-  display: flex;
-  flex-direction: column;
-  flex: 0 1 220px;
-  gap: 8px;
-  margin: 0;
-  min-width: 140px;
-}
-.internal-transfer-filters select {
-  margin: 0;
-}
-@media (max-width: 600px) {
-  .internal-transfer-filters {
-    padding: 16px;
-  }
-  .internal-transfer-filters label {
-    flex: 1 1 100%;
-  }
+.internal-transfer-filters > .filter-inline > select {
+  min-width: 160px;
 }
 </style>

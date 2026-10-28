@@ -8,6 +8,7 @@ import {
   type CommerceKind,
 } from "../commerce";
 import DataTable from "./DataTable.vue";
+import ShellIcon from "./ShellIcon.vue";
 import { centsMoney } from "../settlement-terms";
 const props = defineProps<{
   client: ApiClient;
@@ -320,27 +321,30 @@ onBeforeUnmount(() => controller?.abort());
       </div>
     </section>
     <section class="panel records">
-      <div class="toolbar">
-        <p class="muted">
-          {{
-            kind === "memberships"
-              ? "会员购买会按已配置的价格扣减账户余额，价格以服务端确认为准。"
-              : kind === "deposits"
-                ? "保证金冻结与释放申请均记录资金流水。释放须经管理员核准。"
-                : "充值记录反映真实订单状态，创建订单不会直接增加余额。"
-          }}
-        </p>
-        <div class="toolbar-actions">
-          <button :disabled="loading" @click="load">刷新</button
-          ><button
-            class="primary"
-            :disabled="busy || (kind === 'memberships' && !groups.length)"
-            @click="open"
-          >
-            {{ title }}
+      <div class="table-tools">
+        <button
+          type="button"
+          class="primary"
+          :disabled="busy || (kind === 'memberships' && !groups.length)"
+          @click="open"
+        >
+          <ShellIcon name="plus" />{{ title }}
+        </button>
+        <div class="table-tools-end">
+          <button type="button" :disabled="loading" @click="load">
+            <ShellIcon name="refresh" />刷新
           </button>
         </div>
       </div>
+      <p class="table-note">
+        {{
+          kind === "memberships"
+            ? "会员购买会按已配置的价格扣减账户余额，价格以服务端确认为准。"
+            : kind === "deposits"
+              ? "保证金冻结与释放申请均记录资金流水。释放须经管理员核准。"
+              : "充值记录反映真实订单状态，创建订单不会直接增加余额。"
+        }}
+      </p>
       <div v-if="loading" class="loading-row" role="status">正在读取记录…</div>
       <DataTable v-else :columns="columns" :items="items"
         ><template

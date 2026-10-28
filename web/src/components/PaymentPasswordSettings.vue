@@ -203,3 +203,17 @@ onBeforeUnmount(() => {
     </button>
   </section>
 </template>
+<style scoped>
+.account-section {
+  min-width: 0;
+}
+.account-section form label {
+  display: block;
+  min-width: 0;
+}
+.account-section form input {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+</style>

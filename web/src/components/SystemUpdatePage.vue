@@ -306,8 +306,11 @@ onBeforeUnmount(() => {
       <div class="version-columns">
         <div>
           <span>当前版本</span><strong>{{ view.current_version }}</strong
-          ><small v-if="view.current_source"
-            >构建来源 {{ view.current_source }}</small
+          ><small v-if="view.current_source" class="build-source"
+            >构建来源
+            <code :title="view.current_source">{{
+              view.current_source
+            }}</code></small
           >
         </div>
         <div>
@@ -484,6 +487,21 @@ onBeforeUnmount(() => {
 .version-columns small {
   overflow-wrap: anywhere;
   color: var(--ink-muted);
+}
+.build-source {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+  overflow-wrap: normal;
+}
+.build-source code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .update-record,
 .preparation {

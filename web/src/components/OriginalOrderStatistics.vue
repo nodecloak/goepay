@@ -15,6 +15,7 @@ import {
   statisticsTrend,
 } from "../original-order-statistics";
 import CsvExportButton from "./CsvExportButton.vue";
+import ShellIcon from "./ShellIcon.vue";
 const props = defineProps<{ client: ApiClient; report: string }>();
 const today = () => reportDateRange("today")!;
 const filter = reactive({
@@ -164,20 +165,15 @@ const visibleRows = computed(() =>
 </script>
 <template>
   <section class="panel records original-order-statistics">
-    <form class="toolbar" @submit.prevent="load">
-      <template v-if="!daily"
-        ><label
-          >查询日期（开始）<input
-            v-model="filter.from"
-            type="date"
-            aria-label="查询日期（开始）" /></label
-        ><label
-          >查询日期（结束）<input
-            v-model="filter.to"
-            type="date"
-            aria-label="查询日期（结束）" /></label
-      ></template>
-      <label
+    <form class="toolbar list-filter-card panel" @submit.prevent="load">
+      <span v-if="!daily" class="filter-inline date-range"
+        >查询日期<input
+          v-model="filter.from"
+          type="date"
+          aria-label="查询日期（开始）" /><span class="date-range-sep">–</span
+        ><input v-model="filter.to" type="date" aria-label="查询日期（结束）"
+      /></span>
+      <label class="filter-inline"
         >支付方式<select v-model="filter.type" aria-label="支付方式">
           <option value="">所有支付方式</option>
           <option value="alipay">支付宝</option>
@@ -185,7 +181,7 @@ const visibleRows = computed(() =>
           <option value="sandbox">本地模拟</option>
         </select></label
       >
-      <label v-if="daily && !merchant"
+      <label v-if="daily && !merchant" class="filter-inline"
         >通道ID<input
           v-model="filter.channel"
           aria-label="通道ID"
@@ -193,7 +189,7 @@ const visibleRows = computed(() =>
           maxlength="19"
           placeholder="请输入通道ID"
       /></label>
-      <label v-if="!merchant"
+      <label v-if="!merchant" class="filter-inline"
         >商户号<input
           v-model="filter.uid"
           aria-label="商户号"
@@ -201,25 +197,34 @@ const visibleRows = computed(() =>
           maxlength="19"
           placeholder="请输入商户号"
       /></label>
-      <button :disabled="loading">查询</button
-      ><button type="button" :disabled="loading" @click="reset">重置</button
-      ><button type="button" :disabled="loading" @click="load">刷新</button>
+      <div class="filter-actions">
+        <button class="primary" :disabled="loading">查询</button
+        ><button type="button" :disabled="loading" @click="reset">重置</button
+        ><button type="button" :disabled="loading" @click="load">
+          <ShellIcon name="refresh" />刷新
+        </button>
+      </div>
+    </form>
+    <div class="table-tools">
       <CsvExportButton
         :client="client"
         :path="csvPath"
         :disabled="loading || !!error || !items.length || !csvPath"
         :filename="report + '-original-statistics.csv'"
       />
-    </form>
-    <p class="muted">
+      <span v-if="!daily" class="table-summary"
+        >共 <strong>{{ items.length }}</strong> 条记录</span
+      >
+    </div>
+    <p class="table-note">
       按北京时间的订单创建日期统计{{
         daily ? "近7天" : ""
       }}，金额单位为元。退款金额为该批订单已成功退款的累计金额；成功率按保留的全部订单计算。
     </p>
-    <p v-if="merchant" class="muted">
+    <p v-if="merchant" class="table-note">
       分成金额为已支付订单的原商户净额，退款另列；原分成合计不等于当前可用余额。
     </p>
-    <p v-else class="muted">
+    <p v-else class="table-note">
       手续费利润为原订单成本快照的估算值；{{
         missing !== "0"
           ? missing + "笔已支付订单缺少成本，相关利润显示未知。"
@@ -284,7 +289,7 @@ const visibleRows = computed(() =>
           </text>
         </svg>
       </section>
-      <p v-if="!daily" class="muted">共 {{ items.length }} 条记录</p>
+      <p v-if="!daily" class="sr-only">共 {{ items.length }} 条记录</p>
       <div class="table-scroll">
         <table>
           <thead>
@@ -323,6 +328,42 @@ const visibleRows = computed(() =>
 <style scoped>
 .original-order-statistics {
   min-width: 0;
+}
+.filter-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+}
+.date-range {
+  gap: 4px;
+}
+.date-range input {
+  width: auto;
+}
+.date-range-sep {
+  color: var(--ink-muted);
+}
+.filter-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
+}
+.table-summary {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.table-note {
+  margin: 0 var(--space-5) var(--space-3);
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.table-note + .table-note {
+  margin-top: calc(-1 * var(--space-2));
 }
 .original-order-statistics th,
 .original-order-statistics td {

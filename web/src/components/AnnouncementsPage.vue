@@ -365,6 +365,7 @@ onBeforeUnmount(() => {
           <label
             >排序<input
               v-model="sort"
+              class="sort-input"
               aria-label="排序"
               inputmode="numeric"
               :disabled="!canSave"
@@ -518,6 +519,9 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+}
+.sort-input {
+  max-width: 160px;
 }
 .field-label {
   display: block;

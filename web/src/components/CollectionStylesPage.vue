@@ -928,16 +928,17 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 .style-card-image {
-  height: 280px;
+  aspect-ratio: 16 / 9;
   display: grid;
   place-items: center;
-  background: #f3f5f8;
+  background: var(--bg-raised);
   overflow: hidden;
-  border-radius: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
 }
 .style-card-image img {
   max-width: 100%;
-  max-height: 280px;
+  max-height: 100%;
 }
 .style-card h3 {
   margin: 16px 0 8px;

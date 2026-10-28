@@ -318,24 +318,27 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="panel invitation-page">
-    <form class="toolbar invitation-filters" @submit.prevent="query">
-      <label
-        >邀请码<input
-          v-model="search"
-          aria-label="搜索邀请码"
-          placeholder="搜索邀请码"
-          maxlength="256"
-          :disabled="busy"
-      /></label>
-      <label
-        >状态<select v-model="status" aria-label="状态筛选" :disabled="busy">
-          <option value="">全部状态</option>
-          <option value="unused">未使用</option>
-          <option value="used">已使用</option>
-        </select></label
-      >
-      <button :disabled="loading || busy">查询</button
+  <form
+    class="toolbar list-filter-card panel invitation-filters"
+    @submit.prevent="query"
+  >
+    <label class="filter-inline"
+      >邀请码<input
+        v-model="search"
+        aria-label="搜索邀请码"
+        placeholder="搜索邀请码"
+        maxlength="256"
+        :disabled="busy"
+    /></label>
+    <label class="filter-inline"
+      >状态<select v-model="status" aria-label="状态筛选" :disabled="busy">
+        <option value="">全部状态</option>
+        <option value="unused">未使用</option>
+        <option value="used">已使用</option>
+      </select></label
+    >
+    <div class="filter-actions">
+      <button class="primary" :disabled="loading || busy">查询</button
       ><button
         type="button"
         :disabled="loading || busy"
@@ -347,8 +350,10 @@ onBeforeUnmount(() => {
       >
         清空筛选
       </button>
-    </form>
-    <div class="toolbar invitation-actions">
+    </div>
+  </form>
+  <section class="panel records invitation-page">
+    <div class="table-tools invitation-actions">
       <button
         class="primary"
         :disabled="!canWrite || busy || !!clearRequest"
@@ -364,10 +369,13 @@ onBeforeUnmount(() => {
         :disabled="!canWrite || busy || !!batch"
         @click="openClear('used')"
       >
-        清空已使用</button
-      ><button :disabled="loading || busy" @click="load">刷新</button>
+        清空已使用
+      </button>
+      <div class="table-tools-end">
+        <button :disabled="loading || busy" @click="load">刷新</button>
+      </div>
     </div>
-    <p v-if="!canWrite" class="muted">
+    <p v-if="!canWrite" class="table-note">
       当前会话只读，请使用本人管理员会话管理邀请码。
     </p>
     <p v-if="batch && mode !== 'generate'" class="alert" role="status">
@@ -587,9 +595,6 @@ onBeforeUnmount(() => {
 }
 .invitation-filters.toolbar {
   align-items: center;
-}
-.invitation-page .invitation-filters.toolbar > :last-child {
-  margin-left: 0;
 }
 .invitation-actions {
   flex-wrap: wrap;

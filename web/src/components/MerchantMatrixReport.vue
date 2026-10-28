@@ -8,6 +8,7 @@ import {
   type ReportColumn,
 } from "../reports";
 import CsvExportButton from "./CsvExportButton.vue";
+import ShellIcon from "./ShellIcon.vue";
 const props = defineProps<{ client: ApiClient; report: string }>();
 const today = () => reportDateRange("today")!;
 const from = ref(today().from),
@@ -161,19 +162,25 @@ onBeforeUnmount(() => controller?.abort());
   <section class="panel records merchant-matrix">
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <form
-      class="matrix-filters"
+      class="toolbar list-filter-card panel matrix-filters"
       @submit.prevent="
         page = 1;
         load();
       "
     >
-      <label
-        >开始日期<input v-model="from" type="date" :disabled="loading"
-      /></label>
-      <label
-        >结束日期<input v-model="to" type="date" :disabled="loading"
-      /></label>
-      <label
+      <span class="filter-inline date-range"
+        >查询日期<input
+          v-model="from"
+          type="date"
+          aria-label="开始日期"
+          :disabled="loading" /><span class="date-range-sep">–</span
+        ><input
+          v-model="to"
+          type="date"
+          aria-label="结束日期"
+          :disabled="loading"
+      /></span>
+      <label class="filter-inline"
         >查看方式<select
           v-model="method"
           aria-label="查看方式"
@@ -188,7 +195,7 @@ onBeforeUnmount(() => controller?.abort());
           </option>
         </select></label
       >
-      <label v-if="!transfer"
+      <label v-if="!transfer" class="filter-inline"
         >统计类型<select
           v-model="metric"
           aria-label="统计类型"
@@ -200,7 +207,7 @@ onBeforeUnmount(() => controller?.abort());
           <option value="3">手续费利润统计</option>
         </select></label
       >
-      <div class="matrix-filter-actions">
+      <div class="filter-actions">
         <button class="primary" :disabled="loading">查询统计</button
         ><button
           type="button"
@@ -230,20 +237,22 @@ onBeforeUnmount(() => controller?.abort());
     >
       {{ missingCosts }} 笔付款缺少成本快照；受影响的单元和总计显示未知。
     </p>
-    <div class="matrix-tools">
-      <span>共 {{ total }} 个商户</span
-      ><button
+    <div class="table-tools">
+      <button
         type="button"
         :disabled="loading || dirty || !summary"
         @click="downloadPage"
       >
-        导出本页 CSV</button
+        <ShellIcon name="export" />导出本页 CSV</button
       ><CsvExportButton
         :client="client"
         :path="exportPath"
         :filename="`${report}-${from}-${to}.csv`"
         :disabled="loading || dirty || !summary"
       />
+      <span class="table-summary"
+        >共 <strong>{{ total }}</strong> 个商户</span
+      >
     </div>
     <div v-if="loading" class="loading-row" role="status">正在汇总统计…</div>
     <div v-else-if="!error && summary" class="table-scroll">
@@ -329,37 +338,41 @@ onBeforeUnmount(() => controller?.abort());
   padding: 20px;
   min-width: 0;
 }
-.matrix-filters {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
+.matrix-filters.list-filter-card {
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
 }
-.matrix-filters label {
-  display: grid;
+.filter-inline {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
-  min-width: 0;
+  margin: 0;
   font-size: 13px;
+}
+.filter-inline select,
+.filter-inline input {
   margin: 0;
 }
-.matrix-filters input,
-.matrix-filters select {
-  width: 100%;
-  min-width: 0;
-  margin: 0;
+.date-range {
+  gap: 4px;
 }
-.matrix-filter-actions,
-.matrix-tools {
+.date-range input {
+  width: auto;
+}
+.date-range-sep {
+  color: var(--ink-muted);
+}
+.filter-actions {
   display: flex;
   gap: 10px;
   align-items: center;
+  margin-left: auto;
   flex-wrap: wrap;
 }
-.matrix-tools {
-  margin: 16px 0;
-}
-.matrix-tools > span {
-  margin-right: auto;
+.table-summary {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--ink-muted);
 }
 .matrix-description {
   font-size: 12px;
@@ -393,20 +406,12 @@ th:first-child,
 td:first-child {
   text-align: left;
 }
-@media (max-width: 800px) {
-  .matrix-filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 @media (max-width: 420px) {
   .merchant-matrix {
     padding: 16px;
   }
-  .matrix-filters {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .matrix-tools {
-    align-items: flex-start;
+  .filter-actions {
+    margin-left: 0;
   }
 }
 </style>

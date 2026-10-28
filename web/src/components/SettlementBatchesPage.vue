@@ -254,7 +254,19 @@ onBeforeUnmount(reset);
 </script>
 <template>
   <section class="panel settlement-batches" aria-label="结算批次">
-    <h2>结算批次</h2>
+    <div class="batches-head">
+      <h2>结算批次</h2>
+      <div v-if="allowed" class="batches-head-actions">
+        <button
+          type="button"
+          class="primary"
+          :disabled="busy"
+          @click="openCreate"
+        >
+          生成结算批次</button
+        ><a class="text-button" href="/admin/settle/list">结算申请列表</a>
+      </div>
+    </div>
     <p v-if="!allowed" class="alert error">
       请使用本人管理员会话查看结算批次。
     </p>
@@ -284,15 +296,7 @@ onBeforeUnmount(reset);
         /></label>
         <div class="toolbar-actions">
           <button :disabled="loading || busy">查询</button
-          ><button type="button" :disabled="busy" @click="load()">刷新</button
-          ><button
-            type="button"
-            class="primary"
-            :disabled="busy"
-            @click="openCreate"
-          >
-            生成结算批次</button
-          ><a href="/admin/settle/list">结算申请列表</a>
+          ><button type="button" :disabled="busy" @click="load()">刷新</button>
         </div>
       </form>
       <div v-if="loading" role="status">正在读取批次…</div>
@@ -314,7 +318,19 @@ onBeforeUnmount(reset);
               <td>{{ row.allmoney }}</td>
               <td>{{ row.count }}</td>
               <td>{{ row.time }}</td>
-              <td>{{ settlementBatchStatus(row.status) }}</td>
+              <td>
+                <span
+                  class="badge"
+                  :data-state="
+                    {
+                      active: 'warn',
+                      completed: 'on',
+                      archived: 'none',
+                    }[row.status] || 'none'
+                  "
+                  >{{ settlementBatchStatus(row.status) }}</span
+                >
+              </td>
               <td>
                 <button
                   class="link-button"
@@ -421,7 +437,21 @@ onBeforeUnmount(reset);
                 <td>{{ centsMoney(member.gross_amount_cents) }}</td>
                 <td>{{ centsMoney(member.fee_amount_cents) }}</td>
                 <td>{{ centsMoney(member.net_amount_cents) }}</td>
-                <td>{{ member.status }}</td>
+                <td>
+                  <span
+                    class="badge"
+                    :data-state="
+                      {
+                        pending: 'warn',
+                        approved: 'on',
+                        succeeded: 'on',
+                        rejected: 'bad',
+                        failed: 'bad',
+                      }[String(member.status)] || 'none'
+                    "
+                    >{{ member.status }}</span
+                  >
+                </td>
                 <td>{{ payoutFundingLabel(member.funding_state) }}</td>
                 <td>{{ payoutStateLabel(member.payout_state) }}</td>
                 <td>
@@ -527,6 +557,21 @@ onBeforeUnmount(reset);
   </div>
 </template>
 <style scoped>
+.batches-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.batches-head h2 {
+  margin: 0;
+}
+.batches-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
 .batch-detail {
   border-top: 1px solid var(--line);
   margin-top: 20px;

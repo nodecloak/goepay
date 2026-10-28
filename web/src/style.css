@@ -2117,3 +2117,173 @@ legend {
 .plugin-name > .badge {
   font-weight: 400;
 }
+
+/* Shared list-page pieces (review pass): on/off status tags like the original
+   console's green 已开启 / orange 已关闭 pills, a summary line and a one-line
+   note in the table card, and a start–end date pair. */
+.badge[data-state="on"] {
+  color: var(--success-text);
+  background: var(--success-soft);
+}
+.badge[data-state="off"],
+.badge[data-state="warn"] {
+  color: var(--warning-text);
+  background: var(--warning-soft);
+}
+.badge[data-state="bad"] {
+  color: var(--danger-text);
+  background: var(--danger-soft);
+}
+.badge-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  align-items: center;
+}
+.table-summary {
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+.table-summary strong {
+  color: var(--ink);
+  font-weight: 600;
+  margin: 0 2px;
+}
+.table-note {
+  margin: 0;
+  padding: 0 var(--space-5) var(--space-3);
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.date-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.date-range > .date-range-sep {
+  color: var(--ink-muted);
+}
+.table-tools > .primary .shell-icon:first-child,
+.table-tools > a.primary .shell-icon:first-child {
+  margin-right: 4px;
+}
+
+/* One-row filter card like the original console: [字段][内容] 状态[▾] 日期 …
+   [查询][重置] 更多筛选. Inline filters keep the label left of the control. */
+.list-filter-card > .filter-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+.list-filter-card > .filter-inline > select,
+.list-filter-card > .filter-inline > input {
+  width: auto;
+  min-width: 132px;
+  margin: 0;
+}
+.list-filter-card > .filter-inline input[type="date"] {
+  width: 148px;
+  min-width: 0;
+}
+.list-filter-card:has(> .filter-inline) {
+  align-items: center;
+}
+.list-filter-card:has(> .filter-inline) > .search-group {
+  padding-right: 0;
+  flex: 0 1 380px;
+}
+.list-filter-card:has(> .filter-inline):has(> .list-filters) {
+  padding-right: calc(var(--space-5) + 108px);
+}
+.list-filter-card:has(> .filter-inline) > .list-filters {
+  margin-right: -108px;
+}
+.filter-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+/* A link that does a button's job (e.g. 新增商户进件 opens a form page). */
+a.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: var(--control-h);
+  padding: 5px 15px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+}
+a.button-link:hover {
+  color: var(--primary-text);
+  border-color: var(--primary-text);
+}
+a.button-link.primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+a.button-link.primary:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  color: var(--on-primary);
+}
+.records > .table-note:first-child {
+  padding-top: var(--space-4);
+}
+.balance-strong {
+  color: var(--primary-text);
+  font-weight: 600;
+}
+.merchant-state-tags {
+  margin-bottom: 4px;
+}
+.addon-pager {
+  margin-top: var(--space-4);
+}
+
+/* A status pill that is also the on/off toggle (支付通道 状态). */
+button.badge.state-toggle {
+  cursor: pointer;
+  min-height: 24px;
+  padding: 0 10px;
+}
+button.badge.state-toggle:hover:not(:disabled) {
+  border-color: currentColor;
+}
+
+/* Admin 修改密码: login password and funds password side by side like the
+   original console, two-factor settings full width below. */
+.account-security-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+.account-security-grid > * {
+  min-width: 0;
+  max-width: none;
+}
+.account-security-grid > :nth-child(n + 3) {
+  grid-column: 1 / -1;
+}
+.account-security-grid .account-section {
+  margin-bottom: 0;
+}
+@media (max-width: 900px) {
+  .account-security-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

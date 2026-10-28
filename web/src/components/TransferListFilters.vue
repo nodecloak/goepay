@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { Area } from "../menu";
+import ShellIcon from "./ShellIcon.vue";
 import {
   transferSearchFields,
   transferStatusFields,
@@ -26,40 +27,60 @@ function change(key: keyof TransferReadFilters, event: Event) {
 }
 </script>
 <template>
-  <div class="transfer-list-filters">
-    <div class="transfer-filter-grid">
-      <label
-        >搜索字段<select
-          aria-label="搜索字段"
-          :value="modelValue.search_field"
-          @change="change('search_field', $event)"
-        >
-          <option
-            v-for="field in transferSearchFields"
-            :key="field.value"
-            :value="field.value"
-          >
-            {{ field.label }}
-          </option>
-        </select></label
+  <div class="search-group">
+    <label class="sr-only" for="transfer-search-field">搜索字段</label>
+    <select
+      id="transfer-search-field"
+      aria-label="搜索字段"
+      class="order-search-field"
+      :value="modelValue.search_field"
+      @change="change('search_field', $event)"
+    >
+      <option
+        v-for="field in transferSearchFields"
+        :key="field.value"
+        :value="field.value"
       >
-      <label
-        >搜索内容<input
-          :value="modelValue.q"
-          aria-label="搜索付款记录"
-          :placeholder="
-            modelValue.search_field === 'money'
-              ? '请输入元金额'
-              : '搜索付款记录'
-          "
-          @input="change('q', $event)"
-      /></label>
-      <label v-if="area === 'admin'"
-        >商户号<input
-          :value="modelValue.merchant_id"
-          inputmode="numeric"
-          @input="change('merchant_id', $event)"
-      /></label>
+        {{ field.label }}
+      </option>
+    </select>
+    <label class="sr-only" for="transfer-search">搜索内容</label>
+    <input
+      id="transfer-search"
+      :value="modelValue.q"
+      aria-label="搜索付款记录"
+      :placeholder="
+        modelValue.search_field === 'money' ? '请输入元金额' : '搜索付款记录'
+      "
+      @input="change('q', $event)"
+    />
+  </div>
+  <label v-if="area === 'admin'" class="filter-inline"
+    >商户号<input
+      :value="modelValue.merchant_id"
+      aria-label="商户号"
+      inputmode="numeric"
+      @input="change('merchant_id', $event)"
+  /></label>
+  <div class="filter-actions">
+    <button
+      type="submit"
+      class="primary"
+      :disabled="loading || !!error || blocked"
+    >
+      查询</button
+    ><button type="button" :disabled="loading" @click="emit('reset')">
+      重置
+    </button>
+  </div>
+  <details class="list-filters">
+    <summary>
+      <ShellIcon name="filter" />更多筛选<ShellIcon
+        name="chevronDown"
+        class="list-filters-chevron"
+      />
+    </summary>
+    <div class="list-filter-fields">
       <label v-if="area === 'admin'"
         >通道ID<input
           :value="modelValue.channel_id"
@@ -69,11 +90,14 @@ function change(key: keyof TransferReadFilters, event: Event) {
       <label
         >开始日期<input
           type="date"
+          aria-label="开始日期"
           :value="modelValue.from"
-          @input="change('from', $event)" /></label
-      ><label
+          @input="change('from', $event)"
+      /></label>
+      <label
         >结束日期<input
           type="date"
+          aria-label="结束日期"
           :value="modelValue.to"
           @input="change('to', $event)"
       /></label>
@@ -93,37 +117,17 @@ function change(key: keyof TransferReadFilters, event: Event) {
         </select></label
       >
     </div>
-    <p v-if="error" class="alert error" role="alert">{{ error }}</p>
-    <div class="toolbar-actions">
-      <button type="submit" :disabled="loading || !!error || blocked">
-        查询</button
-      ><button type="button" :disabled="loading" @click="emit('reset')">
-        重置
-      </button>
+    <div class="list-filters-foot">
+      <button type="button" @click="emit('reset')">清空筛选</button>
     </div>
-  </div>
+  </details>
+  <p v-if="error" class="alert error transfer-filter-error" role="alert">
+    {{ error }}
+  </p>
 </template>
 <style scoped>
-.transfer-list-filters {
+.transfer-filter-error {
   flex-basis: 100%;
-  min-width: 0;
-}
-.transfer-filter-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.transfer-filter-grid label {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-}
-.transfer-filter-grid input,
-.transfer-filter-grid select {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
+  margin: 0;
 }
 </style>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import QRCode from "qrcode";
+import ShellIcon from "./ShellIcon.vue";
 import type { ApiClient } from "../api";
 import {
   defaultRedpackBizNo,
@@ -133,7 +134,13 @@ onMounted(load);
       <p>{{ qrLink }}</p>
     </div>
     <h3>红包记录</h3>
-    <button type="button" :disabled="loading" @click="load">刷新</button>
+    <div class="table-tools">
+      <div class="table-tools-end">
+        <button type="button" :disabled="loading" @click="load">
+          <ShellIcon name="refresh" />刷新
+        </button>
+      </div>
+    </div>
     <table>
       <thead>
         <tr>
@@ -154,7 +161,21 @@ onMounted(load);
           <td>{{ r.type === "alipay" ? "支付宝" : "微信" }}</td>
           <td>{{ r.money }}</td>
           <td>{{ r.remark }}</td>
-          <td>{{ redpackStatusLabel(r.status) }}</td>
+          <td>
+            <span
+              class="badge"
+              :data-state="
+                {
+                  claimable: 'warn',
+                  claiming: 'warn',
+                  succeeded: 'on',
+                  failed: 'bad',
+                  expired: 'none',
+                }[r.status] || 'none'
+              "
+              >{{ redpackStatusLabel(r.status) }}</span
+            >
+          </td>
           <td>{{ new Date(r.expires_at).toLocaleString() }}</td>
           <td>
             <button
