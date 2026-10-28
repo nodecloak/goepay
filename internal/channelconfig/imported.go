@@ -95,7 +95,7 @@ func Decrypt(raw, master []byte) (Import, error) {
 	}
 	seen := map[int64]bool{}
 	for _, c := range out.Channels {
-		if c.ID <= 0 || seen[c.ID] || (c.Plugin != "wxpay" && c.Plugin != "alipay") || c.Config == nil || !supportedCollectionMode(c) {
+		if c.ID <= 0 || seen[c.ID] || !KnownChannelPlugin(c.Plugin) || c.Config == nil || !supportedCollectionMode(c) {
 			return Import{}, ErrImport
 		}
 		seen[c.ID] = true

@@ -297,7 +297,7 @@ func (s *Server) checkoutAuthorized(r *http.Request, trade, purpose string) bool
 }
 func (s *Server) providerCallback(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/callbacks/providers/"), "/")
-	if r.Method != "POST" || len(parts) != 2 || s.ProviderFlow == nil {
+	if (r.Method != "POST" && r.Method != "GET") || len(parts) != 2 || s.ProviderFlow == nil {
 		http.Error(w, "callback unavailable", 503)
 		return
 	}
@@ -317,13 +317,40 @@ func (s *Server) providerCallback(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	raw, e := io.ReadAll(io.LimitReader(r.Body, 1<<20+1))
-	if e == nil && len(raw) <= 1<<20 {
+	// Ported plugins may receive GET callbacks (the original read $_GET); the
+	// notification bytes are then the raw query string. Everything else stays POST.
+	if r.Method == "GET" && !callbackMethodAllowed(provider, "GET") {
+		http.Error(w, "callback unavailable", 503)
+		return
+	}
+	var raw []byte
+	if r.Method == "GET" {
+		raw = []byte(r.URL.RawQuery)
+		if len(raw) > 1<<20 {
+			e = payment.ErrInvalid
+		}
+	} else {
+		raw, e = io.ReadAll(io.LimitReader(r.Body, 1<<20+1))
+		if e == nil && len(raw) > 1<<20 {
+			e = payment.ErrInvalid
+		}
+	}
+	if e == nil {
 		e = s.ProviderFlow.HandleNotification(r.Context(), id, parts[1], r.Header, raw)
 	} else {
 		e = payment.ErrInvalid
 	}
 	w.Header().Set("Cache-Control", "no-store")
+	if acker, ok := provider.(interface {
+		NotificationAck(error) (int, string, string)
+	}); ok {
+		if status, contentType, body := acker.NotificationAck(e); status != 0 {
+			w.Header().Set("Content-Type", contentType)
+			w.WriteHeader(status)
+			io.WriteString(w, body)
+			return
+		}
+	}
 	if format, ok := provider.(interface{ NotificationFormat() string }); ok && format.NotificationFormat() == "wechat-v3" {
 		if e != nil {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
