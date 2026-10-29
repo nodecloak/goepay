@@ -107,7 +107,7 @@ func runWebOAuthHTTPStateBrowserAndTrustedPayerSubmissionWithOriginalGroupFixtur
 	lastCheckout := ""
 	start := func(no string) (string, string, *http.Cookie) {
 		t.Helper()
-		p := compat.Params{"pid": "1", "out_trade_no": no, "money": "1.25", "name": "deposit", "type": "alipay", "method": "jsapi", "channel_id": "7", "oauth": "1", "clientip": "192.0.2.5"}
+		p := compat.Params{"pid": "1", "out_trade_no": no, "money": "1.25", "name": "deposit", "type": "alipay", "method": "jsapi", "channel_id": "7", "oauth": "1", "clientip": "192.0.2.5", "notify_url": "https://merchant.example.invalid/notify"}
 		_, out := call(t, h, "POST", "/mapi.php", signed(p, "contract-secret"))
 		if out["code"] != float64(1) {
 			t.Fatal("explicit OAuth creation unavailable", out)

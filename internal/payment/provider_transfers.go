@@ -245,7 +245,7 @@ func (s *Store) beginTransferTx(ctx context.Context, tx pgx.Tx, merchantID, chan
 	if e != nil {
 		return t, false, e
 	}
-	if _, e = tx.Exec(ctx, "INSERT INTO provider_transfer_attempts(transfer_id,channel_id,recipient_cipher) VALUES($1,$2,$3)", t.ID, channelID, cipher); e != nil {
+	if _, e = tx.Exec(ctx, "INSERT INTO provider_transfer_attempts(transfer_id,channel_id,recipient_cipher,method) VALUES($1,$2,$3,$4)", t.ID, channelID, cipher, r.Type); e != nil {
 		return t, false, e
 	}
 	if e = s.indexPrivateSearchTx(ctx, tx, "transfer_intent", t.ID, merchantID, cipher, privatesearch.Fields{privatesearch.Account: r.Account, privatesearch.Name: r.Name, privatesearch.Remark: r.Remark}); e != nil {

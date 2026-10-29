@@ -139,7 +139,7 @@ func TestGroupRoutingUXHTTPV1V2HonorEffectiveGroupWithoutResendingOrWideningPerm
 				if v2 {
 					pid, path = "2", "/api/pay/create"
 				}
-				params := compat.Params{"pid": pid, "out_trade_no": "group152-original-" + pid, "name": "local group routing", "money": "1.00", "type": kind, "method": "native"}
+				params := compat.Params{"pid": pid, "out_trade_no": "group152-original-" + pid, "name": "local group routing", "money": "1.00", "type": kind, "method": "native", "notify_url": "https://merchant.example.invalid/notify"}
 				var values url.Values
 				if v2 {
 					params["timestamp"] = fmt.Sprint(time.Now().Unix())
@@ -181,7 +181,7 @@ func TestGroupRoutingUXHTTPV1V2HonorEffectiveGroupWithoutResendingOrWideningPerm
 				t.Fatal("wrong provider invocation", a.creates.Load(), b.creates.Load())
 			}
 			s.MerchantChannels[1] = []int64{7}
-			params := compat.Params{"pid": "1", "out_trade_no": "denied-group152", "name": "local group routing", "money": "1.00", "type": kind, "method": "native"}
+			params := compat.Params{"pid": "1", "out_trade_no": "denied-group152", "name": "local group routing", "money": "1.00", "type": kind, "method": "native", "notify_url": "https://merchant.example.invalid/notify"}
 			_, out := call(t, s.Handler(), "POST", "/mapi.php", signed(params, "contract-secret"))
 			if out["code"] == float64(1) || a.creates.Load() != 0 || b.creates.Load() != 2 {
 				t.Fatal("group widened merchant channel grant", out)

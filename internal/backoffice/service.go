@@ -42,6 +42,9 @@ type Query struct {
 	Page, Limit int
 	Search      string
 	Merchant    *MerchantDirectoryFilter
+	// Filter holds validated field=value equality filters (keys are a
+	// definition's declared FilterSpec Params only; List rejects any other key).
+	Filter map[string]string
 }
 type Item struct {
 	ID     int64
@@ -271,6 +274,15 @@ func validateSpecific(resource string, v map[string]any) error {
 			return ErrInvalid
 		}
 		if known, err := validateMerchantTransferSetting(key, value); known && err != nil {
+			return ErrInvalid
+		}
+		if known, err := validateSettleTransferChannelSetting(key, value); known && err != nil {
+			return ErrInvalid
+		}
+		if known, err := validatePayGuardSetting(key, value); known && err != nil {
+			return ErrInvalid
+		}
+		if known, err := validateMerchantFeatureSetting(key, value); known && err != nil {
 			return ErrInvalid
 		}
 		if known, err := validateProxySetting(key, value); known && err != nil {
@@ -547,6 +559,13 @@ func (s *Service) List(ctx context.Context, p Principal, r string, q Query) (Pag
 	if r == "merchants" || r == "admin-users" {
 		return s.listSpecial(ctx, p, r, q)
 	}
+	if r == "pay-types" {
+		// The 7 original pre_type rows always show with their effective 状态,
+		// merged with the stored records (the original console shows the whole
+		// catalog on one page), so an administrator can open a type that has no
+		// record yet. authorized() above already restricted this to admins.
+		return s.listPayTypes(ctx, p)
+	}
 	where := "resource=$1 AND ($2::text='admin' OR owner_id=$3 OR $4::boolean) AND ($5::text='' OR strpos(lower(body::text),lower($5))>0)"
 	if r == "settings" {
 		where += " AND body->>'key' IS DISTINCT FROM '__platform_merchant_access179'"
@@ -554,8 +573,33 @@ func (s *Service) List(ctx context.Context, p Principal, r string, q Query) (Pag
 	if r == "invitation-codes" {
 		where += " AND body->>'archived' IS DISTINCT FROM 'true'"
 	}
+	// Generic per-field toolbar filters (schema FilterSpec). Only a param
+	// declared on this definition is accepted; its validated value is bound as a
+	// parameter and compared against body->>'<param>' (booleans render 'true'/
+	// 'false'). An unknown param is a client error.
+	args := []any{r, p.Role, p.SubjectID, d.merchantRead, q.Search}
+	for param, value := range q.Filter {
+		if value == "" {
+			continue
+		}
+		known := false
+		for _, fs := range d.filters {
+			if fs.Param == param {
+				for _, o := range fs.Options {
+					if o.Value == value {
+						known = true
+					}
+				}
+			}
+		}
+		if !known {
+			return Page{}, ErrInvalid
+		}
+		args = append(args, value)
+		where += " AND body->>'" + param + "'=$" + strconv.Itoa(len(args))
+	}
 	page := Page{Items: []Item{}, Page: q.Page, Limit: q.Limit}
-	if e = s.pool.QueryRow(ctx, "SELECT count(*) FROM backoffice_records WHERE "+where, r, p.Role, p.SubjectID, d.merchantRead, q.Search).Scan(&page.Total); e != nil {
+	if e = s.pool.QueryRow(ctx, "SELECT count(*) FROM backoffice_records WHERE "+where, args...).Scan(&page.Total); e != nil {
 		return page, e
 	}
 	order := "id DESC"
@@ -567,7 +611,20 @@ func (s *Service) List(ctx context.Context, p Principal, r string, q Query) (Pag
 		order = "CASE WHEN body->>'sort'~'^[1-9][0-9]{0,9}$' THEN (body->>'sort')::numeric ELSE 50 END ASC,id DESC"
 		projection = "id,body || jsonb_build_object('created_at',created_at)"
 	}
-	rows, e := s.pool.Query(ctx, "SELECT "+projection+" FROM backoffice_records WHERE "+where+" ORDER BY "+order+" LIMIT $6 OFFSET $7", r, p.Role, p.SubjectID, d.merchantRead, q.Search, q.Limit, (q.Page-1)*q.Limit)
+	if r == "blacklist" {
+		// Pro shows 添加时间; surface the record's created_at into the body so the
+		// readonly schema field renders it (does not change stored data).
+		projection = "id,body || jsonb_build_object('created_at',created_at)"
+	}
+	if r == "domains" {
+		// Pro's 授权域名 list shows 添加时间; surface created_at (read-only) the same
+		// way. 审核时间 is not separately tracked in GOEPAY, so it is not fabricated.
+		projection = "id,body || jsonb_build_object('created_at',created_at)"
+	}
+	limitPos := strconv.Itoa(len(args) + 1)
+	offsetPos := strconv.Itoa(len(args) + 2)
+	args = append(args, q.Limit, (q.Page-1)*q.Limit)
+	rows, e := s.pool.Query(ctx, "SELECT "+projection+" FROM backoffice_records WHERE "+where+" ORDER BY "+order+" LIMIT $"+limitPos+" OFFSET $"+offsetPos, args...)
 	if e != nil {
 		return page, e
 	}

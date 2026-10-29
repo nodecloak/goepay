@@ -149,6 +149,13 @@ func (s *Store) parentView(h parentChannelHead, a parentChannelAccount, factory 
 		return out, e
 	}
 	out.Mode, out.Rate, out.FeeRateBPS = 0, dto.Rate, dto.FeeRateBPS
+	// pay_type and plugin are distinct: h.kind is the channel's pay type, while
+	// the account view reports the plugin name (the dedicated adapter's name for
+	// a native channel, or the ported plugin's name). The original console shows
+	// 支付方式 (pay type) and 支付插件 (plugin) as separate columns/fields.
+	if out.Account.Plugin != "" {
+		out.Plugin = out.Account.Plugin
+	}
 	hash, e := s.referralDigest("parentchannel180/public-state", []any{h.proof, a.proof, policy.proof})
 	out.Fingerprint = hex.EncodeToString(hash)
 	return out, e

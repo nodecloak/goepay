@@ -13,6 +13,35 @@ import (
 
 var paymentStatisticsMethods = []struct{ kind, name string }{{"alipay", "支付宝"}, {"wxpay", "微信支付"}, {"qqpay", "QQ钱包"}, {"bank", "银联支付"}, {"jdpay", "京东支付"}, {"paypal", "PayPal"}, {"douyinpay", "抖音支付"}, {"ecny", "数字人民币"}, {"sandbox", "本地模拟"}}
 
+type statisticsMethod = struct{ kind, name string }
+
+// statisticsShownMethods keeps the original's view, which lists the enabled
+// pre_type rows: every open pay type (支付方式 records, or the original install
+// defaults: 支付宝 and 微信支付) and GOEPAY's local sandbox, plus any type that
+// still has orders in the window, so no amount disappears from the report.
+func statisticsShownMethods(ctx context.Context, tx pgx.Tx, groups map[string]map[string]*originalStatisticsGroup) ([]statisticsMethod, error) {
+	out := []statisticsMethod{}
+	for _, m := range paymentStatisticsMethods {
+		show := m.kind == "sandbox"
+		if !show {
+			open, e := payTypeCatalogOpen(ctx, tx, m.kind)
+			if e != nil {
+				return nil, e
+			}
+			show = open
+		}
+		for _, day := range groups {
+			if g := day[m.kind]; g != nil && g.orders.Sign() > 0 {
+				show = true
+			}
+		}
+		if show {
+			out = append(out, m)
+		}
+	}
+	return out, nil
+}
+
 func paymentStatisticsRow(g *originalStatisticsGroup, kind, name string) map[string]any {
 	rate := g.row("", false)["successRate"]
 	if rate == nil {
@@ -21,9 +50,9 @@ func paymentStatisticsRow(g *originalStatisticsGroup, kind, name string) map[str
 	return map[string]any{"type": kind, "showname": name, "money": g.paid.value(), "count": g.orders.String(), "success_count": g.successes.String(), "rate": rate}
 }
 
-func paymentStatisticsDay(at time.Time, methods map[string]*originalStatisticsGroup, total *originalStatisticsGroup) map[string]any {
-	items := make([]map[string]any, 0, len(paymentStatisticsMethods))
-	for _, method := range paymentStatisticsMethods {
+func paymentStatisticsDay(at time.Time, methods map[string]*originalStatisticsGroup, total *originalStatisticsGroup, shown []statisticsMethod) map[string]any {
+	items := make([]map[string]any, 0, len(shown))
+	for _, method := range shown {
 		items = append(items, paymentStatisticsRow(methods[method.kind], method.kind, method.name))
 	}
 	return map[string]any{"date": at.Format("2006-01-02"), "items": items, "summary": paymentStatisticsRow(total, "total", "总计")}
@@ -122,6 +151,11 @@ func (s *Server) merchantPaymentStatistics(w http.ResponseWriter, r *http.Reques
 		s.fail(w, e)
 		return
 	}
+	shown, e := statisticsShownMethods(ctx, tx, groups)
+	if e != nil {
+		s.fail(w, e)
+		return
+	}
 	if e = tx.Commit(ctx); e != nil {
 		s.fail(w, e)
 		return
@@ -130,7 +164,7 @@ func (s *Server) merchantPaymentStatistics(w http.ResponseWriter, r *http.Reques
 	for i := 0; i < 7; i++ {
 		at := start.AddDate(0, 0, i)
 		key := at.Format("2006-01-02")
-		trend = append(trend, paymentStatisticsDay(at, groups[key], totals[key]))
+		trend = append(trend, paymentStatisticsDay(at, groups[key], totals[key], shown))
 	}
 	response(w, 200, 0, "", map[string]any{"merchant_id": raw, "timezone": "Asia/Shanghai", "cohort": "merchant_orders_created", "columns": []reportColumn{{"showname", "支付方式"}, {"money", "订单金额"}, {"count", "订单数量"}, {"rate", "成功率"}}, "days": map[string]any{"today": trend[6], "yesterday": trend[5]}, "trend": trend})
 }

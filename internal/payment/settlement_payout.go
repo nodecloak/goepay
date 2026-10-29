@@ -296,7 +296,7 @@ func (g ProviderFlow) prepareSettlementPayoutTx(ctx context.Context, tx pgx.Tx, 
 	if e != nil {
 		return SettlementPayout{}, e
 	}
-	if _, e = tx.Exec(ctx, "INSERT INTO provider_transfer_attempts(transfer_id,channel_id,recipient_cipher) VALUES($1,$2,$3)", tid, channel, cipher); e != nil {
+	if _, e = tx.Exec(ctx, "INSERT INTO provider_transfer_attempts(transfer_id,channel_id,recipient_cipher,method) VALUES($1,$2,$3,$4)", tid, channel, cipher, req.Type); e != nil {
 		return SettlementPayout{}, e
 	}
 	if e = g.Store.indexPrivateSearchTx(ctx, tx, "transfer_intent", tid, v.MerchantID, cipher, privatesearch.Fields{privatesearch.Account: req.Account, privatesearch.Name: req.Name, privatesearch.Remark: req.Remark}); e != nil {

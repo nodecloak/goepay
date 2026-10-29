@@ -43,7 +43,7 @@ func TestSequence169SignedHTTPDifferentGroupsShareExactParentsAndReplayOriginalI
 		if v2 {
 			pid, path, want, code = "2", "/api/pay/create", target, 0
 		}
-		params := compat.Params{"pid": pid, "out_trade_no": "sequence169-http-" + pid, "name": "synthetic169", "money": "1.00", "type": "alipay", "method": "native"}
+		params := compat.Params{"pid": pid, "out_trade_no": "sequence169-http-" + pid, "name": "synthetic169", "money": "1.00", "type": "alipay", "method": "native", "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return"}
 		var values url.Values
 		if v2 {
 			params["timestamp"], params["sign_type"] = fmt.Sprint(time.Now().Unix()), "RSA"
@@ -83,7 +83,7 @@ func TestSequence169SignedHTTPDifferentGroupsShareExactParentsAndReplayOriginalI
 	if _, e := pool.Exec(ctx, `UPDATE backoffice_records SET body=jsonb_set(body,'{info,alipay,channel}','"0"') WHERE id=(SELECT base_group_id FROM merchants WHERE id=1)`); e != nil {
 		t.Fatal(e)
 	}
-	_, out := call(t, s.Handler(), "POST", "/mapi.php", signed(compat.Params{"pid": "1", "out_trade_no": "sequence169-http-1", "name": "synthetic169", "money": "1.00", "type": "alipay", "method": "native"}, "contract-secret"))
+	_, out := call(t, s.Handler(), "POST", "/mapi.php", signed(compat.Params{"pid": "1", "out_trade_no": "sequence169-http-1", "name": "synthetic169", "money": "1.00", "type": "alipay", "method": "native", "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return"}, "contract-secret"))
 	if out["code"] != float64(1) || digest() != before || a.creates.Load() != 1 {
 		t.Fatal("changed group repriced/rerouted original order", out)
 	}

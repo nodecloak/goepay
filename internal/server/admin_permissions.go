@@ -1,5 +1,7 @@
 package server
 
+import "goepay/internal/identity"
+
 // R_ADMIN operators retain business-management access while R_SUPER is required
 // for security-sensitive system configuration and worker control.
 func adminOperationAllowed(class string, parts []string) bool {
@@ -25,4 +27,51 @@ func adminOperationAllowed(class string, parts []string) bool {
 		}
 	}
 	return true
+}
+
+// adminRequestAllowed decides whether an administrator session may reach the
+// endpoint named by parts. It layers per-menu permissions (migration 000132) on
+// top of the coarse super/operator floor:
+//
+//   - super: always allowed.
+//   - operator with NO explicit permission set (NULL column): the original
+//     operator access, unchanged (adminOperationAllowed).
+//   - operator WITH an explicit permission set: allowed only when the route maps
+//     to a granted menu key; routes with no grantable menu (super-only pages and
+//     system operations) are refused. Self-service routes (session/account/
+//     security/logout) are always allowed so a restricted admin can still manage
+//     their own password and MFA.
+func adminRequestAllowed(user identity.User, parts []string) bool {
+	if user.AdminClass == "super" {
+		return true
+	}
+	if !adminOperationAllowed(user.AdminClass, parts) {
+		return false
+	}
+	granted, restricted := parsePermissions(user.Permissions)
+	if !restricted {
+		return true
+	}
+	if len(parts) >= 2 && alwaysAllowedAdminFamily(parts[1]) {
+		return true
+	}
+	key := routeMenuKey(parts)
+	if key == "" {
+		// Unmapped routes (super-only pages, system operations) are denied to a
+		// restricted operator.
+		return false
+	}
+	return granted[key]
+}
+
+// alwaysAllowedAdminFamily lists route families every signed-in administrator
+// may use regardless of menu grants: own session, own account/password/MFA, and
+// logout. Denying these would lock a restricted operator out of changing their
+// own password.
+func alwaysAllowedAdminFamily(family string) bool {
+	switch family {
+	case "session", "logout", "account", "security":
+		return true
+	}
+	return false
 }

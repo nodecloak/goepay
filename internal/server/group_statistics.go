@@ -111,6 +111,11 @@ func (s *Server) groupStatistics(w http.ResponseWriter, r *http.Request, role st
 		s.fail(w, e)
 		return
 	}
+	shown, e := statisticsShownMethods(ctx, tx, groups)
+	if e != nil {
+		s.fail(w, e)
+		return
+	}
 	if e = tx.Commit(ctx); e != nil {
 		s.fail(w, e)
 		return
@@ -121,7 +126,7 @@ func (s *Server) groupStatistics(w http.ResponseWriter, r *http.Request, role st
 		if day == "yesterday" {
 			at = yesterday
 		}
-		days[day] = paymentStatisticsDay(at, groups[day], totals[day])
+		days[day] = paymentStatisticsDay(at, groups[day], totals[day], shown)
 	}
 	response(w, 200, 0, "", map[string]any{"group_id": raw, "group_name": name, "timezone": "Asia/Shanghai", "cohort": "current_effective_group", "columns": []reportColumn{{"showname", "支付方式"}, {"money", "订单金额"}, {"count", "订单数量"}, {"rate", "成功率"}}, "days": days})
 }

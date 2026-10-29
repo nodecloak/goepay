@@ -69,6 +69,10 @@ func runMiniLaunchHTTPMaterialsHaveOneUseBoundStateButNoPaymentAttemptWithOrigin
 			path = "/mapi.php"
 			p["pid"] = "1"
 			delete(p, "timestamp")
+			// The original mapi requires notify_url (api/Pay.php create()).
+			if p["notify_url"] == "" {
+				p["notify_url"] = "https://merchant.example.invalid/notify"
+			}
 			p["sign_type"] = "MD5"
 			p["sign"] = compat.SignMD5(p, "contract-secret")
 		} else {

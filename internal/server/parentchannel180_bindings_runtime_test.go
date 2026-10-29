@@ -172,7 +172,7 @@ func (f *binding180TLSFactory) Restore(id int64, raw []byte) (adapter.ParentChan
 
 func binding180Payment(t *testing.T, f channel168Fixture, id, no, app string, mini bool) map[string]any {
 	t.Helper()
-	p := compat.Params{"pid": "1", "out_trade_no": no, "type": "wxpay", "name": "synthetic binding180", "money": "100.00", "channel_id": id, "method": "jsapi", "sub_appid": app, "sub_openid": "synthetic-openid-" + app, "sign_type": "MD5"}
+	p := compat.Params{"pid": "1", "out_trade_no": no, "type": "wxpay", "name": "synthetic binding180", "money": "100.00", "channel_id": id, "method": "jsapi", "sub_appid": app, "sub_openid": "synthetic-openid-" + app, "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return", "sign_type": "MD5"}
 	if mini {
 		p["is_applet"] = "1"
 	}

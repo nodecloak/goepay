@@ -355,6 +355,33 @@ func huifuBuyer(data map[string]any) string {
 	return ""
 }
 
+// NotificationResponse answers like the original notify(): a verified paid
+// callback gets "RECV_ORD_ID_<order>" (huifu stops retrying on it); anything
+// else keeps the plain failure reply. Only a plain order number is echoed.
+func (p *huifuPlugin) NotificationResponse(_ http.Header, raw []byte, verifyErr error) (int, string, string) {
+	if verifyErr != nil {
+		return 0, "", ""
+	}
+	form, e := callbackParams(raw)
+	if e != nil {
+		return 0, "", ""
+	}
+	data, e := callbackJSON([]byte(form["resp_data"]))
+	if e != nil {
+		return 0, "", ""
+	}
+	no := jsonText(data, "req_seq_id")
+	if no == "" || len(no) > 64 {
+		return 0, "", ""
+	}
+	for _, c := range no {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_' || c == '-') {
+			return 0, "", ""
+		}
+	}
+	return 200, "text/plain; charset=utf-8", "RECV_ORD_ID_" + no
+}
+
 func (p *huifuPlugin) Query(ctx context.Context, r QueryRequest) (QueryResult, error) {
 	if r.TradeNo == "" {
 		return QueryResult{}, ErrInvalid

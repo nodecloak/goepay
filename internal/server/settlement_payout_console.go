@@ -63,13 +63,23 @@ func (s *Server) settlementPayoutConsole(w http.ResponseWriter, r *http.Request,
 	if len(parts) == 3 && r.Method == "GET" {
 		payout, err := s.Store.SettlementPayout(r.Context(), id)
 		var out any
+		confirmURL := ""
 		if err == nil {
 			out = payout
+			// 原 settle.php 已完成结算的 jumpurl 确认收款二维码：微信转账待确认时可用。
+			if payout.TransferID > 0 {
+				links, e := s.transferConfirmURLs(r.Context(), []int64{payout.TransferID})
+				if e != nil {
+					s.fail(w, e)
+					return true
+				}
+				confirmURL = links[payout.TransferID]
+			}
 		} else if !errors.Is(err, payment.ErrNotFound) {
 			fail(err)
 			return true
 		}
-		response(w, 200, 0, "approval and external payout are separate states", map[string]any{"request": settlementRequestView(request), "payout": out})
+		response(w, 200, 0, "approval and external payout are separate states", map[string]any{"request": settlementRequestView(request), "payout": out, "confirm_url": confirmURL})
 		return true
 	}
 	if len(parts) != 4 {

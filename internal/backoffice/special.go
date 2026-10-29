@@ -163,7 +163,7 @@ func (s *Service) getSpecial(ctx context.Context, p Principal, r string, id int6
 	if r == "merchants" {
 		e = s.pool.QueryRow(ctx, "SELECT "+merchantConsoleProjection+" FROM "+merchantConsoleFrom+" WHERE merchants.id=$1", id).Scan(&raw)
 	} else {
-		e = s.pool.QueryRow(ctx, "SELECT jsonb_build_object('username',username,'display_name',display_name,'enabled',enabled,'admin_class',admin_class,'auth_version',auth_version::text) FROM console_users WHERE id=$1 AND role='admin'", id).Scan(&raw)
+		e = s.pool.QueryRow(ctx, "SELECT jsonb_build_object('username',username,'display_name',display_name,'enabled',enabled,'admin_class',admin_class,'permissions',permissions,'auth_version',auth_version::text) FROM console_users WHERE id=$1 AND role='admin'", id).Scan(&raw)
 	}
 	if e != nil {
 		return Item{}, businessError(e)
@@ -183,7 +183,7 @@ func (s *Service) listSpecial(ctx context.Context, p Principal, r string, q Quer
 	if r == "admin-users" {
 		table = "console_users"
 		condition = "role='admin'"
-		projection = "jsonb_build_object('username',username,'display_name',display_name,'enabled',enabled,'admin_class',admin_class)"
+		projection = "jsonb_build_object('username',username,'display_name',display_name,'enabled',enabled,'admin_class',admin_class,'permissions',permissions)"
 		idColumn = "console_users.id"
 	}
 	where := " WHERE " + condition + " AND ($1::text='' OR strpos(lower((" + projection + ")::text),lower($1))>0)"
@@ -229,12 +229,22 @@ func (s *Service) listSpecial(ctx context.Context, p Principal, r string, q Quer
 var usernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_.@-]{3,100}$`)
 
 func (s *Service) createAdministrator(ctx context.Context, p Principal, d definition, in map[string]json.RawMessage) (Item, error) {
+	permissions, hasPermissions, e := extractAdminPermissions(in)
+	if e != nil {
+		return Item{}, e
+	}
 	v, e := validate(p, d, in, nil, true)
 	if e != nil {
 		return Item{}, e
 	}
 	username := fmt.Sprint(v["username"])
 	if !usernamePattern.MatchString(username) {
+		return Item{}, ErrInvalid
+	}
+	// Per-menu permissions only narrow an operator; super ignores them. Reject
+	// an attempt to pin a grant set onto a super row so the stored value never
+	// contradicts the enforced class.
+	if fmt.Sprint(v["admin_class"]) == "super" && hasPermissions && len(permissions) > 0 {
 		return Item{}, ErrInvalid
 	}
 	password, _ := v["password"].(string)
@@ -249,9 +259,13 @@ func (s *Service) createAdministrator(ctx context.Context, p Principal, d defini
 	defer tx.Rollback(ctx)
 	var id int64
 	enabled, _ := v["enabled"].(bool)
-	e = tx.QueryRow(ctx, "INSERT INTO console_users(username,role,subject_id,display_name,password_hash,enabled,admin_class) VALUES($1,'admin',nextval('console_subject_seq'),$2,$3,$4,$5) RETURNING id", username, fmt.Sprint(v["display_name"]), hash, enabled, v["admin_class"]).Scan(&id)
+	permissionArg := adminPermissionArg(permissions, hasPermissions)
+	e = tx.QueryRow(ctx, "INSERT INTO console_users(username,role,subject_id,display_name,password_hash,enabled,admin_class,permissions) VALUES($1,'admin',nextval('console_subject_seq'),$2,$3,$4,$5,$6) RETURNING id", username, fmt.Sprint(v["display_name"]), hash, enabled, v["admin_class"], permissionArg).Scan(&id)
 	if e != nil {
 		return Item{}, businessError(e)
+	}
+	if hasPermissions {
+		v["permissions"] = permissions
 	}
 	if e = audit(ctx, tx, p, "admin-users", id, "create", v); e != nil {
 		return Item{}, e
@@ -266,6 +280,10 @@ func (s *Service) updateAdministrator(ctx context.Context, p Principal, d defini
 	if _, ok := in["username"]; ok {
 		return Item{}, ErrForbidden
 	}
+	permissions, hasPermissions, e := extractAdminPermissions(in)
+	if e != nil {
+		return Item{}, e
+	}
 	current, e := s.getSpecial(ctx, p, "admin-users", id)
 	if e != nil {
 		return Item{}, e
@@ -276,6 +294,11 @@ func (s *Service) updateAdministrator(ctx context.Context, p Principal, d defini
 	}
 	if v["enabled"] == false && current.Fields["username"] == p.Username {
 		return Item{}, ErrForbidden
+	}
+	// The resulting class decides whether a grant set is meaningful: forbid
+	// storing permissions on a row that is (or becomes) super.
+	if fmt.Sprint(v["admin_class"]) == "super" && hasPermissions && len(permissions) > 0 {
+		return Item{}, ErrInvalid
 	}
 	hash := ""
 	if raw, ok := in["password"]; ok {
@@ -317,12 +340,24 @@ func (s *Service) updateAdministrator(ctx context.Context, p Principal, d defini
 			return Item{}, ErrForbidden
 		}
 	}
-	tag, e := tx.Exec(ctx, "UPDATE console_users SET display_name=$2,enabled=$3,password_hash=CASE WHEN $4::text='' THEN password_hash ELSE $4 END,admin_class=$5 WHERE id=$1 AND role='admin' AND auth_version=$6::bigint", id, fmt.Sprint(v["display_name"]), v["enabled"], hash, v["admin_class"], fmt.Sprint(current.Fields["auth_version"]))
+	// permissions is updated only when the caller sent the field. When the row
+	// is (or becomes) super the stored set is cleared so an operator demotion is
+	// not silently granted a stale super's empty set.
+	setPermissions := hasPermissions
+	permissionArg := adminPermissionArg(permissions, hasPermissions)
+	if fmt.Sprint(v["admin_class"]) == "super" {
+		setPermissions = true
+		permissionArg = nil
+	}
+	tag, e := tx.Exec(ctx, "UPDATE console_users SET display_name=$2,enabled=$3,password_hash=CASE WHEN $4::text='' THEN password_hash ELSE $4 END,admin_class=$5,permissions=CASE WHEN $7::boolean THEN $8::jsonb ELSE permissions END WHERE id=$1 AND role='admin' AND auth_version=$6::bigint", id, fmt.Sprint(v["display_name"]), v["enabled"], hash, v["admin_class"], fmt.Sprint(current.Fields["auth_version"]), setPermissions, permissionArg)
 	if e != nil {
 		return Item{}, e
 	}
 	if tag.RowsAffected() != 1 {
 		return Item{}, ErrConflict
+	}
+	if hasPermissions {
+		v["permissions"] = permissions
 	}
 	if e = audit(ctx, tx, p, "admin-users", id, "update", v); e != nil {
 		return Item{}, e
@@ -332,4 +367,35 @@ func (s *Service) updateAdministrator(ctx context.Context, p Principal, d defini
 	}
 	delete(v, "password")
 	return Item{ID: id, Fields: v}, nil
+}
+
+// extractAdminPermissions removes the permissions field from in (so the generic
+// validator never sees the array-typed value) and returns the catalog-validated
+// key set, whether the field was present, and any validation error.
+func extractAdminPermissions(in map[string]json.RawMessage) ([]string, bool, error) {
+	raw, ok := in["permissions"]
+	if !ok {
+		return nil, false, nil
+	}
+	delete(in, "permissions")
+	var keys []string
+	if json.Unmarshal(raw, &keys) != nil {
+		return nil, true, ErrInvalid
+	}
+	normalized, valid := normalizeAdminPermissions(keys)
+	if !valid {
+		return nil, true, ErrInvalid
+	}
+	return normalized, true, nil
+}
+
+// adminPermissionArg renders the permissions grant for the jsonb column: NULL
+// when the field was not supplied or the set is empty (unrestricted operator),
+// otherwise the JSON-encoded key array.
+func adminPermissionArg(permissions []string, has bool) any {
+	if !has || len(permissions) == 0 {
+		return nil
+	}
+	b, _ := json.Marshal(permissions)
+	return string(b)
 }

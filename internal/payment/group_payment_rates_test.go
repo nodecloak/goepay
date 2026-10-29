@@ -6,10 +6,14 @@ import (
 )
 
 func TestOriginalGroupPaymentTypeRatesParserRejectsAmbiguousOrUnsupportedInputs(t *testing.T) {
-	for _, raw := range []string{`[]`, `null`, `{"alipay":{"rate":null}}`, `{"alipay":{"rate":"99","rate":"98"}}`, `{"alipay":{"rate":"99"},"alipay":{"rate":"98"}}`, `{"alipay":{"rate":"99","channel":1}}`, `{"wxpay":{"rate":"100.01"}}`, `{"wxpay":{"rate":"1e2"}}`, `{"wxpay":{"rate":"0.001"}}`, `{"bank":{"rate":"99"}}`, `{} {}`} {
+	for _, raw := range []string{`[]`, `null`, `{"alipay":{"rate":null}}`, `{"alipay":{"rate":"99","rate":"98"}}`, `{"alipay":{"rate":"99"},"alipay":{"rate":"98"}}`, `{"alipay":{"rate":"99","channel":1}}`, `{"wxpay":{"rate":"100.01"}}`, `{"wxpay":{"rate":"1e2"}}`, `{"wxpay":{"rate":"0.001"}}`, `{"unionpay":{"rate":"99"}}`, `{} {}`} {
 		if _, e := ParseGroupRetainedRates([]byte(raw)); e == nil {
 			t.Fatal("ambiguous rate accepted", raw)
 		}
+	}
+	// bank is one of the original pay types (pre_type), so its group rate is kept.
+	if bank, e := ParseGroupRetainedRates([]byte(`{"bank":{"rate":"99"}}`)); e != nil || bank["bank"] != 9900 || len(bank) != 1 {
+		t.Fatal("original bank rate", bank, e)
 	}
 	rates, e := ParseGroupRetainedRates([]byte(`{"alipay":{"rate":"99.50"},"wxpay":{"rate":"100"},"sandbox":{"rate":"0"}}`))
 	if e != nil || rates["alipay"] != 9950 || rates["wxpay"] != 10000 || len(rates) != 2 {

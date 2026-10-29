@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/identity"
 	"goepay/internal/payment"
 	"net/http"
@@ -200,13 +201,15 @@ func parentChannelFilters(raw string, force bool) (parentFilters, bool) {
 			}
 			f.kw = v[0]
 		case "type":
-			if v[0] != "" && v[0] != "wxpay" && v[0] != "alipay" {
+			if v[0] != "" && !adapter.CatalogPayType(v[0]) {
 				return f, false
 			}
 			f.kind = v[0]
 		case "plugin":
 			if v[0] != "" && v[0] != "wxpay" && v[0] != "alipay" {
-				return f, false
+				if _, ok := adapter.LookupPlugin(v[0]); !ok {
+					return f, false
+				}
 			}
 			f.plugin = v[0]
 		case "dstatus":

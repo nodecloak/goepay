@@ -10,6 +10,7 @@ import (
 	"fmt"
 	qrcode "github.com/skip2/go-qrcode"
 	provider "goepay/internal/adapters/payment"
+	"goepay/internal/backoffice"
 	"goepay/internal/compat"
 	"goepay/internal/ledger"
 	"goepay/internal/notification"
@@ -20,10 +21,28 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
+
+// outTradeNoPattern mirrors the original Pay.php preg_match('/^[a-zA-Z0-9.\_\-|]+$/').
+var outTradeNoPattern = regexp.MustCompile(`^[A-Za-z0-9._\-|]+$`)
+
+// truncateUTF8Bytes cuts s to at most n bytes without splitting a multi-byte
+// rune, matching PHP mb_strcut($s,0,n,'utf-8').
+func truncateUTF8Bytes(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	cut := n
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut]
+}
 
 func (s *Server) providerCreate(w http.ResponseWriter, r *http.Request, legacy bool, merchantID int64, p compat.Params) {
 	resolved, resolveErr := s.withParentRuntime(r.Context(), merchantID, p["out_trade_no"])
@@ -37,10 +56,33 @@ func (s *Server) providerCreate(w http.ResponseWriter, r *http.Request, legacy b
 		return
 	}
 	amount, e := ledger.Parse(p["money"])
-	if e != nil || amount <= 0 || p["out_trade_no"] == "" || len(p["out_trade_no"]) > 128 || len(p["name"]) > 256 || !validURL(p["notify_url"]) || !validURL(p["return_url"]) {
+	if e != nil || amount <= 0 || p["out_trade_no"] == "" || len(p["out_trade_no"]) > 128 || !validURL(p["notify_url"]) || !validURL(p["return_url"]) {
 		s.wire(w, legacy, nil, "invalid payment parameters")
 		return
 	}
+	// Original Pay.php rejects an out_trade_no outside [a-zA-Z0-9.\_\-|].
+	if !outTradeNoPattern.MatchString(p["out_trade_no"]) {
+		s.wire(w, legacy, nil, "订单号(out_trade_no)格式不正确")
+		return
+	}
+	// Original submit()/create() require notify_url, and submit() additionally
+	// requires return_url. These checks live in the epay_release wire (legacy);
+	// the Pro v2 SDK path keeps GOEPAY's existing optionality (deep report A-04,
+	// "gate by profile rather than accepting globally").
+	submit := r.URL.Path == "/submit.php" || r.URL.Path == "/api/pay/submit"
+	if legacy {
+		if p["notify_url"] == "" {
+			s.wire(w, legacy, nil, "通知地址(notify_url)不能为空")
+			return
+		}
+		if submit && p["return_url"] == "" {
+			s.wire(w, legacy, nil, "回调地址(return_url)不能为空")
+			return
+		}
+	}
+	// Original truncates a >127-byte name at a UTF-8 boundary (mb_strcut) and
+	// still creates the order, rather than rejecting it.
+	p["name"] = truncateUTF8Bytes(p["name"], 127)
 	ip, _, splitErr := net.SplitHostPort(r.RemoteAddr)
 	if splitErr != nil {
 		ip = r.RemoteAddr
@@ -122,7 +164,7 @@ func (s *Server) providerCreate(w http.ResponseWriter, r *http.Request, legacy b
 		s.wire(w, legacy, nil, "original scan protection unavailable; query the original order")
 		return
 	}
-	if r.URL.Path == "/submit.php" || r.URL.Path == "/api/pay/submit" {
+	if r.URL.Path == "/submit.php" || r.URL.Path == "/api/pay/submit" || r.URL.Path == "/cashier" {
 		http.Redirect(w, r, checkout, http.StatusFound)
 		return
 	}
@@ -345,6 +387,16 @@ func (s *Server) providerCallback(w http.ResponseWriter, r *http.Request) {
 		e = payment.ErrInvalid
 	}
 	w.Header().Set("Cache-Control", "no-store")
+	if responder, ok := provider.(interface {
+		NotificationResponse(http.Header, []byte, error) (int, string, string)
+	}); ok {
+		if status, contentType, body := responder.NotificationResponse(r.Header, raw, e); status != 0 {
+			w.Header().Set("Content-Type", contentType)
+			w.WriteHeader(status)
+			io.WriteString(w, body)
+			return
+		}
+	}
 	if acker, ok := provider.(interface {
 		NotificationAck(error) (int, string, string)
 	}); ok {
@@ -502,7 +554,13 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	nonce := base64.RawStdEncoding.EncodeToString(nonceBytes)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action http: https:; script-src 'nonce-"+nonce+"'")
-	if !s.pageTemplateOpen(w, r, "pay", pagetemplate.Page{Title: "支付收银台", TradeNo: order.TradeNo, Amount: ledger.Format(charge104), OrderName: order.Name, Sandbox: s.Sandbox}, nil) {
+	// pageordername=1 hides the real goods name on the scan/checkout page,
+	// showing "onlinepay" (no per-order override exists here) — Payment.php:87/122.
+	displayName := order.Name
+	if pon, e := backoffice.New(s.Pool, s.Store).SettingValue(r.Context(), "pageordername"); e == nil {
+		displayName = backoffice.CheckoutDisplayName(pon, order.Name, "")
+	}
+	if !s.pageTemplateOpen(w, r, "pay", pagetemplate.Page{Title: "支付收银台", TradeNo: order.TradeNo, Amount: ledger.Format(charge104), OrderName: displayName, Sandbox: s.Sandbox}, nil) {
 		return
 	}
 	if purpose == "return" {

@@ -160,7 +160,7 @@ func TestLegacyPaymentContractAndOwnership(t *testing.T) {
 		t.Fatalf("legacy query %v", query)
 	}
 	_, wrong := call(t, h, "GET", "/api.php", url.Values{"act": {"order"}, "pid": {"2"}, "key": {"contract-rsa-secret"}, "trade_no": {first["trade_no"].(string)}})
-	if wrong["code"] != float64(-1) {
+	if wrong["code"] != float64(-3) {
 		t.Fatal("RSA merchant allowed legacy key auth")
 	}
 	var count int

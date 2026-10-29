@@ -66,8 +66,10 @@ func (s *Server) collectionGeneratorConsole(w http.ResponseWriter, r *http.Reque
 	}
 	switch r.Method {
 	case "GET":
-		var name string
-		if e = s.Pool.QueryRow(r.Context(), `SELECT name FROM merchants WHERE id=$1 AND enabled`, session.User.ID).Scan(&name); e != nil {
+		// F10 account/onecodeInfo: prefill the generator with the merchant's
+		// stored default aggregate-code name, falling back to the display name.
+		name, stored, e := s.Store.MerchantOnecodeName(r.Context(), session.User.ID)
+		if e != nil {
 			response(w, 403, -1, "merchant unavailable", nil)
 			return true
 		}
@@ -85,7 +87,22 @@ func (s *Server) collectionGeneratorConsole(w http.ResponseWriter, r *http.Reque
 		if latest != nil {
 			current = result(*latest)
 		}
-		response(w, 200, 0, "", map[string]any{"recipient_name": name, "styles": styles, "domains": []map[string]string{{"origin": origin, "label": origin}}, "latest": current})
+		response(w, 200, 0, "", map[string]any{"recipient_name": name, "default_codename": name, "codename_customized": stored, "styles": styles, "domains": []map[string]string{{"origin": origin, "label": origin}}, "latest": current})
+	case "PATCH":
+		// F10 account/editCodename: persist the merchant's default aggregate-code
+		// name. An empty name clears it (falls back to the display name).
+		var input struct {
+			RecipientName string `json:"recipient_name"`
+		}
+		if !decode(w, r, &input) {
+			return true
+		}
+		name, e := s.Store.SetMerchantOnecodeName(r.Context(), session.User.ID, input.RecipientName)
+		if e != nil {
+			fail(e)
+			return true
+		}
+		response(w, 200, 0, "默认收款名称已保存", map[string]any{"default_codename": name, "recipient_name": name})
 	case "POST":
 		var input struct {
 			ExternalNo    string `json:"external_no"`

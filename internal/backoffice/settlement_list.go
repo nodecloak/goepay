@@ -61,20 +61,23 @@ func (s *Service) serveOriginalSettlementList(w http.ResponseWriter, r *http.Req
 		return
 	}
 	args := append(filterArgs, f.Limit, (f.Page-1)*f.Limit)
-	rows, e := tx.Query(r.Context(), settlementListRowsSQL+"SELECT id,merchant_id,recipient_id,external_no,amount,status,created_at,"+payment.SettlementTermsJSON+" FROM settlement_rows ledger_requests "+where+fmt.Sprintf(" ORDER BY id DESC LIMIT $%d OFFSET $%d", len(filterArgs)+1, len(filterArgs)+2), args...)
+	rows, e := tx.Query(r.Context(), settlementListRowsSQL+"SELECT id,merchant_id,recipient_id,external_no,amount,status,created_at,"+payment.SettlementTermsJSON+",(settlement_plan_item_id IS NOT NULL OR EXISTS(SELECT 1 FROM ledger_request_events e WHERE e.request_id=ledger_requests.id AND e.actor='system:settlement-scheduler')) AS auto FROM settlement_rows ledger_requests "+where+fmt.Sprintf(" ORDER BY id DESC LIMIT $%d OFFSET $%d", len(filterArgs)+1, len(filterArgs)+2), args...)
 	if e != nil {
 		writeError(w, e)
 		return
 	}
 	requests := []payment.LedgerRequest{}
+	autoByID := map[int64]bool{}
 	for rows.Next() {
 		v := payment.LedgerRequest{Kind: "settlements"}
 		var terms []byte
-		if e = rows.Scan(&v.ID, &v.MerchantID, &v.RecipientID, &v.ExternalNo, &v.Amount, &v.Status, &v.CreatedAt, &terms); e != nil {
+		var auto bool
+		if e = rows.Scan(&v.ID, &v.MerchantID, &v.RecipientID, &v.ExternalNo, &v.Amount, &v.Status, &v.CreatedAt, &terms, &auto); e != nil {
 			rows.Close()
 			writeError(w, e)
 			return
 		}
+		autoByID[v.ID] = auto
 		if len(terms) > 0 {
 			if e = json.Unmarshal(terms, &v.Settlement); e != nil {
 				rows.Close()
@@ -111,6 +114,7 @@ func (s *Service) serveOriginalSettlementList(w http.ResponseWriter, r *http.Req
 		}
 		item := requestJSON(v)
 		item["payout"] = payout
+		item["auto"] = autoByID[v.ID]
 		items = append(items, item)
 	}
 	write(w, 200, map[string]any{"items": items, "total": total, "page": f.Page, "limit": f.Limit}, "")

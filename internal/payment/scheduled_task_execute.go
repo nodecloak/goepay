@@ -88,6 +88,8 @@ func (s *Store) executeScheduledTask(ctx context.Context, r scheduledTaskRun) (S
 		return s.executeScheduledAutomaticSettlement(ctx, r)
 	case "notify", "order_query", "profitsharing":
 		return s.admitScheduledJobs(ctx, r)
+	case "complain":
+		return s.scanComplaintSyncTasks(ctx, r)
 	case "daily_report", "balance_notice", "order":
 		counts = r.progressCounts
 		scene, hour := "balance", 0
