@@ -141,6 +141,17 @@ it("the market pages long lists and shows every template as installed", async ()
   expect(w.get("tbody").text()).toContain("深色科技风首页模板");
   expect(w.get("tbody").text()).toContain("单卡极简首页模板");
   expect(w.get("tbody").text()).not.toContain("暂不支持");
+  // Every template row carries its preview picture, and the drawer shows it large.
+  const shots = w.findAll("img.plugin-shot").map((i) => i.attributes("src"));
+  expect(shots.length).toBe(builtinTemplates.length);
+  expect(shots).toContain("/static/template-previews/home-index7.jpg");
+  expect(shots).toContain("/static/template-previews/qrpay-compact.jpg");
+  await w
+    .get('button[aria-label="应用详情 深色科技风首页模板"]')
+    .trigger("click");
+  const big = w.get('[role="dialog"][aria-label="应用详情"] img.plugin-preview');
+  expect(big.attributes("src")).toBe("/static/template-previews/home-index7.jpg");
+  expect(big.attributes("alt")).toBe("深色科技风首页模板 预览截图");
   w.unmount();
 });
 

@@ -52,6 +52,13 @@ const kinds = ["home", "pay", "qrpay"],
 function namesFor(kind: string): string[] {
   return kind === "home" ? homeNames : cardNames;
 }
+/**
+ * The preview picture of a built-in template, generated into
+ * web/public/static/template-previews by web/scripts/template-previews.mjs.
+ */
+export function templatePreviewImage(kind: string, name: string): string {
+  return `/static/template-previews/${encodeURIComponent(kind)}-${encodeURIComponent(name)}.jpg`;
+}
 function revision(v: unknown): v is string {
   return (
     typeof v === "string" &&
