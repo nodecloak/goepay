@@ -9,6 +9,7 @@ import (
 	"time"
 
 	connect "goepay/internal/adapters/connectlogin"
+	"goepay/internal/connectconfig"
 	"goepay/internal/connectstate135"
 	"goepay/internal/identity"
 )
@@ -28,8 +29,43 @@ var providerSettingKeys = map[string][3]string{
 	"telegram": {"login_tg", "login_tg_bot_token", "login_tg_bot_token"},
 }
 
-// connectLoginConfig reads a provider's admin keys from the settings records and
-// whether quick login is enabled for it. Off (missing/"0") by default.
+// connectConfigField maps a provider to its connectconfig secret-store field.
+var connectConfigField = map[string]string{"qq": "qq", "wx": "wx", "alipay": "alipay", "telegram": "telegram"}
+
+// connectConfigStore builds the write-only OAuth secret store from the
+// deployment checkout key. Nil (no key / no pool) means the store is
+// unavailable and callers fall back to the legacy plaintext setting.
+func (s *Server) connectConfigStore() *connectconfig.Store {
+	if s.Pool == nil || len(s.CheckoutKey) < 32 {
+		return nil
+	}
+	store, e := connectconfig.NewStore(s.Pool, s.CheckoutKey)
+	if e != nil {
+		return nil
+	}
+	return store
+}
+
+// connectSecret returns a provider's secret (appkey, or the Telegram bot
+// token) from the write-only secret store, falling back to the legacy
+// plaintext setting when the store has no value for it. The secret store is
+// the primary source; the plaintext key stays readable for values set the old
+// way and for the test seams.
+func (s *Server) connectSecret(r *http.Request, provider, legacyKey string) string {
+	if field, ok := connectConfigField[provider]; ok {
+		if store := s.connectConfigStore(); store != nil {
+			if v, e := store.Resolve(r.Context(), field); e == nil && v != "" {
+				return v
+			}
+		}
+	}
+	return s.connectSetting(r, legacyKey)
+}
+
+// connectLoginConfig reads a provider's admin keys and whether quick login is
+// enabled for it. The enable switch and appid are plaintext settings; the
+// appkey is the write-only secret (falling back to the legacy plaintext key).
+// Off (missing/"0") by default.
 func (s *Server) connectLoginConfig(r *http.Request, provider string) (enabled bool, appid, appkey string) {
 	keys, ok := providerSettingKeys[provider]
 	if !ok || s.Pool == nil {
@@ -49,7 +85,8 @@ func (s *Server) connectLoginConfig(r *http.Request, provider string) (enabled b
 	}
 	on := m[keys[0]]
 	enabled = on != "" && on != "0"
-	return enabled, m[keys[1]], m[keys[2]]
+	appkey = s.connectSecret(r, provider, keys[2])
+	return enabled, m[keys[1]], appkey
 }
 
 func (s *Server) connectProvider(r *http.Request, provider string) (connect.Provider, bool) {
@@ -110,7 +147,7 @@ func (s *Server) connectSetting(r *http.Request, key string) string {
 // or the ConnectTokenBase test seam. Everything except `hash` and our own
 // `state` is part of the signed data-check-string.
 func (s *Server) telegramIdentity(r *http.Request, q url.Values) (string, error) {
-	token := s.connectSetting(r, "login_tg_bot_token")
+	token := s.connectSecret(r, "telegram", "login_tg_bot_token")
 	if s.ConnectTokenBase != nil {
 		if b := s.ConnectTokenBase["telegram"]; b != "" {
 			token = b

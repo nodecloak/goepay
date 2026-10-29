@@ -288,6 +288,9 @@ func validateSpecific(resource string, v map[string]any) error {
 		if known, err := validateProxySetting(key, value); known && err != nil {
 			return ErrInvalid
 		}
+		if known, err := validateOAuthLoginSetting(key, value); known && err != nil {
+			return ErrInvalid
+		}
 		if known, err := validateRedpackSetting(key, value); known && err != nil {
 			return ErrInvalid
 		}
