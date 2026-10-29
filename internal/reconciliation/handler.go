@@ -151,15 +151,15 @@ func (h Handler) Handle(ctx context.Context, j jobs.Job) error {
 		if e != nil {
 			return e
 		}
-		var channel, num int64
-		if e := decodeComplaintSync(j.Payload, &channel, &num); e != nil || channel <= 0 {
+		var channel, num, days int64
+		if e := decodeComplaintSync(j.Payload, &channel, &num, &days); e != nil || channel <= 0 {
 			return ErrJob
 		}
 		if !on {
 			// Feature turned off after enqueue: acknowledge without pulling.
 			return nil
 		}
-		_, syncErr := h.Flow.SyncComplaints(ctx, channel, int(num))
+		_, syncErr := h.Flow.SyncComplaints(ctx, channel, int(num), int(days))
 		if re := h.Flow.Store.RecordComplaintSyncResult(ctx, channel, syncErr); re != nil {
 			return re
 		}
@@ -233,14 +233,17 @@ func (h Handler) complainOpen(ctx context.Context) (bool, error) {
 	return value == "1", nil
 }
 
-// decodeComplaintSync reads the {channel_id,num} payload of a complaint.sync job.
-func decodeComplaintSync(raw []byte, channel, num *int64) error {
+// decodeComplaintSync reads the {channel_id,num,days} payload of a
+// complaint.sync job. days is optional (older enqueued jobs omit it → 0 =
+// default 7-day window).
+func decodeComplaintSync(raw []byte, channel, num, days *int64) error {
 	if len(raw) > 4096 {
 		return ErrJob
 	}
 	var payload struct {
 		ChannelID int64 `json:"channel_id"`
 		Num       int64 `json:"num"`
+		Days      int64 `json:"days"`
 	}
 	d := json.NewDecoder(bytes.NewReader(raw))
 	d.DisallowUnknownFields()
@@ -250,7 +253,7 @@ func decodeComplaintSync(raw []byte, channel, num *int64) error {
 	if d.More() {
 		return ErrJob
 	}
-	*channel, *num = payload.ChannelID, payload.Num
+	*channel, *num, *days = payload.ChannelID, payload.Num, payload.Days
 	return nil
 }
 

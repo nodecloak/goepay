@@ -3,6 +3,7 @@ package payment
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -45,6 +46,9 @@ type ComplaintListFilter struct {
 	Keyword    string
 	Status     string // open|processing|done
 	PayType    string // wxpay|alipay
+	ChannelID  string // 通道ID (admin filter); "" = any
+	StartTime  string // 日期范围 start, YYYY-MM-DD (UTC+8 business day), inclusive
+	EndTime    string // 日期范围 end, YYYY-MM-DD (UTC+8 business day), inclusive
 	Page       int
 	Limit      int
 }
@@ -77,6 +81,20 @@ func itoaPos(n int) string {
 	return strconv.Itoa(n)
 }
 
+// normComplaintDate validates a YYYY-MM-DD date string for the 日期范围 filter and
+// returns it, or "" when empty/malformed (so a bad value is ignored, never a
+// SQL error). Parsed in UTC; only the calendar date is used.
+func normComplaintDate(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	if _, err := time.Parse("2006-01-02", s); err != nil {
+		return ""
+	}
+	return s
+}
+
 // ComplaintList returns a filtered, offset-paged page with a total.
 func (s *Store) ComplaintList(ctx context.Context, f ComplaintListFilter) ([]ComplaintListItem, int64, error) {
 	if f.Page < 1 {
@@ -99,6 +117,18 @@ func (s *Store) ComplaintList(ctx context.Context, f ComplaintListFilter) ([]Com
 	}
 	if f.PayType == "wxpay" || f.PayType == "alipay" {
 		add("pay_type=$?", f.PayType)
+	}
+	if ch := strings.TrimSpace(f.ChannelID); ch != "" {
+		if n, err := strconv.ParseInt(ch, 10, 64); err == nil && n > 0 {
+			add("channel_id=$?", n)
+		}
+	}
+	// 日期范围 over first_seen_at, by UTC+8 business day, bounds inclusive.
+	if d := normComplaintDate(f.StartTime); d != "" {
+		add("(first_seen_at AT TIME ZONE 'Asia/Shanghai')::date>=$?::date", d)
+	}
+	if d := normComplaintDate(f.EndTime); d != "" {
+		add("(first_seen_at AT TIME ZONE 'Asia/Shanghai')::date<=$?::date", d)
 	}
 	if kw := strings.TrimSpace(f.Keyword); kw != "" {
 		if f.Field == "" {
@@ -294,6 +324,10 @@ type ComplaintSummaryView struct {
 	YesterdayCount  string `json:"yesterday_count"`
 	YesterdayAlipay string `json:"yesterday_alipay"`
 	YesterdayWxpay  string `json:"yesterday_wxpay"`
+	// 近7日投诉率: last-7-day complaints divided by last-7-day paid orders, as a
+	// percent string with two decimals (e.g. "0.42%"). "-" when there were no
+	// paid orders in the window (rate undefined).
+	Days7Rate string `json:"days7_rate"`
 }
 
 // ComplaintSummary counts today's and yesterday's complaints (by first_seen_at,
@@ -315,7 +349,33 @@ func (s *Store) ComplaintSummary(ctx context.Context, ownerScope int64) (Complai
 	}
 	v.TodayCount, v.TodayAlipay, v.TodayWxpay = itoa64(tc), itoa64(ta), itoa64(tw)
 	v.YesterdayCount, v.YesterdayAlipay, v.YesterdayWxpay = itoa64(yc), itoa64(ya), itoa64(yw)
+	v.Days7Rate = s.complaintDays7Rate(ctx, ownerScope)
 	return v, nil
+}
+
+// complaintDays7Rate returns the 近7日投诉率: complaints first-seen in the last 7
+// UTC+8 business days (today and the six days before) divided by paid orders
+// paid in the same window, as a two-decimal percent string. "-" when there were
+// no paid orders in the window (the rate is undefined) or on any read error, so
+// the card never shows a misleading 0% or blocks the summary.
+func (s *Store) complaintDays7Rate(ctx context.Context, ownerScope int64) string {
+	var complaints, orders int64
+	if e := s.pool.QueryRow(ctx, `WITH d AS (SELECT (now() AT TIME ZONE 'Asia/Shanghai')::date AS today)
+ SELECT
+  (SELECT count(*) FROM complaints133,d
+     WHERE ($1::bigint=0 OR owner_id=$1)
+       AND (first_seen_at AT TIME ZONE 'Asia/Shanghai')::date BETWEEN d.today-6 AND d.today),
+  (SELECT count(*) FROM orders,d
+     WHERE status='paid' AND paid_at IS NOT NULL AND ($1::bigint=0 OR merchant_id=$1)
+       AND (paid_at AT TIME ZONE 'Asia/Shanghai')::date BETWEEN d.today-6 AND d.today)`,
+		ownerScope).Scan(&complaints, &orders); e != nil {
+		return "-"
+	}
+	if orders <= 0 {
+		return "-"
+	}
+	rate := float64(complaints) * 100 / float64(orders)
+	return strconv.FormatFloat(rate, 'f', 2, 64) + "%"
 }
 
 func itoa64(n int64) string {
@@ -323,29 +383,58 @@ func itoa64(n int64) string {
 }
 
 // ComplaintChartRow is one 排行榜 row (per merchant) for 投诉统计, from
-// complaints133. Counts are today's, by first_seen_at in UTC+8.
+// complaints133. Counts are by first_seen_at in UTC+8; money columns sum
+// amount_cents (yuan string). Mirrors epay_pro's 10-column ranking.
 type ComplaintChartRow struct {
-	Dimension   string `json:"dimension"` // merchant id ("-" when unknown)
-	TodayCount  string `json:"today_count"`
-	TodayAlipay string `json:"today_alipay"`
-	TodayWxpay  string `json:"today_wxpay"`
-	TotalCount  string `json:"total_count"`
+	Dimension       string `json:"dimension"` // merchant id ("-" when unknown)
+	TodayCount      string `json:"today_count"`
+	TodayMoney      string `json:"today_money"` // 今日投诉金额 (yuan)
+	TodayAlipay     string `json:"today_alipay"`
+	TodayWxpay      string `json:"today_wxpay"`
+	YesterdayCount  string `json:"yesterday_count"`
+	YesterdayMoney  string `json:"yesterday_money"` // 昨日投诉金额 (yuan)
+	YesterdayAlipay string `json:"yesterday_alipay"`
+	YesterdayWxpay  string `json:"yesterday_wxpay"`
+	ComplaintRate   string `json:"complaint_rate"` // 近7日投诉率 (percent string or "-")
+	TotalCount      string `json:"total_count"`
 }
 
 // ComplaintChartRanking returns the per-merchant complaint ranking (today desc,
-// then total desc), scoped to an owner for merchants, from complaints133.
+// then total desc), scoped to an owner for merchants, from complaints133. Each
+// row carries today/yesterday counts + money + split, the per-merchant 近7日投诉率
+// (complaints ÷ paid orders over the last 7 UTC+8 days), and the cumulative total.
 func (s *Store) ComplaintChartRanking(ctx context.Context, ownerScope int64, limit int) ([]ComplaintChartRow, error) {
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
-	rows, e := s.pool.Query(ctx, `WITH d AS (SELECT (now() AT TIME ZONE 'Asia/Shanghai')::date AS today)
- SELECT COALESCE(owner_id::text,'-') AS dimension,
-  count(*) FILTER(WHERE (first_seen_at AT TIME ZONE 'Asia/Shanghai')::date=d.today) AS today_count,
-  count(*) FILTER(WHERE (first_seen_at AT TIME ZONE 'Asia/Shanghai')::date=d.today AND pay_type='alipay') AS today_alipay,
-  count(*) FILTER(WHERE (first_seen_at AT TIME ZONE 'Asia/Shanghai')::date=d.today AND pay_type='wxpay') AS today_wxpay,
-  count(*) AS total_count
- FROM complaints133,d WHERE ($1::bigint=0 OR owner_id=$1)
- GROUP BY owner_id ORDER BY today_count DESC,total_count DESC LIMIT $2`, ownerScope, limit)
+	rows, e := s.pool.Query(ctx, `WITH d AS (SELECT (now() AT TIME ZONE 'Asia/Shanghai')::date AS today),
+ c AS (
+  SELECT owner_id,
+   count(*) FILTER(WHERE (first_seen_at AT TIME ZONE 'Asia/Shanghai')::date=d.today) AS today_count,
+   COALESCE(sum(amount_cents) FILTER(WHERE (first_seen_at AT TIME ZONE 'Asia/Shanghai')::date=d.today),0) AS today_money,
+   count(*) FILTER(WHERE (first_seen_at AT TIME ZONE 'Asia/Shanghai')::date=d.today AND pay_type='alipay') AS today_alipay,
+   count(*) FILTER(WHERE (first_seen_at AT TIME ZONE 'Asia/Shanghai')::date=d.today AND pay_type='wxpay') AS today_wxpay,
+   count(*) FILTER(WHERE (first_seen_at AT TIME ZONE 'Asia/Shanghai')::date=d.today-1) AS yday_count,
+   COALESCE(sum(amount_cents) FILTER(WHERE (first_seen_at AT TIME ZONE 'Asia/Shanghai')::date=d.today-1),0) AS yday_money,
+   count(*) FILTER(WHERE (first_seen_at AT TIME ZONE 'Asia/Shanghai')::date=d.today-1 AND pay_type='alipay') AS yday_alipay,
+   count(*) FILTER(WHERE (first_seen_at AT TIME ZONE 'Asia/Shanghai')::date=d.today-1 AND pay_type='wxpay') AS yday_wxpay,
+   count(*) FILTER(WHERE (first_seen_at AT TIME ZONE 'Asia/Shanghai')::date BETWEEN d.today-6 AND d.today) AS d7_count,
+   count(*) AS total_count
+  FROM complaints133,d WHERE ($1::bigint=0 OR owner_id=$1)
+  GROUP BY owner_id
+ ),
+ o AS (
+  SELECT merchant_id AS owner_id,
+   count(*) FILTER(WHERE (paid_at AT TIME ZONE 'Asia/Shanghai')::date BETWEEN d.today-6 AND d.today) AS d7_orders
+  FROM orders,d WHERE status='paid' AND paid_at IS NOT NULL AND ($1::bigint=0 OR merchant_id=$1)
+  GROUP BY merchant_id
+ )
+ SELECT COALESCE(c.owner_id::text,'-') AS dimension,
+  c.today_count,c.today_money,c.today_alipay,c.today_wxpay,
+  c.yday_count,c.yday_money,c.yday_alipay,c.yday_wxpay,
+  c.d7_count,COALESCE(o.d7_orders,0),c.total_count
+ FROM c LEFT JOIN o ON o.owner_id=c.owner_id
+ ORDER BY c.today_count DESC,c.total_count DESC LIMIT $2`, ownerScope, limit)
 	if e != nil {
 		return nil, e
 	}
@@ -353,12 +442,37 @@ func (s *Store) ComplaintChartRanking(ctx context.Context, ownerScope int64, lim
 	out := []ComplaintChartRow{}
 	for rows.Next() {
 		var r ComplaintChartRow
-		var tc, ta, tw, total int64
-		if e = rows.Scan(&r.Dimension, &tc, &ta, &tw, &total); e != nil {
+		var tc, tm, ta, tw, yc, ym, ya, yw, d7c, d7o, total int64
+		if e = rows.Scan(&r.Dimension, &tc, &tm, &ta, &tw, &yc, &ym, &ya, &yw, &d7c, &d7o, &total); e != nil {
 			return nil, e
 		}
-		r.TodayCount, r.TodayAlipay, r.TodayWxpay, r.TotalCount = itoa64(tc), itoa64(ta), itoa64(tw), itoa64(total)
+		r.TodayCount, r.TodayAlipay, r.TodayWxpay = itoa64(tc), itoa64(ta), itoa64(tw)
+		r.YesterdayCount, r.YesterdayAlipay, r.YesterdayWxpay = itoa64(yc), itoa64(ya), itoa64(yw)
+		r.TodayMoney = CentsToYuan(tm)
+		r.YesterdayMoney = CentsToYuan(ym)
+		r.TotalCount = itoa64(total)
+		if d7o > 0 {
+			r.ComplaintRate = strconv.FormatFloat(float64(d7c)*100/float64(d7o), 'f', 2, 64) + "%"
+		} else {
+			r.ComplaintRate = "-"
+		}
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// CentsToYuan renders integer minor units as a plain yuan string with two
+// decimals (no currency symbol, no float arithmetic on the integer input).
+func CentsToYuan(cents int64) string {
+	neg := cents < 0
+	if neg {
+		cents = -cents
+	}
+	yuan := cents / 100
+	frac := cents % 100
+	s := strconv.FormatInt(yuan, 10) + "." + fmt.Sprintf("%02d", frac)
+	if neg {
+		return "-" + s
+	}
+	return s
 }

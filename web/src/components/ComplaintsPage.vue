@@ -14,11 +14,16 @@ import {
   fetchComplaintTasks,
   fetchComplaintChannels,
   saveComplaintTask,
+  setComplaintTaskStatus,
+  deleteComplaintTask,
+  deleteComplaintTasks,
+  exportComplaints,
   transitionComplaint,
   complaintStatusWords,
   complaintStatusTone,
   complaintSearchFields,
   type ComplaintRow,
+  type ComplaintDetailRow,
   type ComplaintSummary,
   type ComplaintTaskRow,
   type ComplaintChannelOption,
@@ -62,6 +67,10 @@ const searchField = ref("");
 const keyword = ref("");
 const statusFilter = ref("");
 const payTypeFilter = ref("");
+const channelFilter = ref("");
+const dateStart = ref("");
+const dateEnd = ref("");
+const exporting = ref(false);
 const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
@@ -82,11 +91,7 @@ const payTypeOptions = [
   { value: "bank", label: "网银" },
 ];
 
-function listQuery(): string {
-  const q = new URLSearchParams({
-    page: String(page.value),
-    limit: String(pageSize.value),
-  });
+function filterQuery(q: URLSearchParams): URLSearchParams {
   const text = keyword.value.trim();
   if (text) {
     q.set("q", text);
@@ -94,7 +99,19 @@ function listQuery(): string {
   }
   if (statusFilter.value) q.set("status", statusFilter.value);
   if (payTypeFilter.value) q.set("pay_type", payTypeFilter.value);
-  return q.toString();
+  if (props.area === "admin" && channelFilter.value.trim())
+    q.set("channel_id", channelFilter.value.trim());
+  if (dateStart.value) q.set("starttime", dateStart.value);
+  if (dateEnd.value) q.set("endtime", dateEnd.value);
+  return q;
+}
+
+function listQuery(): string {
+  const q = new URLSearchParams({
+    page: String(page.value),
+    limit: String(pageSize.value),
+  });
+  return filterQuery(q).toString();
 }
 
 async function loadList() {
@@ -129,19 +146,40 @@ function onReset() {
   keyword.value = "";
   statusFilter.value = "";
   payTypeFilter.value = "";
+  channelFilter.value = "";
+  dateStart.value = "";
+  dateEnd.value = "";
   page.value = 1;
   void loadList();
+}
+
+// 导出: download the filtered list as CSV (same filters, no paging).
+async function onExport() {
+  if (exporting.value) return;
+  exporting.value = true;
+  error.value = "";
+  try {
+    await exportComplaints(
+      props.client,
+      filterQuery(new URLSearchParams()).toString(),
+    );
+    notice.value = "已导出当前筛选的投诉记录";
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "导出失败";
+  } finally {
+    exporting.value = false;
+  }
 }
 
 const amountCell = (a: string) => (/^\d+$/.test(a) ? "¥" + money(a) : "-");
 
 // ---- detail + reply + complete dialog ----
-const detail = ref<ComplaintRow | null>(null);
+const detail = ref<ComplaintDetailRow | null>(null);
 const detailBusy = ref(false);
 const replyText = ref("");
 const nextStatus = ref("processing");
 async function openDetail(row: ComplaintRow) {
-  detail.value = row;
+  detail.value = { ...row, images: [], negotiation: [] };
   replyText.value = "";
   nextStatus.value = row.status === "open" ? "processing" : "resolved";
   error.value = "";
@@ -265,10 +303,17 @@ type ChartSummary = {
   yesterday_count: string;
   yesterday_alipay: string;
   yesterday_wxpay: string;
+  days7_rate: string;
 };
 const summary = ref<ChartSummary | null>(null);
 const chartRows = ref<Record<string, string>[]>([]);
 const chartColumns = ref<{ key: string; label: string }[]>([]);
+const moneyColumns = new Set(["today_money", "yesterday_money"]);
+function chartCell(key: string, value: string | undefined): string {
+  if (value == null || value === "") return "-";
+  if (moneyColumns.has(key)) return "¥" + value;
+  return value;
+}
 async function loadCharts() {
   if (view.value !== "charts") return;
   loading.value = true;
@@ -298,6 +343,7 @@ async function loadTasks() {
   error.value = "";
   try {
     tasks.value = await fetchComplaintTasks(props.client);
+    selectedTasks.value = new Set();
     loaded.value = true;
   } catch (e) {
     error.value = e instanceof Error ? e.message : "读取同步任务失败";
@@ -306,7 +352,120 @@ async function loadTasks() {
   }
 }
 
-// 自动获取 (per-channel sync toggle) on the 投诉记录 page.
+// ---- 同步任务 (task) editing ----
+const taskBusy = ref(false);
+const selectedTasks = ref<Set<string>>(new Set());
+const allTasksSelected = computed(
+  () =>
+    tasks.value.length > 0 && selectedTasks.value.size === tasks.value.length,
+);
+function toggleTaskSelection(channelId: string) {
+  const next = new Set(selectedTasks.value);
+  if (next.has(channelId)) next.delete(channelId);
+  else next.add(channelId);
+  selectedTasks.value = next;
+}
+function toggleAllTasks() {
+  if (allTasksSelected.value) selectedTasks.value = new Set();
+  else selectedTasks.value = new Set(tasks.value.map((t) => t.channel_id));
+}
+
+// Edit dialog (获取条件 days / 获取频率 frequency / 每次同步获取数量 num).
+const editTask = ref<ComplaintTaskRow | null>(null);
+const editDays = ref("0");
+const editFrequency = ref("6");
+const editNum = ref("20");
+function openTaskEdit(t: ComplaintTaskRow) {
+  editTask.value = t;
+  editDays.value = String(t.days);
+  editFrequency.value = String(t.frequency || 6);
+  editNum.value = String(t.num || 20);
+  error.value = "";
+}
+async function submitTaskEdit() {
+  if (!editTask.value || taskBusy.value) return;
+  const freq = Math.trunc(Number(editFrequency.value));
+  const num = Math.trunc(Number(editNum.value));
+  const days = Math.trunc(Number(editDays.value));
+  if (!Number.isFinite(freq) || freq < 1 || freq > 1440) {
+    error.value = "获取频率需在 1 到 1440 分钟之间";
+    return;
+  }
+  if (!Number.isFinite(num) || num < 20 || num > 200) {
+    error.value = "每次同步获取数量需在 20 到 200 之间";
+    return;
+  }
+  if (!Number.isFinite(days) || days < 0) {
+    error.value = "获取条件（天数）不能小于 0";
+    return;
+  }
+  taskBusy.value = true;
+  error.value = "";
+  try {
+    await saveComplaintTask(
+      props.client,
+      editTask.value.channel_id,
+      editTask.value.enabled,
+      freq,
+      num,
+      days,
+    );
+    notice.value = "已保存同步任务";
+    editTask.value = null;
+    await loadTasks();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "保存同步任务失败";
+  } finally {
+    taskBusy.value = false;
+  }
+}
+async function toggleTaskStatus(t: ComplaintTaskRow) {
+  if (taskBusy.value) return;
+  taskBusy.value = true;
+  error.value = "";
+  try {
+    await setComplaintTaskStatus(props.client, t.channel_id, !t.enabled);
+    notice.value = t.enabled ? "已停用该同步任务" : "已启用该同步任务";
+    await loadTasks();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "更新状态失败";
+  } finally {
+    taskBusy.value = false;
+  }
+}
+async function removeTask(t: ComplaintTaskRow) {
+  if (taskBusy.value) return;
+  if (!window.confirm(`确定删除通道 ${t.channel_id} 的同步任务？`)) return;
+  taskBusy.value = true;
+  error.value = "";
+  try {
+    await deleteComplaintTask(props.client, t.channel_id);
+    notice.value = "已删除同步任务";
+    selectedTasks.value.delete(t.channel_id);
+    await loadTasks();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "删除同步任务失败";
+  } finally {
+    taskBusy.value = false;
+  }
+}
+async function removeSelectedTasks() {
+  if (taskBusy.value || selectedTasks.value.size === 0) return;
+  const ids = [...selectedTasks.value];
+  if (!window.confirm(`确定批量删除选中的 ${ids.length} 个同步任务？`)) return;
+  taskBusy.value = true;
+  error.value = "";
+  try {
+    const n = await deleteComplaintTasks(props.client, ids);
+    notice.value = `已批量删除 ${n} 个同步任务`;
+    selectedTasks.value = new Set();
+    await loadTasks();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "批量删除失败";
+  } finally {
+    taskBusy.value = false;
+  }
+}
 const channels = ref<ComplaintChannelOption[]>([]);
 const autoChannel = ref("");
 const autoBusy = ref(false);
@@ -390,6 +549,20 @@ onMounted(reload);
               aria-label="支付方式"
             />
           </KitField>
+          <KitField v-if="area === 'admin'" label="通道ID">
+            <KitInput
+              v-model="channelFilter"
+              inputmode="numeric"
+              placeholder="通道ID"
+              aria-label="通道ID"
+            />
+          </KitField>
+          <KitField label="开始日期">
+            <KitInput v-model="dateStart" type="date" aria-label="开始日期" />
+          </KitField>
+          <KitField label="结束日期">
+            <KitInput v-model="dateEnd" type="date" aria-label="结束日期" />
+          </KitField>
         </template>
       </KitFilterBar>
 
@@ -426,6 +599,15 @@ onMounted(reload);
             @click="reload"
           >
             获取最新数据
+          </button>
+          <button
+            type="button"
+            class="pa-btn"
+            data-action="export"
+            :disabled="exporting"
+            @click="onExport"
+          >
+            {{ exporting ? "导出中…" : "导出" }}
           </button>
           <template v-if="area === 'admin'">
             <KitSelect
@@ -540,6 +722,13 @@ onMounted(reload);
               <span>微信</span><b>{{ summary?.yesterday_wxpay ?? "0" }}</b>
             </div>
           </div>
+          <div class="complain-card">
+            <div class="complain-card-title">近7日投诉率</div>
+            <div class="complain-card-rate">
+              <b>{{ summary?.days7_rate ?? "-" }}</b>
+              <small>近7日投诉数 / 近7日支付订单数</small>
+            </div>
+          </div>
         </div>
         <div class="complain-rank-title">投诉数据统计&排行榜</div>
         <div class="pa-table-wrap">
@@ -556,7 +745,7 @@ onMounted(reload);
                   :key="c.key"
                   :class="{ 'pa-c-num': c.key !== 'dimension' }"
                 >
-                  {{ r[c.key] ?? "-" }}
+                  {{ chartCell(c.key, r[c.key]) }}
                 </td>
               </tr>
               <tr v-if="loaded && !chartRows.length">
@@ -574,30 +763,67 @@ onMounted(reload);
     <template v-else>
       <section class="panel complain-content" aria-label="同步任务">
         <p class="alert info" role="note">
-          在投诉记录页面选中某个支付通道后开启自动获取，即可在此看到对应通道的自动同步任务；另需在计划任务页面启动投诉同步任务。
+          在投诉记录页面选中某个支付通道后开启自动获取即可创建同步任务；在此可编辑每个通道的获取条件/频率/数量、启停或删除任务。另需在计划任务页面启动投诉同步任务。
         </p>
+        <div class="pa-toolbar">
+          <button
+            type="button"
+            class="pa-btn pa-btn--danger"
+            data-action="batch-delete"
+            :disabled="taskBusy || selectedTasks.size === 0"
+            @click="removeSelectedTasks"
+          >
+            批量删除{{ selectedTasks.size ? `（${selectedTasks.size}）` : "" }}
+          </button>
+        </div>
         <div class="pa-table-wrap">
           <table class="pa-table">
             <thead>
               <tr>
+                <th class="pa-c-sel">
+                  <input
+                    type="checkbox"
+                    aria-label="全选"
+                    :checked="allTasksSelected"
+                    @change="toggleAllTasks"
+                  />
+                </th>
                 <th>通道ID</th>
                 <th>通道名称</th>
                 <th>状态</th>
                 <th>上次同步时间</th>
                 <th>同步状态</th>
                 <th>下次同步时间</th>
+                <th>获取条件</th>
                 <th>获取频率</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="t in tasks" :key="t.channel_id">
+                <td class="pa-c-sel">
+                  <input
+                    type="checkbox"
+                    :aria-label="`选择通道 ${t.channel_id}`"
+                    :checked="selectedTasks.has(t.channel_id)"
+                    @change="toggleTaskSelection(t.channel_id)"
+                  />
+                </td>
                 <td class="pa-c-num">{{ t.channel_id }}</td>
                 <td>{{ t.name || "-" }}</td>
                 <td>
-                  <KitStatusTag
-                    :text="t.enabled ? '已启用' : '已停用'"
-                    :tone="t.enabled ? 'success' : 'neutral'"
-                  />
+                  <button
+                    type="button"
+                    class="pa-btn pa-btn--text"
+                    data-action="toggle-status"
+                    :disabled="taskBusy"
+                    @click="toggleTaskStatus(t)"
+                  >
+                    <KitStatusTag
+                      :text="t.enabled ? '已启用' : '已停用'"
+                      :tone="t.enabled ? 'success' : 'neutral'"
+                    />
+                  </button>
                 </td>
                 <td>{{ t.last_run_at ? datetime(t.last_run_at) : "-" }}</td>
                 <td>
@@ -616,14 +842,35 @@ onMounted(reload);
                   >
                 </td>
                 <td>{{ t.next_run_at ? datetime(t.next_run_at) : "-" }}</td>
+                <td>{{ t.days > 0 ? t.days + " 天内有订单" : "不限" }}</td>
                 <td>
                   {{
                     t.frequency ? t.frequency + " 分钟 / " + t.num + " 条" : "-"
                   }}
                 </td>
+                <td>
+                  <button
+                    type="button"
+                    class="pa-btn"
+                    data-action="edit-task"
+                    :disabled="taskBusy"
+                    @click="openTaskEdit(t)"
+                  >
+                    编辑
+                  </button>
+                  <button
+                    type="button"
+                    class="pa-btn pa-btn--danger"
+                    data-action="delete-task"
+                    :disabled="taskBusy"
+                    @click="removeTask(t)"
+                  >
+                    删除
+                  </button>
+                </td>
               </tr>
               <tr v-if="loaded && !tasks.length">
-                <td colspan="7"><KitEmpty text="暂无数据" /></td>
+                <td colspan="10"><KitEmpty text="暂无数据" /></td>
               </tr>
             </tbody>
           </table>
@@ -671,6 +918,55 @@ onMounted(reload);
           :text="complaintStatusWords[detail.status] || detail.status"
           :tone="complaintStatusTone[detail.status] || 'neutral'"
         />
+      </KitField>
+      <KitField v-if="detail.images && detail.images.length" label="投诉图片">
+        <div class="complain-images">
+          <a
+            v-for="(img, i) in detail.images"
+            :key="i"
+            :href="img"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="complain-image-link"
+          >
+            <img :src="img" :alt="`投诉图片 ${i + 1}`" loading="lazy" />
+          </a>
+        </div>
+      </KitField>
+      <KitField
+        v-if="detail.negotiation && detail.negotiation.length"
+        label="协商历史"
+      >
+        <ol class="complain-history">
+          <li
+            v-for="(turn, i) in detail.negotiation"
+            :key="i"
+            class="complain-history-turn"
+          >
+            <div class="complain-history-head">
+              <b>{{ turn.operator || turn.role || "操作" }}</b>
+              <small v-if="turn.created_at" class="muted">{{
+                turn.created_at
+              }}</small>
+            </div>
+            <div class="complain-history-body">{{ turn.content || "-" }}</div>
+            <div
+              v-if="turn.images && turn.images.length"
+              class="complain-images complain-images--sm"
+            >
+              <a
+                v-for="(img, j) in turn.images"
+                :key="j"
+                :href="img"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="complain-image-link"
+              >
+                <img :src="img" :alt="`协商图片 ${j + 1}`" loading="lazy" />
+              </a>
+            </div>
+          </li>
+        </ol>
       </KitField>
       <KitField label="处理结果">
         <div class="complain-presets">
@@ -735,6 +1031,48 @@ onMounted(reload);
           退款审批
         </button>
       </template>
+    </KitModal>
+
+    <!-- 编辑同步任务 -->
+    <KitModal
+      v-if="editTask"
+      title="编辑同步任务"
+      :loading="taskBusy"
+      submit-text="保存"
+      width="480px"
+      @close="editTask = null"
+      @submit="submitTaskEdit"
+    >
+      <KitField label="通道">
+        <div>{{ editTask.channel_id }} · {{ editTask.name || "-" }}</div>
+      </KitField>
+      <KitField label="获取条件（天内有订单，0为不限）">
+        <KitInput
+          v-model="editDays"
+          type="number"
+          inputmode="numeric"
+          aria-label="获取条件天数"
+        />
+      </KitField>
+      <KitField label="获取频率（分钟，≥1）">
+        <KitInput
+          v-model="editFrequency"
+          type="number"
+          inputmode="numeric"
+          aria-label="获取频率"
+        />
+      </KitField>
+      <KitField label="每次同步获取数量（20-200）">
+        <KitInput
+          v-model="editNum"
+          type="number"
+          inputmode="numeric"
+          aria-label="每次同步获取数量"
+        />
+      </KitField>
+      <p class="muted">
+        若投诉数量过多可适当增加每次获取数量；因投诉获取为循环翻页获取，数量设置过大可能会增加资源占用。
+      </p>
     </KitModal>
   </div>
 </template>
@@ -821,5 +1159,61 @@ td small.muted {
 }
 .complain-rank-title {
   font-weight: 600;
+}
+.complain-card-rate {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.complain-card-rate b {
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+}
+.complain-card-rate small {
+  color: var(--ink-muted, #6b7280);
+}
+.pa-c-sel {
+  width: 36px;
+  text-align: center;
+}
+.complain-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.complain-image-link img {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 8px;
+}
+.complain-images--sm .complain-image-link img {
+  width: 56px;
+  height: 56px;
+}
+.complain-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.complain-history-turn {
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+}
+.complain-history-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.complain-history-body {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 </style>
