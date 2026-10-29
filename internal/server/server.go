@@ -529,6 +529,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.refundSummary(w, r, role, session, parts) {
 		return
 	}
+	if s.payTypeOptions(w, r, role, session, parts) {
+		return
+	}
 	if s.reports(w, r, role, session, parts) {
 		return
 	}

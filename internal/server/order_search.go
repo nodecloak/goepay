@@ -8,6 +8,11 @@ import (
 	"unicode/utf8"
 )
 
+// consoleOrderDomainExpr is the 网站域名 of an order: the host of its notify_url,
+// else its return_url (the same projection list.go selects as the domain
+// column). Shared so the list column and the domain search match the same value.
+const consoleOrderDomainExpr = "COALESCE(NULLIF(substring(o.notify_url from '^[a-zA-Z][a-zA-Z0-9+.-]*://([^/?#]+)'),''),NULLIF(substring(o.return_url from '^[a-zA-Z][a-zA-Z0-9+.-]*://([^/?#]+)'),''),'')"
+
 // Field names select fixed SQL only. The returned value is always bound as $2;
 // the authenticated owner predicate is built independently by the caller.
 func consoleOrderSearch(q url.Values, kind, fallback string) (string, any, error) {
@@ -84,6 +89,8 @@ func consoleOrderSearch(q url.Values, kind, fallback string) (string, any, error
 		expression = "COALESCE(NULLIF(console_report.buyer,''),console_authorization.buyer_id,'')"
 	case "ip":
 		expression, mode = "console_report.client_ip", "ip"
+	case "domain":
+		expression, mode = consoleOrderDomainExpr, "substring"
 	case "money":
 		expression, mode = "o.amount", "money"
 	case "realmoney":

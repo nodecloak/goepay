@@ -78,6 +78,7 @@ describe("Pro order search-field on the design kit", () => {
       "分成金额（元）",
       "支付账号",
       "支付 IP",
+      "网站域名",
       "扩展参数",
     ]);
     w.unmount();

@@ -110,6 +110,7 @@ import {
   refundSearchFields,
   readListRouteQuery,
 } from "./list-filters";
+import { usePayTypeOptions } from "./pay-type-options";
 import PublicEnrollment from "./components/PublicEnrollment.vue";
 import PublicTestPay203 from "./components/PublicTestPay203.vue";
 import CsvExportButton from "./components/CsvExportButton.vue";
@@ -355,6 +356,10 @@ const client = ref(new ApiClient(area.value)),
   initializing = ref(true),
   busy = ref(false),
   loading = ref(false);
+const payTypeFilterOptions = usePayTypeOptions(
+  client,
+  computed(() => session.value !== null),
+);
 const error = ref(""),
   notice = ref(""),
   username = ref(""),
@@ -2133,6 +2138,7 @@ onBeforeUnmount(() => {
             :kind="kind"
             :area="area"
             :loading="loading"
+            :pay-type-options="payTypeFilterOptions"
             @reset="resetListFilters"
           />
         </form>

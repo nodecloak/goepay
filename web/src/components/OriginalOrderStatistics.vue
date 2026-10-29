@@ -14,6 +14,7 @@ import {
   statisticsMoney,
   statisticsTrend,
 } from "../original-order-statistics";
+import { usePayTypeOptions } from "../pay-type-options";
 import CsvExportButton from "./CsvExportButton.vue";
 import ShellIcon from "./ShellIcon.vue";
 import KitHelpPopover from "./KitHelpPopover.vue";
@@ -21,6 +22,12 @@ import KitField from "./KitField.vue";
 import KitInput from "./KitInput.vue";
 import KitSelect from "./KitSelect.vue";
 const props = defineProps<{ client: ApiClient; report: string }>();
+const clientRef = computed(() => props.client);
+const payTypeChoices = usePayTypeOptions(clientRef);
+const payTypeOptions = computed(() => [
+  { value: "", label: "所有支付方式" },
+  ...payTypeChoices.value,
+]);
 const today = () => reportDateRange("today")!;
 const filter = reactive({
   type: "",
@@ -188,12 +195,7 @@ const visibleRows = computed(() =>
         <KitField label="支付方式">
           <KitSelect
             v-model="filter.type"
-            :options="[
-              { value: '', label: '所有支付方式' },
-              { value: 'alipay', label: '支付宝' },
-              { value: 'wxpay', label: '微信支付' },
-              { value: 'sandbox', label: '本地模拟' },
-            ]"
+            :options="payTypeOptions"
             aria-label="支付方式"
           />
         </KitField>
