@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import KitSelect from "./KitSelect.vue";
+import ShellIcon from "./ShellIcon.vue";
 const props = defineProps<{
   page: number;
   pageSize: number;
@@ -76,7 +77,7 @@ const sizeOptions = computed(() =>
       aria-label="上一页"
       @click="goto(page - 1)"
     >
-      ‹
+      <ShellIcon name="chevronLeft" />
     </button>
     <template v-for="(it, i) in items" :key="i">
       <span v-if="it === '…'" class="pa-page pa-page--ellipsis">…</span>
@@ -97,7 +98,7 @@ const sizeOptions = computed(() =>
       aria-label="下一页"
       @click="goto(page + 1)"
     >
-      ›
+      <ShellIcon name="chevronRight" />
     </button>
     <span class="pa-pager-jump"
       >前往<input

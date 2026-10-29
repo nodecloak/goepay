@@ -3725,3 +3725,30 @@ th {
   min-width: 160px;
   margin: 0;
 }
+
+/* Kit DataTable foot: the pager sits under the table on the right, with the
+   card's spacing around it (16px above, 20px below and at the sides). GOEPAY
+   mounts KitPagination straight into edge-to-edge list cards, where it was
+   left-aligned with no room above or below. */
+.pa-pager {
+  justify-content: flex-end;
+}
+.records > .pa-pager,
+.panel > .pa-pager {
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+.pagination:has(> .pa-pager) {
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+.pagination > .pa-pager {
+  margin-left: auto;
+}
+.pa-page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.pa-page .shell-icon {
+  width: 14px;
+  height: 14px;
+}
