@@ -3708,7 +3708,21 @@ th {
   height: var(--control-h);
   max-height: var(--control-h);
 }
-.pa-field .pa-input > input {
+/* The input inside KitInput fills its wrapper: no 8px margin from the generic
+   `label input` rule, and no focus ring of its own (it painted over the
+   wrapper's bottom border; the wrapper shows focus via :focus-within). */
+.pa-input > input {
+  margin: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+.pa-input > input:focus {
+  box-shadow: none;
+  outline: none;
+}
+.pa-field
+  .pa-input
+  > input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
   height: auto;
   min-height: 0;
   align-self: stretch;
