@@ -274,7 +274,7 @@ onBeforeUnmount(() => {
   color: var(--ink);
 }
 .system-log-page details {
-  margin-top: 16px;
+  margin: 16px var(--space-5) var(--space-5);
 }
 .log-failed {
   color: var(--danger-text);

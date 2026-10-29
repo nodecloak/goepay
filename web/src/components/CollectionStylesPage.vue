@@ -928,8 +928,13 @@ onBeforeUnmount(() => {
   max-width: 100%;
   max-height: 100%;
 }
+/* The card has no padding of its own; the title and meta line take the
+   same 20px side inset as the action row (.toolbar) under them. */
 .style-card h3 {
-  margin: 16px 0 8px;
+  margin: 16px var(--space-5) 8px;
+}
+.style-card > p {
+  margin-inline: var(--space-5);
 }
 .style-card .toolbar {
   flex-wrap: wrap;
