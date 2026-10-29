@@ -30,6 +30,21 @@ function close(focus = false) {
   opened.value = false;
   if (focus) trigger.value?.focus();
 }
+// The visible band the list can use: the window, narrowed by every ancestor
+// that clips its content (a list card with overflow hidden, a scroll box).
+function visibleBand(el: HTMLElement) {
+  let top = 0;
+  let bottom = window.innerHeight;
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const s = getComputedStyle(p);
+    if (/(auto|hidden|scroll|clip)/.test(`${s.overflowY} ${s.overflow}`)) {
+      const r = p.getBoundingClientRect();
+      top = Math.max(top, r.top);
+      bottom = Math.min(bottom, r.bottom);
+    }
+  }
+  return { top, bottom };
+}
 const dropUp = ref(false);
 function open() {
   if (props.disabled) return;
@@ -37,13 +52,17 @@ function open() {
   if (!opened.value) return;
   dropUp.value = false;
   void nextTick(() => {
-    // Open upward when the list would run past the bottom of the window and
-    // fits above (the pager's 条/页 select sits at the page bottom), so the
-    // list never stretches the page or makes it jump.
-    const t = trigger.value?.getBoundingClientRect();
+    // Open upward when the list would run past the bottom of the visible band
+    // (the pager's 条/页 select sits at the bottom of a clipping list card) and
+    // fits above, so the list is never cut off and never stretches the page.
+    const el = trigger.value;
     const h = menu.value?.offsetHeight ?? 0;
-    if (t && t.bottom + 4 + h > window.innerHeight && t.top - 4 - h >= 0)
-      dropUp.value = true;
+    if (el) {
+      const t = el.getBoundingClientRect();
+      const band = visibleBand(el);
+      if (t.bottom + 4 + h > band.bottom && t.top - 4 - h >= band.top)
+        dropUp.value = true;
+    }
     menu.value?.focus({ preventScroll: true });
   });
 }
