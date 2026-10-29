@@ -6,6 +6,7 @@ import {
   readTemplateConfig,
   readTemplateList,
   templateConfigBody,
+  templatePreviewImage,
   uploadTemplateImage,
   type TemplateKind,
   type TemplateName,
@@ -246,9 +247,12 @@ onBeforeUnmount(() => {
           :disabled="busy || loading"
           @click="load(kind, item.name)"
         >
-          <span class="template-thumb" aria-hidden="true">{{
-            item.title
-          }}</span>
+          <img
+            class="template-thumb"
+            :src="templatePreviewImage(kind, item.name)"
+            alt=""
+            loading="lazy"
+          />
           <span class="template-card-body">
             <strong
               >{{ item.title
@@ -487,13 +491,13 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 1px var(--primary);
 }
 .template-thumb {
-  display: grid;
-  place-content: center;
-  height: 120px;
-  background: linear-gradient(135deg, var(--primary-soft), var(--bg-raised));
-  color: var(--primary-text);
-  font-size: 16px;
-  font-weight: 600;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  object-position: top;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--line);
 }
 .template-card-body {
   display: flex;

@@ -106,3 +106,49 @@ it("does not continue configuration reads after unmount or revive a stale page",
   await flushPromises();
   expect(request).toHaveBeenCalledTimes(1);
 });
+
+
+it("shows each template's preview picture on its card", async () => {
+  const request = vi.fn(async (path: string) =>
+    path.includes("?")
+      ? {
+          type: "pay",
+          revision: "0",
+          selected: "default",
+          items: [
+            { name: "default", title: "默认支付页模板", description: "本地" },
+            { name: "compact", title: "紧凑支付页模板", description: "本地" },
+          ],
+        }
+      : {
+          type: "pay",
+          name: "default",
+          revision: "0",
+          config: {
+            brand_name: "Local",
+            notice: "",
+            accent_color: "#007c91",
+            background_color: "#f4f8fa",
+            logo_asset_id: "",
+            density: "comfortable",
+            show_order_name: false,
+          },
+          fields: [],
+        },
+  );
+  const w = mount(TemplatePage, {
+    props: {
+      client: Object.assign(new ApiClient("admin"), { request }),
+      adminClass: "super",
+      ownSession: true,
+    },
+  });
+  await flushPromises();
+  expect(
+    w.findAll("img.template-thumb").map((i) => i.attributes("src")),
+  ).toEqual([
+    "/static/template-previews/pay-default.jpg",
+    "/static/template-previews/pay-compact.jpg",
+  ]);
+  w.unmount();
+});

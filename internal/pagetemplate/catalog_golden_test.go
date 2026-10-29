@@ -97,3 +97,18 @@ func TestBuiltinTemplatesMatchTheOriginalMarket(t *testing.T) {
 		t.Fatalf("expected the 13 original market templates, saw %d", seen)
 	}
 }
+
+// Every built-in template has a preview picture for the 模板配置 cards and the
+// 应用市场 (TestWriteTemplatePreviewPages explains how to regenerate them).
+func TestBuiltinTemplatesHavePreviewPictures(t *testing.T) {
+	for _, v := range buildTemplateCatalog(t) {
+		path := filepath.Join("..", "..", "web", "public", "static", "template-previews", v.Type+"-"+v.Name+".jpg")
+		b, e := os.ReadFile(path)
+		if e != nil {
+			t.Fatalf("%s/%s has no preview picture: %v", v.Type, v.Name, e)
+		}
+		if len(b) < 2048 || b[0] != 0xff || b[1] != 0xd8 {
+			t.Fatalf("%s is not a JPEG preview", path)
+		}
+	}
+}

@@ -9,6 +9,7 @@ import {
   templateKinds,
   type CatalogEntry,
 } from "../plugin-catalog";
+import { templatePreviewImage } from "../page-template";
 const props = defineProps<{ entry: CatalogEntry; title: string }>();
 const emit = defineEmits<{ close: [] }>();
 const drawer = ref<HTMLElement | null>(null);
@@ -63,6 +64,12 @@ onMounted(() => drawer.value?.focus());
             />
           </div>
         </div>
+        <img
+          v-if="entry.type === 'template' && entry.sub && builtin"
+          class="plugin-preview"
+          :src="templatePreviewImage(entry.sub, entry.name)"
+          :alt="`${entry.title} 预览截图`"
+        />
         <dl class="record-detail">
           <dt>标识</dt>
           <dd class="numeric">{{ entry.name }}</dd>
@@ -107,6 +114,17 @@ onMounted(() => drawer.value?.focus());
   </div>
 </template>
 <style scoped>
+.plugin-preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin: 0 0 16px;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
 .plugin-drawer-title {
   display: flex;
   align-items: center;

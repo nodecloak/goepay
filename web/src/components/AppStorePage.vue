@@ -4,6 +4,7 @@ import ShellIcon from "./ShellIcon.vue";
 import PluginDetailDrawer from "./PluginDetailDrawer.vue";
 import KitStatusTag from "./KitStatusTag.vue";
 import KitPagination from "./KitPagination.vue";
+import { templatePreviewImage } from "../page-template";
 import {
   builtinCount,
   builtinPlugin,
@@ -100,7 +101,18 @@ function reset() {
           <tr v-for="item in pageRows" :key="catalogKey(item)">
             <td>
               <span class="plugin-name"
-                ><img v-if="item.icon" :src="item.icon" alt="" loading="lazy" />
+                ><img
+                  v-if="item.type === 'template' && item.sub && builtinPlugin(item)"
+                  class="plugin-shot"
+                  :src="templatePreviewImage(item.sub, item.name)"
+                  alt=""
+                  loading="lazy"
+                /><img
+                  v-else-if="item.icon"
+                  :src="item.icon"
+                  alt=""
+                  loading="lazy"
+                />
                 <span v-else class="plugin-mark" aria-hidden="true">{{
                   Array.from(item.title)[0]
                 }}</span
@@ -198,5 +210,13 @@ function reset() {
 .price-paid {
   color: var(--warning-text);
   font-weight: 600;
+}
+.plugin-name > img.plugin-shot {
+  width: 72px;
+  height: 40px;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
 }
 </style>
