@@ -2,6 +2,7 @@
 import { computed, ref, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { ApiClient, ApiError } from "../api";
 import { centsMoney } from "../settlement-terms";
+import ShellIcon from "./ShellIcon.vue";
 interface SaleGroup {
   id: string;
   name: string;
@@ -207,168 +208,200 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="panel group-sales">
-    <div class="toolbar">
-      <h2>用户组购买设置</h2>
-      <button :disabled="busy || loading" @click="load">刷新配置</button>
-    </div>
+  <div class="group-sales">
     <p v-if="error" role="alert" class="alert error">{{ error }}</p>
     <p v-if="notice" role="status" class="alert success">{{ notice }}</p>
     <p v-if="!canWrite" class="muted">
       当前为只读查看，保存需要本人超级管理员会话。
     </p>
-    <p v-if="loading" role="status">正在读取销售配置…</p>
-    <template v-if="configuration">
-      <div class="sale-policy">
-        <span>用户组购买开关</span
-        ><button
-          role="switch"
-          aria-label="用户组购买开关"
-          :aria-checked="configuration.enabled"
-          :disabled="!canWrite || busy || uncertain"
-          @click="save('global')"
-        >
-          {{ configuration.enabled ? "已开启" : "已关闭" }}
-        </button>
-      </div>
-      <p class="muted">
-        有效期按日历月计算，0或留空表示永久；旧按天配置保留原期限，可明确切换到按月。可见用户组留空表示全部，多个ID以英文逗号分隔，0表示默认用户组。
-      </p>
-      <div class="published-heading">
-        <h3>已上架用户组</h3>
+    <p v-if="loading" role="status" class="muted">正在读取销售配置…</p>
+    <section class="panel sale-policy-card">
+      <div class="sale-policy-head">
+        <h2>用户组购买设置</h2>
         <button
-          class="primary"
-          :disabled="!canWrite || busy || uncertain"
-          @click="save('all')"
+          type="button"
+          class="sale-refresh"
+          :disabled="busy || loading"
+          @click="load"
         >
-          {{ busy ? "正在保存…" : "保存全部" }}
+          <ShellIcon name="refresh" />刷新配置
         </button>
       </div>
-      <p class="muted">
-        售价、期限、排序和可见范围编辑后需保存；上下架和总开关单独保存。
-      </p>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>GID</th>
-              <th>用户组名称</th>
-              <th>售价（元）</th>
-              <th>有效期（月）</th>
-              <th>排序</th>
-              <th>可见用户组</th>
-              <th>简介</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="g in published" :key="g.id">
-              <td class="pa-c-num">{{ g.id }}</td>
-              <td>
-                {{ g.name }}
-                <small v-if="!g.enabled" class="muted">用户组已禁用</small>
-              </td>
-              <td>
-                <input
-                  v-model="drafts[g.id]!.price"
-                  :aria-label="`售价（元） · ${g.name}`"
-                  inputmode="decimal"
-                  :disabled="!canWrite || busy || uncertain"
-                />
-              </td>
-              <td>
-                <select
-                  v-model="drafts[g.id]!.period"
-                  :aria-label="`期限类型 · ${g.name}`"
-                  :disabled="!canWrite || busy || uncertain"
-                >
-                  <option value="months">按月 / 永久</option>
-                  <option v-if="g.duration_months === null" value="legacy">
-                    旧按天配置
-                  </option></select
-                ><input
-                  v-if="drafts[g.id]!.period === 'months'"
-                  v-model="drafts[g.id]!.months"
-                  :aria-label="`有效期（月） · ${g.name}`"
-                  inputmode="numeric"
-                  placeholder="0或留空为永久"
-                  :disabled="!canWrite || busy || uncertain"
-                /><span v-else>{{ g.duration_days }}天</span>
-              </td>
-              <td>
-                <input
-                  v-model="drafts[g.id]!.sort"
-                  :aria-label="`排序 · ${g.name}`"
-                  inputmode="numeric"
-                  :disabled="!canWrite || busy || uncertain"
-                />
-              </td>
-              <td>
-                <input
-                  v-model="drafts[g.id]!.visible"
-                  :aria-label="`可见用户组 · ${g.name}`"
-                  placeholder="全部"
-                  :disabled="!canWrite || busy || uncertain"
-                />
-              </td>
-              <td>
-                <button
-                  class="link-button"
-                  :disabled="busy || uncertain"
-                  @click="editDescription(g.id)"
-                >
-                  编辑简介
-                </button>
-              </td>
-              <td>
-                <button
-                  :disabled="!canWrite || busy || uncertain"
-                  @click="save('toggle', g)"
-                >
-                  下架
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!published.length">
-              <td colspan="8" class="empty">暂无已上架用户组</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <h3>未上架用户组</h3>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>GID</th>
-              <th>用户组名称</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="g in unpublished" :key="g.id">
-              <td class="pa-c-num">{{ g.id }}</td>
-              <td>
-                {{ g.name }}
-                <small v-if="!g.enabled" class="muted">用户组已禁用</small>
-              </td>
-              <td>
-                <button
-                  :disabled="!canWrite || busy || uncertain || !g.enabled"
-                  @click="save('toggle', g)"
-                >
-                  上架
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!unpublished.length">
-              <td colspan="3" class="empty">暂无未上架用户组</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <template v-if="configuration">
+        <div class="sale-policy">
+          <span>用户组购买开关</span
+          ><button
+            type="button"
+            role="switch"
+            class="sale-switch"
+            :class="{ 'sale-switch--on': configuration.enabled }"
+            aria-label="用户组购买开关"
+            :aria-checked="configuration.enabled"
+            :disabled="!canWrite || busy || uncertain"
+            @click="save('global')"
+          >
+            <span class="sale-switch-track" aria-hidden="true"></span
+            ><span>{{ configuration.enabled ? "已开启" : "已关闭" }}</span>
+          </button>
+        </div>
+        <p class="muted sale-hint">
+          有效期按日历月计算，0或留空表示永久；旧按天配置保留原期限，可明确切换到按月。可见用户组留空表示全部，多个ID以英文逗号分隔，0表示默认用户组。
+        </p>
+      </template>
+    </section>
+    <template v-if="configuration">
+      <section class="panel records">
+        <div class="table-tools">
+          <h3 class="sale-table-title">已上架用户组</h3>
+          <span class="table-summary"
+            >售价、期限、排序和可见范围编辑后需保存；上下架和总开关单独保存。</span
+          >
+          <div class="table-tools-end">
+            <button
+              class="primary"
+              :disabled="!canWrite || busy || uncertain"
+              @click="save('all')"
+            >
+              {{ busy ? "正在保存…" : "保存全部" }}
+            </button>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="sale-table">
+            <thead>
+              <tr>
+                <th>GID</th>
+                <th>用户组名称</th>
+                <th>售价（元）</th>
+                <th>有效期（月）</th>
+                <th>排序</th>
+                <th>可见用户组</th>
+                <th>简介</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="g in published" :key="g.id">
+                <td class="pa-c-num">{{ g.id }}</td>
+                <td class="sale-name">
+                  {{ g.name }}
+                  <small v-if="!g.enabled" class="muted">用户组已禁用</small>
+                </td>
+                <td>
+                  <input
+                    v-model="drafts[g.id]!.price"
+                    class="sale-price"
+                    :aria-label="`售价（元） · ${g.name}`"
+                    inputmode="decimal"
+                    :disabled="!canWrite || busy || uncertain"
+                  />
+                </td>
+                <td>
+                  <div class="sale-period">
+                    <select
+                      v-model="drafts[g.id]!.period"
+                      :aria-label="`期限类型 · ${g.name}`"
+                      :disabled="!canWrite || busy || uncertain"
+                    >
+                      <option value="months">按月 / 永久</option>
+                      <option v-if="g.duration_months === null" value="legacy">
+                        旧按天配置
+                      </option></select
+                    ><input
+                      v-if="drafts[g.id]!.period === 'months'"
+                      v-model="drafts[g.id]!.months"
+                      :aria-label="`有效期（月） · ${g.name}`"
+                      inputmode="numeric"
+                      placeholder="0或留空为永久"
+                      :disabled="!canWrite || busy || uncertain"
+                    /><span v-else class="sale-days"
+                      >{{ g.duration_days }}天</span
+                    >
+                  </div>
+                </td>
+                <td>
+                  <input
+                    v-model="drafts[g.id]!.sort"
+                    class="sale-sort"
+                    :aria-label="`排序 · ${g.name}`"
+                    inputmode="numeric"
+                    :disabled="!canWrite || busy || uncertain"
+                  />
+                </td>
+                <td>
+                  <input
+                    v-model="drafts[g.id]!.visible"
+                    class="sale-visible"
+                    :aria-label="`可见用户组 · ${g.name}`"
+                    placeholder="全部"
+                    :disabled="!canWrite || busy || uncertain"
+                  />
+                </td>
+                <td>
+                  <button
+                    class="link-button"
+                    :disabled="busy || uncertain"
+                    @click="editDescription(g.id)"
+                  >
+                    编辑简介
+                  </button>
+                </td>
+                <td>
+                  <button
+                    class="link-button danger-text"
+                    :disabled="!canWrite || busy || uncertain"
+                    @click="save('toggle', g)"
+                  >
+                    下架
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="!published.length">
+                <td colspan="8" class="empty">暂无已上架用户组</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section class="panel records">
+        <div class="table-tools">
+          <h3 class="sale-table-title">未上架用户组</h3>
+        </div>
+        <div class="table-scroll">
+          <table class="sale-table">
+            <thead>
+              <tr>
+                <th>GID</th>
+                <th>用户组名称</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="g in unpublished" :key="g.id">
+                <td class="pa-c-num">{{ g.id }}</td>
+                <td class="sale-name">
+                  {{ g.name }}
+                  <small v-if="!g.enabled" class="muted">用户组已禁用</small>
+                </td>
+                <td>
+                  <button
+                    class="link-button"
+                    :disabled="!canWrite || busy || uncertain || !g.enabled"
+                    @click="save('toggle', g)"
+                  >
+                    上架
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="!unpublished.length">
+                <td colspan="3" class="empty">暂无未上架用户组</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </template>
-  </section>
+  </div>
   <div
     v-if="editing && configuration"
     class="modal-backdrop"
@@ -410,62 +443,149 @@ onBeforeUnmount(() => {
   </div>
 </template>
 <style scoped>
-.sale-policy {
-  display: flex;
-  align-items: center;
+.group-sales {
+  display: grid;
   gap: 16px;
-  margin: 16px 0;
 }
-.group-sales th {
-  white-space: nowrap;
+.group-sales > p {
+  margin: 0;
 }
-.group-sales td {
-  min-width: 0;
-  vertical-align: top;
+/* Card 1: title, refresh and the global switch. */
+.sale-policy-card {
+  padding: 20px;
 }
-.group-sales td:first-child {
-  min-width: 150px;
-}
-.group-sales td:nth-child(3) {
-  min-width: 180px;
-}
-.group-sales td small {
-  display: block;
-}
-.group-sales td input,
-.group-sales td select {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  min-height: var(--control-h);
-}
-.group-sales td:nth-child(3) {
-  white-space: nowrap;
-}
-.group-sales td:nth-child(3) select {
-  width: auto;
-  min-width: 0;
-}
-.group-sales td:nth-child(3) input {
-  width: 100%;
-  min-width: 0;
-  margin-top: 8px;
-}
-.group-sales h3 {
-  margin-top: 24px;
-}
-.published-heading {
+.sale-policy-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 24px;
 }
-.published-heading h3 {
+.sale-policy-head h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+}
+.sale-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.sale-refresh :deep(.shell-icon) {
+  width: 14px;
+  height: 14px;
+}
+.sale-policy {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 8px;
+  font-size: 13px;
+}
+.sale-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 20px;
+}
+/* The switch saves on click, so it stays a button; it is drawn like KitSwitch. */
+.sale-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+.sale-switch:hover {
+  background: transparent;
+}
+.sale-switch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.sale-switch-track {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--line-control);
+  transition: background 0.15s;
+}
+.sale-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.15s;
+}
+.sale-switch--on .sale-switch-track {
+  background: var(--primary);
+}
+.sale-switch--on .sale-switch-track::after {
+  transform: translateX(16px);
+}
+.sale-switch:focus-visible {
+  outline: 2px solid var(--primary-soft);
+  outline-offset: 2px;
+}
+/* Cards 2 and 3: tables. */
+.sale-table-title {
+  margin: 0;
+  font-size: 14px;
+  line-height: 32px;
+}
+.sale-table {
+  width: 100%;
+}
+.sale-table th,
+.sale-table td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.sale-table td.sale-name {
+  white-space: normal;
+  min-width: 160px;
+}
+.sale-table td small {
+  display: block;
+}
+.sale-table td input,
+.sale-table td select {
+  box-sizing: border-box;
+  min-height: var(--control-h);
+  height: var(--control-h);
   margin: 0;
 }
-.group-sales table {
-  width: 100%;
+.sale-price {
+  width: 110px;
+}
+.sale-period {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sale-period select {
+  width: 136px;
+}
+.sale-period input {
+  width: 120px;
+}
+.sale-days {
+  color: var(--ink-muted);
+}
+.sale-sort {
+  width: 72px;
+}
+.sale-visible {
+  width: 140px;
 }
 textarea {
   width: 100%;
