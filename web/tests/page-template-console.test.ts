@@ -150,5 +150,22 @@ it("shows each template's preview picture on its card", async () => {
     "/static/template-previews/pay-default.jpg",
     "/static/template-previews/pay-compact.jpg",
   ]);
+  // The card's 预览 button opens the template over the main content area.
+  await w.get('button[aria-label="预览 紧凑支付页模板"]').trigger("click");
+  const pane = w.get(".template-fullpreview");
+  expect(pane.attributes("role")).toBe("dialog");
+  expect(pane.get("iframe").attributes("src")).toBe(
+    "/console/v1/admin/templates/pay/compact/preview",
+  );
+  expect(pane.text()).toContain("紧凑支付页模板");
+  await pane.get('button[aria-label="关闭预览"]').trigger("click");
+  expect(w.find(".template-fullpreview").exists()).toBe(false);
+  // Esc closes it too, and opening a preview does not change the selection.
+  await w.get('button[aria-label="预览 默认支付页模板"]').trigger("click");
+  await w.get(".template-fullpreview").trigger("keydown", { key: "Escape" });
+  expect(w.find(".template-fullpreview").exists()).toBe(false);
+  expect(request.mock.calls.every((c) => !String(c[0]).includes("/select"))).toBe(
+    true,
+  );
   w.unmount();
 });
