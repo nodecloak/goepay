@@ -7,6 +7,10 @@ const props = defineProps<{
   cancelText?: string;
   width?: string;
   danger?: boolean;
+  /** Disable the submit button without showing the loading spinner. */
+  submitDisabled?: boolean;
+  /** Leave out the 取消 button; × and Esc still close the dialog. */
+  hideCancel?: boolean;
 }>();
 const emit = defineEmits<{ close: []; submit: [] }>();
 const panel = ref<HTMLElement>();
@@ -76,7 +80,12 @@ onBeforeUnmount(() => {
             <span class="pa-modal-foot-extra"
               ><slot name="footer-extra"
             /></span>
-            <button type="button" class="pa-btn" @click="emit('close')">
+            <button
+              v-if="!hideCancel"
+              type="button"
+              class="pa-btn"
+              @click="emit('close')"
+            >
               {{ cancelText || "取消" }}
             </button>
             <button
@@ -86,7 +95,7 @@ onBeforeUnmount(() => {
                 danger ? 'pa-btn--danger' : 'pa-btn--primary',
                 { 'pa-btn--loading': loading },
               ]"
-              :disabled="loading"
+              :disabled="loading || submitDisabled"
             >
               {{ submitText || "保存" }}
             </button>

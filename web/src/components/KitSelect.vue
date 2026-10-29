@@ -125,6 +125,9 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", outside));
       tabindex="-1"
       @keydown="keydown"
     >
+      <!-- .prevent: inside a KitField <label>, the option is gone by the time
+           the click reaches the label, which would pass it on to the trigger
+           and open the menu again. -->
       <button
         v-for="o in normalized"
         :key="o.value"
@@ -132,7 +135,7 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", outside));
         class="pa-menu-item"
         role="option"
         :aria-selected="o.value === modelValue"
-        @click="choose(o.value)"
+        @click.prevent="choose(o.value)"
       >
         {{ o.label
         }}<i

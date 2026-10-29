@@ -37,6 +37,14 @@ import {
   bankChannelProduct,
   bankProductLabel,
   transferReadActions,
+  cents,
+  transferCost,
+  transferTabs,
+  transferAccountLabel,
+  transferAccountPlaceholder,
+  transferNameLabel,
+  transferNamePlaceholder,
+  defaultTransferNo,
 } from "../transfers";
 import TransferPolicySummary from "./TransferPolicySummary.vue";
 import {
@@ -230,9 +238,7 @@ const effectiveDescription = computed(
 );
 watch(
   () => form.value.type,
-  (type, old) => {
-    if (!form.value.remark || form.value.remark === defaultDescription(old))
-      form.value.remark = defaultDescription(type);
+  (type) => {
     if (type !== "bank") form.value.bank_code = "";
   },
 );
@@ -265,15 +271,15 @@ const bankCodeOptions = computed(() =>
     label: `${bankNames[bank as keyof typeof bankNames] || bank}（${code}）`,
   })),
 );
-const typeOptions = computed(() =>
-  availableTypes.value.map((t) => ({
-    value: t,
-    label: transferTypeLabel[t] || t,
-  })),
-);
 const channelOptions = computed(() =>
-  channels.value.map((c) => ({ value: c.id, label: c.id })),
+  channels.value.map((c) => ({ value: c.id, label: `通道 ${c.id}` })),
 );
+const channelPlaceholder = computed(() => {
+  if (capLoading.value) return "正在读取付款配置…";
+  if (!capabilities.value)
+    return props.area === "admin" ? "请先读取付款权限" : "请选择通道";
+  return channels.value.length ? "请选择通道" : "暂无可用通道";
+});
 watch(
   () => form.value.channel_id,
   () => {
@@ -286,6 +292,67 @@ const canSubmit = computed(
     channels.value.some((c) => c.id === form.value.channel_id) &&
     (props.area === "merchant" || capMerchant.value === form.value.merchant_id),
 );
+// 转账付款 dialog wording, as in the original console.
+const accountLabel = computed(
+  () => transferAccountLabel[form.value.type] || "收款账号",
+);
+const nameLabel = computed(() => transferNameLabel[form.value.type] || "姓名");
+const remarkLabel = computed(() =>
+  form.value.type === "alipay" ? "转账标题" : "转账备注",
+);
+const remarkRequired = computed(
+  () => form.value.type === "wxpay" && !defaultDescription("wxpay"),
+);
+const remarkPlaceholder = computed(() => {
+  const fallback = defaultDescription(form.value.type);
+  if (fallback) return `可留空，默认为：${fallback}`;
+  return remarkRequired.value ? "微信付款必须填写" : "可留空";
+});
+const cost = computed(() =>
+  capabilities.value
+    ? transferCost(form.value.amount, capabilities.value.transfer_rate)
+    : undefined,
+);
+// One short line of the policy under 转账金额; the full policy is shown again
+// in 核对付款 before anything is sent.
+const policyHint = computed(() => {
+  const c = capabilities.value;
+  if (!c) return "";
+  const parts = [`可出账 ${c.available_money} 元`];
+  const min = c.minimum_money && cents(c.minimum_money) ? c.minimum_money : "",
+    max = c.maximum_money && cents(c.maximum_money) ? c.maximum_money : "";
+  if (min && max) parts.push(`单笔 ${min}–${max} 元`);
+  else if (min) parts.push(`单笔最低 ${min} 元`);
+  else if (max) parts.push(`单笔最高 ${max} 元`);
+  if (c.transfer_rate !== undefined) parts.push(`手续费率 ${c.transfer_rate}%`);
+  if (c.settle_type === 1) parts.push("T+1：当日收款暂不可出账");
+  return parts.join(" · ");
+});
+const tabDisabled = (type: string) =>
+  !!capabilities.value && !availableTypes.value.includes(type);
+function setType(type: string) {
+  if (tabDisabled(type) || form.value.type === type) return;
+  form.value.type = type;
+  form.value.channel_id = channels.value[0]?.id || "";
+}
+function tabKeydown(event: KeyboardEvent) {
+  const step =
+    event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+  if (!step) return;
+  event.preventDefault();
+  const order = transferTabs
+    .map((t) => t.type as string)
+    .filter((t) => !tabDisabled(t));
+  const at = order.indexOf(form.value.type);
+  const next = order[(at + step + order.length) % order.length];
+  if (!next) return;
+  setType(next);
+  void nextTick(() =>
+    (event.currentTarget as HTMLElement | null)
+      ?.querySelector<HTMLElement>('[aria-selected="true"]')
+      ?.focus(),
+  );
+}
 const message = (e: unknown) =>
   e instanceof Error ? e.message : "请求失败，请重试";
 async function load() {
@@ -341,8 +408,6 @@ async function loadCapabilities() {
         ? form.value.type
         : availableTypes.value[0] || "";
       form.value.channel_id = channels.value[0]?.id || "";
-      if (!form.value.remark)
-        form.value.remark = defaultDescription(form.value.type);
     }
   } catch (e) {
     if (epoch === capEpoch) error.value = message(e);
@@ -356,7 +421,7 @@ async function openCreate() {
   error.value = "";
   notice.value = "";
   capabilities.value = null;
-  if (!form.value.external_no) form.value.external_no = crypto.randomUUID();
+  if (!form.value.external_no) form.value.external_no = defaultTransferNo();
   if (props.area === "merchant") await loadCapabilities();
 }
 function check() {
@@ -374,8 +439,12 @@ function check() {
     error.value = policyError;
     return;
   }
+  if (!form.value.external_no.trim()) {
+    error.value = "请填写交易号";
+    return;
+  }
   if (!form.value.account.trim()) {
-    error.value = "请填写收款账号";
+    error.value = `请填写${accountLabel.value}`;
     return;
   }
   if (
@@ -386,7 +455,7 @@ function check() {
         !Object.values(bankCodes).includes(form.value.bank_code)))
   ) {
     error.value = bankCodeRequired.value
-      ? "银行卡付款必须填写收款人姓名并选择开户银行"
+      ? "银行卡付款必须填写姓名并选择开户银行"
       : "银行卡付款须确认产品能力并填写真实姓名";
     return;
   }
@@ -395,7 +464,7 @@ function check() {
     return;
   }
   if (form.value.type === "wxpay" && !effectiveDescription.value.trim()) {
-    error.value = "微信付款必须填写付款说明";
+    error.value = "微信付款必须填写转账备注";
     return;
   }
   confirming.value = true;
@@ -428,7 +497,7 @@ async function submit() {
     if (result.data?.id) await details(result.data, notice.value);
   } catch (e) {
     confirming.value = false;
-    error.value = `付款结果尚未核实。请保留原业务请求号 ${form.value.external_no}，先通过付款记录查询。${message(e)}`;
+    error.value = `付款结果尚未核实。请保留原交易号 ${form.value.external_no}，先通过付款记录查询。${message(e)}`;
   } finally {
     busy.value = false;
   }
@@ -626,18 +695,24 @@ onBeforeUnmount(() => {
   >
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <dl class="record-detail">
-      <dt>收款方式</dt>
+      <dt>付款方式</dt>
       <dd>{{ transferTypeLabel[form.type] || form.type }}</dd>
-      <dt>收款账号</dt>
+      <dt>付款通道</dt>
+      <dd>通道 {{ form.channel_id }}</dd>
+      <dt>{{ accountLabel }}</dt>
       <dd>{{ form.account }}</dd>
-      <dt>收款人姓名</dt>
+      <dt>{{ nameLabel }}</dt>
       <dd>{{ form.name || "-" }}</dd>
-      <dt>付款金额（元）</dt>
+      <dt>转账金额（元）</dt>
       <dd>{{ form.amount }}</dd>
-      <dt>付款费率</dt>
+      <dt>手续费率</dt>
       <dd>{{ capabilities?.transfer_rate }}%</dd>
-      <dt>付款说明</dt>
-      <dd>{{ effectiveDescription }}</dd>
+      <template v-if="cost"
+        ><dt>需支付金额（元）</dt>
+        <dd>{{ cost.cost }}（含手续费 {{ cost.fee }}）</dd></template
+      >
+      <dt>{{ remarkLabel }}</dt>
+      <dd>{{ effectiveDescription || "-" }}</dd>
       <template v-if="form.type === 'bank'"
         ><dt>银行卡产品</dt>
         <dd>
@@ -652,7 +727,7 @@ onBeforeUnmount(() => {
         ><dt>开户银行编号</dt>
         <dd>{{ form.bank_code }}</dd></template
       >
-      <dt>业务请求号</dt>
+      <dt>交易号</dt>
       <dd>{{ form.external_no }}</dd>
     </dl>
     <p v-if="selectedBankProduct === 'alipay_bankcard'" class="muted">
@@ -675,73 +750,99 @@ onBeforeUnmount(() => {
   </KitModal>
   <KitModal
     v-else-if="creating"
-    title="申请付款"
+    title="转账付款"
     width="600px"
-    :loading="busy || !canSubmit"
-    submit-text="核对付款信息"
+    :loading="busy"
+    :submit-disabled="!canSubmit"
+    submit-text="立即转账"
+    hide-cancel
     @close="creating = false"
     @submit="check"
   >
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <KitField v-if="area === 'admin'" label="付款商户">
-      <KitInput
-        :model-value="form.merchant_id"
-        inputmode="numeric"
-        aria-label="付款商户ID"
-        @update:model-value="
-          form.merchant_id = $event;
-          capabilities = null;
-          capEpoch++;
-        "
-      />
-    </KitField>
-    <button
-      v-if="area === 'admin'"
-      type="button"
-      class="pa-btn"
-      :disabled="capLoading"
-      @click="loadCapabilities"
+    <div
+      class="transfer-tabs"
+      role="tablist"
+      aria-label="付款方式"
+      @keydown="tabKeydown"
     >
-      读取付款权限
-    </button>
-    <div v-if="capLoading" role="status" class="muted">正在读取付款配置…</div>
-    <template v-if="capabilities">
-      <p class="muted">付款费率 {{ capabilities.transfer_rate }}%</p>
-      <TransferPolicySummary :policy="capabilities" />
-      <p v-if="unknownBankCapabilities" class="muted">
-        部分银行卡产品能力尚未核实，已禁止使用。
-      </p>
-      <p v-if="!capabilities.writes_enabled" class="alert error">
-        {{
-          !(capabilities.effective_enabled ?? capabilities.platform_enabled)
-            ? capabilities.platform_enabled
-              ? "当前用户组付款功能未启用"
-              : "平台付款功能未启用"
-            : !capabilities.merchant_enabled
-              ? "该商户付款功能未启用"
-              : "当前运行环境或通道未启用付款"
-        }}
-      </p>
-      <KitField label="收款方式">
-        <KitSelect
-          :model-value="form.type"
-          :options="typeOptions"
-          aria-label="收款方式"
-          @update:model-value="
-            form.type = $event;
-            form.channel_id = channels[0]?.id || '';
-          "
-        />
+      <button
+        v-for="t in transferTabs"
+        :id="'transfer-tab-' + t.type"
+        :key="t.type"
+        type="button"
+        role="tab"
+        :aria-selected="form.type === t.type"
+        aria-controls="transfer-form"
+        :tabindex="form.type === t.type ? 0 : -1"
+        :disabled="tabDisabled(t.type)"
+        :title="
+          tabDisabled(t.type) ? `暂无可用的${t.label}付款通道` : undefined
+        "
+        @click="setType(t.type)"
+      >
+        {{ t.label }}
+      </button>
+    </div>
+    <p
+      v-if="capabilities && !capabilities.writes_enabled"
+      class="alert error transfer-alert"
+    >
+      {{
+        !(capabilities.effective_enabled ?? capabilities.platform_enabled)
+          ? capabilities.platform_enabled
+            ? "当前用户组付款功能未启用"
+            : "平台付款功能未启用"
+          : !capabilities.merchant_enabled
+            ? "该商户付款功能未启用"
+            : "当前运行环境或通道未启用付款"
+      }}
+    </p>
+    <div
+      id="transfer-form"
+      class="transfer-form"
+      role="tabpanel"
+      :aria-labelledby="'transfer-tab-' + form.type"
+    >
+      <KitField v-if="area === 'admin'" label="付款商户" required>
+        <span class="transfer-inline"
+          ><KitInput
+            :model-value="form.merchant_id"
+            inputmode="numeric"
+            placeholder="付款商户ID"
+            aria-label="付款商户ID"
+            @update:model-value="
+              form.merchant_id = $event;
+              capabilities = null;
+              capEpoch++;
+            "
+          /><button
+            type="button"
+            class="pa-btn"
+            :disabled="capLoading"
+            @click="loadCapabilities"
+          >
+            读取付款权限
+          </button></span
+        >
       </KitField>
-      <KitField label="付款通道">
+      <p v-if="capLoading" role="status" class="transfer-note">
+        正在读取付款配置…
+      </p>
+      <KitField label="通道选择">
         <KitSelect
           :model-value="form.channel_id"
           :options="channelOptions"
-          aria-label="付款通道"
+          :placeholder="channelPlaceholder"
+          :disabled="!channelOptions.length"
+          aria-label="通道选择"
           @update:model-value="form.channel_id = $event"
         />
       </KitField>
-      <p v-if="form.type === 'bank' && selectedBankProduct" class="muted">
+      <p
+        v-if="form.type === 'bank' && selectedBankProduct"
+        class="transfer-note"
+      >
         {{ bankProductLabel[selectedBankProduct]
         }}{{
           selectedBankProduct === "alipay_bankcard"
@@ -749,7 +850,16 @@ onBeforeUnmount(() => {
             : "：必须选择微信开户银行编号。"
         }}
       </p>
-      <KitField v-if="bankCodeRequired" label="开户银行">
+      <p
+        v-else-if="
+          unknownBankCapabilities &&
+          (form.type === 'bank' || tabDisabled('bank'))
+        "
+        class="transfer-note"
+      >
+        部分银行卡产品能力尚未核实，已禁止使用。
+      </p>
+      <KitField v-if="bankCodeRequired" label="开户银行" required>
         <KitSelect
           :model-value="form.bank_code"
           :options="bankCodeOptions"
@@ -758,48 +868,65 @@ onBeforeUnmount(() => {
           @update:model-value="form.bank_code = $event"
         />
       </KitField>
-      <KitField label="收款账号" required>
-        <KitInput
-          :model-value="form.account"
-          :maxlength="256"
-          aria-label="收款账号"
-          @update:model-value="form.account = $event"
-        />
-      </KitField>
-      <KitField label="收款人姓名" :required="form.type === 'bank'">
-        <KitInput
-          :model-value="form.name"
-          :maxlength="100"
-          aria-label="收款人姓名"
-          @update:model-value="form.name = $event"
-        />
-      </KitField>
-      <KitField label="付款金额" required>
-        <KitInput
-          :model-value="form.amount"
-          inputmode="decimal"
-          aria-label="付款金额（元）"
-          @update:model-value="form.amount = $event"
-        />
-      </KitField>
-      <KitField :label="form.type === 'wxpay' ? '付款说明' : '付款备注'">
-        <textarea
-          v-model="form.remark"
-          class="pa-input pa-textarea"
-          :required="form.type === 'wxpay' && !defaultDescription(form.type)"
-          :placeholder="defaultDescription(form.type)"
-          maxlength="32"
-          rows="3"
-        />
-      </KitField>
-      <KitField label="业务请求号" required>
+      <KitField label="交易号" required>
         <KitInput
           :model-value="form.external_no"
           :maxlength="128"
-          aria-label="业务请求号"
+          placeholder="19位数字交易号"
+          aria-label="交易号"
           @update:model-value="form.external_no = $event"
         />
       </KitField>
+      <KitField :label="accountLabel" required>
+        <KitInput
+          :model-value="form.account"
+          :maxlength="128"
+          :placeholder="transferAccountPlaceholder[form.type]"
+          :aria-label="accountLabel"
+          @update:model-value="form.account = $event"
+        />
+      </KitField>
+      <KitField :label="nameLabel" :required="form.type === 'bank'">
+        <KitInput
+          :model-value="form.name"
+          :maxlength="100"
+          :placeholder="transferNamePlaceholder(form.type)"
+          :aria-label="nameLabel"
+          @update:model-value="form.name = $event"
+        />
+      </KitField>
+      <KitField label="转账金额" required>
+        <KitInput
+          :model-value="form.amount"
+          inputmode="decimal"
+          placeholder="RMB/元"
+          aria-label="转账金额"
+          @update:model-value="form.amount = $event"
+        />
+      </KitField>
+      <p v-if="policyHint" class="transfer-note">{{ policyHint }}</p>
+      <KitField v-if="cost" label="需支付金额">
+        <KitInput :model-value="cost.cost" disabled aria-label="需支付金额" />
+      </KitField>
+      <KitField :label="remarkLabel" :required="remarkRequired">
+        <KitInput
+          :model-value="form.remark"
+          :maxlength="32"
+          :placeholder="remarkPlaceholder"
+          :aria-label="remarkLabel"
+          @update:model-value="form.remark = $event"
+        />
+      </KitField>
+    </div>
+    <p class="transfer-tip">
+      <ShellIcon
+        name="info"
+      />交易号可以防止重复转账，同一个交易号只能提交同一次转账。
+    </p>
+    <template #footer-extra>
+      <RouterLink :to="`/${area}/transfer/batches`" class="pa-btn"
+        >批量转账</RouterLink
+      >
     </template>
   </KitModal>
   <div
@@ -931,3 +1058,101 @@ onBeforeUnmount(() => {
     </section>
   </div>
 </template>
+
+<style scoped>
+/* 转账付款 dialog, laid out like the original console: type tabs, then a
+   form with a 100px right-aligned label column. */
+.transfer-tabs {
+  display: flex;
+  gap: 40px;
+  border-bottom: 2px solid var(--line);
+}
+.transfer-tabs [role="tab"] {
+  min-height: 0;
+  margin-bottom: -2px;
+  padding: 0 2px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.transfer-tabs [role="tab"]:hover:not(:disabled) {
+  color: var(--primary-text);
+  border-color: transparent;
+}
+.transfer-tabs [role="tab"][aria-selected="true"] {
+  color: var(--primary-text);
+  border-bottom-color: var(--primary);
+}
+.transfer-alert {
+  margin: 0;
+}
+.transfer-form {
+  display: grid;
+  gap: var(--space-4);
+}
+.transfer-form > .pa-field {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-3);
+  /* The global label rule adds 18px above and below every <label>. */
+  margin: 0;
+}
+.transfer-form > .pa-field > :deep(.pa-label) {
+  text-align: right;
+  white-space: normal;
+}
+.transfer-form > .pa-field > :deep(.pa-input),
+.transfer-form > .pa-field > :deep(.pa-select) {
+  width: 100%;
+}
+.transfer-inline {
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.transfer-inline > :deep(.pa-input) {
+  flex: 1;
+  min-width: 0;
+}
+/* Notes sit under the control column, not under the labels. */
+.transfer-note {
+  margin: calc(-1 * var(--space-2)) 0 0 calc(100px + var(--space-3));
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.transfer-tip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.transfer-tip .shell-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+@media (max-width: 520px) {
+  .transfer-form > .pa-field {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-1);
+  }
+  .transfer-form > .pa-field > :deep(.pa-label) {
+    text-align: left;
+  }
+  .transfer-note {
+    margin-left: 0;
+  }
+}
+</style>
