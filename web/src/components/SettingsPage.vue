@@ -848,7 +848,7 @@ onBeforeUnmount(() => {
   max-width: 960px;
   margin: 0 0 16px;
 }
-.setting-field > label {
+.setting-field > label:not(.pa-switch) {
   grid-column: 1;
   margin: 0;
   text-align: right;
@@ -856,12 +856,16 @@ onBeforeUnmount(() => {
   line-height: 1.4;
   color: var(--ink);
 }
-.setting-required > label::before {
+.setting-required > label:not(.pa-switch)::before {
   content: "* ";
   color: var(--danger-text);
 }
-.setting-field > :not(label) {
+.setting-field > :not(label),
+.setting-field > label.pa-switch {
   grid-column: 2;
+}
+.setting-field > label.pa-switch {
+  justify-self: start;
 }
 .setting-field > input,
 .setting-field > select {
