@@ -18,6 +18,7 @@ import MailSettings195 from "./MailSettings195.vue";
 import SmsSettings134 from "./SmsSettings134.vue";
 import CaptchaKeySettings203 from "./CaptchaKeySettings203.vue";
 import ProxyCredentialSettings from "./ProxyCredentialSettings.vue";
+import OAuthCredentialSettings from "./OAuthCredentialSettings.vue";
 import BuyerFeeSettings104 from "./BuyerFeeSettings104.vue";
 import { siteKeys191 } from "../site191";
 const emit = defineEmits<{ siteChanged: [] }>();
@@ -437,7 +438,6 @@ function navigate(event: KeyboardEvent, index: number) {
   document.getElementById(`settings-tab-${active.value}`)?.focus();
 }
 const guidance: Partial<Record<SettingsTab, string>> = {
-  oauth: "快捷登录的凭据不在通用设置中维护，当前页面没有在线修改入口。",
   certificate: "实名认证业务插件按本轮范围暂缓。",
   ocr: "OCR业务插件按本轮范围暂缓。",
   sms: "当前尚未接入短信业务插件。",
@@ -630,6 +630,12 @@ onBeforeUnmount(() => {
               />
               <ProxyCredentialSettings
                 v-else-if="block.embed === 'proxy-credentials'"
+                :client="client"
+                :admin-class="adminClass"
+                :own-session="ownSession"
+              />
+              <OAuthCredentialSettings
+                v-else-if="block.embed === 'oauth-credentials'"
                 :client="client"
                 :admin-class="adminClass"
                 :own-session="ownSession"
@@ -917,7 +923,8 @@ onBeforeUnmount(() => {
 .settings-embed :deep(.scan-js-settings202),
 .settings-embed :deep(.captcha-key203),
 .settings-embed :deep(.buyer-fee104),
-.settings-embed :deep(.proxy-credentials) {
+.settings-embed :deep(.proxy-credentials),
+.settings-embed :deep(.oauth-credentials) {
   display: grid;
   grid-template-columns: 160px minmax(0, 1fr);
   column-gap: 16px;
@@ -930,7 +937,8 @@ onBeforeUnmount(() => {
 }
 .settings-embed :deep(.captcha-heading),
 .settings-embed :deep(.buyer-fee104 > .toolbar),
-.settings-embed :deep(.proxy-heading) {
+.settings-embed :deep(.proxy-heading),
+.settings-embed :deep(.oauth-heading) {
   display: contents;
 }
 .settings-embed :deep(.platform-access > h3),
@@ -938,7 +946,8 @@ onBeforeUnmount(() => {
 .settings-embed :deep(.scan-js-settings202 > h3),
 .settings-embed :deep(.captcha-heading > h2),
 .settings-embed :deep(.buyer-fee104 > .toolbar > h2),
-.settings-embed :deep(.proxy-heading > h2) {
+.settings-embed :deep(.proxy-heading > h2),
+.settings-embed :deep(.oauth-heading > h2) {
   grid-column: 1;
   margin: 0;
   padding-top: 7px;
@@ -956,13 +965,16 @@ onBeforeUnmount(() => {
 .settings-embed :deep(.buyer-fee104 > :not(.toolbar)),
 .settings-embed :deep(.buyer-fee104 > .toolbar > button),
 .settings-embed :deep(.proxy-credentials > :not(.proxy-heading)),
-.settings-embed :deep(.proxy-heading > button) {
+.settings-embed :deep(.proxy-heading > button),
+.settings-embed :deep(.oauth-credentials > :not(.oauth-heading)),
+.settings-embed :deep(.oauth-heading > button) {
   grid-column: 2;
   min-width: 0;
 }
 .settings-embed :deep(.captcha-heading > button),
 .settings-embed :deep(.buyer-fee104 > .toolbar > button),
 .settings-embed :deep(.proxy-heading > button),
+.settings-embed :deep(.oauth-heading > button),
 .settings-embed :deep(button) {
   justify-self: start;
 }
@@ -970,7 +982,8 @@ onBeforeUnmount(() => {
 .settings-embed :deep(.scanpay-settings192 p),
 .settings-embed :deep(.scan-js-settings202 p),
 .settings-embed :deep(.captcha-key203 p),
-.settings-embed :deep(.proxy-credentials p) {
+.settings-embed :deep(.proxy-credentials p),
+.settings-embed :deep(.oauth-credentials p) {
   margin: 6px 0;
   font-size: 12px;
 }
@@ -1057,6 +1070,7 @@ onBeforeUnmount(() => {
   .settings-embed :deep(.captcha-key203),
   .settings-embed :deep(.buyer-fee104),
   .settings-embed :deep(.proxy-credentials),
+  .settings-embed :deep(.oauth-credentials),
   .settings-embed :deep(.brand-slot193) {
     grid-template-columns: minmax(0, 1fr);
   }
