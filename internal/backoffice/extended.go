@@ -19,7 +19,7 @@ func init() {
 	definitions["collection-codes"] = definition{title: "聚合收款", tenant: true, description: "收款码展示资料，不在此创建真实支付订单。", fields: []Field{administrator(text("merchant_id", "商户 ID", false, 19)), text("name", "名称", true, 100), text("style_id", "样式 ID", true, 19), text("title", "收款标题", true, 100), flag("enabled", "启用", true)}}
 	definitions["plugin-configs"] = definition{title: "本地插件配置", description: "仅保存扩展资料。PHP 插件不可载入 Go 进程，本资源不会安装或执行上传的代码。", fields: []Field{text("name", "扩展名称", true, 100), text("version", "版本", true, 64), {Name: "configuration", Label: "公开配置 JSON", Type: "json", MaxLength: 10000}, flag("enabled", "启用配置资料", false)}}
 	definitions["template-configs"] = definition{title: "历史模板资料", description: "旧通用模板资料仅供只读核查；实际渲染使用模板页面的类型化配置与版本。", fields: []Field{text("name", "模板名称", true, 100), text("title", "展示标题", true, 100), text("accent_color", "主题颜色", false, 7), flag("enabled", "启用资料", false)}}
-	definitions["addon-configs"] = definition{title: "扩展配置", description: "本地扩展参数，不自动调用外部服务或执行脚本。", fields: []Field{text("name", "名称", true, 100), {Name: "configuration", Label: "公开配置 JSON", Type: "json", MaxLength: 10000}, flag("enabled", "启用资料", false)}}
+	definitions["addon-configs"] = definition{title: "扩展配置", description: "本地扩展参数，不自动调用外部服务或执行脚本。原版的在线安装/卸载与运行时启用/关闭不适用：PHP 扩展不能载入 Go 进程，此处仅保存配置资料。", fields: []Field{text("name", "名称", true, 100), {Name: "configuration", Label: "公开配置 JSON", Type: "json", MaxLength: 10000}, flag("enabled", "启用资料", false)}}
 	// These status fields have safe server defaults for merchant-created drafts.
 	for resource, fieldName := range map[string]string{"onboarding-applications": "status", "complaints": "status", "merchant-risk": "status"} {
 		d := definitions[resource]
