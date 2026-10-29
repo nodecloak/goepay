@@ -47,10 +47,11 @@ it("renders the complaint overview with complaint counts and exact amounts inste
       .map((x) => x.text())
       .join(" "),
   ).toContain("今日投诉");
-  // The list note now lives in the 说明 popover (opens on click).
+  // The list note now lives in the 说明 popover (opens on click; the panel
+  // is rendered in <body> so the card never clips it).
   await w.get(".pa-help-trigger").trigger("click");
   await flushPromises();
-  expect(w.text()).toContain("本地已登记投诉");
+  expect(document.body.textContent).toContain("本地已登记投诉");
   expect(w.findAll("thead th").map((x) => x.text())).toEqual([
     "商户ID",
     "今日投诉总条数",

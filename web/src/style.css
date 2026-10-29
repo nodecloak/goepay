@@ -3243,12 +3243,12 @@ textarea:focus {
   line-height: 1;
 }
 .pa-help-panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 60;
+  /* Rendered in <body>; KitHelpPopover sets top/left next to the trigger.
+     Above the modal scrim (1500) so a 说明 inside a dialog still shows. */
+  position: fixed;
+  z-index: 1600;
   width: max-content;
-  max-width: 360px;
+  max-width: min(360px, calc(100vw - 16px));
   padding: var(--space-3) var(--space-4);
   background: var(--bg-raised);
   border: 1px solid var(--line);
