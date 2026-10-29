@@ -440,11 +440,14 @@ onBeforeUnmount(() => {
           >
             添加公告</button
           ><button type="button" :disabled="busy || loading" @click="load">
-            {{ loading ? "加载中…" : "刷新核对公告" }}
+            刷新核对公告
           </button>
         </div>
       </div>
-      <p v-if="!rows.length && !loading" class="empty">暂无公告</p>
+      <p v-if="loading && !rows.length" class="empty" role="status">
+        正在加载公告…
+      </p>
+      <p v-else-if="!rows.length" class="empty">暂无公告</p>
       <article v-for="r in rows" :key="r.id" class="announcement-row">
         <div class="announcement-copy">
           <RichContent

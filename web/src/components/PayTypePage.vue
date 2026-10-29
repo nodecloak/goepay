@@ -55,6 +55,9 @@ async function load() {
   const c = controller;
   loading.value = true;
   error.value = "";
+  // A newly read schema is shown together with the rows (see finally), so
+  // the 新增 and 说明 buttons do not appear while the list is still loading.
+  let pendingSchema: ResourceSchema | null = null;
   try {
     if (!schema.value) {
       const loaded = await props.client.request<ResourceSchema>(
@@ -62,7 +65,7 @@ async function load() {
         { signal: c.signal },
       );
       if (c.signal.aborted || current !== epoch) return;
-      schema.value = loaded;
+      pendingSchema = loaded;
     }
     const data = await props.client.request<{ items: Row[] }>(endpoint, {
       signal: c.signal,
@@ -77,7 +80,10 @@ async function load() {
   } catch (e) {
     if (!c.signal.aborted && current === epoch) error.value = message(e);
   } finally {
-    if (!c.signal.aborted && current === epoch) loading.value = false;
+    if (!c.signal.aborted && current === epoch) {
+      if (pendingSchema) schema.value = pendingSchema;
+      loading.value = false;
+    }
   }
 }
 // The 状态 switch saves at once: a type with no record yet (id "0") POSTs a new
@@ -239,7 +245,7 @@ onBeforeUnmount(() => {
   <section class="panel pay-type-page" aria-label="支付方式">
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
-    <div class="table-tools">
+    <div v-if="schema || !loading" class="table-tools">
       <button
         v-if="canCreate"
         type="button"

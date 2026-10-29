@@ -548,7 +548,6 @@ onBeforeUnmount(() => {
   <section class="collection-styles">
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
-    <p v-if="loading" role="status">正在读取收款码样式…</p>
     <template v-if="!editing">
       <div class="toolbar">
         <label class="style-search"
@@ -619,8 +618,11 @@ onBeforeUnmount(() => {
           </div>
         </article>
       </div>
+      <div v-if="loading && !filtered.length" class="loading-row" role="status">
+        正在读取收款码样式…
+      </div>
       <KitEmpty
-        v-if="!filtered.length && !loading"
+        v-else-if="!filtered.length"
         text="暂无收款码样式，点击右上角新增"
       />
       <KitPagination

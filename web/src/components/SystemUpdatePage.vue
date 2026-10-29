@@ -289,9 +289,7 @@ onBeforeUnmount(() => {
   <section class="panel system-update-page">
     <header class="update-heading">
       <h2>系统更新</h2>
-      <button :disabled="loading || busy" @click="inspect()">
-        {{ loading ? "正在检测…" : "重新检测" }}
-      </button>
+      <button :disabled="loading || busy" @click="inspect()">重新检测</button>
     </header>
     <p v-if="error" role="alert" class="error">{{ error }}</p>
     <p v-if="uncertain" role="status">
@@ -399,7 +397,8 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </div>
-    <p v-if="!view && !loading && !error">暂无版本信息，请重新检测。</p>
+    <p v-if="loading && !view" role="status">正在检测…</p>
+    <p v-else-if="!view && !error">暂无版本信息，请重新检测。</p>
     <Teleport to="body"
       ><div v-if="confirmation" class="update-overlay" @keydown="keydown">
         <section

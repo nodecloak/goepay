@@ -328,6 +328,10 @@ const path = computed(
 const page = computed(() => resolvePage(area.value, path.value));
 const kind = computed(() => viewKind(area.value, path.value));
 const sharingFlowOpen = ref(false);
+// 本地插件: the 本地扩展资料 block shows once the plugin list above it has
+// loaded, so it does not sit near the top and then drop down the page.
+const pluginListLoaded = ref(false);
+watch(path, () => (pluginListLoaded.value = false));
 const searchFieldOptions = computed(() => [
   { value: "", label: "综合搜索" },
   ...(kind.value === "refunds" ? refundSearchFields : orderSearchFields).map(
@@ -1999,13 +2003,14 @@ onBeforeUnmount(() => {
             :admin-class="session.user.admin_class"
           />
           <template v-if="path === '/app/plugin-list'"
-            ><LocalPluginsPage />
-            <h2 class="operation-heading">本地扩展资料</h2>
-            <ResourcePage
-              :key="path + 'config'"
-              :client="client"
-              resource="plugin-configs"
-          /></template>
+            ><LocalPluginsPage @loaded="pluginListLoaded = true" />
+            <template v-if="pluginListLoaded"
+              ><h2 class="operation-heading">本地扩展资料</h2>
+              <ResourcePage
+                :key="path + 'config'"
+                :client="client"
+                resource="plugin-configs" /></template
+          ></template>
           <OperationsPage
             v-if="path !== '/system/update' && path !== '/app/plugin-list'"
             :key="path"

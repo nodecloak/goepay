@@ -522,7 +522,7 @@ onBeforeUnmount(() => {
           </footer>
         </article>
       </div>
-      <div class="task-diagnostics table-tools">
+      <div v-if="items.length || !loading" class="task-diagnostics table-tools">
         <button class="soft-button" @click="legacyOpen = !legacyOpen">
           {{ legacyOpen ? "收起旧计划资料" : "旧计划资料（只读）" }}</button
         ><button class="soft-button" @click="queueOpen = !queueOpen">

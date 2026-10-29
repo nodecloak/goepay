@@ -795,6 +795,10 @@ async function load() {
     path = endpoint.value;
   loading.value = true;
   error.value = "";
+  // A list shows a newly read schema together with its first page (see
+  // finally), so its toolbar buttons, filters and table appear at once
+  // instead of the toolbar changing while the page is still loading.
+  let pendingSchema: ResourceSchema | null = null;
   try {
     if (props.resource === "merchants") {
       const problem =
@@ -807,23 +811,24 @@ async function load() {
         return;
       }
     }
-    if (!schema.value) {
-      const loadedSchema = await client.request<ResourceSchema>(
-        path + "/schema",
-        { signal: c.signal },
-      );
+    let loadedSchema = schema.value;
+    if (!loadedSchema) {
+      loadedSchema = await client.request<ResourceSchema>(path + "/schema", {
+        signal: c.signal,
+      });
       if (c.signal.aborted || current !== contextEpoch) return;
-      schema.value = loadedSchema;
+      pendingSchema = loadedSchema;
     }
     if (props.entry) {
+      schema.value = loadedSchema;
       if (props.entry.mode === "edit" && !props.entry.id) {
         error.value = "资料编号无效";
         return;
       }
       if (
         !(props.entry.mode === "create"
-          ? schema.value.permissions.create
-          : schema.value.permissions.update)
+          ? loadedSchema.permissions.create
+          : loadedSchema.permissions.update)
       ) {
         error.value = "当前身份不能打开此资料编辑表单";
         return;
@@ -854,7 +859,10 @@ async function load() {
   } catch (e) {
     if (!c.signal.aborted && current === contextEpoch) error.value = message(e);
   } finally {
-    if (!c.signal.aborted && current === contextEpoch) loading.value = false;
+    if (!c.signal.aborted && current === contextEpoch) {
+      if (pendingSchema && !schema.value) schema.value = pendingSchema;
+      loading.value = false;
+    }
   }
 }
 async function open(
@@ -1135,7 +1143,7 @@ onBeforeUnmount(resetContext);
       v-else-if="!entry || schema?.description || showBusinessNotices"
       class="panel records"
     >
-      <div v-if="!entry" class="table-tools">
+      <div v-if="!entry && (schema || !loading)" class="table-tools">
         <a
           v-if="
             schema?.permissions.create && resource === 'onboarding-applications'

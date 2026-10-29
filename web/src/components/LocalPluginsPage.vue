@@ -32,6 +32,7 @@ const pageRows = computed(() =>
   ),
 );
 watch([type, applied], () => (page.value = 1));
+const emit = defineEmits<{ loaded: [] }>();
 onMounted(async () => {
   try {
     items.value = await loadPluginCatalog();
@@ -39,6 +40,7 @@ onMounted(async () => {
     error.value = "插件列表读取失败，请刷新页面重试";
   } finally {
     loading.value = false;
+    emit("loaded");
   }
 });
 function reset() {
