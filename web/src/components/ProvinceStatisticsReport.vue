@@ -281,10 +281,14 @@ function choose(name: string, click = false) {
       <p class="muted province-note">
         按北京时间订单创建日期统计已支付金额与笔数。地区来自已记录资料，未记录或未匹配的地区单独保留，不根据支付IP猜测。
       </p>
-      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-      <p v-if="loading" role="status">正在读取地区统计…</p>
+      <div v-if="error" class="alert error province-line" role="alert">
+        {{ error }}
+      </div>
+      <p v-if="loading" role="status" class="province-line">
+        正在读取地区统计…
+      </p>
       <template v-else-if="data && !error">
-        <p class="muted">
+        <p class="muted province-line">
           未匹配地区（含未知）：{{ data.unmappedMoney }} 元，{{
             data.unmappedCount
           }}
@@ -474,6 +478,11 @@ function choose(name: string, click = false) {
   font-size: 12px;
   line-height: 1.7;
 }
+/* Body lines, the map/Top 10 row and the 明细 fold keep the same side
+   padding as the toolbar above (the card itself has none). */
+.province-line {
+  margin-inline: var(--space-5);
+}
 .province-ranges {
   display: flex;
   flex-wrap: wrap;
@@ -509,6 +518,7 @@ function choose(name: string, click = false) {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
   gap: 20px;
+  padding-inline: var(--space-5);
 }
 .province-map {
   min-width: 0;
@@ -634,7 +644,12 @@ function choose(name: string, click = false) {
   text-align: left;
 }
 .province-statistics details {
-  margin-top: 20px;
+  margin: 20px var(--space-5) var(--space-5);
+}
+/* The table inside spans the card, like every other records table; its
+   first and last cells already carry the side padding. */
+.province-statistics details .table-scroll {
+  margin-inline: calc(-1 * var(--space-5));
 }
 @media (max-width: 760px) {
   .province-layout {
