@@ -193,7 +193,7 @@ function choose(name: string, click = false) {
 }
 </script>
 <template>
-  <section class="panel records province-statistics">
+  <div class="list-page province-statistics">
     <form
       class="toolbar list-filter-card panel province-filter"
       @submit.prevent="load"
@@ -251,179 +251,185 @@ function choose(name: string, click = false) {
         >
       </div>
     </form>
-    <p class="muted province-note">
-      按北京时间订单创建日期统计已支付金额与笔数。地区来自已记录资料，未记录或未匹配的地区单独保留，不根据支付IP猜测。
-    </p>
-    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <p v-if="loading" role="status">正在读取地区统计…</p>
-    <template v-else-if="data && !error">
-      <p class="muted">
-        未匹配地区（含未知）：{{ data.unmappedMoney }} 元，{{
-          data.unmappedCount
-        }}
-        笔
+    <section class="panel records">
+      <p class="muted province-note">
+        按北京时间订单创建日期统计已支付金额与笔数。地区来自已记录资料，未记录或未匹配的地区单独保留，不根据支付IP猜测。
       </p>
-      <div class="province-layout">
-        <section class="province-map">
-          <div class="map-tools">
-            <button
-              type="button"
-              aria-label="缩小地图"
-              :disabled="zoom <= 1"
-              @click="zoomBy(-0.25)"
-            >
-              −</button
-            ><span aria-label="地图缩放比例">{{ Math.round(zoom * 100) }}%</span
-            ><button
-              type="button"
-              aria-label="放大地图"
-              :disabled="zoom >= 3"
-              @click="zoomBy(0.25)"
-            >
-              ＋</button
-            ><button
-              type="button"
-              aria-label="复位地图"
-              @click="
-                zoom = 1;
-                pan = { x: 0, y: 0 };
-              "
-            >
-              复位
-            </button>
-          </div>
-          <svg
-            viewBox="0 0 720 540"
-            role="group"
-            aria-label="地区交易分布地图"
-            :style="{ touchAction: zoom > 1 ? 'none' : 'pan-y' }"
-            @pointerdown="startDrag"
-            @pointermove="moveDrag"
-            @pointerup="stopDrag"
-            @pointercancel="stopDrag"
-          >
-            <g :transform="transform">
-              <path
-                v-for="boundary in paths"
-                :key="boundary.name"
-                :d="boundary.path"
-                :style="{
-                  fill:
-                    regions.get(boundary.name)?.colour || provinceEmptyColour,
-                }"
-                fill-rule="evenodd"
-                role="button"
-                tabindex="0"
-                :aria-label="
-                  boundary.name +
-                  '：交易金额' +
-                  (regions.get(boundary.name)?.money ?? '0.00') +
-                  '元，交易笔数' +
-                  (regions.get(boundary.name)?.count ?? '0')
-                "
-                :aria-pressed="selected?.name === boundary.name"
-                @click="choose(boundary.name, true)"
-                @pointerenter="choose(boundary.name)"
-                @focus="choose(boundary.name)"
-                @keydown.enter.prevent="choose(boundary.name)"
-                @keydown.space.prevent="choose(boundary.name)"
+      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <p v-if="loading" role="status">正在读取地区统计…</p>
+      <template v-else-if="data && !error">
+        <p class="muted">
+          未匹配地区（含未知）：{{ data.unmappedMoney }} 元，{{
+            data.unmappedCount
+          }}
+          笔
+        </p>
+        <div class="province-layout">
+          <section class="province-map">
+            <div class="map-tools">
+              <button
+                type="button"
+                aria-label="缩小地图"
+                :disabled="zoom <= 1"
+                @click="zoomBy(-0.25)"
               >
-                <title>
-                  {{ boundary.name }}：{{
-                    regions.get(boundary.name)?.money
-                  }}
-                  元，{{ regions.get(boundary.name)?.count }} 笔
-                </title>
-              </path>
-              <template
-                v-for="boundary in paths"
-                :key="'label-' + boundary.name"
-              >
-                <text
-                  v-if="boundary.label && labelledProvinces.has(boundary.name)"
-                  :x="boundary.label.x"
-                  :y="boundary.label.y"
-                  class="province-label"
-                  aria-hidden="true"
-                >
-                  {{ boundary.name }}
-                </text>
-              </template>
-            </g>
-          </svg>
-          <p
-            v-if="selected"
-            role="status"
-            aria-label="选中地区"
-            class="selected-province"
-          >
-            {{ selected.name }}：¥{{ selected.money }}，{{ selected.count }} 笔
-          </p>
-          <p v-else class="muted">
-            悬停或使用键盘选择地区查看明细；放大后可拖动地图。
-          </p>
-          <div class="map-scale" aria-label="交易金额色阶">
-            <span>低</span
-            ><i
-              v-for="colour in mapPalette"
-              :key="colour"
-              :style="{ background: colour }"
-            /><span>高</span>
-          </div>
-        </section>
-        <section class="province-ranking panel">
-          <h2>Top 10 省份</h2>
-          <div v-if="!data.rank.length" class="province-ranking-empty">
-            <ShellIcon name="chart" />
-            <p class="empty">暂无已记录地区的数据</p>
-          </div>
-          <ol v-else>
-            <li v-for="(region, index) in data.rank" :key="region.name">
-              <span
-                class="province-rank"
-                :class="{ 'rank-leading': index < 3 }"
-                >{{ index + 1 }}</span
+                −</button
+              ><span aria-label="地图缩放比例"
+                >{{ Math.round(zoom * 100) }}%</span
               ><button
                 type="button"
-                class="link-button"
-                @click="selected = region"
+                aria-label="放大地图"
+                :disabled="zoom >= 3"
+                @click="zoomBy(0.25)"
               >
-                {{ region.name }}</button
-              ><strong>¥{{ region.money }}</strong
-              ><span>{{ region.count }}笔</span>
-            </li>
-          </ol>
-        </section>
-      </div>
-      <details>
-        <summary>地区数据明细</summary>
-        <div class="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>地区</th>
-                <th>交易金额（元）</th>
-                <th>交易笔数</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="region in [
-                  ...data.regions.filter((r) => r.count !== '0'),
-                  ...data.unmapped,
-                ]"
-                :key="region.name"
+                ＋</button
+              ><button
+                type="button"
+                aria-label="复位地图"
+                @click="
+                  zoom = 1;
+                  pan = { x: 0, y: 0 };
+                "
               >
-                <td>{{ region.name }}</td>
-                <td>{{ region.money }}</td>
-                <td>{{ region.count }}</td>
-              </tr>
-            </tbody>
-          </table>
+                复位
+              </button>
+            </div>
+            <svg
+              viewBox="0 0 720 540"
+              role="group"
+              aria-label="地区交易分布地图"
+              :style="{ touchAction: zoom > 1 ? 'none' : 'pan-y' }"
+              @pointerdown="startDrag"
+              @pointermove="moveDrag"
+              @pointerup="stopDrag"
+              @pointercancel="stopDrag"
+            >
+              <g :transform="transform">
+                <path
+                  v-for="boundary in paths"
+                  :key="boundary.name"
+                  :d="boundary.path"
+                  :style="{
+                    fill:
+                      regions.get(boundary.name)?.colour || provinceEmptyColour,
+                  }"
+                  fill-rule="evenodd"
+                  role="button"
+                  tabindex="0"
+                  :aria-label="
+                    boundary.name +
+                    '：交易金额' +
+                    (regions.get(boundary.name)?.money ?? '0.00') +
+                    '元，交易笔数' +
+                    (regions.get(boundary.name)?.count ?? '0')
+                  "
+                  :aria-pressed="selected?.name === boundary.name"
+                  @click="choose(boundary.name, true)"
+                  @pointerenter="choose(boundary.name)"
+                  @focus="choose(boundary.name)"
+                  @keydown.enter.prevent="choose(boundary.name)"
+                  @keydown.space.prevent="choose(boundary.name)"
+                >
+                  <title>
+                    {{ boundary.name }}：{{
+                      regions.get(boundary.name)?.money
+                    }}
+                    元，{{ regions.get(boundary.name)?.count }} 笔
+                  </title>
+                </path>
+                <template
+                  v-for="boundary in paths"
+                  :key="'label-' + boundary.name"
+                >
+                  <text
+                    v-if="
+                      boundary.label && labelledProvinces.has(boundary.name)
+                    "
+                    :x="boundary.label.x"
+                    :y="boundary.label.y"
+                    class="province-label"
+                    aria-hidden="true"
+                  >
+                    {{ boundary.name }}
+                  </text>
+                </template>
+              </g>
+            </svg>
+            <p
+              v-if="selected"
+              role="status"
+              aria-label="选中地区"
+              class="selected-province"
+            >
+              {{ selected.name }}：¥{{ selected.money }}，{{ selected.count }}
+              笔
+            </p>
+            <p v-else class="muted">
+              悬停或使用键盘选择地区查看明细；放大后可拖动地图。
+            </p>
+            <div class="map-scale" aria-label="交易金额色阶">
+              <span>低</span
+              ><i
+                v-for="colour in mapPalette"
+                :key="colour"
+                :style="{ background: colour }"
+              /><span>高</span>
+            </div>
+          </section>
+          <section class="province-ranking panel">
+            <h2>Top 10 省份</h2>
+            <div v-if="!data.rank.length" class="province-ranking-empty">
+              <ShellIcon name="chart" />
+              <p class="empty">暂无已记录地区的数据</p>
+            </div>
+            <ol v-else>
+              <li v-for="(region, index) in data.rank" :key="region.name">
+                <span
+                  class="province-rank"
+                  :class="{ 'rank-leading': index < 3 }"
+                  >{{ index + 1 }}</span
+                ><button
+                  type="button"
+                  class="link-button"
+                  @click="selected = region"
+                >
+                  {{ region.name }}</button
+                ><strong>¥{{ region.money }}</strong
+                ><span>{{ region.count }}笔</span>
+              </li>
+            </ol>
+          </section>
         </div>
-      </details>
-    </template>
-  </section>
+        <details>
+          <summary>地区数据明细</summary>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>地区</th>
+                  <th>交易金额（元）</th>
+                  <th>交易笔数</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="region in [
+                    ...data.regions.filter((r) => r.count !== '0'),
+                    ...data.unmapped,
+                  ]"
+                  :key="region.name"
+                >
+                  <td>{{ region.name }}</td>
+                  <td>{{ region.money }}</td>
+                  <td>{{ region.count }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </template>
+    </section>
+  </div>
 </template>
 <style scoped>
 .province-statistics {
@@ -431,7 +437,6 @@ function choose(name: string, click = false) {
 }
 .province-filter.list-filter-card {
   padding: var(--space-4) var(--space-5);
-  margin-bottom: var(--space-4);
   align-items: center;
 }
 .filter-refresh,

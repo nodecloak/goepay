@@ -16,6 +16,7 @@ import {
 } from "../original-order-statistics";
 import CsvExportButton from "./CsvExportButton.vue";
 import ShellIcon from "./ShellIcon.vue";
+import KitHelpPopover from "./KitHelpPopover.vue";
 const props = defineProps<{ client: ApiClient; report: string }>();
 const today = () => reportDateRange("today")!;
 const filter = reactive({
@@ -164,7 +165,7 @@ const visibleRows = computed(() =>
 );
 </script>
 <template>
-  <section class="panel records original-order-statistics">
+  <div class="list-page original-order-statistics">
     <form class="toolbar list-filter-card panel" @submit.prevent="load">
       <span v-if="!daily" class="filter-inline date-range"
         >查询日期<input
@@ -205,125 +206,131 @@ const visibleRows = computed(() =>
         </button>
       </div>
     </form>
-    <div class="table-tools">
-      <CsvExportButton
-        :client="client"
-        :path="csvPath"
-        :disabled="loading || !!error || !items.length || !csvPath"
-        :filename="report + '-original-statistics.csv'"
-      />
-      <span v-if="!daily" class="table-summary"
-        >共 <strong>{{ items.length }}</strong> 条记录</span
-      >
-    </div>
-    <p class="table-note">
-      按北京时间的订单创建日期统计{{
-        daily ? "近7天" : ""
-      }}，金额单位为元。退款金额为该批订单已成功退款的累计金额；成功率按保留的全部订单计算。
-    </p>
-    <p v-if="merchant" class="table-note">
-      分成金额为已支付订单的原商户净额，退款另列；原分成合计不等于当前可用余额。
-    </p>
-    <p v-else class="table-note">
-      手续费利润为原订单成本快照的估算值；{{
-        missing !== "0"
-          ? missing + "笔已支付订单缺少成本，相关利润显示未知。"
-          : "无订单时合计为0。"
-      }}通道名称以已记录通道号标识。
-    </p>
-    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <p v-if="loading" role="status">正在读取统计…</p>
-    <template v-else-if="!error">
-      <section v-if="daily && items.length" class="original-statistics-trend">
-        <h2>近7天趋势</h2>
-        <ul class="trend-legend">
-          <li v-for="s in series" :key="s.key">
-            <button
-              type="button"
-              :aria-pressed="!hiddenSeries.includes(s.key)"
-              @click="toggleSeries(s.key)"
-            >
-              <span :style="{ backgroundColor: s.color }" />{{ s.name }}
-            </button>
-          </li>
-        </ul>
-        <svg viewBox="0 0 640 260" role="img" aria-label="近7天交易趋势">
-          <line
-            v-for="y in [20, 120, 220]"
-            :key="y"
-            x1="40"
-            x2="600"
-            :y1="y"
-            :y2="y"
-            style="stroke: var(--chart-grid)"
-            stroke-dasharray="3 3"
-          />
-          <g v-for="s in visibleSeries" :key="s.key">
-            <polyline
-              v-for="(segment, index) in s.segments"
-              :key="index"
-              :points="segment"
-              fill="none"
-              :style="{ stroke: s.color }"
-              stroke-width="2"
-            />
-            <circle
-              v-for="(point, index) in s.points"
-              :key="index"
-              :cx="point.x"
-              :cy="point.y"
-              r="3.5"
-              :style="{ fill: s.color }"
-            >
-              <title>{{ point.day }} {{ s.name }}：{{ point.value }} 元</title>
-            </circle>
-          </g>
-          <text
-            v-for="(row, index) in items"
-            :key="String(row.day)"
-            :x="48 + (index * 544) / Math.max(1, items.length - 1)"
-            y="248"
-            text-anchor="middle"
-          >
-            {{ String(row.day).slice(5) }}
-          </text>
-        </svg>
-      </section>
-      <p v-if="!daily" class="sr-only">共 {{ items.length }} 条记录</p>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th v-for="column in columns" :key="column.key" scope="col">
-                {{ column.label }}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="row in visibleRows"
-              :key="String(daily ? row.day : row.channel)"
-              :class="{ 'statistics-total': row.channelName === '总计' }"
-            >
-              <td v-for="column in columns" :key="column.key">
-                {{ cell(row, column.key) }}
-              </td>
-            </tr>
-            <tr v-if="!visibleRows.length">
-              <td colspan="7" class="empty">暂无数据</td>
-            </tr>
-          </tbody>
-          <tfoot v-if="merchant && summary">
-            <tr class="statistics-total">
-              <td v-for="column in columns" :key="column.key">
-                {{ cell(summary, column.key) }}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+    <section class="panel records">
+      <div class="table-tools">
+        <CsvExportButton
+          :client="client"
+          :path="csvPath"
+          :disabled="loading || !!error || !items.length || !csvPath"
+          :filename="report + '-original-statistics.csv'"
+        />
+        <span v-if="!daily" class="table-summary"
+          >共 <strong>{{ items.length }}</strong> 条记录</span
+        >
+        <KitHelpPopover>
+          <p class="table-note">
+            按北京时间的订单创建日期统计{{
+              daily ? "近7天" : ""
+            }}，金额单位为元。退款金额为该批订单已成功退款的累计金额；成功率按保留的全部订单计算。
+          </p>
+          <p v-if="merchant" class="table-note">
+            分成金额为已支付订单的原商户净额，退款另列；原分成合计不等于当前可用余额。
+          </p>
+          <p v-else class="table-note">
+            手续费利润为原订单成本快照的估算值；{{
+              missing !== "0"
+                ? missing + "笔已支付订单缺少成本，相关利润显示未知。"
+                : "无订单时合计为0。"
+            }}通道名称以已记录通道号标识。
+          </p>
+        </KitHelpPopover>
       </div>
-    </template>
-  </section>
+      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <p v-if="loading" role="status">正在读取统计…</p>
+      <template v-else-if="!error">
+        <section v-if="daily && items.length" class="original-statistics-trend">
+          <h2>近7天趋势</h2>
+          <ul class="trend-legend">
+            <li v-for="s in series" :key="s.key">
+              <button
+                type="button"
+                :aria-pressed="!hiddenSeries.includes(s.key)"
+                @click="toggleSeries(s.key)"
+              >
+                <span :style="{ backgroundColor: s.color }" />{{ s.name }}
+              </button>
+            </li>
+          </ul>
+          <svg viewBox="0 0 640 260" role="img" aria-label="近7天交易趋势">
+            <line
+              v-for="y in [20, 120, 220]"
+              :key="y"
+              x1="40"
+              x2="600"
+              :y1="y"
+              :y2="y"
+              style="stroke: var(--chart-grid)"
+              stroke-dasharray="3 3"
+            />
+            <g v-for="s in visibleSeries" :key="s.key">
+              <polyline
+                v-for="(segment, index) in s.segments"
+                :key="index"
+                :points="segment"
+                fill="none"
+                :style="{ stroke: s.color }"
+                stroke-width="2"
+              />
+              <circle
+                v-for="(point, index) in s.points"
+                :key="index"
+                :cx="point.x"
+                :cy="point.y"
+                r="3.5"
+                :style="{ fill: s.color }"
+              >
+                <title>
+                  {{ point.day }} {{ s.name }}：{{ point.value }} 元
+                </title>
+              </circle>
+            </g>
+            <text
+              v-for="(row, index) in items"
+              :key="String(row.day)"
+              :x="48 + (index * 544) / Math.max(1, items.length - 1)"
+              y="248"
+              text-anchor="middle"
+            >
+              {{ String(row.day).slice(5) }}
+            </text>
+          </svg>
+        </section>
+        <p v-if="!daily" class="sr-only">共 {{ items.length }} 条记录</p>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th v-for="column in columns" :key="column.key" scope="col">
+                  {{ column.label }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in visibleRows"
+                :key="String(daily ? row.day : row.channel)"
+                :class="{ 'statistics-total': row.channelName === '总计' }"
+              >
+                <td v-for="column in columns" :key="column.key">
+                  {{ cell(row, column.key) }}
+                </td>
+              </tr>
+              <tr v-if="!visibleRows.length">
+                <td colspan="7" class="empty">暂无数据</td>
+              </tr>
+            </tbody>
+            <tfoot v-if="merchant && summary">
+              <tr class="statistics-total">
+                <td v-for="column in columns" :key="column.key">
+                  {{ cell(summary, column.key) }}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </template>
+    </section>
+  </div>
 </template>
 <style scoped>
 .original-order-statistics {

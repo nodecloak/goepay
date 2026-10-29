@@ -271,7 +271,7 @@ watch(
 onBeforeUnmount(reset);
 </script>
 <template>
-  <section class="panel settlement-batches" aria-label="批量结算">
+  <section class="list-page settlement-batches" aria-label="批量结算">
     <div class="batches-head">
       <h2>批量结算</h2>
       <div v-if="allowed" class="batches-head-actions">
@@ -295,7 +295,7 @@ onBeforeUnmount(reset);
       </p>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
       <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
-      <form class="toolbar" @submit.prevent="load(true)">
+      <form class="toolbar list-filter-card panel" @submit.prevent="load(true)">
         <label
           >批次号<input
             v-model="batchFilter"
@@ -321,158 +321,160 @@ onBeforeUnmount(reset);
           ><button type="button" :disabled="busy" @click="load()">刷新</button>
         </div>
       </form>
-      <div v-if="loading" role="status">正在读取批次…</div>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>批次号</th>
-              <th>总金额（元）</th>
-              <th>总数量</th>
-              <th>生成时间</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in items" :key="row.id">
-              <td>{{ row.batch }}</td>
-              <td>{{ row.allmoney }}</td>
-              <td>{{ row.count }}</td>
-              <td>{{ row.time }}</td>
-              <td>
-                <KitStatusTag
-                  :text="settlementBatchStatus(row.status)"
-                  :tone="batchTone(row.status)"
-                />
-              </td>
-              <td>
-                <button
-                  class="link-button"
-                  :aria-label="'查看批次 ' + row.id"
-                  :disabled="busy"
-                  @click="detail(row.id)"
-                >
-                  查看
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!items.length && !loading">
-              <td colspan="6" class="empty">暂无结算批次</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="pagination">
-        <span>共 {{ total }} 条</span>
-        <div>
-          <button
-            :disabled="before === '0' || loading || busy"
-            @click="load(true)"
-          >
-            第一页</button
-          ><button
-            :disabled="next === '0' || loading || busy"
-            @click="
-              before = next;
-              load();
-            "
-          >
-            下一页
-          </button>
-        </div>
-      </div>
-      <section v-if="selected" class="batch-detail" aria-label="批次详情">
-        <h3>批次 {{ selected.batch }}</h3>
-        <p>
-          请求号：{{ selected.external_no }} · 净额合计
-          {{ selected.allmoney }} 元 · {{ selected.count }} 笔
-        </p>
-        <div class="toolbar-actions">
-          <button
-            :disabled="
-              busy || selected.status !== 'active' || !selected.all_paid
-            "
-            @click="confirmation = 'complete'"
-          >
-            完成批次</button
-          ><button
-            :disabled="busy || selected.status === 'archived'"
-            @click="confirmation = 'archive'"
-          >
-            归档批次</button
-          ><template v-if="adminClass === 'super'"
-            ><button
-              v-for="format in [
-                { id: 'common', name: '通用表格' },
-                { id: 'mybank', name: '网商银行' },
-                { id: 'alipay', name: '支付宝' },
-                { id: 'wxpay', name: '微信支付' },
-              ]"
-              :key="format.id"
-              :disabled="busy"
-              @click="download(format.id)"
-            >
-              导出{{ format.name }}
-            </button></template
-          >
-        </div>
-        <p class="muted">
-          导出包含原申请的收款信息，请妥善保管。批次完成以原出款结果为准。
-        </p>
+      <section class="panel records">
+        <div v-if="loading" role="status">正在读取批次…</div>
         <div class="table-scroll">
           <table>
             <thead>
               <tr>
-                <th>申请编号</th>
-                <th>商户 ID</th>
-                <th>转账方式</th>
-                <th>原收款快照</th>
-                <th>申请金额（元）</th>
-                <th>手续费（元）</th>
-                <th>结算净额（元）</th>
-                <th>申请状态</th>
-                <th>资金状态</th>
-                <th>出款状态</th>
+                <th>批次号</th>
+                <th>总金额（元）</th>
+                <th>总数量</th>
+                <th>生成时间</th>
+                <th>状态</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="member in selected.items" :key="member.request_id">
-                <td>{{ member.request_id }}</td>
-                <td>{{ member.uid }}</td>
-                <td>{{ typeLabel(member.type) }}</td>
-                <td>
-                  {{
-                    member.recipient
-                      ? settlementSnapshotLabel(member.recipient)
-                      : "缺少原收款快照"
-                  }}
-                </td>
-                <td>{{ centsMoney(member.gross_amount_cents) }}</td>
-                <td>{{ centsMoney(member.fee_amount_cents) }}</td>
-                <td>{{ centsMoney(member.net_amount_cents) }}</td>
+              <tr v-for="row in items" :key="row.id">
+                <td>{{ row.batch }}</td>
+                <td>{{ row.allmoney }}</td>
+                <td>{{ row.count }}</td>
+                <td>{{ row.time }}</td>
                 <td>
                   <KitStatusTag
-                    :text="String(member.status)"
-                    :tone="batchTone(String(member.status))"
+                    :text="settlementBatchStatus(row.status)"
+                    :tone="batchTone(row.status)"
                   />
                 </td>
-                <td>{{ payoutFundingLabel(member.funding_state) }}</td>
-                <td>{{ payoutStateLabel(member.payout_state) }}</td>
                 <td>
                   <button
                     class="link-button"
+                    :aria-label="'查看批次 ' + row.id"
                     :disabled="busy"
-                    @click="payout = member.request_id"
+                    @click="detail(row.id)"
                   >
-                    核对原出款
+                    查看
                   </button>
                 </td>
+              </tr>
+              <tr v-if="!items.length && !loading">
+                <td colspan="6" class="empty">暂无结算批次</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <div class="pagination">
+          <span>共 {{ total }} 条</span>
+          <div>
+            <button
+              :disabled="before === '0' || loading || busy"
+              @click="load(true)"
+            >
+              第一页</button
+            ><button
+              :disabled="next === '0' || loading || busy"
+              @click="
+                before = next;
+                load();
+              "
+            >
+              下一页
+            </button>
+          </div>
+        </div>
+        <section v-if="selected" class="batch-detail" aria-label="批次详情">
+          <h3>批次 {{ selected.batch }}</h3>
+          <p>
+            请求号：{{ selected.external_no }} · 净额合计
+            {{ selected.allmoney }} 元 · {{ selected.count }} 笔
+          </p>
+          <div class="toolbar-actions">
+            <button
+              :disabled="
+                busy || selected.status !== 'active' || !selected.all_paid
+              "
+              @click="confirmation = 'complete'"
+            >
+              完成批次</button
+            ><button
+              :disabled="busy || selected.status === 'archived'"
+              @click="confirmation = 'archive'"
+            >
+              归档批次</button
+            ><template v-if="adminClass === 'super'"
+              ><button
+                v-for="format in [
+                  { id: 'common', name: '通用表格' },
+                  { id: 'mybank', name: '网商银行' },
+                  { id: 'alipay', name: '支付宝' },
+                  { id: 'wxpay', name: '微信支付' },
+                ]"
+                :key="format.id"
+                :disabled="busy"
+                @click="download(format.id)"
+              >
+                导出{{ format.name }}
+              </button></template
+            >
+          </div>
+          <p class="muted">
+            导出包含原申请的收款信息，请妥善保管。批次完成以原出款结果为准。
+          </p>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>申请编号</th>
+                  <th>商户 ID</th>
+                  <th>转账方式</th>
+                  <th>原收款快照</th>
+                  <th>申请金额（元）</th>
+                  <th>手续费（元）</th>
+                  <th>结算净额（元）</th>
+                  <th>申请状态</th>
+                  <th>资金状态</th>
+                  <th>出款状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="member in selected.items" :key="member.request_id">
+                  <td>{{ member.request_id }}</td>
+                  <td>{{ member.uid }}</td>
+                  <td>{{ typeLabel(member.type) }}</td>
+                  <td>
+                    {{
+                      member.recipient
+                        ? settlementSnapshotLabel(member.recipient)
+                        : "缺少原收款快照"
+                    }}
+                  </td>
+                  <td>{{ centsMoney(member.gross_amount_cents) }}</td>
+                  <td>{{ centsMoney(member.fee_amount_cents) }}</td>
+                  <td>{{ centsMoney(member.net_amount_cents) }}</td>
+                  <td>
+                    <KitStatusTag
+                      :text="String(member.status)"
+                      :tone="batchTone(String(member.status))"
+                    />
+                  </td>
+                  <td>{{ payoutFundingLabel(member.funding_state) }}</td>
+                  <td>{{ payoutStateLabel(member.payout_state) }}</td>
+                  <td>
+                    <button
+                      class="link-button"
+                      :disabled="busy"
+                      @click="payout = member.request_id"
+                    >
+                      核对原出款
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </section>
     </template>
   </section>
@@ -590,7 +592,6 @@ onBeforeUnmount(reset);
 }
 .settlement-batches .toolbar {
   justify-content: flex-start;
-  padding: 16px 0;
   align-items: flex-end;
 }
 .settlement-batches .toolbar > label {

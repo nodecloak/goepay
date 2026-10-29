@@ -351,34 +351,12 @@ onMounted(reload);
 </script>
 
 <template>
-  <section class="panel complain-page" :aria-label="'交易投诉'">
+  <div class="list-page complain-page" :aria-label="'交易投诉'">
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
 
     <!-- 投诉记录 -->
     <template v-if="view === 'list'">
-      <div
-        v-if="listSummary"
-        class="complain-banner"
-        data-test="complain-summary"
-      >
-        <div class="complain-banner-cell">
-          <span class="complain-banner-label">今日投诉</span>
-          <b>{{ listSummary.today_count }}</b>
-          <small
-            >支付宝 {{ listSummary.today_alipay }} · 微信
-            {{ listSummary.today_wxpay }}</small
-          >
-        </div>
-        <div class="complain-banner-cell">
-          <span class="complain-banner-label">昨日投诉</span>
-          <b>{{ listSummary.yesterday_count }}</b>
-          <small
-            >支付宝 {{ listSummary.yesterday_alipay }} · 微信
-            {{ listSummary.yesterday_wxpay }}</small
-          >
-        </div>
-      </div>
       <KitFilterBar :loading="loading" @query="onQuery" @reset="onReset">
         <KitField label="搜索字段">
           <KitSelect
@@ -415,213 +393,242 @@ onMounted(reload);
         </template>
       </KitFilterBar>
 
-      <div class="pa-toolbar">
-        <button
-          type="button"
-          class="pa-btn"
-          data-action="refresh"
-          :disabled="loading"
-          @click="reload"
+      <section class="panel complain-content" aria-label="投诉记录">
+        <div
+          v-if="listSummary"
+          class="complain-banner"
+          data-test="complain-summary"
         >
-          获取最新数据
-        </button>
-        <template v-if="area === 'admin'">
-          <KitSelect
-            v-model="autoChannel"
-            :options="
-              channels.map((c) => ({
-                value: c.channel_id,
-                label: `${c.name} · ${c.provider === 'wxpay' ? '微信' : '支付宝'}${c.enabled ? '（自动获取中）' : ''}`,
-              }))
-            "
-            placeholder="选择支付通道"
-            aria-label="自动获取通道"
-          />
+          <div class="complain-banner-cell">
+            <span class="complain-banner-label">今日投诉</span>
+            <b>{{ listSummary.today_count }}</b>
+            <small
+              >支付宝 {{ listSummary.today_alipay }} · 微信
+              {{ listSummary.today_wxpay }}</small
+            >
+          </div>
+          <div class="complain-banner-cell">
+            <span class="complain-banner-label">昨日投诉</span>
+            <b>{{ listSummary.yesterday_count }}</b>
+            <small
+              >支付宝 {{ listSummary.yesterday_alipay }} · 微信
+              {{ listSummary.yesterday_wxpay }}</small
+            >
+          </div>
+        </div>
+
+        <div class="pa-toolbar">
           <button
             type="button"
             class="pa-btn"
-            :class="autoChannelEnabled ? 'pa-btn--danger' : 'pa-btn--success'"
-            data-action="auto-fetch"
-            :disabled="!autoChannel || autoBusy"
-            @click="toggleAutoFetch"
+            data-action="refresh"
+            :disabled="loading"
+            @click="reload"
           >
-            {{ autoChannelEnabled ? "关闭自动获取" : "开启自动获取" }}
+            获取最新数据
           </button>
-        </template>
-      </div>
+          <template v-if="area === 'admin'">
+            <KitSelect
+              v-model="autoChannel"
+              :options="
+                channels.map((c) => ({
+                  value: c.channel_id,
+                  label: `${c.name} · ${c.provider === 'wxpay' ? '微信' : '支付宝'}${c.enabled ? '（自动获取中）' : ''}`,
+                }))
+              "
+              placeholder="选择支付通道"
+              aria-label="自动获取通道"
+            />
+            <button
+              type="button"
+              class="pa-btn"
+              :class="autoChannelEnabled ? 'pa-btn--danger' : 'pa-btn--success'"
+              data-action="auto-fetch"
+              :disabled="!autoChannel || autoBusy"
+              @click="toggleAutoFetch"
+            >
+              {{ autoChannelEnabled ? "关闭自动获取" : "开启自动获取" }}
+            </button>
+          </template>
+        </div>
 
-      <div class="pa-table-wrap">
-        <table class="pa-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>商户号</th>
-              <th>关联订单号</th>
-              <th>问题类型</th>
-              <th class="pa-c-num">订单金额</th>
-              <th>投诉详情</th>
-              <th>创建时间</th>
-              <th>状态</th>
-              <th class="pa-c-num">投诉次数</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in rows" :key="row.id">
-              <td class="pa-c-num">{{ row.id }}</td>
-              <td>{{ row.merchant_id || "-" }}</td>
-              <td>
-                <span class="pa-c-mono">{{ row.trade_no || "-" }}</span>
-              </td>
-              <td>
-                <KitPayMethod v-if="row.pay_type" :type="row.pay_type" />
-                <span v-else>-</span>
-                <small class="muted">{{ row.subject || "-" }}</small>
-              </td>
-              <td class="pa-c-num">{{ amountCell(row.amount) }}</td>
-              <td class="complain-detail">{{ row.content || "-" }}</td>
-              <td>{{ row.created_at ? datetime(row.created_at) : "-" }}</td>
-              <td>
-                <KitStatusTag
-                  :text="complaintStatusWords[row.status] || row.status"
-                  :tone="complaintStatusTone[row.status] || 'neutral'"
-                />
-              </td>
-              <td class="pa-c-num">{{ row.times || "1" }}</td>
-              <td>
-                <button
-                  type="button"
-                  class="pa-btn"
-                  data-action="detail"
-                  @click="openDetail(row)"
-                >
-                  处理投诉
-                </button>
-              </td>
-            </tr>
-            <tr v-if="loaded && !rows.length">
-              <td colspan="10"><KitEmpty text="暂无数据" /></td>
-            </tr>
-            <tr v-if="!loaded && !error">
-              <td colspan="10"><KitEmpty text="正在加载…" /></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <div class="pa-table-wrap">
+          <table class="pa-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>商户号</th>
+                <th>关联订单号</th>
+                <th>问题类型</th>
+                <th class="pa-c-num">订单金额</th>
+                <th>投诉详情</th>
+                <th>创建时间</th>
+                <th>状态</th>
+                <th class="pa-c-num">投诉次数</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in rows" :key="row.id">
+                <td class="pa-c-num">{{ row.id }}</td>
+                <td>{{ row.merchant_id || "-" }}</td>
+                <td>
+                  <span class="pa-c-mono">{{ row.trade_no || "-" }}</span>
+                </td>
+                <td>
+                  <KitPayMethod v-if="row.pay_type" :type="row.pay_type" />
+                  <span v-else>-</span>
+                  <small class="muted">{{ row.subject || "-" }}</small>
+                </td>
+                <td class="pa-c-num">{{ amountCell(row.amount) }}</td>
+                <td class="complain-detail">{{ row.content || "-" }}</td>
+                <td>{{ row.created_at ? datetime(row.created_at) : "-" }}</td>
+                <td>
+                  <KitStatusTag
+                    :text="complaintStatusWords[row.status] || row.status"
+                    :tone="complaintStatusTone[row.status] || 'neutral'"
+                  />
+                </td>
+                <td class="pa-c-num">{{ row.times || "1" }}</td>
+                <td>
+                  <button
+                    type="button"
+                    class="pa-btn"
+                    data-action="detail"
+                    @click="openDetail(row)"
+                  >
+                    处理投诉
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="loaded && !rows.length">
+                <td colspan="10"><KitEmpty text="暂无数据" /></td>
+              </tr>
+              <tr v-if="!loaded && !error">
+                <td colspan="10"><KitEmpty text="正在加载…" /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <KitPagination
-        v-model:page="page"
-        v-model:page-size="pageSize"
-        :total="total"
-        @change="loadList"
-      />
+        <KitPagination
+          v-model:page="page"
+          v-model:page-size="pageSize"
+          :total="total"
+          @change="loadList"
+        />
+      </section>
     </template>
 
     <!-- 投诉统计 -->
     <template v-else-if="view === 'charts'">
-      <div class="complain-cards">
-        <div class="complain-card">
-          <div class="complain-card-title">今日投诉</div>
-          <div class="complain-card-body">
-            <span>总投诉</span><b>{{ summary?.today_count ?? "0" }}</b>
-            <span>支付宝</span><b>{{ summary?.today_alipay ?? "0" }}</b>
-            <span>微信</span><b>{{ summary?.today_wxpay ?? "0" }}</b>
+      <section class="panel complain-content" aria-label="投诉统计">
+        <div class="complain-cards">
+          <div class="complain-card">
+            <div class="complain-card-title">今日投诉</div>
+            <div class="complain-card-body">
+              <span>总投诉</span><b>{{ summary?.today_count ?? "0" }}</b>
+              <span>支付宝</span><b>{{ summary?.today_alipay ?? "0" }}</b>
+              <span>微信</span><b>{{ summary?.today_wxpay ?? "0" }}</b>
+            </div>
+          </div>
+          <div class="complain-card">
+            <div class="complain-card-title">昨日投诉</div>
+            <div class="complain-card-body">
+              <span>总投诉</span><b>{{ summary?.yesterday_count ?? "0" }}</b>
+              <span>支付宝</span><b>{{ summary?.yesterday_alipay ?? "0" }}</b>
+              <span>微信</span><b>{{ summary?.yesterday_wxpay ?? "0" }}</b>
+            </div>
           </div>
         </div>
-        <div class="complain-card">
-          <div class="complain-card-title">昨日投诉</div>
-          <div class="complain-card-body">
-            <span>总投诉</span><b>{{ summary?.yesterday_count ?? "0" }}</b>
-            <span>支付宝</span><b>{{ summary?.yesterday_alipay ?? "0" }}</b>
-            <span>微信</span><b>{{ summary?.yesterday_wxpay ?? "0" }}</b>
-          </div>
+        <div class="complain-rank-title">投诉数据统计&排行榜</div>
+        <div class="pa-table-wrap">
+          <table class="pa-table">
+            <thead>
+              <tr>
+                <th v-for="c in chartColumns" :key="c.key">{{ c.label }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(r, i) in chartRows" :key="i">
+                <td
+                  v-for="c in chartColumns"
+                  :key="c.key"
+                  :class="{ 'pa-c-num': c.key !== 'dimension' }"
+                >
+                  {{ r[c.key] ?? "-" }}
+                </td>
+              </tr>
+              <tr v-if="loaded && !chartRows.length">
+                <td :colspan="chartColumns.length || 1">
+                  <KitEmpty text="暂无数据" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </div>
-      <div class="complain-rank-title">投诉数据统计&排行榜</div>
-      <div class="pa-table-wrap">
-        <table class="pa-table">
-          <thead>
-            <tr>
-              <th v-for="c in chartColumns" :key="c.key">{{ c.label }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(r, i) in chartRows" :key="i">
-              <td
-                v-for="c in chartColumns"
-                :key="c.key"
-                :class="{ 'pa-c-num': c.key !== 'dimension' }"
-              >
-                {{ r[c.key] ?? "-" }}
-              </td>
-            </tr>
-            <tr v-if="loaded && !chartRows.length">
-              <td :colspan="chartColumns.length || 1">
-                <KitEmpty text="暂无数据" />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      </section>
     </template>
 
     <!-- 同步任务 -->
     <template v-else>
-      <p class="alert info" role="note">
-        在投诉记录页面选中某个支付通道后开启自动获取，即可在此看到对应通道的自动同步任务；另需在计划任务页面启动投诉同步任务。
-      </p>
-      <div class="pa-table-wrap">
-        <table class="pa-table">
-          <thead>
-            <tr>
-              <th>通道ID</th>
-              <th>通道名称</th>
-              <th>状态</th>
-              <th>上次同步时间</th>
-              <th>同步状态</th>
-              <th>下次同步时间</th>
-              <th>获取频率</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="t in tasks" :key="t.channel_id">
-              <td class="pa-c-num">{{ t.channel_id }}</td>
-              <td>{{ t.name || "-" }}</td>
-              <td>
-                <KitStatusTag
-                  :text="t.enabled ? '已启用' : '已停用'"
-                  :tone="t.enabled ? 'success' : 'neutral'"
-                />
-              </td>
-              <td>{{ t.last_run_at ? datetime(t.last_run_at) : "-" }}</td>
-              <td>
-                <KitStatusTag
-                  v-if="t.last_status"
-                  :text="t.last_status === 'ok' ? '成功' : '失败'"
-                  :tone="t.last_status === 'ok' ? 'success' : 'danger'"
-                />
-                <span v-else>-</span>
-                <small
-                  v-if="t.last_status === 'failed' && t.consecutive_failures"
-                  class="muted"
-                  >连续失败 {{ t.consecutive_failures }} 次{{
-                    t.last_reason ? "：" + t.last_reason : ""
-                  }}</small
-                >
-              </td>
-              <td>{{ t.next_run_at ? datetime(t.next_run_at) : "-" }}</td>
-              <td>
-                {{
-                  t.frequency ? t.frequency + " 分钟 / " + t.num + " 条" : "-"
-                }}
-              </td>
-            </tr>
-            <tr v-if="loaded && !tasks.length">
-              <td colspan="7"><KitEmpty text="暂无数据" /></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <section class="panel complain-content" aria-label="同步任务">
+        <p class="alert info" role="note">
+          在投诉记录页面选中某个支付通道后开启自动获取，即可在此看到对应通道的自动同步任务；另需在计划任务页面启动投诉同步任务。
+        </p>
+        <div class="pa-table-wrap">
+          <table class="pa-table">
+            <thead>
+              <tr>
+                <th>通道ID</th>
+                <th>通道名称</th>
+                <th>状态</th>
+                <th>上次同步时间</th>
+                <th>同步状态</th>
+                <th>下次同步时间</th>
+                <th>获取频率</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="t in tasks" :key="t.channel_id">
+                <td class="pa-c-num">{{ t.channel_id }}</td>
+                <td>{{ t.name || "-" }}</td>
+                <td>
+                  <KitStatusTag
+                    :text="t.enabled ? '已启用' : '已停用'"
+                    :tone="t.enabled ? 'success' : 'neutral'"
+                  />
+                </td>
+                <td>{{ t.last_run_at ? datetime(t.last_run_at) : "-" }}</td>
+                <td>
+                  <KitStatusTag
+                    v-if="t.last_status"
+                    :text="t.last_status === 'ok' ? '成功' : '失败'"
+                    :tone="t.last_status === 'ok' ? 'success' : 'danger'"
+                  />
+                  <span v-else>-</span>
+                  <small
+                    v-if="t.last_status === 'failed' && t.consecutive_failures"
+                    class="muted"
+                    >连续失败 {{ t.consecutive_failures }} 次{{
+                      t.last_reason ? "：" + t.last_reason : ""
+                    }}</small
+                  >
+                </td>
+                <td>{{ t.next_run_at ? datetime(t.next_run_at) : "-" }}</td>
+                <td>
+                  {{
+                    t.frequency ? t.frequency + " 分钟 / " + t.num + " 条" : "-"
+                  }}
+                </td>
+              </tr>
+              <tr v-if="loaded && !tasks.length">
+                <td colspan="7"><KitEmpty text="暂无数据" /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </template>
 
     <!-- 处理投诉 -->
@@ -729,11 +736,11 @@ onMounted(reload);
         </button>
       </template>
     </KitModal>
-  </section>
+  </div>
 </template>
 
 <style scoped>
-.complain-page {
+.complain-content {
   display: grid;
   gap: 16px;
   padding: 18px;

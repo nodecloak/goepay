@@ -5,6 +5,7 @@ import { reportDateRange, validDateRange } from "../reports";
 import CsvExportButton from "./CsvExportButton.vue";
 import OrderBlacklistDialog from "./OrderBlacklistDialog.vue";
 import KitPagination from "./KitPagination.vue";
+import KitHelpPopover from "./KitHelpPopover.vue";
 
 const props = defineProps<{
   client: ApiClient;
@@ -217,7 +218,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="panel records buyer-statistics">
+  <div class="list-page buyer-statistics">
     <form
       class="toolbar list-filter-card panel"
       @submit.prevent="
@@ -266,141 +267,145 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </form>
-    <div class="table-tools">
-      <CsvExportButton
+    <section class="panel records">
+      <div class="table-tools">
+        <CsvExportButton
+          :client="client"
+          :path="csvPath"
+          filename="buyer-statistics.csv"
+          :disabled="
+            loading || !applied || !!unavailable || !validDateRange(from, to)
+          "
+        />
+        <span class="table-summary"
+          >共 <strong>{{ total }}</strong> 条记录</span
+        >
+        <KitHelpPopover
+          text="只统计查询日期内已付款订单，日期按北京时间。未记录的账号或IP不合并为虚构用户；付款金额可按行刷新。"
+        />
+      </div>
+      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <div v-if="unavailable" class="alert" role="status">
+        {{ unavailable }}
+      </div>
+      <p v-if="loading" role="status">正在读取支付用户统计…</p>
+      <div v-else-if="!error && !unavailable" class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">{{ label }}</th>
+              <th
+                scope="col"
+                :aria-sort="
+                  sort === 'order_count'
+                    ? direction === 'desc'
+                      ? 'descending'
+                      : 'ascending'
+                    : 'none'
+                "
+              >
+                <button class="link-button" @click="changeSort('order_count')">
+                  付款笔数
+                </button>
+              </th>
+              <th
+                scope="col"
+                :aria-sort="
+                  sort === 'pay_money'
+                    ? direction === 'desc'
+                      ? 'descending'
+                      : 'ascending'
+                    : 'none'
+                "
+              >
+                <button class="link-button" @click="changeSort('pay_money')">
+                  付款金额（元）
+                </button>
+              </th>
+              <th scope="col">最新订单号</th>
+              <th scope="col">是否拉黑</th>
+              <th scope="col">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in items" :key="row.user">
+              <td>{{ row.user }}</td>
+              <td>
+                <RouterLink
+                  :to="orderLink(row.user, method === '1' ? 'ip' : 'buyer')"
+                  >{{ row.order_count }}</RouterLink
+                >
+              </td>
+              <td>
+                <button
+                  class="link-button numeric"
+                  :aria-label="'刷新付款金额 ' + row.user"
+                  :disabled="row.moneyBusy || !applied"
+                  @click="readMoney(row)"
+                >
+                  {{
+                    row.moneyBusy ? "正在读取…" : (row.shownMoney ?? "[刷新]")
+                  }}</button
+                ><small v-if="row.moneyError" class="cell error" role="alert">{{
+                  row.moneyError
+                }}</small>
+              </td>
+              <td>
+                <RouterLink
+                  v-if="validTrade(row.trade_no)"
+                  :to="orderLink(row.trade_no, 'trade_no')"
+                  >{{ row.trade_no }}</RouterLink
+                ><span v-else>未记录</span>
+              </td>
+              <td>
+                {{
+                  row.is_black === true
+                    ? "是"
+                    : row.is_black === false
+                      ? "否"
+                      : "未核对"
+                }}
+              </td>
+              <td>
+                <button
+                  v-if="canWrite && validTrade(row.trade_no)"
+                  class="link-button"
+                  :aria-label="'拉黑 ' + row.user"
+                  @click="blacklist = row"
+                >
+                  拉黑</button
+                ><span v-else>—</span>
+              </td>
+            </tr>
+            <tr v-if="!items.length">
+              <td colspan="6" class="empty">暂无记录</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <KitPagination
+        v-model:page="page"
+        v-model:page-size="limit"
+        :total="total"
+        @change="load"
+      />
+      <OrderBlacklistDialog
+        v-if="blacklist && canWrite"
+        :key="blacklist.trade_no + method"
         :client="client"
-        :path="csvPath"
-        filename="buyer-statistics.csv"
-        :disabled="
-          loading || !applied || !!unavailable || !validDateRange(from, to)
+        :trade-no="blacklist.trade_no"
+        :expected="blacklist.user"
+        :kind="method === '1' ? 'ip' : 'buyer'"
+        :own-session="!!ownSession"
+        :admin-class="adminClass"
+        @close="blacklist = null"
+        @updated="
+          blacklist = null;
+          load();
         "
       />
-      <span class="table-summary"
-        >共 <strong>{{ total }}</strong> 条记录</span
-      >
-    </div>
-    <p class="table-note">
-      只统计查询日期内已付款订单，日期按北京时间。未记录的账号或IP不合并为虚构用户；付款金额可按行刷新。
-    </p>
-    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <div v-if="unavailable" class="alert" role="status">{{ unavailable }}</div>
-    <p v-if="loading" role="status">正在读取支付用户统计…</p>
-    <div v-else-if="!error && !unavailable" class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">{{ label }}</th>
-            <th
-              scope="col"
-              :aria-sort="
-                sort === 'order_count'
-                  ? direction === 'desc'
-                    ? 'descending'
-                    : 'ascending'
-                  : 'none'
-              "
-            >
-              <button class="link-button" @click="changeSort('order_count')">
-                付款笔数
-              </button>
-            </th>
-            <th
-              scope="col"
-              :aria-sort="
-                sort === 'pay_money'
-                  ? direction === 'desc'
-                    ? 'descending'
-                    : 'ascending'
-                  : 'none'
-              "
-            >
-              <button class="link-button" @click="changeSort('pay_money')">
-                付款金额（元）
-              </button>
-            </th>
-            <th scope="col">最新订单号</th>
-            <th scope="col">是否拉黑</th>
-            <th scope="col">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in items" :key="row.user">
-            <td>{{ row.user }}</td>
-            <td>
-              <RouterLink
-                :to="orderLink(row.user, method === '1' ? 'ip' : 'buyer')"
-                >{{ row.order_count }}</RouterLink
-              >
-            </td>
-            <td>
-              <button
-                class="link-button numeric"
-                :aria-label="'刷新付款金额 ' + row.user"
-                :disabled="row.moneyBusy || !applied"
-                @click="readMoney(row)"
-              >
-                {{
-                  row.moneyBusy ? "正在读取…" : (row.shownMoney ?? "[刷新]")
-                }}</button
-              ><small v-if="row.moneyError" class="cell error" role="alert">{{
-                row.moneyError
-              }}</small>
-            </td>
-            <td>
-              <RouterLink
-                v-if="validTrade(row.trade_no)"
-                :to="orderLink(row.trade_no, 'trade_no')"
-                >{{ row.trade_no }}</RouterLink
-              ><span v-else>未记录</span>
-            </td>
-            <td>
-              {{
-                row.is_black === true
-                  ? "是"
-                  : row.is_black === false
-                    ? "否"
-                    : "未核对"
-              }}
-            </td>
-            <td>
-              <button
-                v-if="canWrite && validTrade(row.trade_no)"
-                class="link-button"
-                :aria-label="'拉黑 ' + row.user"
-                @click="blacklist = row"
-              >
-                拉黑</button
-              ><span v-else>—</span>
-            </td>
-          </tr>
-          <tr v-if="!items.length">
-            <td colspan="6" class="empty">暂无记录</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <KitPagination
-      v-model:page="page"
-      v-model:page-size="limit"
-      :total="total"
-      @change="load"
-    />
-    <OrderBlacklistDialog
-      v-if="blacklist && canWrite"
-      :key="blacklist.trade_no + method"
-      :client="client"
-      :trade-no="blacklist.trade_no"
-      :expected="blacklist.user"
-      :kind="method === '1' ? 'ip' : 'buyer'"
-      :own-session="!!ownSession"
-      :admin-class="adminClass"
-      @close="blacklist = null"
-      @updated="
-        blacklist = null;
-        load();
-      "
-    />
-  </section>
+    </section>
+  </div>
 </template>
 
 <style scoped>
