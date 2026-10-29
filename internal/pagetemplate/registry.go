@@ -67,7 +67,10 @@ func Templates(kind string) ([]Template, error) {
 	if !validKind(kind) {
 		return nil, ErrInvalid
 	}
-	title := map[string]string{"home": "首页", "pay": "支付页", "qrpay": "聚合收款页"}[kind]
+	if kind == "home" {
+		return HomeTemplates(), nil
+	}
+	title := map[string]string{"pay": "支付页", "qrpay": "聚合收款页"}[kind]
 	return []Template{{Type: kind, Name: "default", Title: "标准" + title, Author: "GOEPAY", Version: "1", Description: "本地内置标准布局", PreviewURL: "/console/v1/admin/templates/" + kind + "/default/preview", HasConfig: true}, {Type: kind, Name: "compact", Title: "紧凑" + title, Author: "GOEPAY", Version: "1", Description: "本地内置紧凑布局", PreviewURL: "/console/v1/admin/templates/" + kind + "/compact/preview", HasConfig: true}}, nil
 }
 func Lookup(kind, name string) (Template, bool) {

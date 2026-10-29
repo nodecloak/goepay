@@ -23,12 +23,17 @@ func configJSON(t *testing.T, kind string, edit func(map[string]any)) json.RawMe
 	return raw
 }
 func TestBuiltInRegistryAndTypedConfig(t *testing.T) {
-	for _, kind := range []string{"home", "pay", "qrpay"} {
+	cases := map[string][]string{
+		"home":  homeStyleNames(),
+		"pay":   {"default", "compact"},
+		"qrpay": {"default", "compact"},
+	}
+	for kind, want := range cases {
 		list, e := Templates(kind)
-		if e != nil || len(list) != 2 {
-			t.Fatal(kind, list, e)
+		if e != nil || len(list) != len(want) {
+			t.Fatal(kind, len(list), e)
 		}
-		for _, name := range []string{"default", "compact"} {
+		for _, name := range want {
 			if _, ok := Lookup(kind, name); !ok {
 				t.Fatal("missing audited template", kind, name)
 			}
@@ -36,6 +41,9 @@ func TestBuiltInRegistryAndTypedConfig(t *testing.T) {
 				t.Fatal(e)
 			}
 		}
+	}
+	if len(cases["home"]) != 10 {
+		t.Fatal("home must ship ten styles", len(cases["home"]))
 	}
 	for _, kind := range []string{"../pay", "PAY", "plugin"} {
 		if _, e := Templates(kind); e == nil {

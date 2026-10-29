@@ -177,6 +177,19 @@ func (s *Server) templateConsole(w http.ResponseWriter, r *http.Request, role st
 				templateFail(w, e)
 				return true
 			}
+			if v.Type == "home" {
+				var hb bytes.Buffer
+				demo := pagetemplate.HomeData{SiteName: "预览站点名称", Title: "首页模板预览", Org: "示例科技有限公司", Email: "support@example.com", QQ: "10001", TestOpen: true, RegistrationOpen: true, Preview: true}
+				if e = pagetemplate.RenderHome(&hb, pagetemplate.Resolved{Type: v.Type, Name: v.Name, Revision: v.Revision, Config: cfg}, demo); e != nil {
+					templateFail(w, e)
+					return true
+				}
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.Header().Set("Cache-Control", "no-store")
+				w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; script-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'; sandbox allow-same-origin")
+				w.Write(hb.Bytes())
+				return true
+			}
 			var b bytes.Buffer
 			if e = pagetemplate.Open(&b, pagetemplate.Resolved{Type: v.Type, Name: v.Name, Revision: v.Revision, Config: cfg}, pagetemplate.Page{Title: "模板预览", TradeNo: "PREVIEW-ONLY", Amount: "1.00", OrderName: "模板演示订单", Preview: true}); e != nil {
 				templateFail(w, e)
