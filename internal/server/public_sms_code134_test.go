@@ -39,3 +39,32 @@ func TestPublicSMSCode134InertWhenGatewayOff(t *testing.T) {
 		t.Fatal("Allow header must be POST", h.Get("Allow"))
 	}
 }
+
+// The login purpose (验证码登录, epay_pro auth/sendcode type=login) is accepted by
+// the same endpoint and is equally inert while the gateway is off: it answers
+// 503 and issues no code, so it adds a code-login send path without changing any
+// existing behaviour. An unknown purpose is still rejected before issuance.
+func TestPublicSMSCode134LoginPurposeInertWhenGatewayOff(t *testing.T) {
+	f := channel168Local(t)
+	r := httptest.NewRequest("POST", "/console/v1/public/sms-code",
+		strings.NewReader(`{"purpose":"login","phone":"13800138000"}`))
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	f.s.Handler().ServeHTTP(w, r)
+	if w.Code != 503 {
+		t.Fatal("login sms-code must be inert (503) with the gateway off", w.Code, w.Body.String())
+	}
+	var codes int
+	if e := f.p.QueryRow(t.Context(), `SELECT count(*)FROM verification_codes134 WHERE scene='login'`).Scan(&codes); e != nil || codes != 0 {
+		t.Fatal("no login verification code may be issued while the gateway is off", codes, e)
+	}
+	// An unknown purpose is still a 400, not a 503.
+	ur := httptest.NewRequest("POST", "/console/v1/public/sms-code",
+		strings.NewReader(`{"purpose":"nope","phone":"13800138000"}`))
+	ur.Header.Set("Content-Type", "application/json")
+	uw := httptest.NewRecorder()
+	f.s.Handler().ServeHTTP(uw, ur)
+	if uw.Code != 400 {
+		t.Fatal("unknown purpose must be 400", uw.Code, uw.Body.String())
+	}
+}

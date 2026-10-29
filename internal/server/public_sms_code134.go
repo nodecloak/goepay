@@ -12,9 +12,9 @@ import (
 	"goepay/internal/verifycode134"
 )
 
-// publicSMSCode134 is the SMS half of the original register / find-password
-// verification-code flow (VerifyCode::send_code, type=1 phone): send a phone
-// code. It is INERT unless an admin enabled the SMS gateway with an active
+// publicSMSCode134 is the SMS half of the original register / find-password /
+// login verification-code flow (VerifyCode::send_code, type=1 phone): send a
+// phone code. It is INERT unless an admin enabled the SMS gateway with an active
 // provider — with the gateway off (the default) it answers 503 and issues
 // nothing, so today's behaviour and every existing test are unchanged.
 //
@@ -52,6 +52,12 @@ func (s *Server) publicSMSCode134(w http.ResponseWriter, r *http.Request) bool {
 		scene = "reg"
 	case "recover":
 		scene = "find"
+	case "login":
+		// 验证码登录: epay_pro's auth/sendcode type=login. Same SMS gateway, same
+		// per-recipient/IP caps; inert while the gateway is off, exactly like the
+		// register/recover scenes above. The code is consumed by the login handler
+		// (verifycode134 scene "login"), never by this send path.
+		scene = "login"
 	default:
 		response(w, 400, -1, "unknown purpose", nil)
 		return true
