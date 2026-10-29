@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ApiClient } from "../api";
 import { reportDateRange, validDateRange } from "../reports";
+import { usePayTypeOptions } from "../pay-type-options";
 import CsvExportButton from "./CsvExportButton.vue";
 import OrderBlacklistDialog from "./OrderBlacklistDialog.vue";
 import KitPagination from "./KitPagination.vue";
@@ -15,6 +16,12 @@ const props = defineProps<{
   ownSession?: boolean;
   adminClass?: string;
 }>();
+const clientRef = computed(() => props.client);
+const payTypeChoices = usePayTypeOptions(clientRef);
+const payTypeOptions = computed(() => [
+  { value: "", label: "所有支付方式" },
+  ...payTypeChoices.value,
+]);
 type BuyerRow = {
   user: string;
   order_count: string;
@@ -239,12 +246,7 @@ onBeforeUnmount(() => {
         <KitField label="支付方式">
           <KitSelect
             v-model="type"
-            :options="[
-              { value: '', label: '所有支付方式' },
-              { value: 'alipay', label: '支付宝' },
-              { value: 'wxpay', label: '微信支付' },
-              { value: 'sandbox', label: '本地模拟' },
-            ]"
+            :options="payTypeOptions"
             aria-label="支付方式"
           />
         </KitField>
