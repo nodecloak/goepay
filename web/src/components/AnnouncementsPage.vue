@@ -35,6 +35,7 @@ const rows = ref<Row[]>([]),
   uncertain = ref(true),
   page = ref(1),
   total = ref(0),
+  adding = ref(false),
   removing = ref<Row>(),
   confirm = ref<HTMLElement>(),
   editorSection = ref<HTMLElement>();
@@ -48,7 +49,8 @@ const endpoint = "/resources/announcements",
       (selected.value
         ? schema.value?.permissions.update
         : schema.value?.permissions.create),
-  );
+  ),
+  formOpen = computed(() => adding.value || !!selected.value);
 let epoch = 0,
   controller: AbortController | undefined,
   alive = true,
@@ -60,7 +62,30 @@ function clear() {
   sort.value = "50";
   color.value = "";
   selected.value = "";
+  adding.value = false;
   removing.value = undefined;
+}
+function openAdd() {
+  if (!writable.value || !schema.value?.permissions.create) return;
+  clear();
+  adding.value = true;
+  notice.value = "";
+  returnFocus = document.activeElement as HTMLElement;
+  void nextTick(() => {
+    editorSection.value
+      ?.querySelector<HTMLElement>("[contenteditable]")
+      ?.focus();
+  });
+}
+function closeForm() {
+  clear();
+  if (returnFocus?.isConnected) returnFocus.focus();
+}
+function formKeys(e: KeyboardEvent) {
+  if (e.key === "Escape" && !busy.value) {
+    e.preventDefault();
+    closeForm();
+  }
 }
 function invalidate() {
   epoch++;
@@ -224,8 +249,8 @@ async function edit(r: Row) {
   color.value = found.color;
   selected.value = found.id;
   notice.value = "";
+  returnFocus = document.activeElement as HTMLElement;
   await nextTick();
-  editorSection.value?.scrollIntoView?.({ behavior: "auto", block: "start" });
   editorSection.value?.querySelector<HTMLElement>("[contenteditable]")?.focus();
 }
 async function mutate(
@@ -348,63 +373,76 @@ onBeforeUnmount(() => {
   <div class="announcements-page">
     <p v-if="error" role="alert" class="alert error">{{ error }}</p>
     <p v-if="notice" role="status" class="alert success">{{ notice }}</p>
-    <section ref="editorSection" class="panel announcement-editor">
-      <h2>{{ selected ? "编辑公告" : "添加公告" }}</h2>
-      <form @submit.prevent="save">
-        <label class="field-label">公告内容</label
-        ><RichTextEditor
-          v-model="content"
-          label="公告内容"
-          :disabled="!canSave"
-        />
-        <div class="announcement-fields">
-          <label
-            >排序<input
-              v-model="sort"
-              class="sort-input"
-              aria-label="排序"
-              inputmode="numeric"
-              :disabled="!canSave"
-              maxlength="10"
-            /><small class="muted">数字越小越靠前</small></label
-          ><label
-            >文字颜色<span class="color-input"
-              ><input
-                v-model="color"
-                aria-label="公告文字颜色"
-                placeholder="#333333"
-                maxlength="7"
-                :disabled="!canSave" /><input
-                type="color"
-                aria-label="选择公告文字颜色"
-                :value="color || '#333333'"
+    <div v-if="formOpen" class="modal-backdrop" @keydown="formKeys">
+      <section
+        ref="editorSection"
+        class="modal announcement-editor"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="selected ? '编辑公告' : '添加公告'"
+      >
+        <h2>{{ selected ? "编辑公告" : "添加公告" }}</h2>
+        <form @submit.prevent="save">
+          <label class="field-label">公告内容</label
+          ><RichTextEditor
+            v-model="content"
+            label="公告内容"
+            :disabled="!canSave"
+          />
+          <div class="announcement-fields">
+            <label
+              >排序<input
+                v-model="sort"
+                class="sort-input"
+                aria-label="排序"
+                inputmode="numeric"
                 :disabled="!canSave"
-                @input="
-                  color = ($event.target as HTMLInputElement).value
-                " /></span
-            ><small class="muted">留空使用默认颜色</small></label
-          >
-        </div>
-        <div class="toolbar-actions">
-          <button type="submit" class="primary" :disabled="!canSave">
-            {{ busy ? "处理中…" : selected ? "保存" : "添加" }}</button
-          ><button
-            v-if="selected"
-            type="button"
-            :disabled="busy"
-            @click="clear"
-          >
-            取消编辑
-          </button>
-        </div>
-      </form>
-    </section>
+                maxlength="10"
+              /><small class="muted">数字越小越靠前</small></label
+            ><label
+              >文字颜色<span class="color-input"
+                ><input
+                  v-model="color"
+                  aria-label="公告文字颜色"
+                  placeholder="#333333"
+                  maxlength="7"
+                  :disabled="!canSave" /><input
+                  type="color"
+                  aria-label="选择公告文字颜色"
+                  :value="color || '#333333'"
+                  :disabled="!canSave"
+                  @input="
+                    color = ($event.target as HTMLInputElement).value
+                  " /></span
+              ><small class="muted">留空使用默认颜色</small></label
+            >
+          </div>
+          <div class="toolbar-actions">
+            <button type="submit" class="primary" :disabled="!canSave">
+              {{ busy ? "处理中…" : selected ? "保存" : "添加" }}</button
+            ><button type="button" :disabled="busy" @click="closeForm">
+              取消
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
     <section class="panel announcement-list">
       <div class="panel-heading">
         <h2>已发公告</h2>
-        <button type="button" :disabled="busy || loading" @click="load">
-          {{ loading ? "加载中…" : "刷新核对公告" }}
-        </button>
+        <div class="announcement-head-actions">
+          <button
+            v-if="schema?.permissions.create"
+            type="button"
+            class="primary"
+            :disabled="!writable"
+            @click="openAdd"
+          >
+            添加公告</button
+          ><button type="button" :disabled="busy || loading" @click="load">
+            {{ loading ? "加载中…" : "刷新核对公告" }}
+          </button>
+        </div>
       </div>
       <p v-if="!rows.length && !loading" class="empty">暂无公告</p>
       <article v-for="r in rows" :key="r.id" class="announcement-row">
@@ -492,7 +530,15 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 .announcement-editor {
+  width: min(680px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
   scroll-margin-top: 80px;
+}
+.announcement-head-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 .announcements-page h2 {
   font-size: 16px;

@@ -53,6 +53,7 @@ it("a late sent result cannot announce success after a same-client session repla
     { c, request } = setup(() => pending),
     w = mount(AnnouncementsPage, { props: { client: c, ownSession: true } });
   await flushPromises();
+  await openAdd(w);
   const input = w.get("[contenteditable]");
   input.element.textContent = "公告";
   await input.trigger("input");
@@ -77,6 +78,13 @@ function setup(write?: () => Promise<unknown>) {
   c.request = request as ApiClient["request"];
   return { c, request };
 }
+async function openAdd(w: ReturnType<typeof mount>) {
+  await w
+    .findAll("button")
+    .find((b) => b.text() === "添加公告")!
+    .trigger("click");
+  await flushPromises();
+}
 it("uses original two cards and content/sort/color without an extra required title", async () => {
   const { c, request } = setup();
   const w = mount(AnnouncementsPage, {
@@ -86,6 +94,7 @@ it("uses original two cards and content/sort/color without an extra required tit
   expect(w.text()).toContain("添加公告");
   expect(w.text()).toContain("已发公告");
   expect(w.find('input[aria-label="标题"]').exists()).toBe(false);
+  await openAdd(w);
   const editor = w.get("[contenteditable]");
   editor.element.innerHTML = "<p>新公告</p>";
   await editor.trigger("input");
@@ -167,6 +176,7 @@ it("blocks duplicate and uncertain writes until an explicit refresh", async () =
     props: { client: c, ownSession: true },
   });
   await flushPromises();
+  await openAdd(w);
   const editor = w.get("[contenteditable]");
   editor.element.textContent = "公告";
   await editor.trigger("input");
@@ -187,6 +197,7 @@ it("an in-place CSRF change prevents an old draft from being submitted", async (
     props: { client: c, ownSession: true },
   });
   await flushPromises();
+  await openAdd(w);
   const editor = w.get("[contenteditable]");
   editor.element.textContent = "公告";
   await editor.trigger("input");
