@@ -138,24 +138,28 @@ onBeforeUnmount(() => {
             <p v-if="loading" role="status">正在读取订单统计…</p>
             <p v-if="error" role="alert" class="alert error">{{ error }}</p>
             <template v-if="data">
-              <h3 class="order-summary-sub">金额统计</h3>
-              <dl class="order-summary-grid">
-                <div v-for="f in moneyFields" :key="f.key">
-                  <dt>{{ f.label }}</dt>
-                  <dd>¥{{ data[f.key] }}</dd>
-                </div>
-              </dl>
-              <h3 class="order-summary-sub">数量统计</h3>
-              <dl class="order-summary-grid">
-                <div v-for="f in countFields" :key="f.key">
-                  <dt>{{ f.label }}</dt>
-                  <dd>{{ data[f.key] }}</dd>
-                </div>
-                <div class="order-summary-rate">
-                  <dt>订单成功率</dt>
-                  <dd>{{ data.successRate }}</dd>
-                </div>
-              </dl>
+              <section class="order-summary-section">
+                <h3 class="order-summary-sub">金额统计</h3>
+                <dl class="order-summary-grid">
+                  <div v-for="f in moneyFields" :key="f.key">
+                    <dt>{{ f.label }}</dt>
+                    <dd>¥{{ data[f.key] }}</dd>
+                  </div>
+                </dl>
+              </section>
+              <section class="order-summary-section">
+                <h3 class="order-summary-sub">数量统计</h3>
+                <dl class="order-summary-grid">
+                  <div v-for="f in countFields" :key="f.key">
+                    <dt>{{ f.label }}</dt>
+                    <dd>{{ data[f.key] }}</dd>
+                  </div>
+                  <div class="order-summary-rate">
+                    <dt>订单成功率</dt>
+                    <dd>{{ data.successRate }}</dd>
+                  </div>
+                </dl>
+              </section>
             </template>
             <p class="pa-muted">
               成功率为已支付订单占筛选总数的比例；已退款金额为成功退款合计。
@@ -188,14 +192,26 @@ onBeforeUnmount(() => {
 .order-summary-modal {
   width: min(100%, 560px);
 }
+.order-summary-modal p {
+  margin: 0;
+}
+.order-summary-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
 .order-summary-sub {
   font-size: 13px;
-  margin: 16px 0 8px;
+  margin: 0;
   color: var(--ink-muted);
 }
+/* Lines come from a 1px gap over the line colour, so every cell keeps its
+   edges even when the 成功率 row spans both columns. */
 .order-summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm, 6px);
   overflow: hidden;
@@ -204,13 +220,7 @@ onBeforeUnmount(() => {
 .order-summary-grid > div {
   min-width: 0;
   padding: 12px;
-  border-bottom: 1px solid var(--line);
-}
-.order-summary-grid > div:nth-child(odd) {
-  border-right: 1px solid var(--line);
-}
-.order-summary-grid > div:nth-last-child(-n + 2) {
-  border-bottom: 0;
+  background: var(--bg-card);
 }
 .order-summary-grid dt {
   color: var(--ink-muted);
@@ -224,6 +234,5 @@ onBeforeUnmount(() => {
 }
 .order-summary-rate {
   grid-column: 1 / -1;
-  border-right: 0 !important;
 }
 </style>
