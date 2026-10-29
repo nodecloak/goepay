@@ -27,13 +27,16 @@ import (
 const complaintMaxFailures = 10
 
 // SyncComplaints pulls one page for a channel and upserts the results. It is
-// called from the job worker (provider access). num is 1..50 (the task's
-// sync_num). Returns the number of complaints upserted.
-func (g ProviderFlow) SyncComplaints(ctx context.Context, channelID int64, num int) (int, error) {
+// called from the job worker (provider access). num is 1..200 (the task's
+// per-run page size). days is the 获取条件 window: when > 0 the pull covers the
+// last `days` days (UTC+8 business days, capped to the provider's reach);
+// days <= 0 keeps the original rolling 7-day window. Returns the number of
+// complaints upserted.
+func (g ProviderFlow) SyncComplaints(ctx context.Context, channelID int64, num, days int) (int, error) {
 	if g.Store == nil || channelID <= 0 {
 		return 0, ErrInvalid
 	}
-	if num < 1 || num > 50 {
+	if num < 1 || num > 200 {
 		num = 20
 	}
 	p := g.Providers[channelID]
@@ -44,11 +47,16 @@ func (g ProviderFlow) SyncComplaints(ctx context.Context, channelID int64, num i
 	if e != nil {
 		return 0, e
 	}
-	// Window: the original syncs recent complaints; use a 7-day window ending
-	// today (UTC+8 business day), page 1.
+	// Window: the original syncs recent complaints over a rolling 7-day window
+	// ending today (UTC+8 business day). A task's 获取条件 (days > 0) widens or
+	// narrows that span to the admin's setting; days <= 0 keeps the 7-day default.
+	span := 7
+	if days > 0 {
+		span = days
+	}
 	loc := time.FixedZone("CST", 8*3600)
 	today := time.Now().In(loc)
-	begin := today.AddDate(0, 0, -6).Format("2006-01-02")
+	begin := today.AddDate(0, 0, -(span - 1)).Format("2006-01-02")
 	end := today.Format("2006-01-02")
 	page, e := provider.SyncComplaintsPage(ctx, adapter, begin, end, 1, num)
 	if e != nil {

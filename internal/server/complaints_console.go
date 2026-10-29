@@ -73,6 +73,9 @@ func (s *Server) complaintsConsole(w http.ResponseWriter, r *http.Request, role 
 		case parts[1] == "complaints133" && len(parts) == 2:
 			s.complaintListRead(w, r, mid)
 			return true
+		case parts[1] == "complaints133" && len(parts) == 3 && parts[2] == "export":
+			s.complaintListExport(w, r, mid)
+			return true
 		case parts[1] == "complaints133" && len(parts) == 3:
 			s.complaintDetailRead(w, r, mid, parts[2])
 			return true
@@ -89,6 +92,22 @@ func (s *Server) complaintsConsole(w http.ResponseWriter, r *http.Request, role 
 	// sync task. Needs no provider flow — it writes the task row + audit.
 	if r.Method == "PUT" && parts[1] == "complaint-sync-tasks" && len(parts) == 3 {
 		s.complaintSyncTaskUpsert(w, r, role, session, parts[2])
+		return true
+	}
+	// PATCH /complaint-sync-tasks/{channel_id}: admin-only inline status toggle.
+	if r.Method == "PATCH" && parts[1] == "complaint-sync-tasks" && len(parts) == 3 {
+		s.complaintSyncTaskStatus(w, r, role, session, parts[2])
+		return true
+	}
+	// DELETE /complaint-sync-tasks/{channel_id}: admin-only per-row delete.
+	if r.Method == "DELETE" && parts[1] == "complaint-sync-tasks" && len(parts) == 3 {
+		s.complaintSyncTaskDelete(w, r, role, session, []string{parts[2]})
+		return true
+	}
+	// POST /complaint-sync-tasks/delete: admin-only batch delete. Handled here
+	// (before the provider-live gate) because task config needs no provider flow.
+	if r.Method == "POST" && parts[1] == "complaint-sync-tasks" && len(parts) == 3 && parts[2] == "delete" {
+		s.complaintSyncTaskBatchDelete(w, r, role, session)
 		return true
 	}
 
@@ -180,10 +199,10 @@ func (s *Server) complaintSyncNow(w http.ResponseWriter, r *http.Request, mid in
 		response(w, 400, -1, "invalid channel", nil)
 		return
 	}
-	if body.Num < 1 || body.Num > 50 {
+	if body.Num < 1 || body.Num > 200 {
 		body.Num = 20
 	}
-	count, syncErr := s.ProviderFlow.SyncComplaints(r.Context(), body.ChannelID, body.Num)
+	count, syncErr := s.ProviderFlow.SyncComplaints(r.Context(), body.ChannelID, body.Num, 0)
 	_ = s.ProviderFlow.Store.RecordComplaintSyncResult(r.Context(), body.ChannelID, syncErr)
 	if syncErr != nil {
 		s.complaintError(w, syncErr)
@@ -236,6 +255,9 @@ func (s *Server) complaintListRead(w http.ResponseWriter, r *http.Request, mid i
 		Keyword:    q.Get("q"),
 		Status:     q.Get("status"),
 		PayType:    q.Get("pay_type"),
+		ChannelID:  q.Get("channel_id"),
+		StartTime:  q.Get("starttime"),
+		EndTime:    q.Get("endtime"),
 		Page:       page,
 		Limit:      limit,
 	}
@@ -297,8 +319,14 @@ func (s *Server) complaintChartsRead(w http.ResponseWriter, r *http.Request, mid
 		"columns": []map[string]string{
 			{"key": "dimension", "label": "商户ID"},
 			{"key": "today_count", "label": "今日投诉总条数"},
+			{"key": "today_money", "label": "今日投诉金额"},
 			{"key": "today_alipay", "label": "今日支付宝投诉"},
 			{"key": "today_wxpay", "label": "今日微信投诉"},
+			{"key": "yesterday_count", "label": "昨日投诉总条数"},
+			{"key": "yesterday_money", "label": "昨日投诉金额"},
+			{"key": "yesterday_alipay", "label": "昨日支付宝投诉"},
+			{"key": "yesterday_wxpay", "label": "昨日微信投诉"},
+			{"key": "complaint_rate", "label": "近7日投诉率"},
 			{"key": "total_count", "label": "累计投诉"},
 		},
 	})
@@ -350,6 +378,7 @@ func (s *Server) complaintSyncTaskUpsert(w http.ResponseWriter, r *http.Request,
 	}
 	var body struct {
 		Enabled   bool `json:"enabled"`
+		Days      int  `json:"days"`
 		Frequency int  `json:"frequency"`
 		Num       int  `json:"num"`
 	}
@@ -363,17 +392,195 @@ func (s *Server) complaintSyncTaskUpsert(w http.ResponseWriter, r *http.Request,
 		response(w, 400, -1, "invalid sync task body", nil)
 		return
 	}
-	v, e := s.Store.UpsertComplaintSyncTask(r.Context(), channel, body.Enabled, body.Frequency, body.Num, session.User.ID, session.User.Username)
+	v, e := s.Store.UpsertComplaintSyncTask(r.Context(), channel, body.Enabled, body.Days, body.Frequency, body.Num, session.User.ID, session.User.Username)
 	switch {
 	case e == nil:
 		response(w, 200, 0, "sync task saved", v)
 	case errors.Is(e, payment.ErrNotFound):
 		response(w, 404, -1, "channel not found", nil)
 	case errors.Is(e, payment.ErrInvalid):
-		response(w, 422, -1, "channel does not support complaints (only WeChat Pay V3 / Alipay), or frequency/num out of range (frequency 1-1440 min, num 1-50)", nil)
+		response(w, 422, -1, "channel does not support complaints (only WeChat Pay V3 / Alipay), or frequency/num/days out of range (frequency 1-1440 min, num 1-200, days >= 0)", nil)
 	default:
 		s.fail(w, e)
 	}
+}
+
+// complaintSyncTaskStatus serves PATCH /complaint-sync-tasks/{channel_id}: the
+// 同步任务 page's inline 状态 switch (setTaskStatus). Admin-only; the task must
+// already exist.
+func (s *Server) complaintSyncTaskStatus(w http.ResponseWriter, r *http.Request, role string, session identity.Session, channelStr string) {
+	if role != "admin" {
+		response(w, 403, -1, "complaint sync task configuration is an administrator action", nil)
+		return
+	}
+	channel, err := strconv.ParseInt(channelStr, 10, 64)
+	if err != nil || channel <= 0 {
+		response(w, 400, -1, "invalid channel", nil)
+		return
+	}
+	var body struct {
+		Enabled bool `json:"enabled"`
+	}
+	if strings.Split(r.Header.Get("Content-Type"), ";")[0] != "application/json" {
+		response(w, 400, -1, "application/json required", nil)
+		return
+	}
+	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
+	d.DisallowUnknownFields()
+	if e := d.Decode(&body); e != nil {
+		response(w, 400, -1, "invalid sync task status body", nil)
+		return
+	}
+	v, e := s.Store.SetComplaintTaskStatus(r.Context(), channel, body.Enabled, session.User.ID, session.User.Username)
+	switch {
+	case e == nil:
+		response(w, 200, 0, "sync task status updated", v)
+	case errors.Is(e, payment.ErrNotFound):
+		response(w, 404, -1, "sync task not found", nil)
+	case errors.Is(e, payment.ErrInvalid):
+		response(w, 400, -1, "invalid channel", nil)
+	default:
+		s.fail(w, e)
+	}
+}
+
+// complaintSyncTaskDelete serves DELETE /complaint-sync-tasks/{channel_id} and
+// the per-row 删除 action; complaintSyncTaskBatchDelete serves 批量删除. Both
+// remove only the task configuration (complaint_tasks133) — the synced
+// complaints themselves stay, preserving the append-only complaint ledger.
+func (s *Server) complaintSyncTaskDelete(w http.ResponseWriter, r *http.Request, role string, session identity.Session, channelStrs []string) {
+	if role != "admin" {
+		response(w, 403, -1, "complaint sync task configuration is an administrator action", nil)
+		return
+	}
+	channels := make([]int64, 0, len(channelStrs))
+	for _, cs := range channelStrs {
+		c, err := strconv.ParseInt(strings.TrimSpace(cs), 10, 64)
+		if err != nil || c <= 0 {
+			response(w, 400, -1, "invalid channel", nil)
+			return
+		}
+		channels = append(channels, c)
+	}
+	deleted, e := s.Store.DeleteComplaintSyncTasks(r.Context(), channels, session.User.ID, session.User.Username)
+	switch {
+	case e == nil:
+		response(w, 200, 0, "sync task deleted", map[string]any{"deleted": deleted})
+	case errors.Is(e, payment.ErrInvalid):
+		response(w, 400, -1, "invalid channel", nil)
+	default:
+		s.fail(w, e)
+	}
+}
+
+func (s *Server) complaintSyncTaskBatchDelete(w http.ResponseWriter, r *http.Request, role string, session identity.Session) {
+	if role != "admin" {
+		response(w, 403, -1, "complaint sync task configuration is an administrator action", nil)
+		return
+	}
+	var body struct {
+		ChannelIDs []int64 `json:"channel_ids"`
+	}
+	if strings.Split(r.Header.Get("Content-Type"), ";")[0] != "application/json" {
+		response(w, 400, -1, "application/json required", nil)
+		return
+	}
+	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192))
+	d.DisallowUnknownFields()
+	if e := d.Decode(&body); e != nil || len(body.ChannelIDs) == 0 || len(body.ChannelIDs) > 500 {
+		response(w, 400, -1, "invalid channel list", nil)
+		return
+	}
+	deleted, e := s.Store.DeleteComplaintSyncTasks(r.Context(), body.ChannelIDs, session.User.ID, session.User.Username)
+	switch {
+	case e == nil:
+		response(w, 200, 0, "sync tasks deleted", map[string]any{"deleted": deleted})
+	case errors.Is(e, payment.ErrInvalid):
+		response(w, 400, -1, "invalid channel list", nil)
+	default:
+		s.fail(w, e)
+	}
+}
+
+// complaintListExport serves GET /complaints133/export — a CSV of the 投诉记录
+// list under the SAME filters as the list (搜索字段/状态/支付方式/通道ID/日期范围),
+// scoped to the caller's merchant for the merchant role (complain/export). It
+// pages through the filtered result (bounded) so a large list still exports
+// without an unbounded query.
+func (s *Server) complaintListExport(w http.ResponseWriter, r *http.Request, mid int64) {
+	q := r.URL.Query()
+	base := payment.ComplaintListFilter{
+		OwnerScope: mid,
+		Field:      q.Get("field"),
+		Keyword:    q.Get("q"),
+		Status:     q.Get("status"),
+		PayType:    q.Get("pay_type"),
+		ChannelID:  q.Get("channel_id"),
+		StartTime:  q.Get("starttime"),
+		EndTime:    q.Get("endtime"),
+		Limit:      100,
+	}
+	const maxRows = 50000
+	var all []payment.ComplaintListItem
+	for page := 1; len(all) < maxRows; page++ {
+		base.Page = page
+		items, total, e := s.Store.ComplaintList(r.Context(), base)
+		if e != nil {
+			s.fail(w, e)
+			return
+		}
+		all = append(all, items...)
+		if len(all) >= int(total) || len(items) == 0 {
+			break
+		}
+	}
+	if len(all) > maxRows {
+		all = all[:maxRows]
+	}
+	statusWord := func(s string) string {
+		switch s {
+		case "open":
+			return "待处理"
+		case "processing":
+			return "处理中"
+		case "done":
+			return "已处理"
+		}
+		return s
+	}
+	amount := func(cents string) string {
+		if n, err := strconv.ParseInt(cents, 10, 64); err == nil {
+			return payment.CentsToYuan(n)
+		}
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\ufeff") // UTF-8 BOM so Excel reads the Chinese header correctly
+	b.WriteString("ID,商户号,通道ID,关联订单号,问题类型,订单金额,投诉原因,投诉详情,联系电话,渠道子商户号,投诉次数,状态,创建时间,更新时间\r\n")
+	csvCell := func(s string) string {
+		if strings.ContainsAny(s, ",\"\r\n") {
+			return "\"" + strings.ReplaceAll(s, "\"", "\"\"") + "\""
+		}
+		return s
+	}
+	for _, it := range all {
+		row := []string{
+			it.ID, it.OwnerID, it.ChannelID, it.TradeNo, it.Category, amount(it.Amount),
+			it.Title, it.Content, it.Phone, it.ThirdMchID, it.Times, statusWord(it.Status),
+			it.CreatedAt, it.UpdatedAt,
+		}
+		for i, c := range row {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			b.WriteString(csvCell(c))
+		}
+		b.WriteString("\r\n")
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="complaints.csv"`)
+	w.WriteHeader(200)
+	_, _ = w.Write([]byte(b.String()))
 }
 
 func (s *Server) complaintError(w http.ResponseWriter, e error) {
