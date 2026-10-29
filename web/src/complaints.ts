@@ -39,6 +39,7 @@ export type ComplaintTaskRow = {
   name: string;
   provider: string;
   enabled: boolean;
+  days: number; // 获取条件: only channels with traffic in N days (0 = 不限)
   frequency: number; // minutes
   num: number;
   consecutive_failures: number;
@@ -283,6 +284,7 @@ export function parseTask(v: Record<string, unknown>): ComplaintTaskRow {
     name: str(v.name),
     provider: str(v.provider),
     enabled: v.enabled === true,
+    days: num(v.days),
     frequency: num(v.frequency),
     num: num(v.num),
     consecutive_failures: num(v.consecutive_failures),
@@ -322,17 +324,72 @@ export async function fetchComplaintChannels(
   }));
 }
 
-// Upsert one channel's sync task (自动获取 toggle + frequency/num). Admin.
+// Upsert one channel's sync task (自动获取 toggle on the list page, and the
+// 同步任务 page's per-row 编辑 dialog: 获取条件 days / 获取频率 frequency /
+// 每次同步获取数量 num). Admin.
 export async function saveComplaintTask(
   client: ApiClient,
   channelId: string,
   enabled: boolean,
   frequency = 6,
   perRun = 20,
+  days = 0,
 ): Promise<ComplaintTaskRow> {
   const data = await client.request<Record<string, unknown>>(
     `/complaint-sync-tasks/${encodeURIComponent(channelId)}`,
-    { method: "PUT", body: { enabled, frequency, num: perRun } },
+    { method: "PUT", body: { enabled, days, frequency, num: perRun } },
   );
   return parseTask(data);
+}
+
+// Inline 状态 toggle on the 同步任务 page (setTaskStatus). Admin.
+export async function setComplaintTaskStatus(
+  client: ApiClient,
+  channelId: string,
+  enabled: boolean,
+): Promise<ComplaintTaskRow> {
+  const data = await client.request<Record<string, unknown>>(
+    `/complaint-sync-tasks/${encodeURIComponent(channelId)}`,
+    { method: "PATCH", body: { enabled } },
+  );
+  return parseTask(data);
+}
+
+// Delete one channel's sync task (per-row 删除). Admin.
+export async function deleteComplaintTask(
+  client: ApiClient,
+  channelId: string,
+): Promise<void> {
+  await client.request(
+    `/complaint-sync-tasks/${encodeURIComponent(channelId)}`,
+    { method: "DELETE" },
+  );
+}
+
+// Batch delete sync tasks (批量删除). Admin.
+export async function deleteComplaintTasks(
+  client: ApiClient,
+  channelIds: string[],
+): Promise<number> {
+  const data = await client.request<{ deleted?: number }>(
+    `/complaint-sync-tasks/delete`,
+    { method: "POST", body: { channel_ids: channelIds.map((c) => Number(c)) } },
+  );
+  return Number(data.deleted || 0);
+}
+
+// 导出投诉记录: download the filtered list as a CSV via the client's standard
+// CSV-download flow (BOM/attachment/size checks + browser save). `query` is the
+// SAME query string the list uses (搜索字段/状态/支付方式/通道ID/日期范围).
+export async function exportComplaints(
+  client: ApiClient,
+  query: string,
+  filename = "complaints.csv",
+  signal?: AbortSignal,
+): Promise<void> {
+  await client.downloadCSV(
+    `/complaints133/export${query ? "?" + query : ""}`,
+    filename,
+    { signal },
+  );
 }
