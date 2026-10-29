@@ -48,7 +48,8 @@ export type SettingsEmbed =
   | "scanjs"
   | "user-refund"
   | "buyer-fee"
-  | "proxy-credentials";
+  | "proxy-credentials"
+  | "oauth-credentials";
 type LayoutEntry = string | { group: string } | { embed: SettingsEmbed };
 // Field order follows the original epay_pro settings pages. A trailing "*"
 // matches a key prefix; keys not listed keep their server order at the end.
@@ -153,6 +154,21 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     "transfer_minmoney",
     "transfer_maxmoney",
     "transfer_maxlimit",
+  ],
+  oauth: [
+    { group: "QQ互联" },
+    "login_qq",
+    "login_qq_appid",
+    { group: "微信开放平台" },
+    "login_wx",
+    { group: "支付宝开放平台" },
+    "login_alipay",
+    { group: "第三方登录中转" },
+    "login_appid",
+    "login_apiurl",
+    { group: "Telegram" },
+    "login_tg",
+    { embed: "oauth-credentials" },
   ],
   notice: [
     "msgconfig_regaudit",
@@ -372,6 +388,13 @@ const labels: Record<
   proxy_user: ["proxy", "代理账号", "text"],
   proxy_type: ["proxy", "代理协议", "select"],
   proxy_apiurl: ["proxy", "API接口地址", "text"],
+  login_qq: ["oauth", "QQ快捷登录", "select"],
+  login_qq_appid: ["oauth", "QQ互联 APPID", "text"],
+  login_wx: ["oauth", "微信快捷登录", "select"],
+  login_alipay: ["oauth", "支付宝快捷登录", "select"],
+  login_appid: ["oauth", "第三方登录中转 APPID", "text"],
+  login_apiurl: ["oauth", "第三方登录中转API地址", "text"],
+  login_tg: ["oauth", "Telegram快捷登录", "select"],
   settle_alipay: ["settle", "支付宝结算开关", "select"],
   settle_wxpay: ["settle", "微信结算开关", "select"],
   settle_qqpay: ["settle", "QQ钱包结算开关", "select"],
@@ -499,6 +522,10 @@ export function settingDefinition(
       "applyments_open",
       "mchrisk_open",
       "reg_pay",
+      "login_qq",
+      "login_wx",
+      "login_alipay",
+      "login_tg",
     ].includes(key)
   )
     d.options = switchOptions;
@@ -529,6 +556,19 @@ export function settingDefinition(
       option("sock5h", "SOCK5H"),
     ];
   if (key === "proxy_apiurl") d.hint = "填写代理API站点URL，支持子目录。";
+  if (key === "login_qq")
+    d.hint = "开启后登录页显示QQ快捷登录；需配置QQ互联APPID与下方APPKEY。";
+  if (key === "login_wx")
+    d.hint = "开启后登录页显示微信快捷登录；需配置中转APPID与下方AppSecret。";
+  if (key === "login_alipay")
+    d.hint = "开启后登录页显示支付宝快捷登录；需配置中转APPID与下方应用密钥。";
+  if (key === "login_tg")
+    d.hint = "开启后登录页显示Telegram快捷登录；需配置下方Bot Token。";
+  if (key === "login_qq_appid") d.hint = "QQ互联应用的 APP ID。";
+  if (key === "login_appid")
+    d.hint = "第三方登录中转服务的 APP ID，微信与支付宝共用。";
+  if (key === "login_apiurl")
+    d.hint = "第三方登录中转服务的API地址，用于微信/支付宝授权换取身份。";
   if (key === "transfer_wxpay_type") {
     d.options = [
       option("0", "商家转账到零钱（旧）"),

@@ -309,6 +309,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.proxyCredentialsConsole(w, r, role, session, parts, c.Value) {
 		return
 	}
+	if s.oauthCredentialsConsole(w, r, role, session, parts, c.Value) {
+		return
+	}
 	if s.proxyConnectivityConsole(w, r, role, session, parts, c.Value) {
 		return
 	}
