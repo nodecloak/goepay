@@ -2,10 +2,10 @@
 //
 // From the repository root:
 //   GOEPAY_TEMPLATE_PREVIEW_DIR=<dir> go test -run TestWriteTemplatePreviewPages ./internal/pagetemplate
-//   node web/scripts/template-previews.mjs <dir>
+//   node web/scripts/template-previews.mjs <dir> [kind ...]
 //
 // Writes web/public/static/template-previews/<kind>-<name>.jpg (640x360) for
-// every entry in web/src/data/builtin-templates.json.
+// every entry in web/src/data/builtin-templates.json, or only the given kinds.
 import { chromium } from "playwright-core";
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -13,15 +13,17 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const src = process.argv[2];
 if (!src) {
-  console.error("usage: node web/scripts/template-previews.mjs <html dir>");
+  console.error("usage: node web/scripts/template-previews.mjs <html dir> [kind ...]");
   process.exit(2);
 }
+// Optional kinds (home, pay, qrpay) limit which pictures are rewritten.
+const only = new Set(process.argv.slice(3));
 const web = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(web, "public", "static", "template-previews");
 mkdirSync(out, { recursive: true });
 const list = JSON.parse(
   readFileSync(join(web, "src", "data", "builtin-templates.json"), "utf8"),
-);
+).filter((t) => !only.size || only.has(t.type));
 const browser = await chromium.launch();
 try {
   for (const t of list) {

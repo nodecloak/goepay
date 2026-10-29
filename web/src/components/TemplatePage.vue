@@ -25,7 +25,7 @@ const allowed = computed(
     props.ownSession &&
     props.client.area === "admin",
 );
-const kind = ref<TemplateKind>("pay"),
+const kind = ref<TemplateKind>("home"),
   catalog = ref<TemplateList | null>(null),
   view = ref<TemplateConfigView | null>(null),
   draft = ref<Record<string, string | boolean>>({});

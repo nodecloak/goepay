@@ -32,6 +32,8 @@ test("live Docker templates render in the protected iframe and both printing set
   await expect(
     page.getByRole("heading", { name: "模板配置", exact: true, level: 2 }),
   ).toBeVisible();
+  // The page opens on 首页模板; the checks below are about the pay frame.
+  await page.getByRole("button", { name: "支付页模板", exact: true }).click();
   await page
     .getByRole("button", { name: "预览已保存配置", exact: true })
     .click();

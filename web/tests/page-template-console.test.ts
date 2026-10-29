@@ -22,7 +22,7 @@ it("loads the typed template API for own super only and never generic template C
     },
   });
   await flushPromises();
-  expect(request.mock.calls[0]?.[0]).toBe("/templates?type=pay");
+  expect(request.mock.calls[0]?.[0]).toBe("/templates?type=home");
   w.unmount();
   for (const p of [
     { adminClass: "operator", ownSession: true },
@@ -72,6 +72,12 @@ it("preserves per-kind fields and rejects directory/config revision races before
         ownSession: true,
       },
     });
+    await flushPromises();
+    // The page opens on 首页模板; this case is about the pay kind.
+    await w
+      .findAll("nav.template-tabs button")
+      .find((b) => b.text() === "支付页模板")!
+      .trigger("click");
     await flushPromises();
     expect(w.find("form").exists()).toBe(false);
     expect(w.find("[role=alert]").exists()).toBe(true);
@@ -144,6 +150,12 @@ it("shows each template's preview picture on its card", async () => {
     },
   });
   await flushPromises();
+  // The page opens on 首页模板; switch to the pay kind this mock serves.
+  await w
+    .findAll("nav.template-tabs button")
+    .find((b) => b.text() === "支付页模板")!
+    .trigger("click");
+  await flushPromises();
   expect(
     w.findAll("img.template-thumb").map((i) => i.attributes("src")),
   ).toEqual([
@@ -167,5 +179,45 @@ it("shows each template's preview picture on its card", async () => {
   expect(request.mock.calls.every((c) => !String(c[0]).includes("/select"))).toBe(
     true,
   );
+  w.unmount();
+});
+
+
+it("opens on the 首页模板 tab", async () => {
+  const names = ["default", ...Array.from({ length: 10 }, (_, n) => `index${n + 1}`), "minimal"];
+  const request = vi.fn(async (path: string) =>
+    path.includes("?")
+      ? {
+          type: "home",
+          revision: "0",
+          selected: "default",
+          items: names.map((name) => ({ name, title: name, description: "本地" })),
+        }
+      : {
+          type: "home",
+          name: "default",
+          revision: "0",
+          config: {
+            brand_name: "Local",
+            notice: "",
+            accent_color: "#007c91",
+            background_color: "#f4f8fa",
+            logo_asset_id: "",
+            density: "comfortable",
+          },
+          fields: [],
+        },
+  );
+  const w = mount(TemplatePage, {
+    props: {
+      client: Object.assign(new ApiClient("admin"), { request }),
+      adminClass: "super",
+      ownSession: true,
+    },
+  });
+  await flushPromises();
+  const pressed = w.find('nav.template-tabs button[aria-pressed="true"]');
+  expect(pressed.text()).toBe("首页模板");
+  expect(w.findAll("img.template-thumb").length).toBe(12);
   w.unmount();
 });
