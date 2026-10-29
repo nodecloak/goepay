@@ -3809,3 +3809,9 @@ th {
 .pa-field > textarea {
   margin: 0;
 }
+
+/* An empty table cell that already holds the kit empty state (KitEmpty) does
+   not also draw the older outline icon above it. */
+td.empty:has(.pa-empty)::before {
+  content: none;
+}
