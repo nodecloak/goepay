@@ -52,7 +52,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 		// 网站域名: the host of the order's notify_url, else return_url. Pro shows it
 		// under 商户号. 插件名称: the configured name of the channel this order's
 		// attempt used (backoffice 'channels' record), shown under 支付方式.
-		columns += ",COALESCE(NULLIF(substring(o.notify_url from '^[a-zA-Z][a-zA-Z0-9+.-]*://([^/?#]+)'),''),NULLIF(substring(o.return_url from '^[a-zA-Z][a-zA-Z0-9+.-]*://([^/?#]+)'),''),'') AS domain"
+		columns += "," + consoleOrderDomainExpr + " AS domain"
 		columns += ",COALESCE((SELECT c.body->>'name' FROM backoffice_records c WHERE c.resource='channels' AND c.id=console_attempt.channel_id),'') AS plugin"
 		columns += "," + consoleOrderReportingColumns
 		if role == "admin" {

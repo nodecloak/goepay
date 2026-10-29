@@ -21,6 +21,7 @@ func TestProOrderSearchFixedFieldsAndExactMoney(t *testing.T) {
 		{"getmoney", "0.00", "o.merchant_amount=$2::bigint", int64(0)},
 		{"buyer", "buyer-secret", "console_authorization.buyer_id", "buyer-secret"},
 		{"ip", "2001:0db8:0:0:0:0:0:1", "console_report.client_ip=$2::text", "2001:db8::1"},
+		{"domain", "pay.Example.com", "strpos(lower(COALESCE(NULLIF(substring(o.notify_url", "pay.Example.com"},
 	} {
 		t.Run(tc.field, func(t *testing.T) {
 			clause, value, e := consoleOrderSearch(url.Values{"search_field": {tc.field}, "q": {tc.raw}}, "orders", "fallback")
