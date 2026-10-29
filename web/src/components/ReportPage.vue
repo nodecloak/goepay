@@ -44,6 +44,12 @@ const from = ref(""),
   total = ref(0),
   loading = ref(false),
   error = ref("");
+const method = ref("");
+// epay_pro transfer/accountStat offers a 付款方式 filter; GOEPAY surfaces it
+// only on the per-account report, whose server handler accepts the `type` param.
+const showTransferMethodFilter = computed(
+  () => props.report === "transfer-accounts",
+);
 const summary = ref<Record<string, unknown> | null>(null);
 const complaintOverview = computed(() => props.report === "complaints");
 const reportNote = computed(() =>
@@ -72,6 +78,7 @@ function resetFilters() {
   shortcut.value = "";
   from.value = "";
   to.value = "";
+  method.value = "";
   page.value = 1;
   load();
 }
@@ -86,6 +93,8 @@ function reportQuery() {
   }
   if (from.value) q.set("from", from.value);
   if (to.value) q.set("to", to.value);
+  if (showTransferMethodFilter.value && method.value)
+    q.set("type", method.value);
   return q;
 }
 const csvPath = computed(() => {
@@ -229,6 +238,19 @@ onBeforeUnmount(() => controller?.abort());
               type="date"
               aria-label="结束日期"
               @input="shortcut = ''"
+            />
+          </KitField>
+          <KitField v-if="showTransferMethodFilter" label="付款方式">
+            <KitSelect
+              v-model="method"
+              :options="[
+                { value: '', label: '全部方式' },
+                { value: 'alipay', label: '支付宝' },
+                { value: 'wxpay', label: '微信' },
+                { value: 'qqpay', label: 'QQ钱包' },
+                { value: 'bank', label: '银行卡' },
+              ]"
+              aria-label="付款方式"
             />
           </KitField>
         </template>
