@@ -1581,6 +1581,41 @@ textarea:focus {
   gap: 10px;
   flex-wrap: wrap;
 }
+/* Table row actions: one line, every action vertically centred and the same
+   size, whether it is a <button class="link-button">, a RouterLink <a> or a
+   kit button. */
+td .row-actions,
+td .pa-row-actions {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+td .row-actions > a,
+td .row-actions > .link-button,
+td .pa-row-actions > a,
+td .pa-row-actions > .link-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 6px;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  flex: none;
+}
+td .row-actions > a {
+  color: var(--primary-text);
+  text-decoration: none;
+  border-radius: var(--radius-sm, 4px);
+}
+td .row-actions > a:hover {
+  background: var(--bg-hover);
+}
+td .row-actions > .pa-btn,
+td .pa-row-actions > .pa-btn {
+  flex: none;
+}
 .resource-description {
   padding: 20px 20px 0;
   margin-bottom: 0;
