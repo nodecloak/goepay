@@ -397,6 +397,10 @@ const visibleRows = computed(() =>
 .statistics-total {
   font-weight: 600;
 }
+/* Same side padding as the toolbar above and the table below. */
+.original-statistics-trend {
+  padding: 0 var(--space-5);
+}
 .original-statistics-trend h2 {
   font-size: 16px;
   margin: 18px 0 12px;
@@ -416,6 +420,9 @@ const visibleRows = computed(() =>
   flex-wrap: wrap;
   list-style: none;
   padding: 0;
+  /* The legend buttons have 4px padding; this lines the first marker up
+     with the 近7天趋势 heading. */
+  margin-inline-start: -4px;
 }
 .trend-legend li {
   display: flex;
