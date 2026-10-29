@@ -24,6 +24,7 @@ type Row = {
   type: string;
   name: string;
   enabled: boolean;
+  device: string;
 };
 const schema = ref<ResourceSchema | null>(null);
 const items = ref<Row[]>([]);
@@ -76,6 +77,7 @@ async function load() {
       type: String(r.type ?? ""),
       name: String(r.name ?? payTypeLabel(r.type)),
       enabled: r.enabled === true,
+      device: String(r.device ?? "0"),
     }));
   } catch (e) {
     if (!c.signal.aborted && current === epoch) error.value = message(e);
@@ -100,7 +102,12 @@ async function toggle(row: Row, value: boolean) {
       if (!canCreate.value) throw new Error("当前身份不能新增支付方式");
       await props.client.request(endpoint, {
         method: "POST",
-        body: { name: row.name, type: row.type, enabled: value },
+        body: {
+          name: row.name,
+          type: row.type,
+          enabled: value,
+          device: row.device,
+        },
       });
     } else {
       await props.client.request(endpoint + "/" + encodeURIComponent(row.id), {
@@ -143,6 +150,7 @@ async function openEdit(row: Row) {
       name: row.name,
       type: row.type,
       enabled: row.enabled,
+      device: row.device,
     };
     mode.value = "create";
     return;
@@ -226,6 +234,11 @@ async function remove() {
 function orderHref(type: string) {
   return `/${props.client.area}/trade/order?type=${encodeURIComponent(type)}`;
 }
+// 支持设备 label, matching epay_pro's display_device: 0 PC+Mobile, 1 PC,
+// 2 Mobile (an unknown/absent value reads as the 0 default).
+function deviceLabel(device: string) {
+  return device === "1" ? "PC" : device === "2" ? "Mobile" : "PC+Mobile";
+}
 watch(
   () => [props.client, props.client.csrfToken, props.client.area],
   () => {
@@ -291,7 +304,7 @@ onBeforeUnmount(() => {
           <tr v-for="row in items" :key="row.type + ':' + row.id">
             <td class="pa-c-num">{{ row.type }}</td>
             <td><KitPayMethod :type="row.type" /></td>
-            <td>PC+Mobile</td>
+            <td>{{ deviceLabel(row.device) }}</td>
             <td>
               <KitSwitch
                 v-if="canWrite"
