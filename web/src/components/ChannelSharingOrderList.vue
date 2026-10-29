@@ -327,7 +327,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="panel sharing-orders" aria-label="分账记录">
+  <div class="list-page">
     <KitFilterBar :loading="loading" @query="onQuery" @reset="onReset">
       <KitField v-if="area === 'admin'" label="商户ID">
         <KitInput
@@ -376,177 +376,183 @@ onMounted(() => {
       </template>
     </KitFilterBar>
 
-    <p v-if="error" class="error" role="alert">{{ error }}</p>
-    <p v-if="notice" class="success" role="status">{{ notice }}</p>
+    <section class="panel sharing-orders" aria-label="分账记录">
+      <p v-if="error" class="error" role="alert">{{ error }}</p>
+      <p v-if="notice" class="success" role="status">{{ notice }}</p>
 
-    <div class="pa-toolbar">
-      <button
-        type="button"
-        class="pa-btn"
-        data-action="stats"
-        :disabled="!loaded"
-        @click="toggleStats"
-      >
-        统计
-      </button>
-      <button
-        type="button"
-        class="pa-btn"
-        data-action="batch"
-        disabled
-        title="分账请求以不可变业务号逐接收方执行，不支持列表批量操作"
-      >
-        批量操作
-      </button>
-      <button
-        type="button"
-        class="pa-btn pa-btn--success"
-        data-action="export"
-        :disabled="!loaded || busy"
-        @click="exportCsv"
-      >
-        导出
-      </button>
-      <button
-        type="button"
-        class="pa-btn pa-icon-btn"
-        data-action="refresh"
-        :disabled="loading"
-        title="刷新"
-        @click="load"
-      >
-        刷新
-      </button>
-    </div>
+      <div class="pa-toolbar">
+        <button
+          type="button"
+          class="pa-btn"
+          data-action="stats"
+          :disabled="!loaded"
+          @click="toggleStats"
+        >
+          统计
+        </button>
+        <button
+          type="button"
+          class="pa-btn"
+          data-action="batch"
+          disabled
+          title="分账请求以不可变业务号逐接收方执行，不支持列表批量操作"
+        >
+          批量操作
+        </button>
+        <button
+          type="button"
+          class="pa-btn pa-btn--success"
+          data-action="export"
+          :disabled="!loaded || busy"
+          @click="exportCsv"
+        >
+          导出
+        </button>
+        <button
+          type="button"
+          class="pa-btn pa-icon-btn"
+          data-action="refresh"
+          :disabled="loading"
+          title="刷新"
+          @click="load"
+        >
+          刷新
+        </button>
+      </div>
 
-    <div v-if="showStats && stats" class="sharing-stats" role="status">
-      <div>
-        <span class="muted">记录数</span><strong>{{ stats.count }}</strong>
+      <div v-if="showStats && stats" class="sharing-stats" role="status">
+        <div>
+          <span class="muted">记录数</span><strong>{{ stats.count }}</strong>
+        </div>
+        <div>
+          <span class="muted">分账金额</span
+          ><strong>¥{{ money(stats.share_amount) }}</strong>
+        </div>
+        <div>
+          <span class="muted">已释放</span
+          ><strong>¥{{ money(stats.released_amount) }}</strong>
+        </div>
+        <div>
+          <span class="muted">成功</span
+          ><strong>{{ stats.success_count }}</strong>
+        </div>
+        <div>
+          <span class="muted">失败</span><strong>{{ stats.fail_count }}</strong>
+        </div>
+        <div>
+          <span class="muted">成功率</span><strong>{{ successRate }}</strong>
+        </div>
       </div>
-      <div>
-        <span class="muted">分账金额</span
-        ><strong>¥{{ money(stats.share_amount) }}</strong>
-      </div>
-      <div>
-        <span class="muted">已释放</span
-        ><strong>¥{{ money(stats.released_amount) }}</strong>
-      </div>
-      <div>
-        <span class="muted">成功</span
-        ><strong>{{ stats.success_count }}</strong>
-      </div>
-      <div>
-        <span class="muted">失败</span><strong>{{ stats.fail_count }}</strong>
-      </div>
-      <div>
-        <span class="muted">成功率</span><strong>{{ successRate }}</strong>
-      </div>
-    </div>
 
-    <div class="pa-table-wrap">
-      <table class="pa-table">
-        <thead>
-          <tr>
-            <th class="pa-c-check">
-              <input
-                type="checkbox"
-                aria-label="全选"
-                :checked="allOnPageSelected"
-                @change="toggleAll"
-              />
-            </th>
-            <th>系统订单号</th>
-            <th>分账规则</th>
-            <th>支付方式</th>
-            <th>订单金额</th>
-            <th>分账金额</th>
-            <th>时间</th>
-            <th>分账状态</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="o in rows" :key="o.id">
-            <td class="pa-c-check">
-              <input
-                type="checkbox"
-                :aria-label="'选择 ' + o.external_no"
-                :checked="selected.has(o.id)"
-                @change="toggleOne(o.id)"
-              />
-            </td>
-            <td class="pa-c-num">
-              <span class="mono">{{ o.external_no }}</span>
-              <small v-if="o.out_no" class="muted">接口号 {{ o.out_no }}</small>
-            </td>
-            <td class="pa-c-num">{{ o.rule_id !== "0" ? o.rule_id : "-" }}</td>
-            <td>
-              <KitPayMethod v-if="o.provider" :type="o.provider" />
-              <span v-else class="muted">-</span>
-            </td>
-            <td class="pa-c-num">¥{{ money(o.order_amount) }}</td>
-            <td class="pa-c-num">¥{{ money(o.share_amount) }}</td>
-            <td>{{ beijingTimestamp(o.created_at) }}</td>
-            <td>
-              <KitStatusTag
-                :text="stateWords[o.state] || o.state"
-                :tone="stateTone(o.state)"
-              />
-            </td>
-            <td>
-              <div class="pa-row-actions">
-                <button
-                  type="button"
-                  class="pa-btn"
-                  data-action="query"
-                  :disabled="busy"
-                  @click="queryOrder(o)"
+      <div class="pa-table-wrap">
+        <table class="pa-table">
+          <thead>
+            <tr>
+              <th class="pa-c-check">
+                <input
+                  type="checkbox"
+                  aria-label="全选"
+                  :checked="allOnPageSelected"
+                  @change="toggleAll"
+                />
+              </th>
+              <th>系统订单号</th>
+              <th>分账规则</th>
+              <th>支付方式</th>
+              <th>订单金额</th>
+              <th>分账金额</th>
+              <th>时间</th>
+              <th>分账状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="o in rows" :key="o.id">
+              <td class="pa-c-check">
+                <input
+                  type="checkbox"
+                  :aria-label="'选择 ' + o.external_no"
+                  :checked="selected.has(o.id)"
+                  @change="toggleOne(o.id)"
+                />
+              </td>
+              <td class="pa-c-num">
+                <span class="mono">{{ o.external_no }}</span>
+                <small v-if="o.out_no" class="muted"
+                  >接口号 {{ o.out_no }}</small
                 >
-                  查询结果
-                </button>
-                <button
-                  type="button"
-                  class="pa-btn"
-                  data-action="return"
-                  :disabled="busy"
-                  title="在分账操作台对已成功分出的接收方发起回退"
-                  @click="emit('open-flow')"
-                >
-                  分账回退
-                </button>
-                <button
-                  type="button"
-                  class="pa-btn"
-                  data-action="editmoney"
-                  disabled
-                  title="分账金额按规则版本快照固定，不可修改（immutable）"
-                >
-                  修改金额
-                </button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="loaded && !rows.length">
-            <td colspan="9"><KitEmpty text="暂无数据" /></td>
-          </tr>
-          <tr v-if="!loaded">
-            <td colspan="9">
-              <KitEmpty
-                :text="area === 'admin' ? '请输入商户ID后查询' : '暂无数据'"
-              />
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+              </td>
+              <td class="pa-c-num">
+                {{ o.rule_id !== "0" ? o.rule_id : "-" }}
+              </td>
+              <td>
+                <KitPayMethod v-if="o.provider" :type="o.provider" />
+                <span v-else class="muted">-</span>
+              </td>
+              <td class="pa-c-num">¥{{ money(o.order_amount) }}</td>
+              <td class="pa-c-num">¥{{ money(o.share_amount) }}</td>
+              <td>{{ beijingTimestamp(o.created_at) }}</td>
+              <td>
+                <KitStatusTag
+                  :text="stateWords[o.state] || o.state"
+                  :tone="stateTone(o.state)"
+                />
+              </td>
+              <td>
+                <div class="pa-row-actions">
+                  <button
+                    type="button"
+                    class="pa-btn"
+                    data-action="query"
+                    :disabled="busy"
+                    @click="queryOrder(o)"
+                  >
+                    查询结果
+                  </button>
+                  <button
+                    type="button"
+                    class="pa-btn"
+                    data-action="return"
+                    :disabled="busy"
+                    title="在分账操作台对已成功分出的接收方发起回退"
+                    @click="emit('open-flow')"
+                  >
+                    分账回退
+                  </button>
+                  <button
+                    type="button"
+                    class="pa-btn"
+                    data-action="editmoney"
+                    disabled
+                    title="分账金额按规则版本快照固定，不可修改（immutable）"
+                  >
+                    修改金额
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="loaded && !rows.length">
+              <td colspan="9"><KitEmpty text="暂无数据" /></td>
+            </tr>
+            <tr v-if="!loaded">
+              <td colspan="9">
+                <KitEmpty
+                  :text="area === 'admin' ? '请输入商户ID后查询' : '暂无数据'"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-    <KitPagination
-      v-if="loaded && total"
-      v-model:page="page"
-      v-model:pageSize="pageSize"
-      :total="total"
-    />
-  </section>
+      <KitPagination
+        v-if="loaded && total"
+        v-model:page="page"
+        v-model:pageSize="pageSize"
+        :total="total"
+      />
+    </section>
+  </div>
 </template>
 
 <style scoped>

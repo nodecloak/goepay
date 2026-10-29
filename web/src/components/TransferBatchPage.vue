@@ -158,14 +158,7 @@ onBeforeUnmount(() => {
       load();
     "
   />
-  <section v-else class="panel records" aria-label="持久批量付款">
-    <h2>批量付款</h2>
-    <p class="muted">
-      先整批预留，再单独执行。每批 1–100
-      项；未知或已发送项目不重发，取消仅释放可证明尚未发送的项目。此功能不等同自动结算。
-    </p>
-    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <p v-if="notice" class="alert" role="status">{{ notice }}</p>
+  <div v-else class="list-page" aria-label="持久批量付款">
     <KitFilterBar
       :loading="loading"
       @query="
@@ -197,126 +190,139 @@ onBeforeUnmount(() => {
         />
       </KitField>
     </KitFilterBar>
-    <div class="table-tools">
-      <button
-        type="button"
-        class="pa-btn pa-btn--primary"
-        :disabled="busy || loading || !writes || creating"
-        @click="start"
-      >
-        新建批量付款
-      </button>
-    </div>
-    <section v-if="creating && !uncertain" aria-label="新批次">
-      <p>
-        本次原请求号：<code>{{ external }}</code
-        >。仅保存在当前页面，请记录用于恢复。
+    <section class="panel records">
+      <h2>批量付款</h2>
+      <p class="muted">
+        先整批预留，再单独执行。每批 1–100
+        项；未知或已发送项目不重发，取消仅释放可证明尚未发送的项目。此功能不等同自动结算。
       </p>
-      <BatchRecipientEditor
-        v-if="policy"
-        :rows="rows"
-        :policy="policy"
-        :disabled="busy || confirming"
-        @change="rows = $event"
-      />
-      <TransferBatchImport
-        v-if="policy"
-        :client="client"
-        :policy="policy"
-        :merchant-i-d="merchant"
-        :disabled="busy || confirming"
-        @apply="rows = $event"
-      />
-      <button :disabled="busy || confirming || !writes" @click="review">
-        核对并预留整批资金
-      </button>
-      <div v-if="confirming" class="alert">
-        <p>
-          确认商户 {{ client.area === "admin" ? merchant : "当前商户" }}，共
-          {{ rows.length }}
-          项。将一次性预留所有本金及服务费，任何一项无效则整批回滚；本步骤不发送付款。
-        </p>
+      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <p v-if="notice" class="alert" role="status">{{ notice }}</p>
+      <div class="table-tools">
         <button
-          :disabled="busy"
+          type="button"
+          class="pa-btn pa-btn--primary"
+          :disabled="busy || loading || !writes || creating"
+          @click="start"
+        >
+          新建批量付款
+        </button>
+      </div>
+      <section v-if="creating && !uncertain" aria-label="新批次">
+        <p>
+          本次原请求号：<code>{{ external }}</code
+          >。仅保存在当前页面，请记录用于恢复。
+        </p>
+        <BatchRecipientEditor
+          v-if="policy"
+          :rows="rows"
+          :policy="policy"
+          :disabled="busy || confirming"
+          @change="rows = $event"
+        />
+        <TransferBatchImport
+          v-if="policy"
+          :client="client"
+          :policy="policy"
+          :merchant-i-d="merchant"
+          :disabled="busy || confirming"
+          @apply="rows = $event"
+        />
+        <button :disabled="busy || confirming || !writes" @click="review">
+          核对并预留整批资金
+        </button>
+        <div v-if="confirming" class="alert">
+          <p>
+            确认商户 {{ client.area === "admin" ? merchant : "当前商户" }}，共
+            {{ rows.length }}
+            项。将一次性预留所有本金及服务费，任何一项无效则整批回滚；本步骤不发送付款。
+          </p>
+          <button
+            :disabled="busy"
+            @click="
+              confirming = false;
+              frozen = undefined;
+            "
+          >
+            返回编辑</button
+          ><button :disabled="busy" @click="prepare">
+            确认预留，不发送付款
+          </button>
+        </div>
+        <button :disabled="busy" @click="discard">
+          取消编辑并清除收款资料
+        </button>
+      </section>
+      <p v-if="uncertain" class="alert">
+        请先按上方原请求号查找已保存批次，再核对详情；收款资料已从当前表单清除。
+      </p>
+      <div class="table-scroll">
+        <table class="pa-table">
+          <thead>
+            <tr>
+              <th scope="col">批次 ID</th>
+              <th scope="col">请求号</th>
+              <th scope="col" class="pa-c-num">本金（分）</th>
+              <th scope="col" class="pa-c-num">预占（分）</th>
+              <th scope="col">状态</th>
+              <th scope="col">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in items" :key="item.id">
+              <td class="pa-c-mono">{{ item.id }}</td>
+              <td>{{ item.external_no }}</td>
+              <td class="pa-c-num">{{ item.amount }}</td>
+              <td class="pa-c-num">{{ item.cost_amount }}</td>
+              <td>{{ displayValue(item.summary) }}</td>
+              <td>
+                <button
+                  type="button"
+                  class="link-button"
+                  :disabled="busy"
+                  @click="
+                    selected = item.id;
+                    creating = false;
+                    uncertain = false;
+                  "
+                >
+                  查看批次 {{ item.id }}
+                </button>
+              </td>
+            </tr>
+            <tr v-if="!items.length && !loading">
+              <td class="empty" :colspan="6"><KitEmpty text="暂无数据" /></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pa-pager pa-pager--keyset">
+        <span class="pa-pager-total">共 {{ total }} 批</span>
+        <button
+          v-if="before !== '0'"
+          type="button"
+          class="pa-btn"
+          :disabled="busy || loading"
           @click="
-            confirming = false;
-            frozen = undefined;
+            before = '0';
+            load();
           "
         >
-          返回编辑</button
-        ><button :disabled="busy" @click="prepare">确认预留，不发送付款</button>
+          返回最新批次
+        </button>
+        <button
+          v-if="next !== '0'"
+          type="button"
+          class="pa-btn"
+          :disabled="busy || loading"
+          @click="
+            before = next;
+            load();
+          "
+        >
+          下一页批次
+        </button>
       </div>
-      <button :disabled="busy" @click="discard">取消编辑并清除收款资料</button>
     </section>
-    <p v-if="uncertain" class="alert">
-      请先按上方原请求号查找已保存批次，再核对详情；收款资料已从当前表单清除。
-    </p>
-    <div class="table-scroll">
-      <table class="pa-table">
-        <thead>
-          <tr>
-            <th scope="col">批次 ID</th>
-            <th scope="col">请求号</th>
-            <th scope="col" class="pa-c-num">本金（分）</th>
-            <th scope="col" class="pa-c-num">预占（分）</th>
-            <th scope="col">状态</th>
-            <th scope="col">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in items" :key="item.id">
-            <td class="pa-c-mono">{{ item.id }}</td>
-            <td>{{ item.external_no }}</td>
-            <td class="pa-c-num">{{ item.amount }}</td>
-            <td class="pa-c-num">{{ item.cost_amount }}</td>
-            <td>{{ displayValue(item.summary) }}</td>
-            <td>
-              <button
-                type="button"
-                class="link-button"
-                :disabled="busy"
-                @click="
-                  selected = item.id;
-                  creating = false;
-                  uncertain = false;
-                "
-              >
-                查看批次 {{ item.id }}
-              </button>
-            </td>
-          </tr>
-          <tr v-if="!items.length && !loading">
-            <td class="empty" :colspan="6"><KitEmpty text="暂无数据" /></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="pa-pager pa-pager--keyset">
-      <span class="pa-pager-total">共 {{ total }} 批</span>
-      <button
-        v-if="before !== '0'"
-        type="button"
-        class="pa-btn"
-        :disabled="busy || loading"
-        @click="
-          before = '0';
-          load();
-        "
-      >
-        返回最新批次
-      </button>
-      <button
-        v-if="next !== '0'"
-        type="button"
-        class="pa-btn"
-        :disabled="busy || loading"
-        @click="
-          before = next;
-          load();
-        "
-      >
-        下一页批次
-      </button>
-    </div>
-  </section>
+  </div>
 </template>

@@ -3772,3 +3772,17 @@ th {
   top: auto;
   bottom: calc(100% + 4px);
 }
+
+/* List and report pages: the search card and the content card are two
+   separate cards, 16px apart, like the order page. Components whose root used
+   to be one card holding both wrap them in .list-page instead. */
+.list-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.list-page > .list-filter-card,
+.list-page > .pa-filter {
+  margin: 0;
+}

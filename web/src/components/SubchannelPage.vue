@@ -917,71 +917,72 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="subchannel-page">
+  <div class="list-page subchannel-page">
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
-    <div class="panel">
-      <form class="subchannel-toolbar" @submit.prevent="search">
-        <label
-          >子通道编号<input
-            v-model="filters.id"
-            inputmode="numeric"
-            placeholder="精确编号" /></label
-        ><label
-          >名称<input v-model="filters.name" placeholder="子通道名称" /></label
-        ><label
-          >支付方式<KitSelect
-            v-model="filters.payType"
-            :options="payTypeFilterOptions"
-            aria-label="支付方式筛选" /></label
-        ><label v-if="admin"
-          >商户编号<input
-            v-model="filters.merchantId"
-            inputmode="numeric" /></label
-        ><label v-if="admin"
-          >父通道编号<input
-            v-model="filters.parentId"
-            inputmode="numeric" /></label
-        ><button type="submit" :disabled="!allowed || loading">查询</button
-        ><button type="button" @click="reset" :disabled="loading">
-          清空筛选
+    <form
+      class="subchannel-toolbar list-filter-card panel"
+      @submit.prevent="search"
+    >
+      <label
+        >子通道编号<input
+          v-model="filters.id"
+          inputmode="numeric"
+          placeholder="精确编号" /></label
+      ><label
+        >名称<input v-model="filters.name" placeholder="子通道名称" /></label
+      ><label
+        >支付方式<KitSelect
+          v-model="filters.payType"
+          :options="payTypeFilterOptions"
+          aria-label="支付方式筛选" /></label
+      ><label v-if="admin"
+        >商户编号<input
+          v-model="filters.merchantId"
+          inputmode="numeric" /></label
+      ><label v-if="admin"
+        >父通道编号<input
+          v-model="filters.parentId"
+          inputmode="numeric" /></label
+      ><button type="submit" :disabled="!allowed || loading">查询</button
+      ><button type="button" @click="reset" :disabled="loading">
+        清空筛选
+      </button>
+      <div class="subchannel-tools">
+        <button
+          v-if="admin"
+          class="primary"
+          type="button"
+          :disabled="!allowed || loading || !schemas.length || requiresRefresh"
+          @click="open('create')"
+        >
+          新增子通道</button
+        ><button
+          type="button"
+          :disabled="!allowed || loading || !rollOwner || requiresRefresh"
+          @click="open('roll')"
+        >
+          轮询设置</button
+        ><button
+          data-subchannel-refresh
+          type="button"
+          :disabled="!allowed || loading"
+          @click="load"
+        >
+          刷新
         </button>
-        <div class="subchannel-tools">
-          <button
-            v-if="admin"
-            class="primary"
-            type="button"
-            :disabled="
-              !allowed || loading || !schemas.length || requiresRefresh
-            "
-            @click="open('create')"
-          >
-            新增子通道</button
-          ><button
-            type="button"
-            :disabled="!allowed || loading || !rollOwner || requiresRefresh"
-            @click="open('roll')"
-          >
-            轮询设置</button
-          ><button
-            data-subchannel-refresh
-            type="button"
-            :disabled="!allowed || loading"
-            @click="load"
-          >
-            刷新
-          </button>
-          <KitHelpPopover label="说明">
-            <p>
-              收款账户由管理员配置。轮询方式适用于本人子通道；单笔订单金额须同时满足父通道与子通道限额。
-            </p>
-            <p>
-              金额按北京时间统计已记录子通道绑定的可信支付确认（含后续退款）；成功率为可信确认数
-              / 已发起次数，暂无发起记录显示“—”。历史未记录绑定的订单不推算。
-            </p>
-          </KitHelpPopover>
-        </div>
-      </form>
+        <KitHelpPopover label="说明">
+          <p>
+            收款账户由管理员配置。轮询方式适用于本人子通道；单笔订单金额须同时满足父通道与子通道限额。
+          </p>
+          <p>
+            金额按北京时间统计已记录子通道绑定的可信支付确认（含后续退款）；成功率为可信确认数
+            / 已发起次数，暂无发起记录显示“—”。历史未记录绑定的订单不推算。
+          </p>
+        </KitHelpPopover>
+      </div>
+    </form>
+    <div class="panel">
       <div class="subchannel-summary">
         <span v-if="policy"
           >当前轮询方式：{{ subchannelRollNames[policy.rollType] }}</span
@@ -1372,7 +1373,7 @@ onBeforeUnmount(() => {
         </section>
       </div></Teleport
     >
-  </section>
+  </div>
 </template>
 <style scoped>
 .subchannel-page {
@@ -1383,8 +1384,6 @@ onBeforeUnmount(() => {
   align-items: end;
   flex-wrap: wrap;
   gap: 0.65rem;
-  padding: 1rem;
-  border-bottom: 1px solid var(--line);
 }
 .subchannel-toolbar > label {
   display: grid;

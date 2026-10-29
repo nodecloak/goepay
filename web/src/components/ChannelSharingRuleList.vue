@@ -541,7 +541,7 @@ function onReset() {
 </script>
 
 <template>
-  <section class="panel sharing-rules" aria-label="分账规则">
+  <div class="list-page">
     <KitFilterBar :loading="loading" @query="load" @reset="onReset">
       <KitField v-if="area === 'admin'" label="商户ID">
         <KitInput
@@ -567,210 +567,212 @@ function onReset() {
       </KitField>
     </KitFilterBar>
 
-    <p v-if="error" class="error" role="alert">{{ error }}</p>
-    <p v-if="notice" class="success" role="status">{{ notice }}</p>
-    <p v-if="reason" class="muted" role="status">{{ reason }}</p>
+    <section class="panel sharing-rules" aria-label="分账规则">
+      <p v-if="error" class="error" role="alert">{{ error }}</p>
+      <p v-if="notice" class="success" role="status">{{ notice }}</p>
+      <p v-if="reason" class="muted" role="status">{{ reason }}</p>
 
-    <div class="pa-toolbar">
-      <button
-        type="button"
-        class="pa-btn pa-btn--primary"
-        data-action="create"
-        :disabled="loading || saving || !loaded || !rows.length"
-        @click="openAdd"
-      >
-        新增
-      </button>
-    </div>
-
-    <div class="pa-table-wrap">
-      <table class="pa-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>支付通道</th>
-            <th>分账接收方+分账比例</th>
-            <th>状态</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in filteredRows" :key="row.channel.channel_id">
-            <td class="pa-c-num">{{ row.rule ? row.rule.id : "-" }}</td>
-            <td>
-              <KitPayMethod :type="row.channel.provider" />
-              <small class="muted">#{{ row.channel.channel_id }}</small>
-            </td>
-            <td>
-              <template v-if="row.rule && row.rule.items.length">
-                <div
-                  v-for="item in row.rule.items"
-                  :key="item.receiver_id"
-                  class="sharing-recv"
-                >
-                  <span>{{
-                    row.receivers.find((r) => r.id === item.receiver_id)
-                      ?.account_masked || "接收方" + item.receiver_id
-                  }}</span>
-                  <span class="rate">{{
-                    item.mode === "rate"
-                      ? (Number(item.rate_bps) / 100).toFixed(2) + "%"
-                      : "¥" + money(item.fixed_amount)
-                  }}</span>
-                </div>
-              </template>
-              <span v-else class="muted">-</span>
-            </td>
-            <td>
-              <KitStatusTag
-                :text="
-                  row.rule ? (row.enabled ? '已开启' : '已关闭') : '未配置'
-                "
-                :tone="
-                  row.rule ? (row.enabled ? 'success' : 'neutral') : 'info'
-                "
-              />
-            </td>
-            <td>
-              <div class="pa-row-actions">
-                <button
-                  type="button"
-                  class="pa-btn"
-                  data-action="edit"
-                  :disabled="saving"
-                  @click="openEdit(row)"
-                >
-                  {{ row.rule ? "编辑" : "配置" }}
-                </button>
-                <button
-                  v-if="row.rule"
-                  type="button"
-                  class="pa-btn"
-                  :class="row.enabled ? 'pa-btn--danger' : 'pa-btn--success'"
-                  data-action="toggle"
-                  :disabled="saving"
-                  @click="toggleEnabled(row)"
-                >
-                  {{ row.enabled ? "关闭" : "开启" }}
-                </button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="loaded && !filteredRows.length">
-            <td colspan="5"><KitEmpty text="暂无数据" /></td>
-          </tr>
-          <tr v-if="!loaded">
-            <td colspan="5">
-              <KitEmpty
-                :text="area === 'admin' ? '请输入商户ID后查询' : '暂无数据'"
-              />
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <KitModal
-      v-if="dialogOpen"
-      :title="dialogMode === 'add' ? '新增分账规则' : '修改分账规则'"
-      :loading="saving"
-      width="640px"
-      @close="dialogOpen = false"
-      @submit="save"
-    >
-      <KitField label="支付通道" required>
-        <KitSelect
-          v-model="form.channel_id"
-          :options="channelOptions"
-          placeholder="请选择支付通道"
-          :disabled="dialogMode === 'edit'"
-          aria-label="支付通道"
-        />
-      </KitField>
-      <KitField label="订单最小金额">
-        <KitInput
-          v-model="form.minimum"
-          inputmode="numeric"
-          placeholder="订单金额（分）超过该值才分账，0为不限制"
-          aria-label="订单最小金额"
-        />
-      </KitField>
-      <KitField label="分账模式">
-        <KitSelect
-          v-model="shareMode"
-          :options="shareModeOptions"
-          disabled
-          aria-label="分账模式"
-        />
-      </KitField>
-      <div class="sharing-recv-head">分账接收方列表</div>
-      <table class="pa-table pa-table--compact">
-        <thead>
-          <tr>
-            <th>接收方账号</th>
-            <th>接收方姓名</th>
-            <th>分账比例</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(r, i) in form.receivers" :key="i">
-            <td>
-              <KitInput
-                v-model="r.account"
-                placeholder="请输入"
-                :disabled="!!r.id"
-                aria-label="接收方账号"
-              />
-            </td>
-            <td>
-              <KitInput
-                v-model="r.name"
-                placeholder="可留空"
-                :disabled="!!r.id"
-                aria-label="接收方姓名"
-              />
-            </td>
-            <td>
-              <KitInput
-                v-model="r.rate"
-                placeholder="1-100"
-                inputmode="decimal"
-                aria-label="分账比例"
-              />
-            </td>
-            <td>
-              <button
-                type="button"
-                class="pa-btn pa-btn--danger"
-                :disabled="form.receivers.length <= 1"
-                @click="removeReceiverRow(i)"
-              >
-                删除
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="sharing-add-recv">
+      <div class="pa-toolbar">
         <button
           type="button"
-          class="pa-btn pa-btn--success"
-          :disabled="form.receivers.length >= 10"
-          @click="addReceiverRow"
+          class="pa-btn pa-btn--primary"
+          data-action="create"
+          :disabled="loading || saving || !loaded || !rows.length"
+          @click="openAdd"
         >
-          增加接收方
+          新增
         </button>
       </div>
-      <p v-if="receiverHint" class="muted">{{ receiverHint }}</p>
-      <p class="muted">
-        分账比例总和不能超过100%；保存后按顺序保存接收方、绑定并发布新规则版本，任一步失败会提示。
-      </p>
-      <template #footer-extra>
-        <span class="muted">分账比例一般最高30%</span>
-      </template>
-    </KitModal>
-  </section>
+
+      <div class="pa-table-wrap">
+        <table class="pa-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>支付通道</th>
+              <th>分账接收方+分账比例</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in filteredRows" :key="row.channel.channel_id">
+              <td class="pa-c-num">{{ row.rule ? row.rule.id : "-" }}</td>
+              <td>
+                <KitPayMethod :type="row.channel.provider" />
+                <small class="muted">#{{ row.channel.channel_id }}</small>
+              </td>
+              <td>
+                <template v-if="row.rule && row.rule.items.length">
+                  <div
+                    v-for="item in row.rule.items"
+                    :key="item.receiver_id"
+                    class="sharing-recv"
+                  >
+                    <span>{{
+                      row.receivers.find((r) => r.id === item.receiver_id)
+                        ?.account_masked || "接收方" + item.receiver_id
+                    }}</span>
+                    <span class="rate">{{
+                      item.mode === "rate"
+                        ? (Number(item.rate_bps) / 100).toFixed(2) + "%"
+                        : "¥" + money(item.fixed_amount)
+                    }}</span>
+                  </div>
+                </template>
+                <span v-else class="muted">-</span>
+              </td>
+              <td>
+                <KitStatusTag
+                  :text="
+                    row.rule ? (row.enabled ? '已开启' : '已关闭') : '未配置'
+                  "
+                  :tone="
+                    row.rule ? (row.enabled ? 'success' : 'neutral') : 'info'
+                  "
+                />
+              </td>
+              <td>
+                <div class="pa-row-actions">
+                  <button
+                    type="button"
+                    class="pa-btn"
+                    data-action="edit"
+                    :disabled="saving"
+                    @click="openEdit(row)"
+                  >
+                    {{ row.rule ? "编辑" : "配置" }}
+                  </button>
+                  <button
+                    v-if="row.rule"
+                    type="button"
+                    class="pa-btn"
+                    :class="row.enabled ? 'pa-btn--danger' : 'pa-btn--success'"
+                    data-action="toggle"
+                    :disabled="saving"
+                    @click="toggleEnabled(row)"
+                  >
+                    {{ row.enabled ? "关闭" : "开启" }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="loaded && !filteredRows.length">
+              <td colspan="5"><KitEmpty text="暂无数据" /></td>
+            </tr>
+            <tr v-if="!loaded">
+              <td colspan="5">
+                <KitEmpty
+                  :text="area === 'admin' ? '请输入商户ID后查询' : '暂无数据'"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <KitModal
+        v-if="dialogOpen"
+        :title="dialogMode === 'add' ? '新增分账规则' : '修改分账规则'"
+        :loading="saving"
+        width="640px"
+        @close="dialogOpen = false"
+        @submit="save"
+      >
+        <KitField label="支付通道" required>
+          <KitSelect
+            v-model="form.channel_id"
+            :options="channelOptions"
+            placeholder="请选择支付通道"
+            :disabled="dialogMode === 'edit'"
+            aria-label="支付通道"
+          />
+        </KitField>
+        <KitField label="订单最小金额">
+          <KitInput
+            v-model="form.minimum"
+            inputmode="numeric"
+            placeholder="订单金额（分）超过该值才分账，0为不限制"
+            aria-label="订单最小金额"
+          />
+        </KitField>
+        <KitField label="分账模式">
+          <KitSelect
+            v-model="shareMode"
+            :options="shareModeOptions"
+            disabled
+            aria-label="分账模式"
+          />
+        </KitField>
+        <div class="sharing-recv-head">分账接收方列表</div>
+        <table class="pa-table pa-table--compact">
+          <thead>
+            <tr>
+              <th>接收方账号</th>
+              <th>接收方姓名</th>
+              <th>分账比例</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(r, i) in form.receivers" :key="i">
+              <td>
+                <KitInput
+                  v-model="r.account"
+                  placeholder="请输入"
+                  :disabled="!!r.id"
+                  aria-label="接收方账号"
+                />
+              </td>
+              <td>
+                <KitInput
+                  v-model="r.name"
+                  placeholder="可留空"
+                  :disabled="!!r.id"
+                  aria-label="接收方姓名"
+                />
+              </td>
+              <td>
+                <KitInput
+                  v-model="r.rate"
+                  placeholder="1-100"
+                  inputmode="decimal"
+                  aria-label="分账比例"
+                />
+              </td>
+              <td>
+                <button
+                  type="button"
+                  class="pa-btn pa-btn--danger"
+                  :disabled="form.receivers.length <= 1"
+                  @click="removeReceiverRow(i)"
+                >
+                  删除
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="sharing-add-recv">
+          <button
+            type="button"
+            class="pa-btn pa-btn--success"
+            :disabled="form.receivers.length >= 10"
+            @click="addReceiverRow"
+          >
+            增加接收方
+          </button>
+        </div>
+        <p v-if="receiverHint" class="muted">{{ receiverHint }}</p>
+        <p class="muted">
+          分账比例总和不能超过100%；保存后按顺序保存接收方、绑定并发布新规则版本，任一步失败会提示。
+        </p>
+        <template #footer-extra>
+          <span class="muted">分账比例一般最高30%</span>
+        </template>
+      </KitModal>
+    </section>
+  </div>
 </template>
 
 <style scoped>
