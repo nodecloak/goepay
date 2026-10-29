@@ -104,6 +104,13 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request, role string, se
 	if role == "admin" {
 		mid = 0
 	}
+	// 付款账号统计 breaks down by the encrypted payee account, which no SQL
+	// GROUP BY can reach, so it runs in a dedicated handler that groups by the
+	// keyed recipient index and decrypts one representative intent per group.
+	if name == "transfer-accounts" {
+		s.transferAccountStatistics(w, r, session, start, end, page, limit, export)
+		return true
+	}
 	dimension, label, table, join, status, amount, owner, created := "", "", "orders o", "", "o.status", "o.amount", "o.merchant_id", "o.created_at"
 	netAmount, feeAmount, netLabel := "o.merchant_amount", "o.platform_fee", "商户净额（元）"
 	switch name {
