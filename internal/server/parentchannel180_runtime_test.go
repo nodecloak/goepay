@@ -154,7 +154,7 @@ func parent180WxPay(t *testing.T, f channel168Fixture, id, no string) map[string
 }
 func parent180WxPayment(t *testing.T, f channel168Fixture, id, no, method, authCode string) map[string]any {
 	t.Helper()
-	p := compat.Params{"pid": "1", "out_trade_no": no, "type": "wxpay", "name": "synthetic parent180 receiving", "money": "100.00", "channel_id": id, "method": method, "sign_type": "MD5"}
+	p := compat.Params{"pid": "1", "out_trade_no": no, "type": "wxpay", "name": "synthetic parent180 receiving", "money": "100.00", "channel_id": id, "method": method, "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return", "sign_type": "MD5"}
 	if authCode != "" {
 		p["auth_code"] = authCode
 	}

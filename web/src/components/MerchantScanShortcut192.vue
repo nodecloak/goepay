@@ -4,6 +4,8 @@ import QRCode from "qrcode";
 import { ApiClient } from "../api";
 const props = defineProps<{ client: ApiClient; ownSession: boolean }>();
 const enabled = ref(false),
+  ready = ref(false),
+  reason = ref(""),
   opened = ref(false),
   qr = ref(""),
   error = ref(""),
@@ -14,16 +16,30 @@ const paymentApp = computed(() =>
 let alive = true;
 const controller = new AbortController();
 onMounted(async () => {
-  if (!props.ownSession) return;
+  if (!props.ownSession) {
+    reason.value = "代登录仅可查看，请使用商户本人会话";
+    ready.value = true;
+    return;
+  }
   try {
     const v = await props.client.request<{
       platform_open: boolean;
       can_prepare: boolean;
     }>("/scanpay/capabilities", { signal: controller.signal });
-    if (alive)
-      enabled.value = v.platform_open === true && v.can_prepare === true;
+    if (!alive) return;
+    enabled.value = v.platform_open === true && v.can_prepare === true;
+    if (!enabled.value)
+      reason.value =
+        v.platform_open === false
+          ? "平台未开启付款码收款，请联系管理员"
+          : "当前商户未开通付款码收款";
+    ready.value = true;
   } catch {
-    enabled.value = false;
+    if (alive) {
+      enabled.value = false;
+      reason.value = "付款码收款暂不可用，请稍后重试";
+      ready.value = true;
+    }
   }
 });
 async function open() {
@@ -81,19 +97,33 @@ onBeforeUnmount(() => {
       </section>
     </div>
   </template>
+  <button
+    v-else-if="ready"
+    class="scan-entry-disabled192"
+    type="button"
+    disabled
+    :title="reason"
+    aria-label="付款码收款（暂不可用）"
+  >
+    付款码收款<span class="scan-entry-off192">（{{ reason }}）</span>
+  </button>
 </template>
 <style scoped>
+.scan-entry-off192 {
+  font-size: 12px;
+  color: var(--ink-muted);
+}
 .scan-entry-overlay192 {
   position: fixed;
   inset: 0;
-  background: #0006;
+  background: var(--scrim);
   z-index: 1300;
   display: grid;
   place-items: center;
   padding: 16px;
 }
 .scan-entry-dialog192 {
-  background: #fff;
+  background: var(--bg-card);
   box-sizing: border-box;
   padding: 24px;
   border-radius: 8px;
@@ -107,7 +137,7 @@ onBeforeUnmount(() => {
 .scan-entry-dialog192 p {
   font-size: 14px;
   line-height: 1.6;
-  color: #606266;
+  color: var(--ink);
 }
 .scan-entry-dialog192 img {
   display: block;
@@ -118,6 +148,6 @@ onBeforeUnmount(() => {
 .scan-entry-dialog192 a {
   display: block;
   margin: 12px;
-  color: #409eff;
+  color: var(--primary-text);
 }
 </style>

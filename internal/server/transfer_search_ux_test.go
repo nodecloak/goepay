@@ -45,7 +45,7 @@ func TestTransferSearchUXUnknownPrivateAndInvalidParametersRejected(t *testing.T
 
 func TestTransferSearchUXQueryDoesNotSilentlyAcceptUnknownOrDuplicateScopes(t *testing.T) {
 	for _, q := range []url.Values{
-		{"unknown": {"x"}}, {"account": {"private"}}, {"type": {"alipay"}},
+		{"unknown": {"x"}}, {"account": {"private"}},
 		{"page": {"1", "2"}}, {"limit": {"10", "20"}}, {"page": {"01"}}, {"limit": {""}},
 		{"merchant_id": {"01"}}, {"merchant_id": {"+1"}}, {"channel_id": {"07"}},
 		{"merchant_id": {"1", "2"}}, {"search_field": {"biz_no", "money"}},

@@ -102,6 +102,18 @@ func (info Info) CanonicalJSON() ([]byte, error) {
 	return encoded, nil
 }
 
+// catalogKind reports whether kind is an original platform pay type (pre_type)
+// or the internal sandbox. grouppolicy stays free of the payment adapter
+// dependency, so the catalog is mirrored here; keep it in sync with
+// adapter.PluginPayTypes.
+func catalogKind(kind string) bool {
+	switch kind {
+	case "alipay", "wxpay", "qqpay", "bank", "jdpay", "paypal", "douyinpay", "ecny", "sandbox":
+		return true
+	}
+	return false
+}
+
 func ParseInfo(raw []byte) (Info, error) {
 	if len(raw) > 4096 {
 		return nil, ErrInvalidInfo
@@ -116,7 +128,7 @@ func ParseInfo(raw []byte) (Info, error) {
 	for d.More() {
 		token, e := d.Token()
 		kind, ok := token.(string)
-		if e != nil || !ok || (kind != "alipay" && kind != "wxpay" && kind != "sandbox") {
+		if e != nil || !ok || !catalogKind(kind) {
 			return nil, ErrInvalidInfo
 		}
 		if _, exists := out[kind]; exists {

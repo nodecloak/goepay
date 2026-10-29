@@ -312,7 +312,7 @@ const stateName = (state: string) =>
   box-sizing: border-box;
 }
 .test-result {
-  border-top: 1px solid var(--border, #e5e7eb);
+  border-top: 1px solid var(--border, var(--line));
   margin-top: 16px;
   padding-top: 12px;
   overflow-wrap: anywhere;

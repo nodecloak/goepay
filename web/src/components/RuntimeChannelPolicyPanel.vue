@@ -622,7 +622,7 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 .channel-confirm:focus {
-  outline: 2px solid var(--primary, #409eff);
+  outline: 2px solid var(--primary, var(--focus));
   outline-offset: 2px;
 }
 .channel-policy-modal > .toolbar-actions {

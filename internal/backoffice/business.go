@@ -22,6 +22,9 @@ func membershipJSON(v payment.MembershipPurchase) map[string]any {
 func depositJSON(v payment.DepositAction) map[string]any {
 	return map[string]any{"id": strconv.FormatInt(v.ID, 10), "merchant_id": strconv.FormatInt(v.MerchantID, 10), "amount": ledger.Format(v.Amount), "amount_cents": strconv.FormatInt(v.Amount, 10), "action": v.Action, "external_no": v.ExternalNo, "status": v.Status, "created_at": v.CreatedAt}
 }
+func balanceAdjustmentJSON(v payment.AdminAdjustment) map[string]any {
+	return map[string]any{"id": strconv.FormatInt(v.ID, 10), "merchant_id": strconv.FormatInt(v.MerchantID, 10), "direction": v.Direction, "amount": ledger.Format(v.Amount), "amount_cents": strconv.FormatInt(v.Amount, 10), "reason": v.Reason, "external_no": v.ExternalNo, "actor": v.Actor, "created_at": v.CreatedAt}
+}
 func stringInput(in map[string]json.RawMessage, key string) (string, error) {
 	raw, ok := in[key]
 	if !ok {
@@ -51,10 +54,16 @@ func requestMerchant(p Principal, in map[string]json.RawMessage) (int64, error) 
 	return id, nil
 }
 func (s *Service) serveBusiness(w http.ResponseWriter, r *http.Request, p Principal, parts []string) bool {
-	if len(parts) == 0 || (parts[0] != "memberships" && parts[0] != "deposits" && parts[0] != "recharges") {
+	if len(parts) == 0 || (parts[0] != "memberships" && parts[0] != "deposits" && parts[0] != "recharges" && parts[0] != "balance-adjustments") {
 		return false
 	}
 	kind := parts[0]
+	// 后台加款/扣款 (epay_release changeUserMoney '后台加款'/'后台扣款') is an
+	// admin-only direct wallet credit/debit; merchants can never call it.
+	if kind == "balance-adjustments" && p.Role != "admin" {
+		writeError(w, ErrForbidden)
+		return true
+	}
 	actor := fmt.Sprintf("%s:%d:%s", p.Role, p.SubjectID, p.Username)
 	if len(parts) == 1 && r.Method == "POST" {
 		in, ok := body(w, r)
@@ -72,6 +81,8 @@ func (s *Service) serveBusiness(w http.ResponseWriter, r *http.Request, p Princi
 			for _, k := range []string{"amount", "type", "channel_id", "method", "open_id"} {
 				allowed[k] = true
 			}
+		case "balance-adjustments":
+			allowed["direction"], allowed["amount"], allowed["reason"] = true, true, true
 		}
 		for k := range in {
 			if !allowed[k] {
@@ -124,6 +135,21 @@ func (s *Service) serveBusiness(w http.ResponseWriter, r *http.Request, p Princi
 				return true
 			}
 			write(w, 201, depositJSON(v), "internal ledger deposit recorded")
+		case "balance-adjustments":
+			raw, e := stringInput(in, "amount")
+			amount, parse := ledger.Parse(raw)
+			direction, de := stringInput(in, "direction")
+			reason, re := stringInput(in, "reason")
+			if e != nil || parse != nil || de != nil || re != nil {
+				writeError(w, ErrInvalid)
+				return true
+			}
+			v, e := s.store.AdminAdjustBalance(r.Context(), mid, direction, externalNo, reason, amount, actor)
+			if e != nil {
+				writeError(w, e)
+				return true
+			}
+			write(w, 201, balanceAdjustmentJSON(v), "admin balance adjustment recorded")
 		case "recharges":
 			if s.RechargeStart == nil {
 				write(w, 503, nil, "no configured recharge payment provider")
@@ -229,6 +255,10 @@ func (s *Service) listBusiness(w http.ResponseWriter, r *http.Request, p Princip
 		columns = "i.id,o.trade_no,o.amount,o.status,o.created_at"
 		where = "($1::bigint=0 OR o.merchant_id=$1)"
 	}
+	if kind == "balance-adjustments" {
+		table = "admin_balance_adjustments"
+		columns = "id,merchant_id,direction,amount,reason,external_no,actor,created_at"
+	}
 	var total int64
 	if e := s.pool.QueryRow(r.Context(), "SELECT count(*) FROM "+table+" WHERE "+where, mid).Scan(&total); e != nil {
 		writeError(w, e)
@@ -264,6 +294,12 @@ func (s *Service) listBusiness(w http.ResponseWriter, r *http.Request, p Princip
 			e = rows.Scan(&v.ID, &v.TradeNo, &v.Amount, &v.Status, &v.CreatedAt)
 			if e == nil {
 				items = append(items, map[string]any{"id": strconv.FormatInt(v.ID, 10), "trade_no": v.TradeNo, "amount": ledger.Format(v.Amount), "amount_cents": strconv.FormatInt(v.Amount, 10), "status": v.Status, "created_at": v.CreatedAt})
+			}
+		case "balance-adjustments":
+			var v payment.AdminAdjustment
+			e = rows.Scan(&v.ID, &v.MerchantID, &v.Direction, &v.Amount, &v.Reason, &v.ExternalNo, &v.Actor, &v.CreatedAt)
+			if e == nil {
+				items = append(items, balanceAdjustmentJSON(v))
 			}
 		}
 		if e != nil {

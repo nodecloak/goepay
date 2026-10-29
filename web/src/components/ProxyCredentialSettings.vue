@@ -442,7 +442,7 @@ onBeforeUnmount(() => {
 .proxy-secret {
   margin-top: 18px;
   padding-top: 14px;
-  border-top: 1px solid var(--line, #dcdfe6);
+  border-top: 1px solid var(--line, var(--line-control));
 }
 .proxy-secret label {
   display: grid;

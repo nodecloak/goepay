@@ -66,7 +66,7 @@ func main() {
 	}
 	kinds := []string{"payment.notify"}
 	if key != nil {
-		kinds = append(kinds, "merchant.refund-event")
+		kinds = append(kinds, "merchant.refund-event", "merchant.complaint-event")
 	}
 	if recoveryFlow != nil {
 		kinds = append(kinds, "payment.scan-recover")
@@ -179,6 +179,8 @@ func main() {
 			e = coreRiskNotices.Handle(jobCtx, j.ID, j.Token)
 		} else if j.Kind == "merchant.refund-event" {
 			e = store.DeliverMerchantRefundEvent201(jobCtx, j, key, h.Client)
+		} else if j.Kind == "merchant.complaint-event" {
+			e = store.DeliverMerchantComplaintEvent201(jobCtx, j, key, h.Client)
 		} else if j.Kind == "merchant.refund-event-closed-notice" {
 			sender, managed, resolveErr := mailAccounts195.ResolveSMTP(jobCtx)
 			if resolveErr != nil || !managed || sender == nil {

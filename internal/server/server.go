@@ -74,20 +74,23 @@ type Server struct {
 	ApplicationAuthorizationCallbackBaseURL string
 	AuthorizationObservationEnabled         bool
 	CheckoutKey                             []byte
-	MerchantChannels                        map[int64][]int64
-	Simulation                              http.Handler
-	Enrollment                              http.Handler
-	Pool                                    *pgxpool.Pool
-	Store                                   *payment.Store
-	Printing                                *printing.Store
-	MerchantNotice                          *merchantnotice.Store
-	BusinessNotice                          *businessnotice.Store
-	LegacyRefundHistory                     *migration.RefundHistoryReader
-	CombinedOrderHistory204                 *migration.CombinedOrderHistoryReader
-	Sessions                                *identity.Sessions
-	PlatformKey                             *rsa.PrivateKey
-	Sandbox                                 bool
-	limitState                              *requestLimitState
+	// ConnectTokenBase overrides a quick-login provider's token/authorize base
+	// (test seam only; nil in production so the real provider endpoint is used).
+	ConnectTokenBase        map[string]string
+	MerchantChannels        map[int64][]int64
+	Simulation              http.Handler
+	Enrollment              http.Handler
+	Pool                    *pgxpool.Pool
+	Store                   *payment.Store
+	Printing                *printing.Store
+	MerchantNotice          *merchantnotice.Store
+	BusinessNotice          *businessnotice.Store
+	LegacyRefundHistory     *migration.RefundHistoryReader
+	CombinedOrderHistory204 *migration.CombinedOrderHistoryReader
+	Sessions                *identity.Sessions
+	PlatformKey             *rsa.PrivateKey
+	Sandbox                 bool
+	limitState              *requestLimitState
 }
 type attempt struct {
 	count int
@@ -163,6 +166,12 @@ func (s *Server) Handler() http.Handler {
 		if s.publicTestPayRoutes203(w, r) {
 			return
 		}
+		if s.publicSMSCode134(w, r) {
+			return
+		}
+		if s.publicConnectLogin(w, r) {
+			return
+		}
 		if strings.HasPrefix(r.URL.Path, "/console/v1/public/") {
 			if s.Enrollment == nil {
 				response(w, 503, -1, "verification service unavailable", nil)
@@ -201,6 +210,9 @@ func (s *Server) Handler() http.Handler {
 		}
 		if strings.HasPrefix(r.URL.Path, "/checkout/") {
 			s.checkout(w, r)
+			return
+		}
+		if s.cashierPublic(w, r) {
 			return
 		}
 		if r.URL.Path == "/healthz" {
@@ -275,11 +287,11 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if role == "admin" {
-		if err := s.Pool.QueryRow(r.Context(), "SELECT admin_class FROM console_users WHERE username=$1 AND role='admin' AND subject_id=$2 AND enabled", session.User.Username, session.User.ID).Scan(&session.User.AdminClass); err != nil {
+		if err := s.Pool.QueryRow(r.Context(), "SELECT admin_class,permissions FROM console_users WHERE username=$1 AND role='admin' AND subject_id=$2 AND enabled", session.User.Username, session.User.ID).Scan(&session.User.AdminClass, &session.User.Permissions); err != nil {
 			response(w, 401, -1, "account unavailable", nil)
 			return
 		}
-		if !adminOperationAllowed(session.User.AdminClass, parts) {
+		if !adminRequestAllowed(session.User, parts) {
 			response(w, 403, -1, "super administrator required", nil)
 			return
 		}
@@ -434,6 +446,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.mailAccounts195(w, r, role, session, parts, c.Value) {
 		return
 	}
+	if s.smsAccounts134(w, r, role, session, parts, c.Value) {
+		return
+	}
 	if s.siteBrandConsole193(w, r, role, session, parts, c.Value) {
 		return
 	}
@@ -497,6 +512,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.merchantScanConsole192(w, r, role, session, parts, c.Value) {
 		return
 	}
+	if s.accountBindings(w, r, role, session, parts) {
+		return
+	}
 	if s.account(w, r, role, session, parts) {
 		return
 	}
@@ -506,14 +524,53 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.refundSummary(w, r, role, session, parts) {
 		return
 	}
+	if s.orderSummary(w, r, role, session, parts) {
+		return
+	}
 	if s.reports(w, r, role, session, parts) {
+		return
+	}
+	if s.complaintsConsole(w, r, role, session, parts) {
 		return
 	}
 	if s.backoffice(w, r, role, session, parts) {
 		return
 	}
 	if action == "session" && r.Method == "GET" {
-		response(w, 200, 0, "", map[string]any{"user": consoleSessionUser(session.User), "csrf_token": session.CSRF, "delegated_by": session.Issuer})
+		payload := map[string]any{"user": consoleSessionUser(session.User), "csrf_token": session.CSRF, "delegated_by": session.Issuer}
+		if role == "admin" {
+			payload["admin_permission_catalog"] = adminPermissionCatalogJSON()
+		}
+		if role == "merchant" && s.Pool != nil {
+			// The merchant console hides a feature's menu entry when its toggle
+			// is off, mirroring the original user/head.php `$conf['x']==1` guards
+			// (recharge/onecode) and the 站内转账 entry. internal_transfer /
+			// recharge / onecode default ON (install.sql ships them enabled); the
+			// server still enforces the matching endpoints.
+			svc := backoffice.New(s.Pool, s.Store)
+			features := map[string]bool{}
+			for _, key := range backoffice.MerchantFeatureVisibleKeys {
+				on, e := svc.MerchantFeatureVisible(r.Context(), key)
+				if e != nil {
+					response(w, 503, -1, "merchant features unavailable", nil)
+					return
+				}
+				features[key] = on
+			}
+			// complain_open / applyments_open / mchrisk_open default OFF: their
+			// merchant menu entries appear only when the administrator turns them
+			// on, matching the original where these are unset by default.
+			for _, key := range []string{"complain_open", "applyments_open", "mchrisk_open"} {
+				on, e := svc.MerchantFeatureEnabled(r.Context(), key)
+				if e != nil {
+					response(w, 503, -1, "merchant features unavailable", nil)
+					return
+				}
+				features[key] = on
+			}
+			payload["merchant_features"] = features
+		}
+		response(w, 200, 0, "", payload)
 		return
 	}
 	if action == "logout" && r.Method == "POST" {
@@ -765,12 +822,20 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	m, e := s.Store.Merchant(r.Context(), id)
 	if e != nil || !m.Enabled {
+		if r.URL.Path == "/api.php" {
+			s.wireLegacyError(w, -3, "商户ID不存在")
+			return
+		}
 		s.wire(w, legacy, nil, "merchant unavailable")
 		return
 	}
 	if r.URL.Path == "/api.php" {
-		if !(compat.Credentials{Algorithm: m.SignatureAlgorithm, Keytype: m.Keytype}).Allows("MD5") || subtle.ConstantTimeCompare([]byte(p["key"]), []byte(m.APIKey)) != 1 {
-			s.wire(w, true, nil, "authentication failed")
+		if subtle.ConstantTimeCompare([]byte(p["key"]), []byte(m.APIKey)) != 1 {
+			s.wireLegacyError(w, -3, "商户密钥错误")
+			return
+		}
+		if !(compat.Credentials{Algorithm: m.SignatureAlgorithm, Keytype: m.Keytype}).Allows("MD5") {
+			s.wireLegacyError(w, -3, "该商户只能使用RSA签名类型")
 			return
 		}
 		switch p["act"] {
@@ -784,6 +849,9 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 			route = "/api/pay/refund"
 		case "close":
 			route = "/api/pay/close"
+		case "settle":
+			s.legacySettle(w, r, id, p)
+			return
 		default:
 			s.wire(w, true, nil, "capability unavailable")
 			return
@@ -832,8 +900,19 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 		if splitError != nil {
 			clientIP = r.RemoteAddr
 		}
-		if e := backoffice.New(s.Pool, s.Store).CheckPayment(r.Context(), backoffice.PaymentContext{MerchantID: id, ClientIP: clientIP, Buyer: p["sub_openid"], NotifyURL: p["notify_url"], ReturnURL: p["return_url"]}); e != nil {
-			s.wire(w, legacy, nil, "payment rejected by configured policy")
+		policy := backoffice.New(s.Pool, s.Store)
+		// Original create gate also applies 商品屏蔽(blockname)/未填QQ禁止收款(forceqq)
+		// and shows the configured黑名单提示(blackmsg); each defaults off/empty so
+		// a default install keeps today's behaviour. The merchant's contact QQ
+		// and the order name drive forceqq/blockname (Pay.php:81/103/124).
+		merchantQQ, e := policy.MerchantContactQQ(r.Context(), id)
+		if e != nil {
+			s.wire(w, legacy, nil, "merchant contact unavailable")
+			return
+		}
+		pc := backoffice.PaymentContext{MerchantID: id, ClientIP: clientIP, Buyer: p["sub_openid"], NotifyURL: p["notify_url"], ReturnURL: p["return_url"], Name: p["name"], MerchantQQ: merchantQQ}
+		if e := policy.CheckPayment(r.Context(), pc); e != nil {
+			s.wire(w, legacy, nil, paymentPolicyMessage(e))
 			return
 		}
 		// A merchant backend's TCP address and its signed buyer address are
@@ -846,8 +925,9 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			buyerIP = parsed.String()
-			if e := backoffice.New(s.Pool, s.Store).CheckPayment(r.Context(), backoffice.PaymentContext{MerchantID: id, ClientIP: buyerIP, Buyer: p["sub_openid"], NotifyURL: p["notify_url"], ReturnURL: p["return_url"]}); e != nil {
-				s.wire(w, legacy, nil, "payment rejected by configured policy")
+			pc.ClientIP = buyerIP
+			if e := policy.CheckPayment(r.Context(), pc); e != nil {
+				s.wire(w, legacy, nil, paymentPolicyMessage(e))
 				return
 			}
 		}
@@ -856,6 +936,44 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 			defendAdmission.clientIP = clientIP // direct browser: the real peer, as providerCreate
 		}
 		if s.paymentDefendAdmit206(w, r, legacy, route, id, p, defendPlatform, defendAdmission, clientIP) {
+			return
+		}
+		// Cashier (收银台) page flow: the original routes an empty-type page
+		// submit, or any submit from a pay_force_cashier_pids merchant, to a
+		// cashier page where the payer picks a pay type (Pay.php:160-169/:425-435).
+		// GOEPAY never mutates an order's type, so it reserves the already-verified
+		// request as a signed cashier intent (no order yet) and sends the payer to
+		// /cashier; the choice runs the real create once. mapi.php (/api/pay/create)
+		// with an empty type keeps the original error, except method=scan.
+		forceCashier := false
+		if pids, e := policy.SettingValue(r.Context(), "pay_force_cashier_pids"); e != nil {
+			s.wire(w, legacy, nil, "cashier policy unavailable")
+			return
+		} else {
+			forceCashier = backoffice.ForcesCashier(pids, id)
+		}
+		emptyType := p["type"] == "" && p["method"] != "scan"
+		if emptyType && route == "/api/pay/create" && !forceCashier {
+			s.wire(w, legacy, nil, "支付方式(type)不能为空")
+			return
+		}
+		if emptyType || forceCashier {
+			// Basic request validation mirroring providerCreate's early checks, so
+			// a clearly-invalid request never reaches the cashier (the chosen-type
+			// create re-runs full routing/amount-limit checks on the payer's click).
+			if amount, ae := ledger.Parse(p["money"]); ae != nil || amount <= 0 || p["out_trade_no"] == "" || len(p["out_trade_no"]) > 128 || !validURL(p["notify_url"]) || !validURL(p["return_url"]) || !outTradeNoPattern.MatchString(p["out_trade_no"]) {
+				s.wire(w, legacy, nil, "invalid payment parameters")
+				return
+			}
+			intent := cashierIntent{MerchantID: id, OutTradeNo: p["out_trade_no"], Name: truncateUTF8Bytes(p["name"], 127), Money: p["money"], NotifyURL: p["notify_url"], ReturnURL: p["return_url"], Param: p["param"], Buyer: p["sub_openid"], ClientIP: buyerIP, Expires: time.Now().Add(30 * time.Minute).Unix()}
+			target := s.cashierURL(intent)
+			if route == "/api/pay/submit" {
+				http.Redirect(w, r, target, http.StatusFound)
+				return
+			}
+			// v2 create / mapi forced-cashier: the original returns a jump to the
+			// cashier page (\lib\Payment::echoJson(['type'=>'jump','url'=>...])).
+			s.wire(w, legacy, map[string]any{"pay_type": "jump", "url": target, "jump_url": target}, "")
 			return
 		}
 		if p["type"] != "sandbox" {
@@ -907,7 +1025,7 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 			s.wire(w, legacy, nil, "order not found")
 			return
 		}
-		if s.ProviderFlow != nil && (o.Type == "wxpay" || o.Type == "alipay") && o.Status != "paid" {
+		if s.ProviderFlow != nil && provider.CatalogPayType(o.Type) && o.Status != "paid" {
 			if _, e := s.ProviderFlow.Query(r.Context(), id, o.TradeNo); e != nil {
 				s.wire(w, legacy, nil, "provider query unavailable")
 				return
@@ -991,6 +1109,78 @@ func (s *Server) wireWithCode(w http.ResponseWriter, legacy bool, data map[strin
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	json.NewEncoder(w).Encode(data)
+}
+
+// wireLegacyError writes a legacy api.php error with the original {code,msg}
+// shape and a caller-chosen code (e.g. -3 for auth failures).
+func (s *Server) wireLegacyError(w http.ResponseWriter, code int, msg string) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(map[string]any{"code": code, "msg": msg})
+}
+
+// legacySettle serves api.php?act=settle like epay_release: it returns the
+// authenticated merchant's own settlement records (pre_settle equivalent:
+// ledger_requests of kind 'settlements'), offset/limit (default 0/10, cap 50),
+// with code=1 and the original success message.
+func (s *Server) legacySettle(w http.ResponseWriter, r *http.Request, id int64, p compat.Params) {
+	limit, offset := 10, 0
+	if raw := p["limit"]; raw != "" {
+		n, e := strconv.Atoi(raw)
+		if e != nil {
+			n = 10
+		}
+		limit = n
+	}
+	if raw := p["offset"]; raw != "" {
+		n, e := strconv.Atoi(raw)
+		if e != nil {
+			n = 0
+		}
+		offset = n
+	}
+	if limit > 50 {
+		limit = 50
+	}
+	if limit < 0 {
+		limit = 0
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	rows, e := s.Pool.Query(r.Context(), "SELECT id,merchant_id,external_no,amount,status,created_at,updated_at FROM ledger_requests WHERE merchant_id=$1 AND kind='settlements' ORDER BY id DESC LIMIT $2 OFFSET $3", id, limit, offset)
+	if e != nil {
+		s.wireLegacyError(w, -1, "查询结算记录失败！")
+		return
+	}
+	defer rows.Close()
+	loc := time.FixedZone("business-UTC8", 8*3600)
+	data := []map[string]any{}
+	for rows.Next() {
+		var rid, mid, amount int64
+		var externalNo, status string
+		var created, updated time.Time
+		if e := rows.Scan(&rid, &mid, &externalNo, &amount, &status, &created, &updated); e != nil {
+			s.wireLegacyError(w, -1, "查询结算记录失败！")
+			return
+		}
+		data = append(data, map[string]any{
+			"id":            rid,
+			"uid":           mid,
+			"out_settle_no": externalNo,
+			"money":         ledger.Format(amount),
+			"status":        status,
+			"addtime":       created.In(loc).Format("2006-01-02 15:04:05"),
+			"endtime":       updated.In(loc).Format("2006-01-02 15:04:05"),
+		})
+	}
+	if rows.Err() != nil {
+		s.wireLegacyError(w, -1, "查询结算记录失败！")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(map[string]any{"code": 1, "msg": "查询结算记录成功！", "data": data})
 }
 
 func (s *Server) schemaReady(r *http.Request) error {

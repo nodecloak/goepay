@@ -49,6 +49,11 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 		from = "orders o" + consoleOrderReportingJoins + consoleOrderControlJoin
 		columns = "o.id::text,o.trade_no,o.merchant_id::text,o.out_trade_no,o.name,o.type,o.amount::text,o.merchant_amount::text,o.platform_fee::text,o.fee_rate_bps,o.fee_policy,o.refund_fee_payer,o.status,o.created_at,o.paid_at,o.param,o.version"
 		columns += ",CASE WHEN EXISTS(SELECT 1 FROM order_income_holds h WHERE h.order_id=o.id AND h.state='held') THEN 'held' WHEN EXISTS(SELECT 1 FROM order_income_holds h WHERE h.order_id=o.id) THEN 'released' ELSE 'none' END AS income_status"
+		// 网站域名: the host of the order's notify_url, else return_url. Pro shows it
+		// under 商户号. 插件名称: the configured name of the channel this order's
+		// attempt used (backoffice 'channels' record), shown under 支付方式.
+		columns += ",COALESCE(NULLIF(substring(o.notify_url from '^[a-zA-Z][a-zA-Z0-9+.-]*://([^/?#]+)'),''),NULLIF(substring(o.return_url from '^[a-zA-Z][a-zA-Z0-9+.-]*://([^/?#]+)'),''),'') AS domain"
+		columns += ",COALESCE((SELECT c.body->>'name' FROM backoffice_records c WHERE c.resource='channels' AND c.id=console_attempt.channel_id),'') AS plugin"
 		columns += "," + consoleOrderReportingColumns
 		if role == "admin" {
 			columns += ", (o.status='paid' AND o.notify_url<>'' AND COALESCE(console_notification.state,'none')<>'succeeded') AS can_batch_notify"

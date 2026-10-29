@@ -34,8 +34,14 @@ it("clears old merchant context and rejects a late masked detail after account c
   await flushPromises();
   await w
     .findAll("button")
-    .find((b) => b.text() === "详情")!
+    .find((b) => b.text() === "更多")!
     .trigger("click");
+  await flushPromises();
+  (
+    Array.from(document.querySelectorAll('[role="menuitem"]')).find(
+      (el) => el.textContent?.trim() === "详情",
+    ) as HTMLElement
+  ).click();
   const signal = calls.mock.calls.find(([path]) => path.endsWith("/1"))?.[1]
     ?.signal;
   await w.setProps({ client: current });

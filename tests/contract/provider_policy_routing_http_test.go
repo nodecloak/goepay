@@ -130,6 +130,10 @@ func routingInvoke(t *testing.T, s *server.Server, key *rsa.PrivateKey, mid int6
 	path := "/mapi.php"
 	var values url.Values
 	if mid == 1 {
+		// The original mapi requires notify_url (api/Pay.php create()).
+		if p["notify_url"] == "" {
+			p["notify_url"] = "https://merchant.example.invalid/notify"
+		}
 		values = signed(p, "contract-secret")
 	} else {
 		path = "/api/pay/create"
@@ -278,7 +282,10 @@ func TestPayRollHTTPAmountTimeRateDailyLimitsAndLocalPreflight(t *testing.T) {
 			t.Fatal(out)
 		}
 	}
-	for _, extra := range []compat.Params{{"name": strings.Repeat("x", 257)}, {"method": "h5"}, {"method": "jsapi"}, {"notify_url": "javascript:alert(1)"}, {"clientip": "host.example.invalid"}} {
+	// An over-long name is NOT a rejection case: the legacy wire truncates a
+	// >127-byte name at a UTF-8 boundary (mb_strcut) and still creates the order
+	// (see internal/server/provider_http.go), so it never blocks routing.
+	for _, extra := range []compat.Params{{"method": "h5"}, {"method": "jsapi"}, {"notify_url": "javascript:alert(1)"}, {"clientip": "host.example.invalid"}} {
 		if out := routingInvoke(t, s, key, 1, "invalid-prerequisite-"+fmt.Sprint(len(extra)), "item", "1.00", extra); out["code"] != float64(-1) {
 			t.Fatal("invalid local prerequisite routed", out)
 		}

@@ -54,6 +54,31 @@ function account(
   return { client, writes };
 }
 
+// KitModal teleports to <body>; @vue/test-utils cannot query a teleported tree
+// from the wrapper, and serializing it can recurse. This inline stub keeps the
+// behaviours the tests assert: role="dialog" (+ aria-label=title), a <form> with
+// a submit button, a 取消 button and Esc both emitting close, and focus restore
+// to whatever was focused when it mounted (matching KitModal's own restore).
+const KitModalStub = {
+  props: ["title", "loading", "submitText", "cancelText", "danger"],
+  emits: ["close", "submit"],
+  mounted() {
+    (this as any)._restore = document.activeElement as HTMLElement | null;
+  },
+  beforeUnmount() {
+    (this as any)._restore?.focus?.();
+  },
+  template: `<div class="pa-modal" role="dialog" aria-modal="true" :aria-label="title"
+      @keydown="$event.key==='Escape' && $emit('close')">
+    <h2>{{ title }}</h2>
+    <form @submit.prevent="$emit('submit')">
+      <slot />
+      <button type="button" @click="$emit('close')">{{ cancelText || '取消' }}</button>
+      <button type="submit">{{ submitText || '保存' }}</button>
+    </form>
+  </div>`,
+};
+
 async function setup(
   client: ApiClient,
   section: "profile" | "api-info" | "security" = "profile",
@@ -64,8 +89,10 @@ async function setup(
     global: {
       stubs: {
         MerchantEmailBinding197: true,
+        MerchantBindings134: true,
         MerchantRSAKeyRotation: true,
         MerchantSignaturePolicy: true,
+        KitModal: KitModalStub,
       },
     },
   });

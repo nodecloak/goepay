@@ -47,6 +47,21 @@ func (s *Service) ServeWorkflows(w http.ResponseWriter, r *http.Request, p Princ
 		return
 	}
 	kind := parts[0]
+	// internal_transfer is a default-ON merchant feature; when the administrator
+	// turns it off the merchant's 站内转账 endpoints are refused with the feature
+	// message (the menu entry is hidden via the session feature flags). Admin
+	// management of internal transfers is not gated by it.
+	if kind == "internal-transfers" && p.Role == "merchant" {
+		on, e := s.MerchantFeatureVisible(r.Context(), "internal_transfer")
+		if e != nil {
+			writeError(w, e)
+			return
+		}
+		if !on {
+			writeError(w, FeatureClosed("未开启站内转账功能"))
+			return
+		}
+	}
 	if kind == "internal-transfers" && p.Role == "merchant" && r.Method == "GET" && len(parts) == 1 {
 		s.serveMerchantInternalTransferList(w, r, p)
 		return

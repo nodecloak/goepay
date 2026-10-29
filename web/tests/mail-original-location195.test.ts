@@ -28,13 +28,17 @@ it("original administrator email belongs to message notifications and the old al
   await flushPromises();
   await w.get("#settings-tab-mail").trigger("click");
   await flushPromises();
-  expect(w.find("#setting-mail_recv").exists()).toBe(false);
-  expect(w.find("#setting-mail_name").exists()).toBe(false);
+  expect(w.find('input[aria-label="管理员邮箱"]').exists()).toBe(false);
   await w.get("#settings-tab-notice").trigger("click");
   await flushPromises();
-  expect(w.get("#setting-mail_recv").attributes("aria-label")).toBe(
+  // The original administrator email renders once under 消息提醒 as a kit input;
+  // the legacy mail_name alias never adds a second field.
+  const mailFields = w
+    .findAll(".setting-field")
+    .filter((f) => f.find("label").text() === "管理员邮箱");
+  expect(mailFields.length).toBe(1);
+  expect(mailFields[0]!.get("input").attributes("aria-label")).toBe(
     "管理员邮箱",
   );
-  expect(w.find("#setting-mail_name").exists()).toBe(false);
   w.unmount();
 });

@@ -524,7 +524,7 @@ select {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   border-left: 3px solid var(--accent);
-  background: #f2f6f8;
+  background: var(--bg-raised);
   padding: 16px;
   gap: 16px;
   margin: 16px 0;
@@ -556,7 +556,7 @@ code {
   padding-top: 20px;
 }
 .app-confirmation {
-  background: #f2f6f8;
+  background: var(--bg-raised);
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 6px;

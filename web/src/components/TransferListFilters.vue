@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { Area } from "../menu";
+import KitFilterBar from "./KitFilterBar.vue";
+import KitField from "./KitField.vue";
+import KitSelect from "./KitSelect.vue";
+import KitInput from "./KitInput.vue";
 import {
   transferSearchFields,
   transferStatusFields,
+  transferTypeFields,
   transferFiltersError,
   type TransferReadFilters,
 } from "../transfer-filters";
@@ -15,115 +20,107 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   "update:modelValue": [value: TransferReadFilters];
+  query: [];
   reset: [];
 }>();
 const error = computed(() => transferFiltersError(props.modelValue));
-function change(key: keyof TransferReadFilters, event: Event) {
-  emit("update:modelValue", {
-    ...props.modelValue,
-    [key]: (event.target as HTMLInputElement | HTMLSelectElement).value,
-  });
+function set(key: keyof TransferReadFilters, value: string) {
+  emit("update:modelValue", { ...props.modelValue, [key]: value });
 }
+const searchFieldOptions = transferSearchFields.map((f) => ({
+  value: f.value,
+  label: f.label,
+}));
+const statusOptions = transferStatusFields.map((f) => ({
+  value: f.value,
+  label: f.label,
+}));
+const typeOptions = transferTypeFields.map((f) => ({
+  value: f.value,
+  label: f.label,
+}));
 </script>
 <template>
-  <div class="transfer-list-filters">
-    <div class="transfer-filter-grid">
-      <label
-        >搜索字段<select
-          aria-label="搜索字段"
-          :value="modelValue.search_field"
-          @change="change('search_field', $event)"
-        >
-          <option
-            v-for="field in transferSearchFields"
-            :key="field.value"
-            :value="field.value"
-          >
-            {{ field.label }}
-          </option>
-        </select></label
-      >
-      <label
-        >搜索内容<input
-          :value="modelValue.q"
-          aria-label="搜索付款记录"
-          :placeholder="
-            modelValue.search_field === 'money'
-              ? '请输入元金额'
-              : '搜索付款记录'
-          "
-          @input="change('q', $event)"
-      /></label>
-      <label v-if="area === 'admin'"
-        >商户号<input
-          :value="modelValue.merchant_id"
-          inputmode="numeric"
-          @input="change('merchant_id', $event)"
-      /></label>
-      <label v-if="area === 'admin'"
-        >通道ID<input
-          :value="modelValue.channel_id"
-          inputmode="numeric"
-          @input="change('channel_id', $event)"
-      /></label>
-      <label
-        >开始日期<input
-          type="date"
-          :value="modelValue.from"
-          @input="change('from', $event)" /></label
-      ><label
-        >结束日期<input
-          type="date"
-          :value="modelValue.to"
-          @input="change('to', $event)"
-      /></label>
-      <label
-        >状态<select
+  <KitFilterBar
+    :loading="loading"
+    @query="!error && !blocked && emit('query')"
+    @reset="emit('reset')"
+  >
+    <KitField label="搜索字段">
+      <KitSelect
+        :model-value="modelValue.search_field"
+        :options="searchFieldOptions"
+        aria-label="搜索字段"
+        @update:model-value="set('search_field', $event)"
+      />
+    </KitField>
+    <KitField label="搜索内容">
+      <KitInput
+        :model-value="modelValue.q"
+        aria-label="搜索内容"
+        :placeholder="
+          modelValue.search_field === 'money' ? '请输入元金额' : '输入关键字'
+        "
+        @update:model-value="set('q', $event)"
+      />
+    </KitField>
+    <KitField label="付款方式">
+      <KitSelect
+        :model-value="modelValue.type"
+        :options="typeOptions"
+        aria-label="付款方式"
+        @update:model-value="set('type', $event)"
+      />
+    </KitField>
+    <KitField v-if="area === 'admin'" label="商户号">
+      <KitInput
+        :model-value="modelValue.merchant_id"
+        aria-label="商户号"
+        inputmode="numeric"
+        @update:model-value="set('merchant_id', $event)"
+      />
+    </KitField>
+    <template #extra>
+      <KitField label="状态">
+        <KitSelect
+          :model-value="modelValue.status"
+          :options="statusOptions"
           aria-label="状态"
-          :value="modelValue.status"
-          @change="change('status', $event)"
-        >
-          <option
-            v-for="field in transferStatusFields"
-            :key="field.value"
-            :value="field.value"
-          >
-            {{ field.label }}
-          </option>
-        </select></label
-      >
-    </div>
-    <p v-if="error" class="alert error" role="alert">{{ error }}</p>
-    <div class="toolbar-actions">
-      <button type="submit" :disabled="loading || !!error || blocked">
-        查询</button
-      ><button type="button" :disabled="loading" @click="emit('reset')">
-        重置
-      </button>
-    </div>
-  </div>
+          @update:model-value="set('status', $event)"
+        />
+      </KitField>
+      <KitField v-if="area === 'admin'" label="通道">
+        <KitInput
+          :model-value="modelValue.channel_id"
+          aria-label="通道ID"
+          inputmode="numeric"
+          @update:model-value="set('channel_id', $event)"
+        />
+      </KitField>
+      <KitField label="开始日期">
+        <KitInput
+          :model-value="modelValue.from"
+          type="date"
+          aria-label="开始日期"
+          @update:model-value="set('from', $event)"
+        />
+      </KitField>
+      <KitField label="结束日期">
+        <KitInput
+          :model-value="modelValue.to"
+          type="date"
+          aria-label="结束日期"
+          @update:model-value="set('to', $event)"
+        />
+      </KitField>
+    </template>
+  </KitFilterBar>
+  <p v-if="error" class="alert error transfer-filter-error" role="alert">
+    {{ error }}
+  </p>
 </template>
 <style scoped>
-.transfer-list-filters {
-  flex-basis: 100%;
-  min-width: 0;
-}
-.transfer-filter-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.transfer-filter-grid label {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-}
-.transfer-filter-grid input,
-.transfer-filter-grid select {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
+.transfer-filter-error {
+  margin: 0 0 var(--space-3, 12px);
 }
 </style>

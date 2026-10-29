@@ -99,7 +99,11 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section v-if="available === true" aria-label="每日待发奖励">
+  <section
+    v-if="available === true"
+    class="referral-sublist"
+    aria-label="每日待发奖励"
+  >
     <h3>每日待发奖励</h3>
     <p>
       按每笔原订单固定的手续费或订单金额基数计算，奖励不超过原手续费。次日北京时间起等待专用调度器按日发放；这里不表示调度器已启动，也不代表当前可提现余额。不按迟到汇总或当前用户组重算。
@@ -147,16 +151,30 @@ onBeforeUnmount(() => {
       </table>
     </div>
     <p v-if="!loading && !error && !items.length">暂无每日待发奖励记录</p>
-    <button :disabled="loading || cursor === '0'" @click="load()">
-      待发奖励首页</button
-    ><button :disabled="loading || !next" @click="load(next)">
-      下一页待发奖励
-    </button>
+    <div class="pagination">
+      <span>共 {{ items.length }} 条</span>
+      <div>
+        <button :disabled="loading || cursor === '0'" @click="load()">
+          待发奖励首页</button
+        ><button :disabled="loading || !next" @click="load(next)">
+          下一页待发奖励
+        </button>
+      </div>
+    </div>
   </section>
 </template>
 <style scoped>
 section {
   min-width: 0;
+}
+.referral-sublist {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  margin-top: var(--space-4);
+}
+.referral-sublist > h3 {
+  margin: 0 0 var(--space-3);
 }
 p {
   overflow-wrap: anywhere;
@@ -172,7 +190,7 @@ small {
   display: block;
 }
 button {
-  min-height: 44px;
+  min-height: var(--control-h);
   margin: 0.3rem 0.5rem 0.3rem 0;
 }
 </style>

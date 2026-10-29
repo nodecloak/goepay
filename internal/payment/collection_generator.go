@@ -169,6 +169,87 @@ func (s *Store) GenerateCollectionCode(ctx context.Context, mid int64, in Collec
 	return out, tx.Commit(ctx)
 }
 
+// validOnecodeName accepts the original aggregate-code default name
+// (account/editCodename): trimmed, valid UTF-8, 1–100 runes, no control
+// characters — the same bounds GenerateCollectionCode enforces on the
+// per-generation RecipientName, so a stored default is always a usable name.
+func validOnecodeName(name string) bool {
+	if name != strings.TrimSpace(name) || !utf8.ValidString(name) || utf8.RuneCountInString(name) < 1 || utf8.RuneCountInString(name) > 100 {
+		return false
+	}
+	for _, c := range name {
+		if unicode.IsControl(c) {
+			return false
+		}
+	}
+	return true
+}
+
+// MerchantOnecodeName returns the merchant's stored default aggregate-code name
+// (F10 account/onecodeInfo). It falls back to the merchant's display name when
+// none has been set, so the generator always has a sensible prefill. The second
+// result reports whether a stored default is actually present.
+func (s *Store) MerchantOnecodeName(ctx context.Context, mid int64) (name string, stored bool, err error) {
+	var display string
+	var codename *string
+	e := s.pool.QueryRow(ctx, `SELECT name,profile->>'onecode_name' FROM merchants WHERE id=$1 AND enabled`, mid).Scan(&display, &codename)
+	if errors.Is(e, pgx.ErrNoRows) {
+		return "", false, ErrState
+	}
+	if e != nil {
+		return "", false, e
+	}
+	if codename != nil && validOnecodeName(*codename) {
+		return *codename, true, nil
+	}
+	return display, false, nil
+}
+
+// SetMerchantOnecodeName persists the merchant's default aggregate-code name
+// (F10 account/editCodename) into the profile jsonb. An empty name clears the
+// stored default (the generator then falls back to the display name). Returns
+// the effective default name after the write.
+func (s *Store) SetMerchantOnecodeName(ctx context.Context, mid int64, name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name != "" && !validOnecodeName(name) {
+		return "", ErrInvalid
+	}
+	tx, e := s.pool.Begin(ctx)
+	if e != nil {
+		return "", e
+	}
+	defer tx.Rollback(ctx)
+	var enabled bool
+	var display string
+	if e = tx.QueryRow(ctx, `SELECT enabled,name FROM merchants WHERE id=$1 FOR UPDATE`, mid).Scan(&enabled, &display); e != nil {
+		if errors.Is(e, pgx.ErrNoRows) {
+			return "", ErrState
+		}
+		return "", e
+	}
+	if !enabled {
+		return "", ErrState
+	}
+	if name == "" {
+		if _, e = tx.Exec(ctx, `UPDATE merchants SET profile=profile-'onecode_name' WHERE id=$1`, mid); e != nil {
+			return "", e
+		}
+	} else if _, e = tx.Exec(ctx, `UPDATE merchants SET profile=profile||jsonb_build_object('onecode_name',$2::text) WHERE id=$1`, mid, name); e != nil {
+		return "", e
+	}
+	changes, _ := json.Marshal(map[string]any{"field": "onecode_name", "set": name != ""})
+	if _, e = tx.Exec(ctx, `INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES('merchant',$1,$2,'collection-generator',$1,'edit-codename',$3)`, mid, strconv.FormatInt(mid, 10), changes); e != nil {
+		return "", e
+	}
+	if e = tx.Commit(ctx); e != nil {
+		return "", e
+	}
+	if name == "" {
+		return display, nil
+	}
+	return name, nil
+}
+
 func (s *Store) checkCollectionGenerators(ctx context.Context, tx pgx.Tx, report *LedgerCheck) error {
 	var tablePresent, migrationTable bool
 	if err := tx.QueryRow(ctx, `SELECT to_regclass('collection_code_generations') IS NOT NULL,to_regclass('schema_migrations') IS NOT NULL`).Scan(&tablePresent, &migrationTable); err != nil {

@@ -215,8 +215,15 @@ func (s *Store) generateSettlementPlanItem(ctx context.Context, run SettlementPl
 	if err != nil {
 		return err
 	}
-	quote, err := quoteScheduledSettlement(itemPolicy, funds.LedgerAvailable, funds.Available, itemPolicy.RetainedCents, maximum, now)
-	item.View.LedgerAvailable, item.View.Eligible, item.View.Retained = funds.LedgerAvailable, funds.Available, itemPolicy.RetainedCents
+	// The merchant's own remain_money reserve (原 Settle.php $user['remain_money'])
+	// rides on top of the global floor. The merchants row is already locked
+	// FOR NO KEY UPDATE above, so this read is part of the same consistent view.
+	retained, err := settlementRetainedFor(ctx, tx, mid, itemPolicy.RetainedCents, funds.Available)
+	if err != nil {
+		return err
+	}
+	quote, err := quoteScheduledSettlement(itemPolicy, funds.LedgerAvailable, funds.Available, retained, maximum, now)
+	item.View.LedgerAvailable, item.View.Eligible, item.View.Retained = funds.LedgerAvailable, funds.Available, retained
 	if err != nil || quote.Gross == 0 {
 		item.View.State, item.View.Reason = "skipped", "insufficient_funds"
 		if err != nil {

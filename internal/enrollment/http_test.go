@@ -98,3 +98,56 @@ func TestPublicRecoveryResponsesAndDisabledSender(t *testing.T) {
 		t.Fatal("unconfigured transport reported send", w.Code)
 	}
 }
+
+func TestPublicPhoneEnrollmentHTTPRoutesGatedOnGateway(t *testing.T) {
+	s, _ := enrollmentFixture(t)
+	h := NewHandler(s, "http://localhost")
+	ctx := context.Background()
+	phone := "13800130001"
+
+	// Gateway OFF (default): capabilities.sms_enabled false, and the phone routes
+	// refuse with 403 (ErrClosed) — not offered.
+	w := publicRequest(t, h, "GET", "capabilities", "", "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"sms_enabled":false`) {
+		t.Fatal("sms capability off", w.Code, w.Body.String())
+	}
+	off := `{"code":"246810","phone":"` + phone + `","username":"phone-http","name":"PH","password":"correct-test-password"}`
+	if w = publicRequest(t, h, "POST", "register-phone", off, "http://localhost"); w.Code != 403 {
+		t.Fatal("register-phone must be closed when gateway off", w.Code, w.Body.String())
+	}
+	if w = publicRequest(t, h, "POST", "recover-password-phone", `{"code":"246810","phone":"`+phone+`","new_password":"correct-test-password"}`, "http://localhost"); w.Code != 403 {
+		t.Fatal("recover-password-phone must be closed when gateway off", w.Code, w.Body.String())
+	}
+
+	// Turn the gateway on with an active provider, seed a live code, register.
+	seal := make([]byte, 64)
+	mac := make([]byte, 32)
+	if _, e := s.pool.Exec(ctx, `INSERT INTO sms_providers134(provider,sealed,mac,configured)VALUES('aliyun',$1,$2,true)`, seal, mac); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := s.pool.Exec(ctx, `UPDATE sms_gateway_head134 SET active='aliyun',status=1 WHERE singleton`); e != nil {
+		t.Fatal(e)
+	}
+	if w = publicRequest(t, h, "GET", "capabilities", "", ""); !strings.Contains(w.Body.String(), `"sms_enabled":true`) {
+		t.Fatal("sms capability not on", w.Body.String())
+	}
+	if _, e := s.pool.Exec(ctx, `INSERT INTO verification_codes134(uid,scene,type,recipient,code,ip)VALUES(0,'reg',1,$1,'246810','192.0.2.70')`, phone); e != nil {
+		t.Fatal(e)
+	}
+	// Non-strict JSON is refused.
+	if w = publicRequest(t, h, "POST", "register-phone", off+" {}", "http://localhost"); w.Code != 400 {
+		t.Fatal("non-strict phone register accepted", w.Code)
+	}
+	w = publicRequest(t, h, "POST", "register-phone", off, "http://localhost")
+	if w.Code != 201 {
+		t.Fatal("phone register", w.Code, w.Body.String())
+	}
+	if len(w.Result().Cookies()) != 0 || strings.Contains(w.Body.String(), "password") || strings.Contains(w.Body.String(), "246810") {
+		t.Fatal("phone registration exposed credential/session", w.Body.String())
+	}
+	// The phone claim exists and no auto-login happened.
+	var claimed int64
+	if e := s.pool.QueryRow(ctx, "SELECT merchant_id FROM enrollment_phones134 WHERE phone_hash=$1", s.digest("phone", phone)).Scan(&claimed); e != nil || claimed <= 0 {
+		t.Fatal("phone claim not recorded", claimed, e)
+	}
+}

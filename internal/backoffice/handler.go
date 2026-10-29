@@ -23,6 +23,16 @@ func write(w http.ResponseWriter, status int, data any, message string) {
 }
 func writeError(w http.ResponseWriter, e error) {
 	status, msg := 500, "operation failed"
+	var fc FeatureClosedError
+	if errors.As(e, &fc) {
+		write(w, 403, nil, fc.Message)
+		return
+	}
+	var refused PaymentRefusedError
+	if errors.As(e, &refused) {
+		write(w, 403, nil, refused.Message)
+		return
+	}
 	switch {
 	case errors.Is(e, identity.ErrFundsAuthorization), errors.Is(e, identity.ErrFundsNotConfigured):
 		write(w, 428, map[string]string{"error": "PAYMENT_AUTH_REQUIRED"}, "fresh funds action authorization required")
@@ -100,13 +110,49 @@ func (s *Service) Serve(w http.ResponseWriter, r *http.Request, p Principal, par
 					write(w, 400, nil, "invalid merchant query")
 					return
 				}
+				// CSV export (A6-08): detect and strip the format param before the
+				// directory parser validates the remaining allow-listed keys.
+				csvExport := false
+				if formats, ok := params["format"]; ok {
+					if len(formats) != 1 || formats[0] != "csv" {
+						write(w, 400, nil, "format must be csv")
+						return
+					}
+					csvExport = true
+					params.Del("format")
+				}
 				filter, search, parse := ParseMerchantDirectoryQuery(params)
 				if parse != nil {
 					write(w, 400, nil, "invalid or unsupported merchant filter")
 					return
 				}
+				if csvExport {
+					s.exportMerchantDirectoryCSV(w, r, p, filter, search)
+					return
+				}
 				query.Merchant = filter
 				query.Search = search
+			} else {
+				// Generic per-field toolbar filters declared by the schema, plus
+				// the bounded CSV export for an exportable resource.
+				if d, e := definitionFor(p, resource, false); e == nil {
+					for _, fs := range d.filters {
+						if v := r.URL.Query().Get(fs.Param); v != "" {
+							if query.Filter == nil {
+								query.Filter = map[string]string{}
+							}
+							query.Filter[fs.Param] = v
+						}
+					}
+					if formats, ok := r.URL.Query()["format"]; ok {
+						if len(formats) != 1 || formats[0] != "csv" {
+							write(w, 400, nil, "format must be csv")
+							return
+						}
+						s.exportResourceCSV(w, r, p, resource, query)
+						return
+					}
+				}
 			}
 			v, e := s.List(r.Context(), p, resource, query)
 			if e != nil {
@@ -133,6 +179,10 @@ func (s *Service) Serve(w http.ResponseWriter, r *http.Request, p Principal, par
 			return
 		}
 		write(w, 405, nil, "method not allowed")
+		return
+	}
+	if len(parts) == 2 && parts[1] == "batch-delete" && r.Method == "POST" {
+		s.serveBatchDelete(w, r, p, resource)
 		return
 	}
 	id, e := strconv.ParseInt(parts[1], 10, 64)

@@ -15,11 +15,9 @@ describe("console timestamp presentation", () => {
     expect(consoleValue("observed_at", "2024-02-29T23:59:59+08:00")).toBe(
       "2024-02-29 23:59:59",
     );
-    expect(consoleColumnLabel("created_at", "创建时间")).toBe(
-      "创建时间（北京时间）",
-    );
+    expect(consoleColumnLabel("created_at", "创建时间")).toBe("创建时间");
     expect(consoleColumnLabel("paid_at", "付款时间（北京时间）")).toBe(
-      "付款时间（北京时间）",
+      "付款时间",
     );
   });
 

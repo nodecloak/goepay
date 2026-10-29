@@ -22,6 +22,15 @@ type ParentChannelFactory struct {
 }
 
 func parentConfigKeys(kind string) map[string]bool {
+	if spec, ok := adapter.LookupPlugin(kind); ok {
+		out := map[string]bool{"costrate": true, "account_mode": true, "ecommerce": true, "mode": true, "pay_type": true}
+		for _, in := range spec.Inputs {
+			if !in.PEM {
+				out[in.Key] = true
+			}
+		}
+		return out
+	}
 	keys := []string{"appid", "appmchid", "costrate", "account_mode", "ecommerce", "mode", "enable_scan_pay", "enable_web_oauth", "enable_mini_launch", "mini_appid", "mini_path", "mini_program_id", "enable_channel_sharing"}
 	if kind == "wxpay" {
 		keys = append(keys, "wechat_api_version", "appkey", "oauth_appsecret", "mini_secret", "enable_bank_transfer", "bank_public_key", "h5_site_url", "h5_site_name", "v3_api_key", "v3_merchant_serial", "v3_encryption_serial")
@@ -35,6 +44,10 @@ func parentConfigKeys(kind string) map[string]bool {
 	return out
 }
 func parentCertificateKey(kind, key string) bool {
+	if spec, ok := adapter.LookupPlugin(kind); ok {
+		in, found := spec.Input(key)
+		return found && in.PEM
+	}
 	if kind == "alipay" {
 		return key == "app_cert_path" || key == "alipay_cert_path" || key == "root_cert_path"
 	}
@@ -75,7 +88,10 @@ func NewParentChannelFactory(origin Channel, options ParentBuildOptions) (*Paren
 	return f, nil
 }
 func parentFactoryOrigin(origin Channel, options ParentBuildOptions) (*ParentChannelFactory, error) {
-	if origin.ID <= 0 || origin.Config == nil || (origin.Plugin != "wxpay" && origin.Plugin != "alipay") || !supportedCollectionMode(origin) || !directIdentityChannel(origin) {
+	if origin.ID <= 0 || origin.Config == nil || !KnownChannelPlugin(origin.Plugin) || !supportedCollectionMode(origin) || !directIdentityChannel(origin) {
+		return nil, ErrImport
+	}
+	if spec, ok := adapter.LookupPlugin(origin.Plugin); ok && !spec.Serves(origin.Config["pay_type"]) {
 		return nil, ErrImport
 	}
 	original := cloneParentChannel(origin)
@@ -108,6 +124,21 @@ func (f *ParentChannelFactory) Bootstrap() Channel {
 func (f *ParentChannelFactory) Fields() []adapter.ParentChannelField {
 	if f == nil {
 		return nil
+	}
+	if spec, ok := adapter.LookupPlugin(f.origin.Plugin); ok {
+		out := []adapter.ParentChannelField{{Name: "costrate", Namespace: "config", Label: "成本费率（%）"}}
+		for _, in := range spec.Inputs {
+			ns := "config"
+			if in.PEM {
+				ns = "certificates"
+			}
+			field := adapter.ParentChannelField{Name: in.Key, Namespace: ns, Secret: in.Secret, PEM: in.PEM, Label: in.Label, Note: in.Note}
+			for _, o := range in.Options {
+				field.Options = append(field.Options, adapter.ParentChannelFieldOption{Value: o.Value, Label: o.Label})
+			}
+			out = append(out, field)
+		}
+		return out
 	}
 	out := []adapter.ParentChannelField{}
 	for key := range parentConfigKeys(f.origin.Plugin) {
@@ -145,6 +176,9 @@ func (f *ParentChannelFactory) buildParentSnapshot(id int64, c Channel, bindings
 	}
 	c = cloneParentChannel(c)
 	c.ID = id
+	if _, plugin := adapter.LookupPlugin(c.Plugin); plugin && c.Config["pay_type"] != f.origin.Config["pay_type"] {
+		return out, nil, ErrImport
+	}
 	allowed := parentConfigKeys(c.Plugin)
 	for key, value := range c.Config {
 		if !allowed[key] || len(value) > 131072 || strings.ContainsRune(value, 0) {

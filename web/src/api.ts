@@ -13,11 +13,21 @@ export interface User {
   name: string;
   role: string;
   admin_class?: "super" | "operator";
+  // Per-menu grant set for a restricted operator (menu node ids). Absent for
+  // super and for an unrestricted operator (both see every permitted menu).
+  permissions?: string[];
 }
 export interface Session {
   user: User;
   csrf_token: string;
   delegated_by?: { id: string | number; name: string } | null;
+  // Grantable per-menu permission catalog for the admin-user editor (admins
+  // only). Each entry is { key, title, group }.
+  admin_permission_catalog?: { key: string; title: string; group: string }[];
+  // Merchant-center feature toggles (merchant sessions only). A key maps to a
+  // menu node id whose entry is hidden when the feature is off. Supplied by the
+  // server session endpoint; absent for admin sessions.
+  merchant_features?: Record<string, boolean>;
 }
 export class ApiError extends Error {
   constructor(

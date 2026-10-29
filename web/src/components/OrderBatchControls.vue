@@ -12,6 +12,7 @@ import { computed, ref, nextTick, onBeforeUnmount, watch } from "vue";
 import { ApiClient, ApiError } from "../api";
 import { adminOrderActions } from "../order-actions";
 import OrderBusinessBatchDialog from "./OrderBusinessBatchDialog.vue";
+import ActionDropdown from "./ActionDropdown.vue";
 import {
   isBusinessBatchAction185,
   businessBatchEligible185,
@@ -85,6 +86,20 @@ const eligible = (id: string) =>
           (a) => a.id === (id === "archive" ? "delete" : id),
         ),
   );
+// Pro's 批量操作 dropdown: one menu item per batch action, each showing its
+// eligible count; picking one opens that action's confirm dialog for the
+// selected rows (same server calls as before).
+const batchMenuItems = computed(() =>
+  actions.map((a) => ({
+    id: a.id,
+    label: `${a.label}（可执行 ${eligible(a.id).length} 条）`,
+  })),
+);
+function pick(id: string) {
+  if (!canWrite.value || busy.value || pending.value) return;
+  action.value = id;
+  void show();
+}
 let alive = true,
   controller: AbortController | undefined,
   previousFocus: HTMLElement | null = null;
@@ -244,20 +259,21 @@ onBeforeUnmount(() => {
 <template>
   <div class="batch-controls">
     <span>已选 {{ selected.length }} 条</span>
-    <select
-      v-model="action"
-      aria-label="批量操作"
-      :disabled="busy || businessOpen || !!pending || !canWrite"
-    >
-      <option v-for="a in actions" :key="a.id" :value="a.id">
-        {{ a.label }}（可执行 {{ eligible(a.id).length }} 条）
-      </option>
-    </select>
+    <ActionDropdown
+      v-if="!pending"
+      label="批量操作"
+      trigger-text="批量操作"
+      :items="batchMenuItems"
+      :disabled="busy || businessOpen || !canWrite"
+      @action="pick"
+    />
     <button
-      :disabled="busy || !canWrite || (!pending && !eligible(action).length)"
+      v-else
+      class="soft-button"
+      :disabled="busy || !canWrite"
       @click="show"
     >
-      {{ unknown ? "核对上次批量结果" : "执行批量操作" }}
+      核对上次批量结果
     </button>
   </div>
   <OrderBusinessBatchDialog
@@ -351,14 +367,17 @@ onBeforeUnmount(() => {
 <style scoped>
 .batch-controls {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   flex-wrap: wrap;
-  padding: 0 20px 16px;
+  padding: 0;
+  font-size: 13px;
+  color: var(--ink-muted);
 }
 .batch-controls select {
   width: auto;
   max-width: 100%;
+  margin: 0;
 }
 .batch-dialog {
   max-width: 640px;

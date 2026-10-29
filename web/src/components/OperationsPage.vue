@@ -5,6 +5,8 @@ import type { Operation } from "../operations";
 import { canRetryJob } from "../operations";
 import RuntimeLogPage from "./RuntimeLogPage.vue";
 import SystemLogPage from "./SystemLogPage.vue";
+import KitPagination from "./KitPagination.vue";
+import KitStatusTag from "./KitStatusTag.vue";
 const props = defineProps<{
   client: ApiClient;
   operation: Operation;
@@ -54,6 +56,66 @@ const columns = computed(() =>
     .filter((key) => key !== "can_retry")
     .map((key) => ({ key, label: labels[key] || key })),
 );
+// Pro's 数据清理 types. GOEPAY keeps financial facts immutable, so every money
+// record type is shown disabled with a one-line reason; only the login audit is
+// prunable by age, wired to /operations/cleanup (the one endpoint that supports
+// it). days holds the per-type custom-days input for the enabled type.
+const cleanTypes = [
+  {
+    key: "login_audit",
+    label: "登录日志",
+    enabled: true,
+    reason: "按截止日期清理过期登录日志与登录状态。",
+  },
+  {
+    key: "order",
+    label: "订单记录",
+    enabled: false,
+    reason: "订单为不可变财务记录，不支持删除。",
+  },
+  {
+    key: "refund",
+    label: "退款记录",
+    enabled: false,
+    reason: "退款为不可变财务记录，不支持删除。",
+  },
+  {
+    key: "settle",
+    label: "结算记录",
+    enabled: false,
+    reason: "结算为不可变财务记录，不支持删除。",
+  },
+  {
+    key: "ledger",
+    label: "资金明细",
+    enabled: false,
+    reason: "资金明细为不可变账本，不支持删除。",
+  },
+  {
+    key: "transfer",
+    label: "付款记录",
+    enabled: false,
+    reason: "付款为不可变财务记录，不支持删除。",
+  },
+  {
+    key: "profitsharing",
+    label: "分账记录",
+    enabled: false,
+    reason: "分账为不可变财务记录，不支持删除。",
+  },
+  {
+    key: "complain",
+    label: "投诉记录",
+    enabled: false,
+    reason: "投诉记录随订单留存，不支持删除。",
+  },
+  {
+    key: "risk",
+    label: "风控记录",
+    enabled: false,
+    reason: "风控记录随订单留存，不支持删除。",
+  },
+];
 async function load() {
   if (props.operation === "cleanup") return;
   controller?.abort();
@@ -161,43 +223,73 @@ onBeforeUnmount(() => controller?.abort());
         :own-session="ownSession"
         :admin-class="adminClass" /></template
   ></RuntimeLogPage>
-  <section v-else class="panel records">
+  <section
+    v-else
+    class="panel records"
+    :class="{ 'cleanup-card': operation === 'cleanup' }"
+  >
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
     <template v-if="operation === 'cleanup'"
-      ><div class="account-section">
-        <h2>清理过期登录状态</h2>
+      ><div class="account-section clean-page">
+        <h2>系统数据清理</h2>
         <p class="muted">
-          仅清理截止日期前已过期的登录会话和登录尝试计数。交易、账本和业务记录不在清理范围内。
+          定期清理数据有助于提升访问速度。交易、账本、结算等财务记录不可变，相关清理项以禁用显示并标注原因。
         </p>
-        <form class="report-filter toolbar" @submit.prevent="inspectCleanup">
-          <label
-            >清理截止日期（UTC+08:00）<input
-              v-model="cutoffDate"
-              type="date"
-              required
-              @change="
-                preview = null;
-                confirm = false;
-              " /></label
-          ><button :disabled="busy">预览清理范围</button>
-        </form>
-        <dl v-if="preview" class="record-detail">
-          <dt>截止时间</dt>
-          <dd>{{ displayValue(preview.cutoff) }}</dd>
-          <dt>过期会话</dt>
-          <dd>{{ displayValue(preview.expired_sessions) }}</dd>
-          <dt>过期尝试计数</dt>
-          <dd>{{ displayValue(preview.expired_attempts) }}</dd>
-        </dl>
-        <button
-          v-if="preview"
-          class="danger-button"
-          :disabled="busy"
-          @click="confirm = true"
-        >
-          清理以上过期登录状态
-        </button>
+        <h3 class="clean-subhead">自定义清理（按类型 / 天数）</h3>
+        <div class="clean-grid">
+          <div
+            v-for="t in cleanTypes"
+            :key="t.key"
+            class="clean-item"
+            :class="{ 'clean-item--off': !t.enabled }"
+          >
+            <div class="clean-item-head">
+              <span class="clean-item-name">{{ t.label }}</span>
+              <KitStatusTag
+                :text="t.enabled ? '可清理' : '不可删除'"
+                :tone="t.enabled ? 'success' : 'neutral'"
+              />
+            </div>
+            <template v-if="t.enabled">
+              <label class="clean-field"
+                >清理截止日期（UTC+08:00）<input
+                  v-model="cutoffDate"
+                  class="pa-input"
+                  type="date"
+                  required
+                  @change="
+                    preview = null;
+                    confirm = false;
+                  "
+              /></label>
+              <button
+                class="pa-btn pa-btn--primary"
+                :disabled="busy"
+                @click="inspectCleanup"
+              >
+                预览清理范围
+              </button>
+              <dl v-if="preview" class="record-detail">
+                <dt>截止时间</dt>
+                <dd>{{ displayValue(preview.cutoff) }}</dd>
+                <dt>过期会话</dt>
+                <dd>{{ displayValue(preview.expired_sessions) }}</dd>
+                <dt>过期尝试计数</dt>
+                <dd>{{ displayValue(preview.expired_attempts) }}</dd>
+              </dl>
+              <button
+                v-if="preview"
+                class="pa-btn pa-btn--danger"
+                :disabled="busy"
+                @click="confirm = true"
+              >
+                立即删除
+              </button>
+            </template>
+            <p v-else class="clean-reason muted">{{ t.reason }}</p>
+          </div>
+        </div>
       </div></template
     ><template v-else
       ><div class="toolbar">
@@ -247,29 +339,14 @@ onBeforeUnmount(() => controller?.abort());
         </table>
       </div>
       <div class="pagination">
-        <span>共 {{ total }} 条记录</span>
-        <div>
-          <button
-            :disabled="page <= 1 || loading"
-            @click="
-              page--;
-              load();
-            "
-          >
-            上一页</button
-          ><span>第 {{ page }} 页</span
-          ><button
-            :disabled="page * 20 >= total || loading"
-            @click="
-              page++;
-              load();
-            "
-          >
-            下一页
-          </button>
-        </div>
-      </div></template
-    >
+        <KitPagination
+          v-model:page="page"
+          :page-size="20"
+          :total="total"
+          :page-sizes="[20]"
+          @change="load"
+        /></div
+    ></template>
   </section>
   <div v-if="confirm" class="modal-backdrop">
     <section
@@ -289,3 +366,65 @@ onBeforeUnmount(() => controller?.abort());
     </section>
   </div>
 </template>
+<style scoped>
+.cleanup-card {
+  max-width: 720px;
+}
+.cleanup-form {
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+.cleanup-form .filter-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.cleanup-form .filter-inline input {
+  min-width: 200px;
+}
+.clean-subhead {
+  font-size: 14px;
+  margin: 18px 0 10px;
+}
+.clean-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+.clean-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  padding: var(--space-4);
+  min-width: 0;
+}
+.clean-item--off {
+  opacity: 0.75;
+}
+.clean-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.clean-item-name {
+  font-weight: 600;
+}
+.clean-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.clean-reason {
+  font-size: 12px;
+  margin: 0;
+}
+</style>

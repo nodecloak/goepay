@@ -74,31 +74,40 @@ it("defaults an unconfigured public entry to closed and reveals original depende
   });
   try {
     await flushPromises();
-    expect(wrapper.get('select[aria-label="测试支付"]').element).toHaveProperty(
-      "value",
-      "0",
-    );
-    expect(wrapper.get('select[aria-label="极验版本"]').element).toHaveProperty(
-      "value",
-      "0",
-    );
+    // test_open / captcha_open_login render as kit switches (开启/关闭 toggle);
+    // locate each by its field label and read the switch checkbox state.
+    const field = (label: string) =>
+      wrapper
+        .findAll(".setting-field")
+        .find((f) => f.find("label").text() === label)!;
+    const switchOf = (label: string) =>
+      field(label).get('input[role="switch"]').element as HTMLInputElement;
+    expect(switchOf("测试支付").checked).toBe(false);
+    expect(switchOf("登录开启验证码").checked).toBe(false);
+    // 极验版本 is a genuine two-way choice (V3.0/V4.0) → kit select, default V3.0.
     expect(
-      wrapper.get('select[aria-label="登录开启验证码"]').element,
-    ).toHaveProperty("value", "0");
+      wrapper.get('.pa-select-trigger[aria-label="极验版本"]').text(),
+    ).toContain("V3.0");
+    // Dependent fields are hidden while test payment is off.
     expect(
       wrapper.find('input[aria-label="测试支付收款商户ID"]').exists(),
     ).toBe(false);
     expect(
-      wrapper.find('select[aria-label="测试支付开启验证码"]').exists(),
+      wrapper
+        .findAll(".setting-field")
+        .some((f) => f.find("label").text() === "测试支付开启验证码"),
     ).toBe(false);
-    await wrapper.get('select[aria-label="测试支付"]').setValue("1");
+    // Turning the test-payment switch on reveals the dependent fields.
+    await field("测试支付").get('input[role="switch"]').setValue(true);
     expect(
-      wrapper.get('input[aria-label="测试支付收款商户ID"]').element,
-    ).toHaveProperty("value", "0");
-    expect(
-      wrapper.get('select[aria-label="测试支付开启验证码"]').element,
-    ).toHaveProperty("value", "0");
-    await wrapper.get('select[aria-label="测试支付"]').setValue("0");
+      (
+        wrapper.get('input[aria-label="测试支付收款商户ID"]')
+          .element as HTMLInputElement
+      ).value,
+    ).toBe("0");
+    expect(switchOf("测试支付开启验证码").checked).toBe(false);
+    // Turning it back off hides them again.
+    await field("测试支付").get('input[role="switch"]').setValue(false);
     expect(
       wrapper.find('input[aria-label="测试支付收款商户ID"]').exists(),
     ).toBe(false);

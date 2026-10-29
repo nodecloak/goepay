@@ -10,6 +10,7 @@ import {
 } from "vue";
 import type { ApiClient } from "../api";
 import { beijingTimestamp } from "../console-datetime";
+import KitPagination from "./KitPagination.vue";
 const props = defineProps<{
   client: ApiClient;
   ownSession: boolean;
@@ -206,30 +207,13 @@ onBeforeUnmount(() => {
           </tbody>
         </table>
       </div>
-      <div class="toolbar">
-        <span>共 {{ total }} 条 · 第 {{ page }} 页</span
-        ><button
-          type="button"
-          aria-label="上一页登录日志"
-          :disabled="loading || !!error || page <= 1"
-          @click="
-            page--;
-            load();
-          "
-        >
-          上一页</button
-        ><button
-          type="button"
-          aria-label="下一页登录日志"
-          :disabled="loading || !!error || page * limit >= total"
-          @click="
-            page++;
-            load();
-          "
-        >
-          下一页
-        </button>
-      </div>
+      <KitPagination
+        v-model:page="page"
+        :page-size="limit"
+        :total="total"
+        :page-sizes="[limit]"
+        @change="load"
+      />
     </section>
   </div>
 </template>

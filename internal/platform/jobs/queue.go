@@ -74,6 +74,7 @@ func (q Queue) claim(ctx context.Context, kinds []string, lease time.Duration, c
  OR (kind='channel-sharing.reconcile' AND EXISTS(SELECT 1 FROM channel_sharing_orders s JOIN provider_attempt_sharing d ON d.order_id=s.order_id WHERE s.id::text=jobs.payload->>'sharing_id' AND d.channel_id=ANY($4::bigint[])))
  OR (kind='channel-sharing-return.reconcile' AND EXISTS(SELECT 1 FROM channel_sharing_returns r JOIN provider_attempt_sharing d ON d.order_id=r.order_id WHERE r.id::text=jobs.payload->>'return_id' AND d.channel_id=ANY($4::bigint[])))
  OR (kind='channel-sharing-finish.reconcile' AND EXISTS(SELECT 1 FROM channel_sharing_finishes p JOIN provider_attempt_sharing d ON d.order_id=p.order_id WHERE p.id::text=jobs.payload->>'finish_id' AND d.channel_id=ANY($4::bigint[])))
+ OR (kind='complaint.sync' AND jobs.payload->>'channel_id' ~ '^[0-9]+$' AND (jobs.payload->>'channel_id')::bigint=ANY($4::bigint[]))
 )`
 		args = append(args, channels)
 	}

@@ -70,7 +70,7 @@ func defendAdmission206Local(t *testing.T, rsaMode, singleConnection bool) defen
 
 func (f defendAdmission206Fixture) wire(t *testing.T, ctx context.Context, path, original string) *httptest.ResponseRecorder {
 	t.Helper()
-	p := compat.Params{"pid": "1", "out_trade_no": original, "type": "alipay", "name": "Synthetic admission206", "money": "1.23", "channel_id": "7", "method": "native", "clientip": "192.0.2.206", "sign_type": "MD5"}
+	p := compat.Params{"pid": "1", "out_trade_no": original, "type": "alipay", "name": "Synthetic admission206", "money": "1.23", "channel_id": "7", "method": "native", "clientip": "192.0.2.206", "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return", "sign_type": "MD5"}
 	if f.key == nil {
 		p["sign"] = compat.SignMD5WithProfile(p, "test-secret", compat.ProfileProServer)
 	} else {

@@ -40,7 +40,8 @@ export type FieldType =
   | "select"
   | "json"
   | "money"
-  | "date";
+  | "date"
+  | "permission_tree";
 export interface ResourceField {
   name: string;
   label: string;
@@ -58,6 +59,11 @@ export interface ResourceField {
   pattern?: string;
   default?: unknown;
 }
+export interface ResourceFilterSpec {
+  param: string;
+  label: string;
+  options: { label: string; value: string }[];
+}
 export interface ResourceSchema {
   name?: string;
   title: string;
@@ -65,6 +71,9 @@ export interface ResourceSchema {
   fields: ResourceField[];
   permissions: { create: boolean; update: boolean; delete: boolean };
   actions?: (string | { name: string; label: string })[];
+  filters?: ResourceFilterSpec[];
+  exportable?: boolean;
+  batch_delete?: boolean;
 }
 export const resourcePages: Record<Area, Record<string, string>> = {
   admin: {
@@ -121,6 +130,7 @@ export function validateFields(
   const errors: Record<string, string> = {};
   for (const f of schema.fields) {
     if (readonly(f, editing)) continue;
+    if (f.type === "permission_tree") continue;
     const v = values[f.name];
     if (empty(v)) {
       if (f.required && !(editing && (f.write_only || f.type === "password")))
@@ -194,11 +204,13 @@ export function buildPayload(
     payload[f.name] =
       f.type === "json"
         ? JSON.parse(String(v))
-        : ["integer", "number"].includes(f.type)
-          ? Number(v)
-          : f.type === "boolean"
-            ? Boolean(v)
-            : v;
+        : f.type === "permission_tree"
+          ? (Array.isArray(v) ? v : []).map(String)
+          : ["integer", "number"].includes(f.type)
+            ? Number(v)
+            : f.type === "boolean"
+              ? Boolean(v)
+              : v;
   }
   return payload;
 }
@@ -215,7 +227,11 @@ export function formValues(
             ? ""
             : (record[f.name] ??
               f.default ??
-              (f.type === "boolean" ? false : ""));
+              (f.type === "boolean"
+                ? false
+                : f.type === "permission_tree"
+                  ? []
+                  : ""));
         return [
           f.name,
           f.type === "json" && typeof value === "object"

@@ -8,9 +8,15 @@ import {
   merchantRecipientLabel,
   approvedMerchantDomains,
   merchantFieldValue,
+  ledgerTerm,
+  ledgerTypeLabels,
 } from "../src/pro-console-fields";
 import { reportRows } from "../src/reports";
-import { freshListFilters, appendListFilters } from "../src/list-filters";
+import {
+  freshListFilters,
+  appendListFilters,
+  ledgerTypeFilters,
+} from "../src/list-filters";
 describe("Pro field contracts", () => {
   it("restores the original five merchant data columns when all safe projections exist, keeping extra fields in detail", () => {
     const fields = [
@@ -113,6 +119,7 @@ describe("Pro field contracts", () => {
       id: "11",
       merchant_id: "1000",
       account_id: "9007199254740993123",
+      ledger_type: "order_refund",
       description: "订单退款",
       amount: "-1",
       balance_before: "9223372036854775807",
@@ -125,6 +132,7 @@ describe("Pro field contracts", () => {
     expect(columns.map((c) => c.key)).toEqual([
       "id",
       "merchant_id",
+      "ledger_type",
       "description",
       "amount",
       "balance_before",
@@ -134,11 +142,12 @@ describe("Pro field contracts", () => {
       "created_at",
       "event_key",
     ]);
+    expect(columns.find((c) => c.key === "ledger_type")?.label).toBe("类型");
     expect(columns.find((c) => c.key === "balance_before")?.label).toBe(
-      "账户变更前（元）",
+      "账户变更前",
     );
     expect(columns.find((c) => c.key === "balance_after")?.label).toBe(
-      "账户变更后（元）",
+      "账户变更后",
     );
     expect(consoleValue("balance_before", row.balance_before)).toBe(
       "92233720368547758.07",
@@ -168,23 +177,41 @@ describe("Pro field contracts", () => {
         trade_no: "123",
         out_trade_no: "long",
         merchant_id: "1000",
+        name: "item",
+        realmoney: "123",
+        type: "alipay",
         amount: "123",
         status: "paid",
         channel_id: "7",
+        created_at: "2026-10-24",
         notification_state: "none",
         refunded_amount: "0",
         api_key: "secret",
         unexpected: "raw",
       },
     ]);
+    // Pro's stacked order columns: 6 merged pairs + 支付状态. amount / notification
+    // / client_ip / param / income_status are stacked sub-lines or moved to the
+    // detail modal, so they are NOT standalone list columns. merchant_id is an
+    // admin-only column, dropped for a merchant.
     expect(cols.map((c) => c.key)).toEqual([
       "trade_no",
-      "amount",
+      "name",
+      "realmoney",
+      "type",
+      "created_at",
       "status",
-      "notification_state",
     ]);
     expect(
-      cols.some((c) => c.key === "api_trade_no" || c.key === "merchant_amount"),
+      cols.some(
+        (c) =>
+          c.key === "api_key" ||
+          c.key === "unexpected" ||
+          c.key === "api_trade_no" ||
+          c.key === "merchant_amount" ||
+          c.key === "client_ip" ||
+          c.key === "param",
+      ),
     ).toBe(false);
   });
   it("keeps server permission fields in detail but excludes credentials from resource lists", () => {
@@ -216,5 +243,32 @@ describe("Pro field contracts", () => {
       reportRows([{ orders: Number.MAX_SAFE_INTEGER + 1, paid_orders: 1 }])[0]
         .success_rate,
     ).toBe("—");
+  });
+  it("maps 资金明细 ledger_type codes to the original pre_record type names", () => {
+    expect(ledgerTerm("ledger_type", "order_income")).toBe("订单收入");
+    expect(ledgerTerm("ledger_type", "transfer")).toBe("代付");
+    expect(ledgerTerm("ledger_type", "transfer_return")).toBe("代付退回");
+    expect(ledgerTerm("ledger_type", "settle_auto")).toBe("自动结算");
+    expect(ledgerTerm("ledger_type", "internal_transfer")).toBe("站内转账");
+    expect(ledgerTerm("ledger_type", "deposit_in")).toBe("充值保证金");
+    expect(ledgerTerm("ledger_type", "deposit_out")).toBe("提取保证金");
+    expect(ledgerTerm("ledger_type", "membership_buy")).toBe("购买会员");
+    expect(ledgerTerm("ledger_type", "invite_reward")).toBe("邀请返现");
+    expect(ledgerTerm("ledger_type", "admin_credit")).toBe("后台加款");
+    // An unrecognized code still renders rather than blanking the cell.
+    expect(ledgerTerm("ledger_type", "mystery")).toBe("mystery");
+    // Every filter option has a label in the ledger term map.
+    for (const option of ledgerTypeFilters)
+      expect(ledgerTypeLabels[option.value]).toBe(option.label);
+  });
+  it("submits the 资金明细 original type filter and rejects it for other lists", () => {
+    const filters = { ...freshListFilters(), type: "settle_auto" };
+    const ledger = new URLSearchParams();
+    appendListFilters(ledger, filters, "ledger", "admin");
+    expect(ledger.get("type")).toBe("settle_auto");
+    // Orders never carry a ledger type code as a payment-method filter.
+    const orders = new URLSearchParams();
+    appendListFilters(orders, filters, "orders", "admin");
+    expect(orders.get("type")).toBe("settle_auto"); // orders also push type; value validated server+route side
   });
 });

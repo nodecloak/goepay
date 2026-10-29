@@ -75,7 +75,7 @@ it("renders original log columns with unknown facts and uses only canonical GET 
   expect(w.text()).toContain("192.0.2.121");
   expect(w.text()).toContain("2026-10-25 08:00:00");
   expect(w.findAll("td").filter((c) => c.text() === "未记录")).toHaveLength(2);
-  await w.find('[aria-label="下一页登录日志"]').trigger("click");
+  await w.find('.pa-page[aria-label="下一页"]').trigger("click");
   await flushPromises();
   expect(calls.mock.calls.at(-1)?.[0]).toBe(
     "/account/login-log?page=2&limit=20",

@@ -177,6 +177,10 @@ async function setup(options: Options = {}) {
         return response({ zhuce: "", footer: "", format: "html" });
       if (method === "GET" && path === "/console/v1/public/merchant-access")
         return response(actualPlatform.public_default);
+      if (method === "GET" && path === "/console/v1/public/connect/options")
+        return response({
+          providers: { qq: false, wx: false, alipay: false, telegram: false },
+        });
       const session = /^\/console\/v1\/(merchant|admin)\/session$/.exec(path);
       if (method === "GET" && session) {
         const role = session[1]!;
@@ -454,7 +458,11 @@ it("205 App unknown password login result blocks a new proof/write until read-on
     f.calls.filter((call) => call.path === "/console/v1/merchant/session"),
   ).toHaveLength(2);
   expect(f.credentialPosts()).toHaveLength(1);
-  expect(f.wrapper.text()).toContain(actualSession.response.data.user.name);
+  // The recovered read-only session takes effect: the app leaves the login
+  // document for the merchant console. (The kit shell no longer prints the
+  // display name as page text, so assert the authenticated view, not the name.)
+  expect(f.router.currentRoute.value.path).toBe("/merchant/dashboard");
+  expect(f.wrapper.find('form button[type="submit"]').exists()).toBe(false);
 });
 
 it("205 App retains existing unknown key-login session recovery without requesting a password proof", async () => {

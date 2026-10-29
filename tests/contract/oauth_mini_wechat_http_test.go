@@ -79,7 +79,7 @@ func runMiniOAuthWechatHTTPLaunchToTrustedJSAPIPayerWithOriginalGroupFixture(t *
 		applyChannel168Fixture(t, s, channelFees[0])
 	}
 	h := s.Handler()
-	_, out := call(t, h, "POST", "/mapi.php", signed(compat.Params{"pid": "1", "out_trade_no": "wx-mini", "money": "1.25", "name": "item", "type": "wxpay", "method": "applet", "channel_id": "7", "is_applet": "1", "clientip": "192.0.2.5"}, "contract-secret"))
+	_, out := call(t, h, "POST", "/mapi.php", signed(compat.Params{"pid": "1", "out_trade_no": "wx-mini", "money": "1.25", "name": "item", "type": "wxpay", "method": "applet", "channel_id": "7", "is_applet": "1", "clientip": "192.0.2.5", "notify_url": "https://merchant.example.invalid/notify"}, "contract-secret"))
 	if out["code"] != float64(1) {
 		t.Fatal(out)
 	}

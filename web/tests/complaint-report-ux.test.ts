@@ -47,11 +47,14 @@ it("renders the complaint overview with complaint counts and exact amounts inste
       .map((x) => x.text())
       .join(" "),
   ).toContain("今日投诉");
+  // The list note now lives in the 说明 popover (opens on click).
+  await w.get(".pa-help-trigger").trigger("click");
+  await flushPromises();
   expect(w.text()).toContain("本地已登记投诉");
   expect(w.findAll("thead th").map((x) => x.text())).toEqual([
     "商户ID",
     "今日投诉总条数",
-    "今日投诉金额（元）",
+    "今日投诉金额",
     "近7日投诉/支付订单（%）",
   ]);
   expect(w.text()).not.toContain("平台手续费");

@@ -36,6 +36,8 @@ func scheduledParameters(key string) []ScheduledTaskParameter {
 		return []ScheduledTaskParameter{{"refresh_minutes", "商户状态刷新频率（分钟）", "number", 15, nil, 60, true}}
 	case "order_query":
 		return []ScheduledTaskParameter{{"unpaid_minutes", "未支付订单超过多少分钟后进行查单", "number", 10, nil, 60, true}}
+	case "complain":
+		return []ScheduledTaskParameter{{"sync_num", "每个渠道每轮同步的投诉条数", "number", 1, scheduledBound(50), 20, true}}
 	case "profitsharing":
 		return []ScheduledTaskParameter{{"profitsharing_limit", "每次分账的订单数量", "number", 1, nil, 10, true}, {"settle_query_limit", "每次处理延迟结算的订单数量", "number", 1, nil, 10, true}}
 	default:
@@ -83,7 +85,7 @@ var scheduledTaskRegistry = []scheduledTaskDefinition{
 	{"daily_report", "收款日报发送", "按本人原设置登记当日通知源；实际发送由现有merchant.notice worker验证并消费，调度完成不代表送达。", ""},
 	{"balance_notice", "商户余额不足提醒", "按本人原余额阈值登记当日通知源；实际发送由现有merchant.notice worker验证并消费，调度完成不代表送达。", ""},
 	{"check", "支付风控检测", "按原风控规则生成可审计新付款限制；独立受控通知不会直接改人工收款配置。", ""},
-	{"complain", "交易投诉同步", "原渠道投诉同步任务。", "相关外部业务插件暂缓。"},
+	{"complain", "交易投诉同步", "按原渠道投诉同步窗口登记到期渠道的投诉同步准入（每轮最多50条）；连续失败达阈值自动停用并提醒管理员。实际拉取由具备渠道凭证的控制台同步路径执行，调度完成不代表已拉取。", ""},
 	{"applyrefresh", "进件商户状态刷新", "原渠道进件资料刷新任务。", "相关外部业务插件暂缓。"},
 	{"settle", "自动生成结算列表", "按原有限计划生成冻结待审核申请；只有另有匹配自动出款授权及受控运行配置才登记原自动出款job准入，生成和调度成功均不代表付款。", ""},
 }

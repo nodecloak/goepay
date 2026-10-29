@@ -98,7 +98,7 @@ func TestWechatV3HTTPActualAdapterCreditsOnceAndAcknowledgesJSONProtocol(t *test
 	s.ProviderFlow = &payment.ProviderFlow{Store: s.Store, Providers: map[int64]adapter.Provider{7: p}, AllowLive: true, CallbackBaseURL: "https://pay.example.invalid"}
 	s.MerchantChannels = map[int64][]int64{1: {7}}
 	s.CheckoutKey = bytes.Repeat([]byte{7}, 32)
-	params := compat.Params{"pid": "1", "out_trade_no": "v3-http-local", "money": "1.01", "name": "local", "type": "wxpay", "method": "web", "channel_id": "7"}
+	params := compat.Params{"pid": "1", "out_trade_no": "v3-http-local", "money": "1.01", "name": "local", "type": "wxpay", "method": "web", "channel_id": "7", "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return"}
 	_, out := call(t, s.Handler(), "POST", "/mapi.php", signed(params, "contract-secret"))
 	if out["code"] != float64(1) || trade == "" || creates != 1 {
 		t.Fatal(out, creates)

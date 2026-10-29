@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import QRCode from "qrcode";
 import { ApiClient } from "../api";
+import KitModal from "./KitModal.vue";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
 const props = defineProps<{ client: ApiClient }>();
 const emit = defineEmits<{ reauthenticate: [] }>();
 const enabled = ref(false),
@@ -17,6 +20,15 @@ const enabled = ref(false),
     expires_at: string;
   } | null>(null),
   qr = ref("");
+const submitText = computed(() => {
+  if (busy.value) return "正在验证…";
+  if (mode.value === "enable" && !setup.value) return "验证密码并生成绑定信息";
+  return mode.value === "disable" ? "确认关闭" : "确认绑定";
+});
+function submitModal() {
+  if (mode.value === "enable" && !setup.value) void prepare();
+  else void update();
+}
 function reset() {
   mode.value = null;
   currentPassword.value = "";
@@ -96,6 +108,8 @@ onBeforeUnmount(reset);
         }}
       </p>
       <button
+        class="pa-btn"
+        :class="enabled ? 'pa-btn--danger' : 'pa-btn--primary'"
         :disabled="busy"
         @click="
           mode = enabled ? 'disable' : 'enable';
@@ -105,80 +119,70 @@ onBeforeUnmount(reset);
         {{ enabled ? "关闭动态验证码" : "绑定身份验证器" }}
       </button></template
     >
-    <div v-if="mode" class="modal-backdrop">
-      <section
-        class="modal panel"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="mode === 'enable' ? '绑定身份验证器' : '关闭动态验证码'"
-      >
-        <h2>{{ mode === "enable" ? "绑定身份验证器" : "关闭动态验证码" }}</h2>
-        <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-        <form v-if="mode === 'enable' && !setup" @submit.prevent="prepare">
-          <label
-            >当前登录密码<input
-              v-model="currentPassword"
-              type="password"
-              required
-              maxlength="1024"
-              autocomplete="current-password"
-          /></label>
-          <div class="modal-actions">
-            <button type="button" :disabled="busy" @click="reset">取消</button
-            ><button class="primary" :disabled="busy">
-              验证密码并生成绑定信息
-            </button>
-          </div>
-        </form>
-        <form v-else @submit.prevent="update">
-          <template v-if="setup"
-            ><p>
-              使用身份验证器扫描二维码，然后输入生成的验证码。绑定密钥只在此次设置过程中展示。
-            </p>
-            <img
-              v-if="qr"
-              :src="qr"
-              width="230"
-              height="230"
-              alt="身份验证器绑定二维码"
-            /><label
-              >手动绑定密钥<input
-                :value="setup.secret"
-                readonly
-                autocomplete="off"
-            /></label>
-            <p class="muted">
-              绑定信息有效期至 {{ setup.expires_at }}
-            </p></template
-          ><label v-if="mode === 'disable'"
-            >当前登录密码<input
-              v-model="currentPassword"
-              type="password"
-              required
-              maxlength="1024"
-              autocomplete="current-password" /></label
-          ><label
-            >6 位动态验证码<input
-              v-model="code"
-              required
-              inputmode="numeric"
-              pattern="[0-9]{6}"
-              maxlength="6"
-              autocomplete="one-time-code"
-          /></label>
-          <p class="muted">
-            修改后将退出当前账户的全部登录会话。绑定成功后，请等待验证器生成下一组验证码再登录。
+    <KitModal
+      v-if="mode"
+      :title="mode === 'enable' ? '绑定身份验证器' : '关闭动态验证码'"
+      :loading="busy"
+      :danger="mode === 'disable'"
+      :submit-text="submitText"
+      @close="reset"
+      @submit="submitModal"
+    >
+      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <template v-if="mode === 'enable' && !setup">
+        <KitField label="当前登录密码" required
+          ><KitInput
+            v-model="currentPassword"
+            type="password"
+            required
+            :maxlength="1024"
+            autocomplete="current-password"
+            :disabled="busy"
+        /></KitField>
+      </template>
+      <template v-else>
+        <template v-if="setup">
+          <p>
+            使用身份验证器扫描二维码，然后输入生成的验证码。绑定密钥只在此次设置过程中展示。
           </p>
-          <div class="modal-actions">
-            <button type="button" :disabled="busy" @click="reset">取消</button
-            ><button class="primary" :disabled="busy">
-              {{
-                busy ? "正在验证…" : mode === "enable" ? "确认绑定" : "确认关闭"
-              }}
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+          <img
+            v-if="qr"
+            :src="qr"
+            width="230"
+            height="230"
+            alt="身份验证器绑定二维码"
+          />
+          <KitField label="手动绑定密钥"
+            ><KitInput
+              :model-value="setup.secret"
+              autocomplete="off"
+              :disabled="true"
+          /></KitField>
+          <p class="muted">绑定信息有效期至 {{ setup.expires_at }}</p>
+        </template>
+        <KitField v-if="mode === 'disable'" label="当前登录密码" required
+          ><KitInput
+            v-model="currentPassword"
+            type="password"
+            required
+            :maxlength="1024"
+            autocomplete="current-password"
+            :disabled="busy"
+        /></KitField>
+        <KitField label="6 位动态验证码" required
+          ><KitInput
+            v-model="code"
+            required
+            inputmode="numeric"
+            pattern="[0-9]{6}"
+            :maxlength="6"
+            autocomplete="one-time-code"
+            :disabled="busy"
+        /></KitField>
+        <p class="muted">
+          修改后将退出当前账户的全部登录会话。绑定成功后，请等待验证器生成下一组验证码再登录。
+        </p>
+      </template>
+    </KitModal>
   </section>
 </template>

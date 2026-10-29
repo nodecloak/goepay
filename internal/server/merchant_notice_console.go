@@ -14,6 +14,7 @@ import (
 	"goepay/internal/identity"
 	"goepay/internal/ledger"
 	notice "goepay/internal/merchantnotice"
+	"goepay/internal/smsgateway134"
 )
 
 func parseMerchantNoticeBody(raw []byte) (notice.SettingsWrite, int64, error) {
@@ -187,7 +188,20 @@ func (s *Server) merchantNoticeConsole(w http.ResponseWriter, r *http.Request, r
 	} else if write {
 		out, err = s.MerchantNotice.SaveSettings(ctx, mid, expected, in, actor)
 	} else {
-		out, err = s.MerchantNotice.Settings(ctx, mid, actor)
+		var view notice.SettingsView
+		view, err = s.MerchantNotice.Settings(ctx, mid, actor)
+		if err == nil {
+			switches, switchErr := s.MerchantNotice.PlatformNoticeSwitches(ctx)
+			if switchErr != nil {
+				s.fail(w, switchErr)
+				return true
+			}
+			out = struct {
+				notice.SettingsView
+				Platform  notice.PlatformNoticeSwitches `json:"platform"`
+				SMSActive bool                          `json:"sms_active"`
+			}{view, switches, s.merchantNoticeSMSActive(ctx)}
+		}
 	}
 	if err != nil {
 		switch {
@@ -207,4 +221,27 @@ func (s *Server) merchantNoticeConsole(w http.ResponseWriter, r *http.Request, r
 	identityHeaders(w)
 	response(w, 200, 0, "", out)
 	return true
+}
+
+// merchantNoticeSMSActive reports whether the platform SMS gateway can deliver
+// right now, so the 消息推送 matrix can disable the 短信 column with a reason
+// when the gateway is off (the default). Read-only, no credential is returned;
+// any error is treated as "not active" so the UI fails closed to disabled.
+func (s *Server) merchantNoticeSMSActive(ctx context.Context) bool {
+	if s.Pool == nil || len(s.CheckoutKey) != 32 {
+		return false
+	}
+	store := smsgateway134.New(s.Pool, s.CheckoutKey)
+	if store == nil {
+		return false
+	}
+	tx, e := s.Pool.Begin(ctx)
+	if e != nil {
+		return false
+	}
+	defer tx.Rollback(ctx)
+	if _, _, e = store.ActiveCredentials(ctx, tx); e != nil {
+		return false
+	}
+	return tx.Commit(ctx) == nil
 }

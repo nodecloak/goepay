@@ -33,7 +33,16 @@ export function readGroupRoutingCatalog(raw: unknown): RoutingChannel[] {
       key = id(item.id);
     if (
       seen.has(key) ||
-      !["alipay", "wxpay"].includes(String(item.type)) ||
+      ![
+        "alipay",
+        "wxpay",
+        "qqpay",
+        "bank",
+        "jdpay",
+        "paypal",
+        "douyinpay",
+        "ecny",
+      ].includes(String(item.type)) ||
       typeof item.type !== "string" ||
       !Array.isArray(item.methods) ||
       !item.methods.length ||
@@ -80,7 +89,16 @@ export function readGroupRoutingRolls(
       !r.name.trim() ||
       r.name.length > 100 ||
       typeof r.type !== "string" ||
-      !["alipay", "wxpay"].includes(r.type) ||
+      ![
+        "alipay",
+        "wxpay",
+        "qqpay",
+        "bank",
+        "jdpay",
+        "paypal",
+        "douyinpay",
+        "ecny",
+      ].includes(r.type) ||
       typeof r.channel_ids !== "string" ||
       r.channel_ids.length > 1000 ||
       !["first", "round_robin", "weighted", "priority"].includes(

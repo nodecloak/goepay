@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { beijingTimestamp } from "../console-datetime";
+import KitStatusTag from "./KitStatusTag.vue";
 const props = defineProps<{ items: Record<string, unknown>[] }>();
 const states: Record<string, string> = {
   pending: "待审核",
   approved: "成功",
   rejected: "已拒绝",
 };
+const stateTones: Record<
+  string,
+  "success" | "warning" | "danger" | "info" | "neutral"
+> = { pending: "warning", approved: "success", rejected: "danger" };
 const data = computed(() => {
   try {
     const ids = new Set<string>();
@@ -107,7 +112,12 @@ const data = computed(() => {
           <td :class="row.direction === 'in' ? 'incoming' : 'outgoing'">
             {{ row.direction === "in" ? "+" : "-" }}{{ row.amount }}
           </td>
-          <td>{{ row.status }}</td>
+          <td>
+            <KitStatusTag
+              :text="row.status"
+              :tone="stateTones[row.state] || 'neutral'"
+            />
+          </td>
           <td class="transfer-remark">{{ row.remark }}</td>
           <td>{{ row.created }}</td>
           <td>{{ row.completed }}</td>
@@ -138,9 +148,9 @@ const data = computed(() => {
   max-width: 240px;
 }
 .incoming {
-  color: #167245;
+  color: var(--success-text);
 }
 .outgoing {
-  color: #b42318;
+  color: var(--danger-text);
 }
 </style>

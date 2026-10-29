@@ -203,7 +203,7 @@ func (s *Server) providerRoutedRequestMode(ctx context.Context, mid int64, p com
 	if e != nil || p["out_trade_no"] == "" || len(p["out_trade_no"]) > 128 || len(p["name"]) > 256 || !validURL(p["notify_url"]) || !validURL(p["return_url"]) || net.ParseIP(p["clientip"]) == nil {
 		return 0, "", payment.ErrInvalid
 	}
-	if p["type"] != "alipay" && p["type"] != "wxpay" {
+	if !provider.CatalogPayType(p["type"]) {
 		return 0, "", payment.ErrInvalid
 	}
 	explicit := int64(0)
@@ -227,6 +227,11 @@ func (s *Server) providerRoutedRequestMode(ctx context.Context, mid int64, p com
 	var enabled bool
 	if e = tx.QueryRow(ctx, "SELECT enabled FROM merchants WHERE id=$1 FOR SHARE", mid).Scan(&enabled); e != nil || !enabled {
 		return 0, "", payment.ErrState
+	}
+	if open, e := payTypeCatalogOpen(ctx, tx, p["type"]); e != nil {
+		return 0, "", e
+	} else if !open {
+		return 0, "", errPayTypeClosed
 	}
 	var existingOrderID int64
 	e = tx.QueryRow(ctx, "SELECT id FROM orders WHERE merchant_id=$1 AND out_trade_no=$2 FOR UPDATE", mid, p["out_trade_no"]).Scan(&existingOrderID)

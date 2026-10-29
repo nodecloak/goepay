@@ -198,6 +198,130 @@ export const visibleMenu = (nodes: MenuNode[], role: string): MenuNode[] =>
   nodes
     .filter((n) => !n.hidden && (!n.roles.length || n.roles.includes(role)))
     .map((n) => ({ ...n, children: visibleMenu(n.children, role) }));
+
+// Per-menu administrator permissions (migration 000132). A restricted operator
+// carries a grant set of menu node ids; it sees only leaves whose id is granted
+// (group nodes survive when any descendant does). A super administrator and an
+// unrestricted operator (permissions undefined) are not narrowed — the server
+// remains the enforcement authority; this only drives navigation visibility.
+export const permissionRestricted = (
+  role: string,
+  adminClass: string | undefined,
+  permissions: string[] | undefined,
+): boolean =>
+  role === "admin" && adminClass !== "super" && Array.isArray(permissions);
+
+const granted = (node: MenuNode, keys: Set<string>): boolean =>
+  node.children.length
+    ? node.children.some((c) => granted(c, keys))
+    : keys.has(node.id);
+
+const permittedMenuSet = (nodes: MenuNode[], keys: Set<string>): MenuNode[] =>
+  nodes
+    .filter((n) => granted(n, keys))
+    .map((n) => ({
+      ...n,
+      children: n.children.length ? permittedMenuSet(n.children, keys) : [],
+    }));
+
+export const permittedMenu = (
+  nodes: MenuNode[],
+  permissions: string[],
+): MenuNode[] => permittedMenuSet(nodes, new Set(permissions));
+
+// navigationFor applies both the role filter and, for a restricted operator, the
+// per-menu grant set.
+export const navigationFor = (
+  area: Area,
+  role: string,
+  adminClass: string | undefined,
+  permissions: string[] | undefined,
+  features?: Record<string, boolean>,
+): MenuNode[] => {
+  const byRole = featureFilteredMenu(
+    area,
+    visibleMenu(navigationMenus(area), menuRole(role, adminClass)),
+    features,
+  );
+  if (!permissionRestricted(role, adminClass, permissions)) return byRole;
+  return permittedMenu(byRole, permissions as string[]);
+};
+
+// merchantFeatureMenu maps a merchant feature toggle key to the merchant menu
+// node id whose entry it governs. A feature that is off (explicit false) hides
+// that node; a missing/true feature leaves it shown. internal_transfer /
+// recharge / onecode default ON; complain_open / applyments_open / mchrisk_open
+// default OFF — both are decided server-side and delivered as merchant_features.
+const merchantFeatureMenu: Record<string, string> = {
+  internal_transfer: "InternalTransfer",
+  recharge: "Recharge",
+  onecode: "Onecode",
+  complain_open: "Complain",
+  applyments_open: "ApplymentsManage",
+  mchrisk_open: "MchRisk",
+};
+
+// featureHiddenNodeIds collects the menu node ids to hide for the merchant area
+// given the session feature flags. Only an explicit false hides a node.
+const featureHiddenNodeIds = (
+  area: Area,
+  features: Record<string, boolean> | undefined,
+): Set<string> => {
+  const hidden = new Set<string>();
+  if (area !== "merchant" || !features) return hidden;
+  for (const [key, nodeId] of Object.entries(merchantFeatureMenu))
+    if (features[key] === false) hidden.add(nodeId);
+  return hidden;
+};
+
+// featureFilteredMenu drops any node whose id is a disabled merchant feature,
+// then prunes a group left with no children.
+const featureFilteredMenu = (
+  area: Area,
+  nodes: MenuNode[],
+  features: Record<string, boolean> | undefined,
+): MenuNode[] => {
+  const hidden = featureHiddenNodeIds(area, features);
+  if (!hidden.size) return nodes;
+  const prune = (list: MenuNode[]): MenuNode[] =>
+    list
+      .filter((n) => !hidden.has(n.id))
+      .map((n) => ({ ...n, children: prune(n.children) }))
+      .filter((n) => !(n.children.length === 0 && wasGroup(n)));
+  const wasGroup = (n: MenuNode): boolean =>
+    menus[area]
+      .concat(supplementalMenus[area])
+      .some((top) => top.id === n.id && top.children.length > 0);
+  return prune(nodes);
+};
+
+// pageAuthorizedFor decides whether a page's route may be opened: the role must
+// match and, for a restricted operator, the page's menu id must be granted. A
+// page with no menu id (hidden/utility pages like change-password) is allowed so
+// self-service remains reachable. A merchant page whose feature is off is refused.
+export const pageAuthorizedFor = (
+  area: Area,
+  path: string,
+  role: string,
+  adminClass: string | undefined,
+  permissions: string[] | undefined,
+  features?: Record<string, boolean>,
+): boolean => {
+  const page = resolvePage(area, path);
+  if (!page) return false;
+  const roleKey = menuRole(role, adminClass);
+  if (page.roles.length && !page.roles.includes(roleKey)) return false;
+  if (featureHiddenNodeIds(area, features).has(page.id)) return false;
+  if (!permissionRestricted(role, adminClass, permissions)) return true;
+  const keys = permissions as string[];
+  // Always-allowed self-service pages carry no grantable menu key.
+  if (alwaysAllowedPage(path)) return true;
+  return keys.includes(page.id);
+};
+
+// alwaysAllowedPage lists utility pages a restricted operator may always open.
+const alwaysAllowedPage = (path: string): boolean =>
+  path === "/system/change-password" || path === "system/change-password";
 export const resolvePage = (area: Area, path: string) =>
   flattenMenu([...menus[area], ...supplementalMenus[area]]).find(
     (n) => n.path === path,
@@ -232,8 +356,18 @@ export type ViewKind =
   | "printing"
   | "merchant-notice"
   | "template"
+  | "app-store"
+  | "complain"
   | "unavailable";
 export function viewKind(area: Area, path: string): ViewKind {
+  if (
+    (area === "admin" &&
+      ["/complain/list", "/complain/charts", "/complain/task"].includes(
+        path,
+      )) ||
+    (area === "merchant" && path === "/complain")
+  )
+    return "complain";
   if (area === "merchant" && path === "/onecode") return "collection-generator";
   if (
     area === "admin" &&
@@ -251,6 +385,7 @@ export function viewKind(area: Area, path: string): ViewKind {
   )
     return "merchant-notice";
   if (area === "admin" && path === "/app/template") return "template";
+  if (area === "admin" && path === "/app/app-store") return "app-store";
   if (
     (area === "admin" && path === "/system/printing") ||
     (area === "merchant" && path === "/account/printing")

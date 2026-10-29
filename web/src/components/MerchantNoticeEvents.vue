@@ -135,7 +135,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .notice-events {
   margin-top: 1.5rem;
-  border-top: 1px solid var(--border, #e5e7eb);
+  border-top: 1px solid var(--border, var(--line));
   padding-top: 1rem;
 }
 .notice-event-table {
@@ -150,7 +150,7 @@ th,
 td {
   text-align: left;
   padding: 0.65rem;
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  border-bottom: 1px solid var(--border, var(--line));
   white-space: nowrap;
 }
 </style>

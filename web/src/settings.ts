@@ -19,6 +19,232 @@ export const settingsTabs = [
   ["advanced", "高级设置"],
 ] as const;
 export type SettingsTab = (typeof settingsTabs)[number][0];
+/** Panel titles as the original console shows them (网站信息配置 …). */
+export const settingsTitles: Record<SettingsTab, string> = {
+  site: "网站信息配置",
+  merchant: "商户相关配置",
+  pay: "支付相关配置",
+  complaint: "交易投诉配置",
+  risk: "风控检测配置",
+  settle: "结算规则配置",
+  transfer: "转账付款配置",
+  oauth: "快捷登录配置",
+  notice: "消息提醒配置",
+  certificate: "实名认证配置",
+  ocr: "OCR文字识别配置",
+  anounce: "公告排版配置",
+  mail: "邮箱配置",
+  sms: "短信配置",
+  iptype: "IP地址配置",
+  proxy: "中转代理配置",
+  advanced: "高级设置",
+};
+/** Separately saved setting blocks that sit between ordinary fields. */
+export type SettingsEmbed =
+  | "brand"
+  | "captcha-key"
+  | "keylogin"
+  | "scanpay"
+  | "scanjs"
+  | "user-refund"
+  | "buyer-fee"
+  | "proxy-credentials";
+type LayoutEntry = string | { group: string } | { embed: SettingsEmbed };
+// Field order follows the original epay_pro settings pages. A trailing "*"
+// matches a key prefix; keys not listed keep their server order at the end.
+const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
+  site: [
+    "sitename",
+    "site_name",
+    "title",
+    "keywords",
+    "description",
+    "orgname",
+    "email",
+    "support_email",
+    "kfqq",
+    "kfqq_url",
+    "wework_url",
+    "qqqun",
+    "login_subtitle",
+    { embed: "brand" },
+    "test_open",
+    "test_pay_uid",
+    "captcha_open_test",
+    "captcha_id",
+    { embed: "captcha-key" },
+    "captcha_version",
+    "captcha_open_login",
+    "homepage",
+    "homepage_url",
+    { embed: "keylogin" },
+  ],
+  merchant: [
+    { group: "登录&注册配置" },
+    "registration_open",
+    "registration_invite_required",
+    "user_review",
+    "reg_pay",
+    "reg_pay_price",
+    "reg_pay_uid",
+    { group: "商户功能配置" },
+    "internal_transfer",
+    "recharge",
+    "onecode",
+    { embed: "scanpay" },
+    { embed: "scanjs" },
+    "enforce_domains",
+    { embed: "user-refund" },
+    "refund_fee_payer",
+    { group: "进件配置（本轮暂缓）" },
+    "applyments_open",
+    "mchrisk_open",
+  ],
+  pay: [
+    "pay_maxmoney",
+    "pay_minmoney",
+    "payment_fee_enabled",
+    { embed: "buyer-fee" },
+    "pay_force_cashier_pids",
+    { group: "商品名称与屏蔽" },
+    "pageordername",
+    "notifyordername",
+    "blockname",
+    "blockalert",
+    "blackmsg",
+    "forceqq",
+    { group: "合单支付" },
+    "wxcombine_open",
+    "wxcombine_minmoney",
+    "wxcombine_submoney",
+  ],
+  complaint: ["complain_open"],
+  settle: [
+    "settle_open",
+    "settle_type",
+    "settlement_daily_limit",
+    "settlement_minimum_cents",
+    "settlement_maximum_cents",
+    "settlement_fee_rate_bps",
+    "settlement_fee_minimum_cents",
+    "settlement_fee_maximum_cents",
+    "settlement_retained_cents",
+    "auto_settle_money",
+    { group: "各收款方式结算开关" },
+    "settle_alipay",
+    "settle_wxpay",
+    "settle_qqpay",
+    "settle_bank",
+  ],
+  transfer: [
+    "transfer_enabled",
+    "transfer_name",
+    "transfer_desc",
+    "transfer_alipay",
+    "transfer_wxpay",
+    "transfer_wxpay_type",
+    "transfer_wxpay_scene_id",
+    "transfer_wxpay_info_type",
+    "transfer_wxpay_info_content",
+    "transfer_qqpay",
+    { group: "代付配置" },
+    "user_transfer",
+    "user_transfer_red",
+    "transfer_minmoney",
+    "transfer_maxmoney",
+    "transfer_maxlimit",
+  ],
+  notice: [
+    "msgconfig_regaudit",
+    "msgconfig_apply",
+    "msgconfig_domain",
+    "msgconfig_risk",
+    "mail_recv",
+    "mail_name",
+    "msgtelegram_chatid",
+    "qqbot_openid",
+    "telegramnotice",
+    "qqbotnotice",
+    "msgconfig_order",
+    "msgconfig_settle",
+    "msgconfig_login",
+    "msgconfig_complain",
+    "msgconfig_mchrisk",
+    "msgconfig_balance",
+    "msgconfig_group",
+    "msgconfig_domain_audit",
+    "msgconfig_daily_report",
+    "msgconfig_*",
+    "wxnotice_tpl_order*",
+    "wxnotice_tpl_settle*",
+    "wxnotice_tpl_login*",
+    "wxnotice_tpl_complain*",
+    "wxnotice_tpl_balance*",
+    "wxnotice_tpl_*",
+    "voicenotice",
+  ],
+  anounce: ["modal", "zhuce", "footer"],
+  proxy: [
+    "proxy",
+    "proxy_server",
+    "proxy_port",
+    "proxy_user",
+    "proxy_type",
+    "proxy_apiurl",
+    { embed: "proxy-credentials" },
+  ],
+};
+export type SettingsBlock =
+  | { type: "group"; key: string; title: string }
+  | { type: "field"; key: string; definition: SettingDefinition }
+  | { type: "embed"; key: string; embed: SettingsEmbed };
+/** Ordered page content for one tab: headings, fields and embedded blocks. */
+export function settingsBlocks(
+  tab: SettingsTab,
+  fields: readonly SettingDefinition[],
+): SettingsBlock[] {
+  const used = new Set<string>(),
+    blocks: SettingsBlock[] = [];
+  const matches = (pattern: string, key: string) =>
+    pattern.endsWith("*")
+      ? key.startsWith(pattern.slice(0, -1))
+      : pattern === key;
+  for (const entry of settingsLayout[tab] ?? []) {
+    if (typeof entry === "string") {
+      for (const d of fields)
+        if (!used.has(d.key) && matches(entry, d.key)) {
+          used.add(d.key);
+          blocks.push({ type: "field", key: d.key, definition: d });
+        }
+    } else if ("group" in entry)
+      blocks.push({
+        type: "group",
+        key: "group:" + entry.group,
+        title: entry.group,
+      });
+    else
+      blocks.push({
+        type: "embed",
+        key: "embed:" + entry.embed,
+        embed: entry.embed,
+      });
+  }
+  for (const d of fields)
+    if (!used.has(d.key))
+      blocks.push({ type: "field", key: d.key, definition: d });
+  // A heading is shown only when something follows it before the next one.
+  return blocks.filter(
+    (b, i) =>
+      b.type !== "group" ||
+      (!!blocks[i + 1] && blocks[i + 1]!.type !== "group"),
+  );
+}
+/** Settings the original console marks as required. */
+export const requiredSettings: ReadonlySet<string> = new Set([
+  "sitename",
+  "site_name",
+  "homepage",
+]);
 export interface SettingDefinition {
   key: string;
   label: string;
@@ -53,18 +279,18 @@ const labels: Record<
 > = {
   site_name: ["site", "网站名称", "text"],
   sitename: ["site", "网站名称", "text"],
-  title: ["site", "网站标题", "text"],
-  keywords: ["site", "网站关键词", "text"],
+  title: ["site", "首页标题", "text"],
+  keywords: ["site", "关键字", "text"],
   description: ["site", "网站描述", "text"],
-  orgname: ["site", "公司名称", "text"],
+  orgname: ["site", "公司/组织名称", "text"],
   email: ["site", "联系邮箱", "email"],
   kfqq: ["site", "客服QQ", "text"],
   kfqq_url: ["site", "客服QQ链接", "text"],
   wework_url: ["site", "企业微信链接", "text"],
   qqqun: ["site", "加群链接", "text"],
-  login_subtitle: ["site", "登录页面标语", "text"],
-  homepage: ["site", "网站首页", "select"],
-  homepage_url: ["site", "自定义首页地址", "text"],
+  login_subtitle: ["site", "登录页副标题", "text"],
+  homepage: ["site", "首页显示模式", "select"],
+  homepage_url: ["site", "显示网址URL", "text"],
   support_email: ["site", "客服邮箱", "email"],
   modal: ["anounce", "用户中心弹出公告", "html"],
   zhuce: ["anounce", "用户注册页面公告", "html"],
@@ -72,7 +298,7 @@ const labels: Record<
   registration_open: ["merchant", "开放商户注册", "select"],
   registration_invite_required: ["merchant", "注册必须邀请码", "select"],
   user_review: ["merchant", "新商户审核", "select"],
-  enforce_domains: ["pay", "校验授权域名", "select"],
+  enforce_domains: ["merchant", "校验授权域名", "select"],
   payment_fee_enabled: ["pay", "支付手续费", "select"],
   test_open: ["site", "测试支付", "select"],
   test_pay_uid: ["site", "测试支付收款商户ID", "integer"],
@@ -82,7 +308,7 @@ const labels: Record<
   captcha_open_login: ["site", "登录开启验证码", "select"],
   pay_maxmoney: ["pay", "最大支付金额（元）", "money"],
   pay_minmoney: ["pay", "最小支付金额（元）", "money"],
-  refund_fee_payer: ["pay", "退款手续费承担方", "select"],
+  refund_fee_payer: ["merchant", "退款手续费承担方", "select"],
   wxcombine_open: ["pay", "微信开启合单支付", "select"],
   wxcombine_minmoney: ["pay", "合单支付最小金额（元）", "money"],
   wxcombine_submoney: ["pay", "合单支付子单最大金额（元）", "money"],
@@ -116,7 +342,7 @@ const labels: Record<
   transfer_maxlimit: ["transfer", "每日同账户转账次数", "integer"],
   transfer_desc: ["transfer", "默认转账备注", "text"],
   transfer_name: ["transfer", "支付宝转账标题", "text"],
-  auto_settle_money: ["transfer", "余额自动转账阈值（元）", "money"],
+  auto_settle_money: ["settle", "余额自动转账阈值（元）", "money"],
   transfer_alipay: ["transfer", "支付宝自动转账通道ID", "integer"],
   user_transfer: ["transfer", "代付功能（原系统开关）", "select"],
   user_transfer_red: ["transfer", "用户中心创建红包功能", "select"],
@@ -146,6 +372,28 @@ const labels: Record<
   proxy_user: ["proxy", "代理账号", "text"],
   proxy_type: ["proxy", "代理协议", "select"],
   proxy_apiurl: ["proxy", "API接口地址", "text"],
+  settle_alipay: ["settle", "支付宝结算开关", "select"],
+  settle_wxpay: ["settle", "微信结算开关", "select"],
+  settle_qqpay: ["settle", "QQ钱包结算开关", "select"],
+  settle_bank: ["settle", "银行卡结算开关", "select"],
+  transfer_wxpay: ["transfer", "微信转账接口通道", "select"],
+  transfer_qqpay: ["transfer", "QQ钱包转账接口通道", "select"],
+  blockname: ["pay", "商品屏蔽关键词", "text"],
+  blockalert: ["pay", "商品屏蔽显示内容", "text"],
+  blackmsg: ["pay", "黑名单拦截提示内容", "text"],
+  pageordername: ["pay", "扫码页面隐藏商品名称", "select"],
+  notifyordername: ["pay", "回调参数去除商品名称", "select"],
+  forceqq: ["pay", "未填联系QQ禁止支付", "select"],
+  pay_force_cashier_pids: ["pay", "强制跳转收银台商户ID", "text"],
+  internal_transfer: ["merchant", "开启站内转账", "select"],
+  recharge: ["merchant", "开启余额充值", "select"],
+  onecode: ["merchant", "开启聚合收款码", "select"],
+  complain_open: ["complaint", "开启交易投诉", "select"],
+  applyments_open: ["merchant", "开启商户进件功能", "select"],
+  mchrisk_open: ["merchant", "开启商户管控记录查看", "select"],
+  reg_pay: ["merchant", "注册付费", "select"],
+  reg_pay_price: ["merchant", "注册付费金额（元）", "money"],
+  reg_pay_uid: ["merchant", "注册/充值/购买会员收款商户ID", "integer"],
 };
 const scenes: Record<string, string> = {
   order: "订单支付成功",
@@ -161,6 +409,7 @@ const scenes: Record<string, string> = {
   apply: "手动提现申请",
   domain: "域名与站内转账待审核",
   risk: "管理员异常事件",
+  wxtransfer: "转账确认",
 };
 const templateFields: Record<string, string> = {
   no: "平台订单号",
@@ -201,10 +450,10 @@ export function settingDefinition(
     d.options = [option("0", "无需审核"), option("1", "需管理员审核")];
   if (key === "homepage")
     d.options = [
-      option("0", "默认首页"),
-      option("1", "商户登录页面"),
-      option("2", "自定义首页"),
-      option("3", "空白页面"),
+      option("0", "默认显示首页"),
+      option("1", "直接跳转登录页面"),
+      option("2", "显示其它指定网址"),
+      option("3", "显示空白页"),
     ];
   if (key === "settle_type")
     d.options = [option("0", "T+0"), option("1", "T+1")];
@@ -234,6 +483,22 @@ export function settingDefinition(
       "captcha_open_login",
       "wxcombine_open",
       "user_transfer_red",
+      "settle_alipay",
+      "settle_wxpay",
+      "settle_qqpay",
+      "settle_bank",
+      "transfer_wxpay",
+      "transfer_qqpay",
+      "pageordername",
+      "notifyordername",
+      "forceqq",
+      "internal_transfer",
+      "recharge",
+      "onecode",
+      "complain_open",
+      "applyments_open",
+      "mchrisk_open",
+      "reg_pay",
     ].includes(key)
   )
     d.options = switchOptions;
@@ -280,6 +545,46 @@ export function settingDefinition(
   if (key === "transfer_wxpay_info_content")
     d.hint =
       "请根据信息类型，描述当前这笔转账单的转账背景，有多个类型时用|隔开";
+  if (
+    ["settle_alipay", "settle_wxpay", "settle_qqpay", "settle_bank"].includes(
+      key,
+    )
+  )
+    d.hint = "关闭后该收款方式的余额不参与结算；需配合结算总开关使用。";
+  if (["transfer_wxpay", "transfer_qqpay"].includes(key))
+    d.hint = "关闭后不使用该通道发起转账付款。";
+  if (key === "blockname")
+    d.hint = "多个关键词用|隔开。命中关键词的商品会被拒绝支付并记入风控记录。";
+  if (key === "blockalert")
+    d.hint = "命中屏蔽关键词时的提示内容；留空则显示“该商品禁止出售”。";
+  if (key === "blackmsg")
+    d.hint = "命中黑名单时的提示内容；留空则显示“系统异常无法完成付款”。";
+  if (key === "pageordername")
+    d.hint =
+      "开启后扫码收银页面隐藏真实商品名称，显示onlinepay或自定义商品名称。";
+  if (key === "notifyordername")
+    d.hint =
+      "开启后异步/同步回调参数中的name固定为product，签名按该值计算，验签不受影响。";
+  if (key === "forceqq") d.hint = "开启后未填写联系QQ的商户无法收款。";
+  if (key === "pay_force_cashier_pids")
+    d.hint = "填写需强制跳转收银台的商户ID，多个用|隔开。";
+  if (key === "internal_transfer")
+    d.hint = "关闭后商户中心隐藏站内转账入口并拒绝相关请求。";
+  if (key === "recharge")
+    d.hint = "关闭后商户中心隐藏余额充值入口并拒绝充值请求。";
+  if (key === "onecode")
+    d.hint =
+      "关闭后商户中心隐藏聚合收款入口并拒绝相关请求（单独开通聚合码的商户不受影响）。";
+  if (key === "complain_open")
+    d.hint = "关闭后商户中心隐藏交易投诉入口并拒绝相关请求。";
+  if (key === "applyments_open")
+    d.hint = "进件/实名相关业务按本轮范围暂缓，此开关当前仅保存配置。";
+  if (key === "mchrisk_open")
+    d.hint = "进件管控记录按本轮范围暂缓，此开关当前仅保存配置。";
+  if (key === "reg_pay") d.hint = "开启后新商户注册需先支付注册费用。";
+  if (key === "reg_pay_price") d.hint = "注册付费金额（元）。";
+  if (key === "reg_pay_uid")
+    d.hint = "注册/充值/购买会员订单的收款商户ID，需为本站已注册的商户UID。";
   if (key.startsWith("msgconfig_")) {
     const scene = key.slice(10);
     d.tab = "notice";

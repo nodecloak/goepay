@@ -506,7 +506,7 @@ onBeforeUnmount(() => {
   grid-row: span 3;
 }
 .group-editor-section h3 {
-  color: var(--accent, #2563eb);
+  color: var(--accent, var(--primary-text));
   font-size: 15px;
   margin: 16px 0 8px;
 }
@@ -525,9 +525,9 @@ onBeforeUnmount(() => {
   margin-bottom: 16px;
 }
 .group-editor-tabs button[aria-selected="true"] {
-  color: #2563eb;
-  background: #eff6ff;
-  border-color: #93c5fd;
+  color: var(--primary-text);
+  background: var(--primary-soft);
+  border-color: var(--primary-text);
 }
 .group-editor fieldset {
   min-width: 0;

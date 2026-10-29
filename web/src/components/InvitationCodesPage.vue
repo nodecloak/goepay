@@ -16,6 +16,7 @@ import {
   nextTick,
 } from "vue";
 import { ApiClient, ApiError } from "../api";
+import KitPagination from "./KitPagination.vue";
 interface Invitation {
   id: string;
   code: string;
@@ -32,6 +33,7 @@ const props = defineProps<{ client: ApiClient; ownSession: boolean }>();
 const items = ref<Invitation[]>([]),
   total = ref(0),
   page = ref(1),
+  limit = ref(20),
   search = ref(""),
   status = ref(""),
   loading = ref(false),
@@ -102,7 +104,7 @@ async function load() {
   try {
     const q = new URLSearchParams({
       page: String(page.value),
-      limit: "20",
+      limit: String(limit.value),
       search: search.value,
       status: status.value,
     });
@@ -318,25 +320,27 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="panel invitation-page">
-    <form class="toolbar invitation-filters" @submit.prevent="query">
-      <label
-        >邀请码<input
-          v-model="search"
-          aria-label="搜索邀请码"
-          placeholder="搜索邀请码"
-          maxlength="256"
-          :disabled="busy"
-      /></label>
-      <label
-        >状态<select v-model="status" aria-label="状态筛选" :disabled="busy">
-          <option value="">全部状态</option>
-          <option value="unused">未使用</option>
-          <option value="used">已使用</option>
-        </select></label
-      >
-      <button :disabled="loading || busy">查询</button
-      ><button
+  <form
+    class="toolbar list-filter-card panel invitation-filters"
+    @submit.prevent="query"
+  >
+    <label class="filter-inline"
+      >邀请码<input
+        v-model="search"
+        aria-label="搜索邀请码"
+        placeholder="搜索邀请码"
+        maxlength="256"
+        :disabled="busy"
+    /></label>
+    <label class="filter-inline"
+      >状态<select v-model="status" aria-label="状态筛选" :disabled="busy">
+        <option value="">全部状态</option>
+        <option value="unused">未使用</option>
+        <option value="used">已使用</option>
+      </select></label
+    >
+    <div class="filter-actions">
+      <button
         type="button"
         :disabled="loading || busy"
         @click="
@@ -345,10 +349,13 @@ onBeforeUnmount(() => {
           query();
         "
       >
-        清空筛选
+        重置
       </button>
-    </form>
-    <div class="toolbar invitation-actions">
+      <button class="primary" :disabled="loading || busy">查询</button>
+    </div>
+  </form>
+  <section class="panel records invitation-page">
+    <div class="table-tools invitation-actions">
       <button
         class="primary"
         :disabled="!canWrite || busy || !!clearRequest"
@@ -364,10 +371,13 @@ onBeforeUnmount(() => {
         :disabled="!canWrite || busy || !!batch"
         @click="openClear('used')"
       >
-        清空已使用</button
-      ><button :disabled="loading || busy" @click="load">刷新</button>
+        清空已使用
+      </button>
+      <div class="table-tools-end">
+        <button :disabled="loading || busy" @click="load">刷新</button>
+      </div>
     </div>
-    <p v-if="!canWrite" class="muted">
+    <p v-if="!canWrite" class="table-note">
       当前会话只读，请使用本人管理员会话管理邀请码。
     </p>
     <p v-if="batch && mode !== 'generate'" class="alert" role="status">
@@ -440,26 +450,12 @@ onBeforeUnmount(() => {
         </tbody>
       </table>
     </div>
-    <div class="pagination">
-      <span>共 {{ total }} 条，第 {{ page }} 页</span
-      ><button
-        :disabled="page === 1 || loading || busy"
-        @click="
-          page--;
-          load();
-        "
-      >
-        上一页</button
-      ><button
-        :disabled="page * 20 >= total || loading || busy"
-        @click="
-          page++;
-          load();
-        "
-      >
-        下一页
-      </button>
-    </div>
+    <KitPagination
+      v-model:page="page"
+      v-model:page-size="limit"
+      :total="total"
+      @change="load"
+    />
   </section>
   <Teleport to="body"
     ><div v-if="mode" class="modal-backdrop" @keydown="focusTrap">
@@ -560,22 +556,33 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 .invitation-page .status-danger {
-  background: #fef0f0;
-  color: #f56c6c;
-  border-color: #fde2e2;
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  border-color: var(--danger-soft);
 }
 .invitation-page .status-success {
-  background: #f0f9eb;
-  color: #67c23a;
-  border-color: #e1f3d8;
+  background: var(--success-soft);
+  color: var(--success-text);
+  border-color: var(--success-soft);
 }
 .invitation-filters label {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
+  white-space: nowrap;
+  font-size: 13px;
 }
 .invitation-filters input {
   width: min(240px, 100%);
+  margin: 0;
+}
+.invitation-filters select {
+  width: auto;
+  min-width: 120px;
+  margin: 0;
+}
+.invitation-filters.toolbar {
+  align-items: center;
 }
 .invitation-actions {
   flex-wrap: wrap;

@@ -214,7 +214,7 @@ func (s *Store) createOrderWithPrintOrigin(ctx context.Context, in CreateOrderIn
 		in.PaymentCost = quote.costQuote()
 		groupDeadline = quote.facts.GroupValidUntil
 	} else {
-		if in.Type == "alipay" || in.Type == "wxpay" {
+		if catalogPayType(in.Type) {
 			routing, err := s.GroupPaymentRoutingTx(ctx, tx, in.MerchantID, in.Type)
 			if err != nil {
 				return Order{}, err

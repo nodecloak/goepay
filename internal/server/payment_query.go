@@ -40,7 +40,9 @@ func (s *Server) paymentQuery(w http.ResponseWriter, r *http.Request, legacy boo
 	}
 	if o.PaidAt != nil {
 		out["endtime"] = o.PaidAt.In(loc).Format("2006-01-02 15:04:05")
-	} else if legacy {
+	} else {
+		// The original always returns endtime (NULL -> ""); emit it present-but-empty
+		// for unpaid orders on both the legacy and v2 query paths.
 		out["endtime"] = ""
 	}
 	if refunded > 0 && refunded < charge104 {

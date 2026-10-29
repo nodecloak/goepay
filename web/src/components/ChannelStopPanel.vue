@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch, computed } from "vue";
 import { ApiClient } from "../api";
 import { consoleValue } from "../pro-console-fields";
+import KitStatusTag from "./KitStatusTag.vue";
+import KitHelpPopover from "./KitHelpPopover.vue";
 const props = defineProps<{ client: ApiClient }>();
 interface Status {
   channel_id: string;
@@ -23,6 +25,16 @@ const items = ref<Status[]>([]),
   notice = ref("");
 let controller: AbortController | undefined,
   epoch = 0;
+const expanded = ref(false);
+const blockedCount = computed(
+  () => items.value.filter((x) => x.blocked).length,
+);
+// The runtime card stays a compact status chip until something needs the full
+// recovery form: a channel is stopped, a row is chosen to restore, or the user
+// expands it. Nothing is removed — the whole recovery flow is behind 展开.
+const open = computed(
+  () => expanded.value || blockedCount.value > 0 || !!selected.value,
+);
 function valid(raw: unknown): raw is Status {
   if (!raw || typeof raw !== "object") return false;
   const x = raw as Status;
@@ -163,111 +175,139 @@ onBeforeUnmount(() => {
   <section class="channel-stop-panel" aria-labelledby="channel-stop-title">
     <div class="toolbar">
       <h3 id="channel-stop-title">通道运行状态</h3>
-      <button type="button" :disabled="loading || busy" @click="load">
-        刷新状态
-      </button>
+      <KitStatusTag
+        v-if="!loading"
+        :tone="blockedCount ? 'danger' : 'success'"
+        :text="blockedCount ? blockedCount + ' 个已停用' : '运行正常'"
+      />
+      <KitHelpPopover
+        label="说明"
+        text="付款异常自动停用后，请先核对原转账和通道配置，再恢复新请求。此处显示实际运行通道，修改下方通道资料不会解除停用。"
+      />
+      <span class="channel-stop-tools">
+        <button type="button" :disabled="loading || busy" @click="load">
+          刷新状态
+        </button>
+        <button
+          type="button"
+          :aria-expanded="open"
+          :disabled="blockedCount > 0 || !!selected"
+          @click="expanded = !expanded"
+        >
+          {{ open ? "收起" : "展开" }}
+        </button>
+      </span>
     </div>
-    <p class="muted">
-      付款异常自动停用后，请先核对原转账和通道配置，再恢复新请求。此处显示实际运行通道，修改下方通道资料不会解除停用。
-    </p>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
-    <p v-if="loading" role="status">正在读取通道状态…</p>
-    <p v-else-if="!items.length && !error" class="muted">
-      暂无已配置的运行通道。
-    </p>
-    <div v-for="row in items" :key="row.channel_id" class="channel-stop-row">
-      <div>
-        <strong>通道 {{ row.channel_id }}</strong>
-        <span>{{
-          row.provider === "alipay"
-            ? "支付宝"
-            : row.provider === "wxpay"
-              ? "微信支付"
-              : "QQ钱包"
-        }}</span>
-        <span :class="row.blocked ? 'badge danger' : 'badge'">{{
-          row.blocked
-            ? "已停用"
-            : row.revision === "0"
-              ? "允许新请求"
-              : "已恢复"
-        }}</span>
-        <p v-if="row.code" class="muted">原异常代码：{{ row.code }}</p>
-        <p v-if="row.notice_state" class="muted">
-          管理员通知：{{
-            {
-              pending: "待发送",
-              attempted: "发送待核对",
-              accepted: "通知服务已受理",
-              unknown: "发送结果待核对",
-            }[row.notice_state]
-          }}
-        </p>
-        <p v-if="row.notice_transport" class="muted">
-          通知方式：{{
-            {
-              smtp: "邮件",
-              robot: "群机器人",
-              telegram: "Telegram",
-              qqbot: "QQ机器人",
-            }[row.notice_transport]
-          }}
-        </p>
-        <small v-if="row.changed_at" class="muted"
-          >最近变更（北京时间）：{{
-            consoleValue("created_at", row.changed_at)
-          }}</small
-        >
-      </div>
-      <button
-        v-if="row.blocked"
-        type="button"
-        :disabled="busy || loading"
-        @click="choose(row)"
-      >
-        恢复通道
-      </button>
-    </div>
-    <form
-      v-if="selected"
-      class="channel-stop-confirm"
-      @submit.prevent="restore"
-    >
-      <h4>恢复通道 {{ selected.channel_id }}</h4>
-      <p>
-        核对停用记录 {{ selected.event_id }}（修订
-        {{ selected.revision }}）及错误
-        {{ selected.code }}。恢复只允许后续新请求，未知转账仍须按原单号查询。
+    <template v-if="open">
+      <p v-if="loading" role="status">正在读取通道状态…</p>
+      <p v-else-if="!items.length && !error" class="muted">
+        暂无已配置的运行通道。
       </p>
-      <label
-        ><input
-          v-model="confirmed"
-          type="checkbox"
-          :disabled="busy"
-        />我已核对原转账和通道配置，确认恢复</label
-      >
-      <div class="toolbar">
-        <button type="submit" :disabled="!confirmed || busy">
-          {{ busy ? "正在确认…" : "确认恢复" }}</button
-        ><button type="button" :disabled="busy" @click="selected = null">
-          取消
+      <div v-for="row in items" :key="row.channel_id" class="channel-stop-row">
+        <div>
+          <strong>通道 {{ row.channel_id }}</strong>
+          <span>{{
+            row.provider === "alipay"
+              ? "支付宝"
+              : row.provider === "wxpay"
+                ? "微信支付"
+                : "QQ钱包"
+          }}</span>
+          <KitStatusTag
+            :tone="
+              row.blocked ? 'danger' : row.revision === '0' ? 'info' : 'success'
+            "
+            :text="
+              row.blocked
+                ? '已停用'
+                : row.revision === '0'
+                  ? '允许新请求'
+                  : '已恢复'
+            "
+          />
+          <p v-if="row.code" class="muted">原异常代码：{{ row.code }}</p>
+          <p v-if="row.notice_state" class="muted">
+            管理员通知：{{
+              {
+                pending: "待发送",
+                attempted: "发送待核对",
+                accepted: "通知服务已受理",
+                unknown: "发送结果待核对",
+              }[row.notice_state]
+            }}
+          </p>
+          <p v-if="row.notice_transport" class="muted">
+            通知方式：{{
+              {
+                smtp: "邮件",
+                robot: "群机器人",
+                telegram: "Telegram",
+                qqbot: "QQ机器人",
+              }[row.notice_transport]
+            }}
+          </p>
+          <small v-if="row.changed_at" class="muted"
+            >最近变更（北京时间）：{{
+              consoleValue("created_at", row.changed_at)
+            }}</small
+          >
+        </div>
+        <button
+          v-if="row.blocked"
+          type="button"
+          :disabled="busy || loading"
+          @click="choose(row)"
+        >
+          恢复通道
         </button>
       </div>
-    </form>
+      <form
+        v-if="selected"
+        class="channel-stop-confirm"
+        @submit.prevent="restore"
+      >
+        <h4>恢复通道 {{ selected.channel_id }}</h4>
+        <p>
+          核对停用记录 {{ selected.event_id }}（修订
+          {{ selected.revision }}）及错误
+          {{ selected.code }}。恢复只允许后续新请求，未知转账仍须按原单号查询。
+        </p>
+        <label
+          ><input
+            v-model="confirmed"
+            type="checkbox"
+            :disabled="busy"
+          />我已核对原转账和通道配置，确认恢复</label
+        >
+        <div class="toolbar">
+          <button type="submit" :disabled="!confirmed || busy">
+            {{ busy ? "正在确认…" : "确认恢复" }}</button
+          ><button type="button" :disabled="busy" @click="selected = null">
+            取消
+          </button>
+        </div>
+      </form>
+    </template>
   </section>
 </template>
 <style scoped>
 .channel-stop-panel {
   margin-bottom: 20px;
   padding: 16px;
-  border: 1px solid var(--border, #e7eaec);
+  border: 1px solid var(--border, var(--line));
   border-radius: 3px;
-  background: var(--surface, #fff);
+  background: var(--surface, var(--bg-card));
 }
 .channel-stop-panel h3 {
   margin: 0;
   font-size: 16px;
+}
+.channel-stop-tools {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: auto;
 }
 .channel-stop-row {
   display: flex;
@@ -275,7 +315,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 12px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--border, #e7eaec);
+  border-bottom: 1px solid var(--border, var(--line));
 }
 .channel-stop-row > div {
   min-width: 0;
@@ -290,7 +330,7 @@ onBeforeUnmount(() => {
 .channel-stop-confirm {
   margin-top: 16px;
   padding: 16px;
-  background: var(--bg, #f3f3f4);
+  background: var(--bg, var(--bg-raised));
   overflow-wrap: anywhere;
 }
 .channel-stop-confirm label {
@@ -302,8 +342,8 @@ onBeforeUnmount(() => {
   margin-top: 12px;
 }
 .channel-stop-panel .danger {
-  color: #b42318;
-  background: #fee4e2;
+  color: var(--danger-text);
+  background: var(--danger-soft);
 }
 @media (max-width: 480px) {
   .channel-stop-row {

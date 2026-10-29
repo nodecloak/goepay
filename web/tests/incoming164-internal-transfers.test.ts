@@ -55,8 +55,16 @@ it("incoming164 renders recipient direction, exact counterpart IDs and terminal 
 });
 it("incoming164 applies direction and original status filters without converting merchant IDs to numbers", async () => {
   const { w, request } = await fixture();
-  await w.get('select[aria-label="方向"]').setValue("in");
-  await w.get('select[aria-label="状态"]').setValue("approved");
+  // 方向 and 状态 are kit selects (trigger button + role=option menu).
+  const pick = async (label: string, option: string) => {
+    await w
+      .get(`button.pa-select-trigger[aria-label="${label}"]`)
+      .trigger("click");
+    const opt = w.findAll('[role="option"]').find((o) => o.text() === option);
+    await opt!.trigger("click");
+  };
+  await pick("方向", "转入");
+  await pick("状态", "成功");
   await w.get('form[aria-label="站内转账筛选"]').trigger("submit");
   await flushPromises();
   const path = String(request.mock.calls.at(-1)![0]);

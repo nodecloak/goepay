@@ -26,6 +26,7 @@ var ErrInvalid = errors.New("invalid refund event subscription")
 
 const JobKind = "merchant.refund-event"
 const NoticeJobKind = "merchant.refund-event-closed-notice"
+const ComplaintJobKind = "merchant.complaint-event"
 
 type Store struct {
 	pool *pgxpool.Pool
@@ -72,6 +73,9 @@ func text(raw string, limit int) bool {
 }
 func eventKey(id int64) string  { return fmt.Sprintf("merchant-refund-event201:%d", id) }
 func noticeKey(id int64) string { return fmt.Sprintf("merchant-refund-event-closed201:%d", id) }
+func complaintEventKey(id int64) string {
+	return fmt.Sprintf("merchant-complaint-event201:%d", id)
+}
 func jobPayload(id int64) []byte {
 	raw, _ := json.Marshal(map[string]string{"event_id": fmt.Sprint(id)})
 	return raw
@@ -115,6 +119,8 @@ func checkJob(ctx context.Context, tx pgx.Tx, j jobs.Job, kind string, id int64)
 	key := eventKey(id)
 	if kind == NoticeJobKind {
 		key = noticeKey(id)
+	} else if kind == ComplaintJobKind {
+		key = complaintEventKey(id)
 	}
 	if j.ID <= 0 || j.Token == "" || j.Kind != kind || j.EventKey != key || j.Attempts <= 0 {
 		return ErrSource

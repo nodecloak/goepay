@@ -9,10 +9,16 @@ import (
 	"goepay/internal/payment"
 	"net/http"
 	"net/mail"
+	"regexp"
 	"strings"
 )
 
 var errCurrentPassword = errors.New("current password rejected")
+
+// merchantProfilePhonePattern mirrors the admin merchant-directory contact rule
+// (internal/backoffice/merchant_contacts.go) so a merchant editing their own
+// contact phone is held to the same shape the console enforces for admins.
+var merchantProfilePhonePattern = regexp.MustCompile(`^\+?[0-9]{5,20}$`)
 
 func (s *Server) account(w http.ResponseWriter, r *http.Request, role string, session identity.Session, parts []string) bool {
 	if len(parts) < 2 || parts[1] != "account" {
@@ -59,12 +65,14 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request, role string, se
 			var in struct {
 				Name  string `json:"name"`
 				Email string `json:"email"`
+				Phone string `json:"phone"`
 			}
 			if !decode(w, r, &in) {
 				return true
 			}
 			in.Name = strings.TrimSpace(in.Name)
 			in.Email = strings.TrimSpace(in.Email)
+			in.Phone = strings.TrimSpace(in.Phone)
 			if in.Name == "" || len(in.Name) > 128 || len(in.Email) > 254 {
 				response(w, 422, -1, "invalid profile", nil)
 				return true
@@ -75,6 +83,10 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request, role string, se
 					response(w, 422, -1, "invalid email", nil)
 					return true
 				}
+			}
+			if in.Phone != "" && !merchantProfilePhonePattern.MatchString(in.Phone) {
+				response(w, 422, -1, "invalid phone", nil)
+				return true
 			}
 			tx, e := s.Pool.Begin(r.Context())
 			if e != nil {
@@ -100,9 +112,9 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request, role string, se
 				}
 				in.Email = verified
 			}
-			_, e = tx.Exec(r.Context(), "UPDATE merchants SET name=$2,profile=profile||jsonb_build_object('email',$3::text) WHERE id=$1 AND enabled", mid, in.Name, in.Email)
+			_, e = tx.Exec(r.Context(), "UPDATE merchants SET name=$2,profile=profile||jsonb_build_object('email',$3::text,'phone',$4::text) WHERE id=$1 AND enabled", mid, in.Name, in.Email, in.Phone)
 			if e == nil {
-				_, e = tx.Exec(r.Context(), "INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES('merchant',$1,$2,'profile',$1,'update','{\"fields\":[\"name\",\"email\"]}')", mid, session.User.Username)
+				_, e = tx.Exec(r.Context(), "INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES('merchant',$1,$2,'profile',$1,'update','{\"fields\":[\"name\",\"email\",\"phone\"]}')", mid, session.User.Username)
 			}
 			if e == nil {
 				e = tx.Commit(r.Context())
@@ -111,7 +123,7 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request, role string, se
 				s.fail(w, e)
 				return true
 			}
-			response(w, 200, 0, "", map[string]any{"name": in.Name, "email": in.Email})
+			response(w, 200, 0, "", map[string]any{"name": in.Name, "email": in.Email, "phone": in.Phone})
 			return true
 		}
 	case "api-info":

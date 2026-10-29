@@ -22,9 +22,32 @@ type MerchantPersonalSettings struct {
 	QQ          string `json:"qq"`
 	Minimum     string `json:"pay_minmoney"`
 	Maximum     string `json:"pay_maxmoney"`
+	RemainMoney string `json:"remain_money"`
 	BoundsValid bool   `json:"bounds_valid"`
 	Fingerprint string `json:"fingerprint"`
 	CanUpdate   bool   `json:"can_update"`
+}
+
+// validRemainMoney accepts the original remain_money forms: "" (none),
+// "N%" with 0<N<100, or a fixed yuan amount. Shared by read-side state
+// validation and the merchant-side update.
+func validRemainMoney(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return true
+	}
+	if len(s) > 20 {
+		return false
+	}
+	numeric := strings.TrimSpace(strings.TrimSuffix(s, "%"))
+	n, e := ledger.Parse(numeric)
+	if e != nil || n < 0 {
+		return false
+	}
+	if strings.HasSuffix(s, "%") {
+		return n > 0 && n < 10000
+	}
+	return true
 }
 
 func personalAmount(raw string, strict bool) (string, int64, error) {
@@ -100,7 +123,19 @@ func (s *Store) personalSettingsTx(ctx context.Context, tx pgx.Tx, a MerchantRSA
 		return out, ErrState
 	}
 	out.BoundsValid = max == 0 || min <= max
-	digest, e := s.referralDigest("merchant-personal172/v1", []any{out.MerchantID, revision, enabled, profile["qq"], profile["pay_minmoney"], profile["pay_maxmoney"]})
+	if out.RemainMoney, e = text("remain_money"); e != nil {
+		return out, e
+	}
+	if !validRemainMoney(out.RemainMoney) {
+		return out, ErrState
+	}
+	// 结算留存 joins the fingerprint only when set, so merchants without one
+	// keep the fingerprint they had before the field existed.
+	fact := []any{out.MerchantID, revision, enabled, profile["qq"], profile["pay_minmoney"], profile["pay_maxmoney"]}
+	if out.RemainMoney != "" {
+		fact = append(fact, out.RemainMoney)
+	}
+	digest, e := s.referralDigest("merchant-personal172/v1", fact)
 	if e != nil {
 		return out, e
 	}
@@ -122,13 +157,23 @@ func (s *Store) MerchantPersonalSettings(ctx context.Context, a MerchantRSAActor
 	return out, tx.Commit(ctx)
 }
 
-func (s *Store) UpdateMerchantPersonalSettings(ctx context.Context, a MerchantRSAActor, qq, minimum, maximum, expected string) (MerchantPersonalSettings, error) {
+// UpdateMerchantPersonalSettings writes the merchant's own settings. A nil
+// remainMoney keeps the stored 结算留存 (callers of the earlier four-field
+// contract never touch it).
+func (s *Store) UpdateMerchantPersonalSettings(ctx context.Context, a MerchantRSAActor, qq, minimum, maximum string, remainMoney *string, expected string) (MerchantPersonalSettings, error) {
 	var empty MerchantPersonalSettings
 	qq = strings.TrimSpace(qq)
 	minimum = strings.TrimSpace(minimum)
 	maximum = strings.TrimSpace(maximum)
 	if qq != "" && !personalQQPattern.MatchString(qq) {
 		return empty, ErrInvalid
+	}
+	if remainMoney != nil {
+		trimmed := strings.TrimSpace(*remainMoney)
+		if !validRemainMoney(trimmed) {
+			return empty, ErrInvalid
+		}
+		remainMoney = &trimmed
 	}
 	minText, min, e := personalAmount(minimum, true)
 	if e != nil {
@@ -153,10 +198,17 @@ func (s *Store) UpdateMerchantPersonalSettings(ctx context.Context, a MerchantRS
 	if len(expected) != 64 || subtle.ConstantTimeCompare([]byte(expected), []byte(state.Fingerprint)) != 1 {
 		return empty, ErrConflict
 	}
-	if _, e = tx.Exec(ctx, `UPDATE merchants SET profile=profile||jsonb_build_object('qq',$2::text,'pay_minmoney',$3::text,'pay_maxmoney',$4::text),config_revision=config_revision+1 WHERE id=$1`, a.User.ID, qq, minText, maxText); e != nil {
+	fields := `{"fields":["qq","pay_minmoney","pay_maxmoney"]}`
+	if remainMoney == nil {
+		_, e = tx.Exec(ctx, `UPDATE merchants SET profile=profile||jsonb_build_object('qq',$2::text,'pay_minmoney',$3::text,'pay_maxmoney',$4::text),config_revision=config_revision+1 WHERE id=$1`, a.User.ID, qq, minText, maxText)
+	} else {
+		fields = `{"fields":["qq","pay_minmoney","pay_maxmoney","remain_money"]}`
+		_, e = tx.Exec(ctx, `UPDATE merchants SET profile=profile||jsonb_build_object('qq',$2::text,'pay_minmoney',$3::text,'pay_maxmoney',$4::text,'remain_money',$5::text),config_revision=config_revision+1 WHERE id=$1`, a.User.ID, qq, minText, maxText, *remainMoney)
+	}
+	if e != nil {
 		return empty, e
 	}
-	if _, e = tx.Exec(ctx, `INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES('merchant',$1,$2,'merchants',$1,'personal-settings-update','{"fields":["qq","pay_minmoney","pay_maxmoney"]}')`, a.User.ID, a.User.Username); e != nil {
+	if _, e = tx.Exec(ctx, `INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES('merchant',$1,$2,'merchants',$1,'personal-settings-update',$3::jsonb)`, a.User.ID, a.User.Username, fields); e != nil {
 		return empty, e
 	}
 	state, e = s.personalSettingsTx(ctx, tx, a, true)

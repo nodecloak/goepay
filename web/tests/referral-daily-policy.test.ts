@@ -59,11 +59,9 @@ it("loads daily without converting to immediate and binds the reviewed mode to t
     },
   });
   await flushPromises();
-  const mode = w
-    .findAll("select")
-    .find((s) => s.element.closest("label")?.textContent?.includes("发奖时机"));
-  expect(mode).toBeDefined();
-  expect(mode!.element.value).toBe("daily");
+  const mode = w.find('button.pa-select-trigger[aria-label="发奖时机"]');
+  expect(mode.exists()).toBe(true);
+  expect(mode.text()).toContain("次日北京时间");
   await button(w, "核对政策变更").trigger("click");
   expect(w.text()).toContain("次日北京时间");
   expect(w.text()).toContain("专用调度器");

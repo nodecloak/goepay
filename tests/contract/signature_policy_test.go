@@ -330,7 +330,7 @@ func TestSignature163CompatibilityAndRSAOnlyEverySignedEntry(t *testing.T) {
 	}
 	for _, act := range []string{"query", "orders", "order", "refund", "close"} {
 		_, out = call(t, f.s.Handler(), "GET", "/api.php", url.Values{"pid": {"2"}, "act": {act}, "key": {"contract-rsa-secret"}})
-		if out["code"] != float64(-1) {
+		if out["code"] != float64(-3) {
 			t.Fatal("RSA-only legacy key accepted", act, out)
 		}
 	}

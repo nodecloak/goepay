@@ -13,4 +13,5 @@ const consoleLedgerFrom = `(SELECT source_entry.*,
 ) e JOIN journals j ON j.id=e.journal_id JOIN accounts a ON a.id=e.account_id`
 
 const consoleLedgerColumns = `e.id::text,a.owner_id::text AS merchant_id,a.kind,e.amount::text,j.event_key,j.description,j.created_at,
- e.account_id::text,(e.balance_after-e.amount)::text AS balance_before,e.balance_after::text AS balance_after`
+ e.account_id::text,(e.balance_after-e.amount)::text AS balance_before,e.balance_after::text AS balance_after,
+ ` + ledgerTypeExpression + ` AS ledger_type`
