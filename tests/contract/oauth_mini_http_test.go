@@ -101,7 +101,7 @@ func runMiniOAuthHTTPConsumesBeforeTLSExchangeAndBindsTrustedPayerWithOriginalGr
 		var o payment.Order
 		var e error
 		if len(channelFees) > 0 && channelFees[0] != nil {
-			_, out := call(t, s.Handler(), "POST", "/mapi.php", signed(compat.Params{"pid": "1", "out_trade_no": no, "money": "1.25", "name": "item", "type": "alipay", "method": "applet", "channel_id": "7", "is_applet": "1", "clientip": "192.0.2.5"}, "contract-secret"))
+			_, out := call(t, s.Handler(), "POST", "/mapi.php", signed(compat.Params{"pid": "1", "out_trade_no": no, "money": "1.25", "name": "item", "type": "alipay", "method": "applet", "channel_id": "7", "is_applet": "1", "clientip": "192.0.2.5", "notify_url": "https://merchant.example.invalid/notify"}, "contract-secret"))
 			if out["code"] != float64(1) {
 				t.Fatal("configured mini HTTP birth", out)
 			}

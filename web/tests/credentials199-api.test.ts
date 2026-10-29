@@ -43,8 +43,19 @@ it.each(["csrf", "section", "unmount"] as const)(
       global: {
         stubs: {
           MerchantEmailBinding197: true,
+          MerchantBindings134: true,
           MerchantRSAKeyRotation: true,
           MerchantSignaturePolicy: true,
+          KitModal: {
+            props: ["title", "loading", "submitText", "cancelText", "danger"],
+            emits: ["close", "submit"],
+            template: `<div class="pa-modal" role="dialog" aria-modal="true" :aria-label="title"
+                @keydown="$event.key==='Escape' && $emit('close')">
+              <form @submit.prevent="$emit('submit')"><slot />
+                <button type="button" @click="$emit('close')">{{ cancelText || '取消' }}</button>
+                <button type="submit">{{ submitText || '保存' }}</button>
+              </form></div>`,
+          },
         },
       },
     });

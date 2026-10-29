@@ -178,24 +178,30 @@ onBeforeUnmount(cleanup);
 </template>
 <style scoped>
 .order-menu-trigger {
-  padding: 4px 9px;
+  padding: 0 6px;
   white-space: nowrap;
-  font-size: 13px;
-  margin-left: 8px;
-  border: 1px solid #d9dce3;
-  border-radius: 4px;
-  background: #909399;
-  color: #fff;
-  min-width: 36px;
-  min-height: 28px;
+  font-size: 12px;
+  line-height: 1;
+  margin-left: 4px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--ink);
+  min-width: 28px;
+  height: 24px;
+  min-height: 24px;
   font-weight: 600;
+  letter-spacing: 1px;
   cursor: pointer;
+  vertical-align: middle;
 }
 .order-menu-trigger:hover {
-  background: #82848a;
+  background: var(--bg-hover);
+  color: var(--ink);
+  border-color: var(--line-control);
 }
 .order-menu-trigger:focus-visible {
-  outline: 2px solid #409eff;
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 .order-action-menu {
@@ -205,53 +211,68 @@ onBeforeUnmount(cleanup);
   max-height: calc(100dvh - 16px);
   overflow-y: auto;
   box-sizing: border-box;
-  padding: 6px;
-  background: #fff;
-  border: 1px solid #ebeef5;
-  border-radius: 10px;
-  box-shadow: 0 4px 16px #0002;
-  color: #606266;
+  padding: var(--space-1);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+  color: var(--ink);
 }
 .order-action-menu button,
 .order-action-menu a {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  padding: 11px 12px;
-  min-height: 42px;
-  text-align: center;
+  padding: 0 var(--space-3);
+  min-height: 32px;
+  text-align: left;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 13px;
   color: inherit;
   cursor: pointer;
   box-sizing: border-box;
   text-decoration: none;
 }
 .order-action-menu button:hover,
+.order-action-menu a:hover {
+  background: var(--bg-hover);
+  color: var(--ink);
+}
 .order-action-menu button:focus-visible,
-.order-action-menu a:hover,
 .order-action-menu a:focus-visible {
-  background: #ecf5ff;
-  color: #409eff;
-  outline: 2px solid #8bbdff;
+  background: var(--bg-hover);
+  color: var(--ink);
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
+.order-action-menu .order-delete {
+  color: var(--danger-text);
+}
+.order-action-menu .order-delete:hover {
+  color: var(--danger-text);
+}
 .related-menu-trigger {
-  background: #fff;
-  color: #606266;
+  background: var(--bg-card);
+  color: var(--ink);
   font-weight: 400;
-  min-height: 32px;
+  font-size: 13px;
+  letter-spacing: 0;
+  height: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0 12px;
 }
 .related-menu-trigger:hover {
-  background: #ecf5ff;
-  color: #409eff;
+  background: var(--bg-card);
+  border-color: var(--primary-text);
+  color: var(--primary-text);
 }
 .order-action-divider {
   height: 1px;
-  margin: 6px 0;
-  background: #ebeef5;
+  margin: var(--space-1) 0;
+  background: var(--line);
 }
 @media (prefers-reduced-motion: reduce) {
   .order-action-menu {

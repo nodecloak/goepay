@@ -13,7 +13,12 @@ import (
 )
 
 type User struct {
-	AdminClass  string `json:"admin_class,omitempty"`
+	AdminClass string `json:"admin_class,omitempty"`
+	// Permissions is the raw console_users.permissions jsonb for an admin:
+	// nil (SQL NULL) means an unrestricted operator, a JSON array of menu keys
+	// means an explicit per-menu grant set. Not persisted in the session store;
+	// it is re-read from the row on every request in the server dispatch.
+	Permissions []byte `json:"-"`
 	AuthVersion int64  `json:"-"`
 	Username    string `json:"-"`
 	ID          int64  `json:"id"`

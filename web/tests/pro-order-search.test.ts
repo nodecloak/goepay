@@ -31,14 +31,30 @@ it("offers separate notification states without conflating payment and notificat
   const wrapper = mount(ListFilters, {
     props: { kind: "orders", area: "admin", modelValue: model },
   });
-  const notification = wrapper.get('select[aria-label="通知状态筛选"]');
+  // Notification state lives in the 展开 (extra) section of the kit FilterBar.
+  await wrapper.get("button.pa-filter-toggle").trigger("click");
+  const notification = wrapper.get(
+    'button.pa-select-trigger[aria-label="通知状态筛选"]',
+  );
+  await notification.trigger("click");
+  const options = wrapper.findAll('[role="option"]').map((x) => x.text());
+  expect(options).toEqual([
+    "全部通知状态",
+    "尚无通知任务",
+    "等待通知",
+    "正在通知",
+    "通知成功",
+    "通知失败",
+  ]);
+  // Payment status is a separate field, never conflated with notification.
   expect(
-    notification.findAll("option").map((x) => x.attributes("value")),
-  ).toEqual(["", "none", "pending", "running", "succeeded", "dead"]);
-  await notification.setValue("dead");
-  expect(model).toMatchObject({
-    notification_state: "dead",
-  });
+    wrapper.find('button.pa-select-trigger[aria-label="状态筛选"]').exists(),
+  ).toBe(true);
+  const dead = wrapper
+    .findAll('[role="option"]')
+    .find((o) => o.text() === "通知失败")!;
+  await dead.trigger("click");
+  expect(model).toMatchObject({ notification_state: "dead" });
   wrapper.unmount();
   const other = mount(ListFilters, {
     props: {
@@ -47,5 +63,8 @@ it("offers separate notification states without conflating payment and notificat
       modelValue: freshListFilters(),
     },
   });
-  expect(other.find('select[aria-label="通知状态筛选"]').exists()).toBe(false);
+  await other.get("button.pa-filter-toggle").trigger("click");
+  expect(
+    other.find('button.pa-select-trigger[aria-label="通知状态筛选"]').exists(),
+  ).toBe(false);
 });

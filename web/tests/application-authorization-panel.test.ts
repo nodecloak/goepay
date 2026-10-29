@@ -241,9 +241,9 @@ it("integrates a separate super-only tab without replacing existing identity flo
       });
     wrappers.push(w);
     const buttons = w.findAll("button");
-    expect(buttons.some((b) => b.text() === "原收款应用网页授权")).toBe(true);
+    expect(buttons.some((b) => b.text() === "微信公众号Openid")).toBe(true);
     expect(buttons.some((b) => b.text() === "独立应用与小程序")).toBe(true);
-    expect(buttons.some((b) => b.text() === "支付宝应用授权")).toBe(
+    expect(buttons.some((b) => b.text() === "支付宝应用授权Token")).toBe(
       adminClass === "super",
     );
   }

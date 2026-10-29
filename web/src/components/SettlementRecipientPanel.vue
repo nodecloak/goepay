@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from "vue";
+import { ref, computed, watch, onBeforeUnmount } from "vue";
 import { ApiClient, ApiError } from "../api";
 import {
   readSettlementRecipient,
@@ -7,6 +7,9 @@ import {
   type SettlementRecipient,
   type RecipientDraft,
 } from "../settlement-recipient";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
+import KitSelect from "./KitSelect.vue";
 const props = defineProps<{
   client: ApiClient;
   merchantID?: string;
@@ -20,6 +23,21 @@ const current = ref<SettlementRecipient | null>(null),
   editing = ref(false),
   error = ref(""),
   notice = ref("");
+// Settlement account types the platform allows now (settle_* switches). Types
+// turned off are hidden from the 收款方式 picker; the server still refuses them.
+const allowedTypes = ref<string[]>(["alipay", "wxpay", "bank"]);
+const settlementTypeLabel: Record<string, string> = {
+  alipay: "支付宝",
+  wxpay: "微信",
+  qqpay: "QQ钱包",
+  bank: "银行卡",
+};
+// Pro order 支付宝 / 微信 / 银行卡; only platform-enabled rails shown.
+const typeOptions = computed(() =>
+  ["alipay", "wxpay", "bank"]
+    .filter((t) => allowedTypes.value.includes(t))
+    .map((t) => ({ value: t, label: settlementTypeLabel[t]! })),
+);
 const empty = (): RecipientDraft => ({
   type: "alipay",
   account: "",
@@ -56,6 +74,17 @@ async function load() {
       { signal: controller.signal },
     );
     if (generation !== epoch) return;
+    try {
+      const types = await props.client.request<{ settlement?: string[] }>(
+        "/workflows/settlement-recipient/allowed-types",
+        { signal: controller.signal },
+      );
+      if (generation !== epoch) return;
+      if (Array.isArray(types?.settlement) && types.settlement.length)
+        allowedTypes.value = types.settlement;
+    } catch {
+      // Allowed-types is advisory for the form; the server still enforces on save.
+    }
     current.value = readSettlementRecipient(raw);
     emit("change", current.value);
   } catch (e) {
@@ -67,6 +96,13 @@ async function load() {
 }
 function edit() {
   draft.value = empty();
+  if (
+    !allowedTypes.value.includes(draft.value.type) &&
+    allowedTypes.value.length
+  )
+    draft.value.type = allowedTypes.value.includes("bank")
+      ? allowedTypes.value.find((t) => t !== "qqpay") || allowedTypes.value[0]!
+      : allowedTypes.value[0]!;
   editing.value = true;
   notice.value = "";
   emit("change", null);
@@ -154,40 +190,51 @@ onBeforeUnmount(clear);
         <p class="muted">
           请完整输入新收款资料。此操作只更新后续申请，不更改旧快照，也不会汇款。
         </p>
-        <label
-          >收款方式<select v-model="draft.type">
-            <option value="alipay">支付宝</option>
-            <option value="wxpay">微信</option>
-            <option value="bank">银行卡</option>
-          </select></label
-        >
-        <label
-          >新收款账号<input
-            v-model="draft.account"
-            autocomplete="off"
-            maxlength="128"
-        /></label>
-        <label
-          >新收款姓名<input
-            v-model="draft.name"
-            autocomplete="off"
-            maxlength="128"
-        /></label>
-        <label v-if="draft.type === 'wxpay'"
-          >收款所属 AppID<input
-            v-model="draft.app_id"
-            autocomplete="off"
-            maxlength="128"
-        /></label>
-        <label v-if="draft.type === 'bank'"
-          >银行代码（按渠道要求）<input
-            v-model="draft.bank_code"
-            autocomplete="off"
-            maxlength="32"
-        /></label>
+        <div class="recipient-form">
+          <KitField label="收款方式">
+            <KitSelect
+              v-model="draft.type"
+              :options="typeOptions"
+              aria-label="收款方式"
+            />
+          </KitField>
+          <KitField label="收款账号">
+            <KitInput
+              v-model="draft.account"
+              :maxlength="128"
+              autocomplete="off"
+              aria-label="收款账号"
+            />
+          </KitField>
+          <KitField label="真实姓名">
+            <KitInput
+              v-model="draft.name"
+              :maxlength="128"
+              autocomplete="off"
+              aria-label="真实姓名"
+            />
+          </KitField>
+          <KitField v-if="draft.type === 'wxpay'" label="收款所属 AppID">
+            <KitInput
+              v-model="draft.app_id"
+              :maxlength="128"
+              autocomplete="off"
+              aria-label="收款所属 AppID"
+            />
+          </KitField>
+          <KitField v-if="draft.type === 'bank'" label="银行代码（按渠道要求）">
+            <KitInput
+              v-model="draft.bank_code"
+              :maxlength="32"
+              autocomplete="off"
+              aria-label="银行代码"
+            />
+          </KitField>
+        </div>
         <div class="row-actions">
-          <button type="button" @click="cancel">取消修改收款资料</button
-          ><button type="button" @click="save">
+          <button type="button" class="pa-btn" @click="cancel">
+            取消修改收款资料</button
+          ><button type="button" class="pa-btn pa-btn--primary" @click="save">
             {{ saving ? "正在保存…" : "保存收款版本" }}
           </button>
         </div>
@@ -205,3 +252,16 @@ onBeforeUnmount(clear);
     </p>
   </fieldset>
 </template>
+<style scoped>
+.recipient-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3, 12px) var(--space-4, 16px);
+  margin: var(--space-3, 12px) 0;
+}
+.settlement-recipient {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+</style>

@@ -46,9 +46,8 @@ for (const area of ["admin", "merchant"] as const) {
       props: { items: [value], area, busy: false },
     });
     expect(view.find('[role="alert"]').exists()).toBe(false);
-    expect(view.get(".transfer-remark").element.textContent).toBe(
-      "备注：含\t制表符",
-    );
+    // Wave 3: 备注 is the muted second line of the 付款方式 column (Pro pairing).
+    expect(view.get(".transfer-remark").element.textContent).toBe("含\t制表符");
     view.unmount();
   });
   it(`${area} renders three secondary fields inside their original columns without losing identifiers or actions`, () => {
@@ -61,14 +60,20 @@ for (const area of ["admin", "merchant"] as const) {
         busy: false,
       },
     });
+    // Wave 3: each paired column stacks a 主 label over a muted 次 label, so a
+    // header's text is the concatenation of both (e.g. 付款方式 + 备注).
     expect(view.findAll("th").map((v) => v.text())).toEqual([
-      ...originalTransferColumns(area).map((v) => v.label),
+      ...originalTransferColumns(area).map((v) =>
+        v.sub ? `${v.label}${v.sub}` : v.label,
+      ),
       "操作",
     ]);
     const cells = view.findAll("tbody tr")[0]!.findAll("td");
     const cell = (key: string) =>
       cells[originalTransferColumns(area).findIndex((v) => v.key === key)]!;
+    // Wave 3: 备注 now rides the 付款方式 column; 手续费 stays its own column.
     expect(cell("method").text()).toContain("原始转账业务备注".repeat(4));
+    expect(cell("fee").text()).toContain("¥2.00");
     expect(cell("amount").text()).toContain("花费金额：¥102.00");
     expect(cell("createdAt").text()).toContain("付款时间：2026-10-25 23:31:02");
     expect(view.text()).toContain("1000000000000000001");

@@ -58,7 +58,7 @@ func TestProviderHTTPCheckoutCallbackCommitAndToken(t *testing.T) {
 	s.CheckoutKey = bytes.Repeat([]byte{7}, 32)
 	s.MerchantChannels = map[int64][]int64{1: {7}}
 	h := s.Handler()
-	p := compat.Params{"pid": "1", "out_trade_no": "provider-http", "money": "1.01", "name": "test", "type": "wxpay", "method": "web", "channel_id": "7"}
+	p := compat.Params{"pid": "1", "out_trade_no": "provider-http", "money": "1.01", "name": "test", "type": "wxpay", "method": "web", "channel_id": "7", "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return"}
 	_, out := call(t, h, "POST", "/mapi.php", signed(p, "contract-secret"))
 	if out["code"] != float64(1) {
 		t.Fatalf("create %v", out)
@@ -353,7 +353,7 @@ func TestMerchantReturnUsesVerifiedPaymentAndStoredSignedURL(t *testing.T) {
 				pid = 2
 			}
 			s.MerchantChannels = map[int64][]int64{pid: {7}}
-			p := compat.Params{"pid": fmt.Sprint(pid), "out_trade_no": "return-check", "name": "test", "money": "1.01", "type": "wxpay", "return_url": "https://merchant.example.invalid/after?client=1"}
+			p := compat.Params{"pid": fmt.Sprint(pid), "out_trade_no": "return-check", "name": "test", "money": "1.01", "type": "wxpay", "return_url": "https://merchant.example.invalid/after?client=1", "notify_url": "https://merchant.example.invalid/notify"}
 			path := "/mapi.php"
 			form := url.Values{}
 			if version == "v1" {

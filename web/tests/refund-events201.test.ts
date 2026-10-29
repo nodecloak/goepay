@@ -171,25 +171,54 @@ describe("original API information refund event subscription", () => {
     expect(area.text()).toContain("订阅URL");
     expect(area.text()).toContain("订阅事件");
     expect(area.text()).toContain("订单退款");
-    expect(area.text()).toContain(
-      "仅发送在平台提交的退款操作事件，不包括通过API退款的操作",
-    );
+    expect(area.text()).toContain("交易投诉");
     expect(area.text()).toContain("RSA");
     expect(
       area
         .findAll('input[name="event_types"]')
         .map((entry) => entry.attributes("value")),
-    ).toEqual(["refund"]);
+    ).toEqual(["refund", "complain"]);
+    // The complaint option is a real, enabled checkbox now.
+    const complain = area
+      .findAll('input[name="event_types"]')
+      .find((e) => e.attributes("value") === "complain");
+    expect(complain!.attributes("disabled")).toBeUndefined();
     expect(area.get('[name="event_url"]').attributes("maxlength")).toBe("500");
     expect(area.get('[name="event_url"]').element).toHaveProperty(
       "value",
       callback,
     );
-    expect(area.get('[name="event_types"]').element).toHaveProperty(
+    expect(area.find('input[value="refund"]').element).toHaveProperty(
       "checked",
       true,
     );
     expect(f.events().map((call) => call.method)).toEqual(["GET"]);
+  });
+
+  it("subscribes to 交易投诉 and submits complain in event_types", async () => {
+    const saved = {
+      ...initial,
+      event_types: ["refund", "complain"],
+      fingerprint: "b".repeat(64),
+    };
+    const f = await setup({
+      reply: async (call) =>
+        response(call.method === "PATCH" ? saved : initial),
+    });
+    const area = panel(f.wrapper);
+    // refund already checked from initial; also check complain, then save.
+    await area.get('input[value="complain"]').setValue(true);
+    await area.get("form").trigger("submit");
+    await flushPromises();
+    await button(panel(f.wrapper), "确认保存").trigger("click");
+    await flushPromises();
+    const write = f.events().find((c) => c.method === "PATCH");
+    expect(write).toBeDefined();
+    expect(write!.body).toMatchObject({
+      event_url: callback,
+      event_types: ["refund", "complain"],
+    });
+    expect(panel(f.wrapper).text()).toContain("交易投诉");
   });
 
   it("keeps the empty default disabled until a valid URL and refund selection are explicitly confirmed", async () => {
@@ -452,7 +481,7 @@ describe("original API information refund event subscription", () => {
   it.each([
     null,
     { ...initial, event_url: 201 },
-    { ...initial, event_types: ["complain"] },
+    { ...initial, event_types: ["chargeback"] },
     { ...initial, event_types: ["refund", "refund"] },
     { ...initial, fingerprint: "A".repeat(64) },
     { ...initial, consecutive_failures: -1 },

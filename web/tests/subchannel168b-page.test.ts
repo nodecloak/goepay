@@ -85,10 +85,13 @@ describe("subchannel168b protected merchant controls", () => {
     await flushPromises();
     const opener = await click("轮询设置");
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    // 轮询方式 is now a kit KitSelect; its trigger shows the current choice
+    // (rollType 2 = 权重轮询).
     expect(
-      (document.querySelector('[role="dialog"] select') as HTMLSelectElement)
-        .value,
-    ).toBe("2");
+      document
+        .querySelector('[role="dialog"] .pa-select-trigger')
+        ?.textContent?.trim(),
+    ).toBe("权重轮询");
     await click("取消");
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(writes).toHaveLength(0);
@@ -315,11 +318,74 @@ it("can stop an enabled original child when its parent is unavailable", async ()
         : undefined,
   );
   await flushPromises();
-  const stop = wrapper!.find("button.subchannel-state");
-  expect((stop.element as HTMLButtonElement).disabled).toBe(false);
-  await stop.trigger("click");
+  // 状态 is now a kit KitSwitch; an enabled child with an unavailable parent can
+  // still be stopped, so the switch stays enabled and toggling opens the confirm.
+  const stop = document.querySelector(
+    'input[role="switch"][aria-label="变更子通道 9007199254740993 状态"]',
+  ) as HTMLInputElement;
+  expect(stop).not.toBeNull();
+  expect(stop.disabled).toBe(false);
+  stop.checked = false;
+  stop.dispatchEvent(new Event("change", { bubbles: true }));
   await flushPromises();
   expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
     "关闭",
   );
+});
+it("surfaces every original sub-channel row action (订单/支付测试/收款链接/通道设置/权重) with the 订单 link filtered by this sub-channel", async () => {
+  setup();
+  await flushPromises();
+  const menu = wrapper!.findComponent(ActionDropdown);
+  // A merchant row that supports a browser test offers all five Pro actions in
+  // Pro's order; 订单 links to the order list filtered by this sub-channel,
+  // 单笔限额设置 is the existing 通道设置 edit, 权重设置 is the weight field.
+  const items = menu.props("items") as {
+    id: string;
+    label: string;
+    href?: string;
+  }[];
+  expect(items.map((i) => i.id)).toEqual([
+    "orders",
+    "test",
+    "link",
+    "settings",
+    "weight",
+  ]);
+  expect(items.map((i) => i.label)).toEqual([
+    "支付订单",
+    "支付测试",
+    "收款链接",
+    "单笔限额设置",
+    "权重设置",
+  ]);
+  expect(items[0]!.href).toBe(
+    "/merchant/trade/order?subchannel=9007199254740993",
+  );
+});
+it("hides 支付测试 and 权重设置 when the product cannot browser-test and is not weighted", async () => {
+  // A child whose product has no browser method and whose merchant roll is not
+  // weighted (rollType != 2) cannot offer 支付测试 or 权重设置; everything
+  // GOEPAY cannot do is simply not surfaced for that row rather than shown live.
+  setup((p) =>
+    p.startsWith("/payment-subchannels?")
+      ? {
+          ...structuredClone(fixture.merchant),
+          items: [
+            {
+              ...row(),
+              roll_type: 0,
+              browser_test_available: false,
+              methods: ["jsapi"],
+            },
+          ],
+        }
+      : undefined,
+  );
+  await flushPromises();
+  const items = (
+    wrapper!.findComponent(ActionDropdown).props("items") as { id: string }[]
+  ).map((i) => i.id);
+  expect(items).toEqual(["orders", "link", "settings"]);
+  expect(items).not.toContain("test");
+  expect(items).not.toContain("weight");
 });

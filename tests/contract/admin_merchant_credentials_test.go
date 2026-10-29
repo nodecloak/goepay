@@ -124,7 +124,7 @@ func TestOriginalAdminMerchantCredentialsMD5ConcurrentCASAndNoSecretReadback(t *
 	for _, tc := range []struct {
 		key  string
 		want float64
-	}{{"contract-secret", -1}, {next, 1}} {
+	}{{"contract-secret", -3}, {next, 1}} {
 		_, out := call(t, c.s.Handler(), "GET", "/api.php", url.Values{"act": {"query"}, "pid": {"1"}, "key": {tc.key}})
 		if out["code"] != tc.want {
 			t.Fatal("legacy API did not replace only the original MD5 credential")

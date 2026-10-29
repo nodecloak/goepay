@@ -260,7 +260,7 @@ watch(busy, (value) => emit("busy", value), { flush: "sync" });
 </template>
 <style scoped>
 .platform-access {
-  border: 1px solid var(--border, #d8dee9);
+  border: 1px solid var(--border, var(--line-control));
   border-radius: 8px;
   padding: 16px;
   margin: 16px 0;
@@ -272,38 +272,49 @@ watch(busy, (value) => emit("busy", value), { flush: "sync" });
 .platform-switch {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   margin: 16px 0;
+  font-size: 13px;
 }
+/* Same look as KitSwitch: 36x20 track, white 16px knob, no checkbox tick. */
 .platform-switch input {
   appearance: none;
-  width: 40px;
-  min-width: 40px;
-  height: 22px;
-  border-radius: 12px;
-  background: #6b7280;
+  display: block;
+  width: 36px;
+  min-width: 36px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--line-control);
   border: 0;
   position: relative;
   cursor: pointer;
+  transition: background 0.15s;
+}
+.platform-switch input::after,
+.platform-switch input:checked::after {
+  content: none;
 }
 .platform-switch input::before {
   content: "";
   position: absolute;
   width: 16px;
   height: 16px;
-  top: 3px;
-  left: 3px;
+  top: 2px;
+  left: 2px;
   border-radius: 50%;
-  background: white;
+  background: #ffffff;
+  transition: transform 0.15s;
 }
 .platform-switch input:checked {
-  background: #2563eb;
+  background: var(--primary);
 }
 .platform-switch input:checked::before {
-  left: 21px;
+  transform: translateX(16px);
 }
 .platform-switch input:focus-visible {
-  outline: 3px solid #93c5fd;
+  outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
 .platform-switch input:disabled {

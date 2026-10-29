@@ -156,10 +156,10 @@ const mixSegments = computed(() => {
       offset,
       color:
         row.type === "wxpay"
-          ? "#47b57c"
+          ? "var(--chart-2)"
           : row.type === "alipay"
-            ? "#5d87ff"
-            : ["#f5a742", "#9b7ede", "#54b7c8"][i % 3],
+            ? "var(--chart-1)"
+            : ["var(--chart-3)", "var(--chart-4)", "var(--chart-6)"][i % 3],
     };
     offset += percentage;
     return segment;
@@ -201,7 +201,10 @@ const quickLinks = computed(() =>
         { label: "订单管理", path: "/trade/order" },
         { label: "商户管理", path: "/merchant/merchant-list" },
         ...(props.adminClass === "super"
-          ? [{ label: "系统设置", path: "/system/settings" }]
+          ? [
+              { label: "系统设置", path: "/system/settings" },
+              { label: "清理缓存", path: "/system/clean" },
+            ]
           : []),
         { label: "返回首页", path: "/" },
         { label: "修改密码", path: "/system/change-password" },
@@ -309,8 +312,14 @@ const quickLinks = computed(() =>
             :points="coordinates.map((p) => p.x + ',' + p.y).join(' ')"
             class="trend-line"
           />
-          <g v-for="point in coordinates" :key="point.row.date">
-            <circle :cx="point.x" :cy="point.y" r="5" class="trend-dot">
+          <g v-for="(point, pi) in coordinates" :key="point.row.date">
+            <circle
+              v-if="pi === coordinates.length - 1"
+              :cx="point.x"
+              :cy="point.y"
+              r="3.5"
+              class="trend-dot"
+            >
               <title>
                 {{ point.row.date }}：{{ point.value
                 }}{{ metric === "amount" ? "元" : "笔" }}
@@ -368,7 +377,7 @@ const quickLinks = computed(() =>
               cy="80"
               r="56"
               fill="none"
-              stroke="#f0f2f5"
+              style="stroke: var(--chart-grid)"
               stroke-width="18"
             />
             <circle
@@ -378,7 +387,7 @@ const quickLinks = computed(() =>
               cy="80"
               r="56"
               fill="none"
-              :stroke="segment.color"
+              :style="{ stroke: segment.color }"
               stroke-width="18"
               pathLength="100"
               :stroke-dasharray="
@@ -601,11 +610,16 @@ const quickLinks = computed(() =>
   margin: 0;
 }
 .dashboard-overview .stat .card-sub {
-  margin: 16px 0 0;
+  margin: 12px 0 0;
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-start;
+  align-items: baseline;
+  gap: 6px;
   font-size: 12px;
+  color: var(--ink-muted);
+}
+.dashboard-overview .stat .card-sub b {
+  color: var(--primary-text);
 }
 .card-sub b {
   color: var(--ink);
@@ -644,24 +658,24 @@ const quickLinks = computed(() =>
   max-height: 320px;
 }
 .grid-lines line {
-  stroke: var(--line);
-  stroke-dasharray: 4;
+  stroke: var(--chart-grid);
+  stroke-dasharray: 3 3;
 }
 .trend-line {
   fill: none;
-  stroke: var(--accent);
-  stroke-width: 3;
+  stroke: var(--chart-1);
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .trend-dot {
-  fill: var(--paper);
-  stroke: var(--accent);
-  stroke-width: 3;
+  fill: var(--chart-1);
+  stroke: var(--bg-card);
+  stroke-width: 2;
 }
 .trend-svg text {
   font-size: 12px;
-  fill: var(--muted);
+  fill: var(--ink-muted);
 }
 .payment-mix {
   display: grid;
@@ -690,7 +704,7 @@ const quickLinks = computed(() =>
 }
 .mix-track {
   height: 12px;
-  background: #f0f2f5;
+  background: var(--bg-raised);
   border-radius: 6px;
   overflow: hidden;
   margin-top: 12px;
@@ -701,10 +715,10 @@ const quickLinks = computed(() =>
   border-radius: 6px;
 }
 .alipay {
-  background: #5d87ff;
+  background: var(--chart-1);
 }
 .wechat {
-  background: #47b57c;
+  background: var(--chart-2);
 }
 .mix-row p {
   font-size: 12px;
@@ -731,7 +745,7 @@ const quickLinks = computed(() =>
 }
 .dashboard-shortcuts a {
   padding: 12px 18px;
-  background: #f3f6ff;
+  background: var(--primary-soft);
   border-radius: 6px;
 }
 .dashboard-announcement {

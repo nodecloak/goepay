@@ -13,7 +13,12 @@ const props = defineProps<{
   ownSession: boolean;
 }>();
 const state = ref<PersonalSettings | null>(null),
-  draft = reactive({ qq: "", pay_minmoney: "", pay_maxmoney: "" }),
+  draft = reactive({
+    qq: "",
+    pay_minmoney: "",
+    pay_maxmoney: "",
+    remain_money: "",
+  }),
   loading = ref(false),
   busy = ref(false),
   error = ref(""),
@@ -34,10 +39,12 @@ function setDraft(value?: {
   qq: string;
   pay_minmoney: string;
   pay_maxmoney: string;
+  remain_money: string;
 }) {
   draft.qq = value?.qq ?? "";
   draft.pay_minmoney = value?.pay_minmoney ?? "";
   draft.pay_maxmoney = value?.pay_maxmoney ?? "";
+  draft.remain_money = value?.remain_money ?? "";
 }
 function sameContext() {
   return (
@@ -138,7 +145,8 @@ async function save() {
       !next.bounds_valid ||
       next.qq !== body.qq ||
       next.pay_minmoney !== body.pay_minmoney ||
-      next.pay_maxmoney !== body.pay_maxmoney
+      next.pay_maxmoney !== body.pay_maxmoney ||
+      next.remain_money !== body.remain_money
     )
       throw new Error("unconfirmed result");
     state.value = next;
@@ -228,9 +236,25 @@ onBeforeUnmount(() => clear());
               /><span>元</span>
             </div></label
           >
+          <label
+            >结算留存
+            <input
+              v-model="draft.remain_money"
+              name="remain_money"
+              inputmode="text"
+              maxlength="20"
+              placeholder="如 10% 或 50.00，留空不保留"
+              autocomplete="off"
+              :disabled="busy"
+            />
+          </label>
         </div>
         <p class="muted">
           留空或0不额外限制；平台、用户组和通道限制仍然生效。限制用于新订单，历史订单金额保持原记录。
+        </p>
+        <p class="muted">
+          结算留存：每次自动结算前从可结算余额中保留的部分，可填百分比(如
+          10%)或固定金额(如 50.00)。
         </p>
         <p v-if="!state.bounds_valid" role="alert" class="error">
           当前个人上下限不一致，请修正后保存。

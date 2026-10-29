@@ -133,7 +133,14 @@ func TestScheduler171StrictCASAndManualRequestIsPendingOnly(t *testing.T) {
 	if w := f.request("GET", "?merchant_id=1", "", f.csrf); w.Code != 400 {
 		t.Fatal("catalog accepted tenant selector", w.Code)
 	}
-	if w := f.request("PATCH", "/complain", strings.Replace(body, `{"limit":20}`, `{}`, 1), f.csrf); w.Code != 422 {
+	// 'complain' is now an AVAILABLE scheduled task (ux-complain enabled it in the
+	// registry; see payment.TestComplainScheduledTaskIsAvailableAndSchedulable), so
+	// the unavailable-external-handler guard is exercised against 'applyrefresh',
+	// which remains unavailable ("相关外部业务插件暂缓。"). Its own parameter
+	// (refresh_minutes) is supplied so the request passes shape validation and the
+	// 422 comes from the unavailable-executor guard, not a malformed body.
+	applyrefresh := strings.Replace(body, `{"limit":20}`, `{"refresh_minutes":60}`, 1)
+	if w := f.request("PATCH", "/applyrefresh", applyrefresh, f.csrf); w.Code != 422 {
 		t.Fatal("unavailable external handler accepted config", w.Code)
 	}
 }

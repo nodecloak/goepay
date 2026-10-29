@@ -15,6 +15,11 @@ import {
   statisticsTrend,
 } from "../original-order-statistics";
 import CsvExportButton from "./CsvExportButton.vue";
+import ShellIcon from "./ShellIcon.vue";
+import KitHelpPopover from "./KitHelpPopover.vue";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
+import KitSelect from "./KitSelect.vue";
 const props = defineProps<{ client: ApiClient; report: string }>();
 const today = () => reportDateRange("today")!;
 const filter = reactive({
@@ -163,165 +168,223 @@ const visibleRows = computed(() =>
 );
 </script>
 <template>
-  <section class="panel records original-order-statistics">
-    <form class="toolbar" @submit.prevent="load">
-      <template v-if="!daily"
-        ><label
-          >查询日期（开始）<input
+  <div class="list-page original-order-statistics">
+    <form class="toolbar list-filter-card panel" @submit.prevent="load">
+      <div class="pa-filter-fields list-filters-grid">
+        <KitField v-if="!daily" label="查询日期（开始）">
+          <input
             v-model="filter.from"
             type="date"
-            aria-label="查询日期（开始）" /></label
-        ><label
-          >查询日期（结束）<input
+            aria-label="查询日期（开始）"
+          />
+        </KitField>
+        <KitField v-if="!daily" label="查询日期（结束）">
+          <input
             v-model="filter.to"
             type="date"
-            aria-label="查询日期（结束）" /></label
-      ></template>
-      <label
-        >支付方式<select v-model="filter.type" aria-label="支付方式">
-          <option value="">所有支付方式</option>
-          <option value="alipay">支付宝</option>
-          <option value="wxpay">微信支付</option>
-          <option value="sandbox">本地模拟</option>
-        </select></label
-      >
-      <label v-if="daily && !merchant"
-        >通道ID<input
-          v-model="filter.channel"
-          aria-label="通道ID"
-          inputmode="numeric"
-          maxlength="19"
-          placeholder="请输入通道ID"
-      /></label>
-      <label v-if="!merchant"
-        >商户号<input
-          v-model="filter.uid"
-          aria-label="商户号"
-          inputmode="numeric"
-          maxlength="19"
-          placeholder="请输入商户号"
-      /></label>
-      <button :disabled="loading">查询</button
-      ><button type="button" :disabled="loading" @click="reset">重置</button
-      ><button type="button" :disabled="loading" @click="load">刷新</button>
-      <CsvExportButton
-        :client="client"
-        :path="csvPath"
-        :disabled="loading || !!error || !items.length || !csvPath"
-        :filename="report + '-original-statistics.csv'"
-      />
-    </form>
-    <p class="muted">
-      按北京时间的订单创建日期统计{{
-        daily ? "近7天" : ""
-      }}，金额单位为元。退款金额为该批订单已成功退款的累计金额；成功率按保留的全部订单计算。
-    </p>
-    <p v-if="merchant" class="muted">
-      分成金额为已支付订单的原商户净额，退款另列；原分成合计不等于当前可用余额。
-    </p>
-    <p v-else class="muted">
-      手续费利润为原订单成本快照的估算值；{{
-        missing !== "0"
-          ? missing + "笔已支付订单缺少成本，相关利润显示未知。"
-          : "无订单时合计为0。"
-      }}通道名称以已记录通道号标识。
-    </p>
-    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <p v-if="loading" role="status">正在读取统计…</p>
-    <template v-else-if="!error">
-      <section v-if="daily && items.length" class="original-statistics-trend">
-        <h2>近7天趋势</h2>
-        <ul class="trend-legend">
-          <li v-for="s in series" :key="s.key">
-            <button
-              type="button"
-              :aria-pressed="!hiddenSeries.includes(s.key)"
-              @click="toggleSeries(s.key)"
-            >
-              <span :style="{ backgroundColor: s.color }" />{{ s.name }}
-            </button>
-          </li>
-        </ul>
-        <svg viewBox="0 0 640 260" role="img" aria-label="近7天交易趋势">
-          <line
-            v-for="y in [20, 120, 220]"
-            :key="y"
-            x1="40"
-            x2="600"
-            :y1="y"
-            :y2="y"
-            stroke="var(--border,#e5e7eb)"
+            aria-label="查询日期（结束）"
           />
-          <g v-for="s in visibleSeries" :key="s.key">
-            <polyline
-              v-for="(segment, index) in s.segments"
-              :key="index"
-              :points="segment"
-              fill="none"
-              :stroke="s.color"
-              stroke-width="2"
-            />
-            <circle
-              v-for="(point, index) in s.points"
-              :key="index"
-              :cx="point.x"
-              :cy="point.y"
-              r="3.5"
-              :fill="s.color"
-            >
-              <title>{{ point.day }} {{ s.name }}：{{ point.value }} 元</title>
-            </circle>
-          </g>
-          <text
-            v-for="(row, index) in items"
-            :key="String(row.day)"
-            :x="48 + (index * 544) / Math.max(1, items.length - 1)"
-            y="248"
-            text-anchor="middle"
-          >
-            {{ String(row.day).slice(5) }}
-          </text>
-        </svg>
-      </section>
-      <p v-if="!daily" class="muted">共 {{ items.length }} 条记录</p>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th v-for="column in columns" :key="column.key" scope="col">
-                {{ column.label }}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="row in visibleRows"
-              :key="String(daily ? row.day : row.channel)"
-              :class="{ 'statistics-total': row.channelName === '总计' }"
-            >
-              <td v-for="column in columns" :key="column.key">
-                {{ cell(row, column.key) }}
-              </td>
-            </tr>
-            <tr v-if="!visibleRows.length">
-              <td colspan="7" class="empty">暂无数据</td>
-            </tr>
-          </tbody>
-          <tfoot v-if="merchant && summary">
-            <tr class="statistics-total">
-              <td v-for="column in columns" :key="column.key">
-                {{ cell(summary, column.key) }}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+        </KitField>
+        <KitField label="支付方式">
+          <KitSelect
+            v-model="filter.type"
+            :options="[
+              { value: '', label: '所有支付方式' },
+              { value: 'alipay', label: '支付宝' },
+              { value: 'wxpay', label: '微信支付' },
+              { value: 'sandbox', label: '本地模拟' },
+            ]"
+            aria-label="支付方式"
+          />
+        </KitField>
+        <KitField v-if="daily && !merchant" label="通道ID">
+          <KitInput
+            v-model="filter.channel"
+            aria-label="通道ID"
+            inputmode="numeric"
+            :maxlength="19"
+            placeholder="请输入通道ID"
+          />
+        </KitField>
+        <KitField v-if="!merchant" label="商户号">
+          <KitInput
+            v-model="filter.uid"
+            aria-label="商户号"
+            inputmode="numeric"
+            :maxlength="19"
+            placeholder="请输入商户号"
+          />
+        </KitField>
       </div>
-    </template>
-  </section>
+      <div class="pa-filter-actions">
+        <button type="button" class="pa-btn" :disabled="loading" @click="reset">
+          重置
+        </button>
+        <button
+          type="submit"
+          class="pa-btn pa-btn--primary"
+          :class="{ 'pa-btn--loading': loading }"
+          :disabled="loading"
+        >
+          查询
+        </button>
+      </div>
+    </form>
+    <section class="panel records">
+      <div class="table-tools">
+        <CsvExportButton
+          :client="client"
+          :path="csvPath"
+          :disabled="loading || !!error || !items.length || !csvPath"
+          :filename="report + '-original-statistics.csv'"
+        />
+        <span v-if="!daily" class="table-summary"
+          >共 <strong>{{ items.length }}</strong> 条记录</span
+        >
+        <div class="table-tools-end">
+          <KitHelpPopover>
+            <p class="table-note">
+              按北京时间的订单创建日期统计{{
+                daily ? "近7天" : ""
+              }}，金额单位为元。退款金额为该批订单已成功退款的累计金额；成功率按保留的全部订单计算。
+            </p>
+            <p v-if="merchant" class="table-note">
+              分成金额为已支付订单的原商户净额，退款另列；原分成合计不等于当前可用余额。
+            </p>
+            <p v-else class="table-note">
+              手续费利润为原订单成本快照的估算值；{{
+                missing !== "0"
+                  ? missing + "笔已支付订单缺少成本，相关利润显示未知。"
+                  : "无订单时合计为0。"
+              }}通道名称以已记录通道号标识。
+            </p>
+          </KitHelpPopover>
+          <button
+            type="button"
+            class="icon-button table-refresh"
+            :aria-label="loading ? '正在更新…' : '刷新数据'"
+            :title="loading ? '正在更新…' : '刷新数据'"
+            :disabled="loading"
+            @click="load"
+          >
+            <ShellIcon name="refresh" />
+          </button>
+        </div>
+      </div>
+      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <p v-if="loading" role="status">正在读取统计…</p>
+      <template v-else-if="!error">
+        <section v-if="daily && items.length" class="original-statistics-trend">
+          <h2>近7天趋势</h2>
+          <ul class="trend-legend">
+            <li v-for="s in series" :key="s.key">
+              <button
+                type="button"
+                :aria-pressed="!hiddenSeries.includes(s.key)"
+                @click="toggleSeries(s.key)"
+              >
+                <span :style="{ backgroundColor: s.color }" />{{ s.name }}
+              </button>
+            </li>
+          </ul>
+          <svg viewBox="0 0 640 260" role="img" aria-label="近7天交易趋势">
+            <line
+              v-for="y in [20, 120, 220]"
+              :key="y"
+              x1="40"
+              x2="600"
+              :y1="y"
+              :y2="y"
+              style="stroke: var(--chart-grid)"
+              stroke-dasharray="3 3"
+            />
+            <g v-for="s in visibleSeries" :key="s.key">
+              <polyline
+                v-for="(segment, index) in s.segments"
+                :key="index"
+                :points="segment"
+                fill="none"
+                :style="{ stroke: s.color }"
+                stroke-width="2"
+              />
+              <circle
+                v-for="(point, index) in s.points"
+                :key="index"
+                :cx="point.x"
+                :cy="point.y"
+                r="3.5"
+                :style="{ fill: s.color }"
+              >
+                <title>
+                  {{ point.day }} {{ s.name }}：{{ point.value }} 元
+                </title>
+              </circle>
+            </g>
+            <text
+              v-for="(row, index) in items"
+              :key="String(row.day)"
+              :x="48 + (index * 544) / Math.max(1, items.length - 1)"
+              y="248"
+              text-anchor="middle"
+            >
+              {{ String(row.day).slice(5) }}
+            </text>
+          </svg>
+        </section>
+        <p v-if="!daily" class="sr-only">共 {{ items.length }} 条记录</p>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th v-for="column in columns" :key="column.key" scope="col">
+                  {{ column.label }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in visibleRows"
+                :key="String(daily ? row.day : row.channel)"
+                :class="{ 'statistics-total': row.channelName === '总计' }"
+              >
+                <td v-for="column in columns" :key="column.key">
+                  {{ cell(row, column.key) }}
+                </td>
+              </tr>
+              <tr v-if="!visibleRows.length">
+                <td colspan="7" class="empty">暂无数据</td>
+              </tr>
+            </tbody>
+            <tfoot v-if="merchant && summary">
+              <tr class="statistics-total">
+                <td v-for="column in columns" :key="column.key">
+                  {{ cell(summary, column.key) }}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </template>
+    </section>
+  </div>
 </template>
 <style scoped>
 .original-order-statistics {
   min-width: 0;
+}
+.table-summary {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.table-note {
+  margin: 0 var(--space-5) var(--space-3);
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.table-note + .table-note {
+  margin-top: calc(-1 * var(--space-2));
 }
 .original-order-statistics th,
 .original-order-statistics td {
@@ -344,7 +407,7 @@ const visibleRows = computed(() =>
   max-height: 320px;
 }
 .original-statistics-trend text {
-  fill: var(--text-secondary, #606266);
+  fill: var(--text-secondary, var(--ink));
   font-size: 12px;
 }
 .trend-legend {

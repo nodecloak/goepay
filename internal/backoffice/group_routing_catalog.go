@@ -12,6 +12,17 @@ type GroupPaymentChannel struct {
 	Methods []string `json:"methods"`
 }
 
+// catalogPayType mirrors the original pay-type catalog (pre_type) plus the
+// internal sandbox. The backoffice package sits below the payment adapter, so
+// the list is duplicated here; keep it in sync with adapter.PluginPayTypes.
+func catalogPayType(t string) bool {
+	switch t {
+	case "alipay", "wxpay", "qqpay", "bank", "jdpay", "paypal", "douyinpay", "ecny":
+		return true
+	}
+	return false
+}
+
 func (s *Service) serveGroupRoutingCatalog(w http.ResponseWriter, r *http.Request, p Principal, parts []string) bool {
 	if len(parts) != 2 || parts[0] != "groups" || parts[1] != "routing-options" {
 		return false
@@ -46,7 +57,7 @@ func (s *Service) serveGroupRoutingCatalog(w http.ResponseWriter, r *http.Reques
 		ids := map[int64]bool{}
 		for _, item := range items {
 			id, e := strconv.ParseInt(item.ID, 10, 64)
-			if e != nil || id <= 0 || strconv.FormatInt(id, 10) != item.ID || ids[id] || (item.Type != "alipay" && item.Type != "wxpay") || len(item.Methods) == 0 || len(item.Methods) > 32 {
+			if e != nil || id <= 0 || strconv.FormatInt(id, 10) != item.ID || ids[id] || !catalogPayType(item.Type) || len(item.Methods) == 0 || len(item.Methods) > 32 {
 				writeError(w, ErrInvalid)
 				return true
 			}

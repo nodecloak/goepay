@@ -3,6 +3,7 @@ import { ref, onMounted, onBeforeUnmount } from "vue";
 import { ApiClient } from "../api";
 import { readSettlementRecipient } from "../settlement-recipient";
 import type { SettlementSchedulePrefs } from "../settlement-plans";
+import KitSwitch from "./KitSwitch.vue";
 const props = defineProps<{ client: ApiClient; ownSession: boolean }>();
 const current = ref<SettlementSchedulePrefs | null>(null),
   enabled = ref(false),
@@ -132,13 +133,11 @@ onBeforeUnmount(() => {
         收款配置已变化或尚未绑定，旧同意不会用于新配置，请重新明确确认。
       </p>
       <p>仅当前配置快照参与；旧申请资料不会被改写。</p>
-      <label
-        ><input
-          v-model="enabled"
-          type="checkbox"
-          :disabled="busy || confirming || uncertain"
-        />同意参与计划生成</label
-      ><button :disabled="busy || confirming || uncertain" @click="review">
+      <KitSwitch
+        v-model="enabled"
+        label="同意参与计划生成"
+        :disabled="busy || confirming || uncertain"
+      /><button :disabled="busy || confirming || uncertain" @click="review">
         核对参与设置
       </button>
       <section v-if="confirming" class="case-panel">

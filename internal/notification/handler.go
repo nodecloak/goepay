@@ -58,6 +58,15 @@ type DeliveryPlanner interface {
 // URL constructs both notify and return URLs with the current timestamp on each retry.
 // Base query parameters are signed too, preventing unsigned parameter collisions.
 func URL(raw string, o payment.Order, m payment.Merchant, key *rsa.PrivateKey, now time.Time) (string, error) {
+	return URLWithPolicy(raw, o, m, key, now, false)
+}
+
+// URLWithPolicy is URL with the original notifyordername option. When hideName
+// is true the product name carried in the callback is replaced with the fixed
+// literal "product" BEFORE the signature is computed — exactly as the original
+// creat_callback does ($array['name']='product') — so the signed payload and
+// the delivered payload agree and the merchant's verification still passes.
+func URLWithPolicy(raw string, o payment.Order, m payment.Merchant, key *rsa.PrivateKey, now time.Time, hideName bool) (string, error) {
 	u, e := url.Parse(raw)
 	if e != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
 		return "", errors.New("invalid notification URL")
@@ -66,7 +75,11 @@ func URL(raw string, o payment.Order, m payment.Merchant, key *rsa.PrivateKey, n
 	if e != nil {
 		return "", e
 	}
-	for k, v := range (compat.Params{"pid": strconv.FormatInt(o.MerchantID, 10), "trade_no": o.TradeNo, "out_trade_no": o.OutTradeNo, "type": o.Type, "name": o.Name, "money": ledger.Format(o.Amount), "trade_status": "TRADE_SUCCESS"}) {
+	name := o.Name
+	if hideName {
+		name = "product"
+	}
+	for k, v := range (compat.Params{"pid": strconv.FormatInt(o.MerchantID, 10), "trade_no": o.TradeNo, "out_trade_no": o.OutTradeNo, "type": o.Type, "name": name, "money": ledger.Format(o.Amount), "trade_status": "TRADE_SUCCESS"}) {
 		p[k] = v
 	}
 	delete(p, "sign")
@@ -133,7 +146,17 @@ func (h Handler) Handle(ctx context.Context, j jobs.Job) error {
 	if h.Now != nil {
 		now = h.Now()
 	}
-	target, e := URL(o.NotifyURL, o, m, h.PlatformKey, now)
+	// Original notifyordername: when the platform hides the product name in
+	// callbacks, the name carried (and signed) is the fixed literal "product".
+	hideName := false
+	if policy, ok := h.Store.(interface {
+		NotifyHideName(context.Context) (bool, error)
+	}); ok {
+		if hideName, e = policy.NotifyHideName(ctx); e != nil {
+			return e
+		}
+	}
+	target, e := URLWithPolicy(o.NotifyURL, o, m, h.PlatformKey, now, hideName)
 	if e != nil {
 		return e
 	}

@@ -215,7 +215,7 @@ func (s *Server) operations(w http.ResponseWriter, r *http.Request, role string,
 
 func (s *Server) cleanup(w http.ResponseWriter, r *http.Request, session identity.Session) {
 	if r.Method == "GET" {
-		response(w, 200, 0, "only expired sessions and login throttle entries are eligible", map[string]any{"cutoff": time.Now().Add(-24 * time.Hour).UTC().Format(time.RFC3339)})
+		response(w, 200, 0, "only expired sessions, login throttle entries and login-audit rows are eligible; financial records are immutable", map[string]any{"cutoff": time.Now().Add(-24 * time.Hour).UTC().Format(time.RFC3339)})
 		return
 	}
 	if r.Method != "POST" {
@@ -243,8 +243,15 @@ func (s *Server) cleanup(w http.ResponseWriter, r *http.Request, session identit
 		}
 	}
 	limits.mu.Unlock()
-	var throttleCount int64
+	var throttleCount, loginAuditCount int64
 	if err = s.Pool.QueryRow(r.Context(), "SELECT count(*) FROM console_login_throttle WHERE updated_at<=$1", cutoff).Scan(&throttleCount); err != nil {
+		s.fail(w, err)
+		return
+	}
+	// console_login_audit grows unbounded and carries no immutable financial
+	// fact, so it is age-prunable here. Business tables (orders, settlements,
+	// ledger, transfers, profit sharing) are deliberately never deleted.
+	if err = s.Pool.QueryRow(r.Context(), "SELECT count(*) FROM console_login_audit WHERE created_at<=$1", cutoff).Scan(&loginAuditCount); err != nil {
 		s.fail(w, err)
 		return
 	}
@@ -255,12 +262,17 @@ func (s *Server) cleanup(w http.ResponseWriter, r *http.Request, session identit
 			return
 		}
 		defer tx.Rollback(r.Context())
-		changes, _ := json.Marshal(map[string]any{"cutoff": cutoff, "expired_attempts": count, "eligible_login_throttle_keys": throttleCount})
+		changes, _ := json.Marshal(map[string]any{"cutoff": cutoff, "expired_attempts": count, "eligible_login_throttle_keys": throttleCount, "eligible_login_audit_rows": loginAuditCount})
 		_, err = tx.Exec(r.Context(), "INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES('admin',$1,$2,'cleanup',0,'expired-cache',$3)", session.User.ID, session.User.Username, changes)
 		if err == nil {
 			deleted, deleteErr := tx.Exec(r.Context(), "DELETE FROM console_login_throttle WHERE updated_at<=$1", cutoff)
 			err = deleteErr
 			throttleCount = deleted.RowsAffected()
+		}
+		if err == nil {
+			deletedAudit, auditErr := tx.Exec(r.Context(), "DELETE FROM console_login_audit WHERE created_at<=$1", cutoff)
+			err = auditErr
+			loginAuditCount = deletedAudit.RowsAffected()
 		}
 		if err == nil {
 			err = tx.Commit(r.Context())
@@ -284,5 +296,5 @@ func (s *Server) cleanup(w http.ResponseWriter, r *http.Request, session identit
 		response(w, 503, -1, "session cleanup unavailable", nil)
 		return
 	}
-	response(w, 200, 0, "", map[string]any{"expired_sessions": expired, "expired_attempts": count, "expired_login_throttle_keys": throttleCount, "cutoff": in.Cutoff, "preview": *in.Preview})
+	response(w, 200, 0, "", map[string]any{"expired_sessions": expired, "expired_attempts": count, "expired_login_throttle_keys": throttleCount, "expired_login_audit_rows": loginAuditCount, "cutoff": in.Cutoff, "preview": *in.Preview})
 }

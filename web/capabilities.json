@@ -310,7 +310,9 @@
       "resource-detail",
       "schema-permitted-create-update-delete",
       "confirmed-superadmin-schema-permitted-merchant-delegation",
-      "verify-merchant-session-after-unknown-delegation"
+      "verify-merchant-session-after-unknown-delegation",
+      "funds-authorized-admin-balance-credit-debit",
+      "merchant-directory-filtered-csv-export"
     ],
     "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
   },
@@ -553,9 +555,19 @@
     "capabilities": [
       "resource-list",
       "resource-detail",
-      "schema-permitted-create-update-delete"
+      "schema-permitted-create-update-delete",
+      "gated-by-complain_open",
+      "provider-synced-list-over-complaints133-with-server-filters-and-offset-paging",
+      "detail-with-images-and-negotiation-history",
+      "today-yesterday-summary-from-complaints133",
+      "provider-sync-pull-now-per-channel",
+      "provider-reply-to-complainant",
+      "provider-complete-or-feedback",
+      "provider-supplement-evidence-alipay",
+      "wechat-v3-complaint-image-upload",
+      "refund-on-complaint-through-existing-order-refund-flow-with-funds-authorization"
     ],
-    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+    "limitations": "列表/详情/汇总来自 provider 同步表 complaints133（本地工单保留在 CasePanel/订单详情）；投诉退款走订单退款流程并保留资金授权"
   },
   {
     "area": "admin",
@@ -581,13 +593,18 @@
     "title": "交易投诉 / 同步任务",
     "hidden": false,
     "status": "partial",
-    "resource": "complaint-tasks",
     "capabilities": [
-      "resource-list",
-      "resource-detail",
-      "schema-permitted-create-update-delete"
+      "sync-task-list-from-complaint_tasks133-joined-with-channel-name-provider",
+      "per-channel-upsert-enabled-frequency-num-admin-only-audited",
+      "unsupported-provider-refused-with-message",
+      "disable-keeps-row-and-failure-history",
+      "re-enable-resets-consecutive-failures",
+      "auto-fetch-toggle-on-complaint-list-for-selected-channel",
+      "scheduled-complain-task-available-enqueues-channel-sync-jobs",
+      "max-failures-auto-disable-and-admin-notice",
+      "complain_star-auto-handling-read-by-name"
     ],
-    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+    "limitations": "同步任务已可用并登记每渠道状态；自动处理按 complain_* 设置生效（拉黑直接执行，冻结/退款记为待管理员确认以保留资金授权）"
   },
   {
     "area": "admin",
@@ -658,9 +675,13 @@
     "path": "/app/app-store",
     "title": "应用管理 / 应用市场",
     "hidden": false,
-    "status": "deferred",
-    "capabilities": [],
-    "limitations": "应用市场依赖外部市场服务及插件授权，本轮按约定暂缓接入。本地扩展资料与实际运行能力可在“本地插件”中查看。"
+    "status": "partial",
+    "capabilities": [
+      "builtin-plugin-catalog",
+      "original-market-list-reference",
+      "plugin-detail"
+    ],
+    "limitations": "Go 版插件随服务内置；不在线购买、下载、安装或执行 PHP 插件，原应用市场列表仅供对照。已内置：支付宝、微信支付、支付宝/微信分账、SMTP 发信、默认模板。"
   },
   {
     "area": "admin",
@@ -670,6 +691,8 @@
     "hidden": false,
     "status": "partial",
     "capabilities": [
+      "builtin-plugin-list",
+      "plugin-detail",
       "read-operation-information"
     ],
     "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
@@ -764,9 +787,10 @@
     "capabilities": [
       "resource-list",
       "resource-detail",
-      "schema-permitted-create-update-delete"
+      "schema-permitted-create-update-delete",
+      "per-menu-permission-grants"
     ],
-    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+    "limitations": "已接入持久资源表单与按菜单权限分配（server 强制、前端据此隐藏菜单）；原版的全部联动、动态按钮及业务语义仍需逐项验收"
   },
   {
     "area": "admin",
@@ -802,9 +826,11 @@
     "capabilities": [
       "read-operation-information",
       "preview-expired-session-cleanup",
-      "confirmed-expired-session-cleanup"
+      "confirmed-expired-session-cleanup",
+      "preview-login-audit-cleanup",
+      "confirmed-login-audit-cleanup"
     ],
-    "limitations": "仅已列能力已接入；其余操作及原版行为对齐尚未验收"
+    "limitations": "已接入过期会话、登录限流与登录日志按时长清理；资金类表按不可变账本禁止删除"
   },
   {
     "area": "admin",
@@ -1117,9 +1143,14 @@
     "capabilities": [
       "resource-list",
       "resource-detail",
-      "schema-permitted-create-update-delete"
+      "schema-permitted-create-update-delete",
+      "gated-by-complain_open",
+      "provider-reply-to-complainant",
+      "provider-complete-or-feedback",
+      "provider-supplement-evidence-alipay",
+      "refund-on-complaint-through-existing-order-refund-flow"
     ],
-    "limitations": "已接入持久资源表单；原版的全部联动、动态按钮及业务语义仍需逐项验收"
+    "limitations": "商户侧投诉回复/处理/凭证走渠道接口（限本商户），退款走订单退款流程；仅在 complain_open 开启时可见可用"
   },
   {
     "area": "merchant",

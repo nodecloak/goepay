@@ -148,10 +148,16 @@ for (const width of [1440, 375]) {
     const s = await setup(page, "merchant");
     const opener = page.getByRole("button", { name: "轮询设置", exact: true });
     await opener.click();
+    // 轮询方式 is a kit KitSelect: open its trigger and click the option
+    // (value "1" = 顺序轮询).
     await page
       .getByRole("dialog")
-      .getByRole("combobox", { name: "轮询方式", exact: true })
-      .selectOption("1");
+      .getByRole("button", { name: "轮询方式", exact: true })
+      .click();
+    await page
+      .getByRole("dialog")
+      .getByRole("option", { name: "顺序轮询", exact: true })
+      .click();
     await page
       .getByRole("dialog")
       .getByRole("button", { name: "取消", exact: true })
@@ -278,11 +284,13 @@ for (const width of [1440, 375]) {
     });
     await action(page, "参数设置");
     await expect(d.locator("textarea")).toHaveCount(0);
+    // 参数操作 is a kit KitSelect: open the first param's trigger and choose 替换为新值.
     await d
       .locator(".subchannel-param")
       .first()
-      .locator("select")
-      .selectOption("replace");
+      .locator(".pa-select-trigger")
+      .click();
+    await d.getByRole("option", { name: "替换为新值", exact: true }).click();
     await d.getByLabel("app", { exact: true }).fill("synthetic-replacement");
     await d.getByRole("button", { name: "确认保存", exact: true }).click();
     await expect(d).toHaveCount(0);

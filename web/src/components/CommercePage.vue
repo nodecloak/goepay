@@ -8,6 +8,12 @@ import {
   type CommerceKind,
 } from "../commerce";
 import DataTable from "./DataTable.vue";
+import ShellIcon from "./ShellIcon.vue";
+import KitPagination from "./KitPagination.vue";
+import KitModal from "./KitModal.vue";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
+import KitSelect from "./KitSelect.vue";
 import { centsMoney } from "../settlement-terms";
 const props = defineProps<{
   client: ApiClient;
@@ -18,6 +24,7 @@ const items = ref<Record<string, unknown>[]>([]),
   groups = ref<Record<string, unknown>[]>([]),
   total = ref(0),
   page = ref(1),
+  limit = ref(20),
   loading = ref(false),
   busy = ref(false),
   dialog = ref(false),
@@ -86,6 +93,24 @@ const title = computed(
       recharges: "余额充值",
     })[props.kind],
 );
+const depositActionOptions = [
+  { value: "hold", label: "转入保证金" },
+  { value: "release", label: "申请释放保证金" },
+];
+const rechargeTypeOptions = [
+  { value: "alipay", label: "支付宝" },
+  { value: "wxpay", label: "微信支付" },
+];
+const groupOptions = computed(() => [
+  { value: "", label: "请选择" },
+  ...groups.value.map((g) => ({
+    value: String(g.id),
+    label: `${g.name} · ${centsMoney(String(g.price_cents))} 元 / ${membershipPeriod(g)}`,
+  })),
+]);
+const rechargeMethodOptions = computed(() =>
+  browserRechargeMethods(form.value.type).map((m) => ({ value: m, label: m })),
+);
 const columns = computed(() => {
   const known: Record<string, string> = {
     id: "编号",
@@ -140,7 +165,7 @@ async function load() {
       total: number;
       deposit_money?: string;
       pending_release_money?: string;
-    }>(`/workflows/${props.kind}?page=${page.value}&limit=20`, {
+    }>(`/workflows/${props.kind}?page=${page.value}&limit=${limit.value}`, {
       signal: c.signal,
     });
     if (!c.signal.aborted) {
@@ -320,27 +345,30 @@ onBeforeUnmount(() => controller?.abort());
       </div>
     </section>
     <section class="panel records">
-      <div class="toolbar">
-        <p class="muted">
-          {{
-            kind === "memberships"
-              ? "会员购买会按已配置的价格扣减账户余额，价格以服务端确认为准。"
-              : kind === "deposits"
-                ? "保证金冻结与释放申请均记录资金流水。释放须经管理员核准。"
-                : "充值记录反映真实订单状态，创建订单不会直接增加余额。"
-          }}
-        </p>
-        <div class="toolbar-actions">
-          <button :disabled="loading" @click="load">刷新</button
-          ><button
-            class="primary"
-            :disabled="busy || (kind === 'memberships' && !groups.length)"
-            @click="open"
-          >
-            {{ title }}
+      <div class="table-tools">
+        <button
+          type="button"
+          class="primary"
+          :disabled="busy || (kind === 'memberships' && !groups.length)"
+          @click="open"
+        >
+          <ShellIcon name="plus" />{{ title }}
+        </button>
+        <div class="table-tools-end">
+          <button type="button" :disabled="loading" @click="load">
+            <ShellIcon name="refresh" />刷新
           </button>
         </div>
       </div>
+      <p class="table-note">
+        {{
+          kind === "memberships"
+            ? "会员购买会按已配置的价格扣减账户余额，价格以服务端确认为准。"
+            : kind === "deposits"
+              ? "保证金冻结与释放申请均记录资金流水。释放须经管理员核准。"
+              : "充值记录反映真实订单状态，创建订单不会直接增加余额。"
+        }}
+      </p>
       <div v-if="loading" class="loading-row" role="status">正在读取记录…</div>
       <DataTable v-else :columns="columns" :items="items"
         ><template
@@ -365,29 +393,12 @@ onBeforeUnmount(() => controller?.abort());
           <span v-else class="muted">无需审批</span></template
         ></DataTable
       >
-      <div class="pagination">
-        <span>共 {{ total }} 条记录</span>
-        <div>
-          <button
-            :disabled="page <= 1 || loading"
-            @click="
-              page--;
-              load();
-            "
-          >
-            上一页</button
-          ><span>第 {{ page }} 页</span
-          ><button
-            :disabled="page * 20 >= total || loading"
-            @click="
-              page++;
-              load();
-            "
-          >
-            下一页
-          </button>
-        </div>
-      </div>
+      <KitPagination
+        v-model:page="page"
+        v-model:page-size="limit"
+        :total="total"
+        @change="load"
+      />
     </section>
     <div v-if="review" class="modal-backdrop">
       <section
@@ -417,107 +428,92 @@ onBeforeUnmount(() => controller?.abort());
         </div>
       </section>
     </div>
-    <div v-if="dialog" class="modal-backdrop">
-      <section
-        class="modal panel"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="title"
-      >
-        <h2>{{ title }}</h2>
-        <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-        <form @submit.prevent="submit">
-          <label v-if="area === 'admin'"
-            >商户 ID<input
-              v-model="form.merchant_id"
-              required
-              inputmode="numeric" /></label
-          ><label v-if="kind === 'memberships'"
-            >购买用户组<select v-model="form.group_id" required>
-              <option value="">请选择</option>
-              <option
-                v-for="group in groups"
-                :key="String(group.id)"
-                :value="String(group.id)"
-              >
-                {{ group.name }} ·
-                {{ centsMoney(String(group.price_cents)) }} 元 /
-                {{ membershipPeriod(group) }}
-              </option>
-            </select></label
-          ><template v-if="kind === 'memberships'"
-            ><label
-              >购买数量<input
-                v-model="form.quantity"
-                aria-label="购买数量"
-                inputmode="numeric"
-                type="number"
-                min="1"
-                max="300"
-                step="1"
-                required
-                :disabled="busy"
-            /></label>
-            <p role="status">
-              合计：{{ membershipTotal }} 元<span v-if="selectedGroup">
-                · {{ membershipPeriod(selectedGroup) }} ×
-                {{ form.quantity }}</span
-              >
-            </p>
-            <p class="muted">
-              按已保存售价扣减余额。月有效期按日历月计算，同组未到期会续期；永久用户组不能重复购买。提交时服务端重新核对售价及可见范围。
-            </p></template
-          ><template v-if="kind === 'deposits'"
-            ><label
-              >保证金操作<select v-model="form.action">
-                <option value="hold">转入保证金</option>
-                <option value="release">申请释放保证金</option>
-              </select></label
-            ></template
-          ><label v-if="kind !== 'memberships'"
-            >金额（元）<input
-              v-model="form.amount"
-              required
-              inputmode="decimal" /></label
-          ><template v-if="kind === 'recharges'"
-            ><label
-              >支付平台<select
-                v-model="form.type"
-                @change="
-                  form.method = form.type === 'wxpay' ? 'native' : 'page'
-                "
-              >
-                <option value="alipay">支付宝</option>
-                <option value="wxpay">微信支付</option>
-              </select></label
-            ><label
-              >支付场景<select v-model="form.method">
-                <option
-                  v-for="method in browserRechargeMethods(form.type)"
-                  :key="method"
-                  :value="method"
-                >
-                  {{ method }}
-                </option>
-              </select></label
-            ></template
-          ><label
-            >业务请求号<input
-              v-model="form.external_no"
-              required
-              maxlength="128"
-          /></label>
-          <p class="muted">请核对业务信息。重复请求请保留相同请求号。</p>
-          <div class="modal-actions">
-            <button type="button" :disabled="busy" @click="dialog = false">
-              取消</button
-            ><button class="primary" :disabled="busy">
-              {{ busy ? "正在处理…" : "确认" + title }}
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+    <KitModal
+      v-if="dialog"
+      :title="title"
+      :loading="busy"
+      :submit-text="'确认' + title"
+      @close="dialog = false"
+      @submit="submit"
+    >
+      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <KitField v-if="area === 'admin'" label="商户 ID" required>
+        <KitInput
+          v-model="form.merchant_id"
+          inputmode="numeric"
+          aria-label="商户 ID"
+        />
+      </KitField>
+      <KitField v-if="kind === 'memberships'" label="购买用户组" required>
+        <KitSelect
+          v-model="form.group_id"
+          :options="groupOptions"
+          aria-label="购买用户组"
+        />
+      </KitField>
+      <template v-if="kind === 'memberships'">
+        <KitField label="购买数量" required>
+          <KitInput
+            v-model="form.quantity"
+            inputmode="numeric"
+            :disabled="busy"
+            aria-label="购买数量"
+          />
+        </KitField>
+        <p role="status">
+          合计：{{ membershipTotal }} 元<span v-if="selectedGroup">
+            · {{ membershipPeriod(selectedGroup) }} × {{ form.quantity }}</span
+          >
+        </p>
+        <p class="muted">
+          按已保存售价扣减余额。月有效期按日历月计算，同组未到期会续期；永久用户组不能重复购买。提交时服务端重新核对售价及可见范围。
+        </p>
+      </template>
+      <KitField v-if="kind === 'deposits'" label="保证金操作">
+        <KitSelect
+          v-model="form.action"
+          :options="depositActionOptions"
+          aria-label="保证金操作"
+        />
+      </KitField>
+      <KitField v-if="kind !== 'memberships'" label="金额（元）" required>
+        <KitInput
+          v-model="form.amount"
+          inputmode="decimal"
+          aria-label="金额（元）"
+        />
+      </KitField>
+      <template v-if="kind === 'recharges'">
+        <KitField label="支付平台">
+          <KitSelect
+            :model-value="form.type"
+            :options="rechargeTypeOptions"
+            aria-label="支付平台"
+            @update:model-value="
+              (v) => {
+                form.type = v;
+                form.method = v === 'wxpay' ? 'native' : 'page';
+              }
+            "
+          />
+        </KitField>
+        <KitField label="支付场景">
+          <KitSelect
+            v-model="form.method"
+            :options="rechargeMethodOptions"
+            aria-label="支付场景"
+          />
+        </KitField>
+      </template>
+      <KitField label="业务请求号" required>
+        <KitInput
+          v-model="form.external_no"
+          :maxlength="128"
+          aria-label="业务请求号"
+        />
+      </KitField>
+      <p class="muted">请核对业务信息。重复请求请保留相同请求号。</p>
+    </KitModal>
   </div>
 </template>
 <style scoped>

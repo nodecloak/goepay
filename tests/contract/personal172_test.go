@@ -23,8 +23,12 @@ func personal172State(t *testing.T, w *httptest.ResponseRecorder) map[string]any
 		t.Fatal("personal settings cacheable")
 	}
 	v := credentialData162(t, w)
-	if len(v) != 7 || v["merchant_id"] != "2" || v["can_update"] != true {
+	if len(v) != 8 || v["merchant_id"] != "2" || v["can_update"] != true {
 		t.Fatal("personal DTO identity/shape", v)
+	}
+	// 结算留存 (original remain_money) is the merchant's own field too.
+	if _, ok := v["remain_money"].(string); !ok {
+		t.Fatal("personal DTO lacks remain_money", v)
 	}
 	for _, key := range []string{"key", "api_key", "rsa_public_key", "profile", "email", "phone"} {
 		if _, ok := v[key]; ok {

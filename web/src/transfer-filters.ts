@@ -22,11 +22,20 @@ export const transferStatusFields = [
   { value: "reversed", label: "已退回" },
   { value: "reversal_pending", label: "退回处理中" },
 ] as const;
+// 付款方式 filter — the rails GOEPAY supports. 记账本调拨 is Pro-only alipayfund.
+export const transferTypeFields = [
+  { value: "", label: "全部方式" },
+  { value: "alipay", label: "支付宝" },
+  { value: "wxpay", label: "微信" },
+  { value: "qqpay", label: "QQ钱包" },
+  { value: "bank", label: "银行卡" },
+] as const;
 export const freshTransferFilters = () => ({
   merchant_id: "",
   search_field: "biz_no",
   q: "",
   status: "",
+  type: "",
   channel_id: "",
   from: "",
   to: "",
@@ -61,6 +70,8 @@ export function transferFiltersError(value: TransferReadFilters) {
     return "商户号与通道ID须为有效正整数";
   if (!transferStatusFields.some((f) => f.value === value.status))
     return "付款状态无效";
+  if (!transferTypeFields.some((f) => f.value === value.type))
+    return "付款方式无效";
   if (
     !validDateRange(value.from, value.to) ||
     [value.from, value.to].some((v) => v.startsWith("0000-"))
@@ -92,6 +103,7 @@ export function transferFiltersQuery(
     "merchant_id",
     "search_field",
     "status",
+    "type",
     "channel_id",
     "from",
     "to",
@@ -127,6 +139,7 @@ export function readTransferRoute(
       "search_field",
       "channel_id",
       "status",
+      "type",
       "from",
       "to",
     ],
@@ -166,7 +179,7 @@ export function readTransferRoute(
     values.search_field ??
     values.column ??
     (values.q !== undefined ? "" : "biz_no");
-  for (const key of ["status", "channel_id", "from", "to"] as const)
+  for (const key of ["status", "type", "channel_id", "from", "to"] as const)
     filters[key] = values[key] ?? "";
   if (transferFiltersError(filters)) return fail();
   return result();

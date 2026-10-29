@@ -28,6 +28,15 @@ type ParentChannelField struct {
 	Namespace string `json:"namespace"`
 	Secret    bool   `json:"secret"`
 	PEM       bool   `json:"pem"`
+	// Ported plugins describe their inputs with the original labels.
+	Label   string                     `json:"label,omitempty"`
+	Note    string                     `json:"note,omitempty"`
+	Options []ParentChannelFieldOption `json:"options,omitempty"`
+}
+
+type ParentChannelFieldOption struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
 }
 
 type ParentChannelValueEdit struct {

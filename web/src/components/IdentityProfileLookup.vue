@@ -623,7 +623,7 @@ input {
 }
 [role="dialog"] {
   padding: 1rem;
-  border: 1px solid #007c91;
+  border: 1px solid var(--primary-text);
   border-radius: 8px;
   margin: 1rem 0;
 }

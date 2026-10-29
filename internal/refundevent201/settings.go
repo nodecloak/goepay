@@ -34,8 +34,31 @@ type subscription struct {
 	EventID    int64
 }
 
+// validTypes accepts any subset of the subscribable event types, each at most
+// once: {} (disabled), ["refund"], ["complain"], or both. Order is not
+// constrained. Refund delivery checks for "refund" membership and complaint
+// delivery for "complain" membership, so a merchant can subscribe to either or
+// both on one endpoint.
 func validTypes(types []string) bool {
-	return types != nil && (len(types) == 0 || len(types) == 1 && types[0] == "refund")
+	if types == nil || len(types) > 2 {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, t := range types {
+		if t != "refund" && t != "complain" || seen[t] {
+			return false
+		}
+		seen[t] = true
+	}
+	return true
+}
+func hasEventType(types []string, want string) bool {
+	for _, t := range types {
+		if t == want {
+			return true
+		}
+	}
+	return false
 }
 func validState(state string) bool {
 	switch state {

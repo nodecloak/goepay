@@ -3,15 +3,74 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import QRCode from "qrcode";
 import type { ApiClient } from "../api";
 import type { Area } from "../menu";
-import IdentityProfileLookup from "./IdentityProfileLookup.vue";
 import ApplicationAuthorizationPanel from "./ApplicationAuthorizationPanel.vue";
+import IdentityProfileLookup from "./IdentityProfileLookup.vue";
 const props = defineProps<{
   client: ApiClient;
   area: Area;
   ownSession?: boolean;
   adminClass?: string;
 }>();
-const tab = ref<"legacy" | "profiles" | "application">("legacy");
+const tab = ref<
+  | "wx_official"
+  | "wx_mini"
+  | "alipay_user"
+  | "alipay_app"
+  | "douyin"
+  | "profiles"
+>("wx_official");
+// Pro's 获取用户标识 shows five tabs. GOEPAY resolves WeChat/Alipay openid & user
+// id through the same channel-authorization lookup (the chosen app channel
+// distinguishes 公众号 / 小程序 / 支付宝), so tabs 1–3 are provider-filtered views
+// of the legacy lookup flow; 支付宝应用授权Token is the super-only
+// application-authorization panel; 抖音 is not integrated and shows disabled.
+// GOEPAY keeps its own 独立应用与小程序 (independent app & mini-program) view as a
+// sixth tab, loaded lazily after the Pro five.
+type GetTokenTab = {
+  readonly id:
+    | "wx_official"
+    | "wx_mini"
+    | "alipay_user"
+    | "alipay_app"
+    | "douyin"
+    | "profiles";
+  readonly label: string;
+  readonly provider: "wxpay" | "alipay" | null;
+  readonly needsSuper?: boolean;
+  readonly disabled?: boolean;
+  readonly reason?: string;
+};
+const proTabs = computed<readonly GetTokenTab[]>(() => [
+  { id: "wx_official", label: "微信公众号Openid", provider: "wxpay" },
+  { id: "wx_mini", label: "微信小程序Openid", provider: "wxpay" },
+  { id: "alipay_user", label: "支付宝用户ID", provider: "alipay" },
+  {
+    id: "alipay_app",
+    label: "支付宝应用授权Token",
+    provider: null,
+    needsSuper: true,
+  },
+  {
+    id: "douyin",
+    label: "抖音应用Openid",
+    provider: null,
+    disabled: true,
+    reason: "GOEPAY 暂未接入抖音开放平台授权，无法获取抖音 Openid。",
+  },
+  { id: "profiles", label: "独立应用与小程序", provider: null },
+]);
+const lookupProvider = computed<"wxpay" | "alipay" | null>(() =>
+  tab.value === "wx_official" || tab.value === "wx_mini"
+    ? "wxpay"
+    : tab.value === "alipay_user"
+      ? "alipay"
+      : null,
+);
+const lookupChannels = computed(() =>
+  lookupProvider.value
+    ? channels.value.filter((c) => c.provider === lookupProvider.value)
+    : channels.value,
+);
 const applicationAllowed = computed(
   () =>
     props.area === "admin" &&
@@ -81,7 +140,10 @@ function reset(clearChannels = false) {
     selected.value = "";
   }
 }
-watch(tab, () => reset());
+watch(tab, () => {
+  selected.value = "";
+  reset();
+});
 watch(
   () => [props.client, props.area, merchant.value],
   () => reset(true),
@@ -283,22 +345,26 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <nav aria-label="用户标识查询用途">
-    <button :aria-pressed="tab === 'legacy'" @click="tab = 'legacy'">
-      原收款应用网页授权</button
-    ><button :aria-pressed="tab === 'profiles'" @click="tab = 'profiles'">
-      独立应用与小程序
-    </button>
-    <button
-      v-if="applicationAllowed"
-      :aria-pressed="tab === 'application'"
-      @click="tab = 'application'"
-    >
-      支付宝应用授权
-    </button>
+  <nav class="get-token-tabs" aria-label="获取用户标识">
+    <template v-for="t in proTabs" :key="t.id">
+      <button
+        v-if="!t.needsSuper || applicationAllowed"
+        :aria-pressed="tab === t.id"
+        :disabled="t.disabled === true"
+        :title="t.disabled ? t.reason : undefined"
+        @click="!t.disabled && (tab = t.id as typeof tab)"
+      >
+        {{ t.label
+        }}<span v-if="t.disabled" class="get-token-off">（暂不支持）</span>
+      </button>
+    </template>
   </nav>
+  <p v-if="tab === 'douyin'" class="alert" role="note">
+    GOEPAY 暂未接入抖音开放平台授权，无法获取抖音
+    Openid。请使用微信或支付宝授权。
+  </p>
   <ApplicationAuthorizationPanel
-    v-if="tab === 'application' && applicationAllowed"
+    v-else-if="tab === 'alipay_app' && applicationAllowed"
     :client="client"
     :area="area"
     :own-session="ownSession === true"
@@ -330,7 +396,7 @@ onBeforeUnmount(() => {
         >应用通道<select v-model="selected" :disabled="busy || !available">
           <option value="">请选择通道</option>
           <option
-            v-for="c in channels"
+            v-for="c in lookupChannels"
             :key="c.channel_id"
             :value="c.channel_id"
           >

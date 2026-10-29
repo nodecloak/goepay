@@ -113,7 +113,7 @@ func TestCommonProviderProductsExposeSDKMaterials(t *testing.T) {
 	if e := pool.QueryRow(context.Background(), "SELECT count(*) FROM orders WHERE out_trade_no='wrong-app'").Scan(&count); e != nil || count != 0 {
 		t.Fatal("invalid app reserved order", count, e)
 	}
-	v1 := compat.Params{"pid": "1", "type": "wxpay", "method": "app", "channel_id": "7", "out_trade_no": "v1-app", "name": "test", "money": "1.00", "clientip": "203.0.113.5"}
+	v1 := compat.Params{"pid": "1", "type": "wxpay", "method": "app", "channel_id": "7", "out_trade_no": "v1-app", "name": "test", "money": "1.00", "clientip": "203.0.113.5", "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return"}
 	_, out := call(t, s.Handler(), "POST", "/mapi.php", signed(v1, "contract-secret"))
 	if out["code"] != float64(1) || out["payurl"] == nil || out["pay_type"] != nil {
 		t.Fatal("legacy material contract changed", out)

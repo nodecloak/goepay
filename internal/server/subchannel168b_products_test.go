@@ -167,7 +167,7 @@ func subchannel168BProductLocal(t *testing.T) (channel168Fixture, *subchannel168
 }
 func subchannel168BProductPay(t *testing.T, f channel168Fixture, no, method string, extra compat.Params) map[string]any {
 	t.Helper()
-	p := compat.Params{"pid": "1", "out_trade_no": no, "type": "alipay", "name": "Synthetic child product", "money": "1.00", "channel_id": "7", "method": method, "sign_type": "MD5"}
+	p := compat.Params{"pid": "1", "out_trade_no": no, "type": "alipay", "name": "Synthetic child product", "money": "1.00", "channel_id": "7", "method": method, "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return", "sign_type": "MD5"}
 	for k, v := range extra {
 		p[k] = v
 	}

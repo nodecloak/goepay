@@ -1,18 +1,67 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
+import QRCode from "qrcode";
 import type { Area } from "../menu";
+import type { ApiClient } from "../api";
 import {
   originalSettlementColumns,
   readSettlementListRow,
   type SettlementListRow,
 } from "../settlement-list";
 import SettlementRecordDetails from "./SettlementRecordDetails.vue";
+import KitStatusTag from "./KitStatusTag.vue";
 const props = defineProps<{
   items: Record<string, unknown>[];
   area: Area;
   checked: string[];
   busy: boolean;
+  client: ApiClient;
 }>();
+// 原 settle.php 完成结算的 jumpurl 确认收款二维码：收款方用微信扫码确认到账。
+// confirm_url 由单条出款 GET（/settlement-payouts/{id}）返回，按行按需读取，
+// 避免把服务端专用的签名链接构造器跨包塞进结算列表。
+const confirm = ref<{ url: string; image: string } | null>(null),
+  confirmBusy = ref(""),
+  confirmError = ref(""),
+  copied = ref(""),
+  qrDialog = ref<HTMLElement | null>(null);
+async function showConfirm(id: string) {
+  if (confirmBusy.value) return;
+  confirmBusy.value = id;
+  confirmError.value = "";
+  try {
+    const result = (await props.client.request(
+      "/settlement-payouts/" + encodeURIComponent(id),
+    )) as { confirm_url?: unknown };
+    const link =
+      typeof result.confirm_url === "string" ? result.confirm_url : "";
+    if (!link) {
+      confirmError.value = "该结算暂无可用的确认收款二维码";
+      return;
+    }
+    const url = new URL(link, window.location.origin).href;
+    copied.value = "";
+    confirm.value = {
+      url,
+      image: await QRCode.toDataURL(url, { width: 230, margin: 2 }),
+    };
+    await nextTick();
+    qrDialog.value?.focus();
+  } catch (e) {
+    confirmError.value =
+      e instanceof Error ? e.message : "确认收款二维码读取失败";
+  } finally {
+    confirmBusy.value = "";
+  }
+}
+async function copyConfirm() {
+  try {
+    await navigator.clipboard.writeText(confirm.value!.url);
+    copied.value = "链接已复制";
+  } catch {
+    copied.value = "复制失败，请长按二维码下方链接手动复制";
+  }
+}
 const emit = defineEmits<{
   check: [id: string, value: boolean];
   decision: [row: Record<string, unknown>, choice: "approve" | "reject"];
@@ -58,6 +107,8 @@ watch(
   () => {
     detail.value = null;
     opener = undefined;
+    confirm.value = null;
+    confirmError.value = "";
   },
 );
 function checkAll(event: Event) {
@@ -136,10 +187,23 @@ function checkAll(event: Event) {
               }}</small></template
             >
             <template v-else-if="column.key === 'status'"
-              ><span :class="'settlement-status ' + row.tone">{{
-                row.status
-              }}</span
-              ><small class="settlement-secondary muted">{{ row.hint }}</small
+              ><KitStatusTag
+                :text="row.status"
+                :tone="
+                  (
+                    {
+                      waiting: 'warning',
+                      processing: 'warning',
+                      success: 'success',
+                      danger: 'danger',
+                      neutral: 'neutral',
+                    } as Record<
+                      string,
+                      'success' | 'warning' | 'danger' | 'info' | 'neutral'
+                    >
+                  )[row.tone] || 'neutral'
+                "
+              /><small class="settlement-secondary muted">{{ row.hint }}</small
               ><template v-if="area === 'merchant'"
                 ><button
                   type="button"
@@ -155,7 +219,15 @@ function checkAll(event: Event) {
                   :disabled="busy"
                   @click="emit('payout', row.id)"
                 >
-                  核对结算出款
+                  核对结算出款</button
+                ><button
+                  v-if="row.canInspectPayout"
+                  type="button"
+                  class="link-button settlement-confirm"
+                  :disabled="busy || !!confirmBusy"
+                  @click="showConfirm(row.id)"
+                >
+                  确认收款
                 </button></template
               ></template
             >
@@ -195,7 +267,15 @@ function checkAll(event: Event) {
                 :disabled="busy"
                 @click="emit('payout', row.id)"
               >
-                核对结算出款
+                核对结算出款</button
+              ><button
+                v-if="row.canInspectPayout"
+                type="button"
+                class="link-button settlement-confirm"
+                :disabled="busy || !!confirmBusy"
+                @click="showConfirm(row.id)"
+              >
+                确认收款
               </button>
             </div>
           </td>
@@ -212,6 +292,29 @@ function checkAll(event: Event) {
     </table>
   </div>
   <SettlementRecordDetails v-if="detail" :row="detail" @close="closeDetail" />
+  <p v-if="confirmError" class="alert error" role="alert">
+    {{ confirmError }}
+  </p>
+  <div v-if="confirm" class="modal-backdrop" @click.self="confirm = null">
+    <section
+      ref="qrDialog"
+      tabindex="-1"
+      role="dialog"
+      aria-modal="true"
+      aria-label="确认收款二维码"
+      class="modal panel settlement-confirm-qr"
+      @keydown.esc.prevent="confirm = null"
+    >
+      <h3>收款方使用微信扫描以下二维码</h3>
+      <img :src="confirm.image" width="230" height="230" alt="确认收款二维码" />
+      <p class="muted settlement-confirm-link">{{ confirm.url }}</p>
+      <p v-if="copied" class="muted" role="status">{{ copied }}</p>
+      <div class="toolbar">
+        <button type="button" @click="copyConfirm">复制链接</button>
+        <button type="button" @click="confirm = null">关闭</button>
+      </div>
+    </section>
+  </div>
 </template>
 <style scoped>
 .original-settlement-list {
@@ -235,30 +338,26 @@ function checkAll(event: Event) {
 .settlement-actions {
   position: sticky;
   right: 0;
-  background: var(--panel, #fff);
+  background: var(--panel, var(--bg-card));
   min-width: 145px;
   z-index: 1;
-  box-shadow: -2px 0 4px #00000008;
+  box-shadow: -4px 0 5px -5px var(--line-control);
 }
 th.settlement-actions {
-  background: var(--table-header, #f8fafc);
+  background: var(--table-header, var(--bg-raised));
 }
 .settlement-actions .row-actions {
   max-width: 180px;
 }
-.settlement-status.waiting {
-  color: #2563eb;
+.settlement-confirm {
+  color: var(--chart-2);
 }
-.settlement-status.processing {
-  color: #b45309;
+.settlement-confirm-qr {
+  text-align: center;
+  max-width: 320px;
 }
-.settlement-status.success {
-  color: #15803d;
-}
-.settlement-status.danger {
-  color: #b91c1c;
-}
-.settlement-status.neutral {
-  color: #64748b;
+.settlement-confirm-link {
+  overflow-wrap: anywhere;
+  font-size: 12px;
 }
 </style>

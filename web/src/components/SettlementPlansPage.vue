@@ -2,6 +2,10 @@
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { ApiClient } from "../api";
 import SettlementAutoAuthorization from "./SettlementAutoAuthorization.vue";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
+import KitSelect from "./KitSelect.vue";
+import KitHelpPopover from "./KitHelpPopover.vue";
 import {
   planBody,
   authorizationBody,
@@ -302,6 +306,23 @@ async function detail(id: string) {
       error.value = e instanceof Error ? e.message : "运行详情读取失败";
   }
 }
+const modeOptions = [
+  { value: "generate_only", label: "普通结算申请" },
+  { value: "balance_threshold", label: "商户余额自动转账（整余额阈值）" },
+];
+function frequencyOptions(mode: string) {
+  return [
+    ...(mode === "balance_threshold"
+      ? [
+          { value: "minute", label: "按分钟" },
+          { value: "second", label: "按秒（至少10秒）" },
+        ]
+      : []),
+    { value: "day", label: "按天" },
+    { value: "hour", label: "按小时" },
+    { value: "once", label: "单次" },
+  ];
+}
 const state = (s: string) =>
   ({
     pending: "待扫描",
@@ -323,13 +344,17 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="panel" aria-label="结算计划">
-    <h2>结算计划</h2>
-    <p>
-      计划生成授权仅生成待审核申请并冻结对应资金。自动审批和付款必须另行签发独立自动出款授权；普通计划任务资料不触发资金执行。
-    </p>
-    <p>
-      按UTC+08业务日及原D0/D1配置处理可结算资金。自动付款还要求独立执行器、明确钱包产品与商户通道准入。
-    </p>
+    <div class="plans-head">
+      <h2>结算计划</h2>
+      <KitHelpPopover>
+        <p>
+          计划生成授权仅生成待审核申请并冻结对应资金。自动审批和付款必须另行签发独立自动出款授权；普通计划任务资料不触发资金执行。
+        </p>
+        <p>
+          按UTC+08业务日及原D0/D1配置处理可结算资金。自动付款还要求独立执行器、明确钱包产品与商户通道准入。
+        </p>
+      </KitHelpPopover>
+    </div>
     <p v-if="error" role="alert" class="alert error">{{ error }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
     <template v-if="allowed()">
@@ -385,29 +410,54 @@ onBeforeUnmount(() => {
         <p>
           修改定义或商户参与/收款配置等变化后，旧授权失效。授权始终要求本人资金密码确认；输入的毛额上限单位为分，不是元。
         </p>
-        <fieldset :disabled="busy || !!confirming || uncertain">
-          <label
-            >授权开始 RFC3339<input
+        <fieldset
+          class="plan-form"
+          :disabled="busy || !!confirming || uncertain"
+        >
+          <KitField label="授权开始 RFC3339">
+            <KitInput
               v-model="auth.valid_from"
-              placeholder="2026-10-24T00:00:00+08:00" /></label
-          ><label>授权截止 RFC3339<input v-model="auth.expires_at" /></label
-          ><label
-            >单项毛额上限（分）<input
+              placeholder="2026-10-24T00:00:00+08:00"
+              aria-label="授权开始 RFC3339"
+            />
+          </KitField>
+          <KitField label="授权截止 RFC3339">
+            <KitInput v-model="auth.expires_at" aria-label="授权截止 RFC3339" />
+          </KitField>
+          <KitField label="单项毛额上限（分）">
+            <KitInput
               v-model="auth.max_item_gross"
-              inputmode="numeric" /></label
-          ><label
-            >每次毛额上限（分）<input
+              inputmode="numeric"
+              aria-label="单项毛额上限（分）"
+            />
+          </KitField>
+          <KitField label="每次毛额上限（分）">
+            <KitInput
               v-model="auth.max_run_gross"
-              inputmode="numeric" /></label
-          ><label
-            >每日毛额上限（分）<input
+              inputmode="numeric"
+              aria-label="每次毛额上限（分）"
+            />
+          </KitField>
+          <KitField label="每日毛额上限（分）">
+            <KitInput
               v-model="auth.max_day_gross"
-              inputmode="numeric" /></label
-          ><label
-            >每日条数上限<input
+              inputmode="numeric"
+              aria-label="每日毛额上限（分）"
+            />
+          </KitField>
+          <KitField label="每日条数上限">
+            <KitInput
               v-model="auth.max_day_items"
-              inputmode="numeric" /></label
-          ><button @click="review('authorization')">核对计划授权</button>
+              inputmode="numeric"
+              aria-label="每日条数上限"
+            />
+          </KitField>
+          <button
+            class="pa-btn pa-btn--primary"
+            @click="review('authorization')"
+          >
+            核对计划授权
+          </button>
         </fieldset>
         <h3>原运行记录</h3>
         <ul>
@@ -437,56 +487,78 @@ onBeforeUnmount(() => {
         <p v-if="!creating && selected?.last_authorization_id !== '0'">
           已授权计划的业务模式固定。切换业务时新建关闭计划并重新核对授权。
         </p>
-        <fieldset :disabled="busy || !!confirming || uncertain">
-          <label>计划名称<input v-model="draft.name" maxlength="100" /></label
-          ><label
-            >业务模式<select
-              v-model="draft.mode"
+        <fieldset
+          class="plan-form"
+          :disabled="busy || !!confirming || uncertain"
+        >
+          <KitField label="计划名称">
+            <KitInput
+              v-model="draft.name"
+              :maxlength="100"
+              aria-label="计划名称"
+            />
+          </KitField>
+          <KitField label="业务模式">
+            <KitSelect
+              :model-value="draft.mode ?? 'generate_only'"
+              :options="modeOptions"
               aria-label="计划业务模式"
               :disabled="!creating && selected?.last_authorization_id !== '0'"
-            >
-              <option value="generate_only">普通结算申请</option>
-              <option value="balance_threshold">
-                商户余额自动转账（整余额阈值）
-              </option>
-            </select></label
-          ><label
-            >频率<select v-model="draft.frequency" aria-label="计划执行频率">
-              <option v-if="draft.mode === 'balance_threshold'" value="minute">
-                按分钟
-              </option>
-              <option v-if="draft.mode === 'balance_threshold'" value="second">
-                按秒（至少10秒）
-              </option>
-              <option value="day">按天</option>
-              <option value="hour">按小时</option>
-              <option value="once">单次</option>
-            </select></label
-          ><label
-            >间隔（单次为0）<input
+              @update:model-value="(v) => (draft.mode = v)"
+            />
+          </KitField>
+          <KitField label="频率">
+            <KitSelect
+              v-model="draft.frequency"
+              :options="frequencyOptions(draft.mode ?? 'generate_only')"
+              aria-label="计划执行频率"
+            />
+          </KitField>
+          <KitField label="间隔（单次为0）">
+            <KitInput
               v-model="draft.interval"
-              inputmode="numeric" /></label
-          ><label
-            >锚点 RFC3339<input
+              inputmode="numeric"
+              aria-label="间隔（单次为0）"
+            />
+          </KitField>
+          <KitField label="锚点 RFC3339">
+            <KitInput
               v-model="draft.anchor_at"
-              placeholder="2026-10-24T00:00:00+08:00" /></label
-          ><label
-            >执行小时（非按天为0）<input
+              placeholder="2026-10-24T00:00:00+08:00"
+              aria-label="锚点 RFC3339"
+            />
+          </KitField>
+          <KitField label="执行小时（非按天为0）">
+            <KitInput
               v-model="draft.execute_hour"
-              inputmode="numeric" /></label
-          ><label
-            >执行分钟（非按天为0）<input
+              inputmode="numeric"
+              aria-label="执行小时（非按天为0）"
+            />
+          </KitField>
+          <KitField label="执行分钟（非按天为0）">
+            <KitInput
               v-model="draft.execute_minute"
-              inputmode="numeric" /></label
-          ><label
-            >执行秒（非按天为0）<input
+              inputmode="numeric"
+              aria-label="执行分钟（非按天为0）"
+            />
+          </KitField>
+          <KitField label="执行秒（非按天为0）">
+            <KitInput
               v-model="draft.execute_second"
-              inputmode="numeric" /></label
-          ><label
-            >商户ID范围（逗号分隔，最多100）<textarea
+              inputmode="numeric"
+              aria-label="执行秒（非按天为0）"
+            />
+          </KitField>
+          <KitField label="商户ID范围（逗号分隔，最多100）">
+            <textarea
               v-model="draft.merchant_ids"
-            /></label
-          ><button @click="review('definition')">核对计划定义</button>
+              class="pa-input pa-textarea"
+              aria-label="商户ID范围（逗号分隔，最多100）"
+            />
+          </KitField>
+          <button class="pa-btn pa-btn--primary" @click="review('definition')">
+            核对计划定义
+          </button>
         </fieldset>
       </section>
       <section
@@ -531,3 +603,34 @@ onBeforeUnmount(() => {
     </template>
   </section>
 </template>
+<style scoped>
+.plans-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 12px);
+  flex-wrap: wrap;
+}
+.plans-head h2 {
+  margin: 0;
+}
+.plan-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3) var(--space-4);
+  border: 0;
+  padding: var(--space-3) 0;
+  margin: 0;
+}
+.plan-form > button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.pa-textarea {
+  display: block;
+  width: 100%;
+  min-height: 72px;
+  padding: var(--space-2) var(--space-3);
+  box-sizing: border-box;
+  resize: vertical;
+}
+</style>

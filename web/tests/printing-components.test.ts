@@ -80,7 +80,13 @@ it("clears private fields on rejected CAS save and blocks a blind second save", 
     props: { client: c, ownSession: true, adminClass: "super" },
   });
   await flushPromises();
-  await w.findAll("select")[1]!.setValue("replace");
+  await w
+    .get('button.pa-select-trigger[aria-label="凭据操作"]')
+    .trigger("click");
+  await w
+    .findAll('[role="option"]')
+    .find((o) => o.text() === "替换凭据")!
+    .trigger("click");
   await w.find('input[type="password"]').setValue("synthetic-ui-secret");
   await w.find("form").trigger("submit");
   await w

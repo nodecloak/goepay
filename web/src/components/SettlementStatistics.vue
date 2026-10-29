@@ -104,7 +104,7 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 8px;
   padding: 14px;
-  border: 1px solid var(--line, #ebeef5);
+  border: 1px solid var(--line, var(--line));
   border-radius: 6px;
   min-width: 0;
 }
@@ -113,20 +113,20 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
 }
 .settlement-stat-waiting_count {
-  background: #fdf6ec;
+  background: var(--warning-soft);
 }
 .settlement-stat-completed_count {
-  background: #f0f9eb;
+  background: var(--success-soft);
 }
 .settlement-stat-processing_count {
-  background: #ecfafa;
+  background: var(--bg-raised);
 }
 .settlement-stat-failed_count {
-  background: #fef0f0;
+  background: var(--danger-soft);
 }
 .stat-grid .settlement-stat-total {
   grid-column: 1/-1;
-  background: var(--surface-soft, #f4f8ff);
+  background: var(--surface-soft, var(--bg-raised));
 }
 .modal-actions {
   margin-top: 18px;

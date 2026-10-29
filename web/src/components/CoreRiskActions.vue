@@ -304,13 +304,12 @@ onBeforeUnmount(() => {
           </tr>
         </tbody>
       </table>
-      <div class="toolbar">
-        <button :disabled="busy || page <= 1" @click="page--">上一页</button
-        ><span>{{ page }} / {{ pages }} 页，共 {{ items.length }} 项</span
-        ><button :disabled="busy || page >= pages" @click="page++">
-          下一页
-        </button>
-      </div>
+      <KitPagination
+        v-model:page="page"
+        :page-size="20"
+        :total="items.length"
+        :page-sizes="[20]"
+      />
     </div>
     <div v-if="target" class="modal-backdrop">
       <section

@@ -55,7 +55,7 @@ func TestParentChannel180WeixinMiniAppHandlerLaunchAndOriginalCompletionAfterRot
 			}))
 			defer oauth.Close()
 			local.miniClient = &http.Client{Transport: binding180OAuthTransport{oauth}}
-			p := compat.Params{"pid": "1", "out_trade_no": "binding180-app-launch", "type": "wxpay", "name": "synthetic app launch", "money": "100.00", "channel_id": setup.id, "method": "app", "sign_type": "MD5"}
+			p := compat.Params{"pid": "1", "out_trade_no": "binding180-app-launch", "type": "wxpay", "name": "synthetic app launch", "money": "100.00", "channel_id": setup.id, "method": "app", "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return", "sign_type": "MD5"}
 			p["sign"] = compat.SignMD5(p, "test-secret")
 			form := url.Values{}
 			for k, v := range p {

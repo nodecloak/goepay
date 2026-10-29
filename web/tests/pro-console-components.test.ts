@@ -21,7 +21,7 @@ describe("Pro console field presentation", () => {
         orders: true,
       },
     });
-    expect(w.get("thead").text()).toContain("创建时间（北京时间）");
+    expect(w.get("thead").text()).toContain("创建时间");
     expect(w.get("tbody").text()).toContain("2026-10-24 00:00:00");
     expect(row.created_at).toBe("2026-10-23T16:00:00Z");
   });
@@ -98,7 +98,7 @@ describe("Pro console field presentation", () => {
       "商户号 / 用户组",
       "名称",
       "结算账号 / 姓名（脱敏）",
-      "注册时间 / 域名（北京时间）",
+      "注册时间 / 域名",
       "操作",
     ]);
     expect(w.text()).toContain("专业组（3）");
@@ -113,8 +113,14 @@ describe("Pro console field presentation", () => {
     expect(w.text()).not.toContain("配置用户组");
     await w
       .findAll("button")
-      .find((b) => b.text() === "详情")!
+      .find((b) => b.text() === "更多")!
       .trigger("click");
+    await flushPromises();
+    (
+      Array.from(document.querySelectorAll('[role="menuitem"]')).find(
+        (el) => el.textContent?.trim() === "详情",
+      ) as HTMLElement
+    ).click();
     await flushPromises();
     expect(w.get('[role="dialog"]').text()).not.toContain('"account_masked"');
     expect(w.get('[role="dialog"]').text()).toContain("支付宝 · ***1234 / ***");
@@ -205,9 +211,9 @@ describe("Pro console field presentation", () => {
     expect(wrapper.findAll("thead th").map((h) => h.text())).toEqual([
       "商户号 / 用户组",
       "名称",
-      "可用余额（元）",
+      "可用余额",
       "脱敏收款资料",
-      "注册时间（北京时间）",
+      "注册时间",
       "操作",
     ]);
     expect(wrapper.text()).toContain("90071992547409.93");
@@ -215,15 +221,17 @@ describe("Pro console field presentation", () => {
     expect(wrapper.text()).toContain("待解冻收入：4.56");
     await wrapper
       .findAll("button")
-      .find((b) => b.text() === "详情")!
+      .find((b) => b.text() === "更多")!
       .trigger("click");
     await flushPromises();
-    expect(wrapper.get('[role="dialog"]').text()).toContain(
-      "冻结预留（元）1.23",
-    );
-    expect(wrapper.get('[role="dialog"]').text()).toContain(
-      "待解冻收入（元）4.56",
-    );
+    (
+      Array.from(document.querySelectorAll('[role="menuitem"]')).find(
+        (el) => el.textContent?.trim() === "详情",
+      ) as HTMLElement
+    ).click();
+    await flushPromises();
+    expect(wrapper.get('[role="dialog"]').text()).toContain("冻结预留1.23");
+    expect(wrapper.get('[role="dialog"]').text()).toContain("待解冻收入4.56");
     await wrapper.get('[role="dialog"] button').trigger("click");
     await wrapper
       .findAll("button")
@@ -278,8 +286,9 @@ describe("Pro console field presentation", () => {
       },
     });
     expect(wrapper.text()).toContain("9007199254740993123");
-    expect(wrapper.text()).toContain("90071992547409.93");
-    expect(wrapper.text()).toContain("交易金额（元）");
+    // Exact (no float rounding); the kit groups thousands in tables.
+    expect(wrapper.text()).toContain("90,071,992,547,409.93");
+    expect(wrapper.text()).toContain("交易金额");
     expect(wrapper.text()).toContain("已支付");
     expect(wrapper.text()).toContain("微信支付");
   });
@@ -296,7 +305,8 @@ describe("Pro console field presentation", () => {
         ],
       },
     });
-    expect(wrapper.text()).toContain("123456789012345.01");
+    // Already yuan: shown exactly (never divided again), grouped like the kit.
+    expect(wrapper.text()).toContain("123,456,789,012,345.01");
     expect(wrapper.text()).not.toContain("must-never-display");
     expect(wrapper.text()).not.toContain("API密钥");
   });
@@ -391,9 +401,9 @@ describe("Pro console field presentation", () => {
     await flushPromises();
     expect(wrapper.findAll("thead th").map((h) => h.text())).toEqual([
       "通道ID",
-      "成功金额（元）",
-      "成功出款扣款（元）",
-      "平台手续费（元）",
+      "成功金额",
+      "成功出款扣款",
+      "平台手续费",
       "总笔数",
       "成功笔数",
       "成功率",
@@ -435,7 +445,7 @@ describe("Pro console field presentation", () => {
     });
     await flushPromises();
     expect(wrapper.text()).toContain("1.23");
-    expect(wrapper.text()).toContain("订单金额（元）");
+    expect(wrapper.text()).toContain("订单金额");
     expect(wrapper.text()).toContain("接口订单号");
     expect(wrapper.text()).toContain("receipt-original");
     expect(wrapper.text()).toContain("已支付");
@@ -469,15 +479,50 @@ describe("Pro console field presentation", () => {
       },
     });
     expect(wrapper.text()).toContain("接口订单号：receipt-id");
-    expect(wrapper.text()).toContain("商户入账：1.00");
-    expect(wrapper.text()).toContain("已退款：0.01");
-    expect(wrapper.text()).toContain("通道 ID：9007199254740993123");
     expect(
       wrapper
         .findAll("button")
         .find((b) => b.text() === "申请退款")
         ?.attributes("disabled"),
     ).toBeDefined();
+    wrapper.unmount();
+  });
+
+  it("shows the merchant income, refund and exact channel id breakdown in order details", async () => {
+    const client = new ApiClient("admin");
+    vi.spyOn(client, "request").mockResolvedValue({
+      order: {
+        trade_no: "long-id",
+        out_trade_no: "merchant-id",
+        amount: "123",
+        merchant_amount: "100",
+        platform_fee: "23",
+        type: "wxpay",
+        status: "pending",
+      },
+      reporting: {
+        refunded_amount: "1",
+        api_trade_no: "receipt-id",
+        channel_id: "9007199254740993123",
+      },
+    });
+    const wrapper = mount(OrderDetails, {
+      props: { client, tradeNo: "long-id" },
+      global: {
+        stubs: {
+          OrderIncomePanel: true,
+          NotificationDeliveryPanel: true,
+          OrderPrintingPanel: true,
+        },
+      },
+    });
+    await flushPromises();
+    expect(wrapper.text()).toContain("商户入账额");
+    expect(wrapper.text()).toContain("1.00");
+    expect(wrapper.text()).toContain("已退款金额");
+    expect(wrapper.text()).toContain("0.01");
+    expect(wrapper.text()).toContain("支付通道 ID");
+    expect(wrapper.text()).toContain("9007199254740993123");
     wrapper.unmount();
   });
 
@@ -494,9 +539,15 @@ describe("Pro console field presentation", () => {
         global: { stubs: { CsvExportButton: true } },
       });
       await flushPromises();
-      const shortcut = wrapper.find('select[aria-label="统计日期快捷范围"]');
+      const shortcut = wrapper.find(
+        'button.pa-select-trigger[aria-label="统计日期快捷范围"]',
+      );
       expect(shortcut.exists()).toBe(true);
-      await shortcut.setValue("today");
+      await shortcut.trigger("click");
+      const today = wrapper
+        .findAll('[role="option"]')
+        .find((o) => o.text() === "今天")!;
+      await today.trigger("click");
       await flushPromises();
       const query = new URLSearchParams(
         String(request.mock.calls.at(-1)?.[0]).split("?")[1],

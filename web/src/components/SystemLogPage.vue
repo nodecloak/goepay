@@ -8,6 +8,14 @@ import {
   systemLogMerchantHref,
   systemLogIPHref,
 } from "../system-log";
+import ShellIcon from "./ShellIcon.vue";
+import KitFilterBar from "./KitFilterBar.vue";
+import KitField from "./KitField.vue";
+import KitSelect from "./KitSelect.vue";
+import KitInput from "./KitInput.vue";
+import KitPagination from "./KitPagination.vue";
+import KitStatusTag from "./KitStatusTag.vue";
+import KitHelpPopover from "./KitHelpPopover.vue";
 const props = defineProps<{ client: ApiClient }>();
 const route = useRoute(),
   router = useRouter(),
@@ -149,25 +157,31 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
+  <KitFilterBar :loading="loading" @query="search" @reset="reset">
+    <KitField label="搜索字段"
+      ><KitSelect
+        v-model="column"
+        :options="[
+          { value: 'uid', label: '用户ID' },
+          { value: 'ip', label: '操作IP' },
+        ]"
+        aria-label="搜索字段"
+    /></KitField>
+    <KitField label="搜索内容"
+      ><KitInput v-model="value" placeholder="搜索内容" :maxlength="253"
+    /></KitField>
+  </KitFilterBar>
   <section class="panel records system-log-page">
-    <form class="toolbar" @submit.prevent="search">
-      <label
-        >搜索字段<select v-model="column" aria-label="搜索字段">
-          <option value="uid">用户ID</option>
-          <option value="ip">操作IP</option>
-        </select></label
-      ><label
-        >搜索内容<input
-          v-model="value"
-          aria-label="搜索内容"
-          maxlength="253" /></label
-      ><button :disabled="loading">查询</button
-      ><button type="button" :disabled="loading" @click="reset">重置</button
-      ><button type="button" :disabled="loading" @click="load">刷新</button>
-    </form>
-    <p class="muted">
-      本地已记录的登录和商户操作，时间为北京时间。失败登录不按尝试账号推断商户；未记录的操作IP与无法核实的归属保留未知。
-    </p>
+    <div class="table-tools">
+      <KitHelpPopover
+        text="本地已记录的登录和商户操作，时间为北京时间。失败登录不按尝试账号推断商户；未记录的操作IP与无法核实的归属保留未知。"
+      />
+      <div class="table-tools-end">
+        <button type="button" :disabled="loading" @click="load">
+          <ShellIcon name="refresh" />刷新
+        </button>
+      </div>
+    </div>
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <p v-if="loading" role="status">正在读取系统日志…</p>
     <div v-else-if="!error" class="table-scroll">
@@ -183,15 +197,19 @@ onBeforeUnmount(() => {
         </thead>
         <tbody>
           <tr v-for="row in items" :key="String(row.source) + ':' + row.id">
-            <td>
-              <span>{{ row.id }}</span
-              ><small class="cell muted">{{
-                row.source === "login"
-                  ? "登录"
-                  : row.source === "business"
-                    ? "业务"
-                    : "来源未记录"
-              }}</small>
+            <td class="col-nowrap">
+              <span class="id-cell"
+                >{{ row.id
+                }}<KitStatusTag
+                  tone="neutral"
+                  :text="
+                    row.source === 'login'
+                      ? '登录'
+                      : row.source === 'business'
+                        ? '业务'
+                        : '来源未记录'
+                  "
+              /></span>
             </td>
             <td>
               <RouterLink
@@ -205,16 +223,16 @@ onBeforeUnmount(() => {
             <td :class="{ 'log-failed': row.type === '登录失败' }">
               {{ row.type }}
             </td>
-            <td>
+            <td class="col-nowrap">
               <a
                 v-if="systemLogIPHref(row.ip)"
                 :href="systemLogIPHref(row.ip)"
                 target="_blank"
                 rel="noopener noreferrer"
                 >{{ row.ip }}</a
-              ><span v-else>{{ row.ip || "未记录" }}</span>
+              ><span v-else class="ip-plain">{{ row.ip || "未记录" }}</span>
             </td>
-            <td>{{ beijingTimestamp(row.date) }}</td>
+            <td class="col-nowrap">{{ beijingTimestamp(row.date) }}</td>
           </tr>
           <tr v-if="!items.length">
             <td colspan="5" class="empty">暂无记录</td>
@@ -223,27 +241,13 @@ onBeforeUnmount(() => {
       </table>
     </div>
     <div class="pagination">
-      <span>共 {{ total }} 条记录</span>
-      <div>
-        <button
-          :disabled="page <= 1 || loading"
-          @click="
-            page--;
-            load();
-          "
-        >
-          上一页</button
-        ><span>第 {{ page }} 页</span
-        ><button
-          :disabled="page * 30 >= total || loading"
-          @click="
-            page++;
-            load();
-          "
-        >
-          下一页
-        </button>
-      </div>
+      <KitPagination
+        v-model:page="page"
+        :page-size="30"
+        :total="total"
+        :page-sizes="[30]"
+        @change="load"
+      />
     </div>
     <details @toggle="rawOpen = ($event.target as HTMLDetailsElement).open">
       <summary>查看原始登录审计</summary>
@@ -258,15 +262,21 @@ onBeforeUnmount(() => {
 .system-log-page td {
   overflow-wrap: anywhere;
 }
+.system-log-page td.col-nowrap {
+  white-space: nowrap;
+}
+.id-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ip-plain {
+  color: var(--ink);
+}
 .system-log-page details {
   margin-top: 16px;
 }
-small.cell {
-  display: block;
-  margin-top: 4px;
-  font-size: 12px;
-}
 .log-failed {
-  color: #b42318;
+  color: var(--danger-text);
 }
 </style>

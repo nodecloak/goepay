@@ -5,8 +5,13 @@ import MerchantNoticeEvents from "./MerchantNoticeEvents.vue";
 import {
   noticeScenes,
   noticeTargets,
+  noticeChannels,
+  channelCell,
+  recipientConfigured,
   type NoticeConfig,
+  type NoticeScene,
   type NoticeTarget,
+  type NoticeChannelMode,
   type MerchantNoticeSettingsView,
 } from "../merchant-notice";
 const props = defineProps<{
@@ -36,6 +41,28 @@ const path = computed(() =>
 const state = ref<MerchantNoticeSettingsView | null>(null),
   config = ref<NoticeConfig | null>(null),
   voice = ref(false);
+// cellsFor mirrors the backend SelectMerchant rules for a *selected* mode so
+// every event×channel cell shows whether GOEPAY can deliver it now, and why
+// not. Driven entirely by the loaded platform facts; no fabricated transport.
+function cellsFor(scene: NoticeScene) {
+  const v = state.value;
+  const configured = v?.configured ?? {};
+  const smsActive = v?.sms_active === true;
+  return noticeChannels.map(([mode, label]) =>
+    channelCell(
+      scene,
+      mode,
+      label,
+      v?.platform,
+      smsActive,
+      recipientConfigured(mode, configured),
+    ),
+  );
+}
+function pickChannel(scene: NoticeScene, mode: 0 | NoticeChannelMode) {
+  if (!config.value) return;
+  config.value[scene] = mode;
+}
 const busy = ref(false),
   error = ref(""),
   notice = ref("");
@@ -174,20 +201,70 @@ onBeforeUnmount(() => {
       <p v-if="busy" role="status">正在处理…</p>
       <form v-if="state && config" @submit.prevent="save">
         <fieldset :disabled="busy">
-          <legend>消息类型</legend>
-          <div class="notice-grid">
-            <label v-for="[key, title] in noticeScenes" :key="key"
-              >{{ title
-              }}<select v-model.number="config[key]" :name="key">
-                <option :value="0">关闭提醒</option>
-                <option :value="1">微信模板消息</option>
-                <option :value="2">电子邮件</option>
-                <option :value="3">短信</option>
-                <option :value="4">群机器人</option>
-                <option :value="5">Telegram</option>
-                <option :value="6">QQ Bot</option>
-              </select></label
-            >
+          <legend>消息推送</legend>
+          <p class="muted notice-matrix-help">
+            每个事件按平台可投递的方式发送一种提醒。未配置发送方或平台未启用的方式显示为不可选，并标注原因。
+          </p>
+          <div class="notice-matrix-scroll">
+            <table class="notice-matrix" aria-label="消息推送事件与方式">
+              <thead>
+                <tr>
+                  <th scope="col">事件</th>
+                  <th scope="col">关闭</th>
+                  <th
+                    v-for="[, label] in noticeChannels"
+                    :key="label"
+                    scope="col"
+                  >
+                    {{ label }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="[key, title] in noticeScenes" :key="key">
+                  <th scope="row">{{ title }}</th>
+                  <td class="notice-matrix-cell">
+                    <label :aria-label="title + ' 关闭提醒'"
+                      ><input
+                        type="radio"
+                        :name="'scene-' + key"
+                        :checked="config[key] === 0"
+                        :data-cell="key + ':0'"
+                        @change="pickChannel(key, 0)"
+                    /></label>
+                  </td>
+                  <td
+                    v-for="cell in cellsFor(key)"
+                    :key="cell.mode"
+                    class="notice-matrix-cell"
+                    :class="{ 'notice-matrix-cell--off': !cell.ready }"
+                  >
+                    <label
+                      :title="cell.ready ? '' : cell.reason"
+                      :aria-label="
+                        title +
+                        ' ' +
+                        cell.label +
+                        (cell.ready ? '' : '（不可用：' + cell.reason + '）')
+                      "
+                      ><input
+                        type="radio"
+                        :name="'scene-' + key"
+                        :checked="config[key] === cell.mode"
+                        :disabled="!cell.ready && config[key] !== cell.mode"
+                        :data-cell="key + ':' + cell.mode"
+                        @change="pickChannel(key, cell.mode)"
+                      /><span
+                        v-if="!cell.ready"
+                        class="notice-matrix-reason"
+                        :data-reason="key + ':' + cell.mode"
+                        >{{ cell.reason }}</span
+                      ></label
+                    >
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
           <div class="notice-grid">
             <label
@@ -259,6 +336,59 @@ onBeforeUnmount(() => {
   </section>
 </template>
 <style scoped>
+.notice-matrix-help {
+  margin: 0.5rem 0 1rem;
+}
+.notice-matrix-scroll {
+  overflow-x: auto;
+}
+.notice-matrix {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 520px;
+  font-size: 13px;
+}
+.notice-matrix th,
+.notice-matrix td {
+  border: 1px solid var(--line, var(--line-control));
+  padding: 8px 6px;
+  text-align: center;
+  vertical-align: middle;
+}
+.notice-matrix thead th {
+  background: var(--bg-raised, var(--surface-alt));
+  white-space: nowrap;
+}
+.notice-matrix th[scope="row"] {
+  text-align: left;
+  white-space: nowrap;
+}
+.notice-matrix-cell label {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  cursor: pointer;
+}
+.notice-matrix-cell input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+.notice-matrix-cell--off {
+  background: var(--bg-muted, var(--surface-alt));
+  color: var(--muted, var(--ink-muted));
+}
+.notice-matrix-cell--off label {
+  cursor: not-allowed;
+}
+.notice-matrix-reason {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--muted, var(--ink-muted));
+  max-width: 88px;
+}
 .notice-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
@@ -272,7 +402,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   margin: 1rem 0;
   padding: 1rem;
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--border, var(--line));
   border-radius: 4px;
 }
 .notice-settings input,
@@ -294,6 +424,9 @@ onBeforeUnmount(() => {
   align-items: end;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+.notice-owner label {
+  margin: 0;
 }
 .notice-target {
   min-width: 0;

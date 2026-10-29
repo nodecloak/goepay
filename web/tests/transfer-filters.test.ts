@@ -37,6 +37,7 @@ it("transfer read links preserve original aliases long IDs and exact amount text
     search_field: "money",
     q: "90071992547409.93",
     status: "unknown",
+    type: "",
     channel_id: "9007199254740993",
     from: "2026-10-01",
     to: "2026-10-26",

@@ -395,7 +395,7 @@ func TestParentChannel180ActualTLSAlipayAndWechatV3UseCurrentForNewAndOriginalFo
 			var state struct{ Data map[string]any }
 			json.Unmarshal(w.Body.Bytes(), &state)
 			payMethod := func(no, method string) {
-				p := compat.Params{"pid": "1", "out_trade_no": no, "type": origin.Plugin, "name": "synthetic protocol", "money": "100.00", "channel_id": id, "method": method, "sign_type": "MD5"}
+				p := compat.Params{"pid": "1", "out_trade_no": no, "type": origin.Plugin, "name": "synthetic protocol", "money": "100.00", "channel_id": id, "method": method, "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return", "sign_type": "MD5"}
 				p["sign"] = compat.SignMD5(p, "test-secret")
 				v := url.Values{}
 				for k, value := range p {

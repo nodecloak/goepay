@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	provider "goepay/internal/adapters/payment"
 	"net"
 	"net/url"
 	"strconv"
@@ -110,10 +111,27 @@ func consoleListFilters(q url.Values, role, kind, tenant string, mid int64, args
 		bind(expression+"=$%d", raw)
 	}
 	if raw := q.Get("type"); raw != "" {
-		if (kind != "orders" && kind != "refunds") || (raw != "alipay" && raw != "wxpay" && raw != "sandbox") {
-			return "", nil, errListFilter
+		if kind == "ledger" {
+			predicate, ok := ledgerTypeCodes[raw]
+			if !ok {
+				return "", nil, errListFilter
+			}
+			clauses = append(clauses, "("+predicate+")")
+		} else if kind == "transfers" {
+			// 付款方式 filter over the plaintext rail (provider_transfer_attempts.method).
+			// Only the rails GOEPAY supports; the encrypted recipient is untouched.
+			switch raw {
+			case "alipay", "wxpay", "qqpay", "bank":
+				bind("p.method=$%d", raw)
+			default:
+				return "", nil, errListFilter
+			}
+		} else {
+			if (kind != "orders" && kind != "refunds") || (!provider.CatalogPayType(raw) && raw != "sandbox") {
+				return "", nil, errListFilter
+			}
+			bind("o.type=$%d", raw)
 		}
-		bind("o.type=$%d", raw)
 	}
 	for _, key := range []string{"subchannel", "subchannel_id"} {
 		if len(q[key]) > 1 || len(q[key]) == 1 && q.Get(key) == "" {

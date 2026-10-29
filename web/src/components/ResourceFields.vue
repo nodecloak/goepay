@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { ResourceField } from "../resources";
 import { readonly } from "../resources";
+import AdminPermissionField from "./AdminPermissionField.vue";
+import { adminPermissionCatalog } from "../admin-permission-context";
 defineProps<{
   fields: ResourceField[];
   values: Record<string, unknown>;
@@ -37,6 +39,12 @@ defineEmits<{ change: [name: string, value: unknown] }>();
               ($event.target as HTMLInputElement).checked,
             )
           "
+        /><AdminPermissionField
+          v-else-if="field.type === 'permission_tree'"
+          :catalog="adminPermissionCatalog"
+          :value="(values[field.name] as string[]) || []"
+          :disabled="values['admin_class'] === 'super'"
+          @change="$emit('change', field.name, $event)"
         /><select
           v-else-if="field.options?.length || field.type === 'select'"
           :id="'field-' + field.name"

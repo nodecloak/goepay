@@ -298,7 +298,7 @@ onBeforeUnmount(() => {
   margin: 8px 8px 0 0;
 }
 .signature-confirm:focus {
-  outline: 2px solid var(--primary, #409eff);
+  outline: 2px solid var(--primary, var(--focus));
   outline-offset: 2px;
 }
 </style>

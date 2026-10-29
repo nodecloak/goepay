@@ -29,6 +29,7 @@ export function settlementListFixture() {
       name_masked: "***",
     },
     payout: null as null | Record<string, unknown>,
+    auto: true,
   };
 }
 export function paidSettlementListFixture() {

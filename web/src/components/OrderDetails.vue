@@ -12,6 +12,7 @@ import { ApiClient, displayValue } from "../api";
 import { orderRefundRemaining104 } from "../order-charge104";
 import { subchannelID } from "../subchannels";
 import { consoleColumnLabel, consoleValue } from "../pro-console-fields";
+import KitStatusTag from "./KitStatusTag.vue";
 import { operationNotice } from "../order-operations";
 import NotificationDeliveryPanel from "./NotificationDeliveryPanel.vue";
 import NotificationReturnAction200 from "./NotificationReturnAction200.vue";
@@ -21,6 +22,7 @@ import PreauthorizationObservation from "./PreauthorizationObservation.vue";
 import ScanRecoveryPanel from "./ScanRecoveryPanel.vue";
 import LegacyCombinedOrders204 from "./LegacyCombinedOrders204.vue";
 import OrderApiTradeAlias from "./OrderApiTradeAlias.vue";
+import ShellIcon from "./ShellIcon.vue";
 import type { ScanRecoveryView } from "../scan-recovery";
 import {
   canReleaseAuthorization,
@@ -183,6 +185,30 @@ const authorizationNotice = computed(() =>
         : "预授权捕获状态尚需核实，请查询支付通道；不能将授权冻结或未知捕获当作支付成功。",
 );
 let controller: AbortController | undefined;
+function orderDetailTone(
+  key: string,
+  value: unknown,
+): "success" | "warning" | "danger" | "info" | "neutral" {
+  const v = String(value ?? "");
+  if (key === "notification_state")
+    return v === "succeeded"
+      ? "success"
+      : v === "dead"
+        ? "danger"
+        : v === "running" || v === "pending"
+          ? "warning"
+          : "neutral";
+  // status
+  return v === "paid"
+    ? "success"
+    : v === "failed"
+      ? "danger"
+      : v === "closed"
+        ? "neutral"
+        : v === "pending" || v === "submitting" || v === "created"
+          ? "warning"
+          : "neutral";
+}
 const labels: Record<string, string> = {
   trade_no: "系统订单号",
   out_trade_no: "商户订单号",
@@ -206,6 +232,8 @@ const labels: Record<string, string> = {
   subchannel_evidence: "原子通道记录",
   buyer: "支付账号",
   client_ip: "支付 IP",
+  param: "扩展参数",
+  province: "所在地",
   created_at: "创建时间",
   paid_at: "付款时间",
   notify_url: "结果通知地址",
@@ -300,6 +328,7 @@ async function load() {
       "client_ip",
       "notification_state",
       "refunded_amount",
+      "province",
     ])
       if (data.reporting?.[key] !== undefined)
         order.value[key] = data.reporting[key];
@@ -451,334 +480,384 @@ async function perform(action: "query" | "close") {
     busy.value = false;
   }
 }
-onMounted(load);
+const drawer = ref<HTMLElement | null>(null);
+onMounted(() => {
+  drawer.value?.focus();
+  void load();
+});
 onBeforeUnmount(() => controller?.abort());
 </script>
 <template>
   <div
-    class="modal-backdrop"
+    class="pa-scrim pa-modal-scrim order-detail-scrim"
     @keydown.esc="!busy && !incomeBusy && !apiTradeAliasActive && emit('close')"
+    @click.self="!busy && !incomeBusy && !apiTradeAliasActive && emit('close')"
   >
     <section
-      class="modal panel resource-modal"
+      ref="drawer"
+      class="pa-modal order-detail-modal"
       role="dialog"
       aria-modal="true"
       aria-label="订单详情"
+      tabindex="-1"
       :inert="combinedOpen204 || undefined"
     >
-      <h2>订单详情</h2>
-      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-      <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
-      <div v-if="loading" class="loading-row" role="status">正在读取订单…</div>
-      <template v-if="order"
-        ><dl class="record-detail">
-          <template v-for="(label, key) in labels" :key="key"
-            ><dt v-if="order[key] !== undefined">
-              {{ consoleColumnLabel(String(key), label) }}
-            </dt>
-            <dd v-if="order[key] !== undefined">
-              {{ consoleValue(String(key), order[key], true) }}
-              <OrderApiTradeAlias
-                v-if="key === 'api_trade_no' && canEditApiTradeAlias"
-                :client="client"
-                :trade-no="tradeNo"
-                :merchant-i-d="apiTradeAliasAuthority!.merchant"
-                :verified-api-trade-no="apiTradeAliasAuthority!.verified"
-                :allowed="canEditApiTradeAlias"
-                :own-session="ownSession === true"
-                :disabled="
-                  busy ||
-                  loading ||
-                  incomeBusy ||
-                  observationBusy ||
-                  notificationBusy ||
-                  returnNotificationBusy200
-                "
-                @active="apiTradeAliasActive = $event"
-              />
-              <button
-                v-if="
-                  canBlacklist &&
-                  ownSession &&
-                  client.area === 'admin' &&
-                  (key === 'client_ip' || key === 'buyer') &&
-                  order[key]
-                "
-                class="link-button"
-                :disabled="busy || loading || incomeBusy"
-                @click="
-                  emit('blacklist', order, key === 'client_ip' ? 'ip' : 'buyer')
-                "
-              >
-                {{ key === "client_ip" ? "拉黑IP" : "拉黑账号" }}
-              </button>
-            </dd></template
-          >
-        </dl>
-        <ScanRecoveryPanel :recovery="scanRecovery" />
-        <PreauthorizationObservation
-          v-if="serverAllowsObservation"
-          :client="client"
-          :order="order"
-          :allowed="serverAllowsObservation"
-          :own-session="ownSession === true"
-          :release-allowed="serverAllowsRemainingRelease"
-          :release-revision="
-            String(authorizationRelease?.source_revision ?? '0')
-          "
-          @busy="observationBusy = $event"
-          @released="
-            (message) => {
-              notice = message;
-              load();
-              emit('updated');
-            }
-          "
-          :disabled="
-            busy || loading || incomeBusy || confirmCapture || confirmRelease
-          "
-        />
-        <OrderIncomePanel
-          :client="client"
-          :trade-no="tradeNo"
-          :hold="incomeHold"
-          :freeze-amount="incomeFreezeAmount"
-          :can-freeze="canFreezeIncome"
-          :can-unfreeze="canUnfreezeIncome"
-          :can-adopt="canAdoptIncomeHold"
-          :has-pending-refund="incomeRefundPending"
-          :disabled="busy || loading"
-          @updated="load"
-          @busy="incomeBusy = $event"
-        />
-        <NotificationDeliveryPanel
-          :client="client"
-          :trade-no="tradeNo"
-          :order-status="order.status"
-          :allowed="serverAllowsNotification"
-          :notification="notification"
-          :disabled="busy || loading || returnNotificationBusy200"
-          @busy="notificationBusy = $event"
-          @updated="load"
-        />
-        <NotificationReturnAction200
-          :key="`${client.area}:${tradeNo}`"
-          :client="client"
-          :trade-no="tradeNo"
-          :order-status="order.trade_no === tradeNo ? order.status : undefined"
-          :allowed="serverAllowsReturnNotification200"
-          :own-session="ownSession === true"
-          :disabled="
-            busy || loading || incomeBusy || observationBusy || notificationBusy
-          "
-          @busy="returnNotificationBusy200 = $event"
-        />
-        <template v-if="authorization"
-          ><h3>预授权记录</h3>
-          <p class="muted">{{ authorizationNotice }}</p>
-          <dl class="record-detail">
-            <template
-              v-for="(label, key) in {
-                auth_no: '授权编号',
-                buyer_id: '授权付款人',
-                amount: '授权金额（分）',
-                capture_state: '付款捕获状态',
-                channel_id: '授权通道 ID',
-                release_state: '授权解除状态',
-              }"
-              :key="key"
-              ><dt>{{ label }}</dt>
-              <dd>{{ displayValue(authorization[key]) }}</dd></template
+      <header class="pa-modal-head">
+        <h2 class="pa-modal-title">订单详细信息</h2>
+        <button
+          type="button"
+          class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+          aria-label="关闭订单详情"
+          title="关闭"
+          :disabled="busy || incomeBusy"
+          @click="emit('close')"
+        >
+          <ShellIcon name="close" />
+        </button>
+      </header>
+      <div class="pa-modal-body order-detail-body">
+        <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+        <div v-if="notice" class="alert success" role="status">
+          {{ notice }}
+        </div>
+        <div v-if="loading" class="loading-row" role="status">
+          正在读取订单…
+        </div>
+        <template v-if="order"
+          ><dl class="record-detail">
+            <template v-for="(label, key) in labels" :key="key"
+              ><dt v-if="order[key] !== undefined">
+                {{ consoleColumnLabel(String(key), label) }}
+              </dt>
+              <dd v-if="order[key] !== undefined">
+                <KitStatusTag
+                  v-if="key === 'status' || key === 'notification_state'"
+                  :text="consoleValue(String(key), order[key], true)"
+                  :tone="orderDetailTone(String(key), order[key])"
+                /><template v-else>{{
+                  consoleValue(String(key), order[key], true)
+                }}</template>
+                <OrderApiTradeAlias
+                  v-if="key === 'api_trade_no' && canEditApiTradeAlias"
+                  :client="client"
+                  :trade-no="tradeNo"
+                  :merchant-i-d="apiTradeAliasAuthority!.merchant"
+                  :verified-api-trade-no="apiTradeAliasAuthority!.verified"
+                  :allowed="canEditApiTradeAlias"
+                  :own-session="ownSession === true"
+                  :disabled="
+                    busy ||
+                    loading ||
+                    incomeBusy ||
+                    observationBusy ||
+                    notificationBusy ||
+                    returnNotificationBusy200
+                  "
+                  @active="apiTradeAliasActive = $event"
+                />
+                <button
+                  v-if="
+                    canBlacklist &&
+                    ownSession &&
+                    client.area === 'admin' &&
+                    (key === 'client_ip' || key === 'buyer') &&
+                    order[key]
+                  "
+                  class="link-button"
+                  :disabled="busy || loading || incomeBusy"
+                  @click="
+                    emit(
+                      'blacklist',
+                      order,
+                      key === 'client_ip' ? 'ip' : 'buyer',
+                    )
+                  "
+                >
+                  {{ key === "client_ip" ? "拉黑IP" : "拉黑账号" }}
+                </button>
+              </dd></template
             >
           </dl>
-          <p class="muted">
-            普通关单不适用于预授权。全额解除需核实原冻结未使用；剩余解除需另行查询并确认明确余款。解除不是商户退款，也不会增加商户余额。
-          </p>
-          <template v-if="authorizationRelease"
-            ><h3>原授权解除请求</h3>
+          <ScanRecoveryPanel :recovery="scanRecovery" />
+          <PreauthorizationObservation
+            v-if="serverAllowsObservation"
+            :client="client"
+            :order="order"
+            :allowed="serverAllowsObservation"
+            :own-session="ownSession === true"
+            :release-allowed="serverAllowsRemainingRelease"
+            :release-revision="
+              String(authorizationRelease?.source_revision ?? '0')
+            "
+            @busy="observationBusy = $event"
+            @released="
+              (message) => {
+                notice = message;
+                load();
+                emit('updated');
+              }
+            "
+            :disabled="
+              busy || loading || incomeBusy || confirmCapture || confirmRelease
+            "
+          />
+          <OrderIncomePanel
+            :client="client"
+            :trade-no="tradeNo"
+            :hold="incomeHold"
+            :freeze-amount="incomeFreezeAmount"
+            :can-freeze="canFreezeIncome"
+            :can-unfreeze="canUnfreezeIncome"
+            :can-adopt="canAdoptIncomeHold"
+            :has-pending-refund="incomeRefundPending"
+            :disabled="busy || loading"
+            @updated="load"
+            @busy="incomeBusy = $event"
+          />
+          <NotificationDeliveryPanel
+            :client="client"
+            :trade-no="tradeNo"
+            :order-status="order.status"
+            :allowed="serverAllowsNotification"
+            :notification="notification"
+            :disabled="busy || loading || returnNotificationBusy200"
+            @busy="notificationBusy = $event"
+            @updated="load"
+          />
+          <NotificationReturnAction200
+            :key="`${client.area}:${tradeNo}`"
+            :client="client"
+            :trade-no="tradeNo"
+            :order-status="
+              order.trade_no === tradeNo ? order.status : undefined
+            "
+            :allowed="serverAllowsReturnNotification200"
+            :own-session="ownSession === true"
+            :disabled="
+              busy ||
+              loading ||
+              incomeBusy ||
+              observationBusy ||
+              notificationBusy
+            "
+            @busy="returnNotificationBusy200 = $event"
+          />
+          <template v-if="authorization"
+            ><h3>预授权记录</h3>
+            <p class="muted">{{ authorizationNotice }}</p>
             <dl class="record-detail">
               <template
                 v-for="(label, key) in {
-                  request_no: '原解除请求号',
-                  auth_no: '解除对应授权号',
-                  amount: '本次解除金额（分）',
-                  state: '解除请求状态',
-                  sent: '是否已跨越发送边界',
-                  channel_id: '解除通道 ID',
+                  auth_no: '授权编号',
+                  buyer_id: '授权付款人',
+                  amount: '授权金额（分）',
+                  capture_state: '付款捕获状态',
+                  channel_id: '授权通道 ID',
+                  release_state: '授权解除状态',
                 }"
                 :key="key"
                 ><dt>{{ label }}</dt>
-                <dd>{{ displayValue(authorizationRelease[key]) }}</dd></template
+                <dd>{{ displayValue(authorization[key]) }}</dd></template
               >
-            </dl>
-            <dl
-              v-if="authorizationRelease.source_revision"
-              class="record-detail"
-            >
-              <dt>原冻结金额（分）</dt>
-              <dd>{{ displayValue(authorizationRelease.original_amount) }}</dd>
-              <dt>剩余解除来源修订</dt>
-              <dd>{{ displayValue(authorizationRelease.source_revision) }}</dd>
             </dl>
             <p class="muted">
-              处理中或未知时只查询原请求，不会创建新的请求号，也不会再次发送已发送的解除操作。
-            </p></template
+              普通关单不适用于预授权。全额解除需核实原冻结未使用；剩余解除需另行查询并确认明确余款。解除不是商户退款，也不会增加商户余额。
+            </p>
+            <template v-if="authorizationRelease"
+              ><h3>原授权解除请求</h3>
+              <dl class="record-detail">
+                <template
+                  v-for="(label, key) in {
+                    request_no: '原解除请求号',
+                    auth_no: '解除对应授权号',
+                    amount: '本次解除金额（分）',
+                    state: '解除请求状态',
+                    sent: '是否已跨越发送边界',
+                    channel_id: '解除通道 ID',
+                  }"
+                  :key="key"
+                  ><dt>{{ label }}</dt>
+                  <dd>
+                    {{ displayValue(authorizationRelease[key]) }}
+                  </dd></template
+                >
+              </dl>
+              <dl
+                v-if="authorizationRelease.source_revision"
+                class="record-detail"
+              >
+                <dt>原冻结金额（分）</dt>
+                <dd>
+                  {{ displayValue(authorizationRelease.original_amount) }}
+                </dd>
+                <dt>剩余解除来源修订</dt>
+                <dd>
+                  {{ displayValue(authorizationRelease.source_revision) }}
+                </dd>
+              </dl>
+              <p class="muted">
+                处理中或未知时只查询原请求，不会创建新的请求号，也不会再次发送已发送的解除操作。
+              </p></template
+            >
+            <div class="toolbar-actions">
+              <button
+                v-if="canCapture"
+                class="danger-button"
+                :disabled="busy || observationBusy || loading || confirmRelease"
+                @click="confirmCapture = true"
+              >
+                扣取买家授权金额
+              </button>
+              <button
+                v-if="canRelease"
+                class="danger-button"
+                :disabled="busy || observationBusy || loading || confirmCapture"
+                @click="confirmRelease = true"
+              >
+                {{
+                  authorizationRelease
+                    ? "核对并解除原授权"
+                    : "解除买家预授权冻结"
+                }}</button
+              ><button
+                v-if="authorizationRelease"
+                :disabled="busy || loading"
+                @click="releaseAuthorization(true)"
+              >
+                查询原解除请求
+              </button>
+            </div>
+            <div v-if="confirmCapture && canCapture" class="alert">
+              <h3>核对扣取买家授权金额</h3>
+              <dl class="record-detail">
+                <dt>授权编号</dt>
+                <dd>{{ displayValue(authorization.auth_no) }}</dd>
+                <dt>本次扣款金额（分）</dt>
+                <dd>{{ displayValue(order.amount) }}</dd>
+              </dl>
+              <p>
+                此操作将从买家已冻结的授权金额中实际扣款。请核对订单与授权，服务端会再次验证未扣款、未解除及授权证据；未知结果只能查询原订单，不可重复发送。
+              </p>
+              <div class="toolbar-actions">
+                <button :disabled="busy" @click="confirmCapture = false">
+                  取消扣款</button
+                ><button
+                  class="danger-button"
+                  :disabled="
+                    busy ||
+                    observationBusy ||
+                    loading ||
+                    confirmRelease ||
+                    !canCapture
+                  "
+                  @click="captureAuthorization"
+                >
+                  确认扣取授权金额
+                </button>
+              </div>
+            </div>
+            <div v-if="confirmRelease && canRelease" class="alert">
+              <h3>确认解除买家冻结</h3>
+              <dl class="record-detail">
+                <dt>授权编号</dt>
+                <dd>{{ displayValue(authorization?.auth_no) }}</dd>
+                <dt>全额解除金额（分）</dt>
+                <dd>
+                  {{
+                    displayValue(
+                      authorizationRelease?.amount ?? authorization?.amount,
+                    )
+                  }}
+                </dd>
+                <dt>原解除请求号</dt>
+                <dd>
+                  {{
+                    authorizationRelease?.request_no ||
+                    "尚未创建，确认后由服务端生成并持久化"
+                  }}
+                </dd>
+              </dl>
+              <p>
+                将先核对原授权未扣款且全额仍冻结。仅服务端证明尚未发送的原请求才可首次发送；未知结果只查询同一请求。解除成功不代表商户退款或余额增加。
+              </p>
+              <div class="toolbar-actions">
+                <button :disabled="busy" @click="confirmRelease = false">
+                  取消解除</button
+                ><button
+                  class="danger-button"
+                  :disabled="busy || observationBusy || loading || !canRelease"
+                  @click="releaseAuthorization(false)"
+                >
+                  确认核对并解除
+                </button>
+              </div>
+            </div>
+          </template>
+          <template v-if="provider"
+            ><h3>通道请求记录</h3>
+            <dl class="record-detail">
+              <template
+                v-for="(label, key) in {
+                  channel_id: '通道 ID',
+                  method: '支付场景',
+                  state: '请求状态',
+                  material_type: '支付材料类型',
+                }"
+                :key="key"
+                ><dt>{{ label }}</dt>
+                <dd>{{ displayValue(provider[key]) }}</dd></template
+              >
+            </dl>
+            <p class="muted">
+              查询只核实通道结果，不会重新提交支付。结果未核实时请勿重复发起新的写操作。
+            </p>
+            <div class="toolbar-actions">
+              <button :disabled="busy || loading" @click="perform('query')">
+                查询支付通道</button
+              ><button
+                v-if="canClose"
+                class="danger-button"
+                :disabled="busy || loading"
+                @click="confirmClose = true"
+              >
+                关闭通道订单
+              </button>
+            </div></template
           >
-          <div class="toolbar-actions">
-            <button
-              v-if="canCapture"
-              class="danger-button"
-              :disabled="busy || observationBusy || loading || confirmRelease"
-              @click="confirmCapture = true"
-            >
-              扣取买家授权金额
-            </button>
-            <button
-              v-if="canRelease"
-              class="danger-button"
-              :disabled="busy || observationBusy || loading || confirmCapture"
-              @click="confirmRelease = true"
-            >
+          <p v-else class="muted">该订单尚无可操作的支付通道请求记录。</p>
+          <div v-if="confirmClose" class="alert">
+            <p>
+              确认关闭订单
               {{
-                authorizationRelease ? "核对并解除原授权" : "解除买家预授权冻结"
-              }}</button
-            ><button
-              v-if="authorizationRelease"
-              :disabled="busy || loading"
-              @click="releaseAuthorization(true)"
-            >
-              查询原解除请求
-            </button>
-          </div>
-          <div v-if="confirmCapture && canCapture" class="alert">
-            <h3>核对扣取买家授权金额</h3>
-            <dl class="record-detail">
-              <dt>授权编号</dt>
-              <dd>{{ displayValue(authorization.auth_no) }}</dd>
-              <dt>本次扣款金额（分）</dt>
-              <dd>{{ displayValue(order.amount) }}</dd>
-            </dl>
-            <p>
-              此操作将从买家已冻结的授权金额中实际扣款。请核对订单与授权，服务端会再次验证未扣款、未解除及授权证据；未知结果只能查询原订单，不可重复发送。
+                tradeNo
+              }}？请核实买家尚未付款。通道结果不明时应继续查询，不应假定关单完成。
             </p>
             <div class="toolbar-actions">
-              <button :disabled="busy" @click="confirmCapture = false">
-                取消扣款</button
+              <button :disabled="busy" @click="confirmClose = false">
+                取消关单</button
               ><button
                 class="danger-button"
-                :disabled="
-                  busy ||
-                  observationBusy ||
-                  loading ||
-                  confirmRelease ||
-                  !canCapture
-                "
-                @click="captureAuthorization"
+                :disabled="busy"
+                @click="perform('close')"
               >
-                确认扣取授权金额
+                {{ busy ? "正在处理…" : "确认关闭通道订单" }}
               </button>
             </div>
-          </div>
-          <div v-if="confirmRelease && canRelease" class="alert">
-            <h3>确认解除买家冻结</h3>
-            <dl class="record-detail">
-              <dt>授权编号</dt>
-              <dd>{{ displayValue(authorization?.auth_no) }}</dd>
-              <dt>全额解除金额（分）</dt>
-              <dd>
-                {{
-                  displayValue(
-                    authorizationRelease?.amount ?? authorization?.amount,
-                  )
-                }}
-              </dd>
-              <dt>原解除请求号</dt>
-              <dd>
-                {{
-                  authorizationRelease?.request_no ||
-                  "尚未创建，确认后由服务端生成并持久化"
-                }}
-              </dd>
-            </dl>
-            <p>
-              将先核对原授权未扣款且全额仍冻结。仅服务端证明尚未发送的原请求才可首次发送；未知结果只查询同一请求。解除成功不代表商户退款或余额增加。
-            </p>
-            <div class="toolbar-actions">
-              <button :disabled="busy" @click="confirmRelease = false">
-                取消解除</button
-              ><button
-                class="danger-button"
-                :disabled="busy || observationBusy || loading || !canRelease"
-                @click="releaseAuthorization(false)"
-              >
-                确认核对并解除
-              </button>
-            </div>
-          </div>
-        </template>
-        <template v-if="provider"
-          ><h3>通道请求记录</h3>
-          <dl class="record-detail">
-            <template
-              v-for="(label, key) in {
-                channel_id: '通道 ID',
-                method: '支付场景',
-                state: '请求状态',
-                material_type: '支付材料类型',
-              }"
-              :key="key"
-              ><dt>{{ label }}</dt>
-              <dd>{{ displayValue(provider[key]) }}</dd></template
-            >
-          </dl>
-          <p class="muted">
-            查询只核实通道结果，不会重新提交支付。结果未核实时请勿重复发起新的写操作。
-          </p>
-          <div class="toolbar-actions">
-            <button :disabled="busy || loading" @click="perform('query')">
-              查询支付通道</button
-            ><button
-              v-if="canClose"
-              class="danger-button"
-              :disabled="busy || loading"
-              @click="confirmClose = true"
-            >
-              关闭通道订单
-            </button>
           </div></template
         >
-        <p v-else class="muted">该订单尚无可操作的支付通道请求记录。</p>
-        <div v-if="confirmClose" class="alert">
-          <p>
-            确认关闭订单
-            {{
-              tradeNo
-            }}？请核实买家尚未付款。通道结果不明时应继续查询，不应假定关单完成。
-          </p>
-          <div class="toolbar-actions">
-            <button :disabled="busy" @click="confirmClose = false">
-              取消关单</button
-            ><button
-              class="danger-button"
-              :disabled="busy"
-              @click="perform('close')"
-            >
-              {{ busy ? "正在处理…" : "确认关闭通道订单" }}
-            </button>
-          </div>
-        </div></template
-      >
-      <OrderPrintingPanel
-        v-if="order && client.area === 'merchant' && ownSession"
-        :client="client"
-        :trade-no="tradeNo"
-        :own-session="!!ownSession"
-      />
-      <div class="modal-actions">
+        <OrderPrintingPanel
+          v-if="order && client.area === 'merchant' && ownSession"
+          :client="client"
+          :trade-no="tradeNo"
+          :own-session="!!ownSession"
+        />
+      </div>
+      <div class="pa-modal-foot order-detail-foot">
         <button
           v-if="canViewCombined204"
           ref="combinedButton204"
           type="button"
+          class="pa-btn"
           :disabled="loading || busy || incomeBusy"
           @click="combinedOpen204 = true"
         >
@@ -789,6 +868,7 @@ onBeforeUnmount(() => controller?.abort());
             order &&
             ['paid', 'partially_refunded'].includes(String(order.status))
           "
+          class="pa-btn"
           :disabled="
             busy ||
             loading ||
@@ -812,7 +892,11 @@ onBeforeUnmount(() => controller?.abort());
           "
         >
           申请退款</button
-        ><button :disabled="busy || incomeBusy" @click="emit('close')">
+        ><button
+          class="pa-btn pa-btn--primary"
+          :disabled="busy || incomeBusy"
+          @click="emit('close')"
+        >
           关闭详情
         </button>
       </div>
@@ -827,3 +911,31 @@ onBeforeUnmount(() => controller?.abort());
     />
   </div>
 </template>
+<style scoped>
+/* Order detail opens as a right-side drawer, like epay_pro (el-drawer rtl,
+   500px, 订单详细信息) and as the owner asked. The kit modal head/body/foot are
+   reused inside it; the body scrolls. */
+.order-detail-scrim {
+  display: grid;
+  place-items: stretch end;
+  padding: 0;
+}
+.order-detail-modal {
+  width: min(100%, 500px);
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  border-radius: 0;
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+}
+.order-detail-body {
+  overflow: auto;
+  flex: 1 1 auto;
+  padding: var(--space-4) var(--space-5);
+}
+.order-detail-foot {
+  flex-wrap: wrap;
+}
+</style>

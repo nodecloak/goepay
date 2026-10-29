@@ -143,3 +143,103 @@ it("uses the full mobile drawer when a previously collapsed desktop shell is res
   expect(w.get(".workspace").classes()).not.toContain("sidebar-collapsed");
   expect(w.get("aside").attributes("inert")).toBeUndefined();
 });
+
+it("renders the kit top bar (search trigger, Ctrl K menu, fullscreen, avatar) and no page-title row", async () => {
+  const { w, router } = await setup();
+  await router.push("/admin/trade/order");
+  await flushPromises();
+  // The shell no longer prints a page-title h1 row above the cards.
+  expect(w.find(".page-heading").exists()).toBe(false);
+  expect(w.findAll("h1").length).toBe(0);
+  // Top-bar right cluster: search trigger with the Ctrl K hint.
+  const trigger = w.get(".search-trigger");
+  expect(trigger.text()).toContain("搜索");
+  expect(trigger.text()).toContain("Ctrl K");
+  // Fullscreen + theme tool buttons present.
+  expect(w.find('.topbar-tools button[aria-label="全屏"]').exists()).toBe(true);
+  expect(
+    w.findAll(".topbar-tools .theme-toggle").length,
+  ).toBeGreaterThanOrEqual(1);
+  // Ctrl K opens the menu search palette.
+  window.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "k", ctrlKey: true }),
+  );
+  await flushPromises();
+  expect(w.find(".search-menu").exists()).toBe(true);
+  // It lists role-visible leaf menu entries; filtering narrows them.
+  const orders = resolvePage("admin", "/trade/order")!.title;
+  expect(w.find(".search-list").exists()).toBe(true);
+  await w.get(".search-input").setValue(orders);
+  await flushPromises();
+  const items = w.findAll(".search-item");
+  expect(items.length).toBeGreaterThanOrEqual(1);
+  expect(items.every((i) => i.text().includes(orders))).toBe(true);
+  // Enter navigates to the active entry.
+  await w.get(".search-input").trigger("keydown", { key: "Enter" });
+  await flushPromises();
+  expect(router.currentRoute.value.path).toBe("/admin/trade/order");
+});
+it("opens the avatar menu with 账户安全 and 退出登录", async () => {
+  const { w } = await setup();
+  const avatar = w.get(".topbar-avatar .avatar");
+  // Avatar shows the first character of the display name.
+  expect(avatar.text()).toBe("本");
+  await avatar.trigger("click");
+  await flushPromises();
+  const menu = w.get(".avatar-menu");
+  expect(menu.text()).toContain("账户安全");
+  expect(menu.text()).toContain("退出登录");
+});
+it("gives refresh a home at the right end of the list table tools", async () => {
+  const { w, router, fetcher } = await setup();
+  await router.push("/admin/trade/order");
+  await flushPromises();
+  const refresh = w.get(".table-tools .table-refresh");
+  expect(refresh.attributes("aria-label")).toContain("刷新");
+  const before = fetcher.mock.calls.length;
+  await refresh.trigger("click");
+  await flushPromises();
+  expect(fetcher.mock.calls.length).toBeGreaterThan(before);
+});
+
+it("redirects a logged-in admin off /admin/login to the dashboard (or the requested return)", async () => {
+  const fetcher = vi.fn(async (input: string) => {
+    const data = input.endsWith("/session")
+      ? {
+          user: {
+            id: "1",
+            name: "本地测试",
+            role: "admin",
+            admin_class: "super",
+          },
+          csrf_token: "synthetic-csrf",
+        }
+      : input.endsWith("/dashboard")
+        ? { orders: 1 }
+        : { items: [], total: 0 };
+    return new Response(JSON.stringify({ code: 0, data }));
+  });
+  vi.stubGlobal("fetch", fetcher);
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: "/:pathMatch(.*)*", component: { template: "<div/>" } }],
+  });
+  // Landing on the login URL while a session is live must not strand the shell.
+  await router.push("/admin/login");
+  await router.isReady();
+  const w = mount(App, { global: { plugins: [router] } });
+  wrappers.push(w);
+  await flushPromises();
+  await flushPromises();
+  expect(router.currentRoute.value.path).toBe("/admin/dashboard");
+  // A safe ?return= is honoured.
+  await router.push("/admin/login?return=/admin/trade/order");
+  await flushPromises();
+  await flushPromises();
+  expect(router.currentRoute.value.path).toBe("/admin/trade/order");
+  // An unsafe/foreign return falls back to the dashboard.
+  await router.push("/admin/login?return=https://evil.example/x");
+  await flushPromises();
+  await flushPromises();
+  expect(router.currentRoute.value.path).toBe("/admin/dashboard");
+});

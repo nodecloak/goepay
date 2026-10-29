@@ -135,7 +135,7 @@ func (f channel168Fixture) group(t *testing.T, rate *string) {
 }
 func (f channel168Fixture) pay(t *testing.T, no, money string, channel int64) map[string]any {
 	t.Helper()
-	p := compat.Params{"pid": "1", "out_trade_no": no, "type": "alipay", "name": "synthetic item168", "money": money, "channel_id": fmt.Sprint(channel), "method": "native", "sign_type": "MD5"}
+	p := compat.Params{"pid": "1", "out_trade_no": no, "type": "alipay", "name": "synthetic item168", "money": money, "channel_id": fmt.Sprint(channel), "method": "native", "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return", "sign_type": "MD5"}
 	p["sign"] = compat.SignMD5(p, "test-secret")
 	v := url.Values{}
 	for k, x := range p {

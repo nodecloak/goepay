@@ -155,7 +155,7 @@ func (s *Server) orderOperations(w http.ResponseWriter, r *http.Request, role st
 		response(w, 200, 0, "", data)
 		return true
 	}
-	if order.Type != "wxpay" && order.Type != "alipay" {
+	if !adapter.CatalogPayType(order.Type) {
 		return false
 	}
 	if s.ProviderFlow == nil {

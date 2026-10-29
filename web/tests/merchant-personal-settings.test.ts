@@ -10,6 +10,7 @@ const state = {
   qq: "123456",
   pay_minmoney: "1.01",
   pay_maxmoney: "2.00",
+  remain_money: "10%",
   bounds_valid: true,
   fingerprint: "a".repeat(64),
   can_update: true as const,
@@ -33,6 +34,8 @@ describe("original merchant personal QQ and limits", () => {
       { ...state, can_update: false },
       { ...state, fingerprint: "x".repeat(64) },
       { ...state, qq: "1234" },
+      { ...state, remain_money: "100%" },
+      { ...state, remain_money: "abc" },
     ])
       expect(() => parsePersonalSettings(bad, merchantID)).toThrow();
   });
@@ -58,11 +61,13 @@ describe("original merchant personal QQ and limits", () => {
         qq: "7654321",
         pay_minmoney: "1.1",
         pay_maxmoney: "",
+        remain_money: "50.00",
       }),
     ).toEqual({
       qq: "7654321",
       pay_minmoney: "1.10",
       pay_maxmoney: "",
+      remain_money: "50.00",
       expected_fingerprint: state.fingerprint,
     });
   });
@@ -72,20 +77,39 @@ describe("original merchant personal QQ and limits", () => {
         qq: "",
         pay_minmoney: "",
         pay_maxmoney: "0",
+        remain_money: "",
       }),
     ).toEqual({
       qq: "",
       pay_minmoney: "",
       pay_maxmoney: "0.00",
+      remain_money: "",
       expected_fingerprint: state.fingerprint,
     });
   });
   it("rejects contradictory intervals, exponents, negative, precision and overflow", () => {
     for (const draft of [
-      { qq: "1234", pay_minmoney: "", pay_maxmoney: "" },
-      { qq: "123456", pay_minmoney: "3", pay_maxmoney: "2" },
+      { qq: "1234", pay_minmoney: "", pay_maxmoney: "", remain_money: "" },
+      {
+        qq: "123456",
+        pay_minmoney: "3",
+        pay_maxmoney: "2",
+        remain_money: "",
+      },
+      {
+        qq: "123456",
+        pay_minmoney: "",
+        pay_maxmoney: "",
+        remain_money: "100%",
+      },
+      { qq: "123456", pay_minmoney: "", pay_maxmoney: "", remain_money: "x" },
       ...["-1", "1e2", "1.001", "01.00", "92233720368547758.08"].map(
-        (pay_minmoney) => ({ qq: "123456", pay_minmoney, pay_maxmoney: "" }),
+        (pay_minmoney) => ({
+          qq: "123456",
+          pay_minmoney,
+          pay_maxmoney: "",
+          remain_money: "",
+        }),
       ),
     ])
       expect(() => personalSettingsBody(state, draft)).toThrow();

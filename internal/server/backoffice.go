@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	provider "goepay/internal/adapters/payment"
 	"goepay/internal/backoffice"
 	"goepay/internal/compat"
@@ -12,6 +13,22 @@ import (
 	"net/http"
 	"strings"
 )
+
+// errRechargeClosed is returned by the recharge validate/start hooks when the
+// merchant recharge feature is turned off; backoffice.writeError surfaces it as
+// a 403 with the original merchant-facing message.
+var errRechargeClosed = backoffice.FeatureClosed("未开启余额充值功能")
+
+// paymentPolicyMessage extracts the merchant-facing refusal text from a
+// CheckPayment error: the configured blackmsg / forceqq / blockalert carried by
+// a PaymentRefusedError, else the generic policy message for a plain denial.
+func paymentPolicyMessage(e error) string {
+	var refused backoffice.PaymentRefusedError
+	if errors.As(e, &refused) && refused.Message != "" {
+		return refused.Message
+	}
+	return "payment rejected by configured policy"
+}
 
 func (s *Server) backoffice(w http.ResponseWriter, r *http.Request, role string, session identity.Session, parts []string) bool {
 	if len(parts) < 2 || (parts[1] != "resources" && parts[1] != "manage" && parts[1] != "workflows") {
@@ -25,6 +42,11 @@ func (s *Server) backoffice(w http.ResponseWriter, r *http.Request, role string,
 
 	if s.ProviderFlow != nil && s.ProviderFlow.AllowLive && len(s.CheckoutKey) >= 32 {
 		service.RechargeValidate = func(ctx context.Context, mid int64, params map[string]string) error {
+			if on, e := service.MerchantFeatureVisible(ctx, "recharge"); e != nil {
+				return e
+			} else if !on {
+				return errRechargeClosed
+			}
 			p := compat.Params{}
 			for k, v := range params {
 				p[k] = v
@@ -61,6 +83,11 @@ func (s *Server) backoffice(w http.ResponseWriter, r *http.Request, role string,
 			return nil
 		}
 		service.RechargeStart = func(ctx context.Context, mid int64, trade string, params map[string]string) (string, error) {
+			if on, e := service.MerchantFeatureVisible(ctx, "recharge"); e != nil {
+				return "", e
+			} else if !on {
+				return "", errRechargeClosed
+			}
 			p := compat.Params{}
 			for k, v := range params {
 				p[k] = v

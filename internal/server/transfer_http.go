@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	adapter "goepay/internal/adapters/payment"
+	"goepay/internal/backoffice"
 	"goepay/internal/compat"
 	"goepay/internal/identity"
 	"goepay/internal/ledger"
@@ -46,6 +47,12 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 		}
 		channels := []map[string]any{}
 		if s.ProviderFlow != nil {
+			// transfer_wxpay / transfer_qqpay hide a rail from the offered types.
+			transferSwitches, e := backoffice.New(s.Pool, s.Store).SettingValues(r.Context(), "transfer_wxpay", "transfer_qqpay")
+			if e != nil {
+				s.fail(w, e)
+				return true
+			}
 			for _, id := range s.MerchantChannels[mid] {
 				p := s.ProviderFlow.Providers[id]
 				if caps, ok := p.(adapter.TransferCapabilities); ok {
@@ -53,7 +60,12 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 						_, proof := p.(adapter.TransferProofProvider)
 						ali := false
 						bankProduct := ""
+						offered := []string{}
 						for _, typ := range caps.TransferTypes() {
+							if !backoffice.TransferTypeOffered(transferSwitches, typ) {
+								continue
+							}
+							offered = append(offered, typ)
 							if typ == "alipay" {
 								ali = true
 							}
@@ -64,8 +76,11 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 								}
 							}
 						}
+						if len(offered) == 0 {
+							continue
+						}
 						proof = proof && ali
-						channels = append(channels, map[string]any{"id": fmt.Sprint(id), "types": caps.TransferTypes(), "proof": proof, "bank_product": bankProduct, "bank_code_required": bankProduct == adapter.BankProductWechat})
+						channels = append(channels, map[string]any{"id": fmt.Sprint(id), "types": offered, "proof": proof, "bank_product": bankProduct, "bank_code_required": bankProduct == adapter.BankProductWechat})
 					}
 				}
 			}
@@ -311,6 +326,16 @@ func (s *Server) transferAPI(w http.ResponseWriter, r *http.Request, id int64, p
 		amount, e := ledger.Parse(p["money"])
 		if e != nil || amount <= 0 {
 			s.wire(w, false, nil, "invalid transfer amount")
+			return
+		}
+		// transfer_wxpay / transfer_qqpay decide which transfer rails are offered;
+		// a type turned off is refused. Blank/missing keeps the rail offered, so
+		// a default install is unchanged.
+		if tv, e := backoffice.New(s.Pool, s.Store).SettingValues(r.Context(), "transfer_wxpay", "transfer_qqpay"); e != nil {
+			s.wire(w, false, nil, "transfer configuration unavailable")
+			return
+		} else if !backoffice.TransferTypeOffered(tv, p["type"]) {
+			s.wire(w, false, nil, "该转账方式已关闭")
 			return
 		}
 		channel, e := s.transferChannel(id, p)

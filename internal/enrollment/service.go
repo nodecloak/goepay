@@ -70,6 +70,7 @@ type Capabilities struct {
 	ReviewRequired   bool `json:"review_required"`
 	RegistrationOpen bool `json:"registration_open"`
 	EmailEnabled     bool `json:"email_enabled"`
+	SMSEnabled       bool `json:"sms_enabled"`
 	InviteRequired   bool `json:"invite_required"`
 	ExpiresSeconds   int  `json:"expires_seconds"`
 }
@@ -93,7 +94,28 @@ func (s *Service) Capabilities(ctx context.Context) (Capabilities, error) {
 		return Capabilities{}, e
 	}
 	pay, e := registrationPayStatus(ctx, tx)
-	return Capabilities{RegistrationOpen: open, InviteRequired: invite, EmailEnabled: s.sender != nil, ExpiresSeconds: 600, ReviewRequired: pay == 2}, e
+	if e != nil {
+		return Capabilities{}, e
+	}
+	smsOn, e := smsGatewayOn(ctx, tx)
+	return Capabilities{RegistrationOpen: open, InviteRequired: invite, EmailEnabled: s.sender != nil, SMSEnabled: smsOn, ExpiresSeconds: 600, ReviewRequired: pay == 2}, e
+}
+
+// smsGatewayOn reports whether the SMS gateway is enabled with an active
+// provider (sms_gateway_head134.status=1). When the table is absent or the
+// gateway is off (the deployment default) it returns false, so the phone flow
+// is simply not offered and the email-only paths are unchanged. Read-only.
+func smsGatewayOn(ctx context.Context, tx pgx.Tx) (bool, error) {
+	var on bool
+	e := tx.QueryRow(ctx, `SELECT COALESCE((SELECT status=1 AND active IS NOT NULL FROM sms_gateway_head134 WHERE singleton),false)`).Scan(&on)
+	if e != nil {
+		var pg *pgconn.PgError
+		if errors.As(e, &pg) && pg.Code == "42P01" {
+			return false, nil
+		}
+		return false, e
+	}
+	return on, nil
 }
 
 func (s *Service) digest(parts ...string) []byte {

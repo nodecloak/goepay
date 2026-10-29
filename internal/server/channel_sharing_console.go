@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"time"
 
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/identity"
@@ -114,6 +115,64 @@ func (s *Server) sharingConsoleChannel(mid, channel int64) bool {
 	return false
 }
 
+// sharingOrderQueryFromRequest parses Pro 分账记录 filter params. status accepts
+// the UI's grouped tokens (待分账/已提交/分账成功/分账失败/已取消) mapped to the
+// GOEPAY state set; field/keyword/date/offset/limit are validated by the store.
+func sharingOrderQueryFromRequest(r *http.Request, mid int64) (payment.ChannelSharingOrderQuery, bool) {
+	q := payment.ChannelSharingOrderQuery{MerchantID: mid, Field: r.URL.Query().Get("field"), Keyword: r.URL.Query().Get("keyword"), Limit: 20}
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		v, e := strconv.Atoi(raw)
+		if e != nil || v < 1 || v > 100 || strconv.Itoa(v) != raw {
+			return q, false
+		}
+		q.Limit = v
+	}
+	if raw := r.URL.Query().Get("offset"); raw != "" {
+		v, e := strconv.Atoi(raw)
+		if e != nil || v < 0 || strconv.Itoa(v) != raw {
+			return q, false
+		}
+		q.Offset = v
+	}
+	if raw := r.URL.Query().Get("rule_id"); raw != "" {
+		v, e := strconv.ParseInt(raw, 10, 64)
+		if e != nil || v < 1 || strconv.FormatInt(v, 10) != raw {
+			return q, false
+		}
+		q.RuleID = v
+	}
+	if raw := r.URL.Query().Get("status"); raw != "" {
+		groups := map[string][]string{
+			"unsent":    {"unsent"},
+			"submitted": {"claimed", "pending"},
+			"succeeded": {"succeeded"},
+			"failed":    {"failed"},
+			"cancelled": {"cancelled"},
+		}
+		states, ok := groups[raw]
+		if !ok {
+			return q, false
+		}
+		q.States = states
+	}
+	tz := time.FixedZone("UTC+08:00", 8*3600)
+	if raw := r.URL.Query().Get("from"); raw != "" {
+		t, e := time.ParseInLocation("2006-01-02", raw, tz)
+		if e != nil {
+			return q, false
+		}
+		q.From = t
+	}
+	if raw := r.URL.Query().Get("to"); raw != "" {
+		t, e := time.ParseInLocation("2006-01-02", raw, tz)
+		if e != nil {
+			return q, false
+		}
+		q.To = t.Add(24*time.Hour - time.Second)
+	}
+	return q, true
+}
+
 // Shared console middleware verifies the durable account and administrator role.
 // This hook also checks role/CSRF locally, including direct handler tests.
 func (s *Server) channelSharingConsole(w http.ResponseWriter, r *http.Request, role string, session identity.Session, parts []string) bool {
@@ -125,7 +184,7 @@ func (s *Server) channelSharingConsole(w http.ResponseWriter, r *http.Request, r
 		response(w, 404, -1, "channel sharing operation not found", nil)
 		return true
 	}
-	if role != session.User.Role || parts[0] != role || session.User.ID <= 0 || role != "admin" && role != "merchant" || role == "admin" && !adminOperationAllowed(session.User.AdminClass, parts) {
+	if role != session.User.Role || parts[0] != role || session.User.ID <= 0 || role != "admin" && role != "merchant" || role == "admin" && !adminRequestAllowed(session.User, parts) {
 		response(w, 403, -1, "channel sharing permission required", nil)
 		return true
 	}
@@ -164,8 +223,15 @@ func (s *Server) channelSharingConsole(w http.ResponseWriter, r *http.Request, r
 		}
 	} else {
 		allowed := []string{"merchant_id"}
-		if len(parts) == 3 && (parts[2] == "receivers" || parts[2] == "orders" || parts[2] == "returns") {
+		if len(parts) == 3 && (parts[2] == "receivers" || parts[2] == "returns") {
 			allowed = append(allowed, "cursor", "limit")
+		}
+		if len(parts) == 3 && parts[2] == "orders" {
+			// Pro 分账记录 filters + offset paging + CSV, plus legacy cursor/limit.
+			allowed = append(allowed, "cursor", "limit", "offset", "field", "keyword", "status", "rule_id", "from", "to", "format")
+		}
+		if len(parts) == 4 && parts[2] == "orders" && parts[3] == "statistics" {
+			allowed = append(allowed, "field", "keyword", "status", "rule_id", "from", "to")
 		}
 		if len(parts) == 3 && parts[2] == "finishes" {
 			allowed = append(allowed, "limit")
@@ -225,7 +291,39 @@ func (s *Server) channelSharingConsole(w http.ResponseWriter, r *http.Request, r
 		response(w, 200, 0, "", map[string]any{"merchant_id": strconv.FormatInt(mid, 10), "available": len(channels) > 0, "reason": reason, "channels": channels})
 		return true
 	}
-	if len(parts) == 3 && r.Method == "GET" && (resource == "receivers" || resource == "orders") {
+	if len(parts) == 4 && parts[2] == "orders" && parts[3] == "statistics" && r.Method == "GET" {
+		q, ok := sharingOrderQueryFromRequest(r, mid)
+		if !ok {
+			fail(payment.ErrInvalid)
+			return true
+		}
+		v, err := s.Store.ChannelSharingOrderStatistics(r.Context(), q, actor)
+		respond(v, err)
+		return true
+	}
+	if len(parts) == 3 && resource == "orders" && r.Method == "GET" {
+		q, ok := sharingOrderQueryFromRequest(r, mid)
+		if !ok {
+			fail(payment.ErrInvalid)
+			return true
+		}
+		if isCSV, csvErr := csvRequested(r); csvErr != nil {
+			response(w, 400, -1, csvErr.Error(), nil)
+			return true
+		} else if isCSV {
+			query, args, built := q.ChannelSharingOrderCSVQuery(actor)
+			if !built {
+				fail(payment.ErrInvalid)
+				return true
+			}
+			s.exportCSV(w, r, session, "channel-sharing-orders", query, args)
+			return true
+		}
+		v, err := s.Store.ListChannelSharingOrdersFiltered(r.Context(), q, actor)
+		respond(v, err)
+		return true
+	}
+	if len(parts) == 3 && r.Method == "GET" && resource == "receivers" {
 		cursor, limit := int64(0), 20
 		if raw := r.URL.Query().Get("cursor"); raw != "" {
 			cursor, e = strconv.ParseInt(raw, 10, 64)
@@ -243,9 +341,6 @@ func (s *Server) channelSharingConsole(w http.ResponseWriter, r *http.Request, r
 		}
 		if resource == "receivers" {
 			v, err := s.Store.ListChannelSharingReceivers(r.Context(), mid, cursor, limit, actor)
-			respond(v, err)
-		} else {
-			v, err := s.Store.ListChannelSharingOrders(r.Context(), mid, cursor, limit, actor)
 			respond(v, err)
 		}
 		return true

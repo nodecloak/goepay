@@ -16,7 +16,12 @@ import {
   type ReportColumn,
 } from "../reports";
 import DataTable from "./DataTable.vue";
+import KitPagination from "./KitPagination.vue";
+import KitField from "./KitField.vue";
+import KitSelect from "./KitSelect.vue";
+import KitHelpPopover from "./KitHelpPopover.vue";
 import CsvExportButton from "./CsvExportButton.vue";
+import ShellIcon from "./ShellIcon.vue";
 import MerchantMatrixReport from "./MerchantMatrixReport.vue";
 import BuyerStatisticsReport from "./BuyerStatisticsReport.vue";
 import OriginalOrderStatistics from "./OriginalOrderStatistics.vue";
@@ -33,6 +38,7 @@ const from = ref(""),
   to = ref(""),
   shortcut = ref(""),
   page = ref(1),
+  limit = ref(20),
   columns = ref<ReportColumn[]>([]),
   items = ref<Record<string, unknown>[]>([]),
   total = ref(0),
@@ -40,6 +46,11 @@ const from = ref(""),
   error = ref("");
 const summary = ref<Record<string, unknown> | null>(null);
 const complaintOverview = computed(() => props.report === "complaints");
+const reportNote = computed(() =>
+  complaintOverview.value
+    ? "本地已登记投诉，包含所有处理状态。按北京时间统计今日、昨日和近7日；近7日比率为投诉条数 ÷ 同期已支付订单数，无支付订单时显示未知。未登记的上游投诉不计入。"
+    : "业务日期按 UTC+08:00 统计。未指定日期时查询最近 30 天；未采集的维度会显示为未知。",
+);
 const originalStatistics = computed(
   () =>
     props.report === "daily" ||
@@ -57,8 +68,18 @@ function applyShortcut() {
   page.value = 1;
   load();
 }
+function resetFilters() {
+  shortcut.value = "";
+  from.value = "";
+  to.value = "";
+  page.value = 1;
+  load();
+}
 function reportQuery() {
-  const q = new URLSearchParams({ page: String(page.value), limit: "20" });
+  const q = new URLSearchParams({
+    page: String(page.value),
+    limit: String(limit.value),
+  });
   if (complaintOverview.value) {
     q.set("view", "overview");
     return q;
@@ -146,108 +167,189 @@ onBeforeUnmount(() => controller?.abort());
     :client="client"
     :report="report"
   />
-  <section v-else class="panel records">
+  <div v-else class="report-page">
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <template v-if="complaintOverview">
-      <h2>投诉数据统计&amp;排行榜</h2>
-      <p class="resource-description muted">
-        本地已登记投诉，包含所有处理状态。按北京时间统计今日、昨日和近7日；近7日比率为投诉条数
-        ÷ 同期已支付订单数，无支付订单时显示未知。未登记的上游投诉不计入。
-      </p>
-      <div v-if="summary" class="stats-grid">
-        <article
-          v-for="day in [
-            { key: 'today', label: '今日投诉' },
-            { key: 'yesterday', label: '昨日投诉' },
-          ]"
-          :key="day.key"
-          class="stat"
-        >
-          <h3>{{ day.label }}</h3>
-          <strong>{{ summary[`${day.key}_count`] ?? "—" }} 条</strong>
-          <p>投诉金额：{{ summary[`${day.key}_money`] ?? "未知" }} 元</p>
-          <p>
-            支付宝 {{ summary[`${day.key}_alipay`] ?? "—" }} · 微信
-            {{ summary[`${day.key}_wxpay`] ?? "—" }}
-          </p>
-        </article>
-      </div>
-    </template>
+    <div
+      v-if="complaintOverview && summary"
+      class="stat-grid complaint-stat-grid"
+    >
+      <section
+        v-for="day in [
+          { key: 'today', label: '今日投诉' },
+          { key: 'yesterday', label: '昨日投诉' },
+        ]"
+        :key="day.key"
+        class="panel stat"
+      >
+        <span class="stat-icon"><ShellIcon name="shield" /></span>
+        <p>{{ day.label }}</p>
+        <strong>{{ summary[`${day.key}_count`] ?? "—" }}</strong>
+        <p class="card-sub">
+          总投诉 <b>{{ summary[`${day.key}_count`] ?? "—" }}</b> · 支付宝
+          <b>{{ summary[`${day.key}_alipay`] ?? "—" }}</b> · 微信
+          <b>{{ summary[`${day.key}_wxpay`] ?? "—" }}</b>
+        </p>
+        <span>投诉金额 {{ summary[`${day.key}_money`] ?? "未知" }} 元</span>
+      </section>
+    </div>
     <form
-      class="toolbar report-filter"
+      class="toolbar list-filter-card panel report-filter-kit"
       @submit.prevent="
         page = 1;
         load();
       "
     >
-      <template v-if="!complaintOverview"
-        ><label
-          >快捷范围<select
-            v-model="shortcut"
-            aria-label="统计日期快捷范围"
-            @change="applyShortcut"
-          >
-            <option value="">自定义日期</option>
-            <option value="today">今天</option>
-            <option value="yesterday">昨天</option>
-            <option value="last7">最近7天</option>
-            <option value="last30">最近30天</option>
-          </select></label
-        >
-        <label
-          >开始日期<input
-            v-model="from"
-            type="date"
-            @input="shortcut = ''" /></label
-        ><label
-          >结束日期<input
-            v-model="to"
-            type="date"
-            @input="shortcut = ''" /></label></template
-      ><button :disabled="loading">
-        {{ complaintOverview ? "刷新统计" : "查询统计" }}</button
-      ><button
-        type="button"
-        :disabled="loading || !items.length"
-        @click="download"
-      >
-        导出本页 CSV
-      </button>
-      <CsvExportButton
-        :client="client"
-        :path="csvPath"
-        :filename="`${report}-filtered.csv`"
-        :disabled="loading || !validDateRange(from, to)"
-      />
-    </form>
-    <p v-if="!complaintOverview" class="resource-description muted">
-      业务日期按 UTC+08:00 统计。未指定日期时查询最近 30
-      天；未采集的维度会显示为未知。
-    </p>
-    <div v-if="loading" class="loading-row" role="status">正在汇总统计…</div>
-    <DataTable v-else-if="!error" :columns="columns" :items="items" />
-    <div class="pagination">
-      <span>共 {{ total }} 条统计</span>
-      <div>
+      <div class="pa-filter-fields list-filters-grid">
+        <template v-if="!complaintOverview">
+          <KitField label="快捷范围">
+            <KitSelect
+              v-model="shortcut"
+              :options="[
+                { value: '', label: '自定义日期' },
+                { value: 'today', label: '今天' },
+                { value: 'yesterday', label: '昨天' },
+                { value: 'last7', label: '最近7天' },
+                { value: 'last30', label: '最近30天' },
+              ]"
+              aria-label="统计日期快捷范围"
+              @change="applyShortcut"
+            />
+          </KitField>
+          <KitField label="开始日期">
+            <input
+              v-model="from"
+              type="date"
+              aria-label="开始日期"
+              @input="shortcut = ''"
+            />
+          </KitField>
+          <KitField label="结束日期">
+            <input
+              v-model="to"
+              type="date"
+              aria-label="结束日期"
+              @input="shortcut = ''"
+            />
+          </KitField>
+        </template>
+      </div>
+      <div class="pa-filter-actions">
         <button
-          :disabled="page <= 1 || loading"
-          @click="
-            page--;
-            load();
-          "
+          v-if="!complaintOverview"
+          type="button"
+          class="pa-btn"
+          :disabled="loading"
+          @click="resetFilters"
         >
-          上一页</button
-        ><span>第 {{ page }} 页</span
-        ><button
-          :disabled="page * 20 >= total || loading"
-          @click="
-            page++;
-            load();
-          "
+          重置
+        </button>
+        <button
+          type="submit"
+          class="pa-btn pa-btn--primary"
+          :disabled="loading"
         >
-          下一页
+          {{ complaintOverview ? "刷新统计" : "查询统计" }}
         </button>
       </div>
-    </div>
-  </section>
+    </form>
+    <section class="panel records">
+      <div class="table-tools">
+        <button
+          type="button"
+          class="pa-btn pa-btn--success"
+          :disabled="loading || !items.length"
+          @click="download"
+        >
+          <ShellIcon name="export" />导出本页 CSV
+        </button>
+        <CsvExportButton
+          :client="client"
+          :path="csvPath"
+          :filename="`${report}-filtered.csv`"
+          :disabled="loading || !validDateRange(from, to)"
+        />
+        <span class="table-summary"
+          >共 <strong>{{ total }}</strong> 条统计</span
+        >
+        <div class="table-tools-end">
+          <KitHelpPopover :text="reportNote" />
+          <button
+            type="button"
+            class="icon-button table-refresh"
+            :aria-label="loading ? '正在更新…' : '刷新数据'"
+            :title="loading ? '正在更新…' : '刷新数据'"
+            :disabled="loading"
+            @click="load"
+          >
+            <ShellIcon name="refresh" />
+          </button>
+        </div>
+      </div>
+      <div v-if="loading" class="loading-row" role="status">正在汇总统计…</div>
+      <DataTable v-else-if="!error" :columns="columns" :items="items" />
+      <KitPagination
+        v-model:page="page"
+        v-model:page-size="limit"
+        :total="total"
+        @change="load"
+      />
+    </section>
+  </div>
 </template>
+<style scoped>
+.report-page {
+  display: flex;
+  flex-direction: column;
+}
+.complaint-stat-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: var(--space-4);
+}
+.card-sub {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-top: 6px;
+}
+.card-sub b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.filter-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+}
+.date-range {
+  gap: 4px;
+}
+.date-range input {
+  width: auto;
+}
+.date-range-sep {
+  color: var(--ink-muted);
+}
+.filter-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
+}
+.table-summary {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.table-note {
+  margin: 0 var(--space-5) var(--space-3);
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+@media (max-width: 760px) {
+  .complaint-stat-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>

@@ -2,6 +2,7 @@ import {
   readPaymentStatisticsDay,
   type PaymentStatisticsDay,
 } from "./payment-statistics";
+import { FILTER_PAY_TYPES, payTypeLabel } from "./pay-types";
 
 export type MerchantPaymentStatistics = {
   merchant_id: string;
@@ -81,14 +82,15 @@ export function readMerchantPaymentStatistics(
 // Integer pixel coordinates are presentation only. The exact amount string is
 // retained at every point for focus/hover labels and the financial table.
 export function paymentTrendSeries(days: PaymentStatisticsDay[]) {
-  const methods = ["alipay", "wxpay", "sandbox"] as const;
+  const present = new Set(days.flatMap((d) => d.items.map((r) => r.type)));
+  const methods = FILTER_PAY_TYPES.filter((t) => present.has(t));
   const minor = (money: string) => BigInt(money.replace(".", ""));
   const maximum = days
     .flatMap((d) => d.items)
     .reduce((m, r) => (minor(r.money) > m ? minor(r.money) : m), 1n);
-  return methods.map((type, index) => ({
+  return methods.map((type) => ({
     type,
-    name: ["支付宝", "微信支付", "本地模拟"][index]!,
+    name: payTypeLabel(type),
     points: days.map((d, i) => {
       const money = d.items.find((r) => r.type === type)!.money;
       return {

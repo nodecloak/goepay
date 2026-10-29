@@ -234,14 +234,27 @@ onBeforeUnmount(() => {
       <p class="muted">
         有效期按日历月计算，0或留空表示永久；旧按天配置保留原期限，可明确切换到按月。可见用户组留空表示全部，多个ID以英文逗号分隔，0表示默认用户组。
       </p>
-      <h3>已上架用户组</h3>
+      <div class="published-heading">
+        <h3>已上架用户组</h3>
+        <button
+          class="primary"
+          :disabled="!canWrite || busy || uncertain"
+          @click="save('all')"
+        >
+          {{ busy ? "正在保存…" : "保存全部" }}
+        </button>
+      </div>
+      <p class="muted">
+        售价、期限、排序和可见范围编辑后需保存；上下架和总开关单独保存。
+      </p>
       <div class="table-scroll">
         <table>
           <thead>
             <tr>
-              <th>用户组</th>
+              <th>GID</th>
+              <th>用户组名称</th>
               <th>售价（元）</th>
-              <th>有效期</th>
+              <th>有效期（月）</th>
               <th>排序</th>
               <th>可见用户组</th>
               <th>简介</th>
@@ -250,11 +263,10 @@ onBeforeUnmount(() => {
           </thead>
           <tbody>
             <tr v-for="g in published" :key="g.id">
+              <td class="pa-c-num">{{ g.id }}</td>
               <td>
                 {{ g.name }}
-                <small class="muted"
-                  >{{ g.id }}{{ g.enabled ? "" : " · 用户组已禁用" }}</small
-                >
+                <small v-if="!g.enabled" class="muted">用户组已禁用</small>
               </td>
               <td>
                 <input
@@ -318,32 +330,42 @@ onBeforeUnmount(() => {
               </td>
             </tr>
             <tr v-if="!published.length">
-              <td colspan="7" class="empty">暂无已上架用户组</td>
+              <td colspan="8" class="empty">暂无已上架用户组</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div class="toolbar">
-        <button
-          class="primary"
-          :disabled="!canWrite || busy || uncertain"
-          @click="save('all')"
-        >
-          {{ busy ? "正在保存…" : "保存全部" }}</button
-        ><span class="muted"
-          >售价、期限、排序和可见范围编辑后需保存；上下架和总开关单独保存。</span
-        >
-      </div>
       <h3>未上架用户组</h3>
-      <p v-if="!unpublished.length" class="muted">暂无未上架用户组</p>
-      <div v-for="g in unpublished" :key="g.id" class="toolbar">
-        <span>{{ g.name }}（{{ g.id }}）</span
-        ><button
-          :disabled="!canWrite || busy || uncertain || !g.enabled"
-          @click="save('toggle', g)"
-        >
-          上架
-        </button>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>GID</th>
+              <th>用户组名称</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="g in unpublished" :key="g.id">
+              <td class="pa-c-num">{{ g.id }}</td>
+              <td>
+                {{ g.name }}
+                <small v-if="!g.enabled" class="muted">用户组已禁用</small>
+              </td>
+              <td>
+                <button
+                  :disabled="!canWrite || busy || uncertain || !g.enabled"
+                  @click="save('toggle', g)"
+                >
+                  上架
+                </button>
+              </td>
+            </tr>
+            <tr v-if="!unpublished.length">
+              <td colspan="3" class="empty">暂无未上架用户组</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </template>
   </section>
@@ -398,7 +420,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 .group-sales td {
-  min-width: 110px;
+  min-width: 0;
   vertical-align: top;
 }
 .group-sales td:first-child {
@@ -413,11 +435,34 @@ onBeforeUnmount(() => {
 .group-sales td input,
 .group-sales td select {
   width: 100%;
-  min-width: 85px;
+  min-width: 0;
   box-sizing: border-box;
+  min-height: var(--control-h);
+}
+.group-sales td:nth-child(3) {
+  white-space: nowrap;
+}
+.group-sales td:nth-child(3) select {
+  width: auto;
+  min-width: 0;
+}
+.group-sales td:nth-child(3) input {
+  width: 100%;
+  min-width: 0;
+  margin-top: 8px;
 }
 .group-sales h3 {
   margin-top: 24px;
+}
+.published-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+}
+.published-heading h3 {
+  margin: 0;
 }
 .group-sales table {
   width: 100%;

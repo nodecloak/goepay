@@ -152,7 +152,26 @@ func (s *Store) resultTx(ctx context.Context, tx pgx.Tx, c deliveryClaim, claimM
 	if sub.Generation != c.Generation {
 		return nil
 	}
-	sub.EventID = c.EventID
+	var closed bool
+	sub, closed = applySubscriptionOutcome(sub, c.EventID, state)
+	subMAC, err := s.writeSubscription(ctx, tx, sub, previous)
+	if err != nil {
+		return err
+	}
+	if closed {
+		return s.captureClosedNotice(ctx, tx, c, resultMAC, subMAC, diagnostic)
+	}
+	return nil
+}
+
+// applySubscriptionOutcome maps a delivery result onto the shared per-merchant
+// subscription: it records the last delivery state and advances/resets the
+// consecutive-failure counter exactly the same way for refund and complaint
+// events. A tenth consecutive failure/unknown auto-disables every subscribed
+// event type and sets the public notice (returned closed=true). Pure; the
+// caller persists the returned subscription.
+func applySubscriptionOutcome(sub subscription, eventID int64, state string) (subscription, bool) {
+	sub.EventID = eventID
 	if state == "not_started" {
 		sub.LastState = "pending"
 	} else {
@@ -164,21 +183,14 @@ func (s *Store) resultTx(ctx context.Context, tx pgx.Tx, c deliveryClaim, claimM
 	closed := false
 	if (state == "failed" || state == "unknown") && len(sub.EventTypes) > 0 {
 		sub.Failures++
-		if sub.Failures >= 10 && len(sub.EventTypes) > 0 {
+		if sub.Failures >= 10 {
 			sub.EventTypes = []string{}
 			sub.Failures = 0
 			sub.Notice = "事件消息订阅地址已连续请求失败10次，系统已自动取消全部事件订阅，请检查订阅地址后重新开启。"
 			closed = true
 		}
 	}
-	subMAC, err := s.writeSubscription(ctx, tx, sub, previous)
-	if err != nil {
-		return err
-	}
-	if closed {
-		return s.captureClosedNotice(ctx, tx, c, resultMAC, subMAC, diagnostic)
-	}
-	return nil
+	return sub, closed
 }
 
 func (s *Store) recordResult(c deliveryClaim, claimMAC []byte, state, diagnostic string) error {
@@ -284,7 +296,7 @@ func (s *Store) Deliver(ctx context.Context, j jobs.Job, key *rsa.PrivateKey, cl
 	if err != nil {
 		return err
 	}
-	active := sub.EventURL != "" && len(sub.EventTypes) == 1 && sub.EventTypes[0] == "refund"
+	active := sub.EventURL != "" && hasEventType(sub.EventTypes, "refund")
 	var post string
 	if active {
 		if httpclient.ValidateURL(sub.EventURL) != nil {

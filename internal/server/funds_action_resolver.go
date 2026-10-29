@@ -136,6 +136,9 @@ func fundsTarget(target string) (fundsTargetDefinition, bool) {
 			case "deposits":
 				d.guard = "deposit"
 				d.keys = []string{"merchant_id", "action", "amount", "external_no"}
+			case "balance-adjustments":
+				d.guard = "admin-adjust"
+				d.keys = []string{"merchant_id", "direction", "amount", "reason", "external_no"}
 			default:
 				return d, false
 			}
@@ -263,6 +266,10 @@ func normalizeFundsBody(raw []byte, d fundsTargetDefinition) (map[string]json.Ra
 			}
 		case "reason":
 			if strings.TrimSpace(text) == "" || len(text) > 240 || strings.ContainsAny(text, "\x00\r\n") {
+				return nil, nil, payment.ErrInvalid
+			}
+		case "direction":
+			if text != "credit" && text != "debit" {
 				return nil, nil, payment.ErrInvalid
 			}
 		}
@@ -689,6 +696,13 @@ func (s *Server) ResolveFundsAction(ctx context.Context, q identity.FundsQuerier
 		addMerchant(rewardSource.PromoterID)
 		summary["membership_reward_cents"] = fmt.Sprint(rewardSource.Reward)
 		summary["membership_reward_reason"] = rewardSource.Reason
+	case "balance-adjustments":
+		direction := fundsText(fields, "direction")
+		if mid <= 0 || fundsText(fields, "external_no") == "" || fundsText(fields, "amount") == "" || (direction != "credit" && direction != "debit") {
+			return identity.FundsAction{}, nil, payment.ErrInvalid
+		}
+		summary["direction"] = direction
+		summary["adjust_type"] = payment.AdminAdjustRecordLabel(direction == "credit")
 	case "deposits":
 		if d.id == "" {
 			if mid <= 0 || fundsText(fields, "external_no") == "" || fundsText(fields, "amount") == "" || (fundsText(fields, "action") != "hold" && fundsText(fields, "action") != "release") {

@@ -23,6 +23,9 @@ import {
 } from "../scheduled-tasks";
 import ResourcePage from "./ResourcePage.vue";
 import OperationsPage from "./OperationsPage.vue";
+import KitSwitch from "./KitSwitch.vue";
+import KitSelect from "./KitSelect.vue";
+import KitStatusTag from "./KitStatusTag.vue";
 import { operationPages } from "../operations";
 const props = defineProps<{ client: ApiClient; allowed: boolean }>();
 const permitted = computed(
@@ -128,6 +131,24 @@ function scheduleLabel(t: ScheduledTask) {
   return t.schedule.frequency === "once"
     ? "仅一次"
     : "每 " + t.schedule.interval + " " + labelFrequency(t.schedule.frequency);
+}
+function taskStateShort(t: ScheduledTask) {
+  if (!t.available) return "不可用";
+  if (t.control_mode === "legacy_managed") return "未接管";
+  if (!t.configured) return "未配置";
+  return t.enabled ? "已开启" : "已关闭";
+}
+function taskStateBadge(t: ScheduledTask) {
+  if (!t.available) return "none";
+  if (t.control_mode === "legacy_managed") return "warn";
+  if (!t.configured) return "none";
+  return t.enabled ? "on" : "off";
+}
+function taskStateTone(
+  t: ScheduledTask,
+): "success" | "warning" | "danger" | "info" | "neutral" {
+  const s = taskStateBadge(t);
+  return s === "on" ? "success" : s === "warn" ? "warning" : "neutral";
 }
 async function load() {
   if (!ensure() || busy.value || modal.value) return;
@@ -451,7 +472,7 @@ onBeforeUnmount(() => {
           时间均为 UTC+8。立即运行只安排一次待执行任务，完成结果以执行记录为准。
         </p>
         <button ref="refresh" :disabled="loading || !!modal" @click="load">
-          刷新任务列表
+          <ShellIcon name="refresh" />刷新任务列表
         </button>
       </div>
       <p class="muted">
@@ -462,58 +483,49 @@ onBeforeUnmount(() => {
       <p v-if="catalogError" role="alert" class="task-error">
         {{ catalogError }}
       </p>
-      <div v-if="items.length" class="task-table-wrap">
-        <table class="task-table">
-          <thead>
-            <tr>
-              <th>任务名称</th>
-              <th>任务开关</th>
-              <th>执行频率</th>
-              <th>上次真实开始</th>
-              <th>下次安排</th>
-              <th>最近状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in items" :key="item.task">
-              <td data-label="任务名称">
-                <strong>{{ item.name }}</strong
-                ><small>{{ item.task }}</small>
-                <p v-if="!item.available">{{ item.unavailable_reason }}</p>
-              </td>
-              <td data-label="任务开关">{{ scheduledTaskModeLabel(item) }}</td>
-              <td data-label="执行频率">{{ scheduleLabel(item) }}</td>
-              <td data-label="上次真实开始">
-                {{ displayTime(item.last_run_time) }}
-              </td>
-              <td data-label="下次安排">
-                {{ displayTime(item.next_run_time) }}
-              </td>
-              <td data-label="最近状态">{{ labelStatus(item.last_status) }}</td>
-              <td data-label="操作" class="task-actions">
-                <button
-                  :disabled="!item.can_update"
-                  @click="open('config', item, $event)"
-                >
-                  配置</button
-                ><button
-                  :disabled="!item.can_run"
-                  @click="open('run', item, $event)"
-                >
-                  立即运行</button
-                ><button @click="open('history', item, $event)">
-                  执行记录
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div v-if="items.length" class="job-cards">
+        <article v-for="item in items" :key="item.task" class="job-card">
+          <header class="job-card-head">
+            <strong class="job-name">{{ item.name }}</strong>
+            <KitStatusTag
+              :text="taskStateShort(item)"
+              :tone="taskStateTone(item)"
+            />
+          </header>
+          <p class="job-key muted">{{ item.task }}</p>
+          <p class="job-mode muted">{{ scheduledTaskModeLabel(item) }}</p>
+          <p v-if="!item.available" class="job-unavailable muted">
+            {{ item.unavailable_reason }}
+          </p>
+          <dl class="job-meta">
+            <dt>执行频率</dt>
+            <dd>{{ scheduleLabel(item) }}</dd>
+            <dt>上次执行</dt>
+            <dd>{{ displayTime(item.last_run_time) }}</dd>
+            <dt>下次执行</dt>
+            <dd>{{ displayTime(item.next_run_time) }}</dd>
+            <dt>最近状态</dt>
+            <dd>{{ labelStatus(item.last_status) }}</dd>
+          </dl>
+          <footer class="job-card-actions">
+            <button
+              :disabled="!item.can_update"
+              @click="open('config', item, $event)"
+            >
+              配置</button
+            ><button
+              :disabled="!item.can_run"
+              @click="open('run', item, $event)"
+            >
+              立即运行</button
+            ><button @click="open('history', item, $event)">执行记录</button>
+          </footer>
+        </article>
       </div>
-      <div class="task-diagnostics">
-        <button @click="legacyOpen = !legacyOpen">
+      <div class="task-diagnostics table-tools">
+        <button class="soft-button" @click="legacyOpen = !legacyOpen">
           {{ legacyOpen ? "收起旧计划资料" : "旧计划资料（只读）" }}</button
-        ><button @click="queueOpen = !queueOpen">
+        ><button class="soft-button" @click="queueOpen = !queueOpen">
           {{ queueOpen ? "收起任务队列" : "查看任务队列（诊断）" }}
         </button>
       </div>
@@ -571,22 +583,21 @@ onBeforeUnmount(() => {
             <form v-if="!confirmation" @submit.prevent="review">
               <fieldset :disabled="blocked() || !target.can_update">
                 <div class="task-fields">
-                  <label class="task-check"
-                    ><input v-model="draft.enabled" type="checkbox" />
-                    开启此任务</label
-                  >
+                  <div class="task-check">
+                    <KitSwitch v-model="draft.enabled" label="开启此任务" />
+                  </div>
                   <label for="scheduler171-frequency"
-                    >执行频率<select
-                      id="scheduler171-frequency"
+                    >执行频率<KitSelect
                       v-model="draft.frequency"
-                    >
-                      <option value="second">秒</option>
-                      <option value="minute">分钟</option>
-                      <option value="hour">小时</option>
-                      <option value="day">天</option>
-                      <option value="once">仅一次</option>
-                    </select></label
-                  >
+                      :options="[
+                        { value: 'second', label: '秒' },
+                        { value: 'minute', label: '分钟' },
+                        { value: 'hour', label: '小时' },
+                        { value: 'day', label: '天' },
+                        { value: 'once', label: '仅一次' },
+                      ]"
+                      aria-label="执行频率"
+                  /></label>
                   <label for="scheduler171-interval"
                     >间隔<input
                       id="scheduler171-interval"
@@ -766,60 +777,82 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 .muted,
-.task-table small,
 .task-fields small {
-  color: #5b6472;
+  color: var(--ink-muted);
 }
-.task-table-wrap {
-  overflow: auto;
+.job-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
 }
-.task-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
+.job-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  padding: var(--space-4);
+  min-width: 0;
 }
-.task-table th,
-.task-table td {
-  padding: 0.8rem 0.65rem;
-  border-bottom: 1px solid #dce3eb;
-  text-align: left;
-  vertical-align: top;
+.job-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
-.task-table th {
-  background: #f5f7fa;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.task-table small {
-  display: block;
+.job-name {
+  min-width: 0;
   overflow-wrap: anywhere;
-  margin-top: 0.3rem;
 }
-.task-table td p {
-  max-width: 22rem;
-  margin: 0.45rem 0 0;
+.job-key,
+.job-mode,
+.job-unavailable {
+  margin: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.job-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px var(--space-3);
+  margin: var(--space-2) 0 0;
   font-size: 0.85rem;
 }
-.task-actions {
-  min-width: 11rem;
+.job-meta dt {
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+.job-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.job-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
 }
 .task-scheduler button {
   cursor: pointer;
   min-height: 2.3rem;
-  border: 1px solid #ccd6e2;
+  border: 1px solid var(--line-control);
   border-radius: 0.35rem;
-  background: #fff;
-  color: #23415d;
+  background: var(--bg-card);
+  color: var(--ink);
   padding: 0.4rem 0.7rem;
 }
 .task-scheduler button:hover:not(:disabled) {
-  background: #edf5fc;
-  border-color: #7fa6cf;
+  background: var(--primary-soft);
+  border-color: var(--primary-text);
 }
 .task-scheduler button:focus-visible,
 .task-fields input:focus-visible,
 .task-fields select:focus-visible {
-  outline: 3px solid #2369a6;
+  outline: 3px solid var(--primary-text);
   outline-offset: 2px;
 }
 .task-scheduler button:disabled {
@@ -830,17 +863,17 @@ onBeforeUnmount(() => {
   margin-top: 1.2rem;
 }
 .task-error {
-  color: #a82222;
+  color: var(--danger-text);
   overflow-wrap: anywhere;
 }
 .task-notice {
-  color: #16623c;
+  color: var(--success-text);
   overflow-wrap: anywhere;
 }
 .task-backdrop {
   position: fixed;
   inset: 0;
-  background: #17253680;
+  background: var(--scrim);
   z-index: 1300;
   display: grid;
   place-items: center;
@@ -850,10 +883,10 @@ onBeforeUnmount(() => {
   width: min(46rem, 100%);
   max-height: 88vh;
   overflow: auto;
-  background: white;
+  background: var(--bg-card);
   border-radius: 0.55rem;
   padding: 1.2rem;
-  box-shadow: 0 1rem 3rem #0003;
+  box-shadow: var(--shadow-modal);
   overflow-wrap: anywhere;
 }
 .task-dialog header {
@@ -866,7 +899,7 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 .task-dialog footer {
-  border-top: 1px solid #dce3eb;
+  border-top: 1px solid var(--line);
   padding-top: 1rem;
   margin-top: 1rem;
   justify-content: flex-end;
@@ -888,9 +921,9 @@ onBeforeUnmount(() => {
   min-width: 0;
   box-sizing: border-box;
   padding: 0.5rem;
-  border: 1px solid #a9b8c9;
+  border: 1px solid var(--line-control);
   border-radius: 0.3rem;
-  background: #fff;
+  background: var(--bg-card);
 }
 .task-fields .task-check {
   flex-direction: row;
@@ -907,8 +940,8 @@ onBeforeUnmount(() => {
 }
 .task-confirm {
   padding: 1rem;
-  border: 1px solid #cadcec;
-  background: #f4f8fc;
+  border: 1px solid var(--line-control);
+  background: var(--bg-raised);
   border-radius: 0.35rem;
 }
 .task-confirm button {
@@ -920,7 +953,7 @@ onBeforeUnmount(() => {
 }
 .task-history li {
   padding: 1rem;
-  border: 1px solid #dce3eb;
+  border: 1px solid var(--line);
   border-radius: 0.35rem;
   margin: 0.8rem 0;
 }
@@ -943,36 +976,6 @@ onBeforeUnmount(() => {
   margin-bottom: 0;
 }
 @media (max-width: 680px) {
-  .task-table,
-  .task-table tbody,
-  .task-table tr,
-  .task-table td {
-    display: block;
-  }
-  .task-table thead {
-    display: none;
-  }
-  .task-table tr {
-    border: 1px solid #dce3eb;
-    border-radius: 0.4rem;
-    margin: 0.8rem 0;
-    padding: 0.4rem;
-  }
-  .task-table td {
-    border: 0;
-    padding: 0.45rem;
-    white-space: normal;
-  }
-  .task-table td::before {
-    content: attr(data-label);
-    display: block;
-    font-size: 0.78rem;
-    color: #637083;
-    margin-bottom: 0.2rem;
-  }
-  .task-actions {
-    min-width: 0;
-  }
   .task-fields {
     grid-template-columns: 1fr;
   }

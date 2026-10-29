@@ -1332,19 +1332,20 @@ onMounted(() => {
 .sharing-form label,
 .sharing-toolbar label {
   display: grid;
-  gap: 7px;
+  gap: 6px;
+  margin: 0;
+}
+.sharing-form label > input,
+.sharing-form label > select,
+.sharing-toolbar label > input,
+.sharing-toolbar label > select {
+  margin-top: 0;
 }
 .sharing-form button {
   align-self: end;
 }
 .sharing-page select {
   width: 100%;
-  padding: 11px;
-  border: 1px solid #beced6;
-  border-radius: 5px;
-  background: white;
-  color: var(--ink);
-  font: inherit;
 }
 .sharing-form fieldset {
   border: 1px solid var(--line);
@@ -1405,16 +1406,17 @@ small {
   max-width: 620px;
   margin: auto;
   padding: 20px;
-  background: var(--paper);
-  box-shadow: 0 5px 35px #172e4040;
-  border: 2px solid var(--accent);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-modal);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
   z-index: 30;
 }
 .sharing-confirm button + button {
   margin-left: 10px;
 }
 .sharing-page :focus-visible {
-  outline: 3px solid #176978;
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 @media (max-width: 640px) {
