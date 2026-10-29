@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import ShellIcon from "./ShellIcon.vue";
 import PluginDetailDrawer from "./PluginDetailDrawer.vue";
 import KitStatusTag from "./KitStatusTag.vue";
 import KitPagination from "./KitPagination.vue";
 import { templatePreviewImage } from "../page-template";
 import {
-  builtinCount,
   builtinPlugin,
   catalogKey,
   filterCatalog,
@@ -36,7 +34,6 @@ const pageRows = computed(() =>
   ),
 );
 watch([type, applied], () => (page.value = 1));
-const builtin = computed(() => builtinCount(items.value));
 onMounted(async () => {
   try {
     items.value = await loadPluginCatalog();
@@ -53,14 +50,6 @@ function reset() {
 </script>
 <template>
   <section class="panel plugin-page" aria-label="应用市场">
-    <p class="alert plugin-notice" role="note">
-      <ShellIcon name="info" /><span
-        >Go 版插件和模板随服务内置、默认已安装，不能在线购买、下载或安装 PHP
-        插件。下表是原应用市场的列表{{
-          loading ? "" : `，已内置 ${builtin} 个，其余暂不支持`
-        }}。</span
-      >
-    </p>
     <form class="plugin-search" role="search" @submit.prevent="applied = query">
       <input
         v-model="query"
@@ -168,19 +157,6 @@ function reset() {
   </section>
 </template>
 <style scoped>
-.plugin-notice {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--warning-soft);
-  color: var(--ink);
-}
-.plugin-notice .shell-icon {
-  width: 16px;
-  height: 16px;
-  flex: none;
-  color: var(--warning-text);
-}
 .plugin-search {
   display: flex;
   gap: 8px;

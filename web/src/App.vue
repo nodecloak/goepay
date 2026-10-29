@@ -2005,11 +2005,9 @@ onBeforeUnmount(() => {
               :key="path + 'config'"
               :client="client"
               resource="plugin-configs"
-            />
-            <h2 class="operation-heading">当前运行能力</h2></template
-          >
+          /></template>
           <OperationsPage
-            v-if="path !== '/system/update'"
+            v-if="path !== '/system/update' && path !== '/app/plugin-list'"
             :key="path"
             :client="client"
             :operation="operationPages[path]"

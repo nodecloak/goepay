@@ -109,6 +109,7 @@ it("the market page lists the original plugins with their Go state and a detail 
   expect(w.text()).toContain("支付宝官方支付");
   expect(w.text()).toContain("已内置");
   expect(w.text()).toContain("暂不支持");
+  expect(w.text()).not.toContain("不能在线购买");
   expect(w.findAll("button").some((b) => /下载|购买|安装/.test(b.text()))).toBe(
     false,
   );
@@ -160,9 +161,16 @@ it("the local plugin page shows only built-in plugins of the chosen category", a
   await vi.waitFor(() => expect(w.text()).not.toContain("正在读取插件列表"));
   await flushPromises();
   expect(w.findAll('[role="tab"]').map((t) => t.text())).not.toContain("模板");
-  // Every ported payment plugin (native + registry) shows on 本地插件.
-  expect(w.findAll("tbody tr").length).toBe(59);
+  // Every ported payment plugin (native + registry) shows on 本地插件, 20 a page.
+  expect(w.findAll("tbody tr").length).toBe(20);
+  expect(w.get(".pa-pager").text()).toContain("共 59 条");
+  await w.get('input[aria-label="搜索插件名称或标识"]').setValue("威富通");
+  await w.get("form").trigger("submit");
   expect(w.get("tbody").text()).toContain("威富通MD5");
+  await w
+    .findAll("button")
+    .find((b) => b.text() === "重置")!
+    .trigger("click");
   const mail = w.findAll('[role="tab"]').find((t) => t.text() === "邮件插件")!;
   await mail.trigger("click");
   expect(w.get("tbody").text()).toContain("smtp");

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import ShellIcon from "./ShellIcon.vue";
 import PluginDetailDrawer from "./PluginDetailDrawer.vue";
+import KitPagination from "./KitPagination.vue";
 import {
   catalogKey,
   loadPluginCatalog,
@@ -18,10 +19,19 @@ const items = ref<CatalogEntry[]>([]),
   type = ref<PluginType>("payment"),
   query = ref(""),
   applied = ref(""),
-  selected = ref<CatalogEntry | null>(null);
+  selected = ref<CatalogEntry | null>(null),
+  page = ref(1),
+  pageSize = ref(20);
 const rows = computed(() =>
   localPlugins(items.value, type.value, applied.value),
 );
+const pageRows = computed(() =>
+  rows.value.slice(
+    (page.value - 1) * pageSize.value,
+    page.value * pageSize.value,
+  ),
+);
+watch([type, applied], () => (page.value = 1));
 onMounted(async () => {
   try {
     items.value = await loadPluginCatalog();
@@ -76,7 +86,7 @@ function reset() {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="item in rows" :key="catalogKey(item)">
+          <tr v-for="item in pageRows" :key="catalogKey(item)">
             <td>
               <span class="plugin-name"
                 ><img v-if="item.icon" :src="item.icon" alt="" loading="lazy" />
@@ -121,11 +131,12 @@ function reset() {
         </tbody>
       </table>
     </div>
-    <p class="plugin-note muted">
-      <ShellIcon name="info" />Go 版插件随服务一起发布，不从 /plugins/payment/
-      目录加载 PHP 源码。其它插件需要在 Go
-      服务中实现后才会出现在这里，原应用市场列表见“应用市场”。
-    </p>
+    <KitPagination
+      v-if="!loading && !error && rows.length"
+      v-model:page="page"
+      v-model:page-size="pageSize"
+      :total="rows.length"
+    />
     <PluginDetailDrawer
       v-if="selected"
       :entry="selected"
@@ -164,21 +175,5 @@ function reset() {
 .plugin-link .shell-icon {
   width: 13px;
   height: 13px;
-}
-.plugin-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  margin: 16px 0 0;
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  font-size: 12px;
-}
-.plugin-note .shell-icon {
-  width: 14px;
-  height: 14px;
-  flex: none;
-  margin-top: 3px;
 }
 </style>
