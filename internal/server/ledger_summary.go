@@ -92,14 +92,19 @@ func (s *Server) ledgerSummary(w http.ResponseWriter, r *http.Request, role stri
 	where := " WHERE ($1::bigint=0 OR a.owner_id=$1) AND (" + searchClause + ")" + filters
 	// 增加 sums positive entries, 减少 the absolute value of negative entries, and
 	// 总计 the net change. Formatting matches the list's integer-minor-unit → yuan
-	// projection exactly (no floats).
-	money := func(expression string) string {
-		return "(COALESCE(sum(" + expression + "),0)::numeric/100)::numeric(38,2)::text"
+	// projection exactly (no floats). FILTER applies to the aggregate, so it goes
+	// after sum(...), not inside it.
+	money := func(expression, condition string) string {
+		filter := ""
+		if condition != "" {
+			filter = " FILTER(WHERE " + condition + ")"
+		}
+		return "(COALESCE(sum(" + expression + ")" + filter + ",0)::numeric/100)::numeric(38,2)::text"
 	}
 	query := "SELECT count(*)::text," +
-		money("e.amount FILTER(WHERE e.amount>0)") + "," +
-		money("-e.amount FILTER(WHERE e.amount<0)") + "," +
-		money("e.amount") +
+		money("e.amount", "e.amount>0") + "," +
+		money("-e.amount", "e.amount<0") + "," +
+		money("e.amount", "") +
 		" FROM " + consoleLedgerFrom + where
 	var count, increase, decrease, net string
 	if err = s.Pool.QueryRow(ctx, query, args...).Scan(&count, &increase, &decrease, &net); err != nil {
