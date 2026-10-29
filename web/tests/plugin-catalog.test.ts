@@ -150,8 +150,12 @@ it("the market pages long lists and shows every template as installed", async ()
   await w
     .get('button[aria-label="应用详情 深色科技风首页模板"]')
     .trigger("click");
-  const big = w.get('[role="dialog"][aria-label="应用详情"] img.plugin-preview');
-  expect(big.attributes("src")).toBe("/static/template-previews/home-index7.jpg");
+  const big = w.get(
+    '[role="dialog"][aria-label="应用详情"] img.plugin-preview',
+  );
+  expect(big.attributes("src")).toBe(
+    "/static/template-previews/home-index7.jpg",
+  );
   expect(big.attributes("alt")).toBe("深色科技风首页模板 预览截图");
   w.unmount();
 });
@@ -177,5 +181,53 @@ it("the local plugin page shows only built-in plugins of the chosen category", a
   const sms = w.findAll('[role="tab"]').find((t) => t.text() === "短信插件")!;
   await sms.trigger("click");
   expect(w.get("tbody").text()).toContain("暂无数据");
+  w.unmount();
+});
+
+// The market advertises three paid addons (支付宝批量转账有密 / 支付宝安全发 /
+// 微信客服支付) captured from epay_pro, but this Go build ships no page, API or
+// adapter for any of them. They MUST stay 暂不支持 so the console never claims a
+// plugin the service cannot run; this guards against a future edit silently
+// adding them to builtinPlugins without the backing implementation.
+const unimplementedAddons = ["alipayfund", "alipaysatf", "wxkfpay"] as const;
+
+it("keeps claimed-but-unimplemented addons marked 暂不支持", () => {
+  for (const name of unimplementedAddons) {
+    const entry = items.find((i) => i.type === "addons" && i.name === name);
+    expect(entry, `addon ${name} missing from catalog`).toBeDefined();
+    expect(
+      builtinPlugin({ type: "addons", name }),
+      `addon ${name} must not be marked 已内置`,
+    ).toBeUndefined();
+  }
+  // None of them surface on 本地插件 either (that list is built-ins only).
+  expect(localPlugins(items, "addons", "").map((i) => i.name)).not.toEqual(
+    expect.arrayContaining([...unimplementedAddons]),
+  );
+});
+
+it("the market tags unimplemented addons 暂不支持 with the honest Go-state note", async () => {
+  const w = mount(AppStorePage, { attachTo: document.body });
+  await vi.waitFor(() => expect(w.text()).not.toContain("正在读取应用列表"));
+  await flushPromises();
+  const addons = w
+    .findAll('[role="tab"]')
+    .find((t) => t.text() === "功能扩展")!;
+  await addons.trigger("click");
+  const body = w.get("tbody");
+  expect(body.text()).toContain("支付宝安全发");
+  expect(body.text()).toContain("微信客服支付");
+  // No addon row claims support.
+  const rows = w.findAll("tbody tr");
+  for (const name of unimplementedAddons) {
+    const row = rows.find((r) => r.text().includes(name));
+    expect(row, `row for ${name}`).toBeTruthy();
+    expect(row!.text()).toContain("暂不支持");
+    expect(row!.text()).not.toContain("已内置");
+  }
+  await w.get('button[aria-label="应用详情 支付宝安全发"]').trigger("click");
+  const drawer = w.get('[role="dialog"][aria-label="应用详情"]');
+  expect(drawer.text()).toContain("暂不支持");
+  expect(drawer.text()).toContain("Go 版尚未实现该插件");
   w.unmount();
 });
