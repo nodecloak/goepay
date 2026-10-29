@@ -2437,14 +2437,21 @@ button.badge.state-toggle:hover:not(:disabled) {
   cursor: not-allowed;
   filter: none;
 }
+/* While loading, the spinner (14px) and its gap (4px) take 18px, and the
+   side padding gives up the same 18px (15px -> 6px each side). The button
+   keeps its width, so the filter row around it does not re-wrap or move. */
 .pa-btn--loading {
   pointer-events: none;
   opacity: 0.8;
+  gap: 4px;
+  padding-inline: 6px;
 }
 .pa-btn--loading::before {
   content: "";
-  width: 12px;
-  height: 12px;
+  box-sizing: border-box;
+  flex: none;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: 2px solid currentColor;
   border-right-color: transparent;
