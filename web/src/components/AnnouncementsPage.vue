@@ -417,11 +417,11 @@ onBeforeUnmount(() => {
               ><small class="muted">留空使用默认颜色</small></label
             >
           </div>
-          <div class="toolbar-actions">
-            <button type="submit" class="primary" :disabled="!canSave">
-              {{ busy ? "处理中…" : selected ? "保存" : "添加" }}</button
-            ><button type="button" :disabled="busy" @click="closeForm">
-              取消
+          <div class="modal-actions">
+            <button type="button" :disabled="busy" @click="closeForm">
+              取消</button
+            ><button type="submit" class="primary" :disabled="!canSave">
+              {{ busy ? "处理中…" : selected ? "保存" : "添加" }}
             </button>
           </div>
         </form>
@@ -510,7 +510,7 @@ onBeforeUnmount(() => {
           :content="removing.content"
           :format="removing.content_format"
         />
-        <div class="toolbar-actions">
+        <div class="modal-actions">
           <button type="button" :disabled="busy" @click="cancelDelete">
             取消</button
           ><button
@@ -543,7 +543,8 @@ onBeforeUnmount(() => {
   gap: var(--space-2);
   flex-wrap: wrap;
 }
-.announcements-page h2 {
+.announcements-page > section > h2,
+.announcements-page .panel-heading h2 {
   font-size: 16px;
   margin: 0 0 18px;
 }

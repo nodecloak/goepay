@@ -222,7 +222,7 @@ onMounted(load);
     @submit="create"
   >
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
-    <KitField v-if="admin" label="付款商户">
+    <KitField v-if="admin" label="付款商户" required>
       <KitInput
         :model-value="form.merchant_id"
         inputmode="numeric"
@@ -250,7 +250,7 @@ onMounted(load);
         @update:model-value="form.channel_id = $event.trim()"
       />
     </KitField>
-    <KitField label="交易号">
+    <KitField label="交易号" required>
       <KitInput
         :model-value="form.out_biz_no"
         :maxlength="19"
@@ -259,7 +259,7 @@ onMounted(load);
         @update:model-value="form.out_biz_no = $event.trim()"
       />
     </KitField>
-    <KitField label="红包金额">
+    <KitField label="红包金额" required>
       <KitInput
         :model-value="form.amount"
         inputmode="decimal"

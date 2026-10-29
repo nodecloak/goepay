@@ -1094,22 +1094,6 @@ onBeforeUnmount(() => {
   display: grid;
   gap: var(--space-4);
 }
-.transfer-form > .pa-field {
-  display: grid;
-  grid-template-columns: 100px minmax(0, 1fr);
-  align-items: center;
-  column-gap: var(--space-3);
-  /* The global label rule adds 18px above and below every <label>. */
-  margin: 0;
-}
-.transfer-form > .pa-field > :deep(.pa-label) {
-  text-align: right;
-  white-space: normal;
-}
-.transfer-form > .pa-field > :deep(.pa-input),
-.transfer-form > .pa-field > :deep(.pa-select) {
-  width: 100%;
-}
 .transfer-inline {
   display: flex;
   gap: var(--space-2);
@@ -1121,7 +1105,8 @@ onBeforeUnmount(() => {
 }
 /* Notes sit under the control column, not under the labels. */
 .transfer-note {
-  margin: calc(-1 * var(--space-2)) 0 0 calc(100px + var(--space-3));
+  margin: calc(-1 * var(--space-2)) 0 0
+    calc(var(--form-label-w, 100px) + var(--space-3));
   color: var(--ink-muted);
   font-size: 12px;
   line-height: 1.6;
@@ -1144,13 +1129,6 @@ onBeforeUnmount(() => {
   height: 16px;
 }
 @media (max-width: 520px) {
-  .transfer-form > .pa-field {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: var(--space-1);
-  }
-  .transfer-form > .pa-field > :deep(.pa-label) {
-    text-align: left;
-  }
   .transfer-note {
     margin-left: 0;
   }

@@ -111,12 +111,7 @@ onBeforeUnmount(() => {
       tabindex="-1"
       @keydown="keydown"
     >
-      <div class="toolbar">
-        <h2 :id="id + '-title'">退款统计</h2>
-        <button ref="closeButton" type="button" @click="emit('close')">
-          关闭
-        </button>
-      </div>
+      <h2 :id="id + '-title'">退款统计</h2>
       <p class="muted">统计当前筛选条件下的全部退款记录，不受列表分页限制。</p>
       <p v-if="loading" role="status">正在读取退款统计…</p>
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
@@ -129,9 +124,18 @@ onBeforeUnmount(() => {
       <p class="muted">
         处理中包含退款中及待核实记录；失败记录计入筛选总计，不计入成功金额。
       </p>
-      <button v-if="error" type="button" :disabled="loading" @click="load">
-        重试读取退款统计
-      </button>
+      <div class="modal-actions">
+        <button v-if="error" type="button" :disabled="loading" @click="load">
+          重试读取退款统计</button
+        ><button
+          ref="closeButton"
+          type="button"
+          class="primary"
+          @click="emit('close')"
+        >
+          关闭
+        </button>
+      </div>
     </section>
   </div>
 </template>

@@ -1666,9 +1666,7 @@ onBeforeUnmount(resetContext);
         entry
           ? 'panel resource-entry-form'
           : 'modal panel resource-modal' +
-            (resource === 'merchants' && mode === 'edit'
-              ? ' merchant-edit-modal'
-              : '') +
+            (resource === 'merchants' ? ' merchant-edit-modal' : '') +
             (isGroupEditor ? ' group-edit-modal' : '')
       "
       :role="entry ? undefined : 'dialog'"
@@ -1845,6 +1843,7 @@ onBeforeUnmount(resetContext);
         />
         <ResourceFields
           v-else
+          class="form-rows"
           :fields="formSchema!.fields"
           :values="values"
           :errors="fieldErrors"
@@ -1894,7 +1893,9 @@ onBeforeUnmount(resetContext);
   padding-top: 4dvh;
   padding-bottom: 4dvh;
 }
-.group-edit-modal {
+/* .modal.resource-modal sets 480px in style.css, which loads after this
+   file, so the wide editors need the same classes to keep their width. */
+.modal.resource-modal.group-edit-modal {
   width: min(100%, 1000px);
   max-height: 92dvh;
 }
@@ -1912,7 +1913,7 @@ onBeforeUnmount(resetContext);
   padding: 4px 12px;
   border: 0;
 }
-.merchant-edit-modal {
+.modal.resource-modal.merchant-edit-modal {
   width: min(100%, 900px);
 }
 </style>

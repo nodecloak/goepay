@@ -22,7 +22,7 @@ test("a new original group starts with both SDK payment types closed until expli
   await expect(
     create.getByRole("combobox", { name: "微信支付通道", exact: true }),
   ).toHaveValue("disabled");
-  await create.getByLabel("显示名称 *", { exact: true }).fill("原版新组");
+  await create.getByLabel("显示名称", { exact: true }).fill("原版新组");
   expect(writes).toHaveLength(0);
   await create.getByRole("button", { name: "保存", exact: true }).click();
   await expect.poll(() => writes.length).toBe(1);

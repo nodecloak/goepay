@@ -72,7 +72,7 @@ for (const width of [1280, 375])
     await dialog
       .getByRole("combobox", { name: "支付宝通道", exact: true })
       .selectOption("sequential");
-    await dialog.getByLabel("显示名称 *", { exact: true }).fill("系统默认商户");
+    await dialog.getByLabel("显示名称", { exact: true }).fill("系统默认商户");
     expect(writes).toHaveLength(0);
     await page.screenshot({
       path: info.outputPath(`default-group-${width}.png`),
