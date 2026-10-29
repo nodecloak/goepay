@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref } from "vue";
+import { computed, nextTick, onMounted, onBeforeUnmount, ref } from "vue";
 import type { ApiClient } from "../api";
 import ShellIcon from "./ShellIcon.vue";
 import {
@@ -36,6 +36,19 @@ const loading = ref(false),
   notice = ref(""),
   confirmation = ref<"save" | "select" | null>(null),
   preview = ref(false);
+// The card 预览 button opens a template over the whole main content area.
+const fullPreview = ref<{ name: string; title: string } | null>(null),
+  fullPreviewClose = ref<HTMLButtonElement | null>(null);
+let fullPreviewReturn: HTMLElement | null = null;
+function openFullPreview(item: { name: string; title: string }, ev: Event) {
+  fullPreviewReturn = ev.currentTarget as HTMLElement;
+  fullPreview.value = { name: item.name, title: item.title };
+  void nextTick(() => fullPreviewClose.value?.focus());
+}
+function closeFullPreview() {
+  fullPreview.value = null;
+  void nextTick(() => fullPreviewReturn?.focus());
+}
 let epoch = 0,
   active = true,
   controller: AbortController | undefined;
@@ -73,6 +86,7 @@ async function load(nextKind = kind.value, nextName?: TemplateName) {
   controller?.abort();
   controller = new AbortController();
   const token = ++epoch;
+  if (nextKind !== kind.value) fullPreview.value = null;
   kind.value = nextKind;
   loading.value = true;
   confirmation.value = null;
@@ -238,32 +252,77 @@ onBeforeUnmount(() => {
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
       <p v-if="notice" role="status" class="alert success">{{ notice }}</p>
       <div v-if="catalog" class="template-cards">
-        <button
+        <div
           v-for="item in catalog.items"
           :key="item.name"
-          type="button"
           class="template-card"
-          :aria-pressed="view?.name === item.name"
-          :disabled="busy || loading"
-          @click="load(kind, item.name)"
+          :class="{ 'is-current': view?.name === item.name }"
         >
-          <img
-            class="template-thumb"
-            :src="templatePreviewImage(kind, item.name)"
-            alt=""
-            loading="lazy"
-          />
-          <span class="template-card-body">
-            <strong
-              >{{ item.title
-              }}<KitStatusTag
-                v-if="catalog.selected === item.name"
-                tone="success"
-                text="当前使用"
-            /></strong>
-            <small>标识：{{ item.name }} · {{ item.description }}</small>
-          </span>
-        </button>
+          <button
+            type="button"
+            class="template-card-pick"
+            :aria-pressed="view?.name === item.name"
+            :disabled="busy || loading"
+            @click="load(kind, item.name)"
+          >
+            <img
+              class="template-thumb"
+              :src="templatePreviewImage(kind, item.name)"
+              alt=""
+              loading="lazy"
+            />
+            <span class="template-card-body">
+              <strong
+                >{{ item.title
+                }}<KitStatusTag
+                  v-if="catalog.selected === item.name"
+                  tone="success"
+                  text="当前使用"
+              /></strong>
+              <small>标识：{{ item.name }} · {{ item.description }}</small>
+            </span>
+          </button>
+          <button
+            type="button"
+            class="template-card-preview"
+            :aria-label="`预览 ${item.title}`"
+            @click="openFullPreview(item, $event)"
+          >
+            <ShellIcon name="fullscreen" />预览
+          </button>
+        </div>
+      </div>
+      <div
+        v-if="fullPreview"
+        class="template-fullpreview"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="`预览 ${fullPreview.title}`"
+        @keydown.esc="closeFullPreview"
+      >
+        <header class="template-fullpreview-head">
+          <strong>{{ fullPreview.title }}</strong>
+          <span class="muted"
+            >{{ label[kind] }} · {{ fullPreview.name }} ·
+            已保存配置，演示数据，不发起支付</span
+          >
+          <button
+            ref="fullPreviewClose"
+            type="button"
+            class="template-fullpreview-close"
+            aria-label="关闭预览"
+            @click="closeFullPreview"
+          >
+            <ShellIcon name="close" />关闭预览
+          </button>
+        </header>
+        <iframe
+          :key="`${kind}-${fullPreview.name}`"
+          :title="`${fullPreview.title} 预览`"
+          :src="`/console/v1/admin/templates/${kind}/${encodeURIComponent(fullPreview.name)}/preview`"
+          sandbox="allow-same-origin"
+          referrerpolicy="no-referrer"
+        />
       </div>
       <template v-if="view">
         <h3 class="template-config-title">
@@ -470,25 +529,112 @@ onBeforeUnmount(() => {
   margin: 0 0 24px;
 }
 .template-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
   min-height: 0;
-  padding: 0;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--bg-card);
   color: var(--ink);
-  text-align: left;
 }
-.template-card:hover:not(:disabled) {
+.template-card:hover {
   border-color: var(--primary-text);
-  color: var(--ink);
 }
-.template-card[aria-pressed="true"] {
+.template-card.is-current {
   border-color: var(--primary);
   box-shadow: 0 0 0 1px var(--primary);
+}
+.template-card-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.template-card-pick:hover:not(:disabled) {
+  background: transparent;
+  color: inherit;
+}
+.template-card-preview {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  min-height: 0;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--bg-card) 90%, transparent);
+  color: var(--ink);
+  font-size: 12px;
+  box-shadow: 0 2px 8px -4px rgb(0 0 0 / 0.5);
+}
+.template-card-preview:hover {
+  border-color: var(--primary-text);
+  color: var(--primary-text);
+}
+.template-card-preview .shell-icon {
+  width: 14px;
+  height: 14px;
+}
+/* Card 预览: the template over the whole main content area, right of the sidebar. */
+.template-fullpreview {
+  position: fixed;
+  z-index: 45;
+  inset: 0 0 0 var(--sidebar-width, 200px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border-left: 1px solid var(--line);
+}
+.template-fullpreview-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  height: 48px;
+  padding: 0 12px 0 20px;
+  border-bottom: 1px solid var(--line);
+}
+.template-fullpreview-head .muted {
+  font-size: 12px;
+}
+.template-fullpreview-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.template-fullpreview-close .shell-icon {
+  width: 14px;
+  height: 14px;
+}
+.template-fullpreview iframe {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+}
+@media (max-width: 768px) {
+  .template-fullpreview {
+    left: 0;
+  }
 }
 .template-thumb {
   display: block;
