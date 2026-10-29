@@ -82,3 +82,55 @@ func TestOrderListDomainFallsBackToReturnURL(t *testing.T) {
 		t.Fatalf("domain without either URL = %#v, want empty", got["domaincol-3"])
 	}
 }
+
+// 网站域名 is a selectable order search field (Pro's bill/domain search column):
+// search_field=domain matches the same host the list projects, so an admin can
+// find every order of one website. The match is a case-insensitive substring,
+// like the original domain search.
+func TestOrderListDomainSearchFiltersByHost(t *testing.T) {
+	f, _, _ := subchannel168BProductLocal(t)
+	ctx := context.Background()
+	var mid int64
+	if e := f.s.Pool.QueryRow(ctx, `SELECT id FROM merchants ORDER BY id LIMIT 1`).Scan(&mid); e != nil {
+		t.Fatal(e)
+	}
+	for _, o := range []struct{ no, notify string }{
+		{"dsearch-1", "https://shop.alpha.example/notify"},
+		{"dsearch-2", "https://shop.beta.example/notify"},
+	} {
+		if _, e := f.s.Pool.Exec(ctx, `INSERT INTO orders(trade_no,merchant_id,out_trade_no,name,type,amount,merchant_amount,platform_fee,fee_policy,refund_fee_payer,notify_url,return_url) VALUES(nextval('trade_no_seq')::text,$1,$2,'domain search','alipay',100,100,0,'none','platform',$3,'')`, mid, o.no, o.notify); e != nil {
+			t.Fatal(o.no, e)
+		}
+	}
+	read := func(query string) map[string]any {
+		t.Helper()
+		r := httptest.NewRequest("GET", "/console/v1/admin/orders?"+query, nil)
+		r.AddCookie(&http.Cookie{Name: "goepay_admin", Value: f.token})
+		w := httptest.NewRecorder()
+		f.s.Handler().ServeHTTP(w, r)
+		var v struct {
+			Data struct {
+				Items []map[string]any
+				Total float64
+			}
+		}
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &v) != nil {
+			t.Fatal(w.Code, w.Body.String())
+		}
+		out := map[string]any{"total": v.Data.Total}
+		for _, row := range v.Data.Items {
+			out[row["out_trade_no"].(string)] = true
+		}
+		return out
+	}
+	// Exact host matches only its own order.
+	one := read("search_field=domain&q=shop.alpha.example")
+	if one["total"] != float64(1) || one["dsearch-1"] != true || one["dsearch-2"] == true {
+		t.Fatalf("domain search for shop.alpha.example = %#v", one)
+	}
+	// Case-insensitive substring across the shared suffix matches both.
+	both := read("search_field=domain&q=SHOP.")
+	if both["total"] != float64(2) || both["dsearch-1"] != true || both["dsearch-2"] != true {
+		t.Fatalf("domain substring search = %#v", both)
+	}
+}
