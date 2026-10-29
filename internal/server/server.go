@@ -538,6 +538,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.payTypeOptions(w, r, role, session, parts) {
 		return
 	}
+	if s.ledgerSummary(w, r, role, session, parts) {
+		return
+	}
 	if s.reports(w, r, role, session, parts) {
 		return
 	}

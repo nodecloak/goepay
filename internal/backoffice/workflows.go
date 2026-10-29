@@ -8,6 +8,7 @@ import (
 	"goepay/internal/payment"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 func requestJSON(v payment.LedgerRequest) map[string]any {
@@ -64,6 +65,10 @@ func (s *Service) ServeWorkflows(w http.ResponseWriter, r *http.Request, p Princ
 	}
 	if kind == "internal-transfers" && p.Role == "merchant" && r.Method == "GET" && len(parts) == 1 {
 		s.serveMerchantInternalTransferList(w, r, p)
+		return
+	}
+	if kind == "internal-transfers" && p.Role == "admin" && r.Method == "GET" && len(parts) == 1 {
+		s.serveAdminInternalTransferList(w, r, p)
 		return
 	}
 	if kind == "settlements" && r.Method == "GET" && (len(parts) == 1 || len(parts) == 2 && parts[1] == "statistics") {
@@ -224,7 +229,31 @@ func (s *Service) ServeWorkflows(w http.ResponseWriter, r *http.Request, p Princ
 			writeError(w, ErrNotFound)
 			return
 		}
-		out, e := s.store.ReviewFundsRequest(r.Context(), id, parts[2] == "approve", actor)
+		// A 拒绝原因 may accompany a rejection. Approvals take no body; rejections
+		// may send {"reason": "..."} (optional, bounded). The reason is stored on
+		// the review's immutable ledger event, mirroring the original console.
+		reason := ""
+		if parts[2] == "reject" {
+			in, ok := body(w, r)
+			if !ok {
+				return
+			}
+			for k := range in {
+				if k != "reason" {
+					writeError(w, ErrInvalid)
+					return
+				}
+			}
+			if raw, present := in["reason"]; present {
+				var text string
+				if e := json.Unmarshal(raw, &text); e != nil || len(text) > 500 || strings.ContainsAny(text, "\x00\r\n") {
+					writeError(w, ErrInvalid)
+					return
+				}
+				reason = strings.TrimSpace(text)
+			}
+		}
+		out, e := s.store.ReviewFundsRequestWithReason(r.Context(), id, parts[2] == "approve", actor, reason)
 		if e != nil {
 			writeError(w, e)
 			return
