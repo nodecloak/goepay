@@ -3752,3 +3752,9 @@ th {
   width: 14px;
   height: 14px;
 }
+
+/* KitSelect opens its list upward when there is no room below. */
+.pa-select .pa-menu--up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}

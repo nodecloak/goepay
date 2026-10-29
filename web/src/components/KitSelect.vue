@@ -30,10 +30,22 @@ function close(focus = false) {
   opened.value = false;
   if (focus) trigger.value?.focus();
 }
+const dropUp = ref(false);
 function open() {
   if (props.disabled) return;
   opened.value = !opened.value;
-  if (opened.value) void nextTick(() => menu.value?.focus());
+  if (!opened.value) return;
+  dropUp.value = false;
+  void nextTick(() => {
+    // Open upward when the list would run past the bottom of the window and
+    // fits above (the pager's 条/页 select sits at the page bottom), so the
+    // list never stretches the page or makes it jump.
+    const t = trigger.value?.getBoundingClientRect();
+    const h = menu.value?.offsetHeight ?? 0;
+    if (t && t.bottom + 4 + h > window.innerHeight && t.top - 4 - h >= 0)
+      dropUp.value = true;
+    menu.value?.focus({ preventScroll: true });
+  });
 }
 function choose(value: string) {
   emit("update:modelValue", value);
@@ -89,6 +101,7 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", outside));
       v-if="opened"
       ref="menu"
       class="pa-menu"
+      :class="{ 'pa-menu--up': dropUp }"
       role="listbox"
       tabindex="-1"
       @keydown="keydown"
