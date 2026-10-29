@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"goepay/internal/payment"
@@ -143,6 +144,34 @@ func (h Handler) Handle(ctx context.Context, j jobs.Job) error {
 			return ErrPending
 		}
 		return nil
+	case "complaint.sync":
+		// Provider-backed complaint pull. Gated by complain_open; the channel's
+		// built provider lends its signing client to the complaint adapter.
+		on, e := h.complainOpen(ctx)
+		if e != nil {
+			return e
+		}
+		var channel, num int64
+		if e := decodeComplaintSync(j.Payload, &channel, &num); e != nil || channel <= 0 {
+			return ErrJob
+		}
+		if !on {
+			// Feature turned off after enqueue: acknowledge without pulling.
+			return nil
+		}
+		_, syncErr := h.Flow.SyncComplaints(ctx, channel, int(num))
+		if re := h.Flow.Store.RecordComplaintSyncResult(ctx, channel, syncErr); re != nil {
+			return re
+		}
+		if syncErr != nil {
+			// A pending/unknown provider outcome retries; a definitive provider
+			// refusal is recorded and acknowledged so the worker moves on.
+			if errors.Is(syncErr, payment.ErrInvalid) {
+				return nil
+			}
+			return syncErr
+		}
+		return nil
 	case "transfer.reconcile", "transfer.bank_reconcile":
 		var id int64
 		if e := decodeSingle(j.Payload, "transfer_id", &id); e != nil || id <= 0 {
@@ -189,6 +218,42 @@ func (h Handler) Handle(ctx context.Context, j jobs.Job) error {
 		return ErrJob
 	}
 }
+
+// complainOpen reports whether the complain_open feature gate is on (default
+// off). A missing row means off, matching the server's merchant-feature gate.
+func (h Handler) complainOpen(ctx context.Context) (bool, error) {
+	var value string
+	e := h.Pool.QueryRow(ctx, `SELECT body->>'value' FROM backoffice_records WHERE resource='settings' AND body->>'key'='complain_open' ORDER BY id LIMIT 1`).Scan(&value)
+	if errors.Is(e, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if e != nil {
+		return false, e
+	}
+	return value == "1", nil
+}
+
+// decodeComplaintSync reads the {channel_id,num} payload of a complaint.sync job.
+func decodeComplaintSync(raw []byte, channel, num *int64) error {
+	if len(raw) > 4096 {
+		return ErrJob
+	}
+	var payload struct {
+		ChannelID int64 `json:"channel_id"`
+		Num       int64 `json:"num"`
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.DisallowUnknownFields()
+	if e := d.Decode(&payload); e != nil {
+		return ErrJob
+	}
+	if d.More() {
+		return ErrJob
+	}
+	*channel, *num = payload.ChannelID, payload.Num
+	return nil
+}
+
 func decodeSingle(raw []byte, key string, target any) error {
 	if len(raw) > 4096 {
 		return ErrJob

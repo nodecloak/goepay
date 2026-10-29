@@ -9,7 +9,7 @@ import (
 // unrestricted list/export. This validation augments the independent tenant
 // predicate and leaves the existing filters for other resources unchanged.
 func validateTransferListFilters(q url.Values) error {
-	allowed := map[string]bool{"page": true, "limit": true, "q": true, "search_field": true, "format": true, "merchant_id": true, "channel_id": true, "status": true, "from": true, "to": true}
+	allowed := map[string]bool{"page": true, "limit": true, "q": true, "search_field": true, "format": true, "merchant_id": true, "channel_id": true, "status": true, "type": true, "from": true, "to": true}
 	for key, values := range q {
 		if !allowed[key] || len(values) != 1 {
 			return errListFilter

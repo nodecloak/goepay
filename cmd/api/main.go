@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"encoding/hex"
 	"encoding/json"
+	"goepay/internal/backoffice"
 	"goepay/internal/bootstrap"
 	"goepay/internal/captcha203"
 	"goepay/internal/compat"
@@ -48,6 +49,15 @@ func main() {
 	if e = store.RebuildPrivateSearch(ctx); e != nil {
 		slog.Error("private search projection unavailable")
 		os.Exit(1)
+	}
+	// A8-D2: seed the original out-of-box collection-code styles on an install
+	// that has none (idempotent; never touches an install that already has
+	// styles). A failure here must not stop the service — the console still
+	// runs, an admin can create styles by hand — so it is logged, not fatal.
+	if seeded, err := backoffice.New(pool, store).EnsureDefaultCollectionStyles(ctx); err != nil {
+		slog.Warn("default collection styles not seeded", "error", err)
+	} else if seeded > 0 {
+		slog.Info("seeded default collection styles", "count", seeded)
 	}
 	var key *rsa.PrivateKey
 	if raw := os.Getenv("GOEPAY_PLATFORM_PRIVATE_KEY_FILE"); raw != "" {

@@ -456,12 +456,60 @@ func (p *lakalamossPlugin) VerifyNotification(_ context.Context, _ http.Header, 
 	return paidEvent(expected.TradeNo, jsonText(data, "pay_serial"), jsonText(data, "user_id2"), amount), nil
 }
 
-// NotificationAck: the original echoes a signed JSON envelope. We cannot
-// reconstruct the upstream's head serviceSn/serviceId deterministically here
-// (they come from the decrypted notify), so the endpoint's default success/fail
-// reply is kept; moss accepts an HTTP 200 success as acknowledgement. Document:
-// a strict head-echo + sign would require threading the parsed head out of
-// VerifyNotification, which the Provider interface does not expose.
+// NotificationResponse echoes the callback head back, signed, exactly like
+// the original MossClient::echoNotify: head{code 000000|000001, desc,
+// serviceTime, serviceSn, serviceId} plus sign over the sorted content. The
+// failure text never carries internal error details.
+func (p *lakalamossPlugin) NotificationResponse(_ http.Header, raw []byte, verifyErr error) (int, string, string) {
+	arr, e := callbackJSON(raw)
+	if e != nil {
+		return 0, "", ""
+	}
+	head, _ := arr["head"].(map[string]any)
+	sn, id := jsonText(head, "serviceSn"), jsonText(head, "serviceId")
+	if head == nil || !lakalamossEchoField(sn) || !lakalamossEchoField(id) {
+		return 0, "", ""
+	}
+	code, desc := "000000", "success"
+	if verifyErr != nil {
+		code, desc = "000001", "failure"
+	}
+	params := map[string]any{"head": map[string]any{"code": code, "desc": desc, "serviceTime": lakalamossNow().In(lakalamossZone).Format("20060102150405"), "serviceSn": sn, "serviceId": id}}
+	content, e := lakalamossSignContent(params)
+	if e != nil {
+		return 0, "", ""
+	}
+	sig, e := p.sign(content)
+	if e != nil {
+		return 0, "", ""
+	}
+	params["sign"] = sig
+	body, e := lakalamossMarshal(params)
+	if e != nil {
+		return 0, "", ""
+	}
+	status := 200
+	if verifyErr != nil {
+		status = 400
+	}
+	return status, "application/json; charset=utf-8", string(body)
+}
+
+// lakalamossEchoField limits what is echoed back to plain identifiers.
+func lakalamossEchoField(s string) bool {
+	if s == "" || len(s) > 64 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_' || c == '-' || c == '.') {
+			return false
+		}
+	}
+	return true
+}
+
+var lakalamossNow = time.Now
+var lakalamossZone = time.FixedZone("CST", 8*3600)
 
 // lakalamossSn returns a time-based serviceSn (getSid() analogue).
 func lakalamossSn() string {

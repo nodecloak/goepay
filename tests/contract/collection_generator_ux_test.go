@@ -196,6 +196,75 @@ func TestCollectionGeneratorUXDirectMetadataIdempotencyAndFixedAmount(t *testing
 	}
 }
 
+// F10: the generator prefills with the merchant's default aggregate-code name
+// (account/onecodeInfo), falls back to the display name, and PATCH
+// (account/editCodename) persists or clears that default.
+func TestCollectionGeneratorUXDefaultCodenameF10(t *testing.T) {
+	s, _, _ := fixture(t)
+	s.CheckoutKey = bytes.Repeat([]byte{7}, 32)
+	s.ProviderFlow = &payment.ProviderFlow{Store: s.Store, AllowLive: false, CallbackBaseURL: "http://127.0.0.1:8180"}
+	token, csrf, e := s.Sessions.Create(identity.User{ID: 1, Username: "merchant", Role: "merchant"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	call := func(method string, body any, anti string) *httptest.ResponseRecorder {
+		raw, _ := json.Marshal(body)
+		r := httptest.NewRequest(method, "/console/v1/merchant/collection-generator", bytes.NewReader(raw))
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("X-CSRF-Token", anti)
+		r.AddCookie(&http.Cookie{Name: "goepay_merchant", Value: token})
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, r)
+		return w
+	}
+	read := func(w *httptest.ResponseRecorder) map[string]any {
+		var env struct {
+			Data map[string]any `json:"data"`
+		}
+		if e := json.Unmarshal(w.Body.Bytes(), &env); e != nil {
+			t.Fatalf("decode %s", w.Body.String())
+		}
+		return env.Data
+	}
+	// No stored default: prefill is the merchant display name, not customized.
+	w := call("GET", nil, csrf)
+	if w.Code != 200 {
+		t.Fatalf("generator GET %d %s", w.Code, w.Body.String())
+	}
+	d := read(w)
+	if d["recipient_name"] != "legacy" || d["default_codename"] != "legacy" || d["codename_customized"] != false {
+		t.Fatalf("default prefill not display name: %v", d)
+	}
+	// PATCH requires CSRF.
+	if w = call("PATCH", map[string]any{"recipient_name": "我的收款"}, "wrong"); w.Code != 403 {
+		t.Fatalf("PATCH without CSRF %d", w.Code)
+	}
+	// PATCH persists a custom default.
+	if w = call("PATCH", map[string]any{"recipient_name": "我的收款"}, csrf); w.Code != 200 {
+		t.Fatalf("PATCH set %d %s", w.Code, w.Body.String())
+	}
+	if read(w)["default_codename"] != "我的收款" {
+		t.Fatalf("PATCH did not return the saved name: %s", w.Body.String())
+	}
+	// GET now prefills the stored default and marks it customized.
+	d = read(call("GET", nil, csrf))
+	if d["recipient_name"] != "我的收款" || d["codename_customized"] != true {
+		t.Fatalf("stored default not prefilled: %v", d)
+	}
+	// Empty PATCH clears it, falling back to the display name.
+	if w = call("PATCH", map[string]any{"recipient_name": ""}, csrf); w.Code != 200 || read(w)["default_codename"] != "legacy" {
+		t.Fatalf("PATCH clear %d %s", w.Code, w.Body.String())
+	}
+	d = read(call("GET", nil, csrf))
+	if d["recipient_name"] != "legacy" || d["codename_customized"] != false {
+		t.Fatalf("cleared default not reverted: %v", d)
+	}
+	// An over-long name is rejected.
+	if w = call("PATCH", map[string]any{"recipient_name": strings.Repeat("名", 101)}, csrf); w.Code != 422 {
+		t.Fatalf("over-long codename accepted %d", w.Code)
+	}
+}
+
 func TestCollectionGeneratorUXConcurrentReplayAndAuditRollback(t *testing.T) {
 	s, pool, _ := fixture(t)
 	ctx := context.Background()

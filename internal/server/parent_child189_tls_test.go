@@ -94,7 +94,7 @@ func child189Setup(t *testing.T) (parent180Runtime, map[string]string, map[strin
 
 func child189Pay(t *testing.T, f channel168Fixture, child, no string) {
 	t.Helper()
-	p := compat.Params{"pid": "1", "type": "wxpay", "out_trade_no": no, "name": "original child189", "money": "100.00", "subchannel_id": child, "method": "native", "sign_type": "MD5"}
+	p := compat.Params{"pid": "1", "type": "wxpay", "out_trade_no": no, "name": "original child189", "money": "100.00", "subchannel_id": child, "method": "native", "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return", "sign_type": "MD5"}
 	p["sign"] = compat.SignMD5(p, "test-secret")
 	encoded := url.Values{}
 	for key, value := range p {

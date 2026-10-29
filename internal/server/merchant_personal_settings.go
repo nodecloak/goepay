@@ -48,15 +48,20 @@ func (s *Server) accountPersonalSettings(w http.ResponseWriter, r *http.Request,
 			response(w, 200, 0, "", state)
 		}
 	case "PATCH":
-		in, ok := identityJSON(w, r, "qq", "pay_minmoney", "pay_maxmoney", "expected_fingerprint")
+		in, ok := identityJSON(w, r, "qq", "pay_minmoney", "pay_maxmoney", "remain_money", "expected_fingerprint")
 		if !ok {
 			return true
 		}
-		if len(in) != 4 || !identityHex(in["expected_fingerprint"]) {
+		remain, withRemain := in["remain_money"]
+		if !(len(in) == 4 && !withRemain || len(in) == 5 && withRemain) || !identityHex(in["expected_fingerprint"]) {
 			response(w, 400, -1, "exact personal settings confirmation required", nil)
 			return true
 		}
-		state, e := s.Store.UpdateMerchantPersonalSettings(r.Context(), a, in["qq"], in["pay_minmoney"], in["pay_maxmoney"], in["expected_fingerprint"])
+		var remainMoney *string
+		if withRemain {
+			remainMoney = &remain
+		}
+		state, e := s.Store.UpdateMerchantPersonalSettings(r.Context(), a, in["qq"], in["pay_minmoney"], in["pay_maxmoney"], remainMoney, in["expected_fingerprint"])
 		if e != nil {
 			personalSettingsError(w, e)
 		} else {

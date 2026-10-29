@@ -25,7 +25,8 @@ const merchantConsoleProjection = `jsonb_strip_nulls(jsonb_build_object(
  'url',CASE WHEN jsonb_typeof(profile->'url')='string' THEN profile->'url' END,
  'group_id',CASE WHEN jsonb_typeof(profile->'group_id')='string' THEN profile->'group_id' END,
  'transfer_api_enabled',CASE WHEN jsonb_typeof(profile->'transfer_api_enabled')='boolean' THEN profile->'transfer_api_enabled' END,
- 'transfer_rate',CASE WHEN jsonb_typeof(profile->'transfer_rate')='string' THEN profile->'transfer_rate' END))||jsonb_build_object(
+ 'transfer_rate',CASE WHEN jsonb_typeof(profile->'transfer_rate')='string' THEN profile->'transfer_rate' END,
+ 'remain_money',CASE WHEN jsonb_typeof(profile->'remain_money')='string' THEN profile->'remain_money' END))||jsonb_build_object(
  'settle',merchant_settlement_permission(profile),'settlement_permission_revision',settlement_permission_revision::text,
  'name',name,'enabled',enabled,'pay',COALESCE(to_jsonb(merchants)->>'pay','1'),'signature_algorithm',signature_algorithm,'keytype',keytype,'id',merchants.id::text,
  'base_group_id',base_group_id::text,'group_baseline_unresolved',group_baseline_unresolved,

@@ -21,10 +21,10 @@ const consoleOrderReportingColumns = `COALESCE(console_attempt.channel_id::text,
  console_refunded.amount AS refunded_amount`
 
 func (s *Server) orderReportingProjection(ctx context.Context, id, merchantID int64) (map[string]string, error) {
-	var channel, upstream, buyer, clientIP, notification, refunded string
-	err := s.Pool.QueryRow(ctx, "SELECT "+consoleOrderReportingColumns+" FROM orders o"+consoleOrderReportingJoins+" WHERE o.id=$1 AND o.merchant_id=$2", id, merchantID).Scan(&channel, &upstream, &buyer, &clientIP, &notification, &refunded)
+	var channel, upstream, buyer, clientIP, notification, refunded, province string
+	err := s.Pool.QueryRow(ctx, "SELECT "+consoleOrderReportingColumns+",COALESCE(console_report.province,'') AS province FROM orders o"+consoleOrderReportingJoins+" WHERE o.id=$1 AND o.merchant_id=$2", id, merchantID).Scan(&channel, &upstream, &buyer, &clientIP, &notification, &refunded, &province)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]string{"channel_id": channel, "api_trade_no": upstream, "buyer": buyer, "client_ip": clientIP, "notification_state": notification, "refunded_amount": refunded}, nil
+	return map[string]string{"channel_id": channel, "api_trade_no": upstream, "buyer": buyer, "client_ip": clientIP, "notification_state": notification, "refunded_amount": refunded, "province": province}, nil
 }

@@ -7,6 +7,30 @@ import (
 )
 
 func (s *Service) serveSettlementRecipient(w http.ResponseWriter, r *http.Request, p Principal, parts []string) bool {
+	// New read: the settlement/transfer account types this platform allows, so
+	// the 结算设置 and transfer forms can hide the types an administrator turned
+	// off (settle_*/transfer_*). Additive endpoint — the existing GET/POST
+	// shapes the contract tests pin are unchanged.
+	if len(parts) == 2 && parts[0] == "settlement-recipient" && parts[1] == "allowed-types" {
+		if r.Method != "GET" {
+			write(w, 405, nil, "method not allowed")
+			return true
+		}
+		if p.SubjectID <= 0 || (p.Role != "admin" && p.Role != "merchant") {
+			writeError(w, ErrForbidden)
+			return true
+		}
+		values, e := s.SettingValues(r.Context(), "settle_alipay", "settle_wxpay", "settle_qqpay", "settle_bank", "transfer_wxpay", "transfer_qqpay")
+		if e != nil {
+			writeError(w, e)
+			return true
+		}
+		write(w, 200, map[string]any{
+			"settlement": AllowedSettlementAccountTypes(values),
+			"transfer":   AllowedTransferTypes(values),
+		}, "")
+		return true
+	}
 	if len(parts) != 1 || parts[0] != "settlement-recipient" {
 		return false
 	}
@@ -102,6 +126,21 @@ func (s *Service) serveSettlementRecipient(w http.ResponseWriter, r *http.Reques
 	if p.Role == "admin" && p.AdminClass != "super" && p.AdminClass != "operator" {
 		writeError(w, ErrForbidden)
 		return true
+	}
+	// settle_* per-channel switches decide which settlement account types a
+	// merchant may choose (结算设置) and a payout may use. A type whose rail is
+	// turned off is refused on save; a blank/missing switch keeps the rail
+	// enabled, so a default install is unchanged.
+	if req.Type != "" {
+		values, e := s.SettingValues(r.Context(), "settle_alipay", "settle_wxpay", "settle_qqpay", "settle_bank")
+		if e != nil {
+			writeError(w, e)
+			return true
+		}
+		if !SettlementAccountTypeAllowed(values, req.Type) {
+			writeError(w, PaymentRefusedError{Message: "该收款方式的结算已关闭"})
+			return true
+		}
 	}
 	v, e := s.store.SetSettlementRecipient(r.Context(), mid, req, expected, actor)
 	if e != nil {

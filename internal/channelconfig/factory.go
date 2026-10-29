@@ -290,6 +290,12 @@ func (g guarded) NotificationAck(err error) (int, string, string) {
 	}
 	return 0, "", ""
 }
+func (g guarded) NotificationResponse(header http.Header, raw []byte, err error) (int, string, string) {
+	if p, ok := g.Provider.(provider.NotificationResponder); ok {
+		return p.NotificationResponse(header, raw, err)
+	}
+	return 0, "", ""
+}
 func (g guarded) NotificationMethods() []string {
 	if p, ok := g.Provider.(provider.NotificationMethodsProvider); ok {
 		return p.NotificationMethods()

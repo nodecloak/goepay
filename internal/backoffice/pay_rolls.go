@@ -33,7 +33,15 @@ func payRollDefinition() definition {
 	rules := text("rules", "各通道限制 JSON（通道ID到限制对象）", false, 20000)
 	rules.Type = "text"
 	rules.Default = "{}"
-	return definition{title: "通道轮询", description: "同订单持久绑定当前有权使用的同产品通道，未知不切换。同一商户与支付方式只允许一个默认轮询组；关闭默认用途可保存多个命名组供用户组指定或随机选择。旧缺商户/类型资料不执行。限制键：min_amount/max_amount/daily_amount 为元字符串，daily_count、rate_limit_seconds/count 为整数，start_hour/end_hour 为UTC+8小时；rules按通道ID填写。使用后禁用保留记录。", noDelete: true, fields: []Field{text("name", "名称", true, 100), text("merchant_id", "商户ID（0为全局默认）", true, 19), selectField("type", "支付类型", "alipay", "wxpay", "qqpay", "bank", "jdpay", "paypal", "douyinpay", "ecny"), selectField("strategy", "策略", "round_robin", "weighted", "first", "priority"), text("channel_ids", "通道ID:权重，逗号分隔", true, 1000), limits, rules, flag("default_route", "用于继承系统路由的默认组", true), flag("enabled", "执行路由", false)}}
+	// 轮询方式 with the original Chinese names (value enum unchanged — validation
+	// matches on Value): round_robin 顺序轮询, weighted 权重轮询, first 首个可用,
+	// priority 优先级.
+	strategy := selectField("strategy", "轮询方式", "round_robin", "weighted", "first", "priority")
+	strategyNames := map[string]string{"round_robin": "顺序轮询", "weighted": "权重轮询", "first": "首个可用", "priority": "优先级"}
+	for i := range strategy.Options {
+		strategy.Options[i].Label = strategyNames[strategy.Options[i].Value]
+	}
+	return definition{title: "通道轮询", description: "同订单持久绑定当前有权使用的同产品通道，未知不切换。同一商户与支付方式只允许一个默认轮询组；关闭默认用途可保存多个命名组供用户组指定或随机选择。旧缺商户/类型资料不执行。限制键：min_amount/max_amount/daily_amount 为元字符串，daily_count、rate_limit_seconds/count 为整数，start_hour/end_hour 为UTC+8小时；rules按通道ID填写。使用后禁用保留记录。", noDelete: true, fields: []Field{text("name", "名称", true, 100), text("merchant_id", "商户ID（0为全局默认）", true, 19), selectField("type", "支付方式", "alipay", "wxpay", "qqpay", "bank", "jdpay", "paypal", "douyinpay", "ecny"), strategy, text("channel_ids", "通道ID:权重，逗号分隔", true, 1000), limits, rules, flag("default_route", "用于继承系统路由的默认组", true), flag("enabled", "执行路由", false)}}
 }
 
 var routeMoneyPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)(\.[0-9]{1,2})?$`)

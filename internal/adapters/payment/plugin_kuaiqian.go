@@ -9,10 +9,12 @@ package payment
 // PKCS#7/CMS envelopes (openssl_pkcs7_encrypt/sign/decrypt/verify).
 //
 // Go has no CMS/PKCS#7 primitive in the standard library and no module may be
-// added, so the 当面付 / query / refund / transfer paths (which all go through
-// PayApp::execute's CMS envelope) are OUT OF SCOPE here. This port implements
-// the gateway form flow (submit → recvMerchantInfoAction) and its GET
-// notify() callback, which is the primary path for alipay/wxpay/bank.
+// added, so plugin_kuaiqian_cms.go implements the minimal envelope that
+// PayApp::execute uses. This port implements the gateway form flow (submit →
+// recvMerchantInfoAction), its GET notify() callback, and the gateway order's
+// query (F0003) and refund (F0001) over that envelope. The 当面付 flow (A7007,
+// with its own A7006 query and A7003 refund) and transfers stay unported:
+// GOEPAY does not carry the original's per-order combine flag to query/refund.
 //
 // Credentials: the original reads the merchant key (key.pfx, password =
 // 商户证书密码/appkey) and the platform certificate (cert.cer) from the plugin
@@ -26,6 +28,8 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -53,7 +57,7 @@ func init() {
 			{Key: "merchant_pfx", Label: "商户证书(key.pfx, base64)", Note: "商户RSA证书 key.pfx 的 base64 文本，密码为商户证书密码", PEM: true, Required: true},
 			{Key: "platform_cert", Label: "快钱平台公钥证书(cert.cer, PEM)", Note: "快钱平台公钥证书 cert.cer 的 PEM 文本", PEM: true, Required: true},
 		},
-		Note:  "网关表单支付。将商户证书key.pfx转base64填入商户证书，快钱平台公钥cert.cer填入平台公钥。当面付/查单/退款/转账未实现(依赖PKCS#7信封)。",
+		Note:  "网关表单支付，支持查单和退款。将商户证书key.pfx转base64填入商户证书，快钱平台公钥cert.cer填入平台公钥。当面付和转账未实现。",
 		Build: newKuaiqianPlugin,
 	})
 }
@@ -61,14 +65,20 @@ func init() {
 const (
 	kuaiqianBankGateway   = "https://www.99bill.com/gateway/recvMerchantInfoAction.htm"
 	kuaiqianMobileGateway = "https://www.99bill.com/mobilegateway/recvMerchantInfoAction.htm"
+	// kuaiqianUmgwGateway is PayApp::$gateway_url — the CMS (当面付/查单/退款)
+	// endpoint.
+	kuaiqianUmgwGateway = "https://umgw.99bill.com/umgw/common/distribute.html"
 )
 
 type kuaiqianPlugin struct {
 	pluginBase
-	appid      string
-	privateKey *rsa.PrivateKey
-	publicKey  *rsa.PublicKey
-	ownChannel bool
+	appid        string
+	privateKey   *rsa.PrivateKey
+	publicKey    *rsa.PublicKey
+	merchantCert *x509.Certificate
+	platformCert *x509.Certificate
+	ownChannel   bool
+	gateway      string
 }
 
 func newKuaiqianPlugin(c PluginChannel) (Provider, error) {
@@ -77,11 +87,11 @@ func newKuaiqianPlugin(c PluginChannel) (Provider, error) {
 		return nil, ErrInvalid
 	}
 	pfxText := strings.TrimSpace(c.Certificates["merchant_pfx"])
-	key, e := kuaiqianLoadPFX(pfxText, c.Config["appkey"])
+	key, cert, e := kuaiqianLoadPFX(pfxText, c.Config["appkey"])
 	if e != nil {
 		return nil, e
 	}
-	pub, e := kuaiqianLoadCert(c.Certificates["platform_cert"])
+	pub, platformCert, e := kuaiqianLoadCert(c.Certificates["platform_cert"])
 	if e != nil {
 		return nil, e
 	}
@@ -89,51 +99,52 @@ func newKuaiqianPlugin(c PluginChannel) (Provider, error) {
 	if e != nil {
 		return nil, e
 	}
-	return &kuaiqianPlugin{pluginBase: base, appid: appid, privateKey: key, publicKey: pub, ownChannel: c.Config["own_channel"] == "1"}, nil
+	return &kuaiqianPlugin{pluginBase: base, appid: appid, privateKey: key, publicKey: pub, merchantCert: cert, platformCert: platformCert, ownChannel: c.Config["own_channel"] == "1", gateway: kuaiqianUmgwGateway}, nil
 }
 
 // kuaiqianLoadPFX decodes the merchant PKCS#12 (base64 text) with the 商户证书密码
-// and returns its RSA private key.
-func kuaiqianLoadPFX(text, password string) (*rsa.PrivateKey, error) {
+// and returns its RSA private key and certificate (the latter is needed as the
+// SignedData signer; it is nil-safe for the gateway form flow).
+func kuaiqianLoadPFX(text, password string) (*rsa.PrivateKey, *x509.Certificate, error) {
 	text = strings.Join(strings.Fields(text), "")
 	if text == "" {
-		return nil, ErrInvalid
+		return nil, nil, ErrInvalid
 	}
 	der, e := base64.StdEncoding.DecodeString(text)
 	if e != nil {
-		return nil, ErrInvalid
+		return nil, nil, ErrInvalid
 	}
-	priv, _, e := pkcs12.Decode(der, password)
+	priv, cert, e := pkcs12.Decode(der, password)
 	if e != nil {
-		return nil, ErrInvalid
+		return nil, nil, ErrInvalid
 	}
 	key, ok := priv.(*rsa.PrivateKey)
 	if !ok || key.N.BitLen() < pluginMinRSABits {
-		return nil, ErrInvalid
+		return nil, nil, ErrInvalid
 	}
-	return key, nil
+	return key, cert, nil
 }
 
-// kuaiqianLoadCert parses the platform certificate (PEM) and returns its RSA
-// public key.
-func kuaiqianLoadCert(text string) (*rsa.PublicKey, error) {
-	if pub, e := pluginPublicKey(text); e == nil {
-		return pub, nil
-	}
-	// A certificate (cert.cer) rather than a bare public key.
+// kuaiqianLoadCert parses the platform certificate (PEM/cert) and returns its
+// RSA public key and the parsed certificate (used as the EnvelopedData
+// recipient). A bare public key has no certificate, so CMS query/refund then
+// return ErrUnsupported at call time.
+func kuaiqianLoadCert(text string) (*rsa.PublicKey, *x509.Certificate, error) {
 	block := kuaiqianPEMBlock(text)
-	if block == nil {
-		return nil, ErrInvalid
+	if block != nil {
+		if cert, e := x509.ParseCertificate(block); e == nil {
+			key, ok := cert.PublicKey.(*rsa.PublicKey)
+			if ok && key.N.BitLen() >= pluginMinRSABits {
+				return key, cert, nil
+			}
+		}
 	}
-	cert, e := x509.ParseCertificate(block)
-	if e != nil {
-		return nil, ErrInvalid
+	// A bare public key (no certificate): the form flow still works, but CMS
+	// envelope recipient resolution does not.
+	if pub, e := pluginPublicKey(text); e == nil {
+		return pub, nil, nil
 	}
-	key, ok := cert.PublicKey.(*rsa.PublicKey)
-	if !ok || key.N.BitLen() < pluginMinRSABits {
-		return nil, ErrInvalid
-	}
-	return key, nil
+	return nil, nil, ErrInvalid
 }
 
 // kuaiqianPEMBlock extracts the DER bytes of the first PEM block, or decodes a
@@ -167,7 +178,7 @@ func (p *kuaiqianPlugin) methods() []string {
 }
 
 func (p *kuaiqianPlugin) Capabilities() Capabilities {
-	return Capabilities{Methods: p.methods()}
+	return Capabilities{Methods: p.methods(), Query: true, Refund: true}
 }
 
 func (p *kuaiqianPlugin) ValidateCreate(r CreateRequest) error {
@@ -251,6 +262,153 @@ func (p *kuaiqianPlugin) Create(ctx context.Context, r CreateRequest) (CreateRes
 // amount in fen with no decimals.
 func kuaiqianFen(cents int64) string {
 	return strconv.FormatInt(cents, 10)
+}
+
+// kuaiqianExecute mirrors PayApp::execute: seal the body into
+// {signedData, envelopedData}, POST {head, requestBody} to the umgw gateway,
+// then on responseCode 0000 unseal responseBody into the plaintext reply object.
+func (p *kuaiqianPlugin) kuaiqianExecute(ctx context.Context, operation string, head map[string]string, body map[string]string) (map[string]any, error) {
+	if p.merchantCert == nil || p.platformCert == nil {
+		return nil, ErrUnsupported
+	}
+	plain, e := json.Marshal(body)
+	if e != nil {
+		return nil, ErrInvalid
+	}
+	signedDER, envelopedDER, e := p.kuaiqianSeal(plain)
+	if e != nil {
+		return nil, e
+	}
+	request := map[string]any{
+		"head": head,
+		"requestBody": map[string]string{
+			"signedData":    base64.StdEncoding.EncodeToString(signedDER),
+			"envelopedData": base64.StdEncoding.EncodeToString(envelopedDER),
+		},
+	}
+	raw, e := p.postJSON(ctx, operation, p.gateway, request, nil)
+	if e != nil {
+		return nil, e
+	}
+	resp, e := callbackJSON(raw)
+	if e != nil {
+		return nil, &UnknownOutcome{Operation: operation, Cause: e}
+	}
+	rhead, _ := resp["head"].(map[string]any)
+	code := ""
+	if rhead != nil {
+		code = jsonText(rhead, "responseCode")
+	}
+	if code != "0000" {
+		if code == "" {
+			return nil, &UnknownOutcome{Operation: operation, Cause: errors.New("missing responseCode")}
+		}
+		return nil, rejected("KUAIQIAN_" + code)
+	}
+	rbody, _ := resp["responseBody"].(map[string]any)
+	if rbody == nil {
+		return nil, &UnknownOutcome{Operation: operation, Cause: errors.New("missing responseBody")}
+	}
+	signed, e1 := base64.StdEncoding.DecodeString(jsonText(rbody, "signedData"))
+	enveloped, e2 := base64.StdEncoding.DecodeString(jsonText(rbody, "envelopedData"))
+	if e1 != nil || e2 != nil {
+		return nil, &UnknownOutcome{Operation: operation, Cause: errors.New("bad response envelope")}
+	}
+	plainResp, e := p.kuaiqianUnseal(signed, enveloped)
+	if e != nil {
+		return nil, e
+	}
+	out, e := callbackJSON(plainResp)
+	if e != nil {
+		return nil, &UnknownOutcome{Operation: operation, Cause: e}
+	}
+	return out, nil
+}
+
+// Query reads the order over the CMS gateway (F0003, gateway order query keyed
+// by our orderId). 当面付 combine orders (A7006) are not reachable because
+// GOEPAY does not carry the combine flag; this covers the normal gateway order.
+func (p *kuaiqianPlugin) Query(ctx context.Context, r QueryRequest) (QueryResult, error) {
+	if r.TradeNo == "" {
+		return QueryResult{}, ErrInvalid
+	}
+	head := map[string]string{
+		"version":           "1.0.0",
+		"messageType":       "F0003",
+		"memberCode":        p.appid,
+		"externalRefNumber": "QUE" + r.TradeNo,
+	}
+	body := map[string]string{
+		"merchantAcctId": p.appid + "01",
+		"queryType":      "0",
+		"queryMode":      "1",
+		"orderId":        r.TradeNo,
+	}
+	out, e := p.kuaiqianExecute(ctx, "kuaiqian.query", head, body)
+	if e != nil {
+		return QueryResult{}, e
+	}
+	if oid := jsonText(out, "orderId"); oid != "" && oid != r.TradeNo {
+		return QueryResult{}, ErrAuthentication
+	}
+	// payResult/orderStatus: '10' (gateway) or 'S'/'SUCCESS' (face) mean paid.
+	state := "NOTPAY"
+	switch jsonText(out, "payResult") {
+	case "10":
+		state = "SUCCESS"
+	}
+	switch jsonText(out, "orderStatus") {
+	case "S", "SUCCESS":
+		state = "SUCCESS"
+	case "R", "REFUND":
+		state = "REFUND"
+	}
+	amount, _ := parseFen(kuaiqianFirstNonEmpty(jsonText(out, "orderAmount"), jsonText(out, "payAmount"), jsonText(out, "amount")))
+	return QueryResult{TradeNo: r.TradeNo, ProviderTradeNo: kuaiqianFirstNonEmpty(jsonText(out, "dealId"), jsonText(out, "idOrderCtrl")), State: state, Currency: "CNY", BuyerID: jsonText(out, "thirdPartyBuyerId"), Amount: amount}, nil
+}
+
+// Refund posts the CMS gateway refund (F0001: txnType bill_drawback_api_1,
+// amount in fen, orgOrderId the original trade number). bizResponseCode 0000 is
+// success, as the original checks.
+func (p *kuaiqianPlugin) Refund(ctx context.Context, r RefundRequest) (RefundResult, error) {
+	if r.TradeNo == "" || r.RefundNo == "" || r.Amount <= 0 || r.TotalAmount < r.Amount {
+		return RefundResult{}, ErrInvalid
+	}
+	entryTime := r.TradeNo
+	if len(entryTime) > 14 {
+		entryTime = entryTime[:14]
+	}
+	head := map[string]string{
+		"version":           "1.0.0",
+		"messageType":       "F0001",
+		"memberCode":        p.appid,
+		"externalRefNumber": r.RefundNo,
+	}
+	body := map[string]string{
+		"merchantAcctId": p.appid,
+		"txnType":        "bill_drawback_api_1",
+		"amount":         kuaiqianFen(r.Amount),
+		"entryTime":      entryTime,
+		"orgOrderId":     r.TradeNo,
+	}
+	out, e := p.kuaiqianExecute(ctx, "kuaiqian.refund", head, body)
+	if e != nil {
+		return RefundResult{}, e
+	}
+	if jsonText(out, "bizResponseCode") != "0000" {
+		return RefundResult{}, rejected("KUAIQIAN_" + jsonText(out, "bizResponseCode"))
+	}
+	return RefundResult{RefundNo: r.RefundNo, State: "SUCCESS", Amount: r.Amount}, nil
+}
+
+// kuaiqianFirstNonEmpty returns the first non-empty string.
+func kuaiqianFirstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // kuaiqianNow is the clock used for orderTime; tests replace it so signature

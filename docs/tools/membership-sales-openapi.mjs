@@ -12,6 +12,19 @@ export function installMembershipSalesAPI({add,paths,schemas,object,str,ref,cont
  add('/workflows/memberships','post','按真实销售配置和数量购买会员',{body:'MembershipBalancePurchase',created:true,description:'整数分总价=每份价格×数量；启用、上下架、可见范围和当前有效组由服务端重检。显式月份按PHP日历月溢出和北京时间日期零点续期，0月永久，旧按天配置仍按天。同组未到期从原到期日续；永久同组不可重复购买。同号同体重放不再扣费。原奖励仅来自本次总价收入，数量、期限、配置与到期快照均绑定私有原资金证明。没有上游支付或真实资金请求。'});
  const auth=paths['/console/v1/{role}/workflows/{kind}'].post.parameters.find(p=>p.name==='X-Payment-Authorization');
  if(auth)paths['/console/v1/{role}/workflows/memberships'].post.parameters.push(structuredClone(auth));
+ // 后台加款/后台扣款 (epay_release changeUserMoney '后台加款'/'后台扣款'): admin-only direct wallet credit/debit.
+ schemas.AdminBalanceAdjustment=object({merchant_id:str('目标商户号。',{pattern:'^[1-9][0-9]*$'}),direction:{type:'string',enum:['credit','debit'],description:'credit=后台加款，debit=后台扣款。'},amount:str('金额，十进制元，正数。',{pattern:'^[0-9]+(\\.[0-9]{1,2})?$'}),reason:str('纯文本备注，1-240字符。',{minLength:1,maxLength:240}),external_no:str('稳定幂等业务号，同号改变方向或金额返回409。',{minLength:1,maxLength:128})},['merchant_id','direction','amount','reason','external_no']);
+ add('/workflows/balance-adjustments','get','读取后台加款/扣款记录',{list:true,description:'仅管理员。金额和ID为字符串，direction为credit/debit，含操作人与备注。'});
+ add('/workflows/balance-adjustments','post','后台加款或扣款，调整商户可用余额',{body:'AdminBalanceAdjustment',created:true,description:'仅管理员。credit从平台清算科目入商户可用余额，debit反向且永不透支（余额不足返回409）。记入不可变资金流水（event_key admin-adjust:<id>）并在资金明细显示后台加款/后台扣款。与其它管理员资金动作一样需要资金密码授权（X-Payment-Authorization）。同号同方向同金额重放返回原记录不重复扣加。没有上游支付或外部资金请求。'});
+ {
+   const bpost=paths['/console/v1/{role}/workflows/balance-adjustments'].post;
+   bpost.parameters=bpost.parameters.filter(p=>p.name!=='role');bpost.security=[{AdminSession:[]}];
+   if(auth)bpost.parameters.push(structuredClone(auth));
+   const bget=paths['/console/v1/{role}/workflows/balance-adjustments'].get;
+   bget.parameters=bget.parameters.filter(p=>p.name!=='role');bget.security=[{AdminSession:[]}];
+   paths['/console/v1/admin/workflows/balance-adjustments']={get:bget,post:bpost};
+   delete paths['/console/v1/{role}/workflows/balance-adjustments'];
+ }
  const complaints=paths['/console/v1/{role}/reports/complaints'].get;
  complaints.parameters.push({name:'view',in:'query',schema:{type:'string',enum:['overview']},description:'仅管理员；overview为今日、昨日和最近7个北京时间业务日，不能同时传from/to。data.source=local_registered_complaints，包含summary及按商户排行items；金额为十进制字符串，未登记金额为null，不能显示0元；近7日投诉数/同期已支付订单数百分比，无支付订单时null。CSV使用同一汇总口径，包含今日/昨日总条数、金额、支付宝/微信条数；不包含支付净额或手续费列。'});
 }

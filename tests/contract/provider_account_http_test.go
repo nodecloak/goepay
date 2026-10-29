@@ -41,7 +41,7 @@ func TestWechatReceivingAccountSwitchRejectsCheckoutAndSignedNewMerchantCallback
 	s.ProviderFlow = &payment.ProviderFlow{Store: s.Store, Providers: map[int64]adapter.Provider{7: makeProvider("original-mch", key)}, AllowLive: true, CallbackBaseURL: "https://local.example.invalid"}
 	s.CheckoutKey = bytes.Repeat([]byte{7}, 32)
 	s.MerchantChannels = map[int64][]int64{1: {7}}
-	params := compat.Params{"pid": "1", "out_trade_no": "receiving-account-http", "money": "1.01", "name": "local", "type": "wxpay", "method": "web", "channel_id": "7"}
+	params := compat.Params{"pid": "1", "out_trade_no": "receiving-account-http", "money": "1.01", "name": "local", "type": "wxpay", "method": "web", "channel_id": "7", "notify_url": "https://merchant.example.invalid/notify"}
 	_, result := call(t, s.Handler(), "POST", "/mapi.php", signed(params, "contract-secret"))
 	if result["code"] != float64(1) {
 		t.Fatal(result)

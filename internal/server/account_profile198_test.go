@@ -73,3 +73,44 @@ func TestProfile198OriginalReadonlyUIDAndRegistrationTimeUseAuthenticatedMerchan
 		t.Fatal("old profile contract lost", v)
 	}
 }
+
+// a7 F2: the original editinfo.php carries a merchant contact phone. The
+// merchant's own profile must read it back and accept a plain edit held to the
+// same contact-phone shape the admin merchant directory enforces, rejecting a
+// malformed value without disturbing the rest of the profile.
+func profile198Patch(t *testing.T, f *email197Fixture, body string) int {
+	t.Helper()
+	r := httptest.NewRequest("PATCH", "/console/v1/merchant/account/profile", strings.NewReader(body))
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("X-CSRF-Token", f.csrf)
+	r.AddCookie(&http.Cookie{Name: "goepay_merchant", Value: f.token})
+	w := httptest.NewRecorder()
+	f.s.Handler().ServeHTTP(w, r)
+	return w.Code
+}
+func TestProfile198ContactPhoneRoundTripsAndRejectsMalformed(t *testing.T) {
+	f := email197Local(t)
+	if v := profile198Get(t, f, ""); v["phone"] != "" {
+		t.Fatal("new profile contract missing empty phone field", v)
+	}
+	if code := profile198Patch(t, f, `{"name":"Email197","email":"","phone":"13800138000"}`); code != 200 {
+		t.Fatal("valid contact phone rejected", code)
+	}
+	after := profile198Get(t, f, "")
+	if after["phone"] != "13800138000" || after["name"] != "Email197" {
+		t.Fatal("contact phone did not round-trip", after)
+	}
+	if code := profile198Patch(t, f, `{"name":"Email197","email":"","phone":"not-a-phone"}`); code != 422 {
+		t.Fatal("malformed contact phone accepted", code)
+	}
+	unchanged := profile198Get(t, f, "")
+	if unchanged["phone"] != "13800138000" {
+		t.Fatal("rejected phone edit mutated stored contact phone", unchanged)
+	}
+	if code := profile198Patch(t, f, `{"name":"Email197","email":"","phone":""}`); code != 200 {
+		t.Fatal("clearing contact phone rejected", code)
+	}
+	if cleared := profile198Get(t, f, ""); cleared["phone"] != "" {
+		t.Fatal("contact phone was not cleared", cleared)
+	}
+}

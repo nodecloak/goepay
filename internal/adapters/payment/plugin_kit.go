@@ -36,6 +36,14 @@ type NotificationAcker interface {
 	NotificationAck(err error) (status int, contentType, body string)
 }
 
+// NotificationResponder answers from the callback itself, for upstreams whose
+// original reply echoes data from their own request (an order id, a signed
+// head). err is the verification result; the reply must not leak secrets. A
+// zero status falls back to NotificationAck, then to the built-in reply.
+type NotificationResponder interface {
+	NotificationResponse(header http.Header, raw []byte, err error) (status int, contentType, body string)
+}
+
 // NotificationMethodsProvider lists the HTTP methods an upstream may use for
 // callbacks. Without it only POST is accepted. For GET the notification bytes
 // handed to VerifyNotification are the raw URL query string.

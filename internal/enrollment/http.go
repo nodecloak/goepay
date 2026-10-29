@@ -59,7 +59,7 @@ func NewHandler(s *Service, origin string) http.Handler {
 			reply(w, 200, "", v)
 			return
 		}
-		if action != "verification-code" && action != "register" && action != "recover-password" {
+		if action != "verification-code" && action != "register" && action != "recover-password" && action != "register-phone" && action != "recover-password-phone" {
 			reply(w, 404, "not found", nil)
 			return
 		}
@@ -141,6 +141,40 @@ func NewHandler(s *Service, origin string) http.Handler {
 				return
 			}
 			e := s.Recover(r.Context(), RecoverInput{ChallengeID: in.ChallengeID, Code: in.Code, Email: in.Email, Password: in.Password, Source: source})
+			if e != nil {
+				replyError(w, e)
+				return
+			}
+			reply(w, 200, "request completed; sign in normally", nil)
+		case "register-phone":
+			var in struct {
+				Code           string `json:"code"`
+				Phone          string `json:"phone"`
+				Username       string `json:"username"`
+				Name           string `json:"name"`
+				Password       string `json:"password"`
+				InviteCode     string `json:"invite_code"`
+				PromotionToken string `json:"promotion_token"`
+			}
+			if !decode(&in) {
+				return
+			}
+			v, e := s.RegisterByPhone(r.Context(), RegisterPhoneInput{Code: in.Code, Phone: in.Phone, Username: in.Username, Name: in.Name, Password: in.Password, InviteCode: in.InviteCode, PromotionToken: in.PromotionToken, Source: source})
+			if e != nil {
+				replyError(w, e)
+				return
+			}
+			reply(w, 201, "registration completed; sign in normally", v)
+		case "recover-password-phone":
+			var in struct {
+				Code     string `json:"code"`
+				Phone    string `json:"phone"`
+				Password string `json:"new_password"`
+			}
+			if !decode(&in) {
+				return
+			}
+			e := s.RecoverByPhone(r.Context(), RecoverPhoneInput{Code: in.Code, Phone: in.Phone, Password: in.Password, Source: source})
 			if e != nil {
 				replyError(w, e)
 				return

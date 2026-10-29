@@ -3,7 +3,7 @@ package server
 import "testing"
 
 func TestFundsActionTargetsExplicitAllowlist(t *testing.T) {
-	for _, target := range []string{"/console/v1/admin/transfers", "/console/v1/admin/transfer-batches", "/console/v1/admin/transfer-batches/1/execute", "/console/v1/admin/transfer-batches/1/cancel-unsent", "/console/v1/admin/orders/T1/refund", "/console/v1/admin/orders/T1/freeze-income", "/console/v1/admin/orders/T1/unfreeze-income", "/console/v1/admin/orders/T1/capture-authorization", "/console/v1/admin/orders/T1/release-authorization", "/console/v1/admin/orders/T1/close", "/console/v1/admin/workflows/internal-transfers", "/console/v1/admin/workflows/settlements", "/console/v1/admin/workflows/profitsharing", "/console/v1/admin/workflows/memberships", "/console/v1/admin/workflows/deposits", "/console/v1/admin/workflows/settlements/1/approve", "/console/v1/admin/workflows/deposits/1/reject", "/console/v1/admin/workflows/profitsharing-rules/1/execute"} {
+	for _, target := range []string{"/console/v1/admin/transfers", "/console/v1/admin/transfer-batches", "/console/v1/admin/transfer-batches/1/execute", "/console/v1/admin/transfer-batches/1/cancel-unsent", "/console/v1/admin/orders/T1/refund", "/console/v1/admin/orders/T1/freeze-income", "/console/v1/admin/orders/T1/unfreeze-income", "/console/v1/admin/orders/T1/capture-authorization", "/console/v1/admin/orders/T1/release-authorization", "/console/v1/admin/orders/T1/close", "/console/v1/admin/workflows/internal-transfers", "/console/v1/admin/workflows/settlements", "/console/v1/admin/workflows/profitsharing", "/console/v1/admin/workflows/memberships", "/console/v1/admin/workflows/deposits", "/console/v1/admin/workflows/balance-adjustments", "/console/v1/admin/workflows/settlements/1/approve", "/console/v1/admin/workflows/deposits/1/reject", "/console/v1/admin/workflows/profitsharing-rules/1/execute"} {
 		if _, ok := fundsTarget(target); !ok {
 			t.Fatal("missing protected target", target)
 		}
@@ -11,6 +11,29 @@ func TestFundsActionTargetsExplicitAllowlist(t *testing.T) {
 	for _, target := range []string{"/console/v1/merchant/transfers", "/api/transfer/submit", "/console/v1/admin/orders/T1/query", "/console/v1/admin/orders/T1/notify", "/console/v1/admin/transfers/1/proof", "/console/v1/admin/transfer-batches/1/query", "/console/v1/admin/transfer-batches/01/execute", "/console/v1/admin/transfer-batches/1/cancel", "/console/v1/admin/workflows/recharges", "/console/v1/admin/workflows/settlements/1/approve?x=1"} {
 		if _, ok := fundsTarget(target); ok {
 			t.Fatal("unintended financial target", target)
+		}
+	}
+}
+
+func TestBalanceAdjustmentFundsTargetAndBody(t *testing.T) {
+	d, ok := fundsTarget("/console/v1/admin/workflows/balance-adjustments")
+	if !ok || d.guard != "admin-adjust" {
+		t.Fatalf("balance-adjustments must map to the admin-adjust guard, got ok=%v guard=%q", ok, d.guard)
+	}
+	// The funds guard kind must match the store's requireFundsAction("admin-adjust").
+	ok1 := `{"merchant_id":"1000","direction":"credit","amount":"12.34","reason":"后台加款","external_no":"adj-1"}`
+	if _, _, e := normalizeFundsBody([]byte(ok1), d); e != nil {
+		t.Fatalf("valid credit body rejected: %v", e)
+	}
+	for name, body := range map[string]string{
+		"bad direction": `{"merchant_id":"1000","direction":"gift","amount":"1.00","reason":"x","external_no":"a"}`,
+		"empty reason":  `{"merchant_id":"1000","direction":"debit","amount":"1.00","reason":"  ","external_no":"a"}`,
+		"zero amount":   `{"merchant_id":"1000","direction":"debit","amount":"0","reason":"x","external_no":"a"}`,
+		"unknown key":   `{"merchant_id":"1000","direction":"debit","amount":"1.00","reason":"x","external_no":"a","evil":"1"}`,
+		"blank ext_no":  `{"merchant_id":"1000","direction":"debit","amount":"1.00","reason":"x","external_no":""}`,
+	} {
+		if _, _, e := normalizeFundsBody([]byte(body), d); e == nil {
+			t.Fatalf("%s should be rejected by normalizeFundsBody", name)
 		}
 	}
 }

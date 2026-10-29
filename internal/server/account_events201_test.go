@@ -204,7 +204,7 @@ func TestRefundEvent201HTTPRejectsAmbiguousUnsafeAndForeignWrites(t *testing.T) 
 		{"caller merchant", "PATCH", "", strings.TrimSuffix(valid, "}") + `,"merchant_id":"2"}`, f.merchantToken, f.merchantCSRF},
 		{"caller query", "GET", "?merchant_id=2", "", f.merchantToken, ""},
 		{"duplicate field", "PATCH", "", strings.TrimSuffix(valid, "}") + `,"event_url":"https://other.example.invalid"}`, f.merchantToken, f.merchantCSRF},
-		{"deferred event", "PATCH", "", strings.Replace(valid, `["refund"]`, `["complain"]`, 1), f.merchantToken, f.merchantCSRF},
+		{"unknown event", "PATCH", "", strings.Replace(valid, `["refund"]`, `["chargeback"]`, 1), f.merchantToken, f.merchantCSRF},
 		{"duplicate event", "PATCH", "", strings.Replace(valid, `["refund"]`, `["refund","refund"]`, 1), f.merchantToken, f.merchantCSRF},
 		{"private IP", "PATCH", "", strings.Replace(valid, "https://events.example.invalid/refund", "http://127.0.0.1/refund", 1), f.merchantToken, f.merchantCSRF},
 		{"URL credentials", "PATCH", "", strings.Replace(valid, "https://events.example.invalid/refund", "https://user:secret@events.example.invalid/refund", 1), f.merchantToken, f.merchantCSRF},

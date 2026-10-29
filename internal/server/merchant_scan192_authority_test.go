@@ -76,7 +76,7 @@ func TestMerchantScan192OwnershipCSRFDelegateAndCodeCannotBeReplaced(t *testing.
 
 func TestMerchantScan192UnkeyedLookalikeParamRemainsOrdinaryWireCompatible(t *testing.T) {
 	setup, f := merchantScan192Ready(t)
-	p := compat.Params{"pid": "1", "out_trade_no": "ordinary-scan192-lookalike", "type": "wxpay", "name": "ordinary synthetic payment", "money": "100.00", "channel_id": setup.id, "method": "scan", "auth_code": "134567890123456789", "param": "merchant-scan:de1c4ef4-cd8b-4219-a1e2-bd542c9a8865:" + strings.Repeat("0", 64), "sign_type": "MD5"}
+	p := compat.Params{"pid": "1", "out_trade_no": "ordinary-scan192-lookalike", "type": "wxpay", "name": "ordinary synthetic payment", "money": "100.00", "channel_id": setup.id, "method": "scan", "auth_code": "134567890123456789", "param": "merchant-scan:de1c4ef4-cd8b-4219-a1e2-bd542c9a8865:" + strings.Repeat("0", 64), "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return", "sign_type": "MD5"}
 	p["sign"] = compat.SignMD5(p, "test-secret")
 	form := url.Values{}
 	for k, v := range p {

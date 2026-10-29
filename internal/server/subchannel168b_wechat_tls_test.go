@@ -159,7 +159,7 @@ func TestSubchannel168BActualWechatSignedMutualTLSKeepsOriginalAccountAfterRepla
 	}
 	var child struct{ Data map[string]any }
 	json.Unmarshal(w.Body.Bytes(), &child)
-	p := compat.Params{"pid": "1", "out_trade_no": "wx168b-real-tls", "type": "wxpay", "name": "Synthetic Wechat", "money": "1.00", "channel_id": "7", "method": "native", "sign_type": "MD5"}
+	p := compat.Params{"pid": "1", "out_trade_no": "wx168b-real-tls", "type": "wxpay", "name": "Synthetic Wechat", "money": "1.00", "channel_id": "7", "method": "native", "notify_url": "https://merchant.example.invalid/notify", "return_url": "https://merchant.example.invalid/return", "sign_type": "MD5"}
 	p["sign"] = compat.SignMD5(p, "test-secret")
 	q := url.Values{}
 	for k, v := range p {
