@@ -3815,3 +3815,34 @@ th {
 td.empty:has(.pa-empty)::before {
   content: none;
 }
+
+/* KitFilterBar (.pa-filter) matches the order list's search card: each field's
+   label sits ABOVE its control, fields are 220px, every control is one 32px
+   line, and 重置 / 查询 / 展开 sit at the right. Without this the KitField base
+   (label beside control) left transfer/settle/sharing/log/complaint filters
+   inline and lower than the stacked pages. */
+.pa-filter > .pa-filter-fields {
+  display: contents;
+}
+.pa-filter .pa-field {
+  flex: 0 1 220px;
+  min-width: 160px;
+  margin: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+.pa-filter .pa-field .pa-input,
+.pa-filter .pa-field .pa-select,
+.pa-filter .pa-field .pa-select-trigger,
+.pa-filter .pa-field > input,
+.pa-filter .pa-field > select {
+  width: 100%;
+  height: var(--control-h);
+  min-height: var(--control-h);
+  box-sizing: border-box;
+}
+.pa-filter > .pa-filter-actions {
+  align-self: flex-end;
+  margin-left: auto;
+}
