@@ -804,6 +804,12 @@ func (s *Service) Delete(ctx context.Context, p Principal, r string, id int64) e
 	if e != nil {
 		return e
 	}
+	if r == "admin-users" {
+		// A super administrator may remove another admin (self-protection and
+		// the last-super-admin invariant are enforced in deleteAdministrator and
+		// the DB trigger). noDelete still blocks the generic delete path below.
+		return s.deleteAdministrator(ctx, p, id)
+	}
 	if d.noDelete {
 		return ErrForbidden
 	}
