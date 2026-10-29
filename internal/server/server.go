@@ -398,6 +398,11 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.collectionStyleImagesConsole(w, r, role, session, parts) {
 		return
 	}
+	// Before orderOperations: its GET /orders/<trade_no> would read "summary"
+	// as an order number and answer "order not found".
+	if s.orderSummary(w, r, role, session, parts) {
+		return
+	}
 	if s.orderOperations(w, r, role, session, parts) {
 		return
 	}
@@ -522,9 +527,6 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.refundSummary(w, r, role, session, parts) {
-		return
-	}
-	if s.orderSummary(w, r, role, session, parts) {
 		return
 	}
 	if s.reports(w, r, role, session, parts) {
