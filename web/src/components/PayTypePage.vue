@@ -349,6 +349,7 @@ onBeforeUnmount(() => {
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <ResourceFields
       v-if="schema"
+      class="form-rows"
       :fields="editableFields"
       :values="values"
       :errors="fieldErrors"
