@@ -90,7 +90,10 @@ async function load(nextKind = kind.value, nextName?: TemplateName) {
     if (list.type !== nextKind)
       throw new Error("模板目录类型不一致，请重新读取");
     const name =
-      nextName || (list.selected === "compact" ? "compact" : "default");
+      nextName ||
+      (list.items.some((item) => item.name === list.selected)
+        ? list.selected
+        : "default");
     const config = readTemplateConfig(
       await props.client.request(`/templates/${nextKind}/${name}/config`, {
         signal: controller.signal,

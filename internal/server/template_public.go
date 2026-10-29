@@ -2,11 +2,11 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"goepay/internal/pagetemplate"
 	"goepay/internal/sitebrand193"
 	"goepay/internal/siteinfo"
-	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -63,14 +63,79 @@ func (s *Server) templatePublic(w http.ResponseWriter, r *http.Request) bool {
 	if siteHomepage191(w, r, cfg) {
 		return true
 	}
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'")
-	if !s.pageTemplateOpen(w, r, "home", pagetemplate.Page{Title: cfg.Title, BrandName: cfg.Name, Keywords: cfg.Keywords, Description: cfg.Description, Sandbox: s.Sandbox}, nil) {
-		return true
-	}
-	io.WriteString(w, "<p>请通过商户提供的付款链接发起支付，并核对订单金额和系统确认状态。</p>")
-	_ = siteContacts191.Execute(w, cfg)
-	io.WriteString(w, "</main></body></html>")
+	s.renderHome(w, r, cfg)
 	return true
+}
+
+// homeFlags reads whether the public test-pay entry and self-registration are
+// enabled, so the landing page offers only the links that work. Read-only; a
+// read error simply hides the optional links.
+func (s *Server) homeFlags(ctx context.Context) (testOpen, registrationOpen bool) {
+	rows, e := s.Pool.Query(ctx, `SELECT body->>'key',body->>'value' FROM backoffice_records WHERE resource='settings' AND body->>'key'=ANY($1)`, []string{"test_open", "registration_open"})
+	if e != nil {
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var k, v string
+		if rows.Scan(&k, &v) != nil {
+			return
+		}
+		switch k {
+		case "test_open":
+			testOpen = v == "1"
+		case "registration_open":
+			registrationOpen = v == "true"
+		}
+	}
+	return
+}
+
+// renderHome serves the selected built-in home landing page. Operator text is
+// escaped by the template, the page carries no script or form, and the
+// appearance colours come from the selected template's typed configuration.
+func (s *Server) renderHome(w http.ResponseWriter, r *http.Request, cfg siteinfo.Config) {
+	appearance, e := pagetemplate.New(s.Pool).Resolve(r.Context(), "home")
+	if e != nil {
+		http.Error(w, "page appearance unavailable", 503)
+		return
+	}
+	logo, e := sitebrand193.New(s.Pool, s.CheckoutKey).Public(r.Context(), "logo")
+	if e != nil && !errors.Is(e, sitebrand193.ErrNotFound) {
+		http.Error(w, "website branding unavailable", 503)
+		return
+	}
+	testOpen, registrationOpen := s.homeFlags(r.Context())
+	d := pagetemplate.HomeData{
+		SiteName:         cfg.Name,
+		Title:            cfg.Title,
+		Keywords:         cfg.Keywords,
+		Description:      cfg.Description,
+		Org:              cfg.Organisation,
+		Email:            cfg.Email,
+		QQ:               cfg.QQ,
+		QQURL:            cfg.QQURL,
+		QQGroup:          cfg.QQGroupURL,
+		WeWork:           cfg.WeWorkURL,
+		TestOpen:         testOpen,
+		RegistrationOpen: registrationOpen,
+		Sandbox:          s.Sandbox,
+	}
+	if logo != nil {
+		d.LogoURL = "/static/img/logo.png"
+	}
+	var b bytes.Buffer
+	if e = pagetemplate.RenderHome(&b, appearance, d); e != nil {
+		http.Error(w, "page appearance unavailable", 503)
+		return
+	}
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'")
+	if appearance.Fallback != "" {
+		w.Header().Set("X-Goepay-Template-Fallback", appearance.Fallback)
+		slog.Warn("page template appearance fallback", "type", "home", "reason", appearance.Fallback)
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(b.Bytes())
 }
 
 type templateColors struct{ Background, Foreground string }
