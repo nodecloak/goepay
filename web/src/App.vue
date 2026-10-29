@@ -59,6 +59,7 @@ import {
 import SubchannelPage from "./components/SubchannelPage.vue";
 import RefundSummaryDialog from "./components/RefundSummaryDialog.vue";
 import OrderSummaryDialog from "./components/OrderSummaryDialog.vue";
+import LedgerSummaryDialog from "./components/LedgerSummaryDialog.vue";
 import { resourceFor, resourceEntryFor } from "./resources";
 import { reportFor } from "./reports";
 import ReportPage from "./components/ReportPage.vue";
@@ -271,6 +272,41 @@ function closeOrderSummary() {
     csrf = context.csrfToken;
   orderSummaryQuery.value = null;
   orderSummaryReturn = undefined;
+  void nextTick(() => {
+    if (
+      client.value === context &&
+      context.csrfToken === csrf &&
+      target?.isConnected
+    )
+      target.focus();
+  });
+}
+const ledgerSummaryQuery = ref<string | null>(null);
+let ledgerSummaryReturn: HTMLElement | undefined;
+function openLedgerSummary() {
+  if (
+    !authorized.value ||
+    kind.value !== "ledger" ||
+    loading.value ||
+    busy.value ||
+    listRouteError.value
+  )
+    return;
+  const q = listQuery();
+  q.delete("page");
+  q.delete("limit");
+  ledgerSummaryReturn =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : undefined;
+  ledgerSummaryQuery.value = q.toString();
+}
+function closeLedgerSummary() {
+  const target = ledgerSummaryReturn,
+    context = client.value,
+    csrf = context.csrfToken;
+  ledgerSummaryQuery.value = null;
+  ledgerSummaryReturn = undefined;
   void nextTick(() => {
     if (
       client.value === context &&
@@ -2159,6 +2195,15 @@ onBeforeUnmount(() => {
             >
               退款统计
             </button>
+            <button
+              v-if="kind === 'ledger'"
+              type="button"
+              class="pa-btn pa-btn--primary"
+              :disabled="loading || busy || !!listRouteError"
+              @click="openLedgerSummary"
+            >
+              统计
+            </button>
             <CsvExportButton
               v-if="['orders', 'refunds', 'ledger'].includes(kind)"
               :client="client"
@@ -2296,6 +2341,12 @@ onBeforeUnmount(() => {
         :client="client"
         :query="orderSummaryQuery"
         @close="closeOrderSummary"
+      />
+      <LedgerSummaryDialog
+        v-if="ledgerSummaryQuery !== null && authorized && kind === 'ledger'"
+        :client="client"
+        :query="ledgerSummaryQuery"
+        @close="closeLedgerSummary"
       />
       <OrderBlacklistDialog
         v-if="blacklistSelection && session && authorized && area === 'admin'"
