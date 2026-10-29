@@ -478,7 +478,14 @@ describe("Pro console field presentation", () => {
         ],
       },
     });
-    expect(wrapper.text()).toContain("接口订单号：receipt-id");
+    // epay_pro's list: 商户订单号 sits under 系统订单号 with no label; it and
+    // the 接口订单号 are both in the hover text (and in 详情).
+    const numbers = wrapper.get("td.col-trade_no small");
+    expect(numbers.text()).toBe("merchant-id");
+    expect(numbers.attributes("title")).toBe(
+      "商户订单号：merchant-id\n接口订单号：receipt-id",
+    );
+    expect(wrapper.text()).not.toContain("接口订单号：");
     expect(
       wrapper
         .findAll("button")
