@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import { ApiError, type ApiClient } from "../api";
 import type { Area } from "../menu";
 import { minorYuan } from "../pro-console-fields";
@@ -23,6 +24,19 @@ const props = defineProps<{
   client: ApiClient;
   area: Area;
 }>();
+
+const router = useRouter();
+
+// Pro 记录 row link: open 分账记录 (profitsharing/order) filtered to this rule's
+// id, mirroring epay_pro's 记录 → /profitsharing/order?rid=. The order list
+// reads rule_id from the route query and prefills its 分账规则ID filter.
+function openRecord(row: Row) {
+  if (!row.rule) return;
+  void router.push({
+    path: "/profitsharing/order",
+    query: { rule_id: row.rule.id },
+  });
+}
 
 type Channel = {
   channel_id: string;
@@ -653,6 +667,17 @@ function onReset() {
                     @click="toggleEnabled(row)"
                   >
                     {{ row.enabled ? "关闭" : "开启" }}
+                  </button>
+                  <button
+                    v-if="row.rule"
+                    type="button"
+                    class="pa-btn"
+                    data-action="record"
+                    :disabled="saving"
+                    title="查看该规则的分账记录"
+                    @click="openRecord(row)"
+                  >
+                    记录
                   </button>
                 </div>
               </td>
