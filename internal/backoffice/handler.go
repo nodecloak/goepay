@@ -185,6 +185,10 @@ func (s *Service) Serve(w http.ResponseWriter, r *http.Request, p Principal, par
 		s.serveBatchDelete(w, r, p, resource)
 		return
 	}
+	if len(parts) == 2 && parts[1] == "batch-status" && r.Method == "POST" {
+		s.serveBatchDomainStatus(w, r, p, resource)
+		return
+	}
 	id, e := strconv.ParseInt(parts[1], 10, 64)
 	if e != nil || id < 0 || id == 0 && (resource != "groups" || parts[1] != "0") {
 		write(w, 400, nil, "invalid ID")
