@@ -74,6 +74,7 @@ export interface ResourceSchema {
   filters?: ResourceFilterSpec[];
   exportable?: boolean;
   batch_delete?: boolean;
+  batch_status?: boolean;
 }
 export const resourcePages: Record<Area, Record<string, string>> = {
   admin: {

@@ -265,7 +265,7 @@ func (g ProviderFlow) executeSettlementAuto(ctx context.Context, id, expectedAut
 		return g.validateSettlementAutoCurrent(c, work, a)
 	})
 	guarded = context.WithValue(guarded, settlementAutoClaimKey{}, &claim)
-	if _, e = g.Store.reviewFundsRequestTx(guarded, tx, id, true, "system:settlement-auto"); e != nil {
+	if _, e = g.Store.reviewFundsRequestTx(guarded, tx, id, true, "system:settlement-auto", ""); e != nil {
 		return SettlementPayout{}, e
 	}
 	actor := TransferBatchActor{Role: "system", ID: 0, Name: "settlement-auto"}

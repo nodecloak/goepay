@@ -616,6 +616,30 @@ const exportPath = computed(() => {
   return endpoint.value + "?" + q.toString();
 });
 const canBatchDelete = computed(() => schema.value?.batch_delete === true);
+const canBatchDomainStatus = computed(
+  () => schema.value?.batch_status === true,
+);
+const confirmDomainStatus = ref<null | boolean>(null);
+async function runBatchDomainStatus() {
+  const approved = confirmDomainStatus.value;
+  if (approved === null || batchBusy.value || !selectedIds.value.length) return;
+  batchBusy.value = true;
+  error.value = "";
+  try {
+    const res = await props.client.request<{ updated?: number }>(
+      endpoint.value + "/batch-status",
+      { method: "POST", body: { ids: selectedIds.value, approved } },
+    );
+    notice.value = `已${approved ? "通过" : "拒绝"} ${res?.updated ?? selectedIds.value.length} 条授权域名`;
+    confirmDomainStatus.value = null;
+    selectedIds.value = [];
+    await load();
+  } catch (e) {
+    error.value = message(e);
+  } finally {
+    batchBusy.value = false;
+  }
+}
 function applyFieldFilter(param: string, value: string) {
   fieldFilters.value = { ...fieldFilters.value, [param]: value };
   page.value = 1;
@@ -1179,6 +1203,24 @@ onBeforeUnmount(resetContext);
         >
           批量删除{{ selectedIds.length ? ` (${selectedIds.length})` : "" }}
         </button>
+        <button
+          v-if="canBatchDomainStatus"
+          type="button"
+          class="pa-btn pa-btn--primary"
+          :disabled="busy || batchBusy || !selectedIds.length"
+          @click="confirmDomainStatus = true"
+        >
+          批量通过{{ selectedIds.length ? ` (${selectedIds.length})` : "" }}
+        </button>
+        <button
+          v-if="canBatchDomainStatus"
+          type="button"
+          class="pa-btn"
+          :disabled="busy || batchBusy || !selectedIds.length"
+          @click="confirmDomainStatus = false"
+        >
+          批量拒绝{{ selectedIds.length ? ` (${selectedIds.length})` : "" }}
+        </button>
         <div class="table-tools-end">
           <CsvExportButton
             v-if="canExportMerchants"
@@ -1601,6 +1643,20 @@ onBeforeUnmount(resetContext);
         将删除所选
         {{ selectedIds.length }}
         条记录。此操作走各记录的可恢复删除流程，不会物理清除数据。
+      </p>
+    </KitModal>
+    <KitModal
+      v-if="confirmDomainStatus !== null"
+      :title="confirmDomainStatus ? '批量通过确认' : '批量拒绝确认'"
+      :submit-text="confirmDomainStatus ? '通过' : '拒绝'"
+      :loading="batchBusy"
+      @close="confirmDomainStatus = null"
+      @submit="runBatchDomainStatus"
+    >
+      <p>
+        将{{ confirmDomainStatus ? "通过" : "拒绝" }}所选
+        {{ selectedIds.length }}
+        条授权域名。此操作逐条走后台审核流程并记录审核事件。
       </p>
     </KitModal>
   </template>
