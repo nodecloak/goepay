@@ -18,12 +18,10 @@ BEGIN
   END IF;
   -- Drop whatever num CHECK currently guards the column (its auto-name is
   -- complaint_tasks133_num_check), then add the widened one under a stable name.
-  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'complaint_tasks133_num_check') THEN
-    ALTER TABLE complaint_tasks133 DROP CONSTRAINT complaint_tasks133_num_check;
-  END IF;
-  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'complaint_tasks133_num_range') THEN
-    ALTER TABLE complaint_tasks133 DROP CONSTRAINT complaint_tasks133_num_range;
-  END IF;
+  -- DROP ... IF EXISTS is scoped to this table; a pg_constraint lookup by name
+  -- alone would also match same-named constraints in other schemas.
+  ALTER TABLE complaint_tasks133 DROP CONSTRAINT IF EXISTS complaint_tasks133_num_check;
+  ALTER TABLE complaint_tasks133 DROP CONSTRAINT IF EXISTS complaint_tasks133_num_range;
   ALTER TABLE complaint_tasks133
     ADD CONSTRAINT complaint_tasks133_num_range CHECK (num BETWEEN 1 AND 200);
 END $$;
