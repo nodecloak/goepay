@@ -6,6 +6,9 @@ import CsvExportButton from "./CsvExportButton.vue";
 import OrderBlacklistDialog from "./OrderBlacklistDialog.vue";
 import KitPagination from "./KitPagination.vue";
 import KitHelpPopover from "./KitHelpPopover.vue";
+import ShellIcon from "./ShellIcon.vue";
+import KitField from "./KitField.vue";
+import KitSelect from "./KitSelect.vue";
 
 const props = defineProps<{
   client: ApiClient;
@@ -226,33 +229,41 @@ onBeforeUnmount(() => {
         load();
       "
     >
-      <span class="filter-inline date-range"
-        >查询日期<input
-          v-model="from"
-          type="date"
-          aria-label="开始日期"
-          required /><span class="date-range-sep">–</span
-        ><input v-model="to" type="date" aria-label="结束日期" required
-      /></span>
-      <label class="filter-inline"
-        >支付方式<select v-model="type" aria-label="支付方式">
-          <option value="">所有支付方式</option>
-          <option value="alipay">支付宝</option>
-          <option value="wxpay">微信支付</option>
-          <option value="sandbox">本地模拟</option>
-        </select></label
-      >
-      <label class="filter-inline"
-        >统计方式<select v-model="method" aria-label="统计方式">
-          <option value="0">支付账号统计</option>
-          <option value="1">支付IP统计</option>
-          <option value="2">支付手机号统计</option>
-        </select></label
-      >
-      <div class="filter-actions">
-        <button type="submit" class="primary" :disabled="loading">查询</button>
+      <div class="pa-filter-fields list-filters-grid">
+        <KitField label="开始日期">
+          <input v-model="from" type="date" aria-label="开始日期" required />
+        </KitField>
+        <KitField label="结束日期">
+          <input v-model="to" type="date" aria-label="结束日期" required />
+        </KitField>
+        <KitField label="支付方式">
+          <KitSelect
+            v-model="type"
+            :options="[
+              { value: '', label: '所有支付方式' },
+              { value: 'alipay', label: '支付宝' },
+              { value: 'wxpay', label: '微信支付' },
+              { value: 'sandbox', label: '本地模拟' },
+            ]"
+            aria-label="支付方式"
+          />
+        </KitField>
+        <KitField label="统计方式">
+          <KitSelect
+            v-model="method"
+            :options="[
+              { value: '0', label: '支付账号统计' },
+              { value: '1', label: '支付IP统计' },
+              { value: '2', label: '支付手机号统计' },
+            ]"
+            aria-label="统计方式"
+          />
+        </KitField>
+      </div>
+      <div class="pa-filter-actions">
         <button
           type="button"
+          class="pa-btn"
           :disabled="loading"
           @click="
             from = today.from;
@@ -264,6 +275,14 @@ onBeforeUnmount(() => {
           "
         >
           重置
+        </button>
+        <button
+          type="submit"
+          class="pa-btn pa-btn--primary"
+          :class="{ 'pa-btn--loading': loading }"
+          :disabled="loading"
+        >
+          查询
         </button>
       </div>
     </form>
@@ -280,9 +299,21 @@ onBeforeUnmount(() => {
         <span class="table-summary"
           >共 <strong>{{ total }}</strong> 条记录</span
         >
-        <KitHelpPopover
-          text="只统计查询日期内已付款订单，日期按北京时间。未记录的账号或IP不合并为虚构用户；付款金额可按行刷新。"
-        />
+        <div class="table-tools-end">
+          <KitHelpPopover
+            text="只统计查询日期内已付款订单，日期按北京时间。未记录的账号或IP不合并为虚构用户；付款金额可按行刷新。"
+          />
+          <button
+            type="button"
+            class="icon-button table-refresh"
+            :aria-label="loading ? '正在更新…' : '刷新数据'"
+            :title="loading ? '正在更新…' : '刷新数据'"
+            :disabled="loading"
+            @click="load"
+          >
+            <ShellIcon name="refresh" />
+          </button>
+        </div>
       </div>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
       <div v-if="unavailable" class="alert" role="status">
@@ -411,28 +442,6 @@ onBeforeUnmount(() => {
 <style scoped>
 .buyer-statistics {
   min-width: 0;
-}
-.filter-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  font-size: 13px;
-}
-.date-range {
-  gap: 4px;
-}
-.date-range input {
-  width: auto;
-}
-.date-range-sep {
-  color: var(--ink-muted);
-}
-.filter-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-left: auto;
 }
 .table-summary {
   margin-left: auto;

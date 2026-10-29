@@ -68,6 +68,13 @@ function applyShortcut() {
   page.value = 1;
   load();
 }
+function resetFilters() {
+  shortcut.value = "";
+  from.value = "";
+  to.value = "";
+  page.value = 1;
+  load();
+}
 function reportQuery() {
   const q = new URLSearchParams({
     page: String(page.value),
@@ -228,6 +235,15 @@ onBeforeUnmount(() => controller?.abort());
       </div>
       <div class="pa-filter-actions">
         <button
+          v-if="!complaintOverview"
+          type="button"
+          class="pa-btn"
+          :disabled="loading"
+          @click="resetFilters"
+        >
+          重置
+        </button>
+        <button
           type="submit"
           class="pa-btn pa-btn--primary"
           :disabled="loading"
@@ -255,7 +271,19 @@ onBeforeUnmount(() => controller?.abort());
         <span class="table-summary"
           >共 <strong>{{ total }}</strong> 条统计</span
         >
-        <KitHelpPopover :text="reportNote" />
+        <div class="table-tools-end">
+          <KitHelpPopover :text="reportNote" />
+          <button
+            type="button"
+            class="icon-button table-refresh"
+            :aria-label="loading ? '正在更新…' : '刷新数据'"
+            :title="loading ? '正在更新…' : '刷新数据'"
+            :disabled="loading"
+            @click="load"
+          >
+            <ShellIcon name="refresh" />
+          </button>
+        </div>
       </div>
       <div v-if="loading" class="loading-row" role="status">正在汇总统计…</div>
       <DataTable v-else-if="!error" :columns="columns" :items="items" />

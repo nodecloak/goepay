@@ -13,6 +13,8 @@ import {
 } from "../province-statistics";
 import CsvExportButton from "./CsvExportButton.vue";
 import ShellIcon from "./ShellIcon.vue";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
 const props = defineProps<{ client: ApiClient }>(),
   preset = ref("today"),
   uid = ref(""),
@@ -198,60 +200,84 @@ function choose(name: string, click = false) {
       class="toolbar list-filter-card panel province-filter"
       @submit.prevent="load"
     >
-      <button
-        type="button"
-        class="filter-refresh"
-        :disabled="loading"
-        @click="load"
-      >
-        <ShellIcon name="refresh" />刷新
-      </button>
-      <div class="province-ranges" role="group" aria-label="统计日期范围">
-        <button
-          v-for="range in ranges"
-          :key="range.key"
-          type="button"
-          :aria-pressed="preset === range.key"
-          :disabled="loading"
-          @click="changeRange(range.key)"
-        >
-          {{ range.label }}
-        </button>
-      </div>
-      <template v-if="admin"
-        ><label class="filter-inline"
-          >商户号<input
+      <div class="pa-filter-fields list-filters-grid">
+        <KitField label="统计日期范围" class="province-range-field">
+          <div class="province-ranges" role="group" aria-label="统计日期范围">
+            <button
+              v-for="range in ranges"
+              :key="range.key"
+              type="button"
+              :aria-pressed="preset === range.key"
+              :disabled="loading"
+              @click="changeRange(range.key)"
+            >
+              {{ range.label }}
+            </button>
+          </div>
+        </KitField>
+        <KitField v-if="admin" label="商户号">
+          <KitInput
             v-model="uid"
             aria-label="商户号"
             placeholder="商户号"
             inputmode="numeric"
-            maxlength="19" /></label
-        ><label class="filter-inline"
-          >通道ID<input
+            :maxlength="19"
+          />
+        </KitField>
+        <KitField v-if="admin" label="通道ID">
+          <KitInput
             v-model="channel"
             aria-label="通道ID"
             placeholder="通道ID"
             inputmode="numeric"
-            maxlength="19" /></label
-        ><button class="primary" :disabled="loading">查询</button></template
-      >
-      <button type="button" :disabled="loading" @click="reset">重置</button
-      ><CsvExportButton
-        :client="client"
-        :path="csvPath"
-        filename="province-statistics.csv"
-        :disabled="loading || !data || !!error"
-      />
-      <div v-if="data && !error" class="province-total filter-total">
-        <span>累计交易金额</span
-        ><strong
-          >¥<span>{{ totalMoney }}</span></strong
-        ><span
-          >（<span>{{ totalCount }}</span> 笔）</span
+            :maxlength="19"
+          />
+        </KitField>
+      </div>
+      <div class="pa-filter-actions">
+        <button type="button" class="pa-btn" :disabled="loading" @click="reset">
+          重置
+        </button>
+        <button
+          v-if="admin"
+          type="submit"
+          class="pa-btn pa-btn--primary"
+          :class="{ 'pa-btn--loading': loading }"
+          :disabled="loading"
         >
+          查询
+        </button>
       </div>
     </form>
     <section class="panel records">
+      <div class="table-tools">
+        <CsvExportButton
+          :client="client"
+          :path="csvPath"
+          filename="province-statistics.csv"
+          :disabled="loading || !data || !!error"
+        />
+        <div v-if="data && !error" class="province-total filter-total">
+          <span>累计交易金额</span
+          ><strong
+            >¥<span>{{ totalMoney }}</span></strong
+          ><span
+            >（<span>{{ totalCount }}</span> 笔）</span
+          >
+        </div>
+        <div class="table-tools-end">
+          <button
+            type="button"
+            class="icon-button table-refresh"
+            :aria-label="loading ? '正在更新…' : '刷新数据'"
+            :title="loading ? '正在更新…' : '刷新数据'"
+            :disabled="loading"
+            @click="load"
+          >
+            <ShellIcon name="refresh" />
+          </button>
+        </div>
+      </div>
       <p class="muted province-note">
         按北京时间订单创建日期统计已支付金额与笔数。地区来自已记录资料，未记录或未匹配的地区单独保留，不根据支付IP猜测。
       </p>
@@ -437,24 +463,14 @@ function choose(name: string, click = false) {
 }
 .province-filter.list-filter-card {
   padding: var(--space-4) var(--space-5);
-  align-items: center;
 }
-.filter-refresh,
-.province-filter .filter-inline {
-  margin: 0;
-}
-.province-filter .filter-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-}
-.province-filter .filter-inline input {
-  width: auto;
-  margin: 0;
+/* The date-range chips are one field; let it take the room several chips need
+   instead of the default 220px field width. */
+.province-range-field {
+  flex: 1 1 340px;
 }
 .province-note {
-  margin: 0 0 var(--space-3);
+  margin: 0 var(--space-5) var(--space-3);
   font-size: 12px;
   line-height: 1.7;
 }
@@ -479,7 +495,7 @@ function choose(name: string, click = false) {
   margin: 18px 0;
 }
 .province-total.filter-total {
-  margin: 0 0 0 auto;
+  margin: 0;
 }
 .province-total strong {
   color: var(--primary-text);
