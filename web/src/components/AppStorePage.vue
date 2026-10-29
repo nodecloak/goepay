@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import ShellIcon from "./ShellIcon.vue";
 import PluginDetailDrawer from "./PluginDetailDrawer.vue";
 import KitStatusTag from "./KitStatusTag.vue";
+import KitPagination from "./KitPagination.vue";
 import {
   builtinCount,
   builtinPlugin,
@@ -21,10 +22,19 @@ const items = ref<CatalogEntry[]>([]),
   type = ref<PluginType>("payment"),
   query = ref(""),
   applied = ref(""),
-  selected = ref<CatalogEntry | null>(null);
+  selected = ref<CatalogEntry | null>(null),
+  page = ref(1),
+  pageSize = ref(20);
 const rows = computed(() =>
   filterCatalog(items.value, type.value, applied.value),
 );
+const pageRows = computed(() =>
+  rows.value.slice(
+    (page.value - 1) * pageSize.value,
+    page.value * pageSize.value,
+  ),
+);
+watch([type, applied], () => (page.value = 1));
 const builtin = computed(() => builtinCount(items.value));
 onMounted(async () => {
   try {
@@ -44,8 +54,8 @@ function reset() {
   <section class="panel plugin-page" aria-label="应用市场">
     <p class="alert plugin-notice" role="note">
       <ShellIcon name="info" /><span
-        >Go 版插件随服务内置，不能在线购买、下载或安装 PHP
-        插件。下表是原应用市场的插件列表{{
+        >Go 版插件和模板随服务内置、默认已安装，不能在线购买、下载或安装 PHP
+        插件。下表是原应用市场的列表{{
           loading ? "" : `，已内置 ${builtin} 个，其余暂不支持`
         }}。</span
       >
@@ -87,7 +97,7 @@ function reset() {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="item in rows" :key="catalogKey(item)">
+          <tr v-for="item in pageRows" :key="catalogKey(item)">
             <td>
               <span class="plugin-name"
                 ><img v-if="item.icon" :src="item.icon" alt="" loading="lazy" />
@@ -131,7 +141,12 @@ function reset() {
         </tbody>
       </table>
     </div>
-    <p v-if="!loading && !error" class="plugin-foot">共 {{ rows.length }} 个</p>
+    <KitPagination
+      v-if="!loading && !error && rows.length"
+      v-model:page="page"
+      v-model:page-size="pageSize"
+      :total="rows.length"
+    />
     <PluginDetailDrawer
       v-if="selected"
       :entry="selected"
@@ -183,10 +198,5 @@ function reset() {
 .price-paid {
   color: var(--warning-text);
   font-weight: 600;
-}
-.plugin-foot {
-  margin: 12px 0 0;
-  font-size: 12px;
-  color: var(--ink-muted);
 }
 </style>

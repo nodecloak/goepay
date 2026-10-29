@@ -42,8 +42,8 @@ func TestBuiltInRegistryAndTypedConfig(t *testing.T) {
 			}
 		}
 	}
-	if len(cases["home"]) != 10 {
-		t.Fatal("home must ship ten styles", len(cases["home"]))
+	if len(cases["home"]) != 12 {
+		t.Fatal("home must ship default, index1-index10 and minimal", len(cases["home"]))
 	}
 	for _, kind := range []string{"../pay", "PAY", "plugin"} {
 		if _, e := Templates(kind); e == nil {

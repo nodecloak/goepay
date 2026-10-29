@@ -60,28 +60,30 @@ it("requires all six common fields, adds only pay order switch, and preserves ex
 });
 
 
-it("accepts the ten built-in home styles and rejects wrong counts, names and kinds", () => {
+it("accepts the built-in home styles and rejects wrong counts, names and kinds", () => {
   const homeNames = [
     "default",
-    "cloud",
-    "aggregate",
-    "fintech",
-    "signup",
-    "faq",
-    "startup",
-    "modern",
-    "assistant",
+    "index1",
+    "index2",
+    "index3",
+    "index4",
+    "index5",
+    "index6",
+    "index7",
+    "index8",
+    "index9",
+    "index10",
     "minimal",
   ];
   const items = homeNames.map((name) => ({ name, title: name, description: "本地内置" }));
   const list = readTemplateList({
     type: "home",
     revision: "3",
-    selected: "cloud",
+    selected: "index7",
     items,
   });
   expect(list.items.map((i) => i.name)).toEqual(homeNames);
-  expect(list.selected).toBe("cloud");
+  expect(list.selected).toBe("index7");
   // Wrong item count for the kind.
   expect(() =>
     readTemplateList({
@@ -97,7 +99,7 @@ it("accepts the ten built-in home styles and rejects wrong counts, names and kin
       type: "home",
       revision: "3",
       selected: "default",
-      items: [...items.slice(0, 9), { name: "evil", title: "x", description: "x" }],
+      items: [...items.slice(0, 11), { name: "evil", title: "x", description: "x" }],
     }),
   ).toThrow();
   // pay/qrpay still require exactly the two card layouts.
@@ -108,7 +110,7 @@ it("accepts the ten built-in home styles and rejects wrong counts, names and kin
   expect(
     readTemplateConfig({
       type: "home",
-      name: "fintech",
+      name: "index7",
       revision: "0",
       config: {
         brand_name: "Local",
@@ -120,6 +122,6 @@ it("accepts the ten built-in home styles and rejects wrong counts, names and kin
       },
       fields: [],
     }).name,
-  ).toBe("fintech");
-  expect(() => readTemplateConfig({ type: "pay", name: "fintech", revision: "0", config: {}, fields: [] })).toThrow();
+  ).toBe("index7");
+  expect(() => readTemplateConfig({ type: "pay", name: "index7", revision: "0", config: {}, fields: [] })).toThrow();
 });

@@ -30,18 +30,21 @@ export interface TemplateAsset {
   height: number;
 }
 const kinds = ["home", "pay", "qrpay"],
-  // The home kind ships ten landing styles; pay/qrpay ship the two checkout
-  // card layouts. The console only ever selects a built-in name.
+  // The home kind ships the original template names (default, index1-10)
+  // plus GOEPAY's single-card style; pay/qrpay ship the two checkout card
+  // layouts. The console only ever selects a built-in name.
   homeNames = [
     "default",
-    "cloud",
-    "aggregate",
-    "fintech",
-    "signup",
-    "faq",
-    "startup",
-    "modern",
-    "assistant",
+    "index1",
+    "index2",
+    "index3",
+    "index4",
+    "index5",
+    "index6",
+    "index7",
+    "index8",
+    "index9",
+    "index10",
     "minimal",
   ],
   cardNames = ["default", "compact"],

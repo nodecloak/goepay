@@ -5,10 +5,12 @@ import catalog from "../src/data/plugin-catalog.json";
 import {
   builtinPlugin,
   builtinCount,
+  builtinTemplates,
   filterCatalog,
   localPlugins,
   priceLabel,
   pluginTypes,
+  withBuiltinTemplates,
   type CatalogEntry,
 } from "../src/plugin-catalog";
 import AppStorePage from "../src/components/AppStorePage.vue";
@@ -39,14 +41,42 @@ it("keeps the original market categories and marks only what this Go build runs"
   // A plugin with no Go implementation stays market-only.
   expect(builtinPlugin({ type: "sms", name: "aliyun" })).toBeUndefined();
   expect(builtinPlugin({ type: "applyments", name: "lakala" })).toBeUndefined();
-  // Templates are keyed by kind, so home/pay/qrpay defaults stay distinct.
+  // Templates are keyed by kind, so home/pay/qrpay defaults stay distinct,
+  // and every original home template (index1-index10) is built in.
   expect(
     builtinPlugin({ type: "template", sub: "pay", name: "default" }),
   ).toBeDefined();
   expect(
     builtinPlugin({ type: "template", sub: "home", name: "index7" }),
+  ).toBeDefined();
+  expect(
+    builtinPlugin({ type: "template", sub: "pay", name: "index7" }),
   ).toBeUndefined();
-  expect(builtinCount(items)).toBe(65);
+  expect(builtinCount(items)).toBe(75);
+});
+
+it("adds GOEPAY's own templates to the market and orders templates by kind", () => {
+  const all = withBuiltinTemplates(items);
+  const templates = all.filter((i) => i.type === "template");
+  expect(templates.map((i) => `${i.sub}:${i.name}`)).toEqual([
+    "home:default",
+    ...Array.from({ length: 10 }, (_, n) => `home:index${n + 1}`),
+    "home:minimal",
+    "pay:default",
+    "pay:compact",
+    "qrpay:default",
+    "qrpay:compact",
+  ]);
+  expect(templates.every((i) => builtinPlugin(i))).toBe(true);
+  const minimal = templates.find((i) => i.name === "minimal")!;
+  expect(minimal.author).toBe("GOEPAY");
+  expect(minimal.title).toBe("单卡极简首页模板");
+  // Every generated template is in the market exactly once.
+  expect(templates.length).toBe(builtinTemplates.length);
+  // Other categories keep the original order and size.
+  expect(all.filter((i) => i.type !== "template")).toEqual(
+    items.filter((i) => i.type !== "template"),
+  );
 });
 
 it("filters by category and by title or identifier", () => {
@@ -89,6 +119,28 @@ it("the market page lists the original plugins with their Go state and a detail 
   await w.get('button[aria-label="应用详情 通莞金服"]').trigger("click");
   const drawer = w.get('[role="dialog"][aria-label="应用详情"]');
   expect(drawer.text()).toContain("Go 版尚未实现该插件");
+  w.unmount();
+});
+
+it("the market pages long lists and shows every template as installed", async () => {
+  const w = mount(AppStorePage, { attachTo: document.body });
+  await vi.waitFor(() => expect(w.text()).not.toContain("正在读取应用列表"));
+  await flushPromises();
+  const payments = filterCatalog(items, "payment", "").length;
+  expect(w.findAll("tbody tr").length).toBe(20);
+  expect(w.get(".pa-pager").text()).toContain(`共 ${payments} 条`);
+  const first = w.get("tbody tr").text();
+  await w.get('button[aria-label="下一页"]').trigger("click");
+  expect(w.get("tbody tr").text()).not.toBe(first);
+  // Switching tabs starts again at page 1.
+  const tpl = w.findAll('[role="tab"]').find((t) => t.text() === "模板")!;
+  await tpl.trigger("click");
+  const rows = w.findAll("tbody tr");
+  expect(rows.length).toBe(builtinTemplates.length);
+  expect(rows.every((r) => r.text().includes("已内置"))).toBe(true);
+  expect(w.get("tbody").text()).toContain("深色科技风首页模板");
+  expect(w.get("tbody").text()).toContain("单卡极简首页模板");
+  expect(w.get("tbody").text()).not.toContain("暂不支持");
   w.unmount();
 });
 

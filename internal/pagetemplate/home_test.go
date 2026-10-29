@@ -116,7 +116,38 @@ func TestHomeLinksBannerLogoAndDensityFollowSettings(t *testing.T) {
 		t.Fatal("malformed asset id rendered as an image")
 	}
 	cfg.Density = "compact"
-	if out := render("cloud", cfg, HomeData{}); !strings.Contains(out, `data-density="compact"`) {
+	if out := render("index1", cfg, HomeData{}); !strings.Contains(out, `data-density="compact"`) {
 		t.Fatal("compact spacing not applied")
+	}
+}
+
+func TestHomeStylesKeepOriginalNamesAndReadableColours(t *testing.T) {
+	want := "default,index1,index2,index3,index4,index5,index6,index7,index8,index9,index10,minimal"
+	if got := strings.Join(homeStyleNames(), ","); got != want {
+		t.Fatalf("home styles %s, want %s", got, want)
+	}
+	for _, s := range homeStyleList {
+		c := DefaultConfig("home", s.Name)
+		fg := readable(c.BackgroundColor, "#e6edf5", "#163047")
+		on := readable(c.AccentColor, "#ffffff", "#0b1220")
+		for what, ratio := range map[string]float64{
+			"text on background":  contrast(fg, c.BackgroundColor),
+			"button text":         contrast(on, c.AccentColor),
+			"links on background": contrast(c.AccentColor, c.BackgroundColor),
+		} {
+			if ratio < 4.5 {
+				t.Fatalf("%s: %s contrast %.2f < 4.5 (%+v)", s.Name, what, ratio, c)
+			}
+		}
+	}
+	var b strings.Builder
+	if e := RenderHome(&b, Resolved{Type: "home", Name: "index7", Config: DefaultConfig("home", "index7")}, HomeData{SiteName: "x"}); e != nil {
+		t.Fatal(e)
+	}
+	if !strings.Contains(b.String(), "background:#0b1220;color:#e6edf5") {
+		t.Fatal("dark style must switch to light text")
+	}
+	if readable("#ffffff", "#e6edf5", "#163047") != "#163047" || readable("#000000", "#e6edf5", "#163047") != "#e6edf5" {
+		t.Fatal("readable picked the wrong colour")
 	}
 }
