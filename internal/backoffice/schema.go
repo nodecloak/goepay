@@ -47,6 +47,7 @@ type Schema struct {
 	Filters     []FilterSpec `json:"filters,omitempty"`
 	Exportable  bool         `json:"exportable,omitempty"`
 	BatchDelete bool         `json:"batch_delete,omitempty"`
+	BatchStatus bool         `json:"batch_status,omitempty"`
 }
 type definition struct {
 	title, description   string
@@ -136,7 +137,7 @@ func (s *Service) Schema(p Principal, resource string) (Schema, error) {
 	case "profitsharing-rules":
 		actions = []string{"execute"}
 	}
-	return Schema{Title: d.title, Description: d.description, Fields: fields, Permissions: Permissions{Create: write, Update: write, Delete: write && !d.noDelete}, Actions: actions, Filters: d.filters, Exportable: d.exportable, BatchDelete: write && !d.noDelete}, nil
+	return Schema{Title: d.title, Description: d.description, Fields: fields, Permissions: Permissions{Create: write, Update: write, Delete: write && !d.noDelete}, Actions: actions, Filters: d.filters, Exportable: d.exportable, BatchDelete: write && !d.noDelete, BatchStatus: resource == "domains" && p.Role == "admin"}, nil
 }
 func decodeFields(raw []byte) map[string]any {
 	v := map[string]any{}
