@@ -118,11 +118,11 @@ async function refresh(r: Redpack) {
 onMounted(load);
 </script>
 <template>
-  <section class="panel" aria-label="红包记录">
+  <section class="panel records redpack-records" aria-label="红包记录">
     <p v-if="!open" class="alert error" role="alert">未开启创建红包功能。</p>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
-    <p class="muted">
+    <p class="table-note">
       收款人扫描二维码授权后领取，领取时通过支付宝/微信商家转账接口付款，并非现金红包接口。领取时才按转账费率预留余额，过期未领取不占用余额。
     </p>
     <div class="table-tools">
@@ -279,8 +279,26 @@ onMounted(load);
   </KitModal>
 </template>
 <style scoped>
+/* Full-width records card (as 付款记录): text, toolbar and the first/last
+   table cells share the card's 20px inset. */
+.redpack-records > .alert {
+  margin: var(--space-4) var(--space-5) 0;
+}
+.redpack-records > .table-note {
+  padding-top: var(--space-4);
+}
+.redpack-records > .alert + .table-note {
+  padding-top: var(--space-3);
+}
+.redpack-records > .table-tools {
+  padding-top: var(--space-2);
+}
+.redpack-records tbody tr:last-child > td {
+  border-bottom: 0;
+}
 .qr {
-  margin: 16px 0;
+  margin: 0;
+  padding: 0 var(--space-5) var(--space-4);
 }
 .qr p {
   overflow-wrap: anywhere;
