@@ -293,11 +293,7 @@ onBeforeUnmount(() => controller?.abort());
       </div></template
     ><template v-else
       ><div class="toolbar">
-        <p v-if="operation === 'system-info'" class="muted">
-          当前部署构建与实际加载能力。本页面提供运行信息，不执行 PHP
-          插件或在线覆盖更新。
-        </p>
-        <span v-else class="muted">{{
+        <span v-if="operation !== 'system-info'" class="muted">{{
           operation === "jobs"
             ? "仅允许重新排队支付通知和结果核实任务，不重新提交支付、退款或转账。"
             : "只显示有权访问的运行记录。"
