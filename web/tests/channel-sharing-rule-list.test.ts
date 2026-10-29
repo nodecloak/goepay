@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
+import { createRouter, createMemoryHistory } from "vue-router";
 import ChannelSharingRuleList from "../src/components/ChannelSharingRuleList.vue";
 import { ApiClient } from "../src/api";
 
@@ -50,13 +51,25 @@ const rule = {
   ],
 };
 
+function makeRouter() {
+  return createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: "/", component: { template: "<div/>" } },
+      { path: "/profitsharing/order", component: { template: "<div/>" } },
+      { path: "/:pathMatch(.*)*", component: { template: "<div/>" } },
+    ],
+  });
+}
+
 const render = (
   request: (...args: any[]) => any,
   area: "admin" | "merchant" = "admin",
+  router = makeRouter(),
 ) =>
   mount(ChannelSharingRuleList, {
     props: { client: Object.assign(new ApiClient(area), { request }), area },
-    global: { stubs: { Teleport: true } },
+    global: { stubs: { Teleport: true }, plugins: [router] },
   });
 
 async function open(w: ReturnType<typeof render>) {
@@ -194,5 +207,18 @@ it("toggles a rule off through the disable endpoint", async () => {
   await w.get('[data-action="toggle"]').trigger("click");
   await flushPromises();
   expect(disabled).toBe(true);
+  w.unmount();
+});
+
+it("记录 row link navigates to 分账记录 filtered by the rule id", async () => {
+  const router = makeRouter();
+  const w = render(listRequest(), "admin", router);
+  await open(w);
+  const record = w.get('[data-action="record"]');
+  expect(record.text()).toBe("记录");
+  await record.trigger("click");
+  await flushPromises();
+  expect(router.currentRoute.value.path).toBe("/profitsharing/order");
+  expect(router.currentRoute.value.query.rule_id).toBe("5");
   w.unmount();
 });
