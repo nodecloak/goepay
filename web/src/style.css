@@ -549,17 +549,19 @@ body:has(.login-layout[data-area="merchant"]) {
     width 0.2s,
     transform 0.2s;
   border-right: 1px solid var(--line);
+  /* kit sidebar: 12px top / 8px side gutter (payment-admin-ui-kit .pa-sidebar) */
+  padding: var(--space-3) var(--space-2) 0;
 }
 .console-sidebar > .brand {
   height: var(--topbar-h);
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-3);
   color: var(--ink);
   font-size: 15px;
   letter-spacing: 0;
   flex-shrink: 0;
 }
 .area-label {
-  padding: 4px var(--space-4) 8px;
+  padding: 4px var(--space-3) 8px;
   color: var(--ink-muted);
   font-size: 11px;
   white-space: nowrap;
@@ -569,7 +571,7 @@ body:has(.login-layout[data-area="merchant"]) {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0 var(--space-2) var(--space-4);
+  padding: 0 0 var(--space-4);
   scrollbar-width: none;
 }
 .console-sidebar nav::-webkit-scrollbar {
@@ -631,7 +633,7 @@ body:has(.login-layout[data-area="merchant"]) {
 }
 .menu[data-level="1"] a,
 .menu[data-level="1"] summary {
-  min-height: 34px;
+  min-height: 36px;
   font-size: 13px;
 }
 .menu-child-dot {
@@ -654,7 +656,7 @@ body:has(.login-layout[data-area="merchant"]) {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3);
   color: var(--ink-muted);
   font-size: 11px;
   white-space: nowrap;
@@ -668,7 +670,7 @@ body:has(.login-layout[data-area="merchant"]) {
   flex: 0 0 auto;
 }
 .sidebar-collapsed .console-sidebar > .brand {
-  padding-inline: 16px;
+  padding-inline: var(--space-2);
 }
 .sidebar-collapsed .brand-name,
 .sidebar-collapsed .area-label,
@@ -685,8 +687,8 @@ body:has(.login-layout[data-area="merchant"]) {
   display: none;
 }
 .sidebar-collapsed .console-sidebar nav {
-  padding-inline: 8px;
-  padding-top: 20px;
+  padding-inline: 0;
+  padding-top: var(--space-2);
 }
 .sidebar-collapsed .menu a,
 .sidebar-collapsed .menu summary {
@@ -803,6 +805,9 @@ body:has(.login-layout[data-area="merchant"]) {
   margin: 0;
 }
 .account > .logout {
+  min-height: var(--control-h);
+  padding: 0 15px;
+  font-size: 13px;
   background: var(--danger);
   border-color: var(--danger);
   color: var(--on-danger);
@@ -821,7 +826,6 @@ body:has(.login-layout[data-area="merchant"]) {
   padding: 6px var(--space-4);
   min-height: 38px;
   background: var(--bg-page);
-  border-bottom: 1px solid var(--line);
 }
 .work-tabs::-webkit-scrollbar {
   display: none;
@@ -838,8 +842,8 @@ body:has(.login-layout[data-area="merchant"]) {
   border-color: var(--line-control);
 }
 .work-tab > button {
-  min-height: 24px;
-  padding: 2px 10px;
+  min-height: 26px;
+  padding: 0 10px;
   border: none;
   background: transparent;
   font-size: 12px;
@@ -856,14 +860,23 @@ body:has(.login-layout[data-area="merchant"]) {
   height: 14px;
 }
 .work-tab .tab-close {
-  width: 22px;
-  padding: 3px;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  padding: 0;
   border-radius: 50%;
   color: var(--ink-muted);
+}
+.work-tab:has(.tab-close) > button {
+  padding-right: 4px;
 }
 .work-tab .tab-close:hover {
   background: var(--bg-hover);
   color: var(--ink);
+}
+.work-tab .tab-close .shell-icon {
+  width: 10px;
+  height: 10px;
 }
 .work-tab.selected {
   background: var(--primary-soft);
@@ -905,21 +918,28 @@ body:has(.login-layout[data-area="merchant"]) {
   padding: 0;
 }
 .alert {
-  padding: 10px 14px;
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
   font-size: 13px;
   line-height: 1.6;
   margin-bottom: var(--space-4);
+  border: 1px solid transparent;
 }
 .error {
   color: var(--danger-text);
   background: var(--danger-soft);
-  border: 1px solid var(--danger-soft);
 }
 .success {
   color: var(--success-text);
   background: var(--success-soft);
-  border: 1px solid var(--success-soft);
+}
+.alert.warning {
+  color: var(--warning-text);
+  background: var(--warning-soft);
+}
+.alert.info {
+  color: var(--ink);
+  background: var(--primary-soft);
 }
 .stat-grid {
   display: grid;
@@ -1021,6 +1041,22 @@ body:has(.login-layout[data-area="merchant"]) {
 }
 .search-group button {
   white-space: nowrap;
+}
+/* ux-trade: Pro search-field row — KitField(搜索字段/搜索内容) + 查询 button */
+.search-group {
+  align-items: flex-end;
+}
+.search-group > .pa-field {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.order-search-group > .pa-field:first-child {
+  flex: 0 0 150px;
+}
+.search-group > .pa-field .pa-input,
+.search-group > .pa-field .pa-select,
+.search-group > .pa-field .pa-select-trigger {
+  width: 100%;
 }
 .order-search-group {
   max-width: 640px;
@@ -2286,4 +2322,1406 @@ button.badge.state-toggle:hover:not(:disabled) {
   .account-security-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* ============================================================
+   kit-list block — kit component styles (FilterBar, controls, table,
+   pagination, tags, pay-method, empty, modal). Sourced verbatim from
+   payment-admin-ui-kit/components/bundle.css; tokens already defined above.
+   Edit only within this block.
+   ============================================================ */
+
+/* Buttons */
+.pa-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--control-h);
+  padding: 0 15px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-control);
+  background: var(--bg-card);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+.pa-btn:hover {
+  border-color: var(--primary-text);
+  color: var(--primary-text);
+}
+.pa-btn--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+.pa-btn--primary:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  color: var(--on-primary);
+}
+.pa-btn--success {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--on-success);
+}
+.pa-btn--success:hover {
+  filter: brightness(0.92);
+  border-color: var(--success);
+  color: var(--on-success);
+}
+.pa-btn--danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--on-danger);
+}
+.pa-btn--danger:hover {
+  filter: brightness(0.92);
+  border-color: var(--danger);
+  color: var(--on-danger);
+}
+.pa-btn--text {
+  background: transparent;
+  border-color: transparent;
+  color: var(--primary-text);
+  padding: 0 6px;
+}
+.pa-btn--text:hover {
+  background: var(--bg-hover);
+  border-color: transparent;
+}
+.pa-btn[disabled],
+.pa-btn[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+}
+.pa-btn--loading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+.pa-btn--loading::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: pa-spin 0.8s linear infinite;
+}
+@keyframes pa-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Icon button */
+.pa-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--bg-card);
+  color: var(--ink-muted);
+  cursor: pointer;
+  padding: 0;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.pa-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--ink);
+}
+.pa-icon-btn--ghost {
+  border-color: transparent;
+  background: transparent;
+}
+.pa-icon-btn--more {
+  background: var(--bg-raised);
+  color: var(--ink);
+  border-color: var(--line-control);
+  width: 28px;
+  height: 24px;
+}
+
+/* Dropdown / menu */
+.pa-menu {
+  min-width: 160px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+}
+.pa-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.pa-menu-item:hover,
+.pa-menu-item[aria-selected="true"] {
+  background: var(--bg-hover);
+}
+
+/* Fields / inputs */
+.pa-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.pa-label {
+  font-size: 13px;
+  line-height: 19.5px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.pa-label--req::before {
+  content: "* ";
+  color: var(--danger-text);
+}
+.pa-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  min-width: 0;
+  flex: 1;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.pa-input:hover {
+  border-color: var(--ink-muted);
+}
+.pa-input:focus-within {
+  border-color: var(--primary-text);
+  box-shadow: 0 0 0 2px var(--primary-soft);
+}
+.pa-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  color: var(--ink);
+  height: 100%;
+}
+.pa-input input::placeholder {
+  color: var(--ink-muted);
+}
+.pa-input--error {
+  border-color: var(--danger-text);
+}
+.pa-input--disabled {
+  opacity: 0.5;
+  background: var(--bg-raised);
+}
+
+/* Select */
+.pa-select {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.pa-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+.pa-select-trigger[aria-expanded="true"] {
+  border-color: var(--primary-text);
+}
+.pa-select-chev {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--ink-muted);
+  transition: transform 0.15s;
+}
+.pa-select-trigger[aria-expanded="true"] .pa-select-chev {
+  transform: rotate(180deg);
+}
+.pa-select .pa-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 5;
+}
+.pa-option-check {
+  margin-left: auto;
+  width: 8px;
+  height: 4px;
+  border: 2px solid var(--primary-text);
+  border-top: 0;
+  border-right: 0;
+  transform: rotate(-45deg);
+}
+
+/* Toggles */
+.pa-check,
+.pa-radio,
+.pa-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  cursor: pointer;
+}
+.pa-check input,
+.pa-radio input {
+  appearance: none;
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line-control);
+  background: var(--bg-card);
+  display: inline-grid;
+  place-content: center;
+  cursor: pointer;
+  flex: none;
+}
+.pa-check input {
+  border-radius: var(--radius-xs);
+}
+.pa-radio input {
+  border-radius: 50%;
+}
+.pa-check input:checked,
+.pa-check input:indeterminate {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.pa-check input:checked::after {
+  content: "";
+  width: 8px;
+  height: 4px;
+  border: 2px solid var(--on-primary);
+  border-top: 0;
+  border-right: 0;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+.pa-check input:indeterminate::after {
+  content: "";
+  width: 8px;
+  height: 2px;
+  background: var(--on-primary);
+}
+.pa-radio input:checked {
+  border-color: var(--primary);
+  border-width: 5px;
+}
+.pa-check input:disabled,
+.pa-radio input:disabled,
+.pa-switch input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pa-switch input {
+  appearance: none;
+  margin: 0;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--line-control);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex: none;
+}
+.pa-switch input::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.15s;
+}
+.pa-switch input:checked {
+  background: var(--primary);
+}
+.pa-switch input:checked::after {
+  transform: translateX(16px);
+}
+
+/* Filter bar */
+.pa-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+.pa-filter-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: var(--space-3) var(--space-5);
+  flex: 1;
+  min-width: 0;
+}
+.pa-filter-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-left: auto;
+}
+.pa-filter-chev {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  margin-left: 4px;
+  transition: transform 0.15s;
+}
+.pa-filter-toggle[aria-expanded="true"] .pa-filter-chev {
+  transform: rotate(180deg);
+}
+
+/* Pagination */
+.pa-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+}
+.pa-pager-total {
+  color: var(--ink-muted);
+  margin-right: var(--space-2);
+}
+.pa-pager-size {
+  flex: none;
+  width: 104px;
+}
+.pa-pager-size .pa-select-trigger {
+  height: 30px;
+}
+.pa-page {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--ink);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.pa-page:hover {
+  color: var(--primary-text);
+  border-color: var(--primary-text);
+}
+.pa-page[aria-current="page"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+.pa-page[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.pa-page--ellipsis {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: default;
+}
+.pa-pager-jump {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-muted);
+}
+.pa-pager-jump input {
+  width: 48px;
+  height: 30px;
+  text-align: center;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--ink);
+}
+
+/* Status tag */
+.pa-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.pa-tag::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.pa-tag--info {
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+.pa-tag--success {
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+.pa-tag--warning {
+  background: var(--warning-soft);
+  color: var(--warning-text);
+}
+.pa-tag--danger {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+.pa-tag--neutral {
+  background: var(--bg-raised);
+  color: var(--ink-muted);
+  border-color: var(--line);
+}
+
+/* Pay method */
+.pa-method {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pa-method-mark {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-xs);
+  display: grid;
+  place-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--on-chart);
+  flex: none;
+}
+.pa-method-mark--alipay {
+  background: var(--chart-1);
+}
+.pa-method-mark--wxpay {
+  background: var(--chart-2);
+}
+.pa-method-mark--qqpay {
+  background: var(--chart-3);
+}
+.pa-method-mark--bank {
+  background: var(--chart-4);
+}
+
+/* Empty */
+.pa-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-align: center;
+}
+.pa-empty svg {
+  width: 96px;
+  height: 72px;
+}
+.pa-empty .pa-e-top {
+  fill: var(--line-control);
+}
+.pa-empty .pa-e-side {
+  fill: var(--bg-hover);
+}
+.pa-empty .pa-e-front {
+  fill: var(--bg-raised);
+  stroke: var(--line-control);
+  stroke-width: 1;
+}
+
+/* Modal */
+.pa-modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: var(--scrim);
+  display: grid;
+  place-items: center;
+  padding: var(--space-6) var(--space-4);
+}
+.pa-modal {
+  width: min(100%, 480px);
+  max-height: calc(100dvh - 48px);
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pa-modal-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--line);
+}
+.pa-modal-title {
+  margin: 0;
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.pa-modal-x {
+  margin-left: auto;
+  font-size: 18px;
+  line-height: 1;
+}
+.pa-modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.pa-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  overflow: auto;
+}
+.pa-modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--line);
+}
+.pa-modal-foot-extra {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pa-btn--loading::before {
+    animation-duration: 3s;
+  }
+}
+
+/* ------------------------------------------------------------
+   Global native-control kit skin. Gives every remaining native
+   <select>, checkbox, radio, number input and textarea in the
+   console pages the kit trigger/control look without per-page
+   edits. Scoped-out: .pa-* kit components draw their own markup,
+   and file/color inputs keep their platform UI.
+   ------------------------------------------------------------ */
+
+/* Vertical centring: a 32px control with 5px/8px vertical padding plus the
+   font's line box can read as text sitting low. Fix it once for every text
+   control — native input, KitInput's inner input, select and date fields —
+   by giving the line box the full control height and removing the vertical
+   padding (the height + line-height centre the text). */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not(
+    [type="range"]
+  ),
+.pa-input input {
+  line-height: var(--control-h);
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.pa-input {
+  align-items: stretch;
+}
+.pa-input input {
+  height: var(--control-h);
+}
+select:not([multiple]):not([size]) {
+  line-height: var(--control-h);
+}
+/* Native date/time inner value sits on the baseline; nudge it to the middle. */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"] {
+  line-height: normal;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Native <select> → kit trigger look (32px, line-control border,
+   radius-sm, bg-card, 13px, chevron drawn in --ink-muted). */
+select:not([multiple]):not([size]) {
+  appearance: none;
+  -webkit-appearance: none;
+  height: var(--control-h);
+  min-height: var(--control-h);
+  padding: 0 32px 0 12px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-card);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  /* chevron: two diagonal strokes in --ink-muted via masked gradients */
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%),
+    linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) center,
+    calc(100% - 12px) center;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+select:not([multiple]):not([size]):hover {
+  border-color: var(--ink-muted);
+}
+select:not([multiple]):not([size]):focus {
+  border-color: var(--primary-text);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary-soft);
+}
+select:not([multiple]):not([size]):disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background-color: var(--bg-raised);
+}
+
+/* Native checkbox / radio → kit .pa-check / .pa-radio drawing. */
+input[type="checkbox"],
+input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  border: 1px solid var(--line-control);
+  background: var(--bg-card);
+  display: inline-grid;
+  place-content: center;
+  cursor: pointer;
+  vertical-align: -3px;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+input[type="checkbox"] {
+  border-radius: var(--radius-xs);
+}
+input[type="radio"] {
+  border-radius: 50%;
+}
+input[type="checkbox"]:checked,
+input[type="checkbox"]:indeterminate {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+input[type="checkbox"]:checked::after {
+  content: "";
+  width: 8px;
+  height: 4px;
+  border: 2px solid var(--on-primary);
+  border-top: 0;
+  border-right: 0;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+input[type="checkbox"]:indeterminate::after {
+  content: "";
+  width: 8px;
+  height: 2px;
+  background: var(--on-primary);
+}
+input[type="radio"]:checked {
+  border-color: var(--primary);
+  border-width: 5px;
+}
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary-soft);
+}
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Native number inputs and textarea → kit input look. The base
+   input/textarea rules already give border/radius/bg; align the
+   font size and (for number) hide spinners for a clean trigger. */
+input[type="number"],
+input[type="tel"] {
+  font-size: 13px;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+textarea {
+  font-size: 13px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-card);
+  color: var(--ink);
+  padding: 8px 12px;
+  resize: vertical;
+}
+textarea:hover {
+  border-color: var(--ink-muted);
+}
+textarea:focus {
+  border-color: var(--primary-text);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary-soft);
+}
+
+/* ListFilters as kit FilterBar fields+actions inside the existing
+   .list-filter-card panel (the card chrome stays on the form). */
+.list-filters-kit {
+  flex-basis: 100%;
+  width: 100%;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-5);
+}
+.list-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-3) var(--space-5);
+  flex: 1;
+  min-width: 0;
+}
+
+/* 说明 help popover (KitHelpPopover) — compact trigger + floating panel. */
+.pa-help {
+  position: relative;
+  display: inline-flex;
+}
+.pa-help-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--ink-muted);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+.pa-help-trigger:hover,
+.pa-help-trigger[aria-expanded="true"] {
+  color: var(--primary-text);
+  border-color: var(--primary-text);
+}
+.pa-help-mark {
+  display: inline-grid;
+  place-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1;
+}
+.pa-help-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  width: max-content;
+  max-width: 360px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: normal;
+  outline: none;
+}
+.list-filters-grid .pa-field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+.list-filters-grid .pa-field .pa-label {
+  font-size: 13px;
+  line-height: 19.5px;
+}
+.list-filters-kit .pa-filter-actions,
+.list-filters-inline .pa-filter-actions {
+  align-self: flex-end;
+}
+
+/* Order/refund/ledger filter card (App.vue .list-filter-card): the search
+   group and ListFilters flow into ONE Pro-style row — every primary field is a
+   direct flex item (搜索字段 / 搜索内容 / key fields), then 重置 / 查询 / 展开 at
+   the right end. Secondary fields appear only after 展开, wrapping below. Every
+   control is one 32px line. These rules override the legacy .search-group /
+   .order-search-group width + grid constraints so nothing forces a second row
+   or an empty band above the fields. */
+.list-filter-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-5);
+  /* override legacy row-gap:0 + column-gap */
+  row-gap: var(--space-3);
+  column-gap: var(--space-5);
+}
+/* Dissolve the two field groups so their KitFields become siblings in the one
+   flex row (no nested fixed-width grid that wraps on its own). */
+.list-filter-card > .search-group,
+.list-filter-card > .search-group.list-filters-grid {
+  display: contents;
+}
+.list-filter-card > .search-group > .pa-field,
+.list-filters-inline > .list-filters-grid > .pa-field {
+  flex: 0 1 220px;
+  min-width: 160px;
+  margin: 0;
+}
+.list-filter-card .pa-field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+.list-filter-card .pa-field .pa-label {
+  font-size: 13px;
+  line-height: 19.5px;
+  white-space: nowrap;
+}
+/* Every control in the card is exactly one 32px line. */
+.list-filter-card .pa-field .pa-input,
+.list-filter-card .pa-field .pa-select,
+.list-filter-card .pa-field .pa-select-trigger,
+.list-filter-card .pa-field input {
+  width: 100%;
+  height: var(--control-h);
+  min-height: var(--control-h);
+  box-sizing: border-box;
+}
+.list-filters-inline {
+  display: contents;
+}
+.list-filters-inline > .list-filters-grid {
+  display: contents;
+}
+.list-filters-inline > .pa-filter-actions,
+.list-filter-card > .pa-filter-actions {
+  align-self: flex-end;
+  margin-left: auto;
+}
+.resource-filter-actions {
+  align-self: flex-end;
+  margin-left: auto;
+}
+
+/* ResourceFields form → kit field layout: label above (13px/19.5px),
+   control at 32px, help text below. Markup is label > text > control >
+   .field-help; these rules give it the kit stacking and sizes. */
+.resource-fields label {
+  margin: 0 0 var(--space-4);
+  font-size: 13px;
+  line-height: 19.5px;
+  color: var(--ink);
+}
+.resource-fields label > input,
+.resource-fields label > select,
+.resource-fields label > textarea {
+  margin-top: var(--space-1);
+}
+.resource-fields .field-help {
+  color: var(--ink-muted);
+  margin-top: var(--space-1);
+}
+
+/* ResourcePage toolbar field filters + batch-select column. */
+.resource-field-filters {
+  flex-basis: 100%;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+.resource-field-filters .pa-field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  min-width: 180px;
+}
+th.select-col,
+td.select-col {
+  width: 36px;
+  text-align: center;
+}
+
+/* ResourcePage add/edit/detail dialog → kit modal look. The shared
+   .modal rules already carry radius-lg + shadow-modal + header/footer
+   borders; align the surface (bg-card, line border) and the title
+   weight/size to the kit .pa-modal spec without restructuring markup. */
+.modal.resource-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  width: min(100%, 480px);
+}
+.modal.resource-modal > h2:first-child,
+.modal.group-edit-modal .group-edit-header h2 {
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Table cells → kit 12px padding globally (kit spec: 12px cells). */
+th,
+td {
+  padding: 12px var(--space-3);
+}
+th {
+  height: auto;
+}
+.records th:first-child,
+.records td:first-child {
+  padding-left: var(--space-5);
+}
+.records th:last-child,
+.records td:last-child {
+  padding-right: var(--space-5);
+}
+/* ============================================================
+   end kit-list block
+   ============================================================ */
+
+/* ============================================================
+   kit-shell wave-2 block — top-bar tools, menu search, avatar.
+   Owned by kit-shell; edit only here for these rules.
+   ============================================================ */
+
+/* The shell no longer prints a page-title row; the title lives in the
+   breadcrumb + page tabs. Keep a zero-height anchor so first-child spacing
+   on the following card is unchanged. */
+.page-heading-spacer {
+  height: 0;
+}
+
+/* Top-bar right cluster (search trigger, fullscreen, theme, avatar). */
+.topbar-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+.topbar-tools .topbar-tool {
+  width: var(--control-h);
+  height: var(--control-h);
+  min-height: var(--control-h);
+  border-radius: var(--radius-sm);
+}
+.topbar-tools .topbar-tool .shell-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Search trigger — matches kit .pa-search-trigger. */
+.topbar-search {
+  position: relative;
+}
+.search-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 30px;
+  width: 150px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.search-trigger:hover {
+  border-color: var(--primary-text);
+  color: var(--ink);
+}
+.search-trigger .shell-icon {
+  width: 14px;
+  height: 14px;
+}
+.search-trigger-label {
+  margin-right: auto;
+}
+.search-kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 5px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-xs);
+  color: var(--ink-muted);
+}
+
+/* Menu-search overlay. */
+.search-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--scrim);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh var(--space-4) var(--space-4);
+}
+.search-menu {
+  width: min(100%, 520px);
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  overflow: hidden;
+}
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+.search-field .shell-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--ink-muted);
+  flex: none;
+}
+.search-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+  padding: 0;
+}
+.search-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+.search-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1);
+  overflow-y: auto;
+  min-height: 0;
+}
+.search-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.search-item.active {
+  background: var(--primary-soft);
+}
+.search-item-title {
+  font-size: 13px;
+  color: var(--ink);
+}
+.search-item.active .search-item-title {
+  color: var(--primary-text);
+}
+.search-item-trail {
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+.search-empty {
+  margin: 0;
+  padding: var(--space-5);
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+
+/* Avatar + account menu. */
+.topbar-avatar {
+  position: relative;
+}
+.topbar-avatar .avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  display: grid;
+  place-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  flex: none;
+}
+.topbar-avatar .avatar:hover {
+  filter: brightness(1.05);
+}
+.avatar-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  min-width: 180px;
+  padding: var(--space-1);
+  background: var(--bg-raised);
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.avatar-name {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: 12px;
+  color: var(--ink-muted);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--space-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.avatar-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+.avatar-item:hover {
+  background: var(--bg-hover);
+}
+.avatar-item .shell-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--ink-muted);
+  flex: none;
+}
+.avatar-logout {
+  color: var(--danger-text);
+}
+.avatar-logout .shell-icon {
+  color: var(--danger-text);
+}
+.avatar-logout:hover {
+  background: var(--danger-soft, var(--bg-hover));
+}
+.avatar-item[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Refresh icon at the right end of the list table tools. */
+.table-tools .table-refresh {
+  width: var(--control-h);
+  height: var(--control-h);
+  min-height: var(--control-h);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--bg-card);
+}
+.table-tools .table-refresh:hover {
+  background: var(--bg-hover);
+  color: var(--ink);
+}
+.table-tools .table-refresh .shell-icon {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 768px) {
+  .search-trigger {
+    width: auto;
+  }
+  .search-trigger-label,
+  .search-trigger .search-kbd {
+    display: none;
+  }
+}
+
+/* Toast stack — kit .pa-toast, floating transient success notices. */
+.toast-stack {
+  position: fixed;
+  top: calc(var(--topbar-h) + var(--space-3));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+.toast {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+  font-size: 13px;
+  color: var(--ink);
+  pointer-events: auto;
+  cursor: pointer;
+  animation: toast-in 0.2s ease-out;
+}
+.toast .shell-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.toast--success .shell-icon {
+  color: var(--success-text);
+}
+.toast--warning .shell-icon {
+  color: var(--warning-text);
+}
+.toast--danger .shell-icon {
+  color: var(--danger-text);
+}
+.toast--info .shell-icon {
+  color: var(--primary-text);
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+
+/* Stacked fields (label over control): the kit text input keeps exactly one
+   32px control line, like the selects and buttons beside it. Its base rule's
+   flex:1 is meant for side-by-side rows and let it grow to 42px inside a
+   column .pa-field (filter cards), which also pushed its label 10px up.
+   max-height caps the cross-axis growth without touching row layouts. */
+.pa-field .pa-input {
+  height: var(--control-h);
+  max-height: var(--control-h);
+}
+.pa-field .pa-input > input {
+  height: auto;
+  min-height: 0;
+  align-self: stretch;
+  line-height: normal;
+}
+/* The merchant list's 状态 (and, after 展开, its secondary fields) join the
+   filter card's one flex row like the order list's fields, instead of sitting
+   in their own grid box that lifted 状态 18px above its neighbours. */
+.list-filter-card .merchant-directory-filters > .merchant-directory-fields {
+  display: contents;
+}
+.list-filter-card .merchant-directory-fields > .pa-field {
+  flex: 0 1 220px;
+  min-width: 160px;
+  margin: 0;
 }

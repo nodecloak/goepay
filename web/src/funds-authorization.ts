@@ -54,7 +54,7 @@ export function isAdminFundsAction(path: string, method: string): boolean {
     /^\/orders\/[A-Za-z0-9_-]+\/(?:refund|manual-refund|close|capture-authorization|release-authorization|release-remaining-authorization|freeze-income|unfreeze-income|adopt-income-hold)$/.test(
       pathname,
     ) ||
-    /^\/workflows\/(?:settlements|internal-transfers|profitsharing|memberships|deposits)$/.test(
+    /^\/workflows\/(?:settlements|internal-transfers|profitsharing|memberships|deposits|balance-adjustments)$/.test(
       pathname,
     ) ||
     /^\/workflows\/(?:settlements|internal-transfers|profitsharing|deposits)\/[1-9]\d*\/(?:approve|reject)$/.test(

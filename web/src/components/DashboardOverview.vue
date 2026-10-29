@@ -201,7 +201,10 @@ const quickLinks = computed(() =>
         { label: "订单管理", path: "/trade/order" },
         { label: "商户管理", path: "/merchant/merchant-list" },
         ...(props.adminClass === "super"
-          ? [{ label: "系统设置", path: "/system/settings" }]
+          ? [
+              { label: "系统设置", path: "/system/settings" },
+              { label: "清理缓存", path: "/system/clean" },
+            ]
           : []),
         { label: "返回首页", path: "/" },
         { label: "修改密码", path: "/system/change-password" },
@@ -309,8 +312,14 @@ const quickLinks = computed(() =>
             :points="coordinates.map((p) => p.x + ',' + p.y).join(' ')"
             class="trend-line"
           />
-          <g v-for="point in coordinates" :key="point.row.date">
-            <circle :cx="point.x" :cy="point.y" r="5" class="trend-dot">
+          <g v-for="(point, pi) in coordinates" :key="point.row.date">
+            <circle
+              v-if="pi === coordinates.length - 1"
+              :cx="point.x"
+              :cy="point.y"
+              r="3.5"
+              class="trend-dot"
+            >
               <title>
                 {{ point.row.date }}：{{ point.value
                 }}{{ metric === "amount" ? "元" : "笔" }}
@@ -649,24 +658,24 @@ const quickLinks = computed(() =>
   max-height: 320px;
 }
 .grid-lines line {
-  stroke: var(--line);
-  stroke-dasharray: 4;
+  stroke: var(--chart-grid);
+  stroke-dasharray: 3 3;
 }
 .trend-line {
   fill: none;
-  stroke: var(--accent);
-  stroke-width: 3;
+  stroke: var(--chart-1);
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .trend-dot {
-  fill: var(--paper);
-  stroke: var(--accent);
-  stroke-width: 3;
+  fill: var(--chart-1);
+  stroke: var(--bg-card);
+  stroke-width: 2;
 }
 .trend-svg text {
   font-size: 12px;
-  fill: var(--muted);
+  fill: var(--ink-muted);
 }
 .payment-mix {
   display: grid;
@@ -706,10 +715,10 @@ const quickLinks = computed(() =>
   border-radius: 6px;
 }
 .alipay {
-  background: var(--primary);
+  background: var(--chart-1);
 }
 .wechat {
-  background: var(--success);
+  background: var(--chart-2);
 }
 .mix-row p {
   font-size: 12px;

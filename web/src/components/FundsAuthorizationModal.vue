@@ -53,6 +53,10 @@ const summaryLabels: Record<string, string> = {
   max_day_items: "每日条数上限",
   previous_authorization_id: "原授权ID",
   revocation: "撤销与到期规则",
+  direction: "调整方向",
+  adjust_type: "资金明细类型",
+  amount: "调整金额（元）",
+  external_no: "业务请求号",
 };
 const dialogElement = ref<HTMLElement | null>(null);
 let previousFocus: HTMLElement | null = null;

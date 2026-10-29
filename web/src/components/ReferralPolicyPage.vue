@@ -3,6 +3,9 @@ import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { ApiClient } from "../api";
 import { referralPolicyBody, type ReferralPolicyView } from "../referral";
 import MembershipReferralPolicy from "./MembershipReferralPolicy.vue";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
+import KitSelect from "./KitSelect.vue";
 const props = defineProps<{ client: ApiClient; adminClass?: string }>();
 const scope = ref("global"),
   group = ref(""),
@@ -243,19 +246,30 @@ onBeforeUnmount(() => {
     </p>
     <p v-if="error" role="alert" class="alert error">{{ error }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
-    <form @submit.prevent="load">
-      <label
-        >政策范围<select v-model="scope" :disabled="busy">
-          <option value="global">全局</option>
-          <option value="group">用户组</option>
-        </select></label
-      ><label v-if="scope === 'group'"
-        >用户组 ID<input
+    <form class="referral-form" @submit.prevent="load">
+      <KitField label="政策范围"
+        ><KitSelect
+          v-model="scope"
+          :options="[
+            { value: 'global', label: '全局' },
+            { value: 'group', label: '用户组' },
+          ]"
+          :disabled="busy"
+          aria-label="政策范围"
+      /></KitField>
+      <KitField v-if="scope === 'group'" label="用户组 ID"
+        ><KitInput
           v-model="group"
           inputmode="numeric"
           :disabled="busy"
-          maxlength="19" /></label
-      ><button :disabled="busy || loading || !permitted">读取政策版本</button>
+          :maxlength="19"
+      /></KitField>
+      <button
+        class="pa-btn pa-btn--primary"
+        :disabled="busy || loading || !permitted"
+      >
+        读取政策版本
+      </button>
     </form>
     <section v-if="current">
       <p class="muted">
@@ -269,38 +283,44 @@ onBeforeUnmount(() => {
         覆盖顺序：全局 → 付款商户组 →
         推广商户组；启用和比例空项继承，比例0是明确覆盖。存在用户组政策时，其基数明确覆盖，不继承上层基数；发奖时机也明确覆盖。
       </p>
-      <label
-        >启用状态<select
+      <KitField label="启用状态"
+        ><KitSelect
           v-model="enabled"
           :disabled="busy || confirming || uncertain"
-        >
-          <option v-if="scope === 'group'" value="inherit">继承</option>
-          <option value="disabled">关闭</option>
-          <option value="enabled">启用</option>
-        </select></label
-      ><label
-        >奖励基数<select
-          v-model="basis"
+          :options="[
+            ...(scope === 'group' ? [{ value: 'inherit', label: '继承' }] : []),
+            { value: 'disabled', label: '关闭' },
+            { value: 'enabled', label: '启用' },
+          ]"
+          aria-label="启用状态"
+      /></KitField>
+      <KitField label="奖励基数"
+        ><KitSelect
+          :model-value="basis"
           :disabled="busy || confirming || uncertain"
-        >
-          <option value="fee">原订单平台手续费</option>
-          <option value="gross">原订单金额（原手续费封顶）</option>
-          <option v-if="current.profit_basis_available === true" value="profit">
-            配置估计利润（非实际账单）
-          </option>
-        </select></label
-      >
-      <label
-        >发奖时机<select
-          v-model="mode"
+          :options="[
+            { value: 'fee', label: '原订单平台手续费' },
+            { value: 'gross', label: '原订单金额（原手续费封顶）' },
+            ...(current.profit_basis_available === true
+              ? [{ value: 'profit', label: '配置估计利润（非实际账单）' }]
+              : []),
+          ]"
+          aria-label="奖励基数"
+          @update:model-value="basis = $event as typeof basis"
+      /></KitField>
+      <KitField label="发奖时机"
+        ><KitSelect
+          :model-value="mode"
           :disabled="busy || confirming || uncertain"
-        >
-          <option value="immediate">即时发奖</option>
-          <option v-if="current.daily_mode_available === true" value="daily">
-            次日北京时间待发
-          </option>
-        </select></label
-      >
+          :options="[
+            { value: 'immediate', label: '即时发奖' },
+            ...(current.daily_mode_available === true
+              ? [{ value: 'daily', label: '次日北京时间待发' }]
+              : []),
+          ]"
+          aria-label="发奖时机"
+          @update:model-value="mode = $event as typeof mode"
+      /></KitField>
       <p v-if="mode === 'daily'" class="muted">
         每笔原订单固定奖励和手续费上限，次日北京时间起等待专用调度器按日发放；此设置不代表调度器已启动。
         不按迟到的汇总或当前用户组重新计算。退款结果未知时暂存，退款失败恢复原待发额，首次成功退款撤销整笔原奖励。
@@ -314,15 +334,16 @@ onBeforeUnmount(() => {
               : "按原订单平台手续费乘以比例，按分四舍五入，奖励不超过原订单平台手续费。"
         }}不使用其它订单资金。
       </p>
-      <label
-        >返现比例 BPS<input
+      <KitField label="返现比例 BPS"
+        ><KitInput
           v-model="rate"
           inputmode="numeric"
           :disabled="busy || confirming || uncertain"
-          maxlength="5"
+          :maxlength="5"
           :placeholder="scope === 'group' ? '留空继承' : '0–10000'"
-      /></label>
+      /></KitField>
       <button
+        class="pa-btn pa-btn--primary"
         :disabled="busy || loading || confirming || uncertain"
         @click="review"
       >
@@ -366,3 +387,16 @@ onBeforeUnmount(() => {
     :admin-class="adminClass"
   />
 </template>
+<style scoped>
+.referral-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+  margin: 16px 0;
+}
+.panel > section .pa-field {
+  margin: 12px 0;
+  max-width: 420px;
+}
+</style>

@@ -4,6 +4,7 @@ import { ApiClient } from "../api";
 import type { ResourceSchema } from "../resources";
 import RichTextEditor from "./RichTextEditor.vue";
 import RichContent from "./RichContent.vue";
+import KitPagination from "./KitPagination.vue";
 import { beijingTimestamp } from "../console-datetime";
 import {
   richText,
@@ -326,11 +327,6 @@ function dialogKeys(e: KeyboardEvent) {
     }
   }
 }
-async function changePage(n: number) {
-  if (busy.value || loading.value) return;
-  page.value = n;
-  await load();
-}
 watch(
   () => [props.client, props.ownSession] as const,
   () => {
@@ -450,19 +446,13 @@ onBeforeUnmount(() => {
         </div>
       </article>
       <div v-if="total > 20" class="pagination">
-        <span>共 {{ total }} 条记录</span
-        ><button
-          :disabled="page <= 1 || busy || loading"
-          @click="changePage(page - 1)"
-        >
-          上一页</button
-        ><span>第 {{ page }} 页</span
-        ><button
-          :disabled="page * 20 >= total || busy || loading"
-          @click="changePage(page + 1)"
-        >
-          下一页
-        </button>
+        <KitPagination
+          v-model:page="page"
+          :page-size="20"
+          :total="total"
+          :page-sizes="[20]"
+          @change="load"
+        />
       </div>
     </section>
     <div v-if="removing" class="modal-backdrop" @keydown="dialogKeys">

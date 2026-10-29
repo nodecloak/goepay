@@ -13,6 +13,11 @@ import { ApiClient, ApiError } from "../api";
 import { effectiveRiskDescription } from "../core-risk-status";
 import { safePaymentUrl } from "../commerce";
 import ActionDropdown from "./ActionDropdown.vue";
+import KitSelect from "./KitSelect.vue";
+import KitSwitch from "./KitSwitch.vue";
+import KitStatusTag from "./KitStatusTag.vue";
+import KitPagination from "./KitPagination.vue";
+import KitHelpPopover from "./KitHelpPopover.vue";
 import {
   freshSubchannelFilters,
   readSubchannelPage,
@@ -180,6 +185,90 @@ const dialogTitle: Record<Mode, string> = {
   link: "收款链接",
   delete: "删除子通道",
 };
+// Kit option lists + string bridges (KitSelect speaks strings; the underlying
+// model keeps its original type so every call and validation is unchanged).
+const payTypeFilterOptions = [
+  { value: "", label: "全部" },
+  { value: "wxpay", label: "微信支付" },
+  { value: "alipay", label: "支付宝" },
+];
+const sizeOptions = [10, 20, 50, 100].map((n) => ({
+  value: String(n),
+  label: String(n),
+}));
+const rollTypeOptions = computed(() =>
+  subchannelRollNames.map((label, n) => ({ value: String(n), label })),
+);
+const parentOptions = computed(() => {
+  const d = modal.value;
+  if (!d) return [];
+  const list: { value: string; label: string }[] = [];
+  if (!schemas.value.some((s) => s.parentId === d.parentId))
+    list.push({ value: d.parentId, label: "当前父通道不可用 #" + d.parentId });
+  for (const s of schemas.value.filter(
+    (s) => !d.row || s.payType === d.row.payType,
+  ))
+    list.push({
+      value: s.parentId,
+      label:
+        (s.payType === "wxpay" ? "微信支付" : "支付宝") + " #" + s.parentId,
+    });
+  return list;
+});
+const sizeModel = computed({
+  get: () => String(filters.value.size),
+  set: (v: string) => (filters.value.size = Number(v)),
+});
+const pagerPage = computed({
+  get: () => applied.value.page,
+  set: (v: number) => {
+    applied.value = { ...applied.value, page: v };
+    filters.value.page = v;
+  },
+});
+const pagerSize = computed({
+  get: () => applied.value.size,
+  set: (v: number) => {
+    applied.value = { ...applied.value, size: v, page: 1 };
+    filters.value.size = v;
+    filters.value.page = 1;
+  },
+});
+const dialogEnabledModel = computed({
+  get: () => (modal.value?.enabled ? "true" : "false"),
+  set: (v: string) => {
+    if (modal.value) modal.value.enabled = v === "true";
+  },
+});
+const dialogRollModel = computed({
+  get: () => String(modal.value?.rollType ?? 0),
+  set: (v: string) => {
+    if (modal.value) modal.value.rollType = Number(v);
+  },
+});
+// 参数操作: in params mode the 保留原值 option is only offered when the field is
+// already present for the same parent (previously a disabled <option>); omit it
+// otherwise so the kit select never shows an unselectable row — same effect.
+function operationOptions(f: SubchannelSchema["fields"][number]) {
+  const d = modal.value;
+  const keepAllowed =
+    d?.mode === "params" &&
+    d.parentId === d.row?.parentId &&
+    !!d.row?.fields.some((v) => v.name === f.name && v.present);
+  const opts: { value: string; label: string }[] = [];
+  if (keepAllowed) opts.push({ value: "keep", label: "保留原值" });
+  opts.push({ value: "replace", label: "替换为新值" });
+  if (!f.required) opts.push({ value: "clear", label: "清除" });
+  return opts;
+}
+// The table 状态 cell word (tri-state) and its kit tone.
+function statusWord(row: SubchannelRow) {
+  return !row.parentAvailable ? "父通道不可用" : row.enabled ? "启用" : "停用";
+}
+function statusTone(row: SubchannelRow): "success" | "danger" | "neutral" {
+  if (!row.parentAvailable) return "danger";
+  return row.enabled ? "success" : "neutral";
+}
 async function load() {
   if (surfaceContext && !interact(surfaceContext)) return false;
   const c = context(),
@@ -301,12 +390,6 @@ function reset() {
   filters.value = freshSubchannelFilters();
   applied.value = { ...filters.value };
   emit("clearRoute");
-  void load();
-}
-function page(delta: number) {
-  if (loading.value) return;
-  applied.value = { ...applied.value, page: applied.value.page + delta };
-  filters.value.page = applied.value.page;
   void load();
 }
 function setupValues(d: Dialog) {
@@ -835,9 +918,6 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="subchannel-page">
-    <div class="subchannel-info">
-      收款账户由管理员配置。轮询方式适用于本人子通道；单笔订单金额须同时满足父通道与子通道限额。
-    </div>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
     <div class="panel">
@@ -850,11 +930,10 @@ onBeforeUnmount(() => {
         ><label
           >名称<input v-model="filters.name" placeholder="子通道名称" /></label
         ><label
-          >支付方式<select v-model="filters.payType">
-            <option value="">全部</option>
-            <option value="wxpay">微信支付</option>
-            <option value="alipay">支付宝</option>
-          </select></label
+          >支付方式<KitSelect
+            v-model="filters.payType"
+            :options="payTypeFilterOptions"
+            aria-label="支付方式筛选" /></label
         ><label v-if="admin"
           >商户编号<input
             v-model="filters.merchantId"
@@ -892,6 +971,15 @@ onBeforeUnmount(() => {
           >
             刷新
           </button>
+          <KitHelpPopover label="说明">
+            <p>
+              收款账户由管理员配置。轮询方式适用于本人子通道；单笔订单金额须同时满足父通道与子通道限额。
+            </p>
+            <p>
+              金额按北京时间统计已记录子通道绑定的可信支付确认（含后续退款）；成功率为可信确认数
+              / 已发起次数，暂无发起记录显示“—”。历史未记录绑定的订单不推算。
+            </p>
+          </KitHelpPopover>
         </div>
       </form>
       <div class="subchannel-summary">
@@ -899,12 +987,12 @@ onBeforeUnmount(() => {
           >当前轮询方式：{{ subchannelRollNames[policy.rollType] }}</span
         ><span v-else-if="admin">可按商户筛选或从操作菜单设置轮询方式</span
         ><label
-          >每页<select v-model.number="filters.size" @change="search">
-            <option :value="10">10</option>
-            <option :value="20">20</option>
-            <option :value="50">50</option>
-            <option :value="100">100</option></select
-          >条</label
+          >每页<KitSelect
+            v-model="sizeModel"
+            :options="sizeOptions"
+            aria-label="每页条数"
+            @change="search"
+          />条</label
         >
       </div>
       <div class="subchannel-table-wrap">
@@ -980,27 +1068,24 @@ onBeforeUnmount(() => {
                 }}
               </td>
               <td>
-                <button
-                  type="button"
-                  class="subchannel-state"
-                  :class="{ enabled: row.enabled && row.parentAvailable }"
-                  :disabled="
-                    !allowed ||
-                    loading ||
-                    !!modal ||
-                    requiresRefresh ||
-                    (!row.parentAvailable && !row.enabled)
-                  "
-                  @click="open('status', row)"
-                >
-                  {{
-                    !row.parentAvailable
-                      ? "父通道不可用"
-                      : row.enabled
-                        ? "启用"
-                        : "关闭"
-                  }}
-                </button>
+                <div class="subchannel-state-cell">
+                  <KitStatusTag
+                    :text="statusWord(row)"
+                    :tone="statusTone(row)"
+                  />
+                  <KitSwitch
+                    :model-value="row.enabled && row.parentAvailable"
+                    :label="`变更子通道 ${row.id} 状态`"
+                    :disabled="
+                      !allowed ||
+                      loading ||
+                      !!modal ||
+                      requiresRefresh ||
+                      (!row.parentAvailable && !row.enabled)
+                    "
+                    @change="open('status', row)"
+                  />
+                </div>
                 <small class="cell">{{
                   effectiveRiskDescription(row.coreRisk, row.enabled)
                 }}</small>
@@ -1045,29 +1130,12 @@ onBeforeUnmount(() => {
           </tbody>
         </table>
       </div>
-      <div class="subchannel-pagination">
-        <span>共 {{ total }} 条记录</span>
-        <div>
-          <button
-            type="button"
-            :disabled="loading || applied.page <= 1"
-            @click="page(-1)"
-          >
-            上一页</button
-          ><span>第 {{ applied.page }} 页</span
-          ><button
-            type="button"
-            :disabled="loading || applied.page * applied.size >= total"
-            @click="page(1)"
-          >
-            下一页
-          </button>
-        </div>
-      </div>
-      <p class="subchannel-stat-note">
-        金额按北京时间统计已记录子通道绑定的可信支付确认（含后续退款）；成功率为可信确认数
-        / 已发起次数，暂无发起记录显示“—”。历史未记录绑定的订单不推算。
-      </p>
+      <KitPagination
+        v-model:page="pagerPage"
+        v-model:page-size="pagerSize"
+        :total="total"
+        @change="load"
+      />
     </div>
     <Teleport to="body"
       ><div v-if="modal" class="modal-backdrop" @keydown="trap">
@@ -1116,38 +1184,22 @@ onBeforeUnmount(() => {
                   maxlength="120"
                   required /></label
               ><label
-                >父通道<select
+                >父通道<KitSelect
                   v-model="modal.parentId"
+                  :options="parentOptions"
                   :disabled="modal.busy || modal.uncertain"
-                  @change="setupValues(modal)"
-                >
-                  <option
-                    v-if="!schemas.some((s) => s.parentId === modal?.parentId)"
-                    :value="modal.parentId"
-                  >
-                    当前父通道不可用 #{{ modal.parentId }}
-                  </option>
-                  <option
-                    v-for="s in schemas.filter(
-                      (s) => !modal?.row || s.payType === modal.row.payType,
-                    )"
-                    :key="s.parentId"
-                    :value="s.parentId"
-                  >
-                    {{ s.payType === "wxpay" ? "微信支付" : "支付宝" }} #{{
-                      s.parentId
-                    }}
-                  </option>
-                </select></label
+                  aria-label="父通道"
+                  @change="setupValues(modal)" /></label
               ><template v-if="modal.mode === 'create'"
                 ><label
-                  >初始状态<select
-                    v-model="modal.enabled"
+                  >初始状态<KitSelect
+                    v-model="dialogEnabledModel"
+                    :options="[
+                      { value: 'false', label: '关闭' },
+                      { value: 'true', label: '启用' },
+                    ]"
                     :disabled="modal.busy || modal.uncertain"
-                  >
-                    <option :value="false">关闭</option>
-                    <option :value="true">启用</option>
-                  </select></label
+                    aria-label="初始状态" /></label
                 ><label
                   >权重<input
                     v-model="modal.weight"
@@ -1161,27 +1213,13 @@ onBeforeUnmount(() => {
               >
                 <label
                   >{{ f.label
-                  }}<select
+                  }}<KitSelect
                     v-if="modal.mode === 'params'"
                     v-model="modal.operations[f.name]"
+                    :options="operationOptions(f)"
                     :disabled="modal.busy || modal.uncertain"
-                  >
-                    <option
-                      value="keep"
-                      :disabled="
-                        modal.parentId !== modal.row?.parentId ||
-                        !modal.row?.fields.some(
-                          (v) => v.name === f.name && v.present,
-                        )
-                      "
-                    >
-                      保留原值
-                    </option>
-                    <option value="replace">替换为新值</option>
-                    <option v-if="!f.required" value="clear">
-                      清除
-                    </option></select
-                  ><textarea
+                    :aria-label="f.label + ' 操作'"
+                  /><textarea
                     v-if="
                       modal.mode === 'create' ||
                       modal.operations[f.name] === 'replace'
@@ -1232,19 +1270,12 @@ onBeforeUnmount(() => {
             ><template v-if="modal.mode === 'roll'"
               ><p>商户 #{{ modal.owner }} 的子通道轮询方式</p>
               <label
-                >轮询方式<select
-                  v-model.number="modal.rollType"
+                >轮询方式<KitSelect
+                  v-model="dialogRollModel"
+                  :options="rollTypeOptions"
                   :disabled="modal.busy || modal.uncertain"
-                >
-                  <option
-                    v-for="(label, n) in subchannelRollNames"
-                    :key="n"
-                    :value="n"
-                  >
-                    {{ label }}
-                  </option>
-                </select></label
-              >
+                  aria-label="轮询方式"
+              /></label>
               <p class="muted">
                 顺序轮询按最近使用时间选择；权重轮询只在当前符合条件的子通道中生效。
               </p></template
@@ -1346,15 +1377,6 @@ onBeforeUnmount(() => {
 <style scoped>
 .subchannel-page {
   min-width: 0;
-}
-.subchannel-info {
-  margin-bottom: 1rem;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--primary-soft);
-  border-radius: 6px;
-  background: var(--primary-soft);
-  color: var(--ink);
-  font-size: 0.88rem;
 }
 .subchannel-toolbar {
   display: flex;
@@ -1466,6 +1488,25 @@ onBeforeUnmount(() => {
   background: var(--success-soft);
   color: var(--success-text);
 }
+.subchannel-state-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+/* KitStatusTag carries the visible tri-state word; the switch's own text label
+   is its accessible name only, not shown beside the tag. */
+.subchannel-state-cell :deep(.pa-switch > span) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 .subchannel-empty {
   text-align: center !important;
   height: 150px;
@@ -1483,13 +1524,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-}
-.subchannel-stat-note {
-  margin: 0;
-  padding: 0 1rem 1rem;
-  color: var(--ink-muted);
-  font-size: 0.76rem;
-  line-height: 1.6;
 }
 .subchannel-dialog {
   max-width: 640px;

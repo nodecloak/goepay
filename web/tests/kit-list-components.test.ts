@@ -1,0 +1,62 @@
+// @vitest-environment jsdom
+import { it, expect } from "vitest";
+import { mount } from "@vue/test-utils";
+import { money } from "../src/pro-console-fields";
+import KitStatusTag from "../src/components/KitStatusTag.vue";
+import KitPayMethod from "../src/components/KitPayMethod.vue";
+import KitPagination from "../src/components/KitPagination.vue";
+import KitSwitch from "../src/components/KitSwitch.vue";
+import KitEmpty from "../src/components/KitEmpty.vue";
+
+it("money() groups thousands and keeps two decimals", () => {
+  expect(money("123456789")).toBe("1,234,567.89");
+  expect(money("1234")).toBe("12.34");
+  expect(money("0")).toBe("0.00");
+  expect(money("-100000")).toBe("-1,000.00");
+  expect(money("1.23")).toBe("—");
+});
+
+it("KitStatusTag shows the fixed word and semantic tone", () => {
+  const paid = mount(KitStatusTag, { props: { status: "paid", orders: true } });
+  expect(paid.text()).toBe("已支付");
+  expect(paid.get("span").classes()).toContain("pa-tag--success");
+  const failed = mount(KitStatusTag, { props: { status: "failed" } });
+  expect(failed.get("span").classes()).toContain("pa-tag--danger");
+  const explicit = mount(KitStatusTag, {
+    props: { text: "待处理", tone: "warning" },
+  });
+  expect(explicit.text()).toBe("待处理");
+  expect(explicit.get("span").classes()).toContain("pa-tag--warning");
+});
+
+it("KitPayMethod renders the coloured mark character and Chinese name", () => {
+  const w = mount(KitPayMethod, { props: { type: "alipay" } });
+  expect(w.text()).toContain("支");
+  expect(w.text()).toContain("支付宝");
+  expect(w.get(".pa-method-mark").classes()).toContain(
+    "pa-method-mark--alipay",
+  );
+});
+
+it("KitPagination emits page changes and page-size changes", async () => {
+  const w = mount(KitPagination, {
+    props: { page: 1, pageSize: 20, total: 85 },
+  });
+  expect(w.text()).toContain("共 85 条");
+  const pages = w.findAll(".pa-page");
+  const next = pages.find((b) => b.attributes("aria-label") === "下一页")!;
+  await next.trigger("click");
+  expect(w.emitted("update:page")).toEqual([[2]]);
+  expect(w.emitted("change")).toBeTruthy();
+});
+
+it("KitSwitch emits boolean change", async () => {
+  const w = mount(KitSwitch, { props: { modelValue: false, label: "启用" } });
+  await w.get("input").setValue(true);
+  expect(w.emitted("update:modelValue")).toEqual([[true]]);
+  expect(w.emitted("change")).toEqual([[true]]);
+});
+
+it("KitEmpty shows the default empty text", () => {
+  expect(mount(KitEmpty).text()).toContain("暂无数据");
+});

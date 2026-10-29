@@ -17,6 +17,28 @@ export const refundSearchFields = [
   { value: "out_refund_no", label: "商户退款单号" },
   { value: "trade_no", label: "关联订单号" },
 ] as const;
+// 资金明细 original record-type filter. Values are the ledger_type codes the
+// service projects (internal/server/ledger_reporting_type.go); labels are the
+// original pre_record.type names.
+export const ledgerTypeFilters = [
+  { value: "order_income", label: "订单收入" },
+  { value: "order_fee", label: "订单服务费" },
+  { value: "order_freeze", label: "订单冻结" },
+  { value: "order_unfreeze", label: "订单解冻" },
+  { value: "order_refund", label: "订单退款" },
+  { value: "refund_fee", label: "服务费退款" },
+  { value: "transfer", label: "代付" },
+  { value: "transfer_return", label: "代付退回" },
+  { value: "settle_auto", label: "自动结算" },
+  { value: "profit_sharing", label: "订单分账" },
+  { value: "internal_transfer", label: "站内转账" },
+  { value: "deposit_in", label: "充值保证金" },
+  { value: "deposit_out", label: "提取保证金" },
+  { value: "membership_buy", label: "购买会员" },
+  { value: "invite_reward", label: "邀请返现" },
+  { value: "admin_credit", label: "后台加款" },
+  { value: "admin_debit", label: "后台扣款" },
+] as const;
 export function incomeStatusLabel(value: unknown): string {
   return (
     (
@@ -251,18 +273,20 @@ export function readListRouteQuery(
   if (filters.status && !statuses.includes(filters.status)) return fail();
   if (
     filters.type &&
-    (!["orders", "refunds"].includes(kind) ||
-      ![
-        "alipay",
-        "wxpay",
-        "qqpay",
-        "bank",
-        "jdpay",
-        "paypal",
-        "douyinpay",
-        "ecny",
-        "sandbox",
-      ].includes(filters.type))
+    (kind === "ledger"
+      ? !ledgerTypeFilters.some((t) => t.value === filters.type)
+      : !["orders", "refunds"].includes(kind) ||
+        ![
+          "alipay",
+          "wxpay",
+          "qqpay",
+          "bank",
+          "jdpay",
+          "paypal",
+          "douyinpay",
+          "ecny",
+          "sandbox",
+        ].includes(filters.type))
   )
     return fail();
   if (filters.channel_id && !["orders", "refunds"].includes(kind))
@@ -346,6 +370,7 @@ export function appendListFilters(
   if (area === "admin") keys.push("merchant_id");
   if (kind === "orders" || kind === "refunds")
     keys.push("status", "type", "channel_id");
+  if (kind === "ledger") keys.push("type");
   if (kind === "orders")
     keys.push(
       "buyer",

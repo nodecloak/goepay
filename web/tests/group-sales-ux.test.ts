@@ -80,11 +80,41 @@ async function fixture(
   await router.isReady();
   const w = mount(App, {
     attachTo: document.body,
-    global: { plugins: [router] },
+    global: {
+      plugins: [router],
+      stubs: {
+        KitModal: {
+          props: ["title", "submitText"],
+          emits: ["close", "submit"],
+          template:
+            '<div role="dialog" :aria-label="title"><slot /><button type="button" @click="$emit(\'submit\')">{{ submitText || \'保存\' }}</button></div>',
+        },
+      },
+    },
   });
   await flushPromises();
   return { w, posts, fetcher };
 }
+
+it("shows GID and 用户组名称 as distinct columns with Pro's 有效期（月） header", async () => {
+  const { w } = await fixture("admin", "/merchant/group-buy");
+  try {
+    const headers = w.findAll("thead th").map((x) => x.text());
+    expect(headers.slice(0, 4)).toEqual([
+      "GID",
+      "用户组名称",
+      "售价（元）",
+      "有效期（月）",
+    ]);
+    // GID is its own cell, not folded into the name cell.
+    const firstRow = w.findAll("tbody tr")[0]!;
+    expect(firstRow.findAll("td")[0]!.text()).toBe("3");
+    expect(firstRow.findAll("td")[1]!.text()).toContain("专业组");
+  } finally {
+    w.unmount();
+    vi.unstubAllGlobals();
+  }
+});
 
 it("uses the admin group-buy route for sales configuration and saves exact price/month fields", async () => {
   const { w, posts } = await fixture("admin", "/merchant/group-buy");
@@ -150,7 +180,13 @@ it("uses the merchant sale catalog and confirms quantity against an exact total"
       .findAll("button")
       .find((x) => x.text() === "购买会员")!
       .trigger("click");
-    await w.get("select").setValue("3");
+    await w
+      .get('button.pa-select-trigger[aria-label="购买用户组"]')
+      .trigger("click");
+    await w
+      .findAll('[role="option"]')
+      .find((o) => o.text().includes("专业组"))!
+      .trigger("click");
     await w.get('input[aria-label="购买数量"]').setValue("2");
     expect(w.text()).toContain("2.00 元");
     await w

@@ -22,6 +22,7 @@ const paths: Record<string, string> = {
   sun: "M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
   moon: "M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z",
   refresh: "M20 12a8 8 0 1 1-2.3-5.7M20 4v4.5h-4.5",
+  fullscreen: "M8 4H4v4M16 4h4v4M16 20h4v-4M8 20H4v-4",
   chevronDown: "M6 9l6 6 6-6",
   chevronLeft: "M15 6l-6 6 6 6",
   chevronRight: "M9 6l6 6-6 6",

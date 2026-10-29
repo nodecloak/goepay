@@ -442,16 +442,23 @@ onBeforeUnmount(() => {
 .referral-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1rem;
+  gap: var(--space-4);
 }
 .referral-stats div {
-  padding: 1rem;
-  background: var(--surface-muted, var(--bg-raised));
-  border-radius: 8px;
+  padding: var(--space-4);
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.referral-stats dt {
+  font-size: 13px;
+  color: var(--ink-muted);
 }
 .referral-stats dd {
-  margin: 0.5rem 0 0;
+  margin: var(--space-2) 0 0;
   font-weight: 700;
+  font-size: 20px;
+  color: var(--ink);
 }
 .referral-sublist {
   border: 1px solid var(--line);

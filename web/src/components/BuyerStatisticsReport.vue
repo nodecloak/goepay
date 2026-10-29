@@ -4,6 +4,7 @@ import { ApiClient } from "../api";
 import { reportDateRange, validDateRange } from "../reports";
 import CsvExportButton from "./CsvExportButton.vue";
 import OrderBlacklistDialog from "./OrderBlacklistDialog.vue";
+import KitPagination from "./KitPagination.vue";
 
 const props = defineProps<{
   client: ApiClient;
@@ -28,6 +29,7 @@ const from = ref(today.from),
   sort = ref("order_count"),
   direction = ref("desc"),
   page = ref(1);
+const limit = ref(20);
 const items = ref<BuyerRow[]>([]),
   total = ref(0),
   loading = ref(false),
@@ -59,7 +61,7 @@ function query() {
     sort: sort.value,
     direction: direction.value,
     page: String(page.value),
-    limit: "20",
+    limit: String(limit.value),
   });
 }
 const csvPath = computed(() => {
@@ -377,29 +379,12 @@ onBeforeUnmount(() => {
         </tbody>
       </table>
     </div>
-    <div class="pagination">
-      <span>共 {{ total }} 条记录</span>
-      <div>
-        <button
-          :disabled="page <= 1 || loading || !applied"
-          @click="
-            page--;
-            load();
-          "
-        >
-          上一页</button
-        ><span>第 {{ page }} 页</span
-        ><button
-          :disabled="page * 20 >= total || loading || !applied"
-          @click="
-            page++;
-            load();
-          "
-        >
-          下一页
-        </button>
-      </div>
-    </div>
+    <KitPagination
+      v-model:page="page"
+      v-model:page-size="limit"
+      :total="total"
+      @change="load"
+    />
     <OrderBlacklistDialog
       v-if="blacklist && canWrite"
       :key="blacklist.trade_no + method"

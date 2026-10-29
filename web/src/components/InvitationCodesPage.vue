@@ -16,6 +16,7 @@ import {
   nextTick,
 } from "vue";
 import { ApiClient, ApiError } from "../api";
+import KitPagination from "./KitPagination.vue";
 interface Invitation {
   id: string;
   code: string;
@@ -32,6 +33,7 @@ const props = defineProps<{ client: ApiClient; ownSession: boolean }>();
 const items = ref<Invitation[]>([]),
   total = ref(0),
   page = ref(1),
+  limit = ref(20),
   search = ref(""),
   status = ref(""),
   loading = ref(false),
@@ -102,7 +104,7 @@ async function load() {
   try {
     const q = new URLSearchParams({
       page: String(page.value),
-      limit: "20",
+      limit: String(limit.value),
       search: search.value,
       status: status.value,
     });
@@ -338,8 +340,7 @@ onBeforeUnmount(() => {
       </select></label
     >
     <div class="filter-actions">
-      <button class="primary" :disabled="loading || busy">查询</button
-      ><button
+      <button
         type="button"
         :disabled="loading || busy"
         @click="
@@ -348,8 +349,9 @@ onBeforeUnmount(() => {
           query();
         "
       >
-        清空筛选
+        重置
       </button>
+      <button class="primary" :disabled="loading || busy">查询</button>
     </div>
   </form>
   <section class="panel records invitation-page">
@@ -448,26 +450,12 @@ onBeforeUnmount(() => {
         </tbody>
       </table>
     </div>
-    <div class="pagination">
-      <span>共 {{ total }} 条，第 {{ page }} 页</span
-      ><button
-        :disabled="page === 1 || loading || busy"
-        @click="
-          page--;
-          load();
-        "
-      >
-        上一页</button
-      ><button
-        :disabled="page * 20 >= total || loading || busy"
-        @click="
-          page++;
-          load();
-        "
-      >
-        下一页
-      </button>
-    </div>
+    <KitPagination
+      v-model:page="page"
+      v-model:page-size="limit"
+      :total="total"
+      @change="load"
+    />
   </section>
   <Teleport to="body"
     ><div v-if="mode" class="modal-backdrop" @keydown="focusTrap">

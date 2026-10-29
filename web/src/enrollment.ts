@@ -3,6 +3,7 @@ export interface EnrollmentCapabilities {
   review_required: boolean;
   registration_open: boolean;
   email_enabled: boolean;
+  sms_enabled: boolean;
   invite_required: boolean;
   expires_seconds: number;
 }
@@ -17,6 +18,7 @@ export function parseEnrollmentCapabilities(
     typeof x.invite_required !== "boolean" ||
     (x.review_required !== undefined &&
       typeof x.review_required !== "boolean") ||
+    (x.sms_enabled !== undefined && typeof x.sms_enabled !== "boolean") ||
     !Number.isInteger(x.expires_seconds) ||
     Number(x.expires_seconds) <= 0
   )
@@ -24,6 +26,7 @@ export function parseEnrollmentCapabilities(
   return {
     ...x,
     review_required: x.review_required ?? false,
+    sms_enabled: x.sms_enabled ?? false,
   } as EnrollmentCapabilities;
 }
 export function registrationNotice(value: unknown): string {

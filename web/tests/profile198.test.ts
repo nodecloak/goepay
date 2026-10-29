@@ -18,6 +18,7 @@ async function setup(known = true) {
       return {
         name: "本地商户",
         email: "",
+        phone: "13800138000",
         pay: "1",
         uid: "9007199254740993",
         addtime: "2020-01-02 11:04:05",
@@ -49,7 +50,20 @@ it("shows the original read-only UID and registration fields without rounding an
   expect(w.find('input[name="uid"]').exists()).toBe(false);
   await w.findAll("form")[0]!.trigger("submit");
   await flushPromises();
-  expect(writes).toEqual([{ name: "本地商户", email: "" }]);
+  expect(writes).toEqual([
+    { name: "本地商户", email: "", phone: "13800138000" },
+  ]);
+});
+it("reads back the editInfo contact phone and sends an edited value in the profile save", async () => {
+  const { w, writes } = await setup();
+  const phone = w.get<HTMLInputElement>('input[autocomplete="tel"]');
+  expect(phone.element.value).toBe("13800138000");
+  await phone.setValue("13900139000");
+  await w.findAll("form")[0]!.trigger("submit");
+  await flushPromises();
+  expect(writes).toEqual([
+    { name: "本地商户", email: "", phone: "13900139000" },
+  ]);
 });
 it("does not present an import clock as registration time when the source explicitly marks it unknown", async () => {
   const { w } = await setup(false);

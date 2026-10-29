@@ -3,11 +3,12 @@ import { orderActualAmount104 } from "./order-charge104";
 import type { Area } from "./menu";
 import type { ResourceField } from "./resources";
 import { readSettlementRecipient } from "./settlement-recipient";
-import {
-  beijingTimestamp,
-  consoleTimeLabel,
-  isConsoleTimestamp,
-} from "./console-datetime";
+import { beijingTimestamp, isConsoleTimestamp } from "./console-datetime";
+
+// Guide-named aliases for the kit helpers (see S\review\kit-guide.md): money()
+// formats integer minor units to yuan; datetime() formats an RFC3339 instant to
+// Beijing time. Same functions the console already uses — no behaviour change.
+export { beijingTimestamp as datetime } from "./console-datetime";
 
 export interface ConsoleColumn {
   key: string;
@@ -51,15 +52,34 @@ export function minorYuan(value: unknown): string {
     absolute = n < 0n ? -n : n;
   return `${n < 0n ? "-" : ""}${absolute / 100n}.${String(absolute % 100n).padStart(2, "0")}`;
 }
+// Kit money() (S\review\kit-guide.md): yuan with thousands separators, e.g.
+// "1,232.00". Built on minorYuan so values/rounding are identical; only the
+// integer part is grouped for display. minorYuan itself stays ungrouped (raw).
+export function money(value: unknown): string {
+  return groupYuan(minorYuan(value));
+}
+// Thousands separators for an exact decimal string that is already in yuan
+// ("1232.00" -> "1,232.00", report money included). Anything that is not a
+// plain decimal ("—", "未记录", text) is returned unchanged.
+export function groupYuan(text: string): string {
+  const m = /^(-?)(\d+)(\.\d+)?$/.exec(text);
+  if (!m) return text;
+  return m[1] + m[2]!.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (m[3] ?? "");
+}
 export function isCredentialField(key: string): boolean {
   return /(?:^|_)(?:password|api_key|appsecret|secret|private_key|access_token|refresh_token|authorization_token|token)(?:$|_)/i.test(
     key,
   );
 }
+// Kit header wording: short nouns. Drop the unit/timezone suffixes the Pro
+// columns carried — （元）/（分）from money headers and （北京时间）from
+// timestamps — since DataTable prints ¥ before money and dates are Beijing
+// time by definition. Values stay exact (grouped yuan, UTC+8 timestamps).
 export function consoleColumnLabel(key: string, label: string): string {
-  return minorFields.has(key)
-    ? label.replace(/（分）|\(分\)/g, "（元）")
-    : consoleTimeLabel(key, label);
+  return label.replace(
+    /（元）|\(元\)|（分）|\(分\)|（北京时间）|\(北京时间\)/g,
+    "",
+  );
 }
 const statuses: Record<string, string> = {
   created: "已创建",
@@ -132,15 +152,10 @@ const orderColumns: ConsoleColumn[] = [
   { key: "trade_no", label: "系统订单号" },
   { key: "merchant_id", label: "商户号" },
   { key: "name", label: "商品名称" },
-  { key: "amount", label: "订单金额（元）" },
-  { key: "realmoney", label: "实际支付金额（元）" },
+  { key: "realmoney", label: "实际支付" },
   { key: "type", label: "支付方式" },
-  { key: "client_ip", label: "支付 IP" },
-  { key: "param", label: "扩展参数" },
   { key: "created_at", label: "创建时间" },
   { key: "status", label: "支付状态" },
-  { key: "notification_state", label: "通知状态" },
-  { key: "income_status", label: "订单收入状态" },
 ];
 const refundColumns: ConsoleColumn[] = [
   { key: "refund_no", label: "退款单号" },
@@ -153,6 +168,7 @@ const refundColumns: ConsoleColumn[] = [
 const ledgerColumns: ConsoleColumn[] = [
   { key: "id", label: "流水 ID" },
   { key: "merchant_id", label: "商户号" },
+  { key: "ledger_type", label: "类型" },
   { key: "description", label: "业务说明" },
   { key: "amount", label: "变更金额（元）" },
   { key: "balance_before", label: "账户变更前（元）" },
@@ -251,6 +267,37 @@ export function resourceListFields(
     return visible
       .filter((f) => f.name === "name")
       .map((f) => ({ ...f, label: "用户组名称" }));
+  // 支付通道轮询: the original console lists five short columns (显示名称 /
+  // 支付方式 / 轮询方式 / 轮询规则 / 状态); the dialog keeps every field.
+  if (resource === "pay-rolls") {
+    const labels: Record<string, string> = {
+      name: "显示名称",
+      type: "支付方式",
+      strategy: "轮询方式",
+      channel_ids: "轮询规则",
+      enabled: "状态",
+    };
+    return ["name", "type", "strategy", "channel_ids", "enabled"].flatMap(
+      (name) =>
+        visible
+          .filter((f) => f.name === name)
+          .map((f) => ({ ...f, label: labels[name]! })),
+    );
+  }
+  // 公众号小程序: the original console lists 类别 / 名称 / APPID (no 启用 column);
+  // the dialog keeps 启用.
+  if (resource === "weixin-apps") {
+    const labels: Record<string, string> = {
+      kind: "类别",
+      name: "名称",
+      app_id: "APPID",
+    };
+    return ["kind", "name", "app_id"].flatMap((name) =>
+      visible
+        .filter((f) => f.name === name)
+        .map((f) => ({ ...f, label: labels[name]! })),
+    );
+  }
   if (resource !== "merchants") return visible;
   const hasEffectiveGroup = visible.some((f) =>
     ["effective_group_id", "effective_group_name"].includes(f.name),
@@ -427,7 +474,32 @@ const ledgerOutcomes: Record<string, string> = {
   succeeded: "成功",
   failed: "失败",
 };
+// 资金明细 original record types (原 pre_record.type). The service projects a
+// `ledger_type` code (see internal/server/ledger_reporting_type.go); show the
+// original Chinese name the PHP 资金明细 used.
+export const ledgerTypeLabels: Record<string, string> = {
+  order_income: "订单收入",
+  order_fee: "订单服务费",
+  order_freeze: "订单冻结",
+  order_unfreeze: "订单解冻",
+  order_refund: "订单退款",
+  refund_fee: "服务费退款",
+  transfer: "代付",
+  transfer_return: "代付退回",
+  settle_auto: "自动结算",
+  profit_sharing: "订单分账",
+  internal_transfer: "站内转账",
+  deposit_in: "充值保证金",
+  deposit_out: "提取保证金",
+  membership_buy: "购买会员",
+  invite_reward: "邀请返现",
+  admin_credit: "后台加款",
+  admin_debit: "后台扣款",
+  other: "其他",
+};
 export function ledgerTerm(key: string, value: unknown): string {
+  if (key === "ledger_type")
+    return ledgerTypeLabels[String(value)] ?? displayValue(value);
   if (key === "kind")
     return ledgerAccounts[String(value)] ?? consoleValue(key, value);
   if (key !== "description" || typeof value !== "string")

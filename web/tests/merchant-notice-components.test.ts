@@ -139,3 +139,99 @@ it("cannot reuse one merchant's pending settings response in another merchant's 
   ).toBe("99.00");
   w.unmount();
 });
+
+const platform = {
+  mail_robot: {
+    order: true,
+    settle: true,
+    login: true,
+    complain: true,
+    mchrisk: false,
+    balance: true,
+    group: true,
+    domain_audit: true,
+    daily_report: true,
+  },
+  telegram: true,
+  qqbot: false,
+  voice: true,
+  group_sms: true,
+};
+const matrixSettings = {
+  ...settings,
+  configured: {
+    email: true,
+    wx_uid: true,
+    wx_appid: true,
+    msgrobot_url: true,
+    telegram_uid: true,
+  },
+  platform,
+  sms_active: false,
+};
+it("renders the full event×channel matrix and disables cells GOEPAY cannot deliver, with a reason", async () => {
+  const c = new ApiClient("merchant");
+  vi.spyOn(c, "request").mockResolvedValue(matrixSettings as never);
+  const w = mount(MerchantNoticeSettings, {
+    props: { client: c, ownSession: true },
+  });
+  await flushPromises();
+  const table = w.get("table.notice-matrix");
+  for (const col of ["微信", "邮件", "短信", "群机器人", "Telegram", "QQ Bot"])
+    expect(table.text()).toContain(col);
+  // WeChat has no template for the daily report scene -> disabled.
+  const wechatDaily = w.get('[data-cell="daily_report:1"]');
+  expect(wechatDaily.attributes("disabled")).toBeDefined();
+  expect(w.get('[data-reason="daily_report:1"]').text()).toContain("微信模板");
+  // SMS gateway is off -> the SMS cell on its only selectable scenes is disabled.
+  const smsBalance = w.get('[data-cell="balance:3"]');
+  expect(smsBalance.attributes("disabled")).toBeDefined();
+  expect(w.get('[data-reason="balance:3"]').text()).toContain("短信网关未启用");
+  // QQ Bot platform switch off -> disabled with reason.
+  expect(w.get('[data-cell="order:6"]').attributes("disabled")).toBeDefined();
+  expect(w.get('[data-reason="order:6"]').text()).toContain("QQ Bot");
+  // A supported, platform-on, recipient-configured cell is enabled.
+  expect(w.get('[data-cell="order:1"]').attributes("disabled")).toBeUndefined();
+  w.unmount();
+});
+it("saves the single stored mode chosen from the matrix for an event", async () => {
+  const c = new ApiClient("merchant");
+  let saved: unknown;
+  vi.spyOn(c, "request").mockImplementation(async (_p, o) => {
+    if (o?.method === "PUT") {
+      saved = o.body;
+      return { ...matrixSettings, id: "8", revision: "3" } as never;
+    }
+    return matrixSettings as never;
+  });
+  const w = mount(MerchantNoticeSettings, {
+    props: { client: c, ownSession: true },
+  });
+  await flushPromises();
+  // Switch the 新订单 event from WeChat(stored order:2? no, fixture order=2) to Telegram(5).
+  await w.get('[data-cell="order:5"]').setValue(true);
+  await w.get("form").trigger("submit");
+  await flushPromises();
+  expect(saved).toMatchObject({ msgconfig: { order: 5 } });
+  w.unmount();
+});
+it("lets an event be turned off from the matrix", async () => {
+  const c = new ApiClient("merchant");
+  let saved: unknown;
+  vi.spyOn(c, "request").mockImplementation(async (_p, o) => {
+    if (o?.method === "PUT") {
+      saved = o.body;
+      return { ...matrixSettings, id: "8", revision: "3" } as never;
+    }
+    return matrixSettings as never;
+  });
+  const w = mount(MerchantNoticeSettings, {
+    props: { client: c, ownSession: true },
+  });
+  await flushPromises();
+  await w.get('[data-cell="order:0"]').setValue(true);
+  await w.get("form").trigger("submit");
+  await flushPromises();
+  expect(saved).toMatchObject({ msgconfig: { order: 0 } });
+  w.unmount();
+});

@@ -5,6 +5,9 @@ import { computed, ref, watch, toRaw, onBeforeUnmount, useId } from "vue";
 import { ApiClient, ApiError } from "../api";
 import type { ResourceSchema } from "../resources";
 import ShellIcon from "./ShellIcon.vue";
+import KitSwitch from "./KitSwitch.vue";
+import KitSelect from "./KitSelect.vue";
+import KitInput from "./KitInput.vue";
 import BusinessNoticeEvents from "./BusinessNoticeEvents.vue";
 import RichTextEditor from "./RichTextEditor.vue";
 import PlatformMerchantAccessSettings from "./PlatformMerchantAccessSettings.vue";
@@ -12,6 +15,7 @@ import ScanpaySettings192 from "./ScanpaySettings192.vue";
 import ScanJSSettings202 from "./ScanJSSettings202.vue";
 import SiteBrandSettings193 from "./SiteBrandSettings193.vue";
 import MailSettings195 from "./MailSettings195.vue";
+import SmsSettings134 from "./SmsSettings134.vue";
 import CaptchaKeySettings203 from "./CaptchaKeySettings203.vue";
 import ProxyCredentialSettings from "./ProxyCredentialSettings.vue";
 import BuyerFeeSettings104 from "./BuyerFeeSettings104.vue";
@@ -46,6 +50,7 @@ const active = ref<SettingsTab>("site"),
   scanJSBusy = ref(false),
   brandBusy = ref(false),
   mailBusy = ref(false),
+  smsBusy = ref(false),
   schema = ref<ResourceSchema | null>(null),
   definitions = ref<SettingDefinition[]>([]),
   records = ref<Record<string, SettingRecord>>({}),
@@ -141,6 +146,41 @@ const links: Partial<Record<SettingsTab, [string, string][]>> = {
 function dirty(d: SettingDefinition) {
   return values.value[d.key] !== original(d);
 }
+
+// A two-choice on/off select renders as a kit switch: the original console
+// shows 开启/关闭 toggles, which the design kit draws as KitSwitch rather than a
+// dropdown. Detection is by LABELS (开启 / 关闭), not merely a 0/1 value pair —
+// genuine two-way choices like 极验版本 V3.0/V4.0, 结算周期 T+0/T+1 or
+// 新商户审核 无需审核/需管理员审核 keep their KitSelect dropdown.
+function switchPair(d: SettingDefinition): readonly [string, string] | null {
+  if (d.kind !== "select" || !d.options || d.options.length !== 2) return null;
+  const on = d.options.find((o) => o.label === "开启");
+  const off = d.options.find((o) => o.label === "关闭");
+  return on && off ? [on.value, off.value] : null;
+}
+function isSwitch(d: SettingDefinition): boolean {
+  return switchPair(d) !== null;
+}
+function switchOn(d: SettingDefinition): boolean {
+  const pair = switchPair(d);
+  return !!pair && values.value[d.key] === pair[0];
+}
+function setSwitch(d: SettingDefinition, on: boolean) {
+  const pair = switchPair(d);
+  if (pair) values.value[d.key] = on ? pair[0] : pair[1];
+}
+// Controls are disabled together while any save/load/sibling-block is busy.
+const controlsBusy = computed(
+  () =>
+    busy.value ||
+    platformBusy.value ||
+    riskBusy.value ||
+    scanBusy.value ||
+    mailBusy.value ||
+    smsBusy.value ||
+    brandBusy.value ||
+    uncertain.value,
+);
 const changed = computed(() => fields.value.filter(dirty));
 let controller: AbortController | undefined,
   alive = true,
@@ -188,7 +228,8 @@ async function load() {
     riskBusy.value ||
     scanBusy.value ||
     brandBusy.value ||
-    mailBusy.value
+    mailBusy.value ||
+    smsBusy.value
   )
     return;
   controller?.abort();
@@ -279,6 +320,7 @@ async function save() {
     scanBusy.value ||
     brandBusy.value ||
     mailBusy.value ||
+    smsBusy.value ||
     uncertain.value ||
     !changed.value.length
   )
@@ -368,7 +410,8 @@ function navigate(event: KeyboardEvent, index: number) {
     riskBusy.value ||
     scanBusy.value ||
     brandBusy.value ||
-    mailBusy.value
+    mailBusy.value ||
+    smsBusy.value
   )
     return;
   if (
@@ -503,6 +546,13 @@ onBeforeUnmount(() => {
             :own-session="ownSession"
             @busy="mailBusy = $event"
           />
+          <SmsSettings134
+            v-if="active === 'sms'"
+            :client="client"
+            :admin-class="adminClass"
+            :own-session="ownSession"
+            @busy="smsBusy = $event"
+          />
           <template v-if="active === 'risk'">
             <div :inert="paymentDefendBusy">
               <CorePaymentRisk
@@ -593,66 +643,33 @@ onBeforeUnmount(() => {
                 'setting-required': requiredSettings.has(block.key),
               }"
             >
-              <label :for="`setting-${block.key}`">{{
+              <label :id="`setting-label-${block.key}`">{{
                 block.definition.label
               }}</label>
-              <select
-                v-if="block.definition.kind === 'select'"
-                :id="`setting-${block.key}`"
-                v-model="values[block.key]"
-                :form="formId"
+              <KitSwitch
+                v-if="isSwitch(block.definition)"
+                :model-value="switchOn(block.definition)"
+                :label="switchOn(block.definition) ? '开启' : '关闭'"
+                :disabled="!writable(block.definition) || controlsBusy"
+                @update:model-value="setSwitch(block.definition, $event)"
+              />
+              <KitSelect
+                v-else-if="block.definition.kind === 'select'"
+                v-model="values[block.key]!"
+                :options="block.definition.options || []"
+                placeholder="未配置（使用系统默认）"
                 :aria-label="block.definition.label"
-                :disabled="
-                  !writable(block.definition) ||
-                  busy ||
-                  platformBusy ||
-                  riskBusy ||
-                  scanBusy ||
-                  mailBusy ||
-                  brandBusy ||
-                  uncertain
-                "
-              >
-                <option value="" disabled>未配置（使用系统默认）</option>
-                <option
-                  v-if="
-                    values[block.key] &&
-                    !block.definition.options?.some(
-                      (o) => o.value === values[block.key],
-                    )
-                  "
-                  :value="values[block.key]"
-                >
-                  当前值：{{ values[block.key] }}（待核对）
-                </option>
-                <option
-                  v-for="o in block.definition.options"
-                  :key="o.value"
-                  :value="o.value"
-                >
-                  {{ o.label }}
-                </option>
-              </select>
+                :disabled="!writable(block.definition) || controlsBusy"
+              />
               <RichTextEditor
                 v-else-if="block.definition.kind === 'html'"
                 v-model="values[block.key]!"
                 :label="block.definition.label"
-                :disabled="
-                  !writable(block.definition) ||
-                  busy ||
-                  platformBusy ||
-                  riskBusy ||
-                  scanBusy ||
-                  mailBusy ||
-                  brandBusy ||
-                  uncertain
-                "
+                :disabled="!writable(block.definition) || controlsBusy"
               />
-              <input
+              <KitInput
                 v-else
-                :id="`setting-${block.key}`"
-                v-model="values[block.key]"
-                :form="formId"
+                v-model="values[block.key]!"
                 :aria-label="block.definition.label"
                 :type="block.definition.kind === 'email' ? 'email' : 'text'"
                 :inputmode="
@@ -662,17 +679,8 @@ onBeforeUnmount(() => {
                       ? 'numeric'
                       : undefined
                 "
-                :disabled="
-                  !writable(block.definition) ||
-                  busy ||
-                  platformBusy ||
-                  riskBusy ||
-                  scanBusy ||
-                  mailBusy ||
-                  brandBusy ||
-                  uncertain
-                "
-                maxlength="1000"
+                :disabled="!writable(block.definition) || controlsBusy"
+                :maxlength="1000"
                 placeholder="未配置，使用系统默认"
               />
               <small v-if="block.definition.hint" class="muted">{{

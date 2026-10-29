@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import ShellIcon from "./ShellIcon.vue";
 import PluginDetailDrawer from "./PluginDetailDrawer.vue";
+import KitStatusTag from "./KitStatusTag.vue";
 import {
   builtinCount,
   builtinPlugin,
@@ -94,13 +95,11 @@ function reset() {
                   Array.from(item.title)[0]
                 }}</span
                 >{{ item.title
-                }}<span
+                }}<KitStatusTag
                   v-if="item.type === 'template' && item.sub"
-                  class="badge"
-                  data-state="none"
-                  >{{ templateKinds[item.sub] || item.sub }}</span
-                ></span
-              >
+                  tone="neutral"
+                  :text="templateKinds[item.sub] || item.sub"
+              /></span>
             </td>
             <td class="numeric">{{ item.name }}</td>
             <td class="plugin-desc">{{ item.desc || "-" }}</td>
@@ -120,11 +119,10 @@ function reset() {
                 @click="selected = item"
               >
                 详情</button
-              ><span
-                class="badge"
-                :data-state="builtinPlugin(item) ? 'succeeded' : 'none'"
-                >{{ builtinPlugin(item) ? "已内置" : "暂不支持" }}</span
-              >
+              ><KitStatusTag
+                :tone="builtinPlugin(item) ? 'success' : 'neutral'"
+                :text="builtinPlugin(item) ? '已内置' : '暂不支持'"
+              />
             </td>
           </tr>
           <tr v-if="!rows.length">

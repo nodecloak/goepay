@@ -56,10 +56,13 @@ test("settlement approvals stop at first failure and report successful subset", 
     await page
       .getByRole("checkbox", { name: "选择申请 " + id, exact: true })
       .check();
+  await page.getByRole("button", { name: "批量操作", exact: true }).click();
   await expect(
-    page.getByRole("link", { name: "将所选 3 条申请生成结算批次" }),
+    page.getByRole("menuitem", { name: /生成结算批次（3 条）/ }),
   ).toHaveAttribute("href", "/admin/settle/batch?request_ids=1%2C2%2C3");
-  await page.getByRole("button", { name: "核准所选 3 条申请" }).click();
+  await page
+    .getByRole("menuitem", { name: "核准所选 3 条申请", exact: true })
+    .click();
   expect(reviewed).toEqual([]);
   await page.getByRole("button", { name: "确认核准", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText(

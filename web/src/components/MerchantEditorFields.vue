@@ -40,7 +40,12 @@ const apiNames = new Set([
     "keytype",
   ]),
   statusNames = new Set(["enabled", "pay"]),
-  payoutNames = new Set(["transfer_api_enabled", "transfer_rate", "settle"]);
+  payoutNames = new Set([
+    "transfer_api_enabled",
+    "transfer_rate",
+    "settle",
+    "remain_money",
+  ]);
 const apiFields = computed(() =>
     props.fields.filter(
       (f) =>

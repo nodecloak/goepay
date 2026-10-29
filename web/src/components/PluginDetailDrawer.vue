@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import ShellIcon from "./ShellIcon.vue";
+import KitStatusTag from "./KitStatusTag.vue";
 import {
   builtinPlugin,
   pluginTypes,
@@ -56,9 +57,10 @@ onMounted(() => drawer.value?.focus());
           }}</span>
           <div>
             <strong>{{ entry.title }}</strong>
-            <span class="badge" :data-state="builtin ? 'succeeded' : 'none'">{{
-              builtin ? "已内置" : "暂不支持"
-            }}</span>
+            <KitStatusTag
+              :tone="builtin ? 'success' : 'neutral'"
+              :text="builtin ? '已内置' : '暂不支持'"
+            />
           </div>
         </div>
         <dl class="record-detail">

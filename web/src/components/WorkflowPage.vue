@@ -17,6 +17,11 @@ import {
   settlementFilterQuery,
 } from "../settlement-filters";
 import SettlementListFilters from "./SettlementListFilters.vue";
+import KitPagination from "./KitPagination.vue";
+import KitStatusTag from "./KitStatusTag.vue";
+import ActionDropdown from "./ActionDropdown.vue";
+import KitField from "./KitField.vue";
+import KitSelect from "./KitSelect.vue";
 import SettlementStatistics from "./SettlementStatistics.vue";
 import { ApiClient, ApiError, validAmount } from "../api";
 import type { Area } from "../menu";
@@ -26,6 +31,7 @@ import {
   type FundsAvailability,
 } from "../funds-availability";
 import FundsAvailabilitySummary from "./FundsAvailabilitySummary.vue";
+import KitHelpPopover from "./KitHelpPopover.vue";
 import SettlementRecipientPanel from "./SettlementRecipientPanel.vue";
 import SettlementPayoutPanel from "./SettlementPayoutPanel.vue";
 import SettlementListTable from "./SettlementListTable.vue";
@@ -53,6 +59,13 @@ const props = defineProps<{
 const emit = defineEmits<{ busy: [value: boolean]; submitted: [] }>();
 const internalMerchantList = computed(
   () => props.workflow === "internal-transfers" && props.area === "merchant",
+);
+const listNote = computed(() =>
+  props.workflow === "settlements"
+    ? "结算申请会独立预占申请总额；核准后仍需另行准备并明确发送钱包出款，审批通过不代表支付成功。缺失费用、资金归属或收款快照的历史记录不能出款；银行卡不适用本钱包流程。拒绝或已证明未发送的取消会释放对应冻结资金。"
+    : props.workflow === "profitsharing"
+      ? "站内分账申请由已支付订单和启用规则生成，核准后转入站内收款商户账户。生成申请时同样由服务端执行 T+0/T+1 可出账政策，本页面不手动创建分账或执行上游渠道分账。"
+      : "站内转账仅在本平台商户账户之间转移余额。请核对商户编号和金额。",
 );
 const internalDraft = ref({ direction: "", status: "" });
 const internalApplied = ref({ direction: "", status: "" });
@@ -208,7 +221,65 @@ function invalidateFunds() {
   fundsLoading.value = false;
   fundsError.value = "";
   fundsMerchant.value = "";
+  livePreview.value = null;
+  liveError.value = "";
 }
+// Pro settle/apply previews 手续费 / 实际到账 inline as the amount is typed, and
+// a 全部 button fills the full withdrawable amount. The preview reads the same
+// read-only server quote (/workflows/settlement-policy) the submit step re-verifies.
+const livePreview = ref<SettlementPreview | null>(null),
+  liveLoading = ref(false),
+  liveError = ref("");
+let liveEpoch = 0,
+  liveController: AbortController | undefined,
+  liveTimer: ReturnType<typeof setTimeout> | undefined;
+function fillAll() {
+  if (!funds.value || !hasCurrentFunds.value) return;
+  form.value.amount = funds.value.available_money;
+}
+function scheduleLivePreview() {
+  if (props.workflow !== "settlements") return;
+  liveEpoch++;
+  liveController?.abort();
+  livePreview.value = null;
+  liveError.value = "";
+  if (liveTimer) clearTimeout(liveTimer);
+  const amount = form.value.amount;
+  if (!validAmount(amount) || !hasRecipient.value || !hasCurrentFunds.value)
+    return;
+  const epoch = liveEpoch,
+    merchant = form.value.merchant_id;
+  liveTimer = setTimeout(async () => {
+    const q = new URLSearchParams({ amount });
+    if (props.area === "admin") q.set("merchant_id", merchant);
+    liveController = new AbortController();
+    liveLoading.value = true;
+    try {
+      const raw = await props.client.request(
+        "/workflows/settlement-policy?" + q,
+        { signal: liveController.signal },
+      );
+      if (epoch !== liveEpoch) return;
+      livePreview.value = readSettlementPreview(raw, amount);
+    } catch (e) {
+      if (epoch === liveEpoch)
+        liveError.value =
+          e instanceof Error ? e.message : "费用预览读取失败，请核对金额";
+    } finally {
+      if (epoch === liveEpoch) liveLoading.value = false;
+    }
+  }, 350);
+}
+watch(
+  () => [
+    form.value.amount,
+    form.value.merchant_id,
+    hasRecipient.value,
+    funds.value,
+  ],
+  scheduleLivePreview,
+  { flush: "post" },
+);
 watch(() => form.value.merchant_id, invalidateFunds, { flush: "sync" });
 watch(dialog, (value) => {
   if (value !== "create") invalidateFunds();
@@ -489,6 +560,47 @@ function check(id: string, enabled: boolean) {
     ? [...checked.value, id]
     : checked.value.filter((x) => x !== id);
 }
+// Pro settle/list keeps all batch actions in one 批量修改 dropdown. GOEPAY's two
+// admin batch actions (核准所选 / 生成结算批次) collapse into one 批量操作 dropdown;
+// picking one opens its confirm for the current selection.
+const batchHref = computed(() =>
+  checked.value.length
+    ? "/admin/settle/batch?request_ids=" +
+      encodeURIComponent(checked.value.join(","))
+    : "",
+);
+const batchMenuItems = computed(() => [
+  { id: "approve", label: "核准所选 " + checked.value.length + " 条申请" },
+  {
+    id: "batch",
+    label: "生成结算批次（" + checked.value.length + " 条）",
+    href: batchHref.value || undefined,
+  },
+]);
+function pickBatch(id: string) {
+  if (!checked.value.length || busy.value || loading.value) return;
+  if (id === "approve") {
+    batchMode.value = true;
+    dialog.value = "approve";
+  }
+  // id === "batch" navigates via the menu item href.
+}
+function workflowTone(
+  status: string,
+): "success" | "warning" | "danger" | "info" | "neutral" {
+  return (
+    (
+      {
+        pending: "warning",
+        approved: "success",
+        succeeded: "success",
+        paid: "success",
+        rejected: "danger",
+        failed: "danger",
+      } as Record<string, "success" | "warning" | "danger" | "info" | "neutral">
+    )[status] ?? "neutral"
+  );
+}
 onMounted(() => {
   if (props.application && props.workflow === "settlements") openCreate();
   else void load();
@@ -506,38 +618,49 @@ onBeforeUnmount(() => {
       aria-label="站内转账筛选"
       @submit.prevent="applyInternalFilters"
     >
-      <label class="filter-inline"
-        >方向<select
-          v-model="internalDraft.direction"
-          aria-label="方向"
-          :disabled="loading || busy"
-        >
-          <option value="">全部方向</option>
-          <option value="out">转出</option>
-          <option value="in">转入</option>
-        </select></label
-      >
-      <label class="filter-inline"
-        >状态<select
-          v-model="internalDraft.status"
-          aria-label="状态"
-          :disabled="loading || busy"
-        >
-          <option value="">全部状态</option>
-          <option value="pending">待审核</option>
-          <option value="approved">成功</option>
-          <option value="rejected">已拒绝</option>
-        </select></label
-      >
-      <div class="filter-actions">
-        <button class="primary" :disabled="loading || busy">查询</button>
+      <div class="pa-filter-fields list-filters-grid">
+        <KitField label="方向">
+          <KitSelect
+            v-model="internalDraft.direction"
+            :options="[
+              { value: '', label: '全部方向' },
+              { value: 'out', label: '转出' },
+              { value: 'in', label: '转入' },
+            ]"
+            :disabled="loading || busy"
+            aria-label="方向"
+          />
+        </KitField>
+        <KitField label="状态">
+          <KitSelect
+            v-model="internalDraft.status"
+            :options="[
+              { value: '', label: '全部状态' },
+              { value: 'pending', label: '待审核' },
+              { value: 'approved', label: '成功' },
+              { value: 'rejected', label: '已拒绝' },
+            ]"
+            :disabled="loading || busy"
+            aria-label="状态"
+          />
+        </KitField>
+      </div>
+      <div class="pa-filter-actions">
         <button
           type="button"
+          class="pa-btn"
           data-action="reset-internal-transfers"
           :disabled="loading || busy"
           @click="resetInternalFilters"
         >
           重置
+        </button>
+        <button
+          type="submit"
+          class="pa-btn pa-btn--primary"
+          :disabled="loading || busy"
+        >
+          查询
         </button>
       </div>
     </form>
@@ -596,54 +719,23 @@ onBeforeUnmount(() => {
         >
           结算统计
         </button>
+        <KitHelpPopover v-if="!application" :text="listNote" />
         <div class="table-tools-end">
-          <button
-            v-if="area === 'admin' && workflow === 'settlements'"
-            type="button"
-            :disabled="!checked.length || busy || loading"
-            @click="
-              batchMode = true;
-              dialog = 'approve';
-            "
-          >
-            核准所选 {{ checked.length }} 条申请
-          </button>
-          <a
+          <ActionDropdown
             v-if="
-              area === 'admin' &&
-              workflow === 'settlements' &&
-              checked.length &&
-              !busy
+              area === 'admin' && workflow === 'settlements' && !application
             "
-            :href="
-              '/admin/settle/batch?request_ids=' +
-              encodeURIComponent(checked.join(','))
-            "
-            >将所选 {{ checked.length }} 条申请生成结算批次</a
-          >
+            label="批量操作"
+            trigger-text="批量操作"
+            :items="batchMenuItems"
+            :disabled="!checked.length || busy || loading"
+            @action="pickBatch"
+          />
           <button v-if="!application" :disabled="loading" @click="load">
             <ShellIcon name="refresh" />刷新
           </button>
         </div>
       </div>
-      <p
-        class="table-note"
-        :title="
-          workflow === 'settlements'
-            ? '结算申请会独立预占申请总额；核准后仍需另行准备并明确发送钱包出款，审批通过不代表支付成功。缺失费用、资金归属或收款快照的历史记录不能出款；银行卡不适用本钱包流程。拒绝或已证明未发送的取消会释放对应冻结资金。'
-            : workflow === 'profitsharing'
-              ? '站内分账申请由已支付订单和启用规则生成，核准后转入站内收款商户账户。生成申请时同样由服务端执行 T+0/T+1 可出账政策，本页面不手动创建分账或执行上游渠道分账。'
-              : '站内转账仅在本平台商户账户之间转移余额。请核对商户编号和金额。'
-        "
-      >
-        {{
-          workflow === "settlements"
-            ? "结算申请会独立预占申请总额；核准后仍需另行准备并明确发送钱包出款，审批通过不代表支付成功。缺失费用、资金归属或收款快照的历史记录不能出款；银行卡不适用本钱包流程。拒绝或已证明未发送的取消会释放对应冻结资金。"
-            : workflow === "profitsharing"
-              ? "站内分账申请由已支付订单和启用规则生成，核准后转入站内收款商户账户。生成申请时同样由服务端执行 T+0/T+1 可出账政策，本页面不手动创建分账或执行上游渠道分账。"
-              : "站内转账仅在本平台商户账户之间转移余额。请核对商户编号和金额。"
-        }}
-      </p>
       <div v-if="loading" class="loading-row" role="status">
         {{ internalMerchantList ? "正在加载站内转账…" : "正在加载申请…" }}
       </div>
@@ -661,6 +753,7 @@ onBeforeUnmount(() => {
         :area="area"
         :checked="checked"
         :busy="busy"
+        :client="client"
         @check="check"
         @decision="openDecision"
         @payout="(id) => (payoutRequestId = id)"
@@ -697,21 +790,11 @@ onBeforeUnmount(() => {
                 />
               </td>
               <td v-for="column in columns" :key="column.key">
-                <span
+                <KitStatusTag
                   v-if="column.key === 'status'"
-                  class="badge"
-                  :data-state="
-                    {
-                      pending: 'warn',
-                      approved: 'on',
-                      succeeded: 'on',
-                      paid: 'on',
-                      rejected: 'bad',
-                      failed: 'bad',
-                    }[String(row.status)] || 'none'
-                  "
-                  >{{ displayValue(row.status) }}</span
-                >
+                  :text="displayValue(row.status)"
+                  :tone="workflowTone(String(row.status))"
+                />
                 <template v-else>{{ displayValue(row[column.key]) }}</template>
               </td>
               <td v-if="area === 'admin' || workflow === 'settlements'">
@@ -749,32 +832,13 @@ onBeforeUnmount(() => {
           </tbody>
         </table>
       </div>
-      <div v-if="!application" class="pagination">
-        <span
-          >共 {{ total }}
-          {{ internalMerchantList ? "条转账记录" : "条申请" }}</span
-        >
-        <div>
-          <button
-            :disabled="page <= 1 || loading"
-            @click="
-              page--;
-              load();
-            "
-          >
-            上一页</button
-          ><span>第 {{ page }} 页</span
-          ><button
-            :disabled="page * limit >= total || loading"
-            @click="
-              page++;
-              load();
-            "
-          >
-            下一页
-          </button>
-        </div>
-      </div>
+      <KitPagination
+        v-if="!application"
+        v-model:page="page"
+        v-model:page-size="limit"
+        :total="total"
+        @change="load"
+      />
     </section>
   </template>
   <SettlementStatistics
@@ -868,11 +932,40 @@ onBeforeUnmount(() => {
           @change="recipientChanged"
         />
         <label
-          >金额（元）<input
-            v-model="form.amount"
-            required
-            inputmode="decimal" /></label
-        ><label
+          >金额（元）<span class="settle-amount-row"
+            ><input v-model="form.amount" required inputmode="decimal" /><button
+              v-if="workflow === 'settlements'"
+              type="button"
+              class="settle-all-btn"
+              :disabled="busy || !hasCurrentFunds"
+              @click="fillAll"
+            >
+              全部
+            </button></span
+          ></label
+        >
+        <p
+          v-if="workflow === 'settlements' && liveLoading"
+          class="muted settle-live"
+          role="status"
+        >
+          正在预估手续费与实际到账…
+        </p>
+        <div
+          v-else-if="workflow === 'settlements' && livePreview"
+          class="settle-live"
+          role="status"
+        >
+          <span>手续费：{{ livePreview.fee_money }} 元</span
+          ><span>实际到账：{{ livePreview.net_money }} 元</span>
+        </div>
+        <p
+          v-else-if="workflow === 'settlements' && liveError"
+          class="muted settle-live"
+        >
+          {{ liveError }}
+        </p>
+        <label
           >业务请求号<input v-model="form.external_no" required maxlength="128"
         /></label>
         <p class="muted">
@@ -953,5 +1046,27 @@ onBeforeUnmount(() => {
 <style scoped>
 .internal-transfer-filters > .filter-inline > select {
   min-width: 160px;
+}
+.settle-amount-row {
+  display: flex;
+  gap: var(--space-2, 8px);
+  align-items: stretch;
+}
+.settle-amount-row > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.settle-all-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.settle-live {
+  display: flex;
+  gap: var(--space-4, 16px);
+  margin: var(--space-2, 8px) 0 0;
+  font-size: 13px;
+}
+.settle-live > span {
+  color: var(--ink, inherit);
 }
 </style>

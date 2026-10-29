@@ -33,6 +33,7 @@ export function hasOriginalSettlementProjection(
       "settlement_funding",
       "settlement_recipient",
       "payout",
+      "auto",
     ].every((key) => Object.hasOwn(row, key)),
   );
 }
@@ -161,13 +162,17 @@ export function readSettlementListRow(value: unknown) {
         string
       >
     )[r.recipient?.type || ""] || "历史未记录";
+  // 原 settle.php：auto!=1 的结算在结算方式后标注 [手动]。
+  const auto = raw.auto === true;
+  const methodLabel = auto ? method : `${method} [手动]`;
   const result = {
     raw,
     id: r.id,
     merchantID: r.merchant_id,
     externalNo:
       typeof raw.external_no === "string" ? raw.external_no : "未记录",
-    method,
+    method: methodLabel,
+    auto,
     account: r.recipient?.account_masked || "历史未记录",
     name: r.recipient?.name_masked || "历史未记录",
     gross,

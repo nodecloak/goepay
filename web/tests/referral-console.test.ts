@@ -65,11 +65,13 @@ it("selects an explicit gross basis and freezes it in the reviewed CAS body", as
     },
   });
   await flushPromises();
-  const basis = wrapper
-    .findAll("select")
-    .find((s) => s.element.closest("label")?.textContent?.includes("奖励基数"));
-  expect(basis).toBeDefined();
-  await basis!.setValue("gross");
+  await wrapper
+    .get('button.pa-select-trigger[aria-label="奖励基数"]')
+    .trigger("click");
+  await wrapper
+    .findAll('[role="option"]')
+    .find((o) => o.text().includes("原订单金额"))!
+    .trigger("click");
   await action(wrapper, "核对政策变更").trigger("click");
   expect(wrapper.text()).toContain("原订单金额");
   expect(wrapper.text()).toContain("原订单平台手续费");
@@ -175,7 +177,13 @@ for (const context of ["area", "csrf", "scope", "group"] as const)
     if (context === "area") client.area = "merchant";
     else if (context === "csrf") client.csrfToken = "new-session-csrf";
     else {
-      await wrapper.findAll("select")[0]!.setValue("group");
+      await wrapper
+        .get('button.pa-select-trigger[aria-label="政策范围"]')
+        .trigger("click");
+      await wrapper
+        .findAll('[role="option"]')
+        .find((o) => o.text() === "用户组")!
+        .trigger("click");
       if (context === "group") await wrapper.find("input").setValue("9");
     }
     finish(currentPolicy);

@@ -7,20 +7,29 @@ const read = (v: unknown) => {
 };
 it("original transfer columns differ only by the administrator merchant identifier", () => {
   expect(typeof api.originalTransferColumns).toBe("function");
-  expect(api.originalTransferColumns("admin").map((v: any) => v.label)).toEqual(
-    [
-      "交易号",
-      "商户号",
-      "付款方式",
-      "付款账号",
-      "付款金额",
-      "提交时间",
-      "状态",
-    ],
-  );
   expect(
-    api.originalTransferColumns("merchant").map((v: any) => v.label),
-  ).toEqual(["交易号", "付款方式", "付款账号", "付款金额", "提交时间", "状态"]);
+    api.originalTransferColumns("admin").map((v: any) => [v.label, v.sub]),
+  ).toEqual([
+    ["交易号", "第三方交易号"],
+    ["商户号", undefined],
+    ["付款方式", "备注"],
+    ["付款账号", "姓名"],
+    ["付款金额", "花费金额"],
+    ["手续费", undefined],
+    ["提交时间", "付款时间"],
+    ["状态", undefined],
+  ]);
+  expect(
+    api.originalTransferColumns("merchant").map((v: any) => [v.label, v.sub]),
+  ).toEqual([
+    ["交易号", "第三方交易号"],
+    ["付款方式", "备注"],
+    ["付款账号", "姓名"],
+    ["付款金额", "花费金额"],
+    ["手续费", undefined],
+    ["提交时间", "付款时间"],
+    ["状态", undefined],
+  ]);
 });
 it("transfer list preserves exact money long identifiers and original masked identity", () => {
   const r = read(fixture());

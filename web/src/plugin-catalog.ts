@@ -53,21 +53,50 @@ export interface BuiltinPlugin {
   note: string;
 }
 
-// Entries this Go build implements. Keep in step with the channel factory
-// (internal/channelconfig) and the mail/template services.
-export const builtinPlugins: Readonly<Record<string, BuiltinPlugin>> = {
-  "payment:alipay": {
-    note: "Go 版内置实现，按通道配置提供收款、退款、转账及分账等能力。",
-  },
-  "payment:wxpay": {
-    note: "Go 版内置实现，同一插件可配置微信支付 V2 或 V3 接口。",
-  },
+// Payment plugins the Go build actually serves, derived from the Go plugin
+// registry by internal/adapters/payment/ported_catalog_test.go (run it with
+// GOEPAY_UPDATE_PLUGIN_CATALOG=1 to regenerate). This is the single source of
+// truth for which payment plugins are 已内置, so the console can never claim a
+// plugin that the service does not run, and every ported plugin shows its
+// original title/author/pay types without a second hand-maintained list.
+import portedPayments from "./data/ported-plugins.json";
+
+export interface PortedPlugin {
+  name: string;
+  title: string;
+  author: string;
+  types: string[];
+  trans: string[];
+  note: string;
+}
+
+/** The ported payment plugins, keyed by catalog key (payment:<name>). */
+export const portedPaymentPlugins: Readonly<Record<string, PortedPlugin>> =
+  Object.fromEntries(
+    (portedPayments as PortedPlugin[]).map((p) => [`payment:${p.name}`, p]),
+  );
+
+// Non-payment entries this Go build implements (profit sharing, mail,
+// templates). Payment plugins come from portedPaymentPlugins above; keep the
+// native alipay/wxpay notes here too so they survive even if the generated
+// catalog is unavailable. Keep in step with the mail/template services.
+const nonPaymentBuiltins: Readonly<Record<string, BuiltinPlugin>> = {
   "profitsharing:alipay": { note: "Go 版内置实现，在“分账管理”中使用。" },
   "profitsharing:wxpay": { note: "Go 版内置实现，在“分账管理”中使用。" },
   "mail:smtp": { note: "Go 版内置实现，在“系统设置 › 邮箱配置”中使用。" },
   "template:home:default": { note: "Go 版内置模板，在“模板配置”中使用。" },
   "template:pay:default": { note: "Go 版内置模板，在“模板配置”中使用。" },
   "template:qrpay:default": { note: "Go 版内置模板，在“模板配置”中使用。" },
+};
+
+export const builtinPlugins: Readonly<Record<string, BuiltinPlugin>> = {
+  ...nonPaymentBuiltins,
+  ...Object.fromEntries(
+    Object.entries(portedPaymentPlugins).map(([key, p]) => [
+      key,
+      { note: p.note },
+    ]),
+  ),
 };
 
 export function catalogKey(entry: Pick<CatalogEntry, "type" | "name" | "sub">) {

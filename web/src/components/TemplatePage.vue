@@ -12,6 +12,7 @@ import {
   type TemplateConfigView,
   type TemplateList,
 } from "../page-template";
+import KitStatusTag from "./KitStatusTag.vue";
 const props = defineProps<{
   client: ApiClient;
   adminClass?: string;
@@ -213,10 +214,10 @@ onBeforeUnmount(() => {
       </nav>
       <div class="template-current">
         <span v-if="catalog"
-          >当前使用：<span class="badge" data-state="info"
-            >{{ selectedTitle }}（{{ catalog.selected }}）</span
-          ></span
-        >
+          >当前使用：<KitStatusTag
+            tone="info"
+            :text="`${selectedTitle}（${catalog.selected}）`"
+        /></span>
         <span v-if="catalog" class="muted"
           >类型修订：{{ catalog.revision }}</span
         >
@@ -248,13 +249,11 @@ onBeforeUnmount(() => {
           <span class="template-card-body">
             <strong
               >{{ item.title
-              }}<span
+              }}<KitStatusTag
                 v-if="catalog.selected === item.name"
-                class="badge"
-                data-state="succeeded"
-                >当前使用</span
-              ></strong
-            >
+                tone="success"
+                text="当前使用"
+            /></strong>
             <small>标识：{{ item.name }} · {{ item.description }}</small>
           </span>
         </button>

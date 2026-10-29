@@ -49,12 +49,18 @@ function toggle(type: string) {
             stroke-width="2"
           />
           <circle
-            v-for="p in s.points"
+            v-for="(p, pointIndex) in s.points"
             :key="p.date"
             :cx="p.x"
             :cy="p.y"
-            r="4"
-            :style="{ fill: colors[index] }"
+            :r="pointIndex === s.points.length - 1 ? 4 : 7"
+            :class="{
+              'trend-last-point': pointIndex === s.points.length - 1,
+              'trend-hit-point': pointIndex !== s.points.length - 1,
+            }"
+            :style="
+              pointIndex === s.points.length - 1 ? { fill: colors[index] } : {}
+            "
             :tabindex="hidden.includes(s.type) ? -1 : 0"
             :aria-label="p.date + ' ' + s.name + ' ¥' + p.money"
             @focus="active = p.date + ' ' + s.name + ' ¥' + p.money"
@@ -116,8 +122,18 @@ function toggle(type: string) {
 .trend-legend [aria-pressed="false"] {
   opacity: 0.6;
 }
+.trend-last-point {
+  stroke: var(--bg-card);
+  stroke-width: 2;
+}
+.trend-hit-point {
+  fill: transparent;
+}
 .payment-amount-trend circle:focus {
-  outline: 2px solid currentColor;
+  outline: none;
+}
+.payment-amount-trend circle:focus-visible {
+  outline: 2px solid var(--primary-text);
   outline-offset: 2px;
 }
 .payment-amount-trend output {

@@ -12,6 +12,7 @@ import { ApiClient, displayValue } from "../api";
 import { orderRefundRemaining104 } from "../order-charge104";
 import { subchannelID } from "../subchannels";
 import { consoleColumnLabel, consoleValue } from "../pro-console-fields";
+import KitStatusTag from "./KitStatusTag.vue";
 import { operationNotice } from "../order-operations";
 import NotificationDeliveryPanel from "./NotificationDeliveryPanel.vue";
 import NotificationReturnAction200 from "./NotificationReturnAction200.vue";
@@ -184,6 +185,30 @@ const authorizationNotice = computed(() =>
         : "预授权捕获状态尚需核实，请查询支付通道；不能将授权冻结或未知捕获当作支付成功。",
 );
 let controller: AbortController | undefined;
+function orderDetailTone(
+  key: string,
+  value: unknown,
+): "success" | "warning" | "danger" | "info" | "neutral" {
+  const v = String(value ?? "");
+  if (key === "notification_state")
+    return v === "succeeded"
+      ? "success"
+      : v === "dead"
+        ? "danger"
+        : v === "running" || v === "pending"
+          ? "warning"
+          : "neutral";
+  // status
+  return v === "paid"
+    ? "success"
+    : v === "failed"
+      ? "danger"
+      : v === "closed"
+        ? "neutral"
+        : v === "pending" || v === "submitting" || v === "created"
+          ? "warning"
+          : "neutral";
+}
 const labels: Record<string, string> = {
   trade_no: "系统订单号",
   out_trade_no: "商户订单号",
@@ -207,6 +232,8 @@ const labels: Record<string, string> = {
   subchannel_evidence: "原子通道记录",
   buyer: "支付账号",
   client_ip: "支付 IP",
+  param: "扩展参数",
+  province: "所在地",
   created_at: "创建时间",
   paid_at: "付款时间",
   notify_url: "结果通知地址",
@@ -301,6 +328,7 @@ async function load() {
       "client_ip",
       "notification_state",
       "refunded_amount",
+      "province",
     ])
       if (data.reporting?.[key] !== undefined)
         order.value[key] = data.reporting[key];
@@ -461,24 +489,24 @@ onBeforeUnmount(() => controller?.abort());
 </script>
 <template>
   <div
-    class="modal-backdrop drawer-backdrop"
+    class="pa-scrim pa-modal-scrim order-detail-scrim"
     @keydown.esc="!busy && !incomeBusy && !apiTradeAliasActive && emit('close')"
     @click.self="!busy && !incomeBusy && !apiTradeAliasActive && emit('close')"
   >
     <section
       ref="drawer"
-      class="drawer order-drawer"
+      class="pa-modal order-detail-modal"
       role="dialog"
       aria-modal="true"
       aria-label="订单详情"
       tabindex="-1"
       :inert="combinedOpen204 || undefined"
     >
-      <header class="drawer-head">
-        <h2>订单详细信息</h2>
+      <header class="pa-modal-head">
+        <h2 class="pa-modal-title">订单详细信息</h2>
         <button
           type="button"
-          class="icon-button"
+          class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
           aria-label="关闭订单详情"
           title="关闭"
           :disabled="busy || incomeBusy"
@@ -487,7 +515,7 @@ onBeforeUnmount(() => controller?.abort());
           <ShellIcon name="close" />
         </button>
       </header>
-      <div class="drawer-body">
+      <div class="pa-modal-body order-detail-body">
         <div v-if="error" class="alert error" role="alert">{{ error }}</div>
         <div v-if="notice" class="alert success" role="status">
           {{ notice }}
@@ -502,12 +530,11 @@ onBeforeUnmount(() => controller?.abort());
                 {{ consoleColumnLabel(String(key), label) }}
               </dt>
               <dd v-if="order[key] !== undefined">
-                <span
+                <KitStatusTag
                   v-if="key === 'status' || key === 'notification_state'"
-                  class="badge"
-                  :data-state="String(order[key] ?? '')"
-                  >{{ consoleValue(String(key), order[key], true) }}</span
-                ><template v-else>{{
+                  :text="consoleValue(String(key), order[key], true)"
+                  :tone="orderDetailTone(String(key), order[key])"
+                /><template v-else>{{
                   consoleValue(String(key), order[key], true)
                 }}</template>
                 <OrderApiTradeAlias
@@ -825,11 +852,12 @@ onBeforeUnmount(() => controller?.abort());
           :own-session="!!ownSession"
         />
       </div>
-      <div class="modal-actions drawer-foot">
+      <div class="pa-modal-foot order-detail-foot">
         <button
           v-if="canViewCombined204"
           ref="combinedButton204"
           type="button"
+          class="pa-btn"
           :disabled="loading || busy || incomeBusy"
           @click="combinedOpen204 = true"
         >
@@ -840,6 +868,7 @@ onBeforeUnmount(() => controller?.abort());
             order &&
             ['paid', 'partially_refunded'].includes(String(order.status))
           "
+          class="pa-btn"
           :disabled="
             busy ||
             loading ||
@@ -863,7 +892,11 @@ onBeforeUnmount(() => controller?.abort());
           "
         >
           申请退款</button
-        ><button :disabled="busy || incomeBusy" @click="emit('close')">
+        ><button
+          class="pa-btn pa-btn--primary"
+          :disabled="busy || incomeBusy"
+          @click="emit('close')"
+        >
           关闭详情
         </button>
       </div>
@@ -878,3 +911,31 @@ onBeforeUnmount(() => controller?.abort());
     />
   </div>
 </template>
+<style scoped>
+/* Order detail opens as a right-side drawer, like epay_pro (el-drawer rtl,
+   500px, 订单详细信息) and as the owner asked. The kit modal head/body/foot are
+   reused inside it; the body scrolls. */
+.order-detail-scrim {
+  display: grid;
+  place-items: stretch end;
+  padding: 0;
+}
+.order-detail-modal {
+  width: min(100%, 500px);
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  border-radius: 0;
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+}
+.order-detail-body {
+  overflow: auto;
+  flex: 1 1 auto;
+  padding: var(--space-4) var(--space-5);
+}
+.order-detail-foot {
+  flex-wrap: wrap;
+}
+</style>

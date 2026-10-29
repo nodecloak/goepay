@@ -9,6 +9,7 @@ const original = {
   qq: "123456",
   pay_minmoney: "1.00",
   pay_maxmoney: "2.00",
+  remain_money: "",
   bounds_valid: true,
   fingerprint: "a".repeat(64),
   can_update: true,
@@ -53,6 +54,7 @@ it("reads only own real fields and saves exact original CAS without extra author
     qq: "7654321",
     pay_minmoney: "1.00",
     pay_maxmoney: "2.00",
+    remain_money: "",
     expected_fingerprint: original.fingerprint,
   });
   expect(f.w.text()).toContain("保存成功");

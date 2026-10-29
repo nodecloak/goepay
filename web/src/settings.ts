@@ -84,22 +84,41 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     "registration_open",
     "registration_invite_required",
     "user_review",
+    "reg_pay",
+    "reg_pay_price",
+    "reg_pay_uid",
     { group: "商户功能配置" },
+    "internal_transfer",
+    "recharge",
+    "onecode",
     { embed: "scanpay" },
     { embed: "scanjs" },
     "enforce_domains",
     { embed: "user-refund" },
     "refund_fee_payer",
+    { group: "进件配置（本轮暂缓）" },
+    "applyments_open",
+    "mchrisk_open",
   ],
   pay: [
     "pay_maxmoney",
     "pay_minmoney",
     "payment_fee_enabled",
     { embed: "buyer-fee" },
+    "pay_force_cashier_pids",
+    { group: "商品名称与屏蔽" },
+    "pageordername",
+    "notifyordername",
+    "blockname",
+    "blockalert",
+    "blackmsg",
+    "forceqq",
+    { group: "合单支付" },
     "wxcombine_open",
     "wxcombine_minmoney",
     "wxcombine_submoney",
   ],
+  complaint: ["complain_open"],
   settle: [
     "settle_open",
     "settle_type",
@@ -111,16 +130,23 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     "settlement_fee_maximum_cents",
     "settlement_retained_cents",
     "auto_settle_money",
+    { group: "各收款方式结算开关" },
+    "settle_alipay",
+    "settle_wxpay",
+    "settle_qqpay",
+    "settle_bank",
   ],
   transfer: [
     "transfer_enabled",
     "transfer_name",
     "transfer_desc",
     "transfer_alipay",
+    "transfer_wxpay",
     "transfer_wxpay_type",
     "transfer_wxpay_scene_id",
     "transfer_wxpay_info_type",
     "transfer_wxpay_info_content",
+    "transfer_qqpay",
     { group: "代付配置" },
     "user_transfer",
     "user_transfer_red",
@@ -346,6 +372,28 @@ const labels: Record<
   proxy_user: ["proxy", "代理账号", "text"],
   proxy_type: ["proxy", "代理协议", "select"],
   proxy_apiurl: ["proxy", "API接口地址", "text"],
+  settle_alipay: ["settle", "支付宝结算开关", "select"],
+  settle_wxpay: ["settle", "微信结算开关", "select"],
+  settle_qqpay: ["settle", "QQ钱包结算开关", "select"],
+  settle_bank: ["settle", "银行卡结算开关", "select"],
+  transfer_wxpay: ["transfer", "微信转账接口通道", "select"],
+  transfer_qqpay: ["transfer", "QQ钱包转账接口通道", "select"],
+  blockname: ["pay", "商品屏蔽关键词", "text"],
+  blockalert: ["pay", "商品屏蔽显示内容", "text"],
+  blackmsg: ["pay", "黑名单拦截提示内容", "text"],
+  pageordername: ["pay", "扫码页面隐藏商品名称", "select"],
+  notifyordername: ["pay", "回调参数去除商品名称", "select"],
+  forceqq: ["pay", "未填联系QQ禁止支付", "select"],
+  pay_force_cashier_pids: ["pay", "强制跳转收银台商户ID", "text"],
+  internal_transfer: ["merchant", "开启站内转账", "select"],
+  recharge: ["merchant", "开启余额充值", "select"],
+  onecode: ["merchant", "开启聚合收款码", "select"],
+  complain_open: ["complaint", "开启交易投诉", "select"],
+  applyments_open: ["merchant", "开启商户进件功能", "select"],
+  mchrisk_open: ["merchant", "开启商户管控记录查看", "select"],
+  reg_pay: ["merchant", "注册付费", "select"],
+  reg_pay_price: ["merchant", "注册付费金额（元）", "money"],
+  reg_pay_uid: ["merchant", "注册/充值/购买会员收款商户ID", "integer"],
 };
 const scenes: Record<string, string> = {
   order: "订单支付成功",
@@ -435,6 +483,22 @@ export function settingDefinition(
       "captcha_open_login",
       "wxcombine_open",
       "user_transfer_red",
+      "settle_alipay",
+      "settle_wxpay",
+      "settle_qqpay",
+      "settle_bank",
+      "transfer_wxpay",
+      "transfer_qqpay",
+      "pageordername",
+      "notifyordername",
+      "forceqq",
+      "internal_transfer",
+      "recharge",
+      "onecode",
+      "complain_open",
+      "applyments_open",
+      "mchrisk_open",
+      "reg_pay",
     ].includes(key)
   )
     d.options = switchOptions;
@@ -481,6 +545,46 @@ export function settingDefinition(
   if (key === "transfer_wxpay_info_content")
     d.hint =
       "请根据信息类型，描述当前这笔转账单的转账背景，有多个类型时用|隔开";
+  if (
+    ["settle_alipay", "settle_wxpay", "settle_qqpay", "settle_bank"].includes(
+      key,
+    )
+  )
+    d.hint = "关闭后该收款方式的余额不参与结算；需配合结算总开关使用。";
+  if (["transfer_wxpay", "transfer_qqpay"].includes(key))
+    d.hint = "关闭后不使用该通道发起转账付款。";
+  if (key === "blockname")
+    d.hint = "多个关键词用|隔开。命中关键词的商品会被拒绝支付并记入风控记录。";
+  if (key === "blockalert")
+    d.hint = "命中屏蔽关键词时的提示内容；留空则显示“该商品禁止出售”。";
+  if (key === "blackmsg")
+    d.hint = "命中黑名单时的提示内容；留空则显示“系统异常无法完成付款”。";
+  if (key === "pageordername")
+    d.hint =
+      "开启后扫码收银页面隐藏真实商品名称，显示onlinepay或自定义商品名称。";
+  if (key === "notifyordername")
+    d.hint =
+      "开启后异步/同步回调参数中的name固定为product，签名按该值计算，验签不受影响。";
+  if (key === "forceqq") d.hint = "开启后未填写联系QQ的商户无法收款。";
+  if (key === "pay_force_cashier_pids")
+    d.hint = "填写需强制跳转收银台的商户ID，多个用|隔开。";
+  if (key === "internal_transfer")
+    d.hint = "关闭后商户中心隐藏站内转账入口并拒绝相关请求。";
+  if (key === "recharge")
+    d.hint = "关闭后商户中心隐藏余额充值入口并拒绝充值请求。";
+  if (key === "onecode")
+    d.hint =
+      "关闭后商户中心隐藏聚合收款入口并拒绝相关请求（单独开通聚合码的商户不受影响）。";
+  if (key === "complain_open")
+    d.hint = "关闭后商户中心隐藏交易投诉入口并拒绝相关请求。";
+  if (key === "applyments_open")
+    d.hint = "进件/实名相关业务按本轮范围暂缓，此开关当前仅保存配置。";
+  if (key === "mchrisk_open")
+    d.hint = "进件管控记录按本轮范围暂缓，此开关当前仅保存配置。";
+  if (key === "reg_pay") d.hint = "开启后新商户注册需先支付注册费用。";
+  if (key === "reg_pay_price") d.hint = "注册付费金额（元）。";
+  if (key === "reg_pay_uid")
+    d.hint = "注册/充值/购买会员订单的收款商户ID，需为本站已注册的商户UID。";
   if (key.startsWith("msgconfig_")) {
     const scene = key.slice(10);
     d.tab = "notice";
