@@ -5,6 +5,10 @@ import MerchantRSAKeyRotation from "./MerchantRSAKeyRotation.vue";
 import MerchantSignaturePolicy from "./MerchantSignaturePolicy.vue";
 import MerchantRefundEvents201 from "./MerchantRefundEvents201.vue";
 import MerchantEmailBinding197 from "./MerchantEmailBinding197.vue";
+import MerchantBindings134 from "./MerchantBindings134.vue";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
+import KitModal from "./KitModal.vue";
 import { merchantFieldValue } from "../pro-console-fields";
 import { isPersonalMerchantID } from "../merchant-personal-settings";
 const props = defineProps<{
@@ -23,15 +27,13 @@ const loading = ref(false),
   error = ref(""),
   notice = ref(""),
   info = ref<Record<string, unknown>>({}),
-  profile = ref({ name: "", email: "" });
+  profile = ref({ name: "", email: "", phone: "" });
 const payStatus = ref<unknown>(null);
 const hasPassword = ref<boolean | null>(null),
   passwordOpen = ref(false),
   passwordUncertain = ref(false),
   rotationUncertain = ref(false);
-const passwordDialog = ref<HTMLElement>(),
-  passwordTrigger = ref<HTMLButtonElement>(),
-  rotationDialog = ref<HTMLElement>(),
+const passwordTrigger = ref<HTMLButtonElement>(),
   rotationTrigger = ref<HTMLButtonElement>();
 const profileFacts = ref<{
   uid: string;
@@ -129,9 +131,6 @@ function showPassword() {
   error.value = "";
   notice.value = "";
   passwordOpen.value = true;
-  void nextTick(() =>
-    passwordDialog.value?.querySelector<HTMLInputElement>("input")?.focus(),
-  );
 }
 function closePassword() {
   const pending = activeAction === "password" && busy.value,
@@ -163,9 +162,6 @@ function showRotation() {
   error.value = "";
   notice.value = "";
   rotationOpen.value = true;
-  void nextTick(() =>
-    rotationDialog.value?.querySelector<HTMLInputElement>("input")?.focus(),
-  );
 }
 function closeRotation() {
   const pending = activeAction === "rotation" && busy.value,
@@ -182,23 +178,6 @@ function closeRotation() {
   void nextTick(() => {
     if (sameContext(source)) rotationTrigger.value?.focus();
   });
-}
-function trap(e: KeyboardEvent, dialog?: HTMLElement) {
-  if (e.key !== "Tab") return;
-  const items = [
-    ...(dialog?.querySelectorAll<HTMLElement>(
-      "input:not(:disabled),textarea:not(:disabled),button:not(:disabled),a[href]",
-    ) || []),
-  ];
-  const first = items[0],
-    last = items.at(-1);
-  if (e.shiftKey && document.activeElement === first) {
-    e.preventDefault();
-    last?.focus();
-  } else if (!e.shiftKey && document.activeElement === last) {
-    e.preventDefault();
-    first?.focus();
-  }
 }
 async function load(): Promise<boolean> {
   const epoch = ++loadEpoch,
@@ -228,6 +207,7 @@ async function load(): Promise<boolean> {
       profile.value = {
         name: String(data.name ?? ""),
         email: String(data.email ?? ""),
+        phone: String(data.phone ?? ""),
       };
       payStatus.value = data.pay;
       hasPassword.value =
@@ -414,7 +394,7 @@ watch(
     controller?.abort();
     ++loadEpoch;
     info.value = {};
-    profile.value = { name: "", email: "" };
+    profile.value = { name: "", email: "", phone: "" };
     profileFacts.value = { uid: "", addtime: "", known: null };
     payStatus.value = null;
     hasPassword.value = null;
@@ -436,7 +416,7 @@ onBeforeUnmount(() => {
   stopAction();
   ++loadEpoch;
   controller?.abort();
-  profile.value = { name: "", email: "" };
+  profile.value = { name: "", email: "", phone: "" };
   profileFacts.value = { uid: "", addtime: "", known: null };
   hasPassword.value = null;
   passwordOpen.value = false;
@@ -535,52 +515,78 @@ onBeforeUnmount(() => {
           :client="client"
           @reauthenticate="emit('reauthenticate', '修改绑定成功，请重新登录')"
         />
-        <form @submit.prevent="saveProfile">
-          <label
-            >商户名称<input
+        <MerchantBindings134 :client="client" />
+        <form class="account-kit-form" @submit.prevent="saveProfile">
+          <KitField label="商户名称" required
+            ><KitInput
               v-model="profile.name"
               required
-              maxlength="100"
-              autocomplete="organization" /></label
-          ><button class="primary" :disabled="busy">
-            {{ busy ? "正在保存…" : "保存账户资料" }}
-          </button>
+              :maxlength="100"
+              autocomplete="organization"
+          /></KitField>
+          <KitField label="联系手机"
+            ><KitInput
+              v-model="profile.phone"
+              :maxlength="20"
+              inputmode="tel"
+              autocomplete="tel"
+              placeholder="选填，5 至 20 位数字"
+          /></KitField>
+          <div class="account-kit-actions">
+            <button
+              type="submit"
+              class="pa-btn pa-btn--primary"
+              :class="{ 'pa-btn--loading': busy }"
+              :disabled="busy"
+            >
+              {{ busy ? "正在保存…" : "保存账户资料" }}
+            </button>
+          </div>
         </form>
       </section>
       <section v-if="section === 'security'" class="panel account-section">
         <h2>
           {{ client.area === "admin" ? "修改管理员密码" : "修改登录密码" }}
         </h2>
-        <form @submit.prevent="changePassword">
-          <label
-            >当前密码<input
+        <form class="account-kit-form" @submit.prevent="changePassword">
+          <KitField label="当前密码" required
+            ><KitInput
               v-model="passwords.current_password"
               type="password"
               required
               autocomplete="current-password"
               :disabled="busy || passwordUncertain"
-              maxlength="1024" /></label
-          ><label
-            >新密码<input
+              :maxlength="1024"
+          /></KitField>
+          <KitField label="新密码" required
+            ><KitInput
               v-model="passwords.new_password"
               type="password"
               required
               autocomplete="new-password"
               :disabled="busy || passwordUncertain"
-              maxlength="1024" /></label
-          ><label
-            >再次输入新密码<input
+              :maxlength="1024"
+          /></KitField>
+          <KitField label="确认密码" required
+            ><KitInput
               v-model="passwords.confirmation"
               type="password"
               required
               autocomplete="new-password"
               :disabled="busy || passwordUncertain"
-              maxlength="1024"
-          /></label>
+              :maxlength="1024"
+          /></KitField>
           <p class="muted">新密码须为 12 至 1024 个字符。</p>
-          <button class="primary" :disabled="busy || passwordUncertain">
-            {{ busy ? "正在修改…" : "修改密码" }}
-          </button>
+          <div class="account-kit-actions">
+            <button
+              type="submit"
+              class="pa-btn pa-btn--primary"
+              :class="{ 'pa-btn--loading': busy }"
+              :disabled="busy || passwordUncertain"
+            >
+              {{ busy ? "正在修改…" : "修改密码" }}
+            </button>
+          </div>
         </form>
       </section></template
     ><template v-else
@@ -655,93 +661,80 @@ onBeforeUnmount(() => {
         </div>
       </section></template
     >
-    <div v-if="passwordOpen" class="modal-backdrop">
-      <section
-        ref="passwordDialog"
-        class="modal panel account-password-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label="修改登录密码"
-        @keydown.esc.prevent.stop="closePassword"
-        @keydown="trap($event, passwordDialog)"
-      >
-        <h2>修改登录密码</h2>
-        <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-        <form @submit.prevent="changePassword">
-          <label
-            >当前密码<input
-              v-model="passwords.current_password"
-              type="password"
-              required
-              maxlength="1024"
-              autocomplete="current-password"
-              :disabled="busy || passwordUncertain"
-          /></label>
-          <label
-            >新密码<input
-              v-model="passwords.new_password"
-              type="password"
-              required
-              maxlength="1024"
-              autocomplete="new-password"
-              :disabled="busy || passwordUncertain"
-          /></label>
-          <label
-            >再次输入新密码<input
-              v-model="passwords.confirmation"
-              type="password"
-              required
-              maxlength="1024"
-              autocomplete="new-password"
-              :disabled="busy || passwordUncertain"
-          /></label>
-          <p class="muted">新密码须为 12 至 1024 个字符。修改后需重新登录。</p>
-          <div class="modal-actions">
-            <button type="button" @click="closePassword">取消</button>
-            <button class="primary" :disabled="busy || passwordUncertain">
-              {{ busy ? "正在修改…" : "修改密码" }}
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
-    <div v-if="rotationOpen" class="modal-backdrop">
-      <section
-        ref="rotationDialog"
-        class="modal panel"
-        role="dialog"
-        aria-modal="true"
-        aria-label="重置 API 密钥"
-        @keydown.esc.prevent.stop="closeRotation"
-        @keydown="trap($event, rotationDialog)"
-      >
-        <h2>重置 API 密钥</h2>
-        <p>旧密钥将立即失效。确认您已准备好更新商户接入配置。</p>
-        <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-        <form @submit.prevent="rotate">
-          <label
-            >当前登录密码<input
-              v-model="rotationPassword"
-              type="password"
-              required
-              maxlength="1024"
-              autocomplete="current-password"
-              :disabled="busy"
-          /></label>
-          <div class="modal-actions">
-            <button type="button" @click="closeRotation">取消</button
-            ><button class="danger-button" :disabled="busy">
-              {{ busy ? "正在重置…" : "确认重置密钥" }}
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+    <KitModal
+      v-if="passwordOpen"
+      title="修改登录密码"
+      :loading="busy"
+      :submit-text="busy ? '正在修改…' : '修改密码'"
+      @close="closePassword"
+      @submit="changePassword"
+    >
+      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <KitField label="当前密码" required
+        ><KitInput
+          v-model="passwords.current_password"
+          type="password"
+          required
+          :maxlength="1024"
+          autocomplete="current-password"
+          :disabled="busy || passwordUncertain"
+      /></KitField>
+      <KitField label="新密码" required
+        ><KitInput
+          v-model="passwords.new_password"
+          type="password"
+          required
+          :maxlength="1024"
+          autocomplete="new-password"
+          :disabled="busy || passwordUncertain"
+      /></KitField>
+      <KitField label="确认密码" required
+        ><KitInput
+          v-model="passwords.confirmation"
+          type="password"
+          required
+          :maxlength="1024"
+          autocomplete="new-password"
+          :disabled="busy || passwordUncertain"
+      /></KitField>
+      <p class="muted">新密码须为 12 至 1024 个字符。修改后需重新登录。</p>
+    </KitModal>
+    <KitModal
+      v-if="rotationOpen"
+      title="重置 API 密钥"
+      danger
+      :loading="busy"
+      :submit-text="busy ? '正在重置…' : '确认重置密钥'"
+      @close="closeRotation"
+      @submit="rotate"
+    >
+      <p>旧密钥将立即失效。确认您已准备好更新商户接入配置。</p>
+      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <KitField label="登录密码" required
+        ><KitInput
+          v-model="rotationPassword"
+          type="password"
+          required
+          :maxlength="1024"
+          autocomplete="current-password"
+          :disabled="busy"
+      /></KitField>
+    </KitModal>
   </div>
 </template>
 <style scoped>
 .account-section {
   min-width: 0;
+}
+.account-kit-form {
+  display: grid;
+  gap: 16px;
+  max-width: 520px;
+  margin-top: 16px;
+}
+.account-kit-actions {
+  display: flex;
+  justify-content: flex-start;
 }
 .account-section form label {
   display: block;

@@ -1,8 +1,16 @@
 import {channelRetainedRate} from './runtime-channel-policy';
 import {readParentWeixinBindingState,type ParentWeixinBindingState} from './parent-channel-bindings';
-export interface ParentField {name:string;namespace:'config'|'certificates';secret:boolean;pem:boolean;present:boolean;value?:string}
-export interface ParentChannel {id:string;name:string;pay_type:'wxpay'|'alipay';plugin:'wxpay'|'alipay';configured:boolean;source_channel_id?:string;revision?:string;account_version?:string;enabled?:boolean;archived?:boolean;mode?:0;rate?:string|null;fee_rate_bps?:number|null;fingerprint?:string;account?:{plugin:'wxpay'|'alipay';app_types:string[];mode:0;fields:ParentField[];appwxmp?:string;appwxa?:string;weixin_binding_state?:ParentWeixinBindingState};created_at?:string;updated_at?:string}
-export interface ParentTemplate {source_channel_id:string;name:string;pay_type:'wxpay'|'alipay';fields:Omit<ParentField,'present'|'value'>[];fingerprint:string;merchant_count:number}
+import {CATALOG_PAY_TYPES} from './pay-types';
+// A parent channel has two distinct identities: pay_type (支付方式 — one of the
+// original platform's catalog types) and plugin (支付插件 — the dedicated adapter
+// name "wxpay"/"alipay", or a ported plugin's name). They are no longer required
+// to be equal: a ported plugin serves a catalog pay type under its own name.
+const catalogPayType=(v:unknown):v is string=>typeof v==='string'&&(CATALOG_PAY_TYPES as readonly string[]).includes(v);
+const pluginName=(v:unknown):v is string=>typeof v==='string'&&/^[a-z][a-z0-9_]{1,31}$/.test(v);
+export interface ParentFieldOption {value:string;label:string}
+export interface ParentField {name:string;namespace:'config'|'certificates';secret:boolean;pem:boolean;present:boolean;value?:string;label?:string;note?:string;options?:ParentFieldOption[]}
+export interface ParentChannel {id:string;name:string;pay_type:string;plugin:string;configured:boolean;source_channel_id?:string;revision?:string;account_version?:string;enabled?:boolean;archived?:boolean;mode?:0;rate?:string|null;fee_rate_bps?:number|null;fingerprint?:string;account?:{plugin:string;app_types:string[];mode:0;fields:ParentField[];appwxmp?:string;appwxa?:string;weixin_binding_state?:ParentWeixinBindingState};created_at?:string;updated_at?:string}
+export interface ParentTemplate {source_channel_id:string;name:string;pay_type:string;fields:Omit<ParentField,'present'|'value'>[];fingerprint:string;merchant_count:number}
 const invalid=()=>new Error('父通道资料无法核实，请刷新后重新确认');
 function object(v:unknown):Record<string,unknown>{if(!v||typeof v!=='object'||Array.isArray(v))throw invalid();return v as Record<string,unknown>}
 function exact(v:Record<string,unknown>,required:string[],optional:string[]=[]){if(required.some(k=>!Object.hasOwn(v,k))||Object.keys(v).some(k=>!required.includes(k)&&!optional.includes(k)))throw invalid()}
@@ -10,14 +18,17 @@ function id(v:unknown):v is string{return typeof v==='string'&&/^[1-9]\d{0,18}$/
 function text(v:unknown,max=180):v is string{return typeof v==='string'&&v.length>0&&v.length<=max&&!/[\x00-\x1f]/.test(v)}
 function fp(v:unknown):v is string{return typeof v==='string'&&/^[a-f0-9]{64}$/.test(v)}
 function field(raw:unknown,template=false):ParentField{
- const v=object(raw);exact(v,['name','namespace','secret','pem',...(template?[]:['present'])],template?[]:['value']);
+ const v=object(raw);exact(v,['name','namespace','secret','pem',...(template?[]:['present'])],['value','label','note','options']);
  if(!text(v.name)||!['config','certificates'].includes(String(v.namespace))||typeof v.secret!=='boolean'||typeof v.pem!=='boolean'||!template&&typeof v.present!=='boolean'||v.value!==undefined&&(typeof v.value!=='string'||v.value.length>131072||v.secret))throw invalid();
+ if(v.label!==undefined&&!text(v.label))throw invalid();
+ if(v.note!==undefined&&!text(v.note,512))throw invalid();
+ if(v.options!==undefined){if(!Array.isArray(v.options)||v.options.length>64)throw invalid();for(const o of v.options){const opt=object(o);exact(opt,['value','label']);if(typeof opt.value!=='string'||opt.value.length>128||!text(opt.label,128))throw invalid()}if(new Set((v.options as ParentFieldOption[]).map(o=>o.value)).size!==v.options.length)throw invalid()}
  return v as unknown as ParentField;
 }
 export function parentChannelPath(value:string){if(!id(value))throw invalid();return '/payment-channels/'+value}
 export function readParentChannel(raw:unknown):ParentChannel{
  const v=object(raw);const basic=['id','name','pay_type','plugin','configured'];
- if(!id(v.id)||!text(v.name,120)||!['wxpay','alipay'].includes(String(v.pay_type))||v.plugin!==v.pay_type||typeof v.configured!=='boolean')throw invalid();
+ if(!id(v.id)||!text(v.name,120)||!catalogPayType(v.pay_type)||!pluginName(v.plugin)||typeof v.configured!=='boolean')throw invalid();
  if(!v.configured){exact(v,basic);return v as unknown as ParentChannel}
  exact(v,[...basic,'source_channel_id','revision','account_version','enabled','archived','mode','rate','fee_rate_bps','fingerprint','account','created_at','updated_at']);
  if(!id(v.source_channel_id)||!id(v.revision)||!id(v.account_version)||typeof v.enabled!=='boolean'||typeof v.archived!=='boolean'||v.mode!==0||!fp(v.fingerprint)||typeof v.created_at!=='string'||!Number.isFinite(Date.parse(v.created_at))||typeof v.updated_at!=='string'||!Number.isFinite(Date.parse(v.updated_at)))throw invalid();
@@ -34,7 +45,7 @@ export function readParentChannelList(raw:unknown):{items:ParentChannel[];total:
 }
 export function readParentTemplates(raw:unknown):ParentTemplate[]{
  const v=object(raw);exact(v,['items','total']);if(!Array.isArray(v.items)||v.total!==v.items.length)throw invalid();
- const items=v.items.map(raw=>{const t=object(raw);exact(t,['source_channel_id','name','pay_type','fields','fingerprint','merchant_count']);if(!id(t.source_channel_id)||!text(t.name)||!['wxpay','alipay'].includes(String(t.pay_type))||!fp(t.fingerprint)||!Number.isSafeInteger(t.merchant_count)||Number(t.merchant_count)<0||!Array.isArray(t.fields))throw invalid();t.fields.forEach(f=>field(f,true));return t as unknown as ParentTemplate});
+ const items=v.items.map(raw=>{const t=object(raw);exact(t,['source_channel_id','name','pay_type','fields','fingerprint','merchant_count']);if(!id(t.source_channel_id)||!text(t.name)||!catalogPayType(t.pay_type)||!fp(t.fingerprint)||!Number.isSafeInteger(t.merchant_count)||Number(t.merchant_count)<0||!Array.isArray(t.fields))throw invalid();t.fields.forEach(f=>field(f,true));return t as unknown as ParentTemplate});
  if(new Set(items.map(x=>x.source_channel_id)).size!==items.length)throw invalid();return items;
 }
 

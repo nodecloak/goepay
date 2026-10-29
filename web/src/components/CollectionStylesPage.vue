@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, onBeforeUnmount } from "vue";
+import { computed, ref, watch, onBeforeUnmount } from "vue";
 import { ApiClient, ApiError } from "../api";
 import {
   newCollectionStyle,
@@ -13,6 +13,11 @@ import {
   type CollectionStyleView,
   type CollectionStyleDraft,
 } from "../collection-style";
+import KitInput from "./KitInput.vue";
+import KitSwitch from "./KitSwitch.vue";
+import KitEmpty from "./KitEmpty.vue";
+import KitModal from "./KitModal.vue";
+import KitPagination from "./KitPagination.vue";
 const props = defineProps<{
   client: ApiClient;
   ownSession: boolean;
@@ -32,10 +37,10 @@ const items = ref<CollectionStyleView[]>([]),
   previewSnapshot = ref(""),
   query = ref(""),
   page = ref(1),
+  pageSize = ref(12),
   deleteTarget = ref<CollectionStyleView | null>(null),
   cardImages = ref<Record<string, string>>({});
-const canvas = ref<HTMLElement | null>(null),
-  deleteDialog = ref<HTMLElement | null>(null);
+const canvas = ref<HTMLElement | null>(null);
 const canWrite = computed(
   () => props.client.area === "admin" && props.ownSession,
 );
@@ -54,7 +59,10 @@ const filtered = computed(() =>
   ),
 );
 const visible = computed(() =>
-  filtered.value.slice((page.value - 1) * 12, page.value * 12),
+  filtered.value.slice(
+    (page.value - 1) * pageSize.value,
+    page.value * pageSize.value,
+  ),
 );
 const pendingPreview = computed(
   () => preview.value && JSON.stringify(draft.value) !== previewSnapshot.value,
@@ -528,12 +536,6 @@ watch(() => [props.client, props.editing, props.styleId], initialize, {
   immediate: true,
 });
 watch(query, () => (page.value = 1));
-watch(deleteTarget, async (value) => {
-  if (value) {
-    await nextTick();
-    deleteDialog.value?.focus();
-  }
-});
 onBeforeUnmount(() => {
   alive = false;
   epoch++;
@@ -549,10 +551,11 @@ onBeforeUnmount(() => {
     <p v-if="loading" role="status">正在读取收款码样式…</p>
     <template v-if="!editing">
       <div class="toolbar">
-        <label
-          >搜索样式<input
+        <label class="style-search"
+          >搜索样式<KitInput
             v-model="query"
-            placeholder="显示名称或风格标识" /></label
+            placeholder="显示名称或风格标识"
+            aria-label="搜索样式" /></label
         ><button :disabled="loading || busy" @click="initialize">刷新</button
         ><RouterLink class="button-link" to="/admin/other/onecode/edit"
           >新增样式</RouterLink
@@ -585,20 +588,16 @@ onBeforeUnmount(() => {
             标识：{{ item.fields.name }} · 排序：{{ item.style?.sort || 0 }}
           </p>
           <div class="toolbar">
-            <button
+            <KitSwitch
+              :model-value="item.style?.enabled ?? item.fields.enabled === true"
               :disabled="!canWrite || busy"
-              role="switch"
-              :aria-checked="
-                item.style?.enabled ?? item.fields.enabled === true
-              "
-              @click="toggle(item)"
-            >
-              {{
+              :label="
                 (item.style?.enabled ?? item.fields.enabled === true)
-                  ? "已启用"
-                  : "已禁用"
-              }}</button
-            ><button
+                  ? '已启用'
+                  : '已禁用'
+              "
+              @change="toggle(item)"
+            /><button
               v-if="item.style"
               :disabled="previewing"
               @click="previewCard(item)"
@@ -620,16 +619,17 @@ onBeforeUnmount(() => {
           </div>
         </article>
       </div>
-      <p v-if="!filtered.length && !loading" class="empty-state">
-        暂无收款码样式，点击右上角新增
-      </p>
-      <div class="pagination">
-        <span>共 {{ filtered.length }} 个样式</span
-        ><button :disabled="page <= 1" @click="page--">上一页</button
-        ><button :disabled="page * 12 >= filtered.length" @click="page++">
-          下一页
-        </button>
-      </div>
+      <KitEmpty
+        v-if="!filtered.length && !loading"
+        text="暂无收款码样式，点击右上角新增"
+      />
+      <KitPagination
+        v-else
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total="filtered.length"
+        :page-sizes="[12, 24, 48]"
+      />
     </template>
     <template v-else>
       <div class="toolbar">
@@ -882,38 +882,24 @@ onBeforeUnmount(() => {
       </div>
     </template>
   </section>
-  <Teleport to="body"
-    ><div
-      v-if="deleteTarget"
-      class="modal-backdrop"
-      @keydown.esc="!busy && (deleteTarget = null)"
-    >
-      <section
-        ref="deleteDialog"
-        class="modal panel"
-        role="dialog"
-        aria-modal="true"
-        aria-label="删除收款码样式"
-        tabindex="-1"
-      >
-        <h2>删除收款码样式</h2>
-        <p>
-          确定删除
-          {{
-            deleteTarget.style?.label ||
-            deleteTarget.fields.title ||
-            deleteTarget.fields.name
-          }}？引用该样式的码将回退默认二维码；不会删除收款码或订单。
-        </p>
-        <div class="modal-actions">
-          <button :disabled="busy" @click="deleteTarget = null">取消</button
-          ><button class="danger" :disabled="busy || !canWrite" @click="remove">
-            确认删除
-          </button>
-        </div>
-      </section>
-    </div></Teleport
+  <KitModal
+    v-if="deleteTarget"
+    title="删除收款码样式"
+    submit-text="确认删除"
+    :loading="busy"
+    danger
+    @close="!busy && (deleteTarget = null)"
+    @submit="remove"
   >
+    <p>
+      确定删除
+      {{
+        deleteTarget.style?.label ||
+        deleteTarget.fields.title ||
+        deleteTarget.fields.name
+      }}？引用该样式的码将回退默认二维码；不会删除收款码或订单。
+    </p>
+  </KitModal>
 </template>
 <style scoped>
 .collection-styles {

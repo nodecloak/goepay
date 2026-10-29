@@ -11,6 +11,24 @@ import { centsMoney } from "../settlement-terms";
 import { payoutStateLabel, payoutFundingLabel } from "../settlement-payout";
 import SettlementPayoutPanel from "./SettlementPayoutPanel.vue";
 import { settlementSnapshotLabel } from "../settlement-recipient";
+import KitStatusTag from "./KitStatusTag.vue";
+type KitTone = "success" | "warning" | "danger" | "info" | "neutral";
+function batchTone(state: string): KitTone {
+  return (
+    (
+      {
+        pending: "warning",
+        active: "warning",
+        approved: "success",
+        succeeded: "success",
+        completed: "success",
+        rejected: "danger",
+        failed: "danger",
+        archived: "neutral",
+      } as Record<string, KitTone>
+    )[state] || "neutral"
+  );
+}
 const typeLabel = (type: string) =>
   (
     ({ alipay: "支付宝", wxpay: "微信支付", bank: "银行卡" }) as Record<
@@ -253,9 +271,9 @@ watch(
 onBeforeUnmount(reset);
 </script>
 <template>
-  <section class="panel settlement-batches" aria-label="结算批次">
+  <section class="panel settlement-batches" aria-label="批量结算">
     <div class="batches-head">
-      <h2>结算批次</h2>
+      <h2>批量结算</h2>
       <div v-if="allowed" class="batches-head-actions">
         <button
           type="button"
@@ -271,6 +289,10 @@ onBeforeUnmount(reset);
       请使用本人管理员会话查看结算批次。
     </p>
     <template v-else>
+      <p class="muted batches-help">
+        点击 生成结算批次
+        之后会将所有“待结算”状态的记录更改为“正在结算”，通过转账接口转账之后会将状态更改为“已完成”，如果是手动转账，需要手动将状态更改为“已完成”。
+      </p>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
       <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
       <form class="toolbar" @submit.prevent="load(true)">
@@ -306,8 +328,8 @@ onBeforeUnmount(reset);
             <tr>
               <th>批次号</th>
               <th>总金额（元）</th>
-              <th>总笔数</th>
-              <th>创建时间</th>
+              <th>总数量</th>
+              <th>生成时间</th>
               <th>状态</th>
               <th>操作</th>
             </tr>
@@ -319,17 +341,10 @@ onBeforeUnmount(reset);
               <td>{{ row.count }}</td>
               <td>{{ row.time }}</td>
               <td>
-                <span
-                  class="badge"
-                  :data-state="
-                    {
-                      active: 'warn',
-                      completed: 'on',
-                      archived: 'none',
-                    }[row.status] || 'none'
-                  "
-                  >{{ settlementBatchStatus(row.status) }}</span
-                >
+                <KitStatusTag
+                  :text="settlementBatchStatus(row.status)"
+                  :tone="batchTone(row.status)"
+                />
               </td>
               <td>
                 <button
@@ -349,7 +364,7 @@ onBeforeUnmount(reset);
         </table>
       </div>
       <div class="pagination">
-        <span>共 {{ total }} 条批次</span>
+        <span>共 {{ total }} 条</span>
         <div>
           <button
             :disabled="before === '0' || loading || busy"
@@ -438,19 +453,10 @@ onBeforeUnmount(reset);
                 <td>{{ centsMoney(member.fee_amount_cents) }}</td>
                 <td>{{ centsMoney(member.net_amount_cents) }}</td>
                 <td>
-                  <span
-                    class="badge"
-                    :data-state="
-                      {
-                        pending: 'warn',
-                        approved: 'on',
-                        succeeded: 'on',
-                        rejected: 'bad',
-                        failed: 'bad',
-                      }[String(member.status)] || 'none'
-                    "
-                    >{{ member.status }}</span
-                  >
+                  <KitStatusTag
+                    :text="String(member.status)"
+                    :tone="batchTone(String(member.status))"
+                  />
                 </td>
                 <td>{{ payoutFundingLabel(member.funding_state) }}</td>
                 <td>{{ payoutStateLabel(member.payout_state) }}</td>

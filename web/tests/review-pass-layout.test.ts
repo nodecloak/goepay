@@ -51,7 +51,7 @@ describe("扩展配置 sections", () => {
       "未启用的扩展",
       "未安装的扩展",
     ]);
-    expect(sections.map((s) => s.find(".badge").text())).toEqual([
+    expect(sections.map((s) => s.find(".pa-tag").text())).toEqual([
       "1",
       "2",
       "0",
@@ -76,7 +76,7 @@ describe("扩展配置 sections", () => {
 });
 
 describe("list page layout", () => {
-  it("puts filters in their own card and the add button in the table toolbar with the original summary", async () => {
+  it("routes pay-types to the dedicated PayTypePage with Pro's toolbar and status", async () => {
     const client = new ApiClient("admin");
     vi.spyOn(client, "request").mockImplementation(
       async (path) =>
@@ -91,8 +91,8 @@ describe("list page layout", () => {
             }
           : {
               items: [
-                { id: "1", name: "支付宝", enabled: true },
-                { id: "2", name: "微信支付", enabled: false },
+                { id: "1", type: "alipay", name: "支付宝", enabled: true },
+                { id: "2", type: "wxpay", name: "微信支付", enabled: false },
               ],
               total: 2,
             }) as never,
@@ -101,19 +101,21 @@ describe("list page layout", () => {
       props: { client, resource: "pay-types" },
     });
     await flushPromises();
-    expect(w.find("form.list-filter-card").exists()).toBe(true);
-    const tools = w.get("section.records .table-tools");
-    expect(tools.text()).toContain("新增支付方式");
+    // Dedicated PayTypePage, not the generic resource filter card.
+    expect(w.find("section.pay-type-page").exists()).toBe(true);
+    expect(w.find("form.list-filter-card").exists()).toBe(false);
+    const tools = w.get(".pay-type-page .table-tools");
+    expect(tools.text()).toContain("新增");
     expect(tools.text()).toContain("系统共有2个支付方式");
-    expect(tools.get(".table-tools-end").text()).toBe("刷新");
-    expect(
-      w
-        .findAll("tbody .badge")
-        .map((b) => [b.text(), b.attributes("data-state")]),
-    ).toEqual([
-      ["正常", "on"],
-      ["已禁用", "bad"],
-    ]);
+    expect(tools.get(".table-tools-end").text()).toContain("刷新");
+    // Both pay-type rows render with the kit status switch (writable admin).
+    const rows = w.findAll("tbody tr");
+    expect(rows).toHaveLength(2);
+    expect(w.findAll(".pa-switch").length).toBe(2);
+    expect(w.text()).toContain("支付宝");
+    expect(w.text()).toContain("微信支付");
+    expect(w.text()).toContain("已开启");
+    expect(w.text()).toContain("已关闭");
     w.unmount();
   });
 });

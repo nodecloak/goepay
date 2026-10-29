@@ -2,6 +2,14 @@
 import { onMounted, ref } from "vue";
 import QRCode from "qrcode";
 import ShellIcon from "./ShellIcon.vue";
+import KitModal from "./KitModal.vue";
+import KitField from "./KitField.vue";
+import KitSelect from "./KitSelect.vue";
+import KitInput from "./KitInput.vue";
+import KitStatusTag from "./KitStatusTag.vue";
+import KitPayMethod from "./KitPayMethod.vue";
+import KitEmpty from "./KitEmpty.vue";
+import { beijingTimestamp } from "../console-datetime";
 import type { ApiClient } from "../api";
 import {
   defaultRedpackBizNo,
@@ -22,12 +30,31 @@ const form = ref({
 });
 const items = ref<Redpack[]>([]),
   open = ref(admin),
+  creating = ref(false),
   busy = ref(false),
   loading = ref(false),
   error = ref(""),
   notice = ref(""),
   qr = ref(""),
   qrLink = ref("");
+// Red states: 待领取/领取处理中 pending, 已领取 ok, 领取失败 bad, 已过期 neutral.
+type KitTone = "success" | "warning" | "danger" | "info" | "neutral";
+const redTone = (s: string): KitTone =>
+  s === "succeeded"
+    ? "success"
+    : s === "failed"
+      ? "danger"
+      : s === "expired"
+        ? "neutral"
+        : "warning";
+function openCreate() {
+  error.value = "";
+  notice.value = "";
+  qr.value = "";
+  form.value.out_biz_no = defaultRedpackBizNo();
+  form.value.amount = "";
+  creating.value = true;
+}
 async function load() {
   loading.value = true;
   error.value = "";
@@ -66,6 +93,7 @@ async function create() {
       body,
     })) as Redpack;
     notice.value = "红包创建成功，请让收款人扫码领取（24小时内有效）。";
+    creating.value = false;
     await show(r);
     form.value.out_biz_no = defaultRedpackBizNo();
     form.value.amount = "";
@@ -90,144 +118,171 @@ async function refresh(r: Redpack) {
 onMounted(load);
 </script>
 <template>
-  <section class="panel" aria-label="创建红包">
-    <h2>创建红包</h2>
-    <p>
+  <section class="panel" aria-label="红包记录">
+    <p v-if="!open" class="alert error" role="alert">未开启创建红包功能。</p>
+    <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+    <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
+    <p class="muted">
       收款人扫描二维码授权后领取，领取时通过支付宝/微信商家转账接口付款，并非现金红包接口。领取时才按转账费率预留余额，过期未领取不占用余额。
     </p>
-    <p v-if="!open" role="alert">未开启创建红包功能。</p>
-    <p v-if="error" role="alert">{{ error }}</p>
-    <p v-if="notice" role="status">{{ notice }}</p>
-    <form v-if="open" @submit.prevent="create">
-      <label v-if="admin"
-        >付款商户ID<input v-model.trim="form.merchant_id" inputmode="numeric"
-      /></label>
-      <label
-        >通道选择<select v-model="form.type">
-          <option value="alipay">支付宝</option>
-          <option value="wxpay">微信</option>
-        </select></label
-      >
-      <label
-        >转账通道ID<input
-          v-model.trim="form.channel_id"
-          inputmode="numeric"
-          placeholder="留空自动选择"
-      /></label>
-      <label
-        >交易号<input
-          v-model.trim="form.out_biz_no"
-          maxlength="19"
-          inputmode="numeric"
-      /></label>
-      <label
-        >红包金额<input
-          v-model.trim="form.amount"
-          placeholder="RMB/元"
-          inputmode="decimal"
-      /></label>
-      <label>红包备注<input v-model="form.remark" maxlength="32" /></label>
-      <button type="submit" :disabled="busy">确认创建</button>
-    </form>
-    <div v-if="qr" class="qr">
-      <img :src="qr" alt="红包领取二维码" width="240" height="240" />
-      <p>{{ qrLink }}</p>
-    </div>
-    <h3>红包记录</h3>
     <div class="table-tools">
+      <button
+        type="button"
+        class="pa-btn pa-btn--primary"
+        :disabled="!open || busy"
+        @click="openCreate"
+      >
+        <ShellIcon name="plus" />创建红包
+      </button>
       <div class="table-tools-end">
-        <button type="button" :disabled="loading" @click="load">
-          <ShellIcon name="refresh" />刷新
+        <button
+          type="button"
+          class="pa-icon-btn"
+          aria-label="刷新"
+          title="刷新"
+          :disabled="loading"
+          @click="load"
+        >
+          <ShellIcon name="refresh" />
         </button>
       </div>
     </div>
-    <table>
-      <thead>
-        <tr>
-          <th>交易号</th>
-          <th>商户</th>
-          <th>类型</th>
-          <th>金额</th>
-          <th>备注</th>
-          <th>状态</th>
-          <th>过期时间</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="r in items" :key="r.id">
-          <td>{{ r.out_biz_no }}</td>
-          <td>{{ r.merchant_id }}</td>
-          <td>{{ r.type === "alipay" ? "支付宝" : "微信" }}</td>
-          <td>{{ r.money }}</td>
-          <td>{{ r.remark }}</td>
-          <td>
-            <span
-              class="badge"
-              :data-state="
-                {
-                  claimable: 'warn',
-                  claiming: 'warn',
-                  succeeded: 'on',
-                  failed: 'bad',
-                  expired: 'none',
-                }[r.status] || 'none'
-              "
-              >{{ redpackStatusLabel(r.status) }}</span
-            >
-          </td>
-          <td>{{ new Date(r.expires_at).toLocaleString() }}</td>
-          <td>
-            <button
-              v-if="r.status === 'claimable'"
-              type="button"
-              @click="show(r)"
-            >
-              二维码
-            </button>
-            <button
-              v-if="r.status === 'claiming'"
-              type="button"
-              @click="refresh(r)"
-            >
-              查询
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-if="qr" class="qr">
+      <img :src="qr" alt="红包领取二维码" width="240" height="240" />
+      <p class="muted">{{ qrLink }}</p>
+    </div>
+    <div class="table-scroll">
+      <table class="pa-table">
+        <thead>
+          <tr>
+            <th scope="col">交易号</th>
+            <th v-if="admin" scope="col">商户</th>
+            <th scope="col">类型</th>
+            <th scope="col" class="pa-c-num">金额</th>
+            <th scope="col">备注</th>
+            <th scope="col">状态</th>
+            <th scope="col">过期时间</th>
+            <th scope="col">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="r in items" :key="r.id">
+            <td class="pa-c-mono">{{ r.out_biz_no }}</td>
+            <td v-if="admin">{{ r.merchant_id || "-" }}</td>
+            <td><KitPayMethod :type="r.type" /></td>
+            <td class="pa-c-num">¥{{ r.money }}</td>
+            <td>{{ r.remark || "-" }}</td>
+            <td>
+              <KitStatusTag
+                :text="redpackStatusLabel(r.status)"
+                :tone="redTone(r.status)"
+              />
+            </td>
+            <td>{{ beijingTimestamp(r.expires_at) }}</td>
+            <td>
+              <button
+                v-if="r.status === 'claimable'"
+                type="button"
+                class="link-button"
+                @click="show(r)"
+              >
+                二维码
+              </button>
+              <button
+                v-if="r.status === 'claiming'"
+                type="button"
+                class="link-button"
+                @click="refresh(r)"
+              >
+                查询
+              </button>
+              <span
+                v-if="!['claimable', 'claiming'].includes(r.status)"
+                class="muted"
+                >-</span
+              >
+            </td>
+          </tr>
+          <tr v-if="!items.length && !loading">
+            <td class="empty" :colspan="admin ? 8 : 7">
+              <KitEmpty text="暂无数据" />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </section>
+  <KitModal
+    v-if="creating"
+    title="创建红包"
+    width="480px"
+    :loading="busy"
+    submit-text="确认创建"
+    @close="creating = false"
+    @submit="create"
+  >
+    <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+    <KitField v-if="admin" label="付款商户">
+      <KitInput
+        :model-value="form.merchant_id"
+        inputmode="numeric"
+        aria-label="付款商户ID"
+        @update:model-value="form.merchant_id = $event.trim()"
+      />
+    </KitField>
+    <KitField label="通道选择">
+      <KitSelect
+        :model-value="form.type"
+        :options="[
+          { value: 'alipay', label: '支付宝' },
+          { value: 'wxpay', label: '微信' },
+        ]"
+        aria-label="通道选择"
+        @update:model-value="form.type = $event"
+      />
+    </KitField>
+    <KitField label="转账通道">
+      <KitInput
+        :model-value="form.channel_id"
+        inputmode="numeric"
+        placeholder="留空自动选择"
+        aria-label="转账通道ID"
+        @update:model-value="form.channel_id = $event.trim()"
+      />
+    </KitField>
+    <KitField label="交易号">
+      <KitInput
+        :model-value="form.out_biz_no"
+        :maxlength="19"
+        inputmode="numeric"
+        aria-label="交易号"
+        @update:model-value="form.out_biz_no = $event.trim()"
+      />
+    </KitField>
+    <KitField label="红包金额">
+      <KitInput
+        :model-value="form.amount"
+        inputmode="decimal"
+        placeholder="RMB/元"
+        aria-label="红包金额"
+        @update:model-value="form.amount = $event.trim()"
+      />
+    </KitField>
+    <KitField label="红包备注">
+      <KitInput
+        :model-value="form.remark"
+        :maxlength="32"
+        aria-label="红包备注"
+        @update:model-value="form.remark = $event"
+      />
+    </KitField>
+  </KitModal>
 </template>
 <style scoped>
-form {
-  display: grid;
-  gap: 10px;
-  max-width: 480px;
-  margin: 12px 0;
-}
-label {
-  display: grid;
-  gap: 4px;
-}
-input,
-select {
-  min-height: 34px;
-}
 .qr {
   margin: 16px 0;
 }
 .qr p {
   overflow-wrap: anywhere;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 8px;
-}
-th,
-td {
-  padding: 6px;
-  border-bottom: 1px solid var(--line, var(--line));
-  text-align: left;
 }
 </style>

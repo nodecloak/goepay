@@ -23,6 +23,9 @@ import {
 } from "../scheduled-tasks";
 import ResourcePage from "./ResourcePage.vue";
 import OperationsPage from "./OperationsPage.vue";
+import KitSwitch from "./KitSwitch.vue";
+import KitSelect from "./KitSelect.vue";
+import KitStatusTag from "./KitStatusTag.vue";
 import { operationPages } from "../operations";
 const props = defineProps<{ client: ApiClient; allowed: boolean }>();
 const permitted = computed(
@@ -140,6 +143,12 @@ function taskStateBadge(t: ScheduledTask) {
   if (t.control_mode === "legacy_managed") return "warn";
   if (!t.configured) return "none";
   return t.enabled ? "on" : "off";
+}
+function taskStateTone(
+  t: ScheduledTask,
+): "success" | "warning" | "danger" | "info" | "neutral" {
+  const s = taskStateBadge(t);
+  return s === "on" ? "success" : s === "warn" ? "warning" : "neutral";
 }
 async function load() {
   if (!ensure() || busy.value || modal.value) return;
@@ -478,9 +487,10 @@ onBeforeUnmount(() => {
         <article v-for="item in items" :key="item.task" class="job-card">
           <header class="job-card-head">
             <strong class="job-name">{{ item.name }}</strong>
-            <span class="badge" :data-state="taskStateBadge(item)">{{
-              taskStateShort(item)
-            }}</span>
+            <KitStatusTag
+              :text="taskStateShort(item)"
+              :tone="taskStateTone(item)"
+            />
           </header>
           <p class="job-key muted">{{ item.task }}</p>
           <p class="job-mode muted">{{ scheduledTaskModeLabel(item) }}</p>
@@ -573,22 +583,21 @@ onBeforeUnmount(() => {
             <form v-if="!confirmation" @submit.prevent="review">
               <fieldset :disabled="blocked() || !target.can_update">
                 <div class="task-fields">
-                  <label class="task-check"
-                    ><input v-model="draft.enabled" type="checkbox" />
-                    开启此任务</label
-                  >
+                  <div class="task-check">
+                    <KitSwitch v-model="draft.enabled" label="开启此任务" />
+                  </div>
                   <label for="scheduler171-frequency"
-                    >执行频率<select
-                      id="scheduler171-frequency"
+                    >执行频率<KitSelect
                       v-model="draft.frequency"
-                    >
-                      <option value="second">秒</option>
-                      <option value="minute">分钟</option>
-                      <option value="hour">小时</option>
-                      <option value="day">天</option>
-                      <option value="once">仅一次</option>
-                    </select></label
-                  >
+                      :options="[
+                        { value: 'second', label: '秒' },
+                        { value: 'minute', label: '分钟' },
+                        { value: 'hour', label: '小时' },
+                        { value: 'day', label: '天' },
+                        { value: 'once', label: '仅一次' },
+                      ]"
+                      aria-label="执行频率"
+                  /></label>
                   <label for="scheduler171-interval"
                     >间隔<input
                       id="scheduler171-interval"

@@ -43,7 +43,7 @@ it("shows original columns and ignores stale detail after switching batches", as
     },
   });
   await flushPromises();
-  for (const label of ["批次号", "总金额", "总笔数", "创建时间", "状态"])
+  for (const label of ["批次号", "总金额", "总数量", "生成时间", "状态"])
     expect(w.text()).toContain(label);
   await w.get('[aria-label="查看批次 1"]').trigger("click");
   await w.get('[aria-label="查看批次 2"]').trigger("click");

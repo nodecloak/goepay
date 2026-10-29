@@ -11,6 +11,10 @@ import {
 import BatchRecipientEditor from "./BatchRecipientEditor.vue";
 import TransferBatchDetails from "./TransferBatchDetails.vue";
 import TransferBatchImport from "./TransferBatchImport.vue";
+import KitFilterBar from "./KitFilterBar.vue";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
+import KitEmpty from "./KitEmpty.vue";
 const props = defineProps<{ client: ApiClient }>();
 const merchant = ref(""),
   external = ref(""),
@@ -161,36 +165,48 @@ onBeforeUnmount(() => {
       项；未知或已发送项目不重发，取消仅释放可证明尚未发送的项目。此功能不等同自动结算。
     </p>
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <p v-if="notice" role="status">{{ notice }}</p>
-    <form
-      class="toolbar"
-      @submit.prevent="
+    <p v-if="notice" class="alert" role="status">{{ notice }}</p>
+    <KitFilterBar
+      :loading="loading"
+      @query="
+        before = '0';
+        load();
+      "
+      @reset="
+        external = '';
         before = '0';
         load();
       "
     >
-      <label v-if="client.area === 'admin'"
-        >付款商户 ID<input
-          v-model="merchant"
+      <KitField v-if="client.area === 'admin'" label="付款商户">
+        <KitInput
+          :model-value="merchant"
           :disabled="busy || creating"
           inputmode="numeric"
-      /></label>
-      <label
-        >批次请求号<input
-          v-model="external"
+          aria-label="付款商户ID"
+          @update:model-value="merchant = $event"
+        />
+      </KitField>
+      <KitField label="请求号">
+        <KitInput
+          :model-value="external"
           :disabled="busy || creating"
-          autocomplete="off"
-          maxlength="128"
-      /></label>
-      <button :disabled="busy || loading">按原请求号查找</button>
+          :maxlength="128"
+          aria-label="批次请求号"
+          @update:model-value="external = $event"
+        />
+      </KitField>
+    </KitFilterBar>
+    <div class="table-tools">
       <button
         type="button"
+        class="pa-btn pa-btn--primary"
         :disabled="busy || loading || !writes || creating"
         @click="start"
       >
         新建批量付款
       </button>
-    </form>
+    </div>
     <section v-if="creating && !uncertain" aria-label="新批次">
       <p>
         本次原请求号：<code>{{ external }}</code
@@ -235,27 +251,29 @@ onBeforeUnmount(() => {
     <p v-if="uncertain" class="alert">
       请先按上方原请求号查找已保存批次，再核对详情；收款资料已从当前表单清除。
     </p>
-    <div v-if="items.length" class="table-scroll">
-      <table>
+    <div class="table-scroll">
+      <table class="pa-table">
         <thead>
           <tr>
-            <th>批次 ID</th>
-            <th>原请求号</th>
-            <th>本金（分）</th>
-            <th>预占（分）</th>
-            <th>状态</th>
-            <th>操作</th>
+            <th scope="col">批次 ID</th>
+            <th scope="col">请求号</th>
+            <th scope="col" class="pa-c-num">本金（分）</th>
+            <th scope="col" class="pa-c-num">预占（分）</th>
+            <th scope="col">状态</th>
+            <th scope="col">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.id">
-            <td>{{ item.id }}</td>
+            <td class="pa-c-mono">{{ item.id }}</td>
             <td>{{ item.external_no }}</td>
-            <td>{{ item.amount }}</td>
-            <td>{{ item.cost_amount }}</td>
+            <td class="pa-c-num">{{ item.amount }}</td>
+            <td class="pa-c-num">{{ item.cost_amount }}</td>
             <td>{{ displayValue(item.summary) }}</td>
             <td>
               <button
+                type="button"
+                class="link-button"
                 :disabled="busy"
                 @click="
                   selected = item.id;
@@ -267,29 +285,38 @@ onBeforeUnmount(() => {
               </button>
             </td>
           </tr>
+          <tr v-if="!items.length && !loading">
+            <td class="empty" :colspan="6"><KitEmpty text="暂无数据" /></td>
+          </tr>
         </tbody>
       </table>
     </div>
-    <p v-else-if="!loading">暂无匹配批次</p>
-    <p>共 {{ total }} 批</p>
-    <button
-      v-if="before !== '0'"
-      :disabled="busy || loading"
-      @click="
-        before = '0';
-        load();
-      "
-    >
-      返回最新批次</button
-    ><button
-      v-if="next !== '0'"
-      :disabled="busy || loading"
-      @click="
-        before = next;
-        load();
-      "
-    >
-      下一页批次
-    </button>
+    <div class="pa-pager pa-pager--keyset">
+      <span class="pa-pager-total">共 {{ total }} 批</span>
+      <button
+        v-if="before !== '0'"
+        type="button"
+        class="pa-btn"
+        :disabled="busy || loading"
+        @click="
+          before = '0';
+          load();
+        "
+      >
+        返回最新批次
+      </button>
+      <button
+        v-if="next !== '0'"
+        type="button"
+        class="pa-btn"
+        :disabled="busy || loading"
+        @click="
+          before = next;
+          load();
+        "
+      >
+        下一页批次
+      </button>
+    </div>
   </section>
 </template>

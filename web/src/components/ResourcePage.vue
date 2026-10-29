@@ -33,20 +33,31 @@ import {
   type ResourceEntry,
 } from "../resources";
 import ResourceFields from "./ResourceFields.vue";
+import KitPagination from "./KitPagination.vue";
+import KitEmpty from "./KitEmpty.vue";
+import KitSelect from "./KitSelect.vue";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
+import KitStatusTag from "./KitStatusTag.vue";
+import KitHelpPopover from "./KitHelpPopover.vue";
+import KitModal from "./KitModal.vue";
 import MerchantEditorFields from "./MerchantEditorFields.vue";
 import GroupEditorFields from "./GroupEditorFields.vue";
+import InternalSharingRuleFields from "./InternalSharingRuleFields.vue";
 import CoreRiskGroupPanel from "./CoreRiskGroupPanel.vue";
 import PaymentDefend206GroupPanel from "./PaymentDefend206GroupPanel.vue";
 import GroupStatisticsDialog from "./GroupStatisticsDialog.vue";
 import PaymentStatisticsDialog from "./PaymentStatisticsDialog.vue";
 import AccountLoginLogDialog from "./AccountLoginLogDialog.vue";
 import MerchantManualWithdrawal from "./MerchantManualWithdrawal.vue";
+import MerchantBalanceAdjustDialog from "./MerchantBalanceAdjustDialog.vue";
 import SettlementRecipientPanel from "./SettlementRecipientPanel.vue";
 import CasePanel from "./CasePanel.vue";
 import RuleExecutionPanel from "./RuleExecutionPanel.vue";
 import CollectionCodePanel from "./CollectionCodePanel.vue";
 import MerchantDirectoryFilters from "./MerchantDirectoryFilters.vue";
 import ActionDropdown from "./ActionDropdown.vue";
+import CsvExportButton from "./CsvExportButton.vue";
 import ShellIcon from "./ShellIcon.vue";
 import AddonConfigGroups from "./AddonConfigGroups.vue";
 import {
@@ -59,6 +70,7 @@ import {
 import ChannelStopPanel from "./ChannelStopPanel.vue";
 import RuntimeChannelPolicyPanel from "./RuntimeChannelPolicyPanel.vue";
 import ParentChannelPage from "./ParentChannelPage.vue";
+import PayTypePage from "./PayTypePage.vue";
 import MerchantDelegationPanel from "./MerchantDelegationPanel.vue";
 import BusinessNoticeEvents from "./BusinessNoticeEvents.vue";
 import { businessNoticeSettingsFields } from "../business-notice";
@@ -75,6 +87,36 @@ const editMerchantRecipient = ref(false);
 const merchantLogID = ref<string>();
 const merchantStatisticsID = ref<string>();
 const manualWithdrawalID = ref<string>();
+const balanceAdjustID = ref<string>();
+let balanceAdjustReturn: HTMLElement | undefined,
+  balanceAdjustChanged = false;
+// 后台加款/扣款 is an admin money action: same super/operator gate as 手动提现,
+// and requires schema update permission.
+const canAdjustBalance = computed(
+  () =>
+    canReadMerchantStatistics.value &&
+    schema.value?.permissions.update === true,
+);
+async function closeBalanceAdjust() {
+  const target = balanceAdjustReturn,
+    id = balanceAdjustID.value,
+    epoch = contextEpoch,
+    refresh = balanceAdjustChanged;
+  balanceAdjustID.value = undefined;
+  balanceAdjustReturn = undefined;
+  balanceAdjustChanged = false;
+  if (refresh) await load();
+  await nextTick();
+  if (epoch !== contextEpoch) return;
+  const current = target?.isConnected
+    ? target
+    : id
+      ? document.querySelector<HTMLButtonElement>(
+          'button[aria-label="商户关联记录 ' + id + '"]',
+        )
+      : undefined;
+  current?.focus();
+}
 let manualWithdrawalReturn: HTMLElement | undefined,
   manualWithdrawalChanged = false;
 const canManualWithdraw = computed(
@@ -188,6 +230,25 @@ const showBusinessNotices = computed(
     props.ownSession === true &&
     ["super", "operator"].includes(props.adminClass ?? ""),
 );
+// Pro omits the filter card on list pages that have nothing to filter
+// (e.g. 支付通道轮询). A resource opts out here; one with declared schema.filters
+// always keeps the card.
+const noListFilterResources = new Set(["pay-rolls"]);
+const showListFilter = computed(
+  () =>
+    !!schema.value?.filters?.length ||
+    !noListFilterResources.has(props.resource),
+);
+// A per-resource PRIMARY row action that opens the existing editor (same save
+// path, no new endpoint). pay-rolls: 配置通道 opens the poll-group editor where
+// its channels are set; its generic 详情 is then redundant and hidden.
+const rowPrimaryActions: Record<string, string> = {
+  "pay-rolls": "配置通道",
+};
+const rowPrimaryLabel = computed(() => rowPrimaryActions[props.resource] ?? "");
+// Resources whose editor already shows everything the generic 详情 would — hide
+// the 详情 button for them to match Pro's row.
+const hideDetailResources = new Set(["pay-rolls"]);
 // Tag colour for an on/off style value (正常 green, 已禁用 red, …).
 function stateTag(key: string, value: unknown): string {
   if (key === "enabled")
@@ -204,6 +265,26 @@ function stateTag(key: string, value: unknown): string {
       "none"
     );
   return "none";
+}
+function stateTone(
+  key: string,
+  value: unknown,
+): "success" | "warning" | "danger" | "info" | "neutral" {
+  const s = stateTag(key, value);
+  return s === "on"
+    ? "success"
+    : s === "bad"
+      ? "danger"
+      : s === "warn"
+        ? "warning"
+        : "neutral";
+}
+// Pro's 状态 chips are compact 2-4 char words (not sentences). pay: 支付/停付/待审;
+// settle: 结算/停结. The full risk explanation moves to the cell's tooltip.
+function merchantStateChip(key: "pay" | "settle", value: unknown): string {
+  const v = String(value);
+  if (key === "pay") return v === "1" ? "支付" : v === "2" ? "待审" : "停付";
+  return v === "1" ? "结算" : "停结";
 }
 const entityLabel = computed(
   () =>
@@ -252,16 +333,27 @@ const schema = ref<ResourceSchema | null>(null),
   notice = ref("");
 const merchantFilters = ref(newMerchantDirectory()),
   merchantRouteError = ref("");
+// Generic per-field toolbar filters (schema.filters). Keyed by filter param.
+const fieldFilters = ref<Record<string, string>>({});
+// Row selection for 批量删除 (schema.batch_delete).
+const selectedIds = ref<string[]>([]);
+const confirmBatch = ref(false);
+const batchBusy = ref(false);
 function merchantRelatedLinks(id: unknown) {
   const value = String(id ?? "");
   if (!/^[1-9]\d{0,18}$/.test(value) || BigInt(value) > 9223372036854775807n)
     return [];
   return [
+    { id: "detail", label: "详情" },
+    ...(canDelegate.value ? [{ id: "delegate", label: "代登录商户" }] : []),
     ...(canReadMerchantStatistics.value
       ? [{ id: "payment-statistics", label: "支付统计" }]
       : []),
     ...(canManualWithdraw.value
       ? [{ id: "manual-withdrawal", label: "手动提现" }]
+      : []),
+    ...(canAdjustBalance.value
+      ? [{ id: "balance-adjust", label: "加款/扣款" }]
       : []),
     {
       id: "orders",
@@ -290,6 +382,16 @@ function merchantRelatedLinks(id: unknown) {
 }
 function merchantRelatedAction(action: string, id: unknown) {
   const value = String(id ?? "");
+  if (action === "detail") {
+    const row = items.value.find((r) => String(r.id) === value);
+    if (row && !busy.value) open("detail", row);
+    return;
+  }
+  if (action === "delegate") {
+    const row = items.value.find((r) => String(r.id) === value);
+    if (row && canDelegate.value && !busy.value) delegation.value = row;
+    return;
+  }
   if (action === "manual-withdrawal") {
     if (
       !canManualWithdraw.value ||
@@ -306,6 +408,24 @@ function merchantRelatedAction(action: string, id: unknown) {
         : undefined;
     manualWithdrawalChanged = false;
     manualWithdrawalID.value = value;
+    return;
+  }
+  if (action === "balance-adjust") {
+    if (
+      !canAdjustBalance.value ||
+      busy.value ||
+      loading.value ||
+      mode.value !== null ||
+      !/^[1-9]\d{0,18}$/.test(value) ||
+      BigInt(value) > 9223372036854775807n
+    )
+      return;
+    balanceAdjustReturn =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : undefined;
+    balanceAdjustChanged = false;
+    balanceAdjustID.value = value;
     return;
   }
   if (action === "payment-statistics") {
@@ -477,6 +597,63 @@ watch(
 const endpoint = computed(
   () => "/resources/" + encodeURIComponent(props.resource),
 );
+// Merchant directory CSV export (Pro user/export): same filters as the list,
+// non-secret columns only, admin-only. Backend GET …?format=csv.
+const canExportMerchants = computed(
+  () => props.resource === "merchants" && props.client.area === "admin",
+);
+const merchantExportPath = computed(() => {
+  const q = new URLSearchParams({ format: "csv", q: query.value });
+  appendMerchantDirectory(q, merchantFilters.value);
+  return endpoint.value + "?" + q.toString();
+});
+// Generic export (schema.exportable): same filters + search as the list.
+const canExport = computed(() => schema.value?.exportable === true);
+const exportPath = computed(() => {
+  const q = new URLSearchParams({ format: "csv", q: query.value });
+  for (const [param, value] of Object.entries(fieldFilters.value))
+    if (value) q.set(param, value);
+  return endpoint.value + "?" + q.toString();
+});
+const canBatchDelete = computed(() => schema.value?.batch_delete === true);
+function applyFieldFilter(param: string, value: string) {
+  fieldFilters.value = { ...fieldFilters.value, [param]: value };
+  page.value = 1;
+  selectedIds.value = [];
+  void load();
+}
+function toggleRow(id: string, on: boolean) {
+  selectedIds.value = on
+    ? [...new Set([...selectedIds.value, id])]
+    : selectedIds.value.filter((x) => x !== id);
+}
+const allRowsSelected = computed(
+  () =>
+    items.value.length > 0 &&
+    items.value.every((r) => selectedIds.value.includes(String(r.id))),
+);
+function toggleAllRows(on: boolean) {
+  selectedIds.value = on ? items.value.map((r) => String(r.id)) : [];
+}
+async function runBatchDelete() {
+  if (batchBusy.value || !selectedIds.value.length) return;
+  batchBusy.value = true;
+  error.value = "";
+  try {
+    const res = await props.client.request<{ deleted?: number }>(
+      endpoint.value + "/batch-delete",
+      { method: "POST", body: { ids: selectedIds.value } },
+    );
+    notice.value = `已删除 ${res?.deleted ?? selectedIds.value.length} 条记录`;
+    confirmBatch.value = false;
+    selectedIds.value = [];
+    await load();
+  } catch (e) {
+    error.value = message(e);
+  } finally {
+    batchBusy.value = false;
+  }
+}
 const fields = computed(
   () =>
     schema.value?.fields.filter(
@@ -664,6 +841,8 @@ async function load() {
     });
     if (props.resource === "merchants")
       appendMerchantDirectory(q, merchantFilters.value);
+    for (const [param, value] of Object.entries(fieldFilters.value))
+      if (value) q.set(param, value);
     const data = await client.request<{
       items: Record<string, unknown>[];
       total: number;
@@ -849,6 +1028,9 @@ onBeforeUnmount(resetContext);
     />
     <ChannelStopPanel :client="client" />
   </template>
+  <template v-else-if="resource === 'pay-types' && client.area === 'admin'">
+    <PayTypePage :client="client" />
+  </template>
   <template v-else-if="!entry || !mode">
     <RuntimeChannelPolicyPanel
       v-if="
@@ -871,35 +1053,42 @@ onBeforeUnmount(resetContext);
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
     <form
-      v-if="!entry"
+      v-if="!entry && showListFilter"
       class="toolbar list-filter-card panel resource-filter"
       @submit.prevent="
         page = 1;
         load();
       "
     >
-      <div class="search-group">
-        <select
-          v-if="resource === 'merchants'"
-          v-model="merchantFilters.column"
-          aria-label="商户搜索字段"
-          :disabled="loading || busy"
+      <div class="search-group list-filters-grid">
+        <KitField v-if="resource === 'merchants'" label="搜索字段">
+          <KitSelect
+            v-model="merchantFilters.column"
+            :options="merchantDirectoryColumns"
+            aria-label="商户搜索字段"
+            :disabled="loading || busy"
+          />
+        </KitField>
+        <KitField :label="resource === 'merchants' ? '搜索内容' : '搜索记录'">
+          <KitInput
+            v-model="query"
+            :placeholder="resource === 'merchants' ? '搜索内容' : '搜索记录'"
+            :aria-label="'搜索' + (schema?.title || '')"
+          />
+        </KitField>
+        <KitField
+          v-for="f in schema?.filters || []"
+          :key="f.param"
+          :label="f.label"
         >
-          <option
-            v-for="o in merchantDirectoryColumns"
-            :key="o.value"
-            :value="o.value"
-          >
-            {{ o.label }}
-          </option>
-        </select>
-        <label class="sr-only" :for="'search-' + resource"
-          >搜索{{ schema?.title }}</label
-        ><input
-          :id="'search-' + resource"
-          v-model="query"
-          :placeholder="resource === 'merchants' ? '搜索内容' : '搜索记录'"
-        /><button class="primary" :disabled="loading">查询</button>
+          <KitSelect
+            :model-value="fieldFilters[f.param] || ''"
+            :options="f.options"
+            :aria-label="f.label"
+            :disabled="loading || busy"
+            @change="(v: string) => applyFieldFilter(f.param, v)"
+          />
+        </KitField>
       </div>
       <MerchantDirectoryFilters
         v-if="resource === 'merchants'"
@@ -907,6 +1096,16 @@ onBeforeUnmount(resetContext);
         :disabled="loading || busy"
         @clear="clearMerchantFilters"
       />
+      <div v-else class="pa-filter-actions resource-filter-actions">
+        <button
+          type="submit"
+          class="pa-btn pa-btn--primary"
+          :class="{ 'pa-btn--loading': loading }"
+          :disabled="loading"
+        >
+          查询
+        </button>
+      </div>
     </form>
     <template v-if="resource === 'addon-configs' && !entry">
       <AddonConfigGroups
@@ -923,29 +1122,14 @@ onBeforeUnmount(resetContext);
         @refresh="load"
         @open="(action, row) => open(action, row)"
       />
-      <div v-if="total > items.length" class="pagination panel addon-pager">
-        <span>共 {{ total }} 条记录</span>
-        <div>
-          <button
-            :disabled="page <= 1 || loading"
-            @click="
-              page--;
-              load();
-            "
-          >
-            上一页</button
-          ><span>第 {{ page }} 页</span
-          ><button
-            :disabled="page * limit >= total || loading"
-            @click="
-              page++;
-              load();
-            "
-          >
-            下一页
-          </button>
-        </div>
-      </div>
+      <KitPagination
+        v-if="total > items.length"
+        v-model:page="page"
+        v-model:page-size="limit"
+        :total="total"
+        class="addon-pager"
+        @change="load"
+      />
     </template>
     <section
       v-else-if="!entry || schema?.description || showBusinessNotices"
@@ -978,20 +1162,55 @@ onBeforeUnmount(resetContext);
           >系统共有<strong>{{ total }}</strong
           >个{{ summaryNoun }}</span
         >
+        <button
+          v-if="canBatchDelete"
+          type="button"
+          class="pa-btn pa-btn--danger"
+          :disabled="busy || batchBusy || !selectedIds.length"
+          @click="confirmBatch = true"
+        >
+          批量删除{{ selectedIds.length ? ` (${selectedIds.length})` : "" }}
+        </button>
         <div class="table-tools-end">
+          <CsvExportButton
+            v-if="canExportMerchants"
+            :client="client"
+            :path="merchantExportPath"
+            filename="商户列表.csv"
+            :disabled="loading || busy"
+          />
+          <CsvExportButton
+            v-else-if="canExport"
+            :client="client"
+            :path="exportPath"
+            :filename="`${resource}.csv`"
+            :disabled="loading || busy"
+          />
           <button type="button" :disabled="loading || busy" @click="load">
             <ShellIcon name="refresh" />刷新
           </button>
+          <KitHelpPopover
+            v-if="schema?.description"
+            :text="schema.description"
+          />
         </div>
       </div>
-      <p v-if="schema?.description" class="table-note">
-        {{ schema.description }}
-      </p>
       <div v-if="loading" class="loading-row" role="status">正在加载记录…</div>
       <div v-else-if="schema && !entry" class="table-scroll">
         <table>
           <thead>
             <tr>
+              <th v-if="canBatchDelete" scope="col" class="select-col">
+                <input
+                  type="checkbox"
+                  aria-label="选择本页全部记录"
+                  :checked="allRowsSelected"
+                  :disabled="!items.length"
+                  @change="
+                    toggleAllRows(($event.target as HTMLInputElement).checked)
+                  "
+                />
+              </th>
               <th scope="col">
                 {{
                   resource === "merchants"
@@ -1036,6 +1255,19 @@ onBeforeUnmount(resetContext);
           </thead>
           <tbody>
             <tr v-for="row in items" :key="String(row.id)">
+              <td v-if="canBatchDelete" class="select-col">
+                <input
+                  type="checkbox"
+                  :aria-label="'选择记录 ' + row.id"
+                  :checked="selectedIds.includes(String(row.id))"
+                  @change="
+                    toggleRow(
+                      String(row.id),
+                      ($event.target as HTMLInputElement).checked,
+                    )
+                  "
+                />
+              </td>
               <td>
                 {{ row.id }}
                 <small
@@ -1068,31 +1300,30 @@ onBeforeUnmount(resetContext);
               </td>
               <td v-for="field in listFields" :key="field.name">
                 <template v-if="isOriginalMerchantList && field.name === 'pay'">
-                  <span class="badge-stack merchant-state-tags">
-                    <span class="badge" :data-state="stateTag('pay', row.pay)"
-                      >收款配置：{{ merchantFieldValue("pay", row.pay) }}</span
-                    >
-                    <span
-                      class="badge"
-                      :data-state="stateTag('enabled', row.enabled)"
-                      >账户：{{ consoleValue("enabled", row.enabled) }}</span
-                    >
-                    <span
+                  <span
+                    class="badge-stack merchant-state-tags"
+                    :title="
+                      effectiveRiskDescription(
+                        row.core_risk,
+                        row.enabled === true,
+                        row.pay,
+                      )
+                    "
+                  >
+                    <KitStatusTag
+                      :tone="stateTone('enabled', row.enabled)"
+                      :text="row.enabled === true ? '正常' : '封禁'"
+                    />
+                    <KitStatusTag
+                      :tone="stateTone('pay', row.pay)"
+                      :text="merchantStateChip('pay', row.pay)"
+                    />
+                    <KitStatusTag
                       v-if="row.settle !== undefined"
-                      class="badge"
-                      :data-state="stateTag('settle', row.settle)"
-                      >结算：{{
-                        merchantFieldValue("settle", row.settle)
-                      }}</span
-                    >
+                      :tone="stateTone('settle', row.settle)"
+                      :text="merchantStateChip('settle', row.settle)"
+                    />
                   </span>
-                  <small class="merchant-balance-detail muted">{{
-                    effectiveRiskDescription(
-                      row.core_risk,
-                      row.enabled === true,
-                      row.pay,
-                    )
-                  }}</small>
                 </template>
                 <template
                   v-else-if="
@@ -1116,12 +1347,18 @@ onBeforeUnmount(resetContext);
                   >
                   <span v-if="!row.phone && !row.email && !row.qq">—</span>
                 </template>
-                <span
+                <KitStatusTag
+                  v-else-if="
+                    resource === 'domains' && field.name === 'approved'
+                  "
+                  :tone="row.approved === true ? 'success' : 'warning'"
+                  :text="row.approved === true ? '已审核' : '待审核'"
+                />
+                <KitStatusTag
                   v-else-if="field.name === 'enabled'"
-                  class="badge"
-                  :data-state="stateTag('enabled', row.enabled)"
-                  >{{ consoleValue("enabled", row.enabled) }}</span
-                >
+                  :tone="stateTone('enabled', row.enabled)"
+                  :text="consoleValue('enabled', row.enabled)"
+                />
                 <span
                   v-else
                   class="cell"
@@ -1150,14 +1387,20 @@ onBeforeUnmount(resetContext);
                   "
                 >
                   <small
-                    v-if="row.frozen_minor !== undefined"
+                    v-if="
+                      row.frozen_minor !== undefined &&
+                      String(row.frozen_minor) !== '0'
+                    "
                     class="merchant-balance-detail muted"
                     >冻结预留：{{
                       consoleValue("frozen_minor", row.frozen_minor)
                     }}</small
                   >
                   <small
-                    v-if="row.income_held_minor !== undefined"
+                    v-if="
+                      row.income_held_minor !== undefined &&
+                      String(row.income_held_minor) !== '0'
+                    "
                     class="merchant-balance-detail muted"
                     >待解冻收入：{{
                       consoleValue("income_held_minor", row.income_held_minor)
@@ -1225,7 +1468,19 @@ onBeforeUnmount(resetContext);
                     统计
                   </button>
                   <button
-                    v-if="resource !== 'groups'"
+                    v-if="rowPrimaryLabel"
+                    type="button"
+                    class="pa-btn pa-btn--primary"
+                    :disabled="busy"
+                    @click="open('edit', row)"
+                  >
+                    {{ rowPrimaryLabel }}</button
+                  ><button
+                    v-if="
+                      resource !== 'groups' &&
+                      resource !== 'merchants' &&
+                      !hideDetailResources.has(resource)
+                    "
                     class="link-button"
                     :disabled="busy"
                     @click="open('detail', row)"
@@ -1244,6 +1499,9 @@ onBeforeUnmount(resetContext);
                       resource !== 'onboarding-applications'
                     "
                     class="link-button"
+                    :class="{
+                      'pa-btn pa-btn--primary': resource === 'merchants',
+                    }"
                     :disabled="busy"
                     @click="open('edit', row)"
                   >
@@ -1257,7 +1515,16 @@ onBeforeUnmount(resetContext);
                     删除
                   </button>
                   <button
-                    v-if="canDelegate"
+                    v-if="resource === 'merchants' && client.area === 'admin'"
+                    type="button"
+                    class="pa-btn pa-btn--danger"
+                    disabled
+                    title="商户不可删除：资金与订单账本不可破坏；请用编辑中的启用开关停用商户。"
+                  >
+                    删除
+                  </button>
+                  <button
+                    v-if="canDelegate && resource !== 'merchants'"
                     class="link-button"
                     :disabled="busy"
                     @click="delegation = row"
@@ -1275,7 +1542,8 @@ onBeforeUnmount(resetContext);
                       mode !== null ||
                       !!merchantLogID ||
                       !!merchantStatisticsID ||
-                      !!manualWithdrawalID
+                      !!manualWithdrawalID ||
+                      !!balanceAdjustID
                     "
                     @action="(action) => merchantRelatedAction(action, row.id)"
                   />
@@ -1285,39 +1553,26 @@ onBeforeUnmount(resetContext);
             <tr v-if="!items.length">
               <td
                 :colspan="
-                  listFields.length + 2 + (resource === 'groups' ? 1 : 0)
+                  listFields.length +
+                  2 +
+                  (resource === 'groups' ? 1 : 0) +
+                  (canBatchDelete ? 1 : 0)
                 "
                 class="empty"
               >
-                暂无记录，可通过上方操作添加
+                <KitEmpty text="暂无记录，可通过上方操作添加" />
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div v-if="!entry" class="pagination">
-        <span>共 {{ total }} 条记录</span>
-        <div>
-          <button
-            :disabled="page <= 1 || loading"
-            @click="
-              page--;
-              load();
-            "
-          >
-            上一页</button
-          ><span>第 {{ page }} 页</span
-          ><button
-            :disabled="page * limit >= total || loading"
-            @click="
-              page++;
-              load();
-            "
-          >
-            下一页
-          </button>
-        </div>
-      </div>
+      <KitPagination
+        v-if="!entry"
+        v-model:page="page"
+        v-model:page-size="limit"
+        :total="total"
+        @change="load"
+      />
       <BusinessNoticeEvents
         v-if="showBusinessNotices"
         :client="client"
@@ -1325,6 +1580,21 @@ onBeforeUnmount(resetContext);
         :admin-class="adminClass"
       />
     </section>
+    <KitModal
+      v-if="confirmBatch"
+      title="批量删除确认"
+      submit-text="删除"
+      danger
+      :loading="batchBusy"
+      @close="confirmBatch = false"
+      @submit="runBatchDelete"
+    >
+      <p>
+        将删除所选
+        {{ selectedIds.length }}
+        条记录。此操作走各记录的可恢复删除流程，不会物理清除数据。
+      </p>
+    </KitModal>
   </template>
   <MerchantManualWithdrawal
     v-if="manualWithdrawalID && canManualWithdraw"
@@ -1332,6 +1602,13 @@ onBeforeUnmount(resetContext);
     :merchant-i-d="manualWithdrawalID"
     @close="closeManualWithdrawal"
     @changed="manualWithdrawalChanged = true"
+  />
+  <MerchantBalanceAdjustDialog
+    v-if="balanceAdjustID && canAdjustBalance"
+    :client="client"
+    :merchant-i-d="balanceAdjustID"
+    @close="closeBalanceAdjust"
+    @changed="balanceAdjustChanged = true"
   />
   <AccountLoginLogDialog
     v-if="merchantLogID && canReadMerchantLogs"
@@ -1548,6 +1825,16 @@ onBeforeUnmount(resetContext);
             />
           </template>
         </GroupEditorFields>
+        <InternalSharingRuleFields
+          v-else-if="resource === 'profitsharing-rules'"
+          :key="mode + ':' + String(selected.id || 'new')"
+          :fields="formSchema!.fields"
+          :values="values"
+          :errors="fieldErrors"
+          :editing="mode === 'edit'"
+          :disabled="busy"
+          @change="(name, value) => (values[name] = value)"
+        />
         <ResourceFields
           v-else
           :fields="formSchema!.fields"

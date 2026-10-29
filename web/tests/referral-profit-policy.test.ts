@@ -58,7 +58,14 @@ it("keeps unavailable profit hidden and rejects an untrusted old profit response
     },
   });
   await flushPromises();
-  expect(unavailable.find('option[value="profit"]').exists()).toBe(false);
+  await unavailable
+    .get('button.pa-select-trigger[aria-label="奖励基数"]')
+    .trigger("click");
+  expect(
+    unavailable
+      .findAll('[role="option"]')
+      .some((o) => o.text().includes("配置估计利润")),
+  ).toBe(false);
   unavailable.unmount();
   const request = vi
     .fn()
@@ -91,10 +98,13 @@ it("reviews configured estimated profit and sends once with the original revisio
     },
   });
   await flushPromises();
-  const select = w
-    .findAll("select")
-    .find((x) => x.find('option[value="profit"]').exists())!;
-  await select.setValue("profit");
+  await w
+    .get('button.pa-select-trigger[aria-label="奖励基数"]')
+    .trigger("click");
+  await w
+    .findAll('[role="option"]')
+    .find((o) => o.text().includes("配置估计利润"))!
+    .trigger("click");
   await button(w, "核对政策变更").trigger("click");
   expect(w.text()).toContain("配置估计利润");
   expect(w.text()).toContain("非实际账单");

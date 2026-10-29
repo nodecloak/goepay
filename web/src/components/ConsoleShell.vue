@@ -19,7 +19,7 @@ const collapsed = ref(false),
   width = ref(window.innerWidth);
 const mobileButton = ref<HTMLButtonElement | null>(null);
 const mobile = computed(() => width.value <= 768);
-type Tab = { path: string; title: string };
+type Tab = { path: string; title: string; id: string };
 const tabs = ref<Tab[]>([]);
 function trail(nodes: MenuNode[], path: string): MenuNode[] {
   for (const node of nodes) {
@@ -36,7 +36,11 @@ const home = computed(() =>
 function recordTab() {
   if (props.area !== "admin") return;
   if (home.value && !tabs.value.length)
-    tabs.value.push({ path: home.value.path, title: home.value.title });
+    tabs.value.push({
+      path: home.value.path,
+      title: home.value.title,
+      id: home.value.id,
+    });
   const node = crumbs.value.at(-1);
   if (
     node &&
@@ -44,7 +48,7 @@ function recordTab() {
     !tabs.value.some((tab) => tab.path === node.path)
   ) {
     if (tabs.value.length >= 20) tabs.value.splice(1, 1);
-    tabs.value.push({ path: node.path, title: node.title });
+    tabs.value.push({ path: node.path, title: node.title, id: node.id });
   }
 }
 watch(
@@ -217,9 +221,9 @@ onBeforeUnmount(() => {
             @click="selectTab(tab.path)"
             @keydown="tabKey($event, index)"
           >
-            <ShellIcon v-if="tab.path === '/dashboard'" name="home" /><span>{{
-              tab.title
-            }}</span>
+            <ShellIcon
+              :name="tab.path === '/dashboard' ? 'home' : tab.id"
+            /><span>{{ tab.title }}</span>
           </button>
           <button
             v-if="tab.path !== home?.path"

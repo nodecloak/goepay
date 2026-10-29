@@ -2,6 +2,7 @@ export interface PersonalDraft {
   qq: string;
   pay_minmoney: string;
   pay_maxmoney: string;
+  remain_money: string;
 }
 export interface PersonalSettings extends PersonalDraft {
   merchant_id: string;
@@ -37,6 +38,23 @@ function qq(value: unknown): string {
     throw new Error("QQ须为5至20位数字");
   return input;
 }
+// 结算留存 (原 remain_money)：空值不保留；"N%" 百分比留存 (0<N<100)；
+// 否则按固定元金额留存，最多两位小数。
+function remainMoney(value: unknown): string {
+  if (typeof value !== "string") throw invalid();
+  const input = value.trim();
+  if (input === "") return "";
+  if (input.length > 20) throw new Error("结算留存格式不正确");
+  const percent = input.endsWith("%");
+  const numeric = (percent ? input.slice(0, -1) : input).trim();
+  if (!/^(0|[1-9][0-9]*)(\.[0-9]{1,2})?$/.test(numeric))
+    throw new Error("结算留存须为百分比(如 10%)或非负元金额(如 50.00)");
+  if (percent) {
+    const n = Number(numeric);
+    if (!(n > 0 && n < 100)) throw new Error("留存百分比须介于 0 和 100 之间");
+  }
+  return input;
+}
 export function parsePersonalSettings(
   value: unknown,
   merchantID: string,
@@ -54,6 +72,7 @@ export function parsePersonalSettings(
     "qq",
     "pay_minmoney",
     "pay_maxmoney",
+    "remain_money",
     "bounds_valid",
     "fingerprint",
     "can_update",
@@ -71,11 +90,13 @@ export function parsePersonalSettings(
     throw invalid();
   const contact = qq(v.qq),
     min = amount(v.pay_minmoney),
-    max = amount(v.pay_maxmoney);
+    max = amount(v.pay_maxmoney),
+    remain = remainMoney(v.remain_money);
   if (
     contact !== v.qq ||
     min.text !== v.pay_minmoney ||
     max.text !== v.pay_maxmoney ||
+    remain !== v.remain_money ||
     v.bounds_valid !== (max.cents === 0n || min.cents <= max.cents)
   )
     throw invalid();
@@ -84,6 +105,7 @@ export function parsePersonalSettings(
     qq: contact,
     pay_minmoney: min.text,
     pay_maxmoney: max.text,
+    remain_money: remain,
     bounds_valid: v.bounds_valid,
     fingerprint: v.fingerprint,
     can_update: true,
@@ -96,13 +118,15 @@ export function personalSettingsBody(
   parsePersonalSettings(state, state.merchant_id);
   const contact = qq(draft.qq),
     min = amount(draft.pay_minmoney),
-    max = amount(draft.pay_maxmoney);
+    max = amount(draft.pay_maxmoney),
+    remain = remainMoney(draft.remain_money);
   if (max.cents > 0n && min.cents > max.cents)
     throw new Error("最大支付金额不能小于最小支付金额");
   return {
     qq: contact,
     pay_minmoney: min.text,
     pay_maxmoney: max.text,
+    remain_money: remain,
     expected_fingerprint: state.fingerprint,
   };
 }

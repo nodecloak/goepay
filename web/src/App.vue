@@ -29,15 +29,16 @@ import {
   type FundsActionResult,
 } from "./api";
 import {
-  menus,
-  visibleMenu,
   resolvePage,
   viewKind,
-  navigationMenus,
-  menuRole,
+  navigationFor,
+  pageAuthorizedFor,
   type Area,
 } from "./menu";
+import { setAdminPermissionCatalog } from "./admin-permission-context";
 import ConsoleShell from "./components/ConsoleShell.vue";
+import ConsoleTopBarTools from "./components/ConsoleTopBarTools.vue";
+import ToastStack from "./components/ToastStack.vue";
 import SiteBrandIcon193 from "./components/SiteBrandIcon193.vue";
 import SiteContacts191 from "./components/SiteContacts191.vue";
 import LoginCaptcha205 from "./components/LoginCaptcha205.vue";
@@ -57,6 +58,7 @@ import {
 } from "./announcement-layout";
 import SubchannelPage from "./components/SubchannelPage.vue";
 import RefundSummaryDialog from "./components/RefundSummaryDialog.vue";
+import OrderSummaryDialog from "./components/OrderSummaryDialog.vue";
 import { resourceFor, resourceEntryFor } from "./resources";
 import { reportFor } from "./reports";
 import ReportPage from "./components/ReportPage.vue";
@@ -77,6 +79,7 @@ import MerchantOrderActionDialog from "./components/MerchantOrderActionDialog.vu
 import type { MerchantOrderActionID } from "./order-actions";
 import AdminOrderActionDialog from "./components/AdminOrderActionDialog.vue";
 import type { OrderActionID } from "./order-actions";
+import { merchantOrderActions } from "./order-actions";
 import { refundNotice } from "./order-operations";
 import { centsMoney } from "./settlement-terms";
 import { readHeldRefundFunding } from "./refund-funding";
@@ -88,6 +91,7 @@ import CollectionStylesPage from "./components/CollectionStylesPage.vue";
 import CollectionGeneratorPage from "./components/CollectionGeneratorPage.vue";
 import MerchantScanPage192 from "./components/MerchantScanPage192.vue";
 import OrderBatchControls from "./components/OrderBatchControls.vue";
+import MerchantOrderBatchControls from "./components/MerchantOrderBatchControls.vue";
 import AutoRefreshControl from "./components/AutoRefreshControl.vue";
 import OrderBlacklistDialog from "./components/OrderBlacklistDialog.vue";
 import DashboardOverview from "./components/DashboardOverview.vue";
@@ -95,6 +99,10 @@ import TransferBatchPage from "./components/TransferBatchPage.vue";
 import RedpackPage from "./components/RedpackPage.vue";
 import SettlementBatchesPage from "./components/SettlementBatchesPage.vue";
 import ListFilters from "./components/ListFilters.vue";
+import KitPagination from "./components/KitPagination.vue";
+import KitField from "./components/KitField.vue";
+import KitSelect from "./components/KitSelect.vue";
+import KitInput from "./components/KitInput.vue";
 import {
   freshListFilters,
   appendListFilters,
@@ -111,6 +119,8 @@ import FundsAuthorizationModal from "./components/FundsAuthorizationModal.vue";
 import SettlementRecipientPage from "./components/SettlementRecipientPage.vue";
 import IdentityLookupPage from "./components/IdentityLookupPage.vue";
 import ChannelSharingPage from "./components/ChannelSharingPage.vue";
+import ChannelSharingRuleList from "./components/ChannelSharingRuleList.vue";
+import ChannelSharingOrderList from "./components/ChannelSharingOrderList.vue";
 import ReferralPage from "./components/ReferralPage.vue";
 import ReferralPolicyPage from "./components/ReferralPolicyPage.vue";
 import SettlementPlansPage from "./components/SettlementPlansPage.vue";
@@ -121,6 +131,7 @@ import TemplatePage from "./components/TemplatePage.vue";
 import AppStorePage from "./components/AppStorePage.vue";
 import LocalPluginsPage from "./components/LocalPluginsPage.vue";
 import SettlementSchedulePage from "./components/SettlementSchedulePage.vue";
+import ComplaintsPage from "./components/ComplaintsPage.vue";
 import { consumePromotionPrefill } from "./referral";
 const promotionPrefill = ref(consumePromotionPrefill());
 import {
@@ -234,6 +245,41 @@ function closeRefundSummary() {
       target.focus();
   });
 }
+const orderSummaryQuery = ref<string | null>(null);
+let orderSummaryReturn: HTMLElement | undefined;
+function openOrderSummary() {
+  if (
+    !authorized.value ||
+    kind.value !== "orders" ||
+    loading.value ||
+    busy.value ||
+    listRouteError.value
+  )
+    return;
+  const q = listQuery();
+  q.delete("page");
+  q.delete("limit");
+  orderSummaryReturn =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : undefined;
+  orderSummaryQuery.value = q.toString();
+}
+function closeOrderSummary() {
+  const target = orderSummaryReturn,
+    context = client.value,
+    csrf = context.csrfToken;
+  orderSummaryQuery.value = null;
+  orderSummaryReturn = undefined;
+  void nextTick(() => {
+    if (
+      client.value === context &&
+      context.csrfToken === csrf &&
+      target?.isConnected
+    )
+      target.focus();
+  });
+}
 const listLimit = ref(20),
   listRouteError = ref("");
 const includeArchivedOrders = ref(false);
@@ -269,6 +315,7 @@ const router = useRouter();
 const merchantLoginDocument205 = computed(
   () => route.path === "/merchant/login",
 );
+const adminLoginDocument = computed(() => route.path === "/admin/login");
 const publicTestPayEntry203 = computed(
   () => route.path === "/test" || route.path === "/test/",
 );
@@ -280,6 +327,25 @@ const path = computed(
 );
 const page = computed(() => resolvePage(area.value, path.value));
 const kind = computed(() => viewKind(area.value, path.value));
+const sharingFlowOpen = ref(false);
+const searchFieldOptions = computed(() => [
+  { value: "", label: "综合搜索" },
+  ...(kind.value === "refunds" ? refundSearchFields : orderSearchFields).map(
+    (f) => ({ value: f.value, label: f.label }),
+  ),
+]);
+const searchFieldInputmode = computed<"decimal" | "text">(() =>
+  ["money", "realmoney", "getmoney"].includes(listFilters.value.search_field)
+    ? "decimal"
+    : "text",
+);
+const searchFieldPlaceholder = computed(() =>
+  ["orders", "refunds"].includes(kind.value) && listFilters.value.search_field
+    ? searchFieldInputmode.value === "decimal"
+      ? "输入金额（元）"
+      : "搜索内容"
+    : "搜索订单号或业务编号",
+);
 const client = ref(new ApiClient(area.value)),
   session = ref<Session | null>(null),
   initializing = ref(true),
@@ -334,25 +400,103 @@ async function loadLoginPlatformAccess() {
     if (valid()) loginPlatformLoading.value = false;
   }
 }
-const navigation = computed(() =>
-  visibleMenu(
-    navigationMenus(area.value),
-    menuRole(session.value?.user.role || "", session.value?.user.admin_class),
+// Quick-login (QQ/微信/支付宝/Telegram): which providers the admin enabled, and
+// the pending-connect completion after an unknown-identity callback.
+const connectProviders = ref<Record<string, boolean>>({});
+const connectPending = ref("");
+const connectForm = ref({ merchant_id: "", api_key: "", code: "" });
+const connectBusy = ref(false);
+const connectError = ref("");
+const connectTitles: Record<string, string> = {
+  qq: "QQ",
+  wx: "微信",
+  alipay: "支付宝",
+  telegram: "Telegram",
+};
+async function loadConnectOptions() {
+  connectProviders.value = {};
+  if (area.value !== "merchant" || session.value) return;
+  try {
+    const r = await fetch("/console/v1/public/connect/options", {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    const envelope = await r.json();
+    if (r.ok && envelope?.code === 0 && envelope.data?.providers)
+      connectProviders.value = envelope.data.providers;
+  } catch {
+    connectProviders.value = {};
+  }
+}
+function startQuickLogin(provider: string) {
+  if (!connectProviders.value[provider]) return;
+  window.location.href = "/console/v1/public/connect/" + provider + "/start";
+}
+const connectProviderList = computed(() =>
+  (["qq", "wx", "alipay", "telegram"] as const).filter(
+    (p) => connectProviders.value[p],
   ),
 );
+async function submitConnectComplete() {
+  if (connectBusy.value || !connectPending.value) return;
+  connectBusy.value = true;
+  connectError.value = "";
+  try {
+    const r = await fetch("/console/v1/public/connect/complete", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        state: connectPending.value,
+        merchant_id: connectForm.value.merchant_id,
+        api_key: connectForm.value.api_key,
+        code: connectForm.value.code,
+      }),
+    });
+    const envelope = await r.json();
+    if (r.ok && envelope?.code === 0) {
+      connectPending.value = "";
+      connectForm.value = { merchant_id: "", api_key: "", code: "" };
+      await initialize();
+      return;
+    }
+    connectError.value =
+      typeof envelope?.message === "string" && envelope.message
+        ? envelope.message
+        : "绑定登录未成功，请核对商户ID与密钥后重试";
+  } catch {
+    connectError.value = "绑定登录结果无法确认，请稍后重试";
+  } finally {
+    connectBusy.value = false;
+  }
+}
+const navigation = computed(() =>
+  navigationFor(
+    area.value,
+    session.value?.user.role || "",
+    session.value?.user.admin_class,
+    session.value?.user.permissions,
+    session.value?.merchant_features,
+  ),
+);
+watch(session, (s) => setAdminPermissionCatalog(s?.admin_permission_catalog), {
+  immediate: true,
+});
 watch(items, () => {
   selectedOrderTrades.value = [];
 });
 const authorized = computed(
   () =>
     !!page.value &&
-    (!page.value.roles.length ||
-      page.value.roles.includes(
-        menuRole(
-          session.value?.user.role || "",
-          session.value?.user.admin_class,
-        ),
-      )),
+    pageAuthorizedFor(
+      area.value,
+      page.value.path,
+      session.value?.user.role || "",
+      session.value?.user.admin_class,
+      session.value?.user.permissions,
+      session.value?.merchant_features,
+    ),
 );
 const refundRow = ref<Record<string, unknown> | null>(null),
   orderDetails = ref<Record<string, unknown> | null>(null),
@@ -371,6 +515,33 @@ const merchantOrderAction = ref<{
     action: "query" | "notify" | "refund" | "print";
   } | null>(null),
   merchantOrderBusy = ref(false);
+// Batch refund is stepped one order at a time through the existing per-order
+// refund flow (merchant refund permission + rules + funds authorisation); it is
+// never auto-fired. The queue holds the remaining selected trades.
+const refundStepQueue = ref<string[]>([]);
+function startMerchantRefundStep(trades: string[]) {
+  if (area.value !== "merchant") return;
+  refundStepQueue.value = trades
+    .filter((t) => /^[A-Za-z0-9_-]{1,64}$/.test(t))
+    .slice();
+  advanceMerchantRefundStep();
+}
+function advanceMerchantRefundStep() {
+  if (area.value !== "merchant") {
+    refundStepQueue.value = [];
+    return;
+  }
+  // Re-check each row against the server's current eligibility before opening;
+  // a row no longer refundable is skipped, never guessed.
+  while (refundStepQueue.value.length) {
+    const trade = refundStepQueue.value.shift()!;
+    const row = items.value.find((r) => String(r.trade_no) === trade);
+    if (row && merchantOrderActions(row).some((a) => a.id === "refund")) {
+      openMerchantOrderAction(row, "refund");
+      return;
+    }
+  }
+}
 const refundDialog = ref<HTMLElement>();
 function trapRefundFocus(event: KeyboardEvent) {
   if (event.key !== "Tab" || !refundDialog.value) return;
@@ -476,6 +647,7 @@ async function closeRefundModal() {
   const context = refundMenuReturn;
   refundMenuReturn = null;
   await returnMerchantFocus(context);
+  if (refundStepQueue.value.length) void nextTick(advanceMerchantRefundStep);
 }
 watch(
   () => [client.value, client.value.csrfToken, route.fullPath],
@@ -485,6 +657,7 @@ watch(
     merchantMenuReturn = null;
     refundMenuReturn = null;
     pendingMenuFocus = null;
+    refundStepQueue.value = [];
   },
 );
 function openOrderDetails(row: Record<string, unknown>) {
@@ -663,6 +836,11 @@ async function initialize() {
         )
           notice.value = "请重新登录以继续操作";
         void loadLoginPlatformAccess();
+        void loadConnectOptions();
+        connectPending.value =
+          typeof route.query.connect === "string" ? route.query.connect : "";
+        if (connectPending.value)
+          notice.value = "请输入商户ID和密钥完成绑定和登录";
       }
     }
   }
@@ -861,6 +1039,7 @@ async function load() {
     kind.value === "merchant-notice" ||
     kind.value === "template" ||
     kind.value === "app-store" ||
+    kind.value === "complain" ||
     kind.value === "transfers" ||
     kind.value === "transfer-batches" ||
     kind.value === "redpacks"
@@ -1007,6 +1186,8 @@ watch(
     if (area.value !== "merchant") promotionPrefill.value = "";
     refundSummaryQuery.value = null;
     refundSummaryReturn = undefined;
+    orderSummaryQuery.value = null;
+    orderSummaryReturn = undefined;
     pageNumber.value = 1;
     search.value = "";
     listFilters.value = freshListFilters();
@@ -1019,6 +1200,8 @@ watch(
 watch(session, (value) => {
   refundSummaryQuery.value = null;
   refundSummaryReturn = undefined;
+  orderSummaryQuery.value = null;
+  orderSummaryReturn = undefined;
   if (value) promotionPrefill.value = "";
   if (!value) {
     settleFundsAction(new Error("管理员会话已失效，资金授权已清除"));
@@ -1035,6 +1218,8 @@ watch(
   () => {
     refundSummaryQuery.value = null;
     refundSummaryReturn = undefined;
+    orderSummaryQuery.value = null;
+    orderSummaryReturn = undefined;
     promotionPrefill.value = "";
     settleFundsAction(new Error("页面已切换，资金授权已清除，请核对原业务"));
     enrollmentPurpose.value = null;
@@ -1099,6 +1284,68 @@ watch(
         area.value === "merchant" &&
         route.fullPath === originPath &&
         loginDocumentTarget205 === target
+      )
+        error.value = "登录页面切换失败，请重新加载页面";
+    });
+  },
+  { immediate: true },
+);
+// Admin has no login-document return machinery of its own: a logged-in admin
+// landing on /admin/login (fresh login, or a bookmarked login URL) would sit on
+// an unresolved route and render 页面不存在. Mirror the merchant flow — send a
+// logged-in admin to the requested ?return= path, else /admin/dashboard.
+function adminLoginReturn(value: unknown): string {
+  const fallback = "/admin/dashboard";
+  if (
+    typeof value !== "string" ||
+    !value.startsWith("/admin/") ||
+    /[\u0000-\u0020\u007f-\u009f\\]/.test(value)
+  )
+    return fallback;
+  try {
+    const base = "https://goepay-return.invalid",
+      target = new URL(value, base);
+    if (
+      target.origin !== base ||
+      !target.pathname.startsWith("/admin/") ||
+      /^\/admin\/login\/?$/i.test(target.pathname)
+    )
+      return fallback;
+    const page = target.pathname.slice("/admin".length);
+    if (
+      !resolvePage("admin", page) &&
+      viewKind("admin", page) === "unavailable"
+    )
+      return fallback;
+    return target.pathname + target.search;
+  } catch {
+    return fallback;
+  }
+}
+let adminLoginRedirectTarget = "";
+watch(
+  [area, () => route.fullPath, initializing, session],
+  () => {
+    if (
+      area.value !== "admin" ||
+      initializing.value ||
+      !session.value ||
+      !adminLoginDocument.value
+    ) {
+      adminLoginRedirectTarget = "";
+      return;
+    }
+    const target = adminLoginReturn(route.query.return);
+    if (target === adminLoginRedirectTarget) return;
+    adminLoginRedirectTarget = target;
+    const originPath = route.fullPath,
+      originEpoch = epoch;
+    void router.replace(target).catch(() => {
+      if (
+        originEpoch === epoch &&
+        area.value === "admin" &&
+        route.fullPath === originPath &&
+        adminLoginRedirectTarget === target
       )
         error.value = "登录页面切换失败，请重新加载页面";
     });
@@ -1338,6 +1585,68 @@ onBeforeUnmount(() => {
             {{ busy ? "正在登录…" : "登录工作台" }}
           </button>
         </form>
+        <div
+          v-if="area === 'merchant' && connectPending"
+          class="connect-complete"
+        >
+          <p class="muted">请输入商户ID和密钥完成绑定和登录</p>
+          <p v-if="connectError" class="alert error" role="alert">
+            {{ connectError }}
+          </p>
+          <form @submit.prevent="submitConnectComplete">
+            <label
+              >商户ID<input
+                v-model="connectForm.merchant_id"
+                name="connect_merchant_id"
+                inputmode="numeric"
+                autocomplete="off"
+                maxlength="19"
+                required
+                :disabled="connectBusy"
+            /></label>
+            <label
+              >商户密钥<input
+                v-model="connectForm.api_key"
+                name="connect_api_key"
+                type="password"
+                autocomplete="off"
+                maxlength="512"
+                required
+                :disabled="connectBusy"
+            /></label>
+            <label
+              >动态验证码（已绑定验证器时填写）<input
+                v-model="connectForm.code"
+                inputmode="numeric"
+                pattern="[0-9]{6}"
+                maxlength="6"
+                autocomplete="one-time-code"
+                :disabled="connectBusy"
+            /></label>
+            <button type="submit" class="primary full" :disabled="connectBusy">
+              {{ connectBusy ? "正在绑定登录…" : "绑定并登录" }}
+            </button>
+          </form>
+        </div>
+        <div
+          v-if="area === 'merchant' && connectProviderList.length"
+          class="quick-login"
+          aria-label="快捷登录"
+        >
+          <p class="muted">快捷登录</p>
+          <div class="toolbar-actions">
+            <button
+              v-for="p in connectProviderList"
+              :key="p"
+              type="button"
+              :data-quick-login="p"
+              :disabled="busy || loginUncertain"
+              @click="startQuickLogin(p)"
+            >
+              {{ connectTitles[p] }}
+            </button>
+          </div>
+        </div>
         <button
           v-if="loginUncertain"
           type="button"
@@ -1384,27 +1693,25 @@ onBeforeUnmount(() => {
     :inert="!!fundsAction"
   >
     <template #account>
-      <div class="account">
-        <span>{{ session.user.name }}</span
-        ><button
-          type="button"
-          class="theme-toggle icon-button"
-          :aria-label="theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'"
-          :title="theme === 'dark' ? '切换到浅色主题' : '切换到深色主题'"
-          @click="toggleTheme"
-        >
-          <ShellIcon :name="theme === 'dark' ? 'sun' : 'moon'" /></button
-        ><RouterLink
-          :to="
+      <ConsoleTopBarTools
+        :area="area"
+        :navigation="navigation"
+        :display-name="session.user.name"
+        :theme="theme"
+        :logout-busy="busy"
+        @navigate="(path) => $router.push('/' + area + path)"
+        @toggle-theme="toggleTheme"
+        @account="
+          $router.push(
             '/' +
-            area +
-            (area === 'admin' ? '/system/change-password' : '/account/settings')
-          "
-          >账户安全</RouterLink
-        ><button class="logout" :disabled="busy" @click="logout">
-          退出登录
-        </button>
-      </div>
+              area +
+              (area === 'admin'
+                ? '/system/change-password'
+                : '/account/settings'),
+          )
+        "
+        @logout="logout"
+      />
     </template>
     <main class="content">
       <p
@@ -1415,48 +1722,7 @@ onBeforeUnmount(() => {
         管理员 {{ session.delegated_by.name }} 正在代登录本商户。此会话最长 15
         分钟，管理员退出或权限撤销后失效。
       </p>
-      <div class="page-heading">
-        <div>
-          <p class="eyebrow">
-            {{ area === "admin" ? "PLATFORM CONSOLE" : "MERCHANT CONSOLE" }}
-          </p>
-          <h1>{{ page?.title || "页面不存在" }}</h1>
-        </div>
-        <button
-          v-if="
-            authorized &&
-            ![
-              'unavailable',
-              'resource',
-              'report',
-              'workflow',
-              'account',
-              'operation',
-              'commerce',
-              'group-sales',
-              'settings',
-              'invitations',
-              'collection-styles',
-              'collection-generator',
-              'identity-lookup',
-              'channel-sharing',
-              'referral',
-              'referral-policy',
-              'settlement-plans',
-              'settlement-schedule',
-              'printing',
-              'merchant-notice',
-              'template',
-              'app-store',
-              'transfers',
-            ].includes(kind)
-          "
-          :disabled="loading"
-          @click="load"
-        >
-          <ShellIcon name="refresh" />{{ loading ? "正在更新…" : "刷新数据" }}
-        </button>
-      </div>
+      <div class="page-heading-spacer"></div>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
       <div v-if="notice" class="alert success" role="status">
         {{ notice }}
@@ -1492,18 +1758,41 @@ onBeforeUnmount(() => {
         :admin-class="session?.user.admin_class"
       />
       <AppStorePage v-else-if="kind === 'app-store'" />
+      <ComplaintsPage
+        v-else-if="kind === 'complain'"
+        :key="area + path"
+        :client="client"
+        :area="area"
+        :path="path"
+      />
       <SettlementSchedulePage
         v-else-if="kind === 'settlement-schedule'"
         :client="client"
         :own-session="!!session && !session.delegated_by"
       />
-      <ChannelSharingPage
-        v-else-if="kind === 'channel-sharing'"
+      <ChannelSharingRuleList
+        v-else-if="
+          kind === 'channel-sharing' && path === '/profitsharing/receiver'
+        "
         :key="area + path"
         :client="client"
         :area="area"
-        :page="path === '/profitsharing/receiver' ? 'receiver' : 'order'"
       />
+      <template v-else-if="kind === 'channel-sharing'">
+        <ChannelSharingOrderList
+          :key="area + path"
+          :client="client"
+          :area="area"
+          @open-flow="sharingFlowOpen = true"
+        />
+        <ChannelSharingPage
+          v-if="sharingFlowOpen"
+          :key="area + path + '-flow'"
+          :client="client"
+          :area="area"
+          :page="'order'"
+        />
+      </template>
       <ReferralPage
         v-else-if="kind === 'referral'"
         :key="area + path"
@@ -1794,65 +2083,53 @@ onBeforeUnmount(() => {
           "
         >
           <div
-            class="search-group"
+            class="search-group list-filters-grid"
             :class="{
               'order-search-group': ['orders', 'refunds'].includes(kind),
             }"
           >
-            <label
+            <KitField
               v-if="['orders', 'refunds'].includes(kind)"
-              class="sr-only"
-              :for="
-                kind === 'orders' ? 'order-search-field' : 'refund-search-field'
-              "
-              >{{ kind === "orders" ? "订单搜索字段" : "退款搜索字段" }}</label
+              label="搜索字段"
             >
-            <select
-              v-if="['orders', 'refunds'].includes(kind)"
-              :id="
-                kind === 'orders' ? 'order-search-field' : 'refund-search-field'
+              <KitSelect
+                v-model="listFilters.search_field"
+                :options="searchFieldOptions"
+                placeholder="综合搜索"
+                :aria-label="
+                  kind === 'orders' ? '订单搜索字段' : '退款搜索字段'
+                "
+              />
+            </KitField>
+            <KitField
+              :label="
+                ['orders', 'refunds'].includes(kind) ? '搜索内容' : '搜索记录'
               "
-              v-model="listFilters.search_field"
-              :aria-label="kind === 'orders' ? '订单搜索字段' : '退款搜索字段'"
-              class="order-search-field"
             >
-              <option value="">综合搜索</option>
-              <option
-                v-for="field in kind === 'refunds'
-                  ? refundSearchFields
-                  : orderSearchFields"
-                :key="field.value"
-                :value="field.value"
-              >
-                {{ field.label }}
-              </option>
-            </select>
-            <label class="sr-only" for="search">搜索记录</label
-            ><input
-              id="search"
-              v-model="search"
-              :placeholder="
-                ['orders', 'refunds'].includes(kind) && listFilters.search_field
-                  ? ['money', 'realmoney', 'getmoney'].includes(
-                      listFilters.search_field,
-                    )
-                    ? '输入金额（元）'
-                    : '搜索内容'
-                  : '搜索订单号或业务编号'
-              "
-              :inputmode="
-                ['money', 'realmoney', 'getmoney'].includes(
-                  listFilters.search_field,
-                )
-                  ? 'decimal'
-                  : 'text'
-              "
-            /><button class="primary" :disabled="loading">查询</button>
+              <KitInput
+                v-model="search"
+                :placeholder="searchFieldPlaceholder"
+                :inputmode="searchFieldInputmode"
+                aria-label="搜索内容"
+              />
+            </KitField>
+            <KitField
+              v-if="area === 'admin' && ['orders', 'refunds'].includes(kind)"
+              label="商户号"
+            >
+              <KitInput
+                v-model="listFilters.merchant_id"
+                inputmode="numeric"
+                placeholder="商户号"
+                aria-label="商户号筛选"
+              />
+            </KitField>
           </div>
           <ListFilters
             v-model="listFilters"
             :kind="kind"
             :area="area"
+            :loading="loading"
             @reset="resetListFilters"
           />
         </form>
@@ -1861,6 +2138,24 @@ onBeforeUnmount(() => {
             v-if="['orders', 'refunds', 'ledger'].includes(kind)"
             class="table-tools"
           >
+            <button
+              v-if="kind === 'orders'"
+              type="button"
+              class="pa-btn pa-btn--primary"
+              :disabled="loading || busy || !!listRouteError"
+              @click="openOrderSummary"
+            >
+              统计
+            </button>
+            <button
+              v-if="kind === 'refunds'"
+              type="button"
+              class="pa-btn pa-btn--primary"
+              :disabled="loading || busy || !!listRouteError"
+              @click="openRefundSummary"
+            >
+              退款统计
+            </button>
             <CsvExportButton
               v-if="['orders', 'refunds', 'ledger'].includes(kind)"
               :client="client"
@@ -1868,15 +2163,6 @@ onBeforeUnmount(() => {
               :filename="`${kind}-filtered.csv`"
               :disabled="loading || !!listRouteError"
             />
-            <button
-              v-if="kind === 'refunds'"
-              type="button"
-              class="soft-button"
-              :disabled="loading || busy || !!listRouteError"
-              @click="openRefundSummary"
-            >
-              退款统计
-            </button>
             <OrderBatchControls
               v-if="kind === 'orders' && area === 'admin' && !error"
               :key="area + path"
@@ -1888,6 +2174,18 @@ onBeforeUnmount(() => {
               @busy="orderBatchBusy = $event"
               @active="orderBatchOpen = $event"
               @updated="load"
+            />
+            <MerchantOrderBatchControls
+              v-if="kind === 'orders' && area === 'merchant' && !error"
+              :key="area + path"
+              :client="client"
+              :items="items"
+              :selected="selectedOrderTrades"
+              :own-session="!!session && !session.delegated_by"
+              @busy="orderBatchBusy = $event"
+              @active="orderBatchOpen = $event"
+              @updated="load"
+              @refund-step="startMerchantRefundStep"
             />
             <div class="table-tools-end">
               <label
@@ -1918,6 +2216,16 @@ onBeforeUnmount(() => {
                   !!listRouteError
                 "
               />
+              <button
+                type="button"
+                class="icon-button table-refresh"
+                :aria-label="loading ? '正在更新…' : '刷新数据'"
+                :title="loading ? '正在更新…' : '刷新数据'"
+                :disabled="loading"
+                @click="load"
+              >
+                <ShellIcon name="refresh" />
+              </button>
             </div>
           </div>
           <div v-if="loading" class="loading-row" role="status">
@@ -1932,7 +2240,7 @@ onBeforeUnmount(() => {
             :ledger="kind === 'ledger'"
             :admin-orders="kind === 'orders' && area === 'admin'"
             :merchant-orders="kind === 'orders' && area === 'merchant'"
-            :selectable="kind === 'orders' && area === 'admin'"
+            :selectable="kind === 'orders'"
             :selected-trades="selectedOrderTrades"
             @selection-change="selectedOrderTrades = $event"
             :order-actions-disabled="
@@ -1951,29 +2259,12 @@ onBeforeUnmount(() => {
             @merchant-order-action="openMerchantOrderAction"
             @blacklist="openBlacklist"
           />
-          <div class="pagination">
-            <span>共 {{ total }} 条记录</span>
-            <div>
-              <button
-                :disabled="pageNumber <= 1 || loading"
-                @click="
-                  pageNumber--;
-                  load();
-                "
-              >
-                上一页</button
-              ><span>第 {{ pageNumber }} 页</span
-              ><button
-                :disabled="pageNumber * listLimit >= total || loading"
-                @click="
-                  pageNumber++;
-                  load();
-                "
-              >
-                下一页
-              </button>
-            </div>
-          </div>
+          <KitPagination
+            v-model:page="pageNumber"
+            v-model:page-size="listLimit"
+            :total="total"
+            @change="load"
+          />
         </section>
       </template>
       <LegacyRefundHistoryPanel
@@ -1996,6 +2287,12 @@ onBeforeUnmount(() => {
         :client="client"
         :query="refundSummaryQuery"
         @close="closeRefundSummary"
+      />
+      <OrderSummaryDialog
+        v-if="orderSummaryQuery !== null && authorized && kind === 'orders'"
+        :client="client"
+        :query="orderSummaryQuery"
+        @close="closeOrderSummary"
       />
       <OrderBlacklistDialog
         v-if="blacklistSelection && session && authorized && area === 'admin'"
@@ -2137,4 +2434,5 @@ onBeforeUnmount(() => {
     @completed="(result) => settleFundsAction(undefined, result)"
     @failed="(error) => settleFundsAction(error)"
   />
+  <ToastStack />
 </template>

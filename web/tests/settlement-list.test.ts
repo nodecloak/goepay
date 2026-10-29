@@ -125,3 +125,15 @@ it("full but invalid projections cannot silently fall back to the legacy table",
   expect(api.hasOriginalSettlementProjection([bad])).toBe(true);
   expect(() => read(bad)).toThrow();
 });
+it("marks a manually-processed settlement with the original [手动] tag", () => {
+  const auto = read({ ...fixture(), auto: true });
+  expect(auto.method).toBe("支付宝");
+  expect(auto.auto).toBe(true);
+  const manual = read({ ...fixture(), auto: false });
+  expect(manual.method).toBe("支付宝 [手动]");
+  expect(manual.auto).toBe(false);
+  const absent = { ...fixture() } as Record<string, unknown>;
+  delete absent.auto;
+  expect(api.hasOriginalSettlementProjection([absent])).toBe(false);
+  expect(read(absent).method).toBe("支付宝 [手动]");
+});

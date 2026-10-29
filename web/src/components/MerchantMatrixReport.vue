@@ -9,6 +9,7 @@ import {
 } from "../reports";
 import CsvExportButton from "./CsvExportButton.vue";
 import ShellIcon from "./ShellIcon.vue";
+import KitPagination from "./KitPagination.vue";
 const props = defineProps<{ client: ApiClient; report: string }>();
 const today = () => reportDateRange("today")!;
 const from = ref(today().from),
@@ -17,7 +18,8 @@ const from = ref(today().from),
   metric = ref("0"),
   sort = ref("total"),
   direction = ref("desc"),
-  page = ref(1);
+  page = ref(1),
+  limit = ref(20);
 const columns = ref<ReportColumn[]>([]),
   items = ref<Record<string, unknown>[]>([]),
   summary = ref<Record<string, unknown> | null>(null),
@@ -122,7 +124,7 @@ async function load() {
       total: number;
       missing_costs: string;
     }>(
-      `/reports/${encodeURIComponent(report)}?${query}&page=${page.value}&limit=20`,
+      `/reports/${encodeURIComponent(report)}?${query}&page=${page.value}&limit=${limit.value}`,
       { signal: c.signal },
     );
     if (c.signal.aborted) return;
@@ -309,28 +311,12 @@ onBeforeUnmount(() => controller?.abort());
         </tbody>
       </table>
     </div>
-    <div class="pagination">
-      <span>第 {{ page }} 页</span>
-      <div>
-        <button
-          :disabled="page <= 1 || loading || dirty || !!error"
-          @click="
-            page--;
-            load();
-          "
-        >
-          上一页</button
-        ><button
-          :disabled="page * 20 >= total || loading || dirty || !!error"
-          @click="
-            page++;
-            load();
-          "
-        >
-          下一页
-        </button>
-      </div>
-    </div>
+    <KitPagination
+      v-model:page="page"
+      v-model:page-size="limit"
+      :total="total"
+      @change="load"
+    />
   </section>
 </template>
 <style scoped>

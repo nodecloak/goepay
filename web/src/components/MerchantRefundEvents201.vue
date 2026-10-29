@@ -20,7 +20,7 @@ const props = withDefaults(
   { ownSession: false, merchantId: "" },
 );
 
-type EventType = "refund";
+type EventType = "refund" | "complain";
 const deliveryLabels = {
   none: "尚无投递记录",
   pending: "等待投递",
@@ -90,8 +90,11 @@ function readSubscription(raw: unknown): Subscription {
     keys.some((key) => !Object.hasOwn(value, key)) ||
     typeof value.event_url !== "string" ||
     !Array.isArray(value.event_types) ||
-    value.event_types.length > 1 ||
-    value.event_types.some((event) => event !== "refund") ||
+    value.event_types.length > 2 ||
+    value.event_types.some(
+      (event) => event !== "refund" && event !== "complain",
+    ) ||
+    new Set(value.event_types as string[]).size !== value.event_types.length ||
     typeof value.fingerprint !== "string" ||
     !/^[a-f0-9]{64}$/.test(value.fingerprint) ||
     typeof value.consecutive_failures !== "number" ||
@@ -104,7 +107,11 @@ function readSubscription(raw: unknown): Subscription {
     new TextEncoder().encode(value.subscription_notice).length > 1000
   )
     throw invalid();
-  const eventTypes: EventType[] = value.event_types.length ? ["refund"] : [];
+  const eventTypes: EventType[] = [];
+  if ((value.event_types as string[]).includes("refund"))
+    eventTypes.push("refund");
+  if ((value.event_types as string[]).includes("complain"))
+    eventTypes.push("complain");
   if (callbackURL(value.event_url, eventTypes.length > 0) !== value.event_url)
     throw invalid();
   return {
@@ -118,7 +125,7 @@ function readSubscription(raw: unknown): Subscription {
 }
 
 const state = ref<Subscription | null>(null);
-const draft = reactive({ url: "", refund: false });
+const draft = reactive({ url: "", refund: false, complain: false });
 const loading = ref(false),
   busy = ref(false),
   error = ref(""),
@@ -166,6 +173,7 @@ function sameContext(source = tracked) {
 function setDraft(value?: Subscription | null) {
   draft.url = value?.event_url ?? "";
   draft.refund = value?.event_types.includes("refund") ?? false;
+  draft.complain = value?.event_types.includes("complain") ?? false;
 }
 function clear(message = "") {
   ++epoch;
@@ -243,12 +251,16 @@ function prepare(kind: "save" | "disable") {
   notice.value = "";
   try {
     const refund = kind === "save" && draft.refund;
+    const complain = kind === "save" && draft.complain;
+    const types: EventType[] = [];
+    if (refund) types.push("refund");
+    if (complain) types.push("complain");
     prepared = {
       event_url: callbackURL(
         kind === "disable" ? state.value.event_url : draft.url,
-        refund,
+        types.length > 0,
       ),
-      event_types: refund ? ["refund"] : [],
+      event_types: types,
       expected_fingerprint: state.value.fingerprint,
     };
     confirming.value = kind;
@@ -391,7 +403,14 @@ onBeforeUnmount(() => {
           <div>
             <dt>订阅状态</dt>
             <dd>
-              {{ state.event_types.length ? "已启用订单退款事件" : "未启用" }}
+              {{
+                state.event_types.length
+                  ? "已启用：" +
+                    state.event_types
+                      .map((t) => (t === "refund" ? "订单退款" : "交易投诉"))
+                      .join("、")
+                  : "未启用"
+              }}
             </dd>
           </div>
           <div>
@@ -440,9 +459,17 @@ onBeforeUnmount(() => {
                 type="checkbox"
               /><span>订单退款</span></label
             >
+            <label
+              ><input
+                v-model="draft.complain"
+                name="event_types"
+                value="complain"
+                type="checkbox"
+              /><span>交易投诉</span></label
+            >
           </div>
           <p class="muted event-scope">
-            仅发送在平台提交的退款操作事件，不包括通过API退款的操作
+            订单退款：发送在平台提交的退款操作事件，不包括通过API退款的操作。交易投诉：发送渠道投诉的新投诉与状态变化，每个状态仅推送一次。
           </p>
         </fieldset>
         <p class="muted event-guidance">
@@ -460,7 +487,7 @@ onBeforeUnmount(() => {
               confirming === "disable"
                 ? "确认禁用事件订阅？当前已保存的订阅URL会保留，订阅事件将清空。"
                 : prepared?.event_types.length
-                  ? "确认保存此URL并订阅订单退款事件？"
+                  ? "确认保存此URL并订阅所选事件？"
                   : "确认保存并关闭全部事件订阅？"
             }}
           </p>

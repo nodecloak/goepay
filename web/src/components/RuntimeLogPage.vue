@@ -5,6 +5,11 @@ import { reportDateRange } from "../reports";
 import { beijingTimestamp } from "../console-datetime";
 import RuntimeLogCleanup from "./RuntimeLogCleanup.vue";
 import ShellIcon from "./ShellIcon.vue";
+import KitFilterBar from "./KitFilterBar.vue";
+import KitField from "./KitField.vue";
+import KitPagination from "./KitPagination.vue";
+import KitStatusTag from "./KitStatusTag.vue";
+import KitHelpPopover from "./KitHelpPopover.vue";
 const props = defineProps<{
   client: ApiClient;
   ownSession?: boolean;
@@ -26,6 +31,15 @@ const canWrite = computed(
     props.adminClass === "super",
 );
 let controller: AbortController | undefined;
+function logTone(
+  type: string,
+): "success" | "warning" | "danger" | "info" | "neutral" {
+  if (["error", "critical", "emergency", "alert"].includes(type))
+    return "danger";
+  if (["warning", "warn"].includes(type)) return "warning";
+  if (["notice", "info", "debug"].includes(type)) return "info";
+  return "neutral";
+}
 function clear() {
   controller?.abort();
   items.value = [];
@@ -98,41 +112,33 @@ onMounted(load);
 onBeforeUnmount(clear);
 </script>
 <template>
-  <form
-    class="toolbar list-filter-card panel"
-    @submit.prevent="
+  <KitFilterBar
+    :loading="loading"
+    @query="
       page = 1;
       load();
     "
+    @reset="
+      date = today;
+      page = 1;
+      $nextTick(load);
+    "
   >
-    <span class="filter-inline date-range"
-      >日期<input
+    <KitField label="日期"
+      ><input
         v-model="date"
+        class="pa-input"
         type="date"
         :max="today"
         aria-label="日期"
         required
-    /></span>
-    <div class="filter-actions">
-      <button class="primary" :disabled="loading">查询</button
-      ><button
-        type="button"
-        :disabled="loading"
-        @click="
-          date = today;
-          page = 1;
-          $nextTick(load);
-        "
-      >
-        重置
-      </button>
-    </div>
-  </form>
+    /></KitField>
+  </KitFilterBar>
   <section class="panel records runtime-log-page">
     <div class="table-tools">
-      <span class="muted"
-        >按北京时间查看本服务已保存的运行事件；部署前或数据库不可用时未保存的终端输出不在列表中。</span
-      >
+      <KitHelpPopover
+        text="按北京时间查看本服务已保存的运行事件；部署前或数据库不可用时未保存的终端输出不在列表中。"
+      />
       <div class="table-tools-end">
         <button type="button" :disabled="loading" @click="load">
           <ShellIcon name="refresh" />刷新</button
@@ -161,9 +167,10 @@ onBeforeUnmount(clear);
           <tr v-for="row in items" :key="String(row.id)">
             <td>{{ beijingTimestamp(row.time) }}</td>
             <td>
-              <span class="badge" :data-state="String(row.type)">{{
-                row.type
-              }}</span>
+              <KitStatusTag
+                :text="String(row.type)"
+                :tone="logTone(String(row.type))"
+              />
             </td>
             <td class="log-content">{{ row.content }}</td>
           </tr>
@@ -174,27 +181,13 @@ onBeforeUnmount(clear);
       </table>
     </div>
     <div class="pagination">
-      <span>共 {{ total }} 条记录</span>
-      <div>
-        <button
-          :disabled="page <= 1 || loading"
-          @click="
-            page--;
-            load();
-          "
-        >
-          上一页</button
-        ><span>第 {{ page }} 页</span
-        ><button
-          :disabled="page * 30 >= total || loading"
-          @click="
-            page++;
-            load();
-          "
-        >
-          下一页
-        </button>
-      </div>
+      <KitPagination
+        v-model:page="page"
+        :page-size="30"
+        :total="total"
+        :page-sizes="[30]"
+        @change="load"
+      />
     </div>
     <details
       class="list-filters runtime-audit-disclosure"
@@ -229,11 +222,5 @@ onBeforeUnmount(clear);
 }
 .runtime-audit-disclosure {
   margin: 16px var(--space-5) 0;
-}
-.badge[data-state="error"],
-.badge[data-state="critical"],
-.badge[data-state="emergency"] {
-  color: var(--danger-text);
-  background: var(--danger-soft);
 }
 </style>

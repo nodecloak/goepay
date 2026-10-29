@@ -16,6 +16,10 @@ import {
   type ReportColumn,
 } from "../reports";
 import DataTable from "./DataTable.vue";
+import KitPagination from "./KitPagination.vue";
+import KitField from "./KitField.vue";
+import KitSelect from "./KitSelect.vue";
+import KitHelpPopover from "./KitHelpPopover.vue";
 import CsvExportButton from "./CsvExportButton.vue";
 import ShellIcon from "./ShellIcon.vue";
 import MerchantMatrixReport from "./MerchantMatrixReport.vue";
@@ -34,6 +38,7 @@ const from = ref(""),
   to = ref(""),
   shortcut = ref(""),
   page = ref(1),
+  limit = ref(20),
   columns = ref<ReportColumn[]>([]),
   items = ref<Record<string, unknown>[]>([]),
   total = ref(0),
@@ -41,6 +46,11 @@ const from = ref(""),
   error = ref("");
 const summary = ref<Record<string, unknown> | null>(null);
 const complaintOverview = computed(() => props.report === "complaints");
+const reportNote = computed(() =>
+  complaintOverview.value
+    ? "本地已登记投诉，包含所有处理状态。按北京时间统计今日、昨日和近7日；近7日比率为投诉条数 ÷ 同期已支付订单数，无支付订单时显示未知。未登记的上游投诉不计入。"
+    : "业务日期按 UTC+08:00 统计。未指定日期时查询最近 30 天；未采集的维度会显示为未知。",
+);
 const originalStatistics = computed(
   () =>
     props.report === "daily" ||
@@ -59,7 +69,10 @@ function applyShortcut() {
   load();
 }
 function reportQuery() {
-  const q = new URLSearchParams({ page: String(page.value), limit: "20" });
+  const q = new URLSearchParams({
+    page: String(page.value),
+    limit: String(limit.value),
+  });
   if (complaintOverview.value) {
     q.set("view", "overview");
     return q;
@@ -173,41 +186,52 @@ onBeforeUnmount(() => controller?.abort());
       </section>
     </div>
     <form
-      class="toolbar list-filter-card panel"
+      class="toolbar list-filter-card panel report-filter-kit"
       @submit.prevent="
         page = 1;
         load();
       "
     >
-      <template v-if="!complaintOverview">
-        <label class="filter-inline"
-          >快捷范围<select
-            v-model="shortcut"
-            aria-label="统计日期快捷范围"
-            @change="applyShortcut"
-          >
-            <option value="">自定义日期</option>
-            <option value="today">今天</option>
-            <option value="yesterday">昨天</option>
-            <option value="last7">最近7天</option>
-            <option value="last30">最近30天</option>
-          </select></label
+      <div class="pa-filter-fields list-filters-grid">
+        <template v-if="!complaintOverview">
+          <KitField label="快捷范围">
+            <KitSelect
+              v-model="shortcut"
+              :options="[
+                { value: '', label: '自定义日期' },
+                { value: 'today', label: '今天' },
+                { value: 'yesterday', label: '昨天' },
+                { value: 'last7', label: '最近7天' },
+                { value: 'last30', label: '最近30天' },
+              ]"
+              aria-label="统计日期快捷范围"
+              @change="applyShortcut"
+            />
+          </KitField>
+          <KitField label="开始日期">
+            <input
+              v-model="from"
+              type="date"
+              aria-label="开始日期"
+              @input="shortcut = ''"
+            />
+          </KitField>
+          <KitField label="结束日期">
+            <input
+              v-model="to"
+              type="date"
+              aria-label="结束日期"
+              @input="shortcut = ''"
+            />
+          </KitField>
+        </template>
+      </div>
+      <div class="pa-filter-actions">
+        <button
+          type="submit"
+          class="pa-btn pa-btn--primary"
+          :disabled="loading"
         >
-        <span class="filter-inline date-range"
-          >日期<input
-            v-model="from"
-            type="date"
-            aria-label="开始日期"
-            @input="shortcut = ''" /><span class="date-range-sep">–</span
-          ><input
-            v-model="to"
-            type="date"
-            aria-label="结束日期"
-            @input="shortcut = ''"
-        /></span>
-      </template>
-      <div class="filter-actions">
-        <button class="primary" :disabled="loading">
           {{ complaintOverview ? "刷新统计" : "查询统计" }}
         </button>
       </div>
@@ -216,6 +240,7 @@ onBeforeUnmount(() => controller?.abort());
       <div class="table-tools">
         <button
           type="button"
+          class="pa-btn pa-btn--success"
           :disabled="loading || !items.length"
           @click="download"
         >
@@ -230,40 +255,16 @@ onBeforeUnmount(() => controller?.abort());
         <span class="table-summary"
           >共 <strong>{{ total }}</strong> 条统计</span
         >
+        <KitHelpPopover :text="reportNote" />
       </div>
-      <p v-if="!complaintOverview" class="table-note">
-        业务日期按 UTC+08:00 统计。未指定日期时查询最近 30
-        天；未采集的维度会显示为未知。
-      </p>
-      <p v-else class="table-note">
-        本地已登记投诉，包含所有处理状态。按北京时间统计今日、昨日和近7日；近7日比率为投诉条数
-        ÷ 同期已支付订单数，无支付订单时显示未知。未登记的上游投诉不计入。
-      </p>
       <div v-if="loading" class="loading-row" role="status">正在汇总统计…</div>
       <DataTable v-else-if="!error" :columns="columns" :items="items" />
-      <div class="pagination">
-        <span>共 {{ total }} 条统计</span>
-        <div>
-          <button
-            :disabled="page <= 1 || loading"
-            @click="
-              page--;
-              load();
-            "
-          >
-            上一页</button
-          ><span>第 {{ page }} 页</span
-          ><button
-            :disabled="page * 20 >= total || loading"
-            @click="
-              page++;
-              load();
-            "
-          >
-            下一页
-          </button>
-        </div>
-      </div>
+      <KitPagination
+        v-model:page="page"
+        v-model:page-size="limit"
+        :total="total"
+        @change="load"
+      />
     </section>
   </div>
 </template>

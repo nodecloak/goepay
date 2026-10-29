@@ -2,14 +2,19 @@ import type { Area } from "./menu";
 import { centsMoney } from "./settlement-terms";
 import { beijingTimestamp } from "./console-datetime";
 
+// Pro's transfer list pairs related fields into one column with a stacked
+// 主/次 header (and a two-line cell). 备注 no longer has its own column — it is
+// the muted second line of 付款方式. GOEPAY keeps its 手续费 column (Pro folds it
+// into 付款金额, but the ledger exposes it and the tests assert it).
 export function originalTransferColumns(area: Area) {
   return [
-    { key: "number", label: "交易号" },
+    { key: "number", label: "交易号", sub: "第三方交易号" },
     ...(area === "admin" ? [{ key: "merchantID", label: "商户号" }] : []),
-    { key: "method", label: "付款方式" },
-    { key: "account", label: "付款账号" },
-    { key: "amount", label: "付款金额" },
-    { key: "createdAt", label: "提交时间" },
+    { key: "method", label: "付款方式", sub: "备注" },
+    { key: "account", label: "付款账号", sub: "姓名" },
+    { key: "amount", label: "付款金额", sub: "花费金额" },
+    { key: "fee", label: "手续费" },
+    { key: "createdAt", label: "提交时间", sub: "付款时间" },
     { key: "status", label: "状态" },
   ];
 }

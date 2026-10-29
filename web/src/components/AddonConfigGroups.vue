@@ -8,6 +8,7 @@ import { computed } from "vue";
 import { displayValue } from "../api";
 import { consoleValue } from "../pro-console-fields";
 import ShellIcon from "./ShellIcon.vue";
+import KitStatusTag from "./KitStatusTag.vue";
 
 type Row = Record<string, unknown>;
 const props = defineProps<{
@@ -61,7 +62,10 @@ const groups = computed(() => [
       <h2 :id="'addon-group-' + g.key" class="addon-group-title">
         {{ g.title }}
       </h2>
-      <span class="badge" :data-state="g.state">{{ g.rows.length }}</span>
+      <KitStatusTag
+        :tone="g.state === 'on' ? 'success' : 'neutral'"
+        :text="String(g.rows.length)"
+      />
       <div v-if="g.key === 'enabled'" class="table-tools-end">
         <button
           v-if="canCreate"
@@ -104,12 +108,11 @@ const groups = computed(() => [
           <tr v-for="row in g.rows" :key="String(row.id)">
             <td>{{ row.id }}</td>
             <td v-for="f in fields" :key="f.name">
-              <span
+              <KitStatusTag
                 v-if="f.name === 'enabled'"
-                class="badge"
-                :data-state="row.enabled === true ? 'on' : 'off'"
-                >{{ consoleValue("enabled", row.enabled) }}</span
-              >
+                :text="consoleValue('enabled', row.enabled)"
+                :tone="row.enabled === true ? 'success' : 'neutral'"
+              />
               <span v-else class="cell">{{
                 f.type === "boolean"
                   ? row[f.name]

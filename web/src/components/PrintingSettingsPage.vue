@@ -2,6 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { ApiClient } from "../api";
 import type { PlatformPrinting, MerchantPrinting } from "../printing";
+import KitSelect from "./KitSelect.vue";
+import KitSwitch from "./KitSwitch.vue";
 const props = defineProps<{
   client: ApiClient;
   ownSession: boolean;
@@ -151,36 +153,38 @@ onBeforeUnmount(() => {
       <form v-if="loaded" @submit.prevent="confirming = true">
         <fieldset :disabled="busy || confirming">
           <template v-if="admin">
+            <label class="kit-row"
+              ><KitSwitch v-model="enabled" label="允许参与订单打印"
+            /></label>
             <label
-              ><input
-                v-model="enabled"
-                type="checkbox"
-              />允许参与订单打印</label
-            >
-            <label
-              >打印服务<select v-model="provider">
-                <option value="local_fake">本地模拟</option>
-                <option value="excelsecu">
-                  {{
-                    platform?.external_execution_available
-                      ? "固定HTTPS打印网关"
-                      : "原打印网关配置（不执行）"
-                  }}
-                </option>
-              </select></label
-            >
+              >打印服务<KitSelect
+                v-model="provider"
+                :options="[
+                  { value: 'local_fake', label: '本地模拟' },
+                  {
+                    value: 'excelsecu',
+                    label: platform?.external_execution_available
+                      ? '固定HTTPS打印网关'
+                      : '原打印网关配置（不执行）',
+                  },
+                ]"
+                aria-label="打印服务"
+            /></label>
             <p>
               现有应用：{{ platform?.app_id_masked || "未配置" }}；密钥：{{
                 platform?.secret_present ? "已保存" : "未保存"
               }}
             </p>
             <label
-              >凭据操作<select v-model="credentialAction">
-                <option value="keep">保留原凭据</option>
-                <option value="replace">替换凭据</option>
-                <option value="clear">清除凭据（先停用）</option>
-              </select></label
-            >
+              >凭据操作<KitSelect
+                v-model="credentialAction"
+                :options="[
+                  { value: 'keep', label: '保留原凭据' },
+                  { value: 'replace', label: '替换凭据' },
+                  { value: 'clear', label: '清除凭据（先停用）' },
+                ]"
+                aria-label="凭据操作"
+            /></label>
             <template v-if="credentialAction === 'replace'"
               ><label
                 >应用ID<input
@@ -197,29 +201,39 @@ onBeforeUnmount(() => {
           </template>
           <template v-else>
             <label
-              >自动打印范围<select v-model.number="mode">
-                <option :value="0">不自动打印</option>
-                <option :value="1">仅聚合收款订单</option>
-                <option :value="2">全部普通支付订单</option>
-              </select></label
-            >
+              >自动打印范围<KitSelect
+                :model-value="String(mode)"
+                :options="[
+                  { value: '0', label: '不自动打印' },
+                  { value: '1', label: '仅聚合收款订单' },
+                  { value: '2', label: '全部普通支付订单' },
+                ]"
+                aria-label="自动打印范围"
+                @update:model-value="mode = Number($event)"
+            /></label>
             <label
               >每单份数<input
                 v-model.number="copies"
+                class="pa-input"
                 type="number"
                 min="1"
                 max="5"
                 required
             /></label>
-            <label><input v-model="voice" type="checkbox" />语音播报</label>
+            <label class="kit-row"
+              ><KitSwitch v-model="voice" label="语音播报"
+            /></label>
             <p>已绑定设备：{{ merchant?.device_masked || "未配置" }}</p>
             <label
-              >设备操作<select v-model="deviceAction">
-                <option value="keep">保留原设备</option>
-                <option value="replace">替换设备</option>
-                <option value="clear">清除设备（先停用）</option>
-              </select></label
-            >
+              >设备操作<KitSelect
+                v-model="deviceAction"
+                :options="[
+                  { value: 'keep', label: '保留原设备' },
+                  { value: 'replace', label: '替换设备' },
+                  { value: 'clear', label: '清除设备（先停用）' },
+                ]"
+                aria-label="设备操作"
+            /></label>
             <label v-if="deviceAction === 'replace'"
               >设备编号<input
                 v-model="deviceID"

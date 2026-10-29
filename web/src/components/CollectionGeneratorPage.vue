@@ -20,6 +20,10 @@ import {
 } from "../collection-style";
 import ResourcePage from "./ResourcePage.vue";
 import MerchantScanShortcut192 from "./MerchantScanShortcut192.vue";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
+import KitSelect from "./KitSelect.vue";
+import KitEmpty from "./KitEmpty.vue";
 interface GeneratedCode {
   code_id: string;
   recipient_name: string;
@@ -45,6 +49,9 @@ const name = ref(""),
   loading = ref(false),
   busy = ref(false),
   history = ref(false),
+  savingCodename = ref(false),
+  defaultCodename = ref(""),
+  codenameCustomized = ref(false),
   unknown = ref(false);
 const initialCSRF = props.client.csrfToken;
 let intents = generatorIntents.get(props.client);
@@ -59,6 +66,21 @@ const canWrite = computed(
     props.ownSession &&
     props.client.csrfToken === initialCSRF,
 );
+const formDisabled = computed(
+  () => loading.value || busy.value || unknown.value || !canWrite.value,
+);
+const domainOptions = computed(() =>
+  domains.value.map((d) => ({ value: d.origin, label: d.label })),
+);
+const styleOptions = computed(() => [
+  { value: "0", label: "普通二维码" },
+  ...styles.value.map((item) => ({
+    value: item.id,
+    label: String(
+      item.fields.label || item.fields.title || item.fields.name || item.id,
+    ),
+  })),
+]);
 let alive = true,
   epoch = 0,
   renderEpoch = 0,
@@ -124,6 +146,8 @@ async function load() {
   try {
     const data = await props.client.request<{
       recipient_name: string;
+      default_codename?: string;
+      codename_customized?: boolean;
       styles: CollectionStyleView[];
       domains: { origin: string; label: string }[];
       latest: GeneratedCode | null;
@@ -131,6 +155,8 @@ async function load() {
     if (!alive || current !== epoch || c.signal.aborted) return;
     styles.value = data.styles;
     domains.value = data.domains;
+    defaultCodename.value = data.default_codename ?? data.recipient_name;
+    codenameCustomized.value = data.codename_customized === true;
     if (pending.value) {
       restore(pending.value);
       unknown.value = true;
@@ -252,6 +278,28 @@ function download() {
   a.download = `collection-code-${result.value.code_id}.png`;
   a.click();
 }
+// F10 account/editCodename: persist the typed name as this account's default
+// aggregate-code name, prefilled on the next visit. Empty clears it.
+async function saveCodename() {
+  if (savingCodename.value || !canWrite.value) return;
+  savingCodename.value = true;
+  error.value = "";
+  try {
+    const out = await props.client.request<{ default_codename: string }>(
+      "/collection-generator",
+      { method: "PATCH", body: { recipient_name: name.value.trim() } },
+    );
+    if (!alive) return;
+    defaultCodename.value = out.default_codename;
+    codenameCustomized.value = name.value.trim() !== "";
+    notice.value = "默认收款名称已保存";
+  } catch (e) {
+    if (alive)
+      error.value = e instanceof Error ? e.message : "默认名称保存失败";
+  } finally {
+    if (alive) savingCodename.value = false;
+  }
+}
 onMounted(load);
 watch(
   () => [props.client, props.client.csrfToken, props.ownSession],
@@ -301,25 +349,34 @@ onBeforeUnmount(() => {
       <form class="generator-form" @submit.prevent="generate">
         <section class="generator-card">
           <h3>聚合收款配置</h3>
-          <fieldset :disabled="loading || busy || unknown || !canWrite">
-            <label
-              >收款方名称<input
+          <fieldset :disabled="formDisabled">
+            <KitField label="收款方名称" required>
+              <KitInput
                 v-model="name"
-                maxlength="100"
-                autocomplete="off"
-                required
-            /></label>
-            <label
-              >选择域名<select v-model="origin" required aria-label="选择域名">
-                <option
-                  v-for="domain in domains"
-                  :key="domain.origin"
-                  :value="domain.origin"
-                >
-                  {{ domain.label }}
-                </option>
-              </select></label
-            >
+                :maxlength="100"
+                aria-label="收款方名称"
+              />
+            </KitField>
+            <p class="codename-hint muted">
+              默认收款名称：{{ defaultCodename || "商户名称"
+              }}<span v-if="codenameCustomized">（已自定义）</span>
+              <button
+                type="button"
+                class="link-button"
+                :disabled="savingCodename || !canWrite"
+                @click="saveCodename"
+              >
+                保存为默认
+              </button>
+            </p>
+            <KitField label="选择域名" required>
+              <KitSelect
+                v-model="origin"
+                :options="domainOptions"
+                placeholder="请选择域名"
+                aria-label="选择域名"
+              />
+            </KitField>
           </fieldset>
           <p class="muted">
             收款金额可留空。新生成的收款码长期有效，停用后失效；修改名称、金额或域名后请重新生成。
@@ -354,32 +411,26 @@ onBeforeUnmount(() => {
         </section>
         <section class="generator-card generator-poster">
           <h3>你的聚合收款码</h3>
-          <fieldset :disabled="loading || busy || unknown || !canWrite">
-            <label
-              >选择收款码风格<select
+          <fieldset :disabled="formDisabled">
+            <KitField label="选择收款码风格">
+              <KitSelect
                 v-model="style"
+                :options="styleOptions"
+                placeholder="请选择收款码风格"
                 aria-label="选择收款码风格"
-              >
-                <option value="" disabled>请选择收款码风格</option>
-                <option value="0">普通二维码</option>
-                <option v-for="item in styles" :key="item.id" :value="item.id">
-                  {{
-                    item.fields.label || item.fields.title || item.fields.name
-                  }}
-                </option>
-              </select></label
-            >
-            <label
-              >自定义收款金额<input
+              />
+            </KitField>
+            <KitField label="自定义收款金额">
+              <KitInput
                 v-model="amount"
-                type="text"
                 inputmode="decimal"
                 placeholder="留空由付款人填写"
-                autocomplete="off"
-            /></label>
+                aria-label="自定义收款金额"
+              />
+            </KitField>
           </fieldset>
           <img v-if="qr" :src="qr" alt="聚合收款二维码" width="280" />
-          <p v-else class="muted">填写收款配置并生成后，在这里预览收款码。</p>
+          <KitEmpty v-else text="填写收款配置并生成后，在这里预览收款码" />
           <button
             v-if="result?.enabled"
             type="button"
@@ -445,6 +496,14 @@ onBeforeUnmount(() => {
 }
 .generator-form .toolbar-actions {
   margin-top: 14px;
+}
+.codename-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: -6px 0 0;
+  font-size: 12px;
 }
 .generator-form p {
   line-height: 1.7;

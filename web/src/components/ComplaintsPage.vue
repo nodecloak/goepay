@@ -1,0 +1,818 @@
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from "vue";
+import { ApiError, type ApiClient } from "../api";
+import type { Area } from "../menu";
+import { money, datetime } from "../pro-console-fields";
+import {
+  fetchComplaints,
+  fetchComplaint,
+  providerReply,
+  providerComplete,
+  providerSupplement,
+  refundOnComplaint,
+  fetchComplaintSummary,
+  fetchComplaintTasks,
+  fetchComplaintChannels,
+  saveComplaintTask,
+  transitionComplaint,
+  complaintStatusWords,
+  complaintStatusTone,
+  complaintSearchFields,
+  type ComplaintRow,
+  type ComplaintSummary,
+  type ComplaintTaskRow,
+  type ComplaintChannelOption,
+} from "../complaints";
+import KitFilterBar from "./KitFilterBar.vue";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
+import KitSelect from "./KitSelect.vue";
+import KitStatusTag from "./KitStatusTag.vue";
+import KitPayMethod from "./KitPayMethod.vue";
+import KitEmpty from "./KitEmpty.vue";
+import KitModal from "./KitModal.vue";
+import KitPagination from "./KitPagination.vue";
+
+// GOEPAY 交易投诉 on Pro's model. One component serves all four Pro views
+// (admin 投诉记录/投诉统计/同步任务, merchant 投诉记录) selected by `path`, built
+// from the design kit. Data reads/writes run against the existing backoffice
+// `complaints` resource + cases endpoints and the `complaints` report; the
+// provider sync task state is read-only here. Everything is reachable only when
+// complain_open is on (merchant menu entry gated by the server, admin pages
+// under the super-administrator 交易投诉 menu).
+const props = defineProps<{
+  client: ApiClient;
+  area: Area;
+  path: string;
+}>();
+
+type View = "list" | "charts" | "task";
+const view = computed<View>(() => {
+  if (props.path === "/complain/charts") return "charts";
+  if (props.path === "/complain/task") return "task";
+  return "list"; // /complain/list (admin) and /complain (merchant)
+});
+
+const loading = ref(false);
+const error = ref("");
+const notice = ref("");
+
+// ---- 投诉记录 (list) ----
+const searchField = ref("");
+const keyword = ref("");
+const statusFilter = ref("");
+const payTypeFilter = ref("");
+const page = ref(1);
+const pageSize = ref(20);
+const total = ref(0);
+const rows = ref<ComplaintRow[]>([]);
+const loaded = ref(false);
+
+const statusOptions = [
+  { value: "", label: "全部状态" },
+  { value: "open", label: "待处理" },
+  { value: "processing", label: "处理中" },
+  { value: "done", label: "已处理" },
+];
+const payTypeOptions = [
+  { value: "", label: "全部方式" },
+  { value: "alipay", label: "支付宝" },
+  { value: "wxpay", label: "微信" },
+  { value: "qqpay", label: "QQ钱包" },
+  { value: "bank", label: "网银" },
+];
+
+function listQuery(): string {
+  const q = new URLSearchParams({
+    page: String(page.value),
+    limit: String(pageSize.value),
+  });
+  const text = keyword.value.trim();
+  if (text) {
+    q.set("q", text);
+    if (searchField.value) q.set("field", searchField.value);
+  }
+  if (statusFilter.value) q.set("status", statusFilter.value);
+  if (payTypeFilter.value) q.set("pay_type", payTypeFilter.value);
+  return q.toString();
+}
+
+async function loadList() {
+  if (view.value !== "list") return;
+  loading.value = true;
+  error.value = "";
+  try {
+    const res = await fetchComplaints(props.client, listQuery());
+    rows.value = res.items;
+    total.value = res.total;
+    loaded.value = true;
+    // Summary banner (今日/昨日), best-effort; absence never blocks the list.
+    try {
+      listSummary.value = await fetchComplaintSummary(props.client);
+    } catch {
+      listSummary.value = null;
+    }
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "读取投诉记录失败";
+  } finally {
+    loading.value = false;
+  }
+}
+const listSummary = ref<ComplaintSummary | null>(null);
+
+function onQuery() {
+  page.value = 1;
+  void loadList();
+}
+function onReset() {
+  searchField.value = "";
+  keyword.value = "";
+  statusFilter.value = "";
+  payTypeFilter.value = "";
+  page.value = 1;
+  void loadList();
+}
+
+const amountCell = (a: string) => (/^\d+$/.test(a) ? "¥" + money(a) : "-");
+
+// ---- detail + reply + complete dialog ----
+const detail = ref<ComplaintRow | null>(null);
+const detailBusy = ref(false);
+const replyText = ref("");
+const nextStatus = ref("processing");
+async function openDetail(row: ComplaintRow) {
+  detail.value = row;
+  replyText.value = "";
+  nextStatus.value = row.status === "open" ? "processing" : "resolved";
+  error.value = "";
+  try {
+    detail.value = await fetchComplaint(props.client, row.id);
+  } catch (e) {
+    if (!(e instanceof ApiError && e.status === 404))
+      error.value = e instanceof Error ? e.message : "读取投诉详情失败";
+  }
+}
+// ---- Pro 处理投诉 dialog: provider actions + refund-with-password ----
+// 处理结果 presets (回复用户 content shortcuts).
+const resultPresets = [
+  "已为用户办理退款",
+  "已与用户协商一致",
+  "非平台责任，已向用户说明",
+  "订单正常，已向用户解释",
+];
+const refundAmount = ref("");
+
+// 回复用户 through the channel (provider) API.
+async function submitProviderReply() {
+  if (!detail.value || detailBusy.value) return;
+  const text = replyText.value.trim();
+  if (!text) {
+    error.value = "请输入回复内容";
+    return;
+  }
+  detailBusy.value = true;
+  error.value = "";
+  try {
+    await providerReply(props.client, detail.value.id, text, []);
+    notice.value = "已通过渠道回复投诉人";
+    replyText.value = "";
+    await loadList();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "渠道回复失败";
+  } finally {
+    detailBusy.value = false;
+  }
+}
+// 补充凭证 (Alipay only).
+async function submitSupplement() {
+  if (!detail.value || detailBusy.value) return;
+  const text = replyText.value.trim();
+  if (!text) {
+    error.value = "请输入补充说明";
+    return;
+  }
+  detailBusy.value = true;
+  error.value = "";
+  try {
+    await providerSupplement(props.client, detail.value.id, text, []);
+    notice.value = "已补充凭证";
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "补充凭证失败";
+  } finally {
+    detailBusy.value = false;
+  }
+}
+// 处理 through the provider (微信反馈完成 / 支付宝处理) then advance local state.
+async function submitProviderComplete() {
+  if (!detail.value || detailBusy.value) return;
+  detailBusy.value = true;
+  error.value = "";
+  try {
+    await providerComplete(
+      props.client,
+      detail.value.id,
+      replyText.value.trim(),
+      "",
+      [],
+    );
+    await transitionComplaint(props.client, detail.value.id, "resolved", "");
+    notice.value = "已通过渠道处理并标记完成";
+    detail.value = null;
+    await loadList();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "渠道处理失败";
+  } finally {
+    detailBusy.value = false;
+  }
+}
+// 退款审批: refund-on-complaint goes through GOEPAY's EXISTING order refund flow,
+// which prompts for the admin funds password (funds authorization) itself.
+async function submitRefund() {
+  if (!detail.value || detailBusy.value) return;
+  const trade = detail.value.trade_no;
+  if (!trade) {
+    error.value = "该投诉未关联订单，无法退款";
+    return;
+  }
+  if (!/^\d+(\.\d{1,2})?$/.test(refundAmount.value)) {
+    error.value = "请输入退款金额（元）";
+    return;
+  }
+  detailBusy.value = true;
+  error.value = "";
+  try {
+    await refundOnComplaint(
+      props.client,
+      trade,
+      refundAmount.value,
+      crypto.randomUUID(),
+    );
+    notice.value = "退款已提交（经订单退款流程，资金授权照常生效）";
+    refundAmount.value = "";
+    await loadList();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "退款失败";
+  } finally {
+    detailBusy.value = false;
+  }
+}
+
+// ---- 投诉统计 (charts) ----
+type ChartSummary = {
+  today_count: string;
+  today_alipay: string;
+  today_wxpay: string;
+  yesterday_count: string;
+  yesterday_alipay: string;
+  yesterday_wxpay: string;
+};
+const summary = ref<ChartSummary | null>(null);
+const chartRows = ref<Record<string, string>[]>([]);
+const chartColumns = ref<{ key: string; label: string }[]>([]);
+async function loadCharts() {
+  if (view.value !== "charts") return;
+  loading.value = true;
+  error.value = "";
+  try {
+    const data = await props.client.request<{
+      items?: Record<string, string>[];
+      summary?: ChartSummary;
+      columns?: { key: string; label: string }[];
+    }>(`/complaints-charts`);
+    summary.value = data.summary || null;
+    chartRows.value = data.items || [];
+    chartColumns.value = data.columns || [];
+    loaded.value = true;
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "读取投诉统计失败";
+  } finally {
+    loading.value = false;
+  }
+}
+
+// ---- 同步任务 (task, read-only state) ----
+const tasks = ref<ComplaintTaskRow[]>([]);
+async function loadTasks() {
+  if (view.value !== "task") return;
+  loading.value = true;
+  error.value = "";
+  try {
+    tasks.value = await fetchComplaintTasks(props.client);
+    loaded.value = true;
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "读取同步任务失败";
+  } finally {
+    loading.value = false;
+  }
+}
+
+// 自动获取 (per-channel sync toggle) on the 投诉记录 page.
+const channels = ref<ComplaintChannelOption[]>([]);
+const autoChannel = ref("");
+const autoBusy = ref(false);
+async function loadChannels() {
+  if (props.area !== "admin") return;
+  try {
+    channels.value = await fetchComplaintChannels(props.client);
+  } catch {
+    channels.value = [];
+  }
+}
+const autoChannelEnabled = computed(
+  () => channels.value.find((c) => c.channel_id === autoChannel.value)?.enabled,
+);
+async function toggleAutoFetch() {
+  if (!autoChannel.value || autoBusy.value) return;
+  autoBusy.value = true;
+  error.value = "";
+  try {
+    const next = !autoChannelEnabled.value;
+    await saveComplaintTask(props.client, autoChannel.value, next);
+    notice.value = next ? "已为该通道开启自动获取" : "已关闭该通道自动获取";
+    await loadChannels();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "自动获取设置失败";
+  } finally {
+    autoBusy.value = false;
+  }
+}
+
+function reload() {
+  loaded.value = false;
+  if (view.value === "list") {
+    void loadList();
+    void loadChannels();
+  } else if (view.value === "charts") void loadCharts();
+  else void loadTasks();
+}
+
+watch(view, reload);
+onMounted(reload);
+</script>
+
+<template>
+  <section class="panel complain-page" :aria-label="'交易投诉'">
+    <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+    <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
+
+    <!-- 投诉记录 -->
+    <template v-if="view === 'list'">
+      <div
+        v-if="listSummary"
+        class="complain-banner"
+        data-test="complain-summary"
+      >
+        <div class="complain-banner-cell">
+          <span class="complain-banner-label">今日投诉</span>
+          <b>{{ listSummary.today_count }}</b>
+          <small
+            >支付宝 {{ listSummary.today_alipay }} · 微信
+            {{ listSummary.today_wxpay }}</small
+          >
+        </div>
+        <div class="complain-banner-cell">
+          <span class="complain-banner-label">昨日投诉</span>
+          <b>{{ listSummary.yesterday_count }}</b>
+          <small
+            >支付宝 {{ listSummary.yesterday_alipay }} · 微信
+            {{ listSummary.yesterday_wxpay }}</small
+          >
+        </div>
+      </div>
+      <KitFilterBar :loading="loading" @query="onQuery" @reset="onReset">
+        <KitField label="搜索字段">
+          <KitSelect
+            v-model="searchField"
+            :options="complaintSearchFields"
+            placeholder="综合搜索"
+            aria-label="搜索字段"
+          />
+        </KitField>
+        <KitField label="搜索内容">
+          <KitInput
+            v-model="keyword"
+            placeholder="输入关键字"
+            aria-label="搜索内容"
+          />
+        </KitField>
+        <KitField label="状态">
+          <KitSelect
+            v-model="statusFilter"
+            :options="statusOptions"
+            placeholder="全部状态"
+            aria-label="状态"
+          />
+        </KitField>
+        <template #extra>
+          <KitField label="支付方式">
+            <KitSelect
+              v-model="payTypeFilter"
+              :options="payTypeOptions"
+              placeholder="全部方式"
+              aria-label="支付方式"
+            />
+          </KitField>
+        </template>
+      </KitFilterBar>
+
+      <div class="pa-toolbar">
+        <button
+          type="button"
+          class="pa-btn"
+          data-action="refresh"
+          :disabled="loading"
+          @click="reload"
+        >
+          获取最新数据
+        </button>
+        <template v-if="area === 'admin'">
+          <KitSelect
+            v-model="autoChannel"
+            :options="
+              channels.map((c) => ({
+                value: c.channel_id,
+                label: `${c.name} · ${c.provider === 'wxpay' ? '微信' : '支付宝'}${c.enabled ? '（自动获取中）' : ''}`,
+              }))
+            "
+            placeholder="选择支付通道"
+            aria-label="自动获取通道"
+          />
+          <button
+            type="button"
+            class="pa-btn"
+            :class="autoChannelEnabled ? 'pa-btn--danger' : 'pa-btn--success'"
+            data-action="auto-fetch"
+            :disabled="!autoChannel || autoBusy"
+            @click="toggleAutoFetch"
+          >
+            {{ autoChannelEnabled ? "关闭自动获取" : "开启自动获取" }}
+          </button>
+        </template>
+      </div>
+
+      <div class="pa-table-wrap">
+        <table class="pa-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>商户号</th>
+              <th>关联订单号</th>
+              <th>问题类型</th>
+              <th class="pa-c-num">订单金额</th>
+              <th>投诉详情</th>
+              <th>创建时间</th>
+              <th>状态</th>
+              <th class="pa-c-num">投诉次数</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in rows" :key="row.id">
+              <td class="pa-c-num">{{ row.id }}</td>
+              <td>{{ row.merchant_id || "-" }}</td>
+              <td>
+                <span class="pa-c-mono">{{ row.trade_no || "-" }}</span>
+              </td>
+              <td>
+                <KitPayMethod v-if="row.pay_type" :type="row.pay_type" />
+                <span v-else>-</span>
+                <small class="muted">{{ row.subject || "-" }}</small>
+              </td>
+              <td class="pa-c-num">{{ amountCell(row.amount) }}</td>
+              <td class="complain-detail">{{ row.content || "-" }}</td>
+              <td>{{ row.created_at ? datetime(row.created_at) : "-" }}</td>
+              <td>
+                <KitStatusTag
+                  :text="complaintStatusWords[row.status] || row.status"
+                  :tone="complaintStatusTone[row.status] || 'neutral'"
+                />
+              </td>
+              <td class="pa-c-num">{{ row.times || "1" }}</td>
+              <td>
+                <button
+                  type="button"
+                  class="pa-btn"
+                  data-action="detail"
+                  @click="openDetail(row)"
+                >
+                  处理投诉
+                </button>
+              </td>
+            </tr>
+            <tr v-if="loaded && !rows.length">
+              <td colspan="10"><KitEmpty text="暂无数据" /></td>
+            </tr>
+            <tr v-if="!loaded && !error">
+              <td colspan="10"><KitEmpty text="正在加载…" /></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <KitPagination
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total="total"
+        @change="loadList"
+      />
+    </template>
+
+    <!-- 投诉统计 -->
+    <template v-else-if="view === 'charts'">
+      <div class="complain-cards">
+        <div class="complain-card">
+          <div class="complain-card-title">今日投诉</div>
+          <div class="complain-card-body">
+            <span>总投诉</span><b>{{ summary?.today_count ?? "0" }}</b>
+            <span>支付宝</span><b>{{ summary?.today_alipay ?? "0" }}</b>
+            <span>微信</span><b>{{ summary?.today_wxpay ?? "0" }}</b>
+          </div>
+        </div>
+        <div class="complain-card">
+          <div class="complain-card-title">昨日投诉</div>
+          <div class="complain-card-body">
+            <span>总投诉</span><b>{{ summary?.yesterday_count ?? "0" }}</b>
+            <span>支付宝</span><b>{{ summary?.yesterday_alipay ?? "0" }}</b>
+            <span>微信</span><b>{{ summary?.yesterday_wxpay ?? "0" }}</b>
+          </div>
+        </div>
+      </div>
+      <div class="complain-rank-title">投诉数据统计&排行榜</div>
+      <div class="pa-table-wrap">
+        <table class="pa-table">
+          <thead>
+            <tr>
+              <th v-for="c in chartColumns" :key="c.key">{{ c.label }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(r, i) in chartRows" :key="i">
+              <td
+                v-for="c in chartColumns"
+                :key="c.key"
+                :class="{ 'pa-c-num': c.key !== 'dimension' }"
+              >
+                {{ r[c.key] ?? "-" }}
+              </td>
+            </tr>
+            <tr v-if="loaded && !chartRows.length">
+              <td :colspan="chartColumns.length || 1">
+                <KitEmpty text="暂无数据" />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <!-- 同步任务 -->
+    <template v-else>
+      <p class="alert info" role="note">
+        在投诉记录页面选中某个支付通道后开启自动获取，即可在此看到对应通道的自动同步任务；另需在计划任务页面启动投诉同步任务。
+      </p>
+      <div class="pa-table-wrap">
+        <table class="pa-table">
+          <thead>
+            <tr>
+              <th>通道ID</th>
+              <th>通道名称</th>
+              <th>状态</th>
+              <th>上次同步时间</th>
+              <th>同步状态</th>
+              <th>下次同步时间</th>
+              <th>获取频率</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="t in tasks" :key="t.channel_id">
+              <td class="pa-c-num">{{ t.channel_id }}</td>
+              <td>{{ t.name || "-" }}</td>
+              <td>
+                <KitStatusTag
+                  :text="t.enabled ? '已启用' : '已停用'"
+                  :tone="t.enabled ? 'success' : 'neutral'"
+                />
+              </td>
+              <td>{{ t.last_run_at ? datetime(t.last_run_at) : "-" }}</td>
+              <td>
+                <KitStatusTag
+                  v-if="t.last_status"
+                  :text="t.last_status === 'ok' ? '成功' : '失败'"
+                  :tone="t.last_status === 'ok' ? 'success' : 'danger'"
+                />
+                <span v-else>-</span>
+                <small
+                  v-if="t.last_status === 'failed' && t.consecutive_failures"
+                  class="muted"
+                  >连续失败 {{ t.consecutive_failures }} 次{{
+                    t.last_reason ? "：" + t.last_reason : ""
+                  }}</small
+                >
+              </td>
+              <td>{{ t.next_run_at ? datetime(t.next_run_at) : "-" }}</td>
+              <td>
+                {{
+                  t.frequency ? t.frequency + " 分钟 / " + t.num + " 条" : "-"
+                }}
+              </td>
+            </tr>
+            <tr v-if="loaded && !tasks.length">
+              <td colspan="7"><KitEmpty text="暂无数据" /></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <!-- 处理投诉 -->
+    <KitModal
+      v-if="detail"
+      title="处理投诉"
+      :loading="detailBusy"
+      submit-text="渠道处理并完成"
+      width="600px"
+      @close="detail = null"
+      @submit="submitProviderComplete"
+    >
+      <KitField label="投诉单号">
+        <div class="pa-c-mono">{{ detail.id }}</div>
+      </KitField>
+      <KitField label="关联订单号">
+        <div class="pa-c-mono">{{ detail.trade_no || "-" }}</div>
+      </KitField>
+      <KitField label="渠道子商户号">
+        <div class="pa-c-mono">{{ detail.third_mch_id || "-" }}</div>
+      </KitField>
+      <KitField label="支付方式">
+        <KitPayMethod v-if="detail.pay_type" :type="detail.pay_type" />
+        <span v-else>-</span>
+      </KitField>
+      <KitField label="订单金额">
+        <div>{{ amountCell(detail.amount) }}</div>
+      </KitField>
+      <KitField label="投诉次数">
+        <div>{{ detail.times || "1" }}</div>
+      </KitField>
+      <KitField label="投诉原因">
+        <div>{{ detail.subject || "-" }}</div>
+      </KitField>
+      <KitField label="投诉详情">
+        <div class="complain-detail-full">{{ detail.content || "-" }}</div>
+      </KitField>
+      <KitField label="当前状态">
+        <KitStatusTag
+          :text="complaintStatusWords[detail.status] || detail.status"
+          :tone="complaintStatusTone[detail.status] || 'neutral'"
+        />
+      </KitField>
+      <KitField label="处理结果">
+        <div class="complain-presets">
+          <button
+            v-for="p in resultPresets"
+            :key="p"
+            type="button"
+            class="pa-btn pa-btn--text"
+            data-action="preset"
+            @click="replyText = p"
+          >
+            {{ p }}
+          </button>
+        </div>
+      </KitField>
+      <KitField label="回复用户">
+        <KitInput
+          v-model="replyText"
+          placeholder="回复投诉人/处理说明"
+          aria-label="回复内容"
+        />
+      </KitField>
+      <KitField label="退款审批（元）">
+        <KitInput
+          v-model="refundAmount"
+          inputmode="decimal"
+          placeholder="留空则不退款；退款经订单退款流程并需资金授权"
+          aria-label="退款金额"
+        />
+      </KitField>
+      <p class="muted">
+        退款审批经 GOEPAY
+        订单退款流程执行，管理员退款照常要求资金密码授权；修改状态本身不触发资金变更。
+      </p>
+      <template #footer-extra>
+        <button
+          type="button"
+          class="pa-btn pa-btn--success"
+          data-action="reply"
+          :disabled="detailBusy"
+          @click="submitProviderReply"
+        >
+          回复用户
+        </button>
+        <button
+          v-if="detail.pay_type === 'alipay'"
+          type="button"
+          class="pa-btn"
+          data-action="supplement"
+          :disabled="detailBusy"
+          @click="submitSupplement"
+        >
+          补充凭证
+        </button>
+        <button
+          type="button"
+          class="pa-btn pa-btn--danger"
+          data-action="refund"
+          :disabled="detailBusy || !detail.trade_no"
+          @click="submitRefund"
+        >
+          退款审批
+        </button>
+      </template>
+    </KitModal>
+  </section>
+</template>
+
+<style scoped>
+.complain-page {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+.complain-banner {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.complain-banner-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--bg-card, #fff);
+}
+.complain-banner-label {
+  font-size: 13px;
+  color: var(--ink-muted, #6b7280);
+}
+.complain-banner-cell b {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.complain-banner-cell small {
+  color: var(--ink-muted, #6b7280);
+}
+.complain-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pa-toolbar {
+  display: flex;
+  gap: 10px;
+}
+.pa-table-wrap {
+  overflow-x: auto;
+}
+.complain-detail {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.complain-detail-full {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+td small.muted {
+  display: block;
+}
+.complain-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.complain-card {
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--bg-card, #fff);
+}
+.complain-card-title {
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.complain-card-body {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr auto 1fr;
+  gap: 6px 10px;
+  align-items: baseline;
+}
+.complain-card-body b {
+  font-variant-numeric: tabular-nums;
+}
+.complain-rank-title {
+  font-weight: 600;
+}
+</style>

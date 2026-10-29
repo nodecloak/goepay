@@ -20,6 +20,11 @@ import type { Area } from "../menu";
 import { safePaymentUrl } from "../commerce";
 import DataTable from "./DataTable.vue";
 import TransferListTable from "./TransferListTable.vue";
+import KitPagination from "./KitPagination.vue";
+import KitModal from "./KitModal.vue";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
+import KitSelect from "./KitSelect.vue";
 import { hasOriginalTransferProjection } from "../transfer-list";
 import CsvExportButton from "./CsvExportButton.vue";
 import ShellIcon from "./ShellIcon.vue";
@@ -254,6 +259,21 @@ const unknownBankCapabilities = computed(() =>
     (c) => c.types.includes("bank") && !bankChannelProduct(c),
   ),
 );
+const bankCodeOptions = computed(() =>
+  Object.entries(bankCodes).map(([bank, code]) => ({
+    value: code,
+    label: `${bankNames[bank as keyof typeof bankNames] || bank}（${code}）`,
+  })),
+);
+const typeOptions = computed(() =>
+  availableTypes.value.map((t) => ({
+    value: t,
+    label: transferTypeLabel[t] || t,
+  })),
+);
+const channelOptions = computed(() =>
+  channels.value.map((c) => ({ value: c.id, label: c.id })),
+);
 watch(
   () => form.value.channel_id,
   () => {
@@ -460,6 +480,12 @@ async function queryRecord(row: Record<string, unknown>) {
   if (busy.value) return;
   if ((await details(row)) && active) await queryTransfer();
 }
+async function proofRecord(row: Record<string, unknown>) {
+  if (busy.value) return;
+  // Open the record, then apply/query its voucher — Alipay-only (readActions.proof).
+  if ((await details(row)) && active && readActions.value.proof)
+    await requestProof();
+}
 async function queryTransfer() {
   if (!selected.value || busy.value || !readActions.value.query) return;
   busy.value = true;
@@ -522,15 +548,14 @@ onBeforeUnmount(() => {
   >
   <div v-if="error" class="alert error" role="alert">{{ error }}</div>
   <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
-  <form class="toolbar list-filter-card panel" @submit.prevent="applyFilters">
-    <TransferListFilters
-      v-model="draftFilters"
-      :area="area"
-      :loading="loading || busy"
-      :blocked="!!routeContext.error"
-      @reset="resetFilters"
-    />
-  </form>
+  <TransferListFilters
+    v-model="draftFilters"
+    :area="area"
+    :loading="loading || busy"
+    :blocked="!!routeContext.error"
+    @query="applyFilters"
+    @reset="resetFilters"
+  />
   <section ref="recordsPanel" class="panel records">
     <div class="table-tools">
       <button
@@ -551,6 +576,16 @@ onBeforeUnmount(() => {
           filename="transfers-filtered.csv"
           :disabled="loading || !!routeContext.error || !!draftError"
         />
+        <button
+          type="button"
+          class="pa-icon-btn"
+          aria-label="刷新"
+          title="刷新"
+          :disabled="loading || busy"
+          @click="load"
+        >
+          <ShellIcon name="refresh" />
+        </button>
       </div>
     </div>
     <div v-if="loading" class="loading-row" role="status">
@@ -563,6 +598,7 @@ onBeforeUnmount(() => {
       :busy="busy"
       @details="details"
       @query="queryRecord"
+      @proof="proofRecord"
     />
     <DataTable v-else :columns="columns" :items="items"
       ><template #actions="{ row }"
@@ -571,213 +607,201 @@ onBeforeUnmount(() => {
         </button></template
       ></DataTable
     >
-    <div class="pagination">
-      <span>共 {{ total }} 条记录</span>
-      <div>
-        <button
-          :disabled="page <= 1 || loading"
-          @click="
-            page--;
-            load();
-          "
-        >
-          上一页</button
-        ><span>第 {{ page }} 页</span
-        ><button
-          :disabled="page * limit >= total || loading"
-          @click="
-            page++;
-            load();
-          "
-        >
-          下一页
-        </button>
-      </div>
-    </div>
+    <KitPagination
+      v-model:page="page"
+      v-model:page-size="limit"
+      :total="total"
+      @change="load"
+    />
   </section>
-  <div v-if="creating" class="modal-backdrop">
-    <section
-      class="modal panel resource-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-label="申请付款"
-    >
-      <h2>{{ confirming ? "核对付款" : "申请付款" }}</h2>
-      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-      <template v-if="confirming"
-        ><dl class="record-detail">
-          <dt>收款方式</dt>
-          <dd>{{ transferTypeLabel[form.type] || form.type }}</dd>
-          <dt>收款账号</dt>
-          <dd>{{ form.account }}</dd>
-          <dt>收款人姓名</dt>
-          <dd>{{ form.name || "未填写" }}</dd>
-          <dt>付款金额（元）</dt>
-          <dd>{{ form.amount }}</dd>
-          <dt>付款费率</dt>
-          <dd>{{ capabilities?.transfer_rate }}%</dd>
-          <dt>付款说明</dt>
-          <dd>{{ effectiveDescription }}</dd>
-          <template v-if="form.type === 'bank'"
-            ><dt>银行卡产品</dt>
-            <dd>
-              {{
-                selectedBankProduct
-                  ? bankProductLabel[selectedBankProduct]
-                  : "能力尚未核实"
-              }}
-            </dd></template
-          >
-          <template v-if="bankCodeRequired"
-            ><dt>开户银行编号</dt>
-            <dd>{{ form.bank_code }}</dd></template
-          >
-          <dt>业务请求号</dt>
-          <dd>{{ form.external_no }}</dd>
-        </dl>
-        <p v-if="selectedBankProduct === 'alipay_bankcard'" class="muted">
-          支付宝银行卡仅对私账户，需核对真实姓名，无需微信银行编号。
-        </p>
-        <TransferPolicySummary v-if="capabilities" :policy="capabilities" />
-        <p class="muted">
-          确认后向通道提交付款，并预占本金及配置手续费。结果未知时保留预占，只能查询核实，不应创建新的付款重试。
-        </p>
-        <div class="modal-actions">
-          <button :disabled="busy" @click="confirming = false">返回核对</button
-          ><button
-            class="danger-button"
-            :disabled="busy || !canSubmit"
-            @click="submit"
-          >
-            {{ busy ? "正在提交…" : "确认提交付款" }}
-          </button>
-        </div></template
+  <KitModal
+    v-if="creating && confirming"
+    title="核对付款"
+    width="600px"
+    :loading="busy"
+    submit-text="确认提交付款"
+    danger
+    @close="confirming = false"
+    @submit="submit"
+  >
+    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+    <dl class="record-detail">
+      <dt>收款方式</dt>
+      <dd>{{ transferTypeLabel[form.type] || form.type }}</dd>
+      <dt>收款账号</dt>
+      <dd>{{ form.account }}</dd>
+      <dt>收款人姓名</dt>
+      <dd>{{ form.name || "-" }}</dd>
+      <dt>付款金额（元）</dt>
+      <dd>{{ form.amount }}</dd>
+      <dt>付款费率</dt>
+      <dd>{{ capabilities?.transfer_rate }}%</dd>
+      <dt>付款说明</dt>
+      <dd>{{ effectiveDescription }}</dd>
+      <template v-if="form.type === 'bank'"
+        ><dt>银行卡产品</dt>
+        <dd>
+          {{
+            selectedBankProduct
+              ? bankProductLabel[selectedBankProduct]
+              : "能力尚未核实"
+          }}
+        </dd></template
       >
-      <form v-else @submit.prevent="check">
-        <label v-if="area === 'admin'"
-          >付款商户 ID<input
-            v-model="form.merchant_id"
-            required
-            inputmode="numeric"
-            @input="
-              capabilities = null;
-              capEpoch++;
-            " /></label
-        ><button
-          v-if="area === 'admin'"
-          type="button"
-          :disabled="capLoading"
-          @click="loadCapabilities"
-        >
-          读取付款权限
-        </button>
-        <div v-if="capLoading" role="status" class="muted">
-          正在读取付款配置…
-        </div>
-        <template v-if="capabilities"
-          ><p class="muted">
-            付款费率
-            {{ capabilities.transfer_rate }}%
-          </p>
-          <TransferPolicySummary :policy="capabilities" />
-          <p v-if="unknownBankCapabilities" class="muted">
-            部分银行卡产品能力尚未核实，已禁止使用。
-          </p>
-          <p v-if="!capabilities.writes_enabled" class="alert error">
-            {{
-              !(capabilities.effective_enabled ?? capabilities.platform_enabled)
-                ? capabilities.platform_enabled
-                  ? "当前用户组付款功能未启用"
-                  : "平台付款功能未启用"
-                : !capabilities.merchant_enabled
-                  ? "该商户付款功能未启用"
-                  : "当前运行环境或通道未启用付款"
-            }}
-          </p>
-          <label
-            >收款方式<select
-              v-model="form.type"
-              required
-              @change="form.channel_id = channels[0]?.id || ''"
-            >
-              <option v-for="type in availableTypes" :key="type" :value="type">
-                {{ transferTypeLabel[type] }}
-              </option>
-            </select></label
-          ><label
-            >付款通道<select v-model="form.channel_id" required>
-              <option
-                v-for="channel in channels"
-                :key="channel.id"
-                :value="channel.id"
-              >
-                {{ channel.id }}
-              </option>
-            </select></label
-          >
-          <p v-if="form.type === 'bank' && selectedBankProduct" class="muted">
-            {{ bankProductLabel[selectedBankProduct]
-            }}{{
-              selectedBankProduct === "alipay_bankcard"
-                ? "：仅对私账户，无需微信银行编号。"
-                : "：必须选择微信开户银行编号。"
-            }}
-          </p>
-          <label v-if="bankCodeRequired"
-            >开户银行编号<select v-model="form.bank_code" required>
-              <option value="">请选择开户银行</option>
-              <option
-                v-for="(code, bank) in bankCodes"
-                :key="code"
-                :value="code"
-              >
-                {{ bankNames[bank] || bank }}（{{ code }}）
-              </option>
-            </select></label
-          ><label
-            >收款账号<input
-              v-model="form.account"
-              required
-              maxlength="256"
-              autocomplete="off" /></label
-          ><label
-            >收款人姓名<input
-              v-model="form.name"
-              :required="form.type === 'bank'"
-              maxlength="100"
-              autocomplete="off" /></label
-          ><label
-            >付款金额（元）<input
-              v-model="form.amount"
-              required
-              inputmode="decimal" /></label
-          ><label
-            >付款说明{{ form.type === "wxpay" ? "（必填）" : ""
-            }}<textarea
-              v-model="form.remark"
-              :required="
-                form.type === 'wxpay' && !defaultDescription(form.type)
-              "
-              :placeholder="defaultDescription(form.type)"
-              maxlength="32"
-              rows="3"
-            /></label
-          ><label
-            >业务请求号<input
-              v-model="form.external_no"
-              required
-              maxlength="128" /></label
-        ></template>
-        <div class="modal-actions">
-          <button type="button" :disabled="busy" @click="creating = false">
-            取消</button
-          ><button class="primary" :disabled="busy || !canSubmit">
-            核对付款信息
-          </button>
-        </div>
-      </form>
-    </section>
-  </div>
+      <template v-if="bankCodeRequired"
+        ><dt>开户银行编号</dt>
+        <dd>{{ form.bank_code }}</dd></template
+      >
+      <dt>业务请求号</dt>
+      <dd>{{ form.external_no }}</dd>
+    </dl>
+    <p v-if="selectedBankProduct === 'alipay_bankcard'" class="muted">
+      支付宝银行卡仅对私账户，需核对真实姓名，无需微信银行编号。
+    </p>
+    <TransferPolicySummary v-if="capabilities" :policy="capabilities" />
+    <p class="muted">
+      确认后向通道提交付款，并预占本金及配置手续费。结果未知时保留预占，只能查询核实，不应创建新的付款重试。
+    </p>
+    <template #footer-extra>
+      <button
+        type="button"
+        class="pa-btn"
+        :disabled="busy"
+        @click="confirming = false"
+      >
+        返回核对
+      </button>
+    </template>
+  </KitModal>
+  <KitModal
+    v-else-if="creating"
+    title="申请付款"
+    width="600px"
+    :loading="busy || !canSubmit"
+    submit-text="核对付款信息"
+    @close="creating = false"
+    @submit="check"
+  >
+    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+    <KitField v-if="area === 'admin'" label="付款商户">
+      <KitInput
+        :model-value="form.merchant_id"
+        inputmode="numeric"
+        aria-label="付款商户ID"
+        @update:model-value="
+          form.merchant_id = $event;
+          capabilities = null;
+          capEpoch++;
+        "
+      />
+    </KitField>
+    <button
+      v-if="area === 'admin'"
+      type="button"
+      class="pa-btn"
+      :disabled="capLoading"
+      @click="loadCapabilities"
+    >
+      读取付款权限
+    </button>
+    <div v-if="capLoading" role="status" class="muted">正在读取付款配置…</div>
+    <template v-if="capabilities">
+      <p class="muted">付款费率 {{ capabilities.transfer_rate }}%</p>
+      <TransferPolicySummary :policy="capabilities" />
+      <p v-if="unknownBankCapabilities" class="muted">
+        部分银行卡产品能力尚未核实，已禁止使用。
+      </p>
+      <p v-if="!capabilities.writes_enabled" class="alert error">
+        {{
+          !(capabilities.effective_enabled ?? capabilities.platform_enabled)
+            ? capabilities.platform_enabled
+              ? "当前用户组付款功能未启用"
+              : "平台付款功能未启用"
+            : !capabilities.merchant_enabled
+              ? "该商户付款功能未启用"
+              : "当前运行环境或通道未启用付款"
+        }}
+      </p>
+      <KitField label="收款方式">
+        <KitSelect
+          :model-value="form.type"
+          :options="typeOptions"
+          aria-label="收款方式"
+          @update:model-value="
+            form.type = $event;
+            form.channel_id = channels[0]?.id || '';
+          "
+        />
+      </KitField>
+      <KitField label="付款通道">
+        <KitSelect
+          :model-value="form.channel_id"
+          :options="channelOptions"
+          aria-label="付款通道"
+          @update:model-value="form.channel_id = $event"
+        />
+      </KitField>
+      <p v-if="form.type === 'bank' && selectedBankProduct" class="muted">
+        {{ bankProductLabel[selectedBankProduct]
+        }}{{
+          selectedBankProduct === "alipay_bankcard"
+            ? "：仅对私账户，无需微信银行编号。"
+            : "：必须选择微信开户银行编号。"
+        }}
+      </p>
+      <KitField v-if="bankCodeRequired" label="开户银行">
+        <KitSelect
+          :model-value="form.bank_code"
+          :options="bankCodeOptions"
+          placeholder="请选择开户银行"
+          aria-label="开户银行编号"
+          @update:model-value="form.bank_code = $event"
+        />
+      </KitField>
+      <KitField label="收款账号" required>
+        <KitInput
+          :model-value="form.account"
+          :maxlength="256"
+          aria-label="收款账号"
+          @update:model-value="form.account = $event"
+        />
+      </KitField>
+      <KitField label="收款人姓名" :required="form.type === 'bank'">
+        <KitInput
+          :model-value="form.name"
+          :maxlength="100"
+          aria-label="收款人姓名"
+          @update:model-value="form.name = $event"
+        />
+      </KitField>
+      <KitField label="付款金额" required>
+        <KitInput
+          :model-value="form.amount"
+          inputmode="decimal"
+          aria-label="付款金额（元）"
+          @update:model-value="form.amount = $event"
+        />
+      </KitField>
+      <KitField :label="form.type === 'wxpay' ? '付款说明' : '付款备注'">
+        <textarea
+          v-model="form.remark"
+          class="pa-input pa-textarea"
+          :required="form.type === 'wxpay' && !defaultDescription(form.type)"
+          :placeholder="defaultDescription(form.type)"
+          maxlength="32"
+          rows="3"
+        />
+      </KitField>
+      <KitField label="业务请求号" required>
+        <KitInput
+          :model-value="form.external_no"
+          :maxlength="128"
+          aria-label="业务请求号"
+          @update:model-value="form.external_no = $event"
+        />
+      </KitField>
+    </template>
+  </KitModal>
   <div
     v-if="selected && !creating"
     class="modal-backdrop"

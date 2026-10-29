@@ -86,7 +86,7 @@ for (const width of [1280, 375])
         await expect(first.getByRole("checkbox")).toBeChecked();
         await expect(second.getByRole("checkbox")).toBeDisabled();
         await expect(
-          page.getByRole("button", { name: /核准所选 1 条申请/ }),
+          page.getByRole("button", { name: "批量操作", exact: true }),
         ).toBeEnabled();
         await page
           .getByRole("checkbox", { name: "选择本页待审核申请", exact: true })
@@ -168,12 +168,12 @@ for (const width of [1280, 375])
         .getByRole("checkbox", { name: "选择本页待审核申请", exact: true })
         .check();
       await expect(
-        page.getByRole("button", { name: /核准所选 1 条申请/ }),
+        page.getByRole("button", { name: "批量操作", exact: true }),
       ).toBeEnabled();
       await page.getByRole("button", { name: "下一页", exact: true }).click();
       await started;
       await expect(
-        page.getByRole("button", { name: /核准所选 0 条申请/ }),
+        page.getByRole("button", { name: "批量操作", exact: true }),
       ).toBeDisabled();
       release();
       await expect(page.locator('[data-settlement-id="2"]')).toBeVisible();

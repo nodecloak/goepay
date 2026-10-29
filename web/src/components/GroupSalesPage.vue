@@ -251,9 +251,10 @@ onBeforeUnmount(() => {
         <table>
           <thead>
             <tr>
-              <th>用户组</th>
+              <th>GID</th>
+              <th>用户组名称</th>
               <th>售价（元）</th>
-              <th>有效期</th>
+              <th>有效期（月）</th>
               <th>排序</th>
               <th>可见用户组</th>
               <th>简介</th>
@@ -262,11 +263,10 @@ onBeforeUnmount(() => {
           </thead>
           <tbody>
             <tr v-for="g in published" :key="g.id">
+              <td class="pa-c-num">{{ g.id }}</td>
               <td>
                 {{ g.name }}
-                <small class="muted"
-                  >{{ g.id }}{{ g.enabled ? "" : " · 用户组已禁用" }}</small
-                >
+                <small v-if="!g.enabled" class="muted">用户组已禁用</small>
               </td>
               <td>
                 <input
@@ -330,21 +330,42 @@ onBeforeUnmount(() => {
               </td>
             </tr>
             <tr v-if="!published.length">
-              <td colspan="7" class="empty">暂无已上架用户组</td>
+              <td colspan="8" class="empty">暂无已上架用户组</td>
             </tr>
           </tbody>
         </table>
       </div>
       <h3>未上架用户组</h3>
-      <p v-if="!unpublished.length" class="muted">暂无未上架用户组</p>
-      <div v-for="g in unpublished" :key="g.id" class="toolbar">
-        <span>{{ g.name }}（{{ g.id }}）</span
-        ><button
-          :disabled="!canWrite || busy || uncertain || !g.enabled"
-          @click="save('toggle', g)"
-        >
-          上架
-        </button>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>GID</th>
+              <th>用户组名称</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="g in unpublished" :key="g.id">
+              <td class="pa-c-num">{{ g.id }}</td>
+              <td>
+                {{ g.name }}
+                <small v-if="!g.enabled" class="muted">用户组已禁用</small>
+              </td>
+              <td>
+                <button
+                  :disabled="!canWrite || busy || uncertain || !g.enabled"
+                  @click="save('toggle', g)"
+                >
+                  上架
+                </button>
+              </td>
+            </tr>
+            <tr v-if="!unpublished.length">
+              <td colspan="3" class="empty">暂无未上架用户组</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </template>
   </section>
