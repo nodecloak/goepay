@@ -3786,3 +3786,26 @@ th {
 .list-page > .pa-filter {
   margin: 0;
 }
+
+/* Any field grid inside a search card joins the card's one flex row, so its
+   fields are 220px like the order page's and sit on the same baseline as
+   重置 / 查询. (The statistics pages' grid stretched fields to 327px and lifted
+   them 18px above the buttons.) :where keeps the field rule weak enough for a
+   page to widen one field, e.g. the province range chips. */
+.list-filter-card .pa-filter-fields {
+  display: contents;
+}
+:where(.list-filter-card .pa-filter-fields) > .pa-field {
+  flex: 0 1 220px;
+  min-width: 160px;
+  margin: 0;
+}
+
+/* A raw input/select directly inside a KitField (date inputs on the statistics
+   pages) takes the field's gap, not the generic `label input` 8px margin that
+   pushed its label 8px above its neighbours. */
+.pa-field > input,
+.pa-field > select,
+.pa-field > textarea {
+  margin: 0;
+}

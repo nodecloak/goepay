@@ -17,6 +17,9 @@ import {
 import CsvExportButton from "./CsvExportButton.vue";
 import ShellIcon from "./ShellIcon.vue";
 import KitHelpPopover from "./KitHelpPopover.vue";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
+import KitSelect from "./KitSelect.vue";
 const props = defineProps<{ client: ApiClient; report: string }>();
 const today = () => reportDateRange("today")!;
 const filter = reactive({
@@ -167,42 +170,63 @@ const visibleRows = computed(() =>
 <template>
   <div class="list-page original-order-statistics">
     <form class="toolbar list-filter-card panel" @submit.prevent="load">
-      <span v-if="!daily" class="filter-inline date-range"
-        >查询日期<input
-          v-model="filter.from"
-          type="date"
-          aria-label="查询日期（开始）" /><span class="date-range-sep">–</span
-        ><input v-model="filter.to" type="date" aria-label="查询日期（结束）"
-      /></span>
-      <label class="filter-inline"
-        >支付方式<select v-model="filter.type" aria-label="支付方式">
-          <option value="">所有支付方式</option>
-          <option value="alipay">支付宝</option>
-          <option value="wxpay">微信支付</option>
-          <option value="sandbox">本地模拟</option>
-        </select></label
-      >
-      <label v-if="daily && !merchant" class="filter-inline"
-        >通道ID<input
-          v-model="filter.channel"
-          aria-label="通道ID"
-          inputmode="numeric"
-          maxlength="19"
-          placeholder="请输入通道ID"
-      /></label>
-      <label v-if="!merchant" class="filter-inline"
-        >商户号<input
-          v-model="filter.uid"
-          aria-label="商户号"
-          inputmode="numeric"
-          maxlength="19"
-          placeholder="请输入商户号"
-      /></label>
-      <div class="filter-actions">
-        <button class="primary" :disabled="loading">查询</button
-        ><button type="button" :disabled="loading" @click="reset">重置</button
-        ><button type="button" :disabled="loading" @click="load">
-          <ShellIcon name="refresh" />刷新
+      <div class="pa-filter-fields list-filters-grid">
+        <KitField v-if="!daily" label="查询日期（开始）">
+          <input
+            v-model="filter.from"
+            type="date"
+            aria-label="查询日期（开始）"
+          />
+        </KitField>
+        <KitField v-if="!daily" label="查询日期（结束）">
+          <input
+            v-model="filter.to"
+            type="date"
+            aria-label="查询日期（结束）"
+          />
+        </KitField>
+        <KitField label="支付方式">
+          <KitSelect
+            v-model="filter.type"
+            :options="[
+              { value: '', label: '所有支付方式' },
+              { value: 'alipay', label: '支付宝' },
+              { value: 'wxpay', label: '微信支付' },
+              { value: 'sandbox', label: '本地模拟' },
+            ]"
+            aria-label="支付方式"
+          />
+        </KitField>
+        <KitField v-if="daily && !merchant" label="通道ID">
+          <KitInput
+            v-model="filter.channel"
+            aria-label="通道ID"
+            inputmode="numeric"
+            :maxlength="19"
+            placeholder="请输入通道ID"
+          />
+        </KitField>
+        <KitField v-if="!merchant" label="商户号">
+          <KitInput
+            v-model="filter.uid"
+            aria-label="商户号"
+            inputmode="numeric"
+            :maxlength="19"
+            placeholder="请输入商户号"
+          />
+        </KitField>
+      </div>
+      <div class="pa-filter-actions">
+        <button type="button" class="pa-btn" :disabled="loading" @click="reset">
+          重置
+        </button>
+        <button
+          type="submit"
+          class="pa-btn pa-btn--primary"
+          :class="{ 'pa-btn--loading': loading }"
+          :disabled="loading"
+        >
+          查询
         </button>
       </div>
     </form>
@@ -217,23 +241,35 @@ const visibleRows = computed(() =>
         <span v-if="!daily" class="table-summary"
           >共 <strong>{{ items.length }}</strong> 条记录</span
         >
-        <KitHelpPopover>
-          <p class="table-note">
-            按北京时间的订单创建日期统计{{
-              daily ? "近7天" : ""
-            }}，金额单位为元。退款金额为该批订单已成功退款的累计金额；成功率按保留的全部订单计算。
-          </p>
-          <p v-if="merchant" class="table-note">
-            分成金额为已支付订单的原商户净额，退款另列；原分成合计不等于当前可用余额。
-          </p>
-          <p v-else class="table-note">
-            手续费利润为原订单成本快照的估算值；{{
-              missing !== "0"
-                ? missing + "笔已支付订单缺少成本，相关利润显示未知。"
-                : "无订单时合计为0。"
-            }}通道名称以已记录通道号标识。
-          </p>
-        </KitHelpPopover>
+        <div class="table-tools-end">
+          <KitHelpPopover>
+            <p class="table-note">
+              按北京时间的订单创建日期统计{{
+                daily ? "近7天" : ""
+              }}，金额单位为元。退款金额为该批订单已成功退款的累计金额；成功率按保留的全部订单计算。
+            </p>
+            <p v-if="merchant" class="table-note">
+              分成金额为已支付订单的原商户净额，退款另列；原分成合计不等于当前可用余额。
+            </p>
+            <p v-else class="table-note">
+              手续费利润为原订单成本快照的估算值；{{
+                missing !== "0"
+                  ? missing + "笔已支付订单缺少成本，相关利润显示未知。"
+                  : "无订单时合计为0。"
+              }}通道名称以已记录通道号标识。
+            </p>
+          </KitHelpPopover>
+          <button
+            type="button"
+            class="icon-button table-refresh"
+            :aria-label="loading ? '正在更新…' : '刷新数据'"
+            :title="loading ? '正在更新…' : '刷新数据'"
+            :disabled="loading"
+            @click="load"
+          >
+            <ShellIcon name="refresh" />
+          </button>
+        </div>
       </div>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
       <p v-if="loading" role="status">正在读取统计…</p>
@@ -335,28 +371,6 @@ const visibleRows = computed(() =>
 <style scoped>
 .original-order-statistics {
   min-width: 0;
-}
-.filter-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  font-size: 13px;
-}
-.date-range {
-  gap: 4px;
-}
-.date-range input {
-  width: auto;
-}
-.date-range-sep {
-  color: var(--ink-muted);
-}
-.filter-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-left: auto;
 }
 .table-summary {
   margin-left: auto;
