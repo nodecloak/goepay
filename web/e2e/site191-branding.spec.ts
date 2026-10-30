@@ -156,8 +156,10 @@ for (const width of [375, 1440]) {
     );
     await expect(page.locator("#setting-site_name")).toHaveCount(0);
     await expect(page.locator("#setting-support_email")).toHaveCount(0);
-    await page.getByLabel("网站标题", { exact: true }).fill("");
-    await page.getByLabel("网站首页", { exact: true }).selectOption("3");
+    await page.getByLabel("首页标题", { exact: true }).fill("");
+    // 首页显示模式 is a KitSelect: open the trigger, click the option.
+    await page.getByLabel("首页显示模式", { exact: true }).click();
+    await page.getByRole("option", { name: "显示空白页", exact: true }).click();
     await page
       .getByRole("button", { name: "保存本页设置", exact: true })
       .click();
