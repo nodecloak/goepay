@@ -138,7 +138,7 @@ for (const area of ["admin", "merchant"] as const)
       await page.goto(`/${area}/trade/refund`);
       const row = page.getByRole("row").filter({ hasText: merchantRefund });
       await expect(row).toHaveCount(1);
-      await expect(row).toContainText("90071992547409.93");
+      await expect(row).toContainText("¥90,071,992,547,409.93");
       expect(
         await row.evaluate((el) => {
           const text = el.querySelector("small.refund-merchant-no")!;

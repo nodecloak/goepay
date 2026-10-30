@@ -91,12 +91,11 @@ for (const width of [1440, 375])
     ).toContainText("-100000000000.23");
     await expect(table.getByRole("button")).toHaveCount(0);
     const form = page.getByRole("form", { name: "站内转账筛选" });
-    await form
-      .getByRole("combobox", { name: "方向", exact: true })
-      .selectOption("in");
-    await form
-      .getByRole("combobox", { name: "状态", exact: true })
-      .selectOption("approved");
+    // 方向 / 状态 are KitSelect comboboxes: open the trigger, click the option.
+    await form.getByLabel("方向", { exact: true }).click();
+    await page.getByRole("option", { name: "转入", exact: true }).click();
+    await form.getByLabel("状态", { exact: true }).click();
+    await page.getByRole("option", { name: "成功", exact: true }).click();
     await form.getByRole("button", { name: "查询", exact: true }).click();
     await expect(table.locator("tbody tr[data-transfer-id]")).toHaveCount(1);
     expect(listReads.at(-1)!.searchParams.get("direction")).toBe("in");

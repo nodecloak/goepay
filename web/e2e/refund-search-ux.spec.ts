@@ -81,8 +81,9 @@ for (const area of ["admin", "merchant"])
           "&uid=1",
       );
       const field = page.getByLabel("退款搜索字段", { exact: true }),
-        search = page.getByLabel("搜索记录", { exact: true });
-      await expect(field).toHaveValue("out_refund_no");
+        search = page.getByLabel("搜索内容", { exact: true });
+      // 退款搜索字段 is a KitSelect: its trigger shows the selected option's label.
+      await expect(field).toContainText("商户退款单号");
       await expect(search).toHaveValue(external);
       await expect(page.getByText(big, { exact: true })).toBeVisible();
       await expect(
@@ -95,7 +96,8 @@ for (const area of ["admin", "merchant"])
       expect(reads.at(-1)!.searchParams.get("search_field")).toBe(
         "out_refund_no",
       );
-      await field.selectOption("refund_no");
+      await field.click();
+      await page.getByRole("option", { name: "退款单号", exact: true }).click();
       await search.fill(big);
       await page.getByRole("button", { name: "查询", exact: true }).click();
       await expect

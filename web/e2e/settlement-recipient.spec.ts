@@ -101,7 +101,7 @@ test("settlement recipient edit clears fee confirmation and binds new snapshot v
   await expect(
     dialog.getByTestId("settlement-recipient-current"),
   ).toContainText("版本 42");
-  await dialog.getByLabel("金额（元）", { exact: true }).fill("1.23");
+  await dialog.getByLabel("金额（元）").fill("1.23");
   await dialog.getByRole("button", { name: "确认提交", exact: true }).click();
   await expect(
     dialog.getByRole("button", { name: "按已核对费用提交", exact: true }),
@@ -112,14 +112,12 @@ test("settlement recipient edit clears fee confirmation and binds new snapshot v
   await expect(
     dialog.getByRole("button", { name: "按已核对费用提交", exact: true }),
   ).toHaveCount(0);
-  await expect(dialog.getByLabel("新收款账号", { exact: true })).toHaveValue(
-    "",
-  );
+  await expect(dialog.getByLabel("收款账号", { exact: true })).toHaveValue("");
   await dialog
-    .getByLabel("新收款账号", { exact: true })
+    .getByLabel("收款账号", { exact: true })
     .fill("synthetic-private-account");
   await dialog
-    .getByLabel("新收款姓名", { exact: true })
+    .getByLabel("真实姓名", { exact: true })
     .fill("Synthetic Private Name");
   await dialog
     .getByRole("button", { name: "保存收款版本", exact: true })
@@ -210,8 +208,8 @@ test("missing recipient prevents new UI application and configuration conflict n
   await dialog
     .getByRole("button", { name: "配置收款资料", exact: true })
     .click();
-  await dialog.getByLabel("新收款账号").fill("synthetic-recipient");
-  await dialog.getByLabel("新收款姓名").fill("Synthetic Name");
+  await dialog.getByLabel("收款账号").fill("synthetic-recipient");
+  await dialog.getByLabel("真实姓名").fill("Synthetic Name");
   await dialog.getByRole("button", { name: "保存收款版本" }).click();
   await expect(dialog).toContainText(
     "收款版本已变化，请核对当前版本后重新编辑",
@@ -256,9 +254,9 @@ test("original settlement settings menu uses encrypted version API and never wri
     "***1234",
   );
   await page.getByRole("button", { name: "修改收款资料", exact: true }).click();
-  await expect(page.getByLabel("新收款账号")).toHaveValue("");
-  await page.getByLabel("新收款账号").fill("new-local-recipient");
-  await page.getByLabel("新收款姓名").fill("Local Name");
+  await expect(page.getByLabel("收款账号")).toHaveValue("");
+  await page.getByLabel("收款账号").fill("new-local-recipient");
+  await page.getByLabel("真实姓名").fill("Local Name");
   await page.getByRole("button", { name: "保存收款版本" }).click();
   await expect(page.getByTestId("settlement-recipient-current")).toContainText(
     "版本 43",
