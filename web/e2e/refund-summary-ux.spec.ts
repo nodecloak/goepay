@@ -40,7 +40,7 @@ for (const area of ["admin", "merchant"])
         });
       });
       await page.goto("/" + area + "/trade/refund");
-      await page.getByLabel("搜索记录", { exact: true }).fill("原退款-127");
+      await page.getByLabel("搜索内容", { exact: true }).fill("原退款-127");
       const opener = page.getByRole("button", {
         name: "退款统计",
         exact: true,

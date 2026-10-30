@@ -74,10 +74,13 @@ test("subject policy supplemental entry uses its actual schema and operator dire
   adminClass = "super";
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "订单名称限制策略", exact: true }),
+    page.getByLabel("搜索订单名称限制策略", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "说明", exact: true }).first().click();
   await expect(
-    page.getByText("仅影响新的上游发送，历史资金签名原名不变。"),
+    page
+      .getByRole("dialog", { name: "说明", exact: true })
+      .getByText("仅影响新的上游发送，历史资金签名原名不变。"),
   ).toBeVisible();
   await expect(
     page.getByRole("cell", { name: "Template", exact: true }),
