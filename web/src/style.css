@@ -2198,7 +2198,8 @@ legend {
   background: var(--bg-hover);
   color: var(--ink);
 }
-.pill-tabs button[aria-selected="true"] {
+.pill-tabs button[aria-selected="true"],
+.pill-tabs button[aria-pressed="true"] {
   background: var(--primary-soft);
   color: var(--primary-text);
   font-weight: 500;

@@ -417,8 +417,7 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="panel" aria-label="独立应用用户标识">
-    <h2>独立应用用户标识</h2>
+  <section class="profile-lookup" aria-label="独立应用用户标识">
     <p>
       结果仅属于所选授权AppID；可与收款AppID不同。此流程只交换用户标识，不创建订单或发起付款。
     </p>
@@ -426,18 +425,18 @@ onBeforeUnmount(() => {
       仅原始本人会话可使用；代登录不可发起或读取授权。
     </p>
     <template v-else>
-      <div class="form-grid">
-        <label v-if="area === 'admin'"
-          >独立查询商户ID<input
+      <div class="profile-form">
+        <label v-if="area === 'admin'" class="profile-field"
+          ><span>独立查询商户ID</span
+          ><input
             v-model.trim="merchant"
             inputmode="numeric"
             autocomplete="off" /></label
-        ><button :disabled="busy" @click="capabilities">读取独立应用</button
-        ><label
-          >授权应用档案<select
-            v-model="selected"
-            :disabled="busy || !profiles.length"
-          >
+        ><button class="pa-btn" :disabled="busy" @click="capabilities">
+          读取独立应用</button
+        ><label class="profile-field"
+          ><span>授权应用档案</span
+          ><select v-model="selected" :disabled="busy || !profiles.length">
             <option value="">请选择独立应用</option>
             <option v-for="p in profiles" :key="p.id" :value="p.id">
               {{ p.provider === "wxpay" ? "微信" : "支付宝" }} /
@@ -448,6 +447,7 @@ onBeforeUnmount(() => {
             </option>
           </select></label
         ><button
+          class="pa-btn pa-btn--primary"
           :disabled="busy || !selectedProfile || !!openRequest || unknown"
           @click="create"
         >
@@ -611,6 +611,33 @@ onBeforeUnmount(() => {
   </section>
 </template>
 <style scoped>
+.profile-lookup {
+  min-width: 0;
+}
+.profile-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  min-width: 0;
+  width: clamp(220px, 30vw, 320px);
+  font-size: 13px;
+}
+.profile-field > input,
+.profile-field > select {
+  width: 100%;
+  margin: 0;
+}
+.profile-form > .pa-btn {
+  min-height: var(--control-h);
+}
 textarea {
   width: 100%;
   max-width: 100%;
