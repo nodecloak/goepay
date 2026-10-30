@@ -88,7 +88,7 @@ onMounted(load);onBeforeUnmount(()=>{active=false;reset()});
 </script>
 <template>
  <section class="list-page-host parent-channel-page" aria-label="支付通道" @focusin.capture="foreground" @pointerdown.capture="foreground" @keydown.capture="foreground">
- <div class="parent-head"><h2>支付通道</h2><KitHelpPopover label="说明" text="真实父通道账户；新增和复制默认关闭。授权来源只继承现有商户权限。"/></div>
+ <div class="parent-head"><KitHelpPopover label="说明" text="真实父通道账户；新增和复制默认关闭。授权来源只继承现有商户权限。"/></div>
  <div v-if="error" class="alert error" role="alert">{{error}}</div><div v-if="notice" class="alert success" role="status">{{notice}}</div>
  <fieldset class="list-page parent-background" :disabled="!!limitsID||!!feeID||!!statisticsID||!!testRow||!!weixinBatch||!!confirmation||!!mode"><KitFilterBar :loading="loading||busy" @query="filters.page=1;load()" @reset="filters.kw='';filters.type='';filters.plugin='';filters.dstatus='-1';filters.page=1;load()"><KitField label="搜索内容"><KitInput v-model="filters.kw" placeholder="ID / 名称" aria-label="ID或名称"/></KitField><KitField label="支付方式"><KitSelect v-model="filters.type" :options="[{value:'',label:'全部支付方式'},...payTypeOptions.map(t=>({value:t,label:payTypeLabel(t)}))]" aria-label="支付方式"/></KitField><KitField label="支付插件"><KitSelect v-model="filters.plugin" :options="[{value:'',label:'全部插件'},...pluginOptions.map(p=>({value:p,label:p}))]" aria-label="支付插件"/></KitField><KitField label="通道状态"><KitSelect v-model="filters.dstatus" :options="[{value:'-1',label:'全部状态'},{value:'1',label:'已开启'},{value:'0',label:'已关闭'}]" aria-label="通道状态"/></KitField></KitFilterBar>
  <section class="panel parent-content" aria-label="支付通道列表">
@@ -121,7 +121,7 @@ onMounted(load);onBeforeUnmount(()=>{active=false;reset()});
 .parent-background{border:0;padding:0;margin:0;min-width:0}
 .parent-content{padding:var(--space-5)}
 
-.parent-channel-page{min-width:0}.parent-head{display:flex;align-items:center;gap:8px}.parent-head h2{margin:0}.parent-toolbar-tools{display:inline-flex;gap:6px;margin-left:auto;align-items:center}.parent-columns-panel{gap:16px;align-items:center;font-size:13px;margin-top:-6px}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.parent-channel-page{min-width:0}.parent-head{display:flex;align-items:center;gap:8px}.parent-toolbar-tools{display:inline-flex;gap:6px;margin-left:auto;align-items:center}.parent-columns-panel{gap:16px;align-items:center;font-size:13px;margin-top:-6px}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
 .parent-channel-page .parent-background form.toolbar>input,.parent-channel-page .parent-background form.toolbar>select{width:auto;flex:1 1 150px;max-width:220px;margin:0}
 .parent-channel-page .parent-background .toolbar[aria-label]>:last-child{margin-left:0}
 .parent-channel-page .parent-background .toolbar[aria-label] label{margin:0;font-size:13px}

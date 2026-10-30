@@ -1750,7 +1750,7 @@ onBeforeUnmount(resetContext);
           ×
         </button>
       </div>
-      <h2 v-else>
+      <h2 v-else-if="!entry">
         {{
           mode === "create"
             ? "新增"

@@ -55,7 +55,7 @@ test("live Docker templates render in the protected iframe and both printing set
   expect(preview.headers()["cache-control"]).toContain("no-store");
   await page.goto("/admin/system/printing");
   await expect(
-    page.getByRole("heading", { name: "平台打印配置", exact: true, level: 2 }),
+    page.getByRole("region", { name: "平台打印配置", exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("打印服务")).toBeVisible();
   await expect(page.locator("main")).toContainText("外部执行默认关闭");

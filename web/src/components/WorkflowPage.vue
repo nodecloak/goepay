@@ -1036,7 +1036,7 @@ onBeforeUnmount(() => {
             : '审批确认'
       "
     >
-      <h2>
+      <h2 v-if="!application">
         {{
           dialog === "create"
             ? workflow === "settlements"

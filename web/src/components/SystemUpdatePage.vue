@@ -286,9 +286,8 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="panel system-update-page">
+  <section class="panel system-update-page" aria-label="系统更新">
     <header class="update-heading">
-      <h2>系统更新</h2>
       <button :disabled="loading || busy" @click="inspect()">重新检测</button>
     </header>
     <p v-if="error" role="alert" class="error">{{ error }}</p>
@@ -457,9 +456,6 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-}
-.update-heading h2 {
-  margin: 0;
 }
 .version-columns {
   display: grid;

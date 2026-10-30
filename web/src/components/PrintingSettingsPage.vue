@@ -131,8 +131,11 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="panel">
-    <h2>{{ title || (admin ? "平台打印配置" : "我的订单打印设置") }}</h2>
+  <section
+    class="panel"
+    :aria-label="title || (admin ? '平台打印配置' : '我的订单打印设置')"
+  >
+    <h2 v-if="title">{{ title }}</h2>
     <p v-if="!allowed" class="alert">
       请使用本人会话；平台配置仅超级管理员可管理。
     </p>

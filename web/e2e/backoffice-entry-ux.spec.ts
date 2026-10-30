@@ -150,7 +150,7 @@ for (const width of [375, 1280]) {
     const { writes } = await fixture(page, "merchant");
     await page.goto("/merchant/settle/apply");
     await expect(
-      page.getByRole("heading", { name: "申请提现", exact: true, level: 2 }),
+      page.getByRole("region", { name: "申请提现", exact: true }),
     ).toBeVisible();
     await expect(page.getByLabel("金额（元）", { exact: true })).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -167,7 +167,7 @@ for (const width of [375, 1280]) {
     await page.goto("/merchant/transfer");
     await page.getByRole("link", { name: "批量转账", exact: true }).click();
     await expect(
-      page.getByRole("heading", { name: "批量付款", exact: true, level: 2 }),
+      page.getByRole("region", { name: "批量付款", exact: true }),
     ).toBeVisible();
     expect(writes).toHaveLength(0);
   });
@@ -178,7 +178,7 @@ for (const width of [375, 1280]) {
     const { writes, configuration } = await fixture(page, "admin");
     await page.goto("/admin/merchant/group-buy");
     await expect(
-      page.getByRole("heading", { name: "用户组购买设置", exact: true }),
+      page.getByRole("region", { name: "用户组购买设置", exact: true }),
     ).toBeVisible();
     expect(writes).toHaveLength(0);
     await page.getByLabel("售价（元） · 专业组", { exact: true }).fill("2.99");
@@ -216,7 +216,7 @@ for (const width of [375, 1280]) {
     await page.goto("/admin/transfer/list");
     await page.getByRole("link", { name: "批量转账", exact: true }).click();
     await expect(
-      page.getByRole("heading", { name: "批量付款", exact: true, level: 2 }),
+      page.getByRole("region", { name: "批量付款", exact: true }),
     ).toBeVisible();
   });
 }

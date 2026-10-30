@@ -377,7 +377,6 @@ onBeforeUnmount(() => {
     :own-session="ownSession === true"
   />
   <section v-else class="panel" aria-label="获取支付用户标识">
-    <h2>获取支付用户标识</h2>
     <p>
       选择商户及应用，使用微信或支付宝完成授权。授权结果只允许发起会话读取一次，五分钟内有效。
     </p>
