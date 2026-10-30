@@ -547,5 +547,16 @@ onBeforeUnmount(() => {
   .channel-limits-modal {
     padding: 18px;
   }
+  /* The global full-bleed head/foot bars use a -20px (var(--space-5))
+     horizontal margin that assumes the modal's default 20px padding. This
+     panel tightens its padding to 18px below 540px, so pull the bars back to
+     -18px to keep them flush instead of overflowing by 2px each side. */
+  .channel-limits-modal > :is(h2, h3):first-child,
+  .channel-limits-modal > :is(.modal-actions, .toolbar-actions):last-child {
+    margin-left: -18px;
+    margin-right: -18px;
+    padding-left: 18px;
+    padding-right: 18px;
+  }
 }
 </style>
