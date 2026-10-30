@@ -368,7 +368,7 @@ function merchantRelatedLinks(id: unknown) {
     return [];
   return [
     { id: "detail", label: "详情" },
-    ...(canDelegate.value ? [{ id: "delegate", label: "代登录商户" }] : []),
+    ...(canDelegate.value ? [{ id: "delegate", label: "一键登录" }] : []),
     ...(canReadMerchantStatistics.value
       ? [{ id: "payment-statistics", label: "支付统计" }]
       : []),
