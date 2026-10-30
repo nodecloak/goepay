@@ -112,75 +112,75 @@ onMounted(load);
 onBeforeUnmount(clear);
 </script>
 <template>
-  <KitFilterBar
-    :loading="loading"
-    @query="
-      page = 1;
-      load();
-    "
-    @reset="
-      date = today;
-      page = 1;
-      $nextTick(load);
-    "
-  >
-    <KitField label="日期"
-      ><input
-        v-model="date"
-        class="pa-input"
-        type="date"
-        :max="today"
-        aria-label="日期"
-        required
-    /></KitField>
-  </KitFilterBar>
-  <section class="panel records runtime-log-page">
-    <div class="table-tools">
-      <KitHelpPopover
-        text="按北京时间查看本服务已保存的运行事件；部署前或数据库不可用时未保存的终端输出不在列表中。"
-      />
-      <div class="table-tools-end">
-        <button type="button" :disabled="loading" @click="load">
-          <ShellIcon name="refresh" />刷新</button
-        ><button
-          v-if="canWrite"
-          type="button"
-          class="danger-button"
-          @click="cleanup = true"
-        >
-          清除日志
-        </button>
+  <div class="list-page">
+    <KitFilterBar
+      :loading="loading"
+      @query="
+        page = 1;
+        load();
+      "
+      @reset="
+        date = today;
+        page = 1;
+        $nextTick(load);
+      "
+    >
+      <KitField label="日期"
+        ><input
+          v-model="date"
+          class="pa-input"
+          type="date"
+          :max="today"
+          aria-label="日期"
+          required
+      /></KitField>
+    </KitFilterBar>
+    <section class="panel records runtime-log-page">
+      <div class="table-tools">
+        <div class="table-tools-end">
+          <button type="button" :disabled="loading" @click="load">
+            <ShellIcon name="refresh" />刷新</button
+          ><button
+            v-if="canWrite"
+            type="button"
+            class="danger-button"
+            @click="cleanup = true"
+          >
+            清除日志
+          </button>
+          <KitHelpPopover
+            text="按北京时间查看本服务已保存的运行事件；部署前或数据库不可用时未保存的终端输出不在列表中。"
+          />
+        </div>
       </div>
-    </div>
-    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <p v-if="loading" role="status">正在读取运行日志…</p>
-    <div v-else-if="!error" class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">时间</th>
-            <th scope="col">日志类型</th>
-            <th scope="col">日志内容</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in items" :key="String(row.id)">
-            <td>{{ beijingTimestamp(row.time) }}</td>
-            <td>
-              <KitStatusTag
-                :text="String(row.type)"
-                :tone="logTone(String(row.type))"
-              />
-            </td>
-            <td class="log-content">{{ row.content }}</td>
-          </tr>
-          <tr v-if="!items.length">
-            <td colspan="3" class="empty">暂无记录</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="pagination">
+      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <p v-if="loading" role="status">正在读取运行日志…</p>
+      <div v-else-if="!error" class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">时间</th>
+              <th scope="col">日志类型</th>
+              <th scope="col">日志内容</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in items" :key="String(row.id)">
+              <td>{{ beijingTimestamp(row.time) }}</td>
+              <td>
+                <KitStatusTag
+                  :text="String(row.type)"
+                  :tone="logTone(String(row.type))"
+                />
+              </td>
+              <td class="log-content">{{ row.content }}</td>
+            </tr>
+            <tr v-if="!items.length">
+              <td colspan="3" class="empty">暂无记录</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <KitPagination
         v-model:page="page"
         :page-size="30"
@@ -188,28 +188,28 @@ onBeforeUnmount(clear);
         :page-sizes="[30]"
         @change="load"
       />
-    </div>
-    <details
-      class="list-filters runtime-audit-disclosure"
-      @toggle="auditOpen = ($event.target as HTMLDetailsElement).open"
-    >
-      <summary>
-        <ShellIcon name="filter" />查看独立保留的业务审计<ShellIcon
-          name="chevronDown"
-          class="list-filters-chevron"
-        />
-      </summary>
-      <slot v-if="auditOpen" name="audit" />
-    </details>
-    <RuntimeLogCleanup
-      v-if="cleanup && canWrite"
-      :client="client"
-      :own-session="ownSession"
-      :admin-class="adminClass"
-      @close="cleanup = false"
-      @updated="load"
-    />
-  </section>
+      <details
+        class="list-filters runtime-audit-disclosure"
+        @toggle="auditOpen = ($event.target as HTMLDetailsElement).open"
+      >
+        <summary>
+          <ShellIcon name="filter" />查看独立保留的业务审计<ShellIcon
+            name="chevronDown"
+            class="list-filters-chevron"
+          />
+        </summary>
+        <slot v-if="auditOpen" name="audit" />
+      </details>
+      <RuntimeLogCleanup
+        v-if="cleanup && canWrite"
+        :client="client"
+        :own-session="ownSession"
+        :admin-class="adminClass"
+        @close="cleanup = false"
+        @updated="load"
+      />
+    </section>
+  </div>
 </template>
 <style scoped>
 .runtime-log-page {
