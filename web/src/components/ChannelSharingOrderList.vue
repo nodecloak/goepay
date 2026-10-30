@@ -13,6 +13,7 @@ import KitPayMethod from "./KitPayMethod.vue";
 import KitEmpty from "./KitEmpty.vue";
 import KitPagination from "./KitPagination.vue";
 import KitModal from "./KitModal.vue";
+import ShellIcon from "./ShellIcon.vue";
 
 // Pro 分账记录 (profitsharing/order) over GOEPAY's SERVER-side channel-sharing
 // orders endpoints (a4 N5): filters + offset paging with a total, the 统计
@@ -523,11 +524,11 @@ onMounted(() => {
       </template>
     </KitFilterBar>
 
-    <section class="panel sharing-orders" aria-label="分账记录">
-      <p v-if="error" class="error" role="alert">{{ error }}</p>
-      <p v-if="notice" class="success" role="status">{{ notice }}</p>
+    <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+    <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
 
-      <div class="pa-toolbar">
+    <section class="panel records sharing-orders" aria-label="分账记录">
+      <div class="table-tools">
         <button
           type="button"
           class="pa-btn"
@@ -555,16 +556,18 @@ onMounted(() => {
         >
           导出
         </button>
-        <button
-          type="button"
-          class="pa-btn pa-icon-btn"
-          data-action="refresh"
-          :disabled="loading"
-          title="刷新"
-          @click="load"
-        >
-          刷新
-        </button>
+        <div class="table-tools-end">
+          <button
+            type="button"
+            class="pa-btn"
+            data-action="refresh"
+            :disabled="loading"
+            title="刷新"
+            @click="load"
+          >
+            <ShellIcon name="refresh" />刷新
+          </button>
+        </div>
       </div>
 
       <div v-if="showStats && stats" class="sharing-stats" role="status">
@@ -591,7 +594,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="pa-table-wrap">
+      <div class="table-scroll">
         <table class="pa-table">
           <thead>
             <tr>
@@ -749,23 +752,11 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.sharing-orders {
-  display: grid;
-  gap: 16px;
-  padding: 18px;
-}
-.pa-toolbar {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.pa-table-wrap {
-  overflow-x: auto;
-}
 .sharing-stats {
   display: flex;
   flex-wrap: wrap;
   gap: 20px;
+  margin: 0 var(--space-5) var(--space-4);
   padding: 14px 18px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md, 8px);

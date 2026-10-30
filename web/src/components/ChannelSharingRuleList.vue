@@ -12,6 +12,7 @@ import KitStatusTag from "./KitStatusTag.vue";
 import KitPayMethod from "./KitPayMethod.vue";
 import KitEmpty from "./KitEmpty.vue";
 import KitModal from "./KitModal.vue";
+import ShellIcon from "./ShellIcon.vue";
 
 // Pro 分账规则 (profitsharing/receiver) presented over GOEPAY's provider-bound
 // channel-sharing API. One Pro "规则" row = one payment channel's current rule
@@ -591,14 +592,14 @@ function onReset() {
       </KitField>
     </KitFilterBar>
 
-    <section class="panel sharing-rules" aria-label="分账规则">
-      <p v-if="error" class="error" role="alert">{{ error }}</p>
-      <p v-if="notice" class="success" role="status">{{ notice }}</p>
-      <p v-if="reason && rows.length" class="muted" role="status">
-        {{ reason }}
-      </p>
+    <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+    <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
+    <p v-if="reason && rows.length" class="muted" role="status">
+      {{ reason }}
+    </p>
 
-      <div class="pa-toolbar">
+    <section class="panel records sharing-rules" aria-label="分账规则">
+      <div class="table-tools">
         <button
           type="button"
           class="pa-btn pa-btn--primary"
@@ -606,14 +607,14 @@ function onReset() {
           :disabled="loading || saving || !loaded || !rows.length"
           @click="openAdd"
         >
-          新增
+          <ShellIcon name="plus" />新增
         </button>
-        <span v-if="createHint" class="create-hint" role="note">{{
+        <span v-if="createHint" class="create-hint table-summary" role="note">{{
           createHint
         }}</span>
       </div>
 
-      <div class="pa-table-wrap">
+      <div class="table-scroll">
         <table class="pa-table">
           <thead>
             <tr>
@@ -816,22 +817,13 @@ function onReset() {
 </template>
 
 <style scoped>
-.sharing-rules {
-  display: grid;
-  gap: 16px;
-  padding: 18px;
-}
-.pa-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
 .create-hint {
   color: var(--ink-muted);
   font-size: 12px;
 }
-.pa-table-wrap {
-  overflow-x: auto;
+/* No pager under this table: the card edge closes the last row. */
+.sharing-rules tbody tr:last-child td {
+  border-bottom: 0;
 }
 .sharing-recv {
   display: flex;
