@@ -40,11 +40,12 @@ test("platform printing saves an explicit CAS secret replacement only after conf
   });
   await page.goto("/admin/system/printing");
   await expect(
-    page.getByRole("heading", { name: "平台打印配置" }),
+    page.getByRole("region", { name: "平台打印配置" }),
   ).toBeVisible();
   await expect(page.getByText(/固定网关连接器可用/)).toBeVisible();
   await expect(page.getByText(/外部执行默认关闭/)).toBeVisible();
-  await page.getByLabel("凭据操作").selectOption("replace");
+  await page.getByRole("button", { name: "凭据操作", exact: true }).click();
+  await page.getByRole("option", { name: "替换凭据", exact: true }).click();
   await page.getByLabel("应用ID").fill("synthetic-app");
   await page.getByLabel("应用密钥").fill("synthetic-printing-secret");
   await page.getByRole("button", { name: "检查并保存打印设置" }).click();
@@ -117,7 +118,10 @@ test("merchant printing is explicit owner configuration rather than a generic pl
     return r.fulfill(ok({}));
   });
   await page.goto("/merchant/account/printing");
-  await page.getByLabel("自动打印范围").selectOption("2");
+  await page.getByRole("button", { name: "自动打印范围", exact: true }).click();
+  await page
+    .getByRole("option", { name: "全部普通支付订单", exact: true })
+    .click();
   await page.getByLabel("每单份数").fill("3");
   await page.getByRole("button", { name: "检查并保存打印设置" }).click();
   expect(writes).toHaveLength(0);

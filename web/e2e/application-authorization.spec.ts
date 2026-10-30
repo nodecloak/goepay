@@ -133,7 +133,7 @@ for (const mode of ["basic-browser", "assigned-browser", "assigned-wallet"]) {
     });
     await page.goto("/admin/other/get-token");
     await page
-      .getByRole("button", { name: "支付宝应用授权", exact: true })
+      .getByRole("button", { name: "支付宝应用授权Token", exact: true })
       .click();
     expect(
       calls.filter((p) => p.includes("application-authorizations")),
@@ -216,7 +216,7 @@ for (const mode of ["basic-browser", "assigned-browser", "assigned-wallet"]) {
         fullPage: true,
       });
     await page
-      .getByRole("button", { name: "原收款应用网页授权", exact: true })
+      .getByRole("button", { name: "微信公众号Openid", exact: true })
       .click();
     await expect(token).toHaveCount(0);
   });
@@ -291,7 +291,7 @@ test("unknown creation requires explicit reset and unknown reveal remains consum
   });
   await page.goto("/admin/other/get-token");
   await page
-    .getByRole("button", { name: "支付宝应用授权", exact: true })
+    .getByRole("button", { name: "支付宝应用授权Token", exact: true })
     .click();
   const select = async () => {
     await page.getByLabel("应用授权商户ID", { exact: true }).fill("1000");
@@ -379,7 +379,7 @@ test("operator, delegated and merchant sessions cannot access the application au
         page.getByRole("button", { name: "独立应用与小程序", exact: true }),
       ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "支付宝应用授权", exact: true }),
+      page.getByRole("button", { name: "支付宝应用授权Token", exact: true }),
     ).toHaveCount(0);
     expect(calls).toBe(0);
     await page.unroute("**/console/v1/**");
@@ -412,7 +412,7 @@ test("disabled capability reports no configured app-auth route", async ({
   });
   await page.goto("/admin/other/get-token");
   await page
-    .getByRole("button", { name: "支付宝应用授权", exact: true })
+    .getByRole("button", { name: "支付宝应用授权Token", exact: true })
     .click();
   await page.getByLabel("应用授权商户ID", { exact: true }).fill("1000");
   await page

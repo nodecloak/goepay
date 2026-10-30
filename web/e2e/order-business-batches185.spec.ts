@@ -85,9 +85,11 @@ async function setup(
 async function open(page: Page) {
   await page.goto("/admin/trade/order");
   await page.getByLabel("全选本页订单", { exact: true }).check();
-  const menu = page.getByLabel("批量操作", { exact: true });
+  await page.getByRole("button", { name: "批量操作", exact: true }).click();
+  const menu = page.getByRole("menu", { name: "批量操作" });
+  await expect(menu).toBeVisible();
   expect(
-    (await menu.locator("option").allTextContents())
+    (await menu.getByRole("menuitem").allTextContents())
       .slice(0, 9)
       .map((x) => x.split("（")[0]?.trim()),
   ).toEqual([
@@ -101,8 +103,7 @@ async function open(page: Page) {
     "确认结算",
     "手动补单",
   ]);
-  await menu.selectOption("query");
-  await page.getByRole("button", { name: "执行批量操作", exact: true }).click();
+  await menu.getByRole("menuitem", { name: /^手动补单（/ }).click();
   const d = page.getByRole("dialog", { name: "批量订单业务确认" });
   await expect(d).toBeVisible();
   await d

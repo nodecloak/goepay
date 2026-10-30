@@ -40,6 +40,7 @@ function set<K extends keyof SettlementFilters>(
 <template>
   <KitFilterBar
     :loading="loading"
+    label="结算筛选"
     @query="emit('submit')"
     @reset="emit('reset')"
   >

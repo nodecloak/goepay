@@ -461,8 +461,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="task-scheduler">
-    <h2>任务列表</h2>
+  <section class="task-scheduler" aria-label="计划任务">
     <p v-if="!permitted" role="status">
       仅本人原超级管理员会话可以核对和配置计划任务。
     </p>
@@ -522,7 +521,7 @@ onBeforeUnmount(() => {
           </footer>
         </article>
       </div>
-      <div class="task-diagnostics table-tools">
+      <div v-if="items.length || !loading" class="task-diagnostics table-tools">
         <button class="soft-button" @click="legacyOpen = !legacyOpen">
           {{ legacyOpen ? "收起旧计划资料" : "旧计划资料（只读）" }}</button
         ><button class="soft-button" @click="queueOpen = !queueOpen">

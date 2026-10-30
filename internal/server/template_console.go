@@ -13,10 +13,44 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
+
+	qrcode "github.com/skip2/go-qrcode"
 )
 
 var templateImageSlots = make(chan struct{}, 2)
+
+// templatePreviewBody is the demo content under a pay/qrpay template in the
+// console preview. It looks like the real page but is inert: no form, button,
+// script or external image (the QR code is inline SVG of a demo text).
+func templatePreviewBody(kind string) string {
+	if kind == "qrpay" {
+		return `<p>收款说明：模板演示</p><span class="template-demo-label">金额（元）</span><span class="template-demo-input template-demo-amount">0.00</span><span class="template-demo-label">支付方式</span><span class="template-demo-input">微信支付 / 支付宝</span><span class="template-demo-button">前往支付</span><p>演示材料：没有支付按钮，不创建订单。</p>`
+	}
+	return `<p>请使用支付宝或微信扫描支付二维码。</p>` + previewQRSVG("GOEPAY-TEMPLATE-PREVIEW") + `<p>演示材料：没有支付按钮，不创建订单。</p>`
+}
+
+// previewQRSVG draws a QR code of text as inline SVG modules.
+func previewQRSVG(text string) string {
+	q, e := qrcode.New(text, qrcode.Medium)
+	if e != nil {
+		return ""
+	}
+	q.DisableBorder = true
+	bm := q.Bitmap()
+	var b strings.Builder
+	fmt.Fprintf(&b, `<svg viewBox="0 0 %d %d" role="img" aria-label="演示二维码" shape-rendering="crispEdges"><path fill="#111" d="`, len(bm), len(bm))
+	for y, row := range bm {
+		for x, on := range row {
+			if on {
+				fmt.Fprintf(&b, "M%d %dh1v1h-1z", x, y)
+			}
+		}
+	}
+	b.WriteString(`"/></svg>`)
+	return b.String()
+}
 
 func templateFail(w http.ResponseWriter, e error) {
 	status, message := 500, "template service unavailable"
@@ -177,12 +211,29 @@ func (s *Server) templateConsole(w http.ResponseWriter, r *http.Request, role st
 				templateFail(w, e)
 				return true
 			}
+			if v.Type == "home" {
+				var hb bytes.Buffer
+				demo := pagetemplate.HomeData{SiteName: "预览站点名称", Title: "首页模板预览", Org: "示例科技有限公司", Email: "support@example.com", QQ: "10001", TestOpen: true, RegistrationOpen: true, Preview: true}
+				if e = pagetemplate.RenderHome(&hb, pagetemplate.Resolved{Type: v.Type, Name: v.Name, Revision: v.Revision, Config: cfg}, demo); e != nil {
+					templateFail(w, e)
+					return true
+				}
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.Header().Set("Cache-Control", "no-store")
+				w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; script-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'; sandbox allow-same-origin")
+				w.Write(hb.Bytes())
+				return true
+			}
 			var b bytes.Buffer
-			if e = pagetemplate.Open(&b, pagetemplate.Resolved{Type: v.Type, Name: v.Name, Revision: v.Revision, Config: cfg}, pagetemplate.Page{Title: "模板预览", TradeNo: "PREVIEW-ONLY", Amount: "1.00", OrderName: "模板演示订单", Preview: true}); e != nil {
+			page := pagetemplate.Page{Title: "支付收银台", TradeNo: "PREVIEW-ONLY", Amount: "1.00", OrderName: "模板演示订单", Preview: true}
+			if v.Type == "qrpay" {
+				page = pagetemplate.Page{Title: "向商户付款", MerchantName: "示例商户", Preview: true}
+			}
+			if e = pagetemplate.Open(&b, pagetemplate.Resolved{Type: v.Type, Name: v.Name, Revision: v.Revision, Config: cfg}, page); e != nil {
 				templateFail(w, e)
 				return true
 			}
-			io.WriteString(&b, "<p>演示材料：没有支付按钮，不创建订单。</p>")
+			io.WriteString(&b, templatePreviewBody(v.Type))
 			pagetemplate.Close(&b)
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Header().Set("Cache-Control", "no-store")

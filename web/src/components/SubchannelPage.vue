@@ -18,6 +18,7 @@ import KitSwitch from "./KitSwitch.vue";
 import KitStatusTag from "./KitStatusTag.vue";
 import KitPagination from "./KitPagination.vue";
 import KitHelpPopover from "./KitHelpPopover.vue";
+import ShellIcon from "./ShellIcon.vue";
 import {
   freshSubchannelFilters,
   readSubchannelPage,
@@ -192,10 +193,6 @@ const payTypeFilterOptions = [
   { value: "wxpay", label: "微信支付" },
   { value: "alipay", label: "支付宝" },
 ];
-const sizeOptions = [10, 20, 50, 100].map((n) => ({
-  value: String(n),
-  label: String(n),
-}));
 const rollTypeOptions = computed(() =>
   subchannelRollNames.map((label, n) => ({ value: String(n), label })),
 );
@@ -214,10 +211,6 @@ const parentOptions = computed(() => {
         (s.payType === "wxpay" ? "微信支付" : "支付宝") + " #" + s.parentId,
     });
   return list;
-});
-const sizeModel = computed({
-  get: () => String(filters.value.size),
-  set: (v: string) => (filters.value.size = Number(v)),
 });
 const pagerPage = computed({
   get: () => applied.value.page,
@@ -924,77 +917,79 @@ onBeforeUnmount(() => {
       class="subchannel-toolbar list-filter-card panel"
       @submit.prevent="search"
     >
-      <label
-        >子通道编号<input
-          v-model="filters.id"
-          inputmode="numeric"
-          placeholder="精确编号" /></label
-      ><label
-        >名称<input v-model="filters.name" placeholder="子通道名称" /></label
-      ><label
-        >支付方式<KitSelect
-          v-model="filters.payType"
-          :options="payTypeFilterOptions"
-          aria-label="支付方式筛选" /></label
-      ><label v-if="admin"
-        >商户编号<input
-          v-model="filters.merchantId"
-          inputmode="numeric" /></label
-      ><label v-if="admin"
-        >父通道编号<input
-          v-model="filters.parentId"
-          inputmode="numeric" /></label
-      ><button type="submit" :disabled="!allowed || loading">查询</button
-      ><button type="button" @click="reset" :disabled="loading">
-        清空筛选
-      </button>
-      <div class="subchannel-tools">
+      <div class="subchannel-filter-fields">
+        <label
+          >子通道编号<input
+            v-model="filters.id"
+            inputmode="numeric"
+            placeholder="精确编号" /></label
+        ><label
+          >名称<input v-model="filters.name" placeholder="子通道名称" /></label
+        ><label
+          >支付方式<KitSelect
+            v-model="filters.payType"
+            :options="payTypeFilterOptions"
+            aria-label="支付方式筛选" /></label
+        ><label v-if="admin"
+          >商户编号<input
+            v-model="filters.merchantId"
+            inputmode="numeric" /></label
+        ><label v-if="admin"
+          >父通道编号<input v-model="filters.parentId" inputmode="numeric"
+        /></label>
+      </div>
+      <div class="subchannel-filter-actions">
+        <button type="button" @click="reset" :disabled="loading">
+          清空筛选</button
+        ><button type="submit" class="primary" :disabled="!allowed || loading">
+          查询
+        </button>
+      </div>
+    </form>
+    <section class="panel records subchannel-card" aria-label="子通道列表">
+      <div class="table-tools">
         <button
           v-if="admin"
-          class="primary"
+          class="pa-btn pa-btn--primary"
           type="button"
           :disabled="!allowed || loading || !schemas.length || requiresRefresh"
           @click="open('create')"
         >
           新增子通道</button
         ><button
+          class="pa-btn"
           type="button"
           :disabled="!allowed || loading || !rollOwner || requiresRefresh"
           @click="open('roll')"
         >
           轮询设置</button
-        ><button
-          data-subchannel-refresh
-          type="button"
-          :disabled="!allowed || loading"
-          @click="load"
-        >
-          刷新
-        </button>
-        <KitHelpPopover label="说明">
-          <p>
-            收款账户由管理员配置。轮询方式适用于本人子通道；单笔订单金额须同时满足父通道与子通道限额。
-          </p>
-          <p>
-            金额按北京时间统计已记录子通道绑定的可信支付确认（含后续退款）；成功率为可信确认数
-            / 已发起次数，暂无发起记录显示“—”。历史未记录绑定的订单不推算。
-          </p>
-        </KitHelpPopover>
-      </div>
-    </form>
-    <div class="panel">
-      <div class="subchannel-summary">
-        <span v-if="policy"
-          >当前轮询方式：{{ subchannelRollNames[policy.rollType] }}</span
-        ><span v-else-if="admin">可按商户筛选或从操作菜单设置轮询方式</span
-        ><label
-          >每页<KitSelect
-            v-model="sizeModel"
-            :options="sizeOptions"
-            aria-label="每页条数"
-            @change="search"
-          />条</label
-        >
+        ><span class="table-summary">{{
+          policy
+            ? "当前轮询方式：" + subchannelRollNames[policy.rollType]
+            : admin
+              ? "可按商户筛选或从操作菜单设置轮询方式"
+              : ""
+        }}</span>
+        <div class="table-tools-end">
+          <button
+            data-subchannel-refresh
+            type="button"
+            class="pa-btn"
+            :disabled="!allowed || loading"
+            @click="load"
+          >
+            <ShellIcon name="refresh" />刷新
+          </button>
+          <KitHelpPopover label="说明">
+            <p>
+              收款账户由管理员配置。轮询方式适用于本人子通道；单笔订单金额须同时满足父通道与子通道限额。
+            </p>
+            <p>
+              金额按北京时间统计已记录子通道绑定的可信支付确认（含后续退款）；成功率为可信确认数
+              / 已发起次数，暂无发起记录显示“—”。历史未记录绑定的订单不推算。
+            </p>
+          </KitHelpPopover>
+        </div>
       </div>
       <div class="subchannel-table-wrap">
         <table class="subchannel-table">
@@ -1135,9 +1130,10 @@ onBeforeUnmount(() => {
         v-model:page="pagerPage"
         v-model:page-size="pagerSize"
         :total="total"
+        :page-sizes="[10, 20, 50, 100]"
         @change="load"
       />
-    </div>
+    </section>
     <Teleport to="body"
       ><div v-if="modal" class="modal-backdrop" @keydown="trap">
         <section
@@ -1304,7 +1300,10 @@ onBeforeUnmount(() => {
                   >打开原支付页面</a
                 ><RouterLink
                   :to="`/${area}/trade/order?trade_no=${encodeURIComponent(modal.tradeNo)}`"
-                  >查看原订单 {{ modal.tradeNo }}</RouterLink
+                  >查看原订单
+                  <span class="pa-order-no">{{
+                    modal.tradeNo
+                  }}</span></RouterLink
                 ></template
               ><button
                 v-if="modal.executed"
@@ -1379,19 +1378,26 @@ onBeforeUnmount(() => {
 .subchannel-page {
   min-width: 0;
 }
+/* Standard filter card: stacked labels above ~220px fields, actions at the
+   right end. */
 .subchannel-toolbar {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   flex-wrap: wrap;
-  gap: 0.65rem;
+  gap: var(--space-3) var(--space-5);
 }
-.subchannel-toolbar > label {
+.subchannel-filter-fields {
   display: grid;
-  gap: 0.3rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-3) var(--space-5);
+  flex: 1;
+  min-width: 0;
+}
+.subchannel-toolbar label {
+  display: grid;
+  gap: var(--space-2);
   margin: 0;
-  font-size: 0.8rem;
-  min-width: 100px;
-  max-width: 180px;
+  font-size: 13px;
 }
 .subchannel-toolbar input,
 .subchannel-toolbar select {
@@ -1399,27 +1405,11 @@ onBeforeUnmount(() => {
   min-width: 0;
   margin-top: 0;
 }
-.subchannel-tools {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-left: auto;
-}
-.subchannel-summary {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.7rem 1rem;
-  font-size: 0.85rem;
-}
-.subchannel-summary label {
+.subchannel-filter-actions {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-}
-.subchannel-summary select {
-  width: auto;
+  gap: var(--space-2);
+  justify-content: flex-end;
 }
 .subchannel-table-wrap {
   overflow-x: auto;
@@ -1430,19 +1420,6 @@ onBeforeUnmount(() => {
   min-width: 1050px;
   width: 100%;
   border-collapse: collapse;
-}
-.subchannel-table th,
-.subchannel-table td {
-  padding: 0.8rem 0.9rem;
-  text-align: left;
-  vertical-align: middle;
-  border-bottom: 1px solid var(--line);
-}
-.subchannel-table th {
-  white-space: nowrap;
-  font-weight: 500;
-  color: var(--ink);
-  background: var(--bg-raised);
 }
 .subchannel-table small {
   display: block;
@@ -1511,19 +1488,6 @@ onBeforeUnmount(() => {
   height: 150px;
   color: var(--ink-muted);
 }
-.subchannel-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  padding: 1rem;
-}
-.subchannel-pagination > div {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-}
 .subchannel-dialog {
   max-width: 640px;
   width: calc(100vw - 24px);
@@ -1578,31 +1542,17 @@ onBeforeUnmount(() => {
   line-height: 1.6;
 }
 @media (max-width: 600px) {
-  .subchannel-toolbar {
-    padding: 0.8rem;
+  .subchannel-filter-fields {
+    grid-template-columns: 1fr;
   }
-  .subchannel-toolbar > label {
-    flex: 1 1 130px;
-    max-width: none;
-    min-width: 0;
-  }
-  .subchannel-tools {
-    margin-left: 0;
+  .subchannel-filter-actions {
     width: 100%;
-  }
-  .subchannel-summary {
-    align-items: flex-start;
-    flex-wrap: wrap;
   }
   .subchannel-dialog {
     padding: 0.9rem;
   }
   .subchannel-dialog .modal-actions {
     flex-wrap: wrap;
-  }
-  .subchannel-pagination {
-    font-size: 0.8rem;
-    padding: 0.8rem;
   }
 }
 </style>

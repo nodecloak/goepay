@@ -93,6 +93,12 @@ for (const provider of ["wxpay", "alipay"] as const) {
       );
     });
     await page.goto("/admin/other/get-token");
+    // Tabs 1–3 are provider-filtered views of the same channel lookup
+    // (微信公众号/小程序 show wxpay channels, 支付宝用户ID shows alipay channels).
+    // The default tab is 微信公众号Openid (wxpay); switch to the 支付宝 tab for the
+    // alipay provider so its channel is offered.
+    if (provider === "alipay")
+      await page.getByRole("button", { name: "支付宝用户ID" }).click();
     const panel = page.getByRole("region", { name: "获取支付用户标识" });
     await panel.getByLabel("商户 ID").fill("1000");
     await panel.getByRole("button", { name: "读取授权通道" }).click();

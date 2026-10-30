@@ -79,6 +79,15 @@ func (s *Service) RegisterByPhone(ctx context.Context, in RegisterPhoneInput) (R
 	if !open {
 		return out, ErrClosed
 	}
+	// This is the phone registration path; "email" (verifytype=0) refuses
+	// before any account is created. No restriction ("") or "phone" proceeds.
+	vt, e := verifyType(ctx, outer)
+	if e != nil {
+		return out, e
+	}
+	if vt == "email" {
+		return out, ErrClosed
+	}
 	payStatus, e := registrationPayStatus(ctx, outer)
 	if e != nil {
 		return out, e

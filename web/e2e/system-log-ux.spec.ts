@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { chooseKitOption } from "./kit-select-helpers";
 const big = "9007199254740993";
 const rows = [
   {
@@ -72,7 +73,9 @@ for (const width of [1280, 375])
       "操作IP",
       "时间",
     ]);
-    await expect(page.getByText(big, { exact: true })).toHaveCount(2);
+    await expect(
+      page.locator(".id-cell").filter({ hasText: big }),
+    ).toHaveCount(2);
     await expect(
       page.getByRole("link", { name: "1", exact: true }),
     ).toHaveAttribute("href", "/admin/merchant/merchant-list?uid=1");
@@ -88,9 +91,11 @@ for (const width of [1280, 375])
     await expect(
       page.getByRole("link", { name: "192.0.2.1", exact: true }).first(),
     ).toHaveAttribute("href", "https://m.ip138.com/iplookup.asp?ip=192.0.2.1");
-    await page
-      .getByRole("combobox", { name: "搜索字段", exact: true })
-      .selectOption("ip");
+    await chooseKitOption(
+      page,
+      page.getByRole("button", { name: "搜索字段", exact: true }),
+      "操作IP",
+    );
     await page.getByLabel("搜索内容", { exact: true }).fill("192.0.2.1");
     await page.getByRole("button", { name: "查询", exact: true }).click();
     await expect

@@ -157,90 +157,90 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <KitFilterBar :loading="loading" @query="search" @reset="reset">
-    <KitField label="搜索字段"
-      ><KitSelect
-        v-model="column"
-        :options="[
-          { value: 'uid', label: '用户ID' },
-          { value: 'ip', label: '操作IP' },
-        ]"
-        aria-label="搜索字段"
-    /></KitField>
-    <KitField label="搜索内容"
-      ><KitInput v-model="value" placeholder="搜索内容" :maxlength="253"
-    /></KitField>
-  </KitFilterBar>
-  <section class="panel records system-log-page">
-    <div class="table-tools">
-      <KitHelpPopover
-        text="本地已记录的登录和商户操作，时间为北京时间。失败登录不按尝试账号推断商户；未记录的操作IP与无法核实的归属保留未知。"
-      />
-      <div class="table-tools-end">
-        <button type="button" :disabled="loading" @click="load">
-          <ShellIcon name="refresh" />刷新
-        </button>
+  <div class="list-page">
+    <KitFilterBar :loading="loading" @query="search" @reset="reset">
+      <KitField label="搜索字段"
+        ><KitSelect
+          v-model="column"
+          :options="[
+            { value: 'uid', label: '用户ID' },
+            { value: 'ip', label: '操作IP' },
+          ]"
+          aria-label="搜索字段"
+      /></KitField>
+      <KitField label="搜索内容"
+        ><KitInput v-model="value" placeholder="搜索内容" :maxlength="253"
+      /></KitField>
+    </KitFilterBar>
+    <section class="panel records system-log-page">
+      <div class="table-tools">
+        <div class="table-tools-end">
+          <button type="button" :disabled="loading" @click="load">
+            <ShellIcon name="refresh" />刷新
+          </button>
+          <KitHelpPopover
+            text="本地已记录的登录和商户操作，时间为北京时间。失败登录不按尝试账号推断商户；未记录的操作IP与无法核实的归属保留未知。"
+          />
+        </div>
       </div>
-    </div>
-    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <p v-if="loading" role="status">正在读取系统日志…</p>
-    <div v-else-if="!error" class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">ID</th>
-            <th scope="col">商户号</th>
-            <th scope="col">操作类型</th>
-            <th scope="col">操作IP</th>
-            <th scope="col">时间</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in items" :key="String(row.source) + ':' + row.id">
-            <td class="col-nowrap">
-              <span class="id-cell"
-                >{{ row.id
-                }}<KitStatusTag
-                  tone="neutral"
-                  :text="
-                    row.source === 'login'
-                      ? '登录'
-                      : row.source === 'business'
-                        ? '业务'
-                        : '来源未记录'
-                  "
-              /></span>
-            </td>
-            <td>
-              <RouterLink
-                v-if="systemLogMerchantHref(row)"
-                :to="systemLogMerchantHref(row)!"
-                >{{ row.uid }}</RouterLink
-              ><span v-else>{{
-                row.subject_kind === "admin" ? "管理员" : "未核实"
-              }}</span>
-            </td>
-            <td :class="{ 'log-failed': row.type === '登录失败' }">
-              {{ row.type }}
-            </td>
-            <td class="col-nowrap">
-              <a
-                v-if="systemLogIPHref(row.ip)"
-                :href="systemLogIPHref(row.ip)"
-                target="_blank"
-                rel="noopener noreferrer"
-                >{{ row.ip }}</a
-              ><span v-else class="ip-plain">{{ row.ip || "未记录" }}</span>
-            </td>
-            <td class="col-nowrap">{{ beijingTimestamp(row.date) }}</td>
-          </tr>
-          <tr v-if="!items.length">
-            <td colspan="5" class="empty">暂无记录</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="pagination">
+      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <p v-if="loading" role="status">正在读取系统日志…</p>
+      <div v-else-if="!error" class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">商户号</th>
+              <th scope="col">操作类型</th>
+              <th scope="col">操作IP</th>
+              <th scope="col">时间</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in items" :key="String(row.source) + ':' + row.id">
+              <td class="col-nowrap">
+                <span class="id-cell"
+                  >{{ row.id
+                  }}<KitStatusTag
+                    tone="neutral"
+                    :text="
+                      row.source === 'login'
+                        ? '登录'
+                        : row.source === 'business'
+                          ? '业务'
+                          : '来源未记录'
+                    "
+                /></span>
+              </td>
+              <td>
+                <RouterLink
+                  v-if="systemLogMerchantHref(row)"
+                  :to="systemLogMerchantHref(row)!"
+                  >{{ row.uid }}</RouterLink
+                ><span v-else>{{
+                  row.subject_kind === "admin" ? "管理员" : "未核实"
+                }}</span>
+              </td>
+              <td :class="{ 'log-failed': row.type === '登录失败' }">
+                {{ row.type }}
+              </td>
+              <td class="col-nowrap">
+                <a
+                  v-if="systemLogIPHref(row.ip)"
+                  :href="systemLogIPHref(row.ip)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >{{ row.ip }}</a
+                ><span v-else class="ip-plain">{{ row.ip || "未记录" }}</span>
+              </td>
+              <td class="col-nowrap">{{ beijingTimestamp(row.date) }}</td>
+            </tr>
+            <tr v-if="!items.length">
+              <td colspan="5" class="empty">暂无记录</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <KitPagination
         v-model:page="page"
         :page-size="30"
@@ -248,12 +248,12 @@ onBeforeUnmount(() => {
         :page-sizes="[30]"
         @change="load"
       />
-    </div>
-    <details @toggle="rawOpen = ($event.target as HTMLDetailsElement).open">
-      <summary>查看原始登录审计</summary>
-      <slot v-if="rawOpen" name="login-audit" />
-    </details>
-  </section>
+      <details @toggle="rawOpen = ($event.target as HTMLDetailsElement).open">
+        <summary>查看原始登录审计</summary>
+        <slot v-if="rawOpen" name="login-audit" />
+      </details>
+    </section>
+  </div>
 </template>
 <style scoped>
 .system-log-page {
@@ -274,7 +274,7 @@ onBeforeUnmount(() => {
   color: var(--ink);
 }
 .system-log-page details {
-  margin-top: 16px;
+  margin: 16px var(--space-5) var(--space-5);
 }
 .log-failed {
   color: var(--danger-text);

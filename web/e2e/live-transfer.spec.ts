@@ -77,24 +77,24 @@ test("live local wallet transfer follows capability, confirmation and readonly q
     await expect(page.locator(".stat")).toHaveCount(4);
     await page.goto("/merchant/transfer");
     await page.getByRole("button", { name: "申请付款", exact: true }).click();
-    const modal = page.getByRole("dialog", { name: "申请付款" });
-    await modal.getByLabel("收款方式").selectOption("alipay");
-    await modal.getByLabel("付款通道").selectOption("1");
-    await modal.getByLabel("收款账号").fill("local-simulation@example.test");
-    await modal.getByLabel("收款人姓名").fill("Local simulation");
-    await modal.getByLabel("付款金额（元）").fill("0.01");
-    await modal
-      .getByLabel("付款说明", { exact: true })
-      .fill("Local simulation browser test");
-    await modal.getByLabel("业务请求号").fill("live-wallet-" + Date.now());
-    await modal.getByRole("button", { name: "核对付款信息" }).click();
-    await expect(modal).toContainText("3%");
+    const modal = page.getByRole("dialog", { name: "转账付款" });
+    await modal.getByRole("tab", { name: "支付宝" }).click();
+    await modal.getByRole("button", { name: "通道选择" }).click();
+    await modal.getByRole("option", { name: "通道 1", exact: true }).click();
+    await modal.getByLabel("支付宝账号").fill("local-simulation@example.test");
+    await modal.getByLabel("支付宝姓名").fill("Local simulation");
+    await modal.getByLabel("转账金额").fill("0.01");
+    await modal.getByLabel("转账标题").fill("Local simulation browser test");
+    await modal.getByLabel("交易号").fill("live-wallet-" + Date.now());
+    await modal.getByRole("button", { name: "立即转账" }).click();
+    const check = page.getByRole("dialog", { name: "核对付款" });
+    await expect(check).toContainText("3%");
     const submitted = page.waitForResponse(
       (r) =>
         new URL(r.url()).pathname.endsWith("/transfers") &&
         r.request().method() === "POST",
     );
-    await modal.getByRole("button", { name: "确认提交付款" }).click();
+    await check.getByRole("button", { name: "确认提交付款" }).click();
     const transferResponse = await submitted;
     expect(transferResponse.ok()).toBeTruthy();
     const transferBody = await transferResponse.json();

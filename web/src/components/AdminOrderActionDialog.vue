@@ -278,7 +278,9 @@ onBeforeUnmount(() => {
       @keydown="trapFocus"
     >
       <h2>{{ title }}</h2>
-      <p class="muted">系统订单号：{{ tradeNo }}</p>
+      <p class="muted">
+        系统订单号：<span class="pa-order-no">{{ tradeNo }}</span>
+      </p>
       <div v-if="loading" role="status">正在读取原订单…</div>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
       <div v-if="notice" class="alert success" role="status">{{ notice }}</div>

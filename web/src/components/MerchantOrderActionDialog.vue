@@ -209,7 +209,9 @@ onBeforeUnmount(() => {
       @keydown="trap"
     >
       <h2>{{ title[action] }}</h2>
-      <p class="original-order-number">原订单：{{ tradeNo }}</p>
+      <p class="original-order-number">
+        原订单：<span class="pa-order-no">{{ tradeNo }}</span>
+      </p>
       <p v-if="loading" role="status">正在核对原订单权限与状态…</p>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="notice" class="alert success" role="status">{{ notice }}</p>

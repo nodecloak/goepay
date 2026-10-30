@@ -76,17 +76,40 @@ export const portedPaymentPlugins: Readonly<Record<string, PortedPlugin>> =
     (portedPayments as PortedPlugin[]).map((p) => [`payment:${p.name}`, p]),
   );
 
-// Non-payment entries this Go build implements (profit sharing, mail,
-// templates). Payment plugins come from portedPaymentPlugins above; keep the
-// native alipay/wxpay notes here too so they survive even if the generated
-// catalog is unavailable. Keep in step with the mail/template services.
+// Page templates the Go build serves, generated from internal/pagetemplate by
+// catalog_golden_test.go (GOEPAY_UPDATE_PLUGIN_CATALOG=1 regenerates it). They
+// all ship with the service, so the market shows each one as installed.
+import builtinTemplateData from "./data/builtin-templates.json";
+
+export interface BuiltinTemplate {
+  type: string;
+  name: string;
+  title: string;
+  description: string;
+}
+
+export const builtinTemplates = builtinTemplateData as BuiltinTemplate[];
+
+function templateNote(t: BuiltinTemplate): string {
+  return t.type === "home" && t.name !== "minimal"
+    ? "Go 版按原模板的内容结构重做，随服务内置、默认已安装，在“模板配置 › 首页”中选用。"
+    : "Go 版内置模板，随服务内置、默认已安装，在“模板配置”中选用。";
+}
+
+// Non-payment entries this Go build implements (profit sharing, mail).
+// Payment plugins come from portedPaymentPlugins above and templates from
+// builtinTemplates; keep the native alipay/wxpay notes here too so they
+// survive even if the generated catalog is unavailable.
 const nonPaymentBuiltins: Readonly<Record<string, BuiltinPlugin>> = {
   "profitsharing:alipay": { note: "Go 版内置实现，在“分账管理”中使用。" },
   "profitsharing:wxpay": { note: "Go 版内置实现，在“分账管理”中使用。" },
   "mail:smtp": { note: "Go 版内置实现，在“系统设置 › 邮箱配置”中使用。" },
-  "template:home:default": { note: "Go 版内置模板，在“模板配置”中使用。" },
-  "template:pay:default": { note: "Go 版内置模板，在“模板配置”中使用。" },
-  "template:qrpay:default": { note: "Go 版内置模板，在“模板配置”中使用。" },
+  ...Object.fromEntries(
+    builtinTemplates.map((t) => [
+      `template:${t.type}:${t.name}`,
+      { note: templateNote(t) },
+    ]),
+  ),
 };
 
 export const builtinPlugins: Readonly<Record<string, BuiltinPlugin>> = {
@@ -146,8 +169,56 @@ export function builtinCount(items: readonly CatalogEntry[]): number {
   return items.filter((item) => builtinPlugin(item)).length;
 }
 
+const templateKindOrder: Readonly<Record<string, number>> = {
+  home: 0,
+  pay: 1,
+  qrpay: 2,
+};
+function templateRank(name: string): number {
+  if (name === "default") return 0;
+  const m = /^index(\d+)$/.exec(name);
+  return m ? Number(m[1]) : 100;
+}
+
+/**
+ * The market list plus the built-in templates the original market does not
+ * have (GOEPAY's own styles). Templates are grouped by kind, then default,
+ * index1 … index10, then the rest.
+ */
+export function withBuiltinTemplates(
+  items: readonly CatalogEntry[],
+): CatalogEntry[] {
+  const have = new Set(items.map((item) => catalogKey(item)));
+  const extra: CatalogEntry[] = builtinTemplates
+    .filter((t) => !have.has(`template:${t.type}:${t.name}`))
+    .map((t) => ({
+      type: "template",
+      sub: t.type,
+      name: t.name,
+      title: t.title,
+      desc: t.description,
+      author: "GOEPAY",
+      version: "1.0",
+      price: "0.00",
+      pay: [],
+      trans: [],
+      icon: "/static/icon/category/template.png",
+    }));
+  const templates = [
+    ...items.filter((item) => item.type === "template"),
+    ...extra,
+  ].sort(
+    (a, b) =>
+      (templateKindOrder[a.sub ?? ""] ?? 9) -
+        (templateKindOrder[b.sub ?? ""] ?? 9) ||
+      templateRank(a.name) - templateRank(b.name) ||
+      a.name.localeCompare(b.name),
+  );
+  return [...items.filter((item) => item.type !== "template"), ...templates];
+}
+
 /** The catalog is a separate chunk so the console bundle stays small. */
 export async function loadPluginCatalog(): Promise<CatalogEntry[]> {
   const data = (await import("./data/plugin-catalog.json")).default;
-  return data as CatalogEntry[];
+  return withBuiltinTemplates(data as CatalogEntry[]);
 }

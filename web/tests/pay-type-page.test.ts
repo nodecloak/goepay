@@ -31,6 +31,18 @@ const schema = {
         "sandbox",
       ].map((v) => ({ label: v, value: v })),
     },
+    {
+      name: "device",
+      label: "支持设备",
+      type: "select",
+      required: true,
+      default: "0",
+      options: [
+        { label: "PC+Mobile", value: "0" },
+        { label: "PC", value: "1" },
+        { label: "Mobile", value: "2" },
+      ],
+    },
     { name: "enabled", label: "启用资料", type: "boolean", default: true },
   ],
   permissions: { create: true, update: true, delete: true },
@@ -39,13 +51,13 @@ const schema = {
 // Server-merged listing: 7 originals, alipay/wxpay open, the rest closed, all
 // with id "0" (no record yet). qqpay already carries a record (id 12, closed).
 const listed = [
-  { id: "0", type: "alipay", name: "支付宝", enabled: true },
-  { id: "0", type: "wxpay", name: "微信支付", enabled: true },
-  { id: "12", type: "qqpay", name: "QQ钱包", enabled: false },
-  { id: "0", type: "bank", name: "银联支付", enabled: false },
-  { id: "0", type: "jdpay", name: "京东支付", enabled: false },
-  { id: "0", type: "paypal", name: "PayPal", enabled: false },
-  { id: "0", type: "douyinpay", name: "抖音支付", enabled: false },
+  { id: "0", type: "alipay", name: "支付宝", enabled: true, device: "0" },
+  { id: "0", type: "wxpay", name: "微信支付", enabled: true, device: "0" },
+  { id: "12", type: "qqpay", name: "QQ钱包", enabled: false, device: "2" },
+  { id: "0", type: "bank", name: "银联支付", enabled: false, device: "0" },
+  { id: "0", type: "jdpay", name: "京东支付", enabled: false, device: "0" },
+  { id: "0", type: "paypal", name: "PayPal", enabled: false, device: "1" },
+  { id: "0", type: "douyinpay", name: "抖音支付", enabled: false, device: "0" },
 ];
 function client() {
   const c = new ApiClient("admin");
@@ -66,6 +78,11 @@ it("shows all 7 original pay types with their effective 状态 and Pro columns",
   expect(headers).toEqual(["调用值", "名称", "支持设备", "状态", "操作"]);
   const rows = w.findAll("tbody tr");
   expect(rows).toHaveLength(7);
+  // 支持设备 column renders the per-row device class (epay display_device):
+  // alipay/0 -> PC+Mobile, qqpay/2 -> Mobile, paypal/1 -> PC.
+  expect(rows[0]!.findAll("td")[2]!.text()).toBe("PC+Mobile");
+  expect(rows[2]!.findAll("td")[2]!.text()).toBe("Mobile");
+  expect(rows[5]!.findAll("td")[2]!.text()).toBe("PC");
   // Each catalog type shows its 调用值 and a KitSwitch reflecting effective state.
   expect(w.text()).toContain("alipay");
   expect(w.text()).toContain("douyinpay");
@@ -96,6 +113,7 @@ it("POSTs a new record when toggling a type that has no record yet", async () =>
     type: "bank",
     enabled: true,
     name: "银联支付",
+    device: "0",
   });
   w.unmount();
 });

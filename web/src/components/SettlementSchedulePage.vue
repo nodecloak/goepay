@@ -111,7 +111,6 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="panel" aria-label="自动结算参与设置">
-    <h2>自动结算参与设置</h2>
     <p>
       默认关闭。启用只允许符合已授权计划的待审核申请生成并冻结；不会自动审批或付款，也不授权平台更换收款账户。修改收款配置后需重新确认。
     </p>

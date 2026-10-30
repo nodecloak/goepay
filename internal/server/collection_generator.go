@@ -24,6 +24,30 @@ func (s *Server) collectionGenerationAuthorized(r *http.Request, id, hash string
 	}
 	return hmac.Equal([]byte(q.Get("token")), []byte(s.checkoutToken(id, "collection-generated:"+hash, "permanent")))
 }
+
+// onecodeGeneratorOrigins returns the aggregate-code origins a merchant may pick
+// in the generator: the platform origin first, then each origin parsed from the
+// onecode_domains setting that is not the platform origin, in stored order. A
+// stored value that fails to parse is ignored entirely (platform origin only),
+// so a bad setting never breaks the generator. Default (no row) is the platform
+// origin alone — today's behaviour.
+func (s *Server) onecodeGeneratorOrigins(r *http.Request, platform string) []string {
+	origins := []string{platform}
+	raw, e := backoffice.New(s.Pool, s.Store).SettingValue(r.Context(), "onecode_domains")
+	if e != nil || raw == "" {
+		return origins
+	}
+	parsed, e := backoffice.OnecodeDomainOrigins(raw)
+	if e != nil {
+		return origins
+	}
+	for _, o := range parsed {
+		if o != platform {
+			origins = append(origins, o)
+		}
+	}
+	return origins
+}
 func (s *Server) collectionGeneratorConsole(w http.ResponseWriter, r *http.Request, role string, session identity.Session, parts []string) bool {
 	if len(parts) < 2 || parts[1] != "collection-generator" {
 		return false
@@ -87,7 +111,11 @@ func (s *Server) collectionGeneratorConsole(w http.ResponseWriter, r *http.Reque
 		if latest != nil {
 			current = result(*latest)
 		}
-		response(w, 200, 0, "", map[string]any{"recipient_name": name, "default_codename": name, "codename_customized": stored, "styles": styles, "domains": []map[string]string{{"origin": origin, "label": origin}}, "latest": current})
+		domains := []map[string]string{}
+		for _, o := range s.onecodeGeneratorOrigins(r, origin) {
+			domains = append(domains, map[string]string{"origin": o, "label": o})
+		}
+		response(w, 200, 0, "", map[string]any{"recipient_name": name, "default_codename": name, "codename_customized": stored, "styles": styles, "domains": domains, "latest": current})
 	case "PATCH":
 		// F10 account/editCodename: persist the merchant's default aggregate-code
 		// name. An empty name clears it (falls back to the display name).
@@ -127,7 +155,27 @@ func (s *Server) collectionGeneratorConsole(w http.ResponseWriter, r *http.Reque
 			response(w, 422, -1, "invalid collection style", nil)
 			return true
 		}
-		g, e := s.Store.GenerateCollectionCode(r.Context(), session.User.ID, payment.CollectionGenerationInput{ExternalNo: input.ExternalNo, RecipientName: input.RecipientName, StyleID: sid, Origin: input.Origin, FixedAmount: amount}, origin, session.User.Username)
+		// The generated link's origin is one the administrator configured: the
+		// platform origin or an onecode_domains entry. A posted origin not in that
+		// offered list is refused (422). The chosen origin is handed to
+		// GenerateCollectionCode as the configured origin it validates against, so
+		// a listed extra origin generates and the stored link uses it.
+		configured := origin
+		if input.Origin != "" && input.Origin != origin {
+			listed := false
+			for _, o := range s.onecodeGeneratorOrigins(r, origin) {
+				if o == input.Origin {
+					listed = true
+					break
+				}
+			}
+			if !listed {
+				response(w, 422, -1, "invalid collection origin", nil)
+				return true
+			}
+			configured = input.Origin
+		}
+		g, e := s.Store.GenerateCollectionCode(r.Context(), session.User.ID, payment.CollectionGenerationInput{ExternalNo: input.ExternalNo, RecipientName: input.RecipientName, StyleID: sid, Origin: input.Origin, FixedAmount: amount}, configured, session.User.Username)
 		if e != nil {
 			fail(e)
 			return true

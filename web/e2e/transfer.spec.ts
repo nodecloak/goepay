@@ -42,11 +42,11 @@ for (const width of [1280, 375])
     });
     await page.goto("/merchant/transfer");
     await page.getByRole("button", { name: "申请付款", exact: true }).click();
-    const modal = page.getByRole("dialog", { name: "申请付款" });
+    const modal = page.getByRole("dialog", { name: "转账付款" });
     await expect(modal).not.toContainText("平台付款功能未启用");
     await expect(modal).toContainText("当前运行环境或通道未启用付款");
     await expect(
-      modal.getByRole("button", { name: "核对付款信息" }),
+      modal.getByRole("button", { name: "立即转账" }),
     ).toBeDisabled();
     expect(writes).toBe(0);
   });
@@ -82,11 +82,9 @@ test("disabled transfer capability blocks submission without creating a payment"
   });
   await page.goto("/merchant/transfer");
   await page.getByRole("button", { name: "申请付款", exact: true }).click();
-  const modal = page.getByRole("dialog", { name: "申请付款" });
+  const modal = page.getByRole("dialog", { name: "转账付款" });
   await expect(modal).toContainText("平台付款功能未启用");
-  await expect(
-    modal.getByRole("button", { name: "核对付款信息" }),
-  ).toBeDisabled();
+  await expect(modal.getByRole("button", { name: "立即转账" })).toBeDisabled();
   expect(writes).toBe(0);
 });
 for (const width of [1280, 375])
@@ -126,10 +124,10 @@ for (const width of [1280, 375])
     });
     await page.goto("/merchant/transfer");
     await page.getByRole("button", { name: "申请付款", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: "申请付款" });
+    const dialog = page.getByRole("dialog", { name: "转账付款" });
     await expect(dialog).toContainText("当前用户组付款功能未启用");
     await expect(
-      dialog.getByRole("button", { name: "核对付款信息" }),
+      dialog.getByRole("button", { name: "立即转账" }),
     ).toBeDisabled();
     expect(writes).toBe(0);
   });
@@ -207,21 +205,24 @@ test("wallet transfer keeps uncertain reservation and only queries original paym
   });
   await page.goto("/merchant/transfer");
   await page.getByRole("button", { name: "申请付款", exact: true }).click();
-  const modal = page.getByRole("dialog", { name: "申请付款" });
-  await expect(modal.getByLabel("收款方式").locator("option")).toHaveCount(2);
+  const modal = page.getByRole("dialog", { name: "转账付款" });
+  // Only the two wallet types have a channel; 银行卡 stays visible but disabled.
+  await expect(modal.getByRole("tab", { disabled: false })).toHaveCount(2);
+  await expect(modal.getByRole("tab", { name: "银行卡" })).toBeDisabled();
+  await expect(modal).toContainText("可出账 10.00 元");
   await expect(modal).toContainText("T+1");
-  await expect(modal).toContainText("账面可用余额（元）");
-  await expect(modal).toContainText("12.00");
-  await expect(modal).toContainText("可出账金额（元）");
-  await expect(modal).toContainText("10.00");
-  await modal.getByLabel("收款账号").fill("account@example.test");
-  await modal.getByLabel("付款金额（元）").fill("1.00");
-  await modal.getByLabel("业务请求号").fill("stable-request-7");
-  await modal.getByRole("button", { name: "核对付款信息" }).click();
-  await expect(modal).toContainText("当日实际受限金额（元）");
-  await expect(modal).toContainText("2.00");
+  await modal.getByLabel("支付宝账号").fill("account@example.test");
+  await modal.getByLabel("转账金额").fill("1.00");
+  await modal.getByLabel("交易号").fill("stable-request-7");
+  await expect(modal.getByLabel("需支付金额")).toHaveValue("1.03");
+  await modal.getByRole("button", { name: "立即转账" }).click();
+  const check = page.getByRole("dialog", { name: "核对付款" });
+  await expect(check).toContainText("账面可用余额（元）");
+  await expect(check).toContainText("12.00");
+  await expect(check).toContainText("当日实际受限金额（元）");
+  await expect(check).toContainText("2.00");
   expect(creates).toBe(0);
-  await modal.getByRole("button", { name: "确认提交付款" }).click();
+  await check.getByRole("button", { name: "确认提交付款" }).click();
   const detail = page.getByRole("dialog", { name: "付款详情" });
   await expect(detail).toContainText("付款结果尚未核实，预占资金将保留");
   expect(submitted).toMatchObject({
@@ -288,23 +289,27 @@ test("WeChat requires a payment remark and admin merchant changes invalidate cap
   });
   await page.goto("/admin/transfer/list");
   await page.getByRole("button", { name: "申请付款", exact: true }).click();
-  const modal = page.getByRole("dialog", { name: "申请付款" });
-  await modal.getByLabel("付款商户 ID").fill("1000");
+  const modal = page.getByRole("dialog", { name: "转账付款" });
+  await modal.getByLabel("付款商户ID").fill("1000");
   await modal.getByRole("button", { name: "读取付款权限" }).click();
-  await modal.getByLabel("收款账号").fill("OPENID");
-  await modal.getByLabel("付款金额（元）").fill("1.00");
-  await expect(modal.getByLabel("付款说明（必填）")).toHaveAttribute(
-    "required",
-    "",
+  // Only WeChat has a channel for this merchant, so its tab is selected.
+  await expect(modal.getByRole("tab", { name: "微信" })).toHaveAttribute(
+    "aria-selected",
+    "true",
   );
-  await modal.getByRole("button", { name: "核对付款信息" }).click();
-  await expect(modal.getByRole("button", { name: "确认提交付款" })).toHaveCount(
-    0,
+  await modal.getByLabel("Openid").fill("OPENID");
+  await modal.getByLabel("转账金额").fill("1.00");
+  await expect(modal.getByLabel("转账备注")).toHaveAttribute(
+    "placeholder",
+    "微信付款必须填写",
   );
-  await modal.getByLabel("付款说明（必填）").fill("订单退款补偿");
-  await modal.getByLabel("付款商户 ID").fill("1001");
-  await expect(
-    modal.getByRole("button", { name: "核对付款信息" }),
-  ).toBeDisabled();
+  await modal.getByRole("button", { name: "立即转账" }).click();
+  await expect(modal.getByRole("alert")).toContainText(
+    "微信付款必须填写转账备注",
+  );
+  await expect(page.getByRole("dialog", { name: "核对付款" })).toHaveCount(0);
+  await modal.getByLabel("转账备注").fill("订单退款补偿");
+  await modal.getByLabel("付款商户ID").fill("1001");
+  await expect(modal.getByRole("button", { name: "立即转账" })).toBeDisabled();
   expect(writes).toBe(0);
 });

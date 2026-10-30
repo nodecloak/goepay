@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 import type { ApiClient } from "../api";
 import type { Area } from "../menu";
 import { minorYuan, datetime as beijingTimestamp } from "../pro-console-fields";
@@ -11,6 +12,8 @@ import KitStatusTag from "./KitStatusTag.vue";
 import KitPayMethod from "./KitPayMethod.vue";
 import KitEmpty from "./KitEmpty.vue";
 import KitPagination from "./KitPagination.vue";
+import KitModal from "./KitModal.vue";
+import ShellIcon from "./ShellIcon.vue";
 
 // Pro 分账记录 (profitsharing/order) over GOEPAY's SERVER-side channel-sharing
 // orders endpoints (a4 N5): filters + offset paging with a total, the 统计
@@ -43,6 +46,7 @@ type Stats = {
   fail_count: string;
 };
 
+const route = useRoute();
 const merchant = ref("");
 const resolved = ref("");
 const loading = ref(false);
@@ -185,9 +189,14 @@ async function load() {
     const result: any = await props.client.request(
       `/channel-sharing/orders${qs ? "?" + qs : ""}`,
     );
+    // The server sends total as a JSON number (ChannelSharingOrderListPage),
+    // like every other list; amounts and ids stay exact digit strings.
+    const totalOK =
+      unsigned(result?.total) ||
+      (Number.isSafeInteger(result?.total) && result.total >= 0);
     if (
       !Array.isArray(result?.items) ||
-      !unsigned(result.total) ||
+      !totalOK ||
       typeof result.limit !== "number"
     )
       throw Error("分账记录列表响应格式错误");
@@ -303,6 +312,145 @@ async function queryOrder(o: Order) {
 
 const emit = defineEmits<{ "open-flow": [] }>();
 
+// Inline 分账回退 (Pro order row `return`): epay_pro prompts an amount on the row
+// and calls return directly; GOEPAY's return is PER RECEIVER and needs the
+// succeeded item breakdown, so the row action loads the order detail
+// (GET /channel-sharing/orders/{external_no}) and opens a per-receiver modal that
+// posts to the existing POST /channel-sharing/returns with explicit confirmation
+// and exact minor-unit parsing. No new API, no record mutation — the overlay
+// 操作台 stays available for the fuller flow.
+type ReturnItem = { receiver_id: string; amount: string; state: string };
+type ReturnOrder = {
+  external_no: string;
+  completed: boolean;
+  funds_released: boolean;
+  items: ReturnItem[];
+};
+const returnOpen = ref(false);
+const returnLoading = ref(false);
+const returnError = ref("");
+const returnConfirm = ref(false);
+const returnOrder = ref<ReturnOrder>();
+const returnReceiver = ref("");
+const returnAmountInput = ref("");
+
+const newNo = (prefix: string) =>
+  prefix +
+  Array.from(crypto.getRandomValues(new Uint8Array(12)), (v) =>
+    v.toString(16).padStart(2, "0"),
+  ).join("");
+
+// Receivers eligible for return: succeeded items of a completed, funds-released
+// share (same precondition the server enforces in channelSharingReturnConsole).
+const returnReceiverOptions = computed(() => {
+  const o = returnOrder.value;
+  if (!o || !o.completed || !o.funds_released) return [];
+  return o.items
+    .filter((i) => i.state === "succeeded")
+    .map((i) => ({
+      value: i.receiver_id,
+      label: `接收方 ${i.receiver_id} · 已分 ¥${money(i.amount)}`,
+    }));
+});
+
+function parseOrderDetail(v: any): ReturnOrder {
+  if (
+    !safe(v?.external_no) ||
+    typeof v.completed !== "boolean" ||
+    typeof v.funds_released !== "boolean" ||
+    !Array.isArray(v.items)
+  )
+    throw Error("分账记录详情格式错误");
+  return {
+    external_no: v.external_no,
+    completed: v.completed,
+    funds_released: v.funds_released,
+    items: v.items.map((i: any) => {
+      if (!positive(i?.receiver_id) || !unsigned(i.amount) || !safe(i.state))
+        throw Error("分账明细格式错误");
+      return { receiver_id: i.receiver_id, amount: i.amount, state: i.state };
+    }),
+  };
+}
+
+// Parse a yuan string ("12.34") to integer minor units; throws on bad input.
+function returnMinor(raw: string): string {
+  if (!/^(0|[1-9][0-9]{0,9})(\.[0-9]{1,2})?$/.test(raw))
+    throw Error("请输入正确的回退金额，最多两位小数");
+  const [a, b = ""] = raw.split(".");
+  const amount = BigInt(a!) * 100n + BigInt(b.padEnd(2, "0"));
+  if (amount <= 0n) throw Error("回退金额必须大于 0");
+  return amount.toString();
+}
+
+async function startReturn(o: Order) {
+  if (busy.value) return;
+  returnError.value = "";
+  returnConfirm.value = false;
+  returnReceiver.value = "";
+  returnAmountInput.value = "";
+  returnOrder.value = undefined;
+  returnOpen.value = true;
+  returnLoading.value = true;
+  try {
+    const own = ownerQuery();
+    const detail: any = await props.client.request(
+      `/channel-sharing/orders/${encodeURIComponent(o.external_no)}${own ? "?" + own : ""}`,
+    );
+    returnOrder.value = parseOrderDetail(detail);
+    const opts = returnReceiverOptions.value;
+    if (!opts.length)
+      returnError.value =
+        "该记录没有可回退的接收方（需执行结束、资金已释放且该接收方已成功分账）";
+    else returnReceiver.value = opts[0]!.value;
+  } catch (e) {
+    returnError.value = e instanceof Error ? e.message : "读取分账记录详情失败";
+  } finally {
+    returnLoading.value = false;
+  }
+}
+
+async function submitReturn() {
+  const o = returnOrder.value;
+  if (!o || busy.value || !returnReceiver.value) return;
+  let amount: string;
+  try {
+    amount = returnMinor(returnAmountInput.value);
+  } catch (e) {
+    returnError.value = (e as Error).message;
+    return;
+  }
+  if (!returnConfirm.value) {
+    returnConfirm.value = true;
+    returnError.value = "";
+    return;
+  }
+  busy.value = true;
+  returnError.value = "";
+  error.value = "";
+  notice.value = "";
+  try {
+    await props.client.request("/channel-sharing/returns", {
+      method: "POST",
+      body: {
+        ...(props.area === "admin" ? { merchant_id: resolved.value } : {}),
+        sharing_external_no: o.external_no,
+        receiver_id: returnReceiver.value,
+        external_no: newNo("return_"),
+        amount,
+      },
+    });
+    returnOpen.value = false;
+    notice.value = "分账回退请求已提交，请在操作台查询回退结果";
+    await load();
+  } catch (e) {
+    returnConfirm.value = false;
+    returnError.value = e instanceof Error ? e.message : "分账回退失败";
+  } finally {
+    busy.value = false;
+  }
+}
+
 function toggleAll(e: Event) {
   const on = (e.target as HTMLInputElement).checked;
   selected.value = on ? new Set(rows.value.map((o) => o.id)) : new Set();
@@ -322,6 +470,11 @@ watch([page, pageSize], () => {
 });
 
 onMounted(() => {
+  // Pro 记录 deep-link: /profitsharing/order?rule_id= prefills the 分账规则ID
+  // filter (set from the rule list's 记录 action).
+  const rid = route.query.rule_id;
+  if (typeof rid === "string" && /^[1-9][0-9]{0,18}$/.test(rid))
+    ruleId.value = rid;
   if (props.area === "merchant") void load();
 });
 </script>
@@ -376,11 +529,11 @@ onMounted(() => {
       </template>
     </KitFilterBar>
 
-    <section class="panel sharing-orders" aria-label="分账记录">
-      <p v-if="error" class="error" role="alert">{{ error }}</p>
-      <p v-if="notice" class="success" role="status">{{ notice }}</p>
+    <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+    <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
 
-      <div class="pa-toolbar">
+    <section class="panel records sharing-orders" aria-label="分账记录">
+      <div class="table-tools">
         <button
           type="button"
           class="pa-btn"
@@ -408,16 +561,18 @@ onMounted(() => {
         >
           导出
         </button>
-        <button
-          type="button"
-          class="pa-btn pa-icon-btn"
-          data-action="refresh"
-          :disabled="loading"
-          title="刷新"
-          @click="load"
-        >
-          刷新
-        </button>
+        <div class="table-tools-end">
+          <button
+            type="button"
+            class="pa-btn"
+            data-action="refresh"
+            :disabled="loading"
+            title="刷新"
+            @click="load"
+          >
+            <ShellIcon name="refresh" />刷新
+          </button>
+        </div>
       </div>
 
       <div v-if="showStats && stats" class="sharing-stats" role="status">
@@ -444,7 +599,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="pa-table-wrap">
+      <div class="table-scroll">
         <table class="pa-table">
           <thead>
             <tr>
@@ -477,7 +632,7 @@ onMounted(() => {
                 />
               </td>
               <td class="pa-c-num">
-                <span class="mono">{{ o.external_no }}</span>
+                <span class="mono pa-order-no">{{ o.external_no }}</span>
                 <small v-if="o.out_no" class="muted"
                   >接口号 {{ o.out_no }}</small
                 >
@@ -514,10 +669,20 @@ onMounted(() => {
                     class="pa-btn"
                     data-action="return"
                     :disabled="busy"
-                    title="在分账操作台对已成功分出的接收方发起回退"
-                    @click="emit('open-flow')"
+                    title="对该记录已成功分出的接收方发起分账回退"
+                    @click="startReturn(o)"
                   >
                     分账回退
+                  </button>
+                  <button
+                    type="button"
+                    class="pa-btn"
+                    data-action="open-flow"
+                    :disabled="busy"
+                    title="打开分账操作台（按原支付声明提交 / 解冻剩余 / 批量回退）"
+                    @click="emit('open-flow')"
+                  >
+                    操作台
                   </button>
                   <button
                     type="button"
@@ -551,28 +716,52 @@ onMounted(() => {
         v-model:pageSize="pageSize"
         :total="total"
       />
+
+      <KitModal
+        v-if="returnOpen"
+        title="分账回退"
+        :loading="busy || returnLoading"
+        width="520px"
+        @close="returnOpen = false"
+        @submit="submitReturn"
+      >
+        <p v-if="returnError" class="error" role="alert">{{ returnError }}</p>
+        <p class="muted">
+          将已成功分出的资金从分账接收方的账户回退给分账方。此操作不代表买家退款，回退金额不能超过该接收方已分得的金额。
+        </p>
+        <KitField label="分账接收方" required>
+          <KitSelect
+            v-model="returnReceiver"
+            :options="returnReceiverOptions"
+            :disabled="busy || returnLoading || !returnReceiverOptions.length"
+            placeholder="选择接收方"
+            aria-label="分账接收方"
+          />
+        </KitField>
+        <KitField label="回退金额（元）" required>
+          <KitInput
+            v-model="returnAmountInput"
+            inputmode="decimal"
+            placeholder="请输入回退金额"
+            :disabled="busy || returnLoading || !returnReceiverOptions.length"
+            aria-label="回退金额（元）"
+          />
+        </KitField>
+        <p v-if="returnConfirm" class="success" role="status">
+          确认从该接收方回退 {{ returnAmountInput }}
+          元至原分账方？再次点击提交以确认。
+        </p>
+      </KitModal>
     </section>
   </div>
 </template>
 
 <style scoped>
-.sharing-orders {
-  display: grid;
-  gap: 16px;
-  padding: 18px;
-}
-.pa-toolbar {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.pa-table-wrap {
-  overflow-x: auto;
-}
 .sharing-stats {
   display: flex;
   flex-wrap: wrap;
   gap: 20px;
+  margin: 0 var(--space-5) var(--space-4);
   padding: 14px 18px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md, 8px);

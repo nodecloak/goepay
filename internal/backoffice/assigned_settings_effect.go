@@ -125,10 +125,12 @@ var settlementAccountTypes = []struct{ key, accountType string }{
 }
 
 // transferChannelTypes maps the per-channel transfer_* switches to the transfer
-// type each one offers. transfer_wxpay / transfer_qqpay; blank means ON.
+// type each one offers. transfer_wxpay / transfer_qqpay / transfer_bank; blank
+// means ON.
 var transferChannelTypes = []struct{ key, transferType string }{
 	{"transfer_wxpay", "wxpay"},
 	{"transfer_qqpay", "qqpay"},
+	{"transfer_bank", "bank"},
 }
 
 // SettlementAccountTypeAllowed reports whether a settlement account type may be

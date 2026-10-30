@@ -36,15 +36,16 @@ it("shows Pro-style row actions: 编辑, a disabled 删除 with reason, and 更�
   expect(del!.attributes("disabled")).toBeDefined();
   expect(del!.classes()).toContain("pa-btn--danger");
   expect(del!.attributes("title")).toContain("不可删除");
-  // 详情 and 代登录商户 are NOT standalone buttons — they live in 更多.
+  // 详情 and 一键登录 (代登录商户) are NOT standalone buttons — they live in 更多.
   expect(actionButtons.some((b) => b.text() === "详情")).toBe(false);
+  expect(actionButtons.some((b) => b.text() === "一键登录")).toBe(false);
   expect(actionButtons.some((b) => b.text() === "代登录商户")).toBe(false);
   const more = wrapper.findComponent(ActionDropdown);
   expect(more.exists()).toBe(true);
   const labels = (more.props("items") as { label: string }[]).map(
     (i) => i.label,
   );
-  for (const l of ["详情", "代登录商户", "加款/扣款"])
+  for (const l of ["详情", "一键登录", "加款/扣款"])
     expect(labels).toContain(l);
   wrapper.unmount();
 });

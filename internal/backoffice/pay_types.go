@@ -23,6 +23,26 @@ func weixinAppsDefinition() definition {
 	return definition{title: "公众号小程序", description: "保存公开应用标识；密钥通过受控配置加载。", filters: []FilterSpec{kindFilter}, fields: []Field{text("name", "名称", true, 100), text("app_id", "App ID", true, 100), kind, flag("enabled", "启用资料", true)}}
 }
 
+// payTypeDeviceField is the 支持设备 select from epay_pro's pay_type dialog:
+// value 0 = PC+Mobile (the default), 1 = PC, 2 = Mobile. The original pairs
+// 调用值 (type) + 支持设备 (device) as the uniqueness key; GOEPAY keeps a fixed
+// type catalog, but surfaces 支持设备 so a record can declare which devices a
+// method serves, matching the original column and dialog field.
+func payTypeDeviceField() Field {
+	f := Field{Name: "device", Label: "支持设备", Type: "select", Required: true, MaxLength: 64, Default: payTypeDeviceDefault}
+	f.Options = []Option{
+		{Label: "PC+Mobile", Value: "0"},
+		{Label: "PC", Value: "1"},
+		{Label: "Mobile", Value: "2"},
+	}
+	return f
+}
+
+// payTypeDeviceDefault is epay_pro's 支持设备 default (0 = PC+Mobile): a catalog
+// row with no stored record, and a record saved without an explicit device,
+// both read as serving both device classes.
+const payTypeDeviceDefault = "0"
+
 // originalPayType mirrors the original pre_type catalog (epay_pro app/sql
 // install.sql): the調用值 (type), its 名称 (showname) and the status a fresh
 // install starts with. The backoffice package sits below the server routing
@@ -55,7 +75,7 @@ var originalPayTypes = []struct {
 // The catalog is a fixed, tiny set, so the whole listing is returned on one
 // page like the original console; Query pagination is reported as total=len.
 func (s *Service) listPayTypes(ctx context.Context, p Principal) (Page, error) {
-	rows, e := s.pool.Query(ctx, "SELECT id,body->>'name',body->>'type',body->'enabled'='true'::jsonb FROM backoffice_records WHERE resource='pay-types' ORDER BY id DESC")
+	rows, e := s.pool.Query(ctx, "SELECT id,body->>'name',body->>'type',body->'enabled'='true'::jsonb,coalesce(body->>'device','') FROM backoffice_records WHERE resource='pay-types' ORDER BY id DESC")
 	if e != nil {
 		return Page{}, e
 	}
@@ -63,21 +83,22 @@ func (s *Service) listPayTypes(ctx context.Context, p Principal) (Page, error) {
 		id      int64
 		name    string
 		enabled bool
+		device  string
 	}
 	byType := map[string][]record{}
 	order := []string{}
 	for rows.Next() {
 		var id int64
-		var name, kind string
+		var name, kind, device string
 		var enabled bool
-		if e = rows.Scan(&id, &name, &kind, &enabled); e != nil {
+		if e = rows.Scan(&id, &name, &kind, &enabled, &device); e != nil {
 			rows.Close()
 			return Page{}, e
 		}
 		if _, seen := byType[kind]; !seen {
 			order = append(order, kind)
 		}
-		byType[kind] = append(byType[kind], record{id: id, name: name, enabled: enabled})
+		byType[kind] = append(byType[kind], record{id: id, name: name, enabled: enabled, device: device})
 	}
 	rows.Close()
 	if e = rows.Err(); e != nil {
@@ -91,8 +112,12 @@ func (s *Service) listPayTypes(ctx context.Context, p Principal) (Page, error) {
 	seen := map[int64]bool{}
 	appendRecord := func(kind string, rec record) {
 		seen[rec.id] = true
+		device := rec.device
+		if device == "" {
+			device = payTypeDeviceDefault
+		}
 		items = append(items, Item{ID: rec.id, Fields: map[string]any{
-			"name": rec.name, "type": kind, "enabled": rec.enabled,
+			"name": rec.name, "type": kind, "enabled": rec.enabled, "device": device,
 		}})
 	}
 	// The 7 original types first, in catalog order. The newest record for the
@@ -103,7 +128,7 @@ func (s *Service) listPayTypes(ctx context.Context, p Principal) (Page, error) {
 		if len(recs) == 0 {
 			name := t.ShowName
 			items = append(items, Item{ID: 0, Fields: map[string]any{
-				"name": name, "type": t.Name, "enabled": t.Open,
+				"name": name, "type": t.Name, "enabled": t.Open, "device": payTypeDeviceDefault,
 			}})
 			continue
 		}

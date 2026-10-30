@@ -3,7 +3,7 @@ package backoffice
 import "testing"
 
 func TestSettleTransferChannelSettingValidation(t *testing.T) {
-	for _, k := range []string{"settle_alipay", "settle_wxpay", "settle_qqpay", "settle_bank", "transfer_wxpay", "transfer_qqpay"} {
+	for _, k := range []string{"settle_alipay", "settle_wxpay", "settle_qqpay", "settle_bank", "transfer_wxpay", "transfer_qqpay", "transfer_bank"} {
 		for _, v := range []string{"0", "1"} {
 			if known, err := validateSettleTransferChannelSetting(k, v); !known || err != nil {
 				t.Error("rejected", k, v, err)
@@ -91,12 +91,14 @@ func TestMerchantFeatureSettingValidation(t *testing.T) {
 func TestAssignedSettingsKeysRegistered(t *testing.T) {
 	want := []string{
 		"settle_alipay", "settle_wxpay", "settle_qqpay", "settle_bank",
-		"transfer_wxpay", "transfer_qqpay",
+		"transfer_wxpay", "transfer_qqpay", "transfer_bank",
 		"blockname", "blockalert", "blackmsg", "pageordername", "notifyordername",
 		"forceqq", "pay_force_cashier_pids",
 		"internal_transfer", "recharge", "onecode",
 		"complain_open", "applyments_open", "mchrisk_open",
 		"reg_pay", "reg_pay_price", "reg_pay_uid",
+		"user_totp_open", "subchannel_open", "user_profitsharing", "user_transfer_batch",
+		"verifytype", "onecode_domains", "pay_domain_open",
 	}
 	options := map[string]bool{}
 	for _, f := range definitions["settings"].fields {

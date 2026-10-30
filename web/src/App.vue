@@ -59,6 +59,7 @@ import {
 import SubchannelPage from "./components/SubchannelPage.vue";
 import RefundSummaryDialog from "./components/RefundSummaryDialog.vue";
 import OrderSummaryDialog from "./components/OrderSummaryDialog.vue";
+import LedgerSummaryDialog from "./components/LedgerSummaryDialog.vue";
 import { resourceFor, resourceEntryFor } from "./resources";
 import { reportFor } from "./reports";
 import ReportPage from "./components/ReportPage.vue";
@@ -110,6 +111,7 @@ import {
   refundSearchFields,
   readListRouteQuery,
 } from "./list-filters";
+import { usePayTypeOptions } from "./pay-type-options";
 import PublicEnrollment from "./components/PublicEnrollment.vue";
 import PublicTestPay203 from "./components/PublicTestPay203.vue";
 import CsvExportButton from "./components/CsvExportButton.vue";
@@ -280,6 +282,41 @@ function closeOrderSummary() {
       target.focus();
   });
 }
+const ledgerSummaryQuery = ref<string | null>(null);
+let ledgerSummaryReturn: HTMLElement | undefined;
+function openLedgerSummary() {
+  if (
+    !authorized.value ||
+    kind.value !== "ledger" ||
+    loading.value ||
+    busy.value ||
+    listRouteError.value
+  )
+    return;
+  const q = listQuery();
+  q.delete("page");
+  q.delete("limit");
+  ledgerSummaryReturn =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : undefined;
+  ledgerSummaryQuery.value = q.toString();
+}
+function closeLedgerSummary() {
+  const target = ledgerSummaryReturn,
+    context = client.value,
+    csrf = context.csrfToken;
+  ledgerSummaryQuery.value = null;
+  ledgerSummaryReturn = undefined;
+  void nextTick(() => {
+    if (
+      client.value === context &&
+      context.csrfToken === csrf &&
+      target?.isConnected
+    )
+      target.focus();
+  });
+}
 const listLimit = ref(20),
   listRouteError = ref("");
 const includeArchivedOrders = ref(false);
@@ -328,6 +365,10 @@ const path = computed(
 const page = computed(() => resolvePage(area.value, path.value));
 const kind = computed(() => viewKind(area.value, path.value));
 const sharingFlowOpen = ref(false);
+// 本地插件: the 本地扩展资料 block shows once the plugin list above it has
+// loaded, so it does not sit near the top and then drop down the page.
+const pluginListLoaded = ref(false);
+watch(path, () => (pluginListLoaded.value = false));
 const searchFieldOptions = computed(() => [
   { value: "", label: "综合搜索" },
   ...(kind.value === "refunds" ? refundSearchFields : orderSearchFields).map(
@@ -351,6 +392,14 @@ const client = ref(new ApiClient(area.value)),
   initializing = ref(true),
   busy = ref(false),
   loading = ref(false);
+// Only the order and refund lists show the 支付方式 filter; other pages must
+// not send this read (pages such as 计划任务 assert they read nothing extra).
+const payTypeFilterOptions = usePayTypeOptions(
+  client,
+  computed(
+    () => session.value !== null && ["orders", "refunds"].includes(kind.value),
+  ),
+);
 const error = ref(""),
   notice = ref(""),
   username = ref(""),
@@ -1999,17 +2048,16 @@ onBeforeUnmount(() => {
             :admin-class="session.user.admin_class"
           />
           <template v-if="path === '/app/plugin-list'"
-            ><LocalPluginsPage />
-            <h2 class="operation-heading">本地扩展资料</h2>
-            <ResourcePage
-              :key="path + 'config'"
-              :client="client"
-              resource="plugin-configs"
-            />
-            <h2 class="operation-heading">当前运行能力</h2></template
-          >
+            ><LocalPluginsPage @loaded="pluginListLoaded = true" />
+            <template v-if="pluginListLoaded"
+              ><h2 class="operation-heading">本地扩展资料</h2>
+              <ResourcePage
+                :key="path + 'config'"
+                :client="client"
+                resource="plugin-configs" /></template
+          ></template>
           <OperationsPage
-            v-if="path !== '/system/update'"
+            v-if="path !== '/system/update' && path !== '/app/plugin-list'"
             :key="path"
             :client="client"
             :operation="operationPages[path]"
@@ -2073,6 +2121,7 @@ onBeforeUnmount(() => {
           :admin-class="session?.user.admin_class"
           :merchant-id="String(session?.user.id ?? '')"
           :own-session="!!session && !session.delegated_by"
+          :client="client"
       /></template>
       <template v-else>
         <form
@@ -2130,6 +2179,7 @@ onBeforeUnmount(() => {
             :kind="kind"
             :area="area"
             :loading="loading"
+            :pay-type-options="payTypeFilterOptions"
             @reset="resetListFilters"
           />
         </form>
@@ -2155,6 +2205,15 @@ onBeforeUnmount(() => {
               @click="openRefundSummary"
             >
               退款统计
+            </button>
+            <button
+              v-if="kind === 'ledger'"
+              type="button"
+              class="pa-btn pa-btn--primary"
+              :disabled="loading || busy || !!listRouteError"
+              @click="openLedgerSummary"
+            >
+              统计
             </button>
             <CsvExportButton
               v-if="['orders', 'refunds', 'ledger'].includes(kind)"
@@ -2294,6 +2353,12 @@ onBeforeUnmount(() => {
         :query="orderSummaryQuery"
         @close="closeOrderSummary"
       />
+      <LedgerSummaryDialog
+        v-if="ledgerSummaryQuery !== null && authorized && kind === 'ledger'"
+        :client="client"
+        :query="ledgerSummaryQuery"
+        @close="closeLedgerSummary"
+      />
       <OrderBlacklistDialog
         v-if="blacklistSelection && session && authorized && area === 'admin'"
         :key="blacklistSelection.tradeNo + '/' + blacklistSelection.kind"
@@ -2375,7 +2440,12 @@ onBeforeUnmount(() => {
           <h2>{{ area === "admin" ? "API退款确认" : "申请退款" }}</h2>
           <div v-if="error" class="alert error" role="alert">{{ error }}</div>
           <form v-if="refundRow" @submit.prevent="submitRefund">
-            <p class="muted">订单 {{ refundRow.trade_no ?? refundRow.id }}</p>
+            <p class="muted">
+              订单
+              <span class="pa-order-no">{{
+                refundRow.trade_no ?? refundRow.id
+              }}</span>
+            </p>
             <label
               >退款金额（元）<input
                 v-model="refundMoney"

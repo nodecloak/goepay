@@ -1,6 +1,6 @@
 import type { ApiClient } from "./api";
 export type TemplateKind = "home" | "pay" | "qrpay";
-export type TemplateName = "default" | "compact";
+export type TemplateName = string;
 export interface TemplateField {
   name: string;
   label: string;
@@ -30,8 +30,35 @@ export interface TemplateAsset {
   height: number;
 }
 const kinds = ["home", "pay", "qrpay"],
-  names = ["default", "compact"],
+  // The home kind ships the original template names (default, index1-10)
+  // plus GOEPAY's single-card style; pay/qrpay ship the two checkout card
+  // layouts. The console only ever selects a built-in name.
+  homeNames = [
+    "default",
+    "index1",
+    "index2",
+    "index3",
+    "index4",
+    "index5",
+    "index6",
+    "index7",
+    "index8",
+    "index9",
+    "index10",
+    "minimal",
+  ],
+  cardNames = ["default", "compact"],
   assetID = /^[0-9a-f]{64}$/;
+function namesFor(kind: string): string[] {
+  return kind === "home" ? homeNames : cardNames;
+}
+/**
+ * The preview picture of a built-in template, generated into
+ * web/public/static/template-previews by web/scripts/template-previews.mjs.
+ */
+export function templatePreviewImage(kind: string, name: string): string {
+  return `/static/template-previews/${encodeURIComponent(kind)}-${encodeURIComponent(name)}.jpg`;
+}
 function revision(v: unknown): v is string {
   return (
     typeof v === "string" &&
@@ -97,7 +124,7 @@ export function templateConfigBody(
 ): Record<string, unknown> {
   if (
     !kinds.includes(view.type) ||
-    !names.includes(view.name) ||
+    !namesFor(view.type).includes(view.name) ||
     !revision(view.revision)
   )
     throw new Error("请重新读取原模板版本");
@@ -107,7 +134,7 @@ export function readTemplateConfig(raw: unknown): TemplateConfigView {
   const v = object(raw);
   if (
     !kinds.includes(String(v.type)) ||
-    !names.includes(String(v.name)) ||
+    !namesFor(String(v.type)).includes(String(v.name)) ||
     !revision(v.revision) ||
     !Array.isArray(v.fields)
   )
@@ -160,15 +187,16 @@ export function readTemplateList(raw: unknown): TemplateList {
     !kinds.includes(String(v.type)) ||
     !revision(v.revision) ||
     typeof v.selected !== "string" ||
-    !Array.isArray(v.items) ||
-    v.items.length !== 2
+    !Array.isArray(v.items)
   )
     throw new Error("模板目录读取失败");
+  const allowed = namesFor(String(v.type));
+  if (v.items.length !== allowed.length) throw new Error("模板目录读取失败");
   const seen = new Set<string>();
   const items = v.items.map((raw) => {
     const item = object(raw);
     if (
-      !names.includes(String(item.name)) ||
+      !allowed.includes(String(item.name)) ||
       seen.has(String(item.name)) ||
       typeof item.title !== "string" ||
       typeof item.description !== "string"

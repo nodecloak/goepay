@@ -417,19 +417,25 @@ onBeforeUnmount(() => {
               ><small class="muted">留空使用默认颜色</small></label
             >
           </div>
-          <div class="toolbar-actions">
-            <button type="submit" class="primary" :disabled="!canSave">
-              {{ busy ? "处理中…" : selected ? "保存" : "添加" }}</button
-            ><button type="button" :disabled="busy" @click="closeForm">
-              取消
+          <div class="modal-actions">
+            <button type="button" :disabled="busy" @click="closeForm">
+              取消</button
+            ><button
+              v-if="uncertain"
+              type="button"
+              :disabled="busy || loading"
+              @click="load"
+            >
+              刷新核对公告</button
+            ><button type="submit" class="primary" :disabled="!canSave">
+              {{ busy ? "处理中…" : selected ? "保存" : "添加" }}
             </button>
           </div>
         </form>
       </section>
     </div>
-    <section class="panel announcement-list">
+    <section class="panel announcement-list" aria-label="已发公告">
       <div class="panel-heading">
-        <h2>已发公告</h2>
         <div class="announcement-head-actions">
           <button
             v-if="schema?.permissions.create"
@@ -440,11 +446,14 @@ onBeforeUnmount(() => {
           >
             添加公告</button
           ><button type="button" :disabled="busy || loading" @click="load">
-            {{ loading ? "加载中…" : "刷新核对公告" }}
+            刷新核对公告
           </button>
         </div>
       </div>
-      <p v-if="!rows.length && !loading" class="empty">暂无公告</p>
+      <p v-if="loading && !rows.length" class="empty" role="status">
+        正在加载公告…
+      </p>
+      <p v-else-if="!rows.length" class="empty">暂无公告</p>
       <article v-for="r in rows" :key="r.id" class="announcement-row">
         <div class="announcement-copy">
           <RichContent
@@ -507,7 +516,7 @@ onBeforeUnmount(() => {
           :content="removing.content"
           :format="removing.content_format"
         />
-        <div class="toolbar-actions">
+        <div class="modal-actions">
           <button type="button" :disabled="busy" @click="cancelDelete">
             取消</button
           ><button
@@ -540,7 +549,7 @@ onBeforeUnmount(() => {
   gap: var(--space-2);
   flex-wrap: wrap;
 }
-.announcements-page h2 {
+.announcements-page > section > h2 {
   font-size: 16px;
   margin: 0 0 18px;
 }
@@ -604,9 +613,6 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-}
-.panel-heading h2 {
-  margin-bottom: 0;
 }
 .announcement-confirm {
   width: min(520px, calc(100vw - 32px));

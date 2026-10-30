@@ -48,7 +48,8 @@ export type SettingsEmbed =
   | "scanjs"
   | "user-refund"
   | "buyer-fee"
-  | "proxy-credentials";
+  | "proxy-credentials"
+  | "oauth-credentials";
 type LayoutEntry = string | { group: string } | { embed: SettingsEmbed };
 // Field order follows the original epay_pro settings pages. A trailing "*"
 // matches a key prefix; keys not listed keep their server order at the end.
@@ -81,6 +82,8 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
   ],
   merchant: [
     { group: "登录&注册配置" },
+    "verifytype",
+    "user_totp_open",
     "registration_open",
     "registration_invite_required",
     "user_review",
@@ -91,11 +94,15 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     "internal_transfer",
     "recharge",
     "onecode",
+    "onecode_domains",
     { embed: "scanpay" },
     { embed: "scanjs" },
+    "pay_domain_open",
     "enforce_domains",
     { embed: "user-refund" },
     "refund_fee_payer",
+    "subchannel_open",
+    "user_profitsharing",
     { group: "进件配置（本轮暂缓）" },
     "applyments_open",
     "mchrisk_open",
@@ -147,12 +154,29 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     "transfer_wxpay_info_type",
     "transfer_wxpay_info_content",
     "transfer_qqpay",
+    "transfer_bank",
     { group: "代付配置" },
     "user_transfer",
     "user_transfer_red",
+    "user_transfer_batch",
     "transfer_minmoney",
     "transfer_maxmoney",
     "transfer_maxlimit",
+  ],
+  oauth: [
+    { group: "QQ互联" },
+    "login_qq",
+    "login_qq_appid",
+    { group: "微信开放平台" },
+    "login_wx",
+    { group: "支付宝开放平台" },
+    "login_alipay",
+    { group: "第三方登录中转" },
+    "login_appid",
+    "login_apiurl",
+    { group: "Telegram" },
+    "login_tg",
+    { embed: "oauth-credentials" },
   ],
   notice: [
     "msgconfig_regaudit",
@@ -249,7 +273,7 @@ export interface SettingDefinition {
   key: string;
   label: string;
   tab: SettingsTab;
-  kind: "text" | "email" | "select" | "integer" | "money" | "html";
+  kind: "text" | "textarea" | "email" | "select" | "integer" | "money" | "html";
   storage?: "cents" | "bps";
   options?: { value: string; label: string }[];
   hint?: string;
@@ -298,7 +322,7 @@ const labels: Record<
   registration_open: ["merchant", "开放商户注册", "select"],
   registration_invite_required: ["merchant", "注册必须邀请码", "select"],
   user_review: ["merchant", "新商户审核", "select"],
-  enforce_domains: ["merchant", "校验授权域名", "select"],
+  enforce_domains: ["merchant", "未授权支付域名禁止支付", "select"],
   payment_fee_enabled: ["pay", "支付手续费", "select"],
   test_open: ["site", "测试支付", "select"],
   test_pay_uid: ["site", "测试支付收款商户ID", "integer"],
@@ -372,12 +396,27 @@ const labels: Record<
   proxy_user: ["proxy", "代理账号", "text"],
   proxy_type: ["proxy", "代理协议", "select"],
   proxy_apiurl: ["proxy", "API接口地址", "text"],
+  login_qq: ["oauth", "QQ快捷登录", "select"],
+  login_qq_appid: ["oauth", "QQ互联 APPID", "text"],
+  login_wx: ["oauth", "微信快捷登录", "select"],
+  login_alipay: ["oauth", "支付宝快捷登录", "select"],
+  login_appid: ["oauth", "第三方登录中转 APPID", "text"],
+  login_apiurl: ["oauth", "第三方登录中转API地址", "text"],
+  login_tg: ["oauth", "Telegram快捷登录", "select"],
   settle_alipay: ["settle", "支付宝结算开关", "select"],
   settle_wxpay: ["settle", "微信结算开关", "select"],
   settle_qqpay: ["settle", "QQ钱包结算开关", "select"],
   settle_bank: ["settle", "银行卡结算开关", "select"],
   transfer_wxpay: ["transfer", "微信转账接口通道", "select"],
   transfer_qqpay: ["transfer", "QQ钱包转账接口通道", "select"],
+  transfer_bank: ["transfer", "银行卡转账接口通道", "select"],
+  user_transfer_batch: ["transfer", "用户中心批量代付功能", "select"],
+  subchannel_open: ["merchant", "开启子通道管理功能", "select"],
+  user_profitsharing: ["merchant", "开启添加分账规则(进件)", "select"],
+  user_totp_open: ["merchant", "开启商户TOTP二次验证", "select"],
+  verifytype: ["merchant", "用户验证方式", "select"],
+  onecode_domains: ["merchant", "聚合收款码可选域名", "textarea"],
+  pay_domain_open: ["merchant", "开启授权支付域名添加", "select"],
   blockname: ["pay", "商品屏蔽关键词", "text"],
   blockalert: ["pay", "商品屏蔽显示内容", "text"],
   blackmsg: ["pay", "黑名单拦截提示内容", "text"],
@@ -472,6 +511,8 @@ export function settingDefinition(
       option("platform", "平台承担（退手续费）"),
       option("merchant", "商户承担（保留手续费）"),
     ];
+  if (key === "verifytype")
+    d.options = [option("0", "邮箱验证"), option("1", "手机验证")];
   if (
     [
       "user_transfer",
@@ -489,6 +530,12 @@ export function settingDefinition(
       "settle_bank",
       "transfer_wxpay",
       "transfer_qqpay",
+      "transfer_bank",
+      "user_transfer_batch",
+      "subchannel_open",
+      "user_profitsharing",
+      "user_totp_open",
+      "pay_domain_open",
       "pageordername",
       "notifyordername",
       "forceqq",
@@ -499,6 +546,10 @@ export function settingDefinition(
       "applyments_open",
       "mchrisk_open",
       "reg_pay",
+      "login_qq",
+      "login_wx",
+      "login_alipay",
+      "login_tg",
     ].includes(key)
   )
     d.options = switchOptions;
@@ -529,6 +580,19 @@ export function settingDefinition(
       option("sock5h", "SOCK5H"),
     ];
   if (key === "proxy_apiurl") d.hint = "填写代理API站点URL，支持子目录。";
+  if (key === "login_qq")
+    d.hint = "开启后登录页显示QQ快捷登录；需配置QQ互联APPID与下方APPKEY。";
+  if (key === "login_wx")
+    d.hint = "开启后登录页显示微信快捷登录；需配置中转APPID与下方AppSecret。";
+  if (key === "login_alipay")
+    d.hint = "开启后登录页显示支付宝快捷登录；需配置中转APPID与下方应用密钥。";
+  if (key === "login_tg")
+    d.hint = "开启后登录页显示Telegram快捷登录；需配置下方Bot Token。";
+  if (key === "login_qq_appid") d.hint = "QQ互联应用的 APP ID。";
+  if (key === "login_appid")
+    d.hint = "第三方登录中转服务的 APP ID，微信与支付宝共用。";
+  if (key === "login_apiurl")
+    d.hint = "第三方登录中转服务的API地址，用于微信/支付宝授权换取身份。";
   if (key === "transfer_wxpay_type") {
     d.options = [
       option("0", "商家转账到零钱（旧）"),
@@ -581,6 +645,28 @@ export function settingDefinition(
     d.hint = "进件/实名相关业务按本轮范围暂缓，此开关当前仅保存配置。";
   if (key === "mchrisk_open")
     d.hint = "进件管控记录按本轮范围暂缓，此开关当前仅保存配置。";
+  if (key === "subchannel_open")
+    d.hint = "关闭后商户中心隐藏支付通道（子通道）入口并拒绝相关请求。";
+  if (key === "user_profitsharing")
+    d.hint = "关闭后商户不能新增分账规则或分账接收方；已有规则仍可查看和停用。";
+  if (key === "user_totp_open")
+    d.hint =
+      "开启后，商户可在账户设置中绑定TOTP，登录时进行二次验证。关闭后不能新绑定；已绑定的商户登录仍需验证，也可自行解绑。";
+  if (key === "verifytype")
+    d.hint =
+      "用于商户注册绑定邮箱/手机。选手机验证时需短信接口可用；未配置时两种方式都可用。";
+  if (key === "onecode_domains")
+    d.hint =
+      "一行一个域名，例如 https://pay.example.com，最多20个。商户生成聚合收款码时可选；域名需解析到本站。";
+  if (key === "pay_domain_open")
+    d.hint = "关闭后商户不能新增授权域名；已添加的域名不受影响。";
+  if (key === "enforce_domains")
+    d.hint =
+      "开启后，订单的异步/同步通知地址须在商户已审核通过的授权域名内，否则拒绝下单。";
+  if (key === "user_transfer_batch")
+    d.hint = "关闭后商户中心隐藏批量付款入口并拒绝相关请求。";
+  if (key === "transfer_bank")
+    d.hint = "银行卡转账通道开关；需对应渠道支持银行卡代付才生效。";
   if (key === "reg_pay") d.hint = "开启后新商户注册需先支付注册费用。";
   if (key === "reg_pay_price") d.hint = "注册付费金额（元）。";
   if (key === "reg_pay_uid")
@@ -672,6 +758,39 @@ export function settingStorage(d: SettingDefinition, input: string): string {
     throw Error(`${d.label}：请填写明确的设置值，未配置的项目无需保存`);
   if (d.kind === "select" && !d.options?.some((o) => o.value === value))
     throw Error(`${d.label}：请选择有效选项`);
+  if (d.key === "onecode_domains") {
+    const lines = value
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const loopback = ["127.0.0.1", "localhost", "[::1]"];
+    const origin = (line: string) => {
+      try {
+        const u = new URL(line);
+        return (
+          (u.protocol === "https:" ||
+            (u.protocol === "http:" && loopback.includes(u.hostname))) &&
+          !u.username &&
+          !u.password &&
+          (u.pathname === "/" || u.pathname === "") &&
+          !u.search &&
+          !u.hash &&
+          !/^[a-z]+:\/\/[^/]*@/i.test(line)
+        );
+      } catch {
+        return false;
+      }
+    };
+    if (
+      new TextEncoder().encode(value).length > 2048 ||
+      lines.length > 20 ||
+      !lines.every(origin)
+    )
+      throw Error(
+        `${d.label}：一行一个 https 域名，例如 https://pay.example.com，最多20个`,
+      );
+    return lines.join("\n");
+  }
   if (d.key === "transfer_wxpay_scene_id" && !/^[0-9]{1,8}$/.test(value))
     throw Error(`${d.label}：请填写数字场景ID，如1001`);
   if (

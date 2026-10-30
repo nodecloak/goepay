@@ -21,7 +21,11 @@ it("clean page shows Pro's 自定义清理 grid with every clean type", async ()
   });
   await flushPromises();
   const text = wrapper.text();
-  expect(text).toContain("系统数据清理");
+  // No page-title heading; the custom-clean section keeps its own heading.
+  expect(wrapper.find("h2").exists()).toBe(false);
+  expect(wrapper.get("h3.clean-subhead").text()).toBe(
+    "自定义清理（按类型 / 天数）",
+  );
   for (const t of [
     "登录日志",
     "订单记录",

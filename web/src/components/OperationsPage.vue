@@ -232,7 +232,6 @@ onBeforeUnmount(() => controller?.abort());
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
     <template v-if="operation === 'cleanup'"
       ><div class="account-section clean-page">
-        <h2>系统数据清理</h2>
         <p class="muted">
           定期清理数据有助于提升访问速度。交易、账本、结算等财务记录不可变，相关清理项以禁用显示并标注原因。
         </p>
@@ -293,11 +292,7 @@ onBeforeUnmount(() => controller?.abort());
       </div></template
     ><template v-else
       ><div class="toolbar">
-        <p v-if="operation === 'system-info'" class="muted">
-          当前部署构建与实际加载能力。本页面提供运行信息，不执行 PHP
-          插件或在线覆盖更新。
-        </p>
-        <span v-else class="muted">{{
+        <span v-if="operation !== 'system-info'" class="muted">{{
           operation === "jobs"
             ? "仅允许重新排队支付通知和结果核实任务，不重新提交支付、退款或转账。"
             : "只显示有权访问的运行记录。"

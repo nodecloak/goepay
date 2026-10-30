@@ -189,11 +189,19 @@ func TestSettlementPayoutConsoleScopedReadPrepareUnknownAndOriginalQuery(t *test
 			t.Fatal("payout report", kind, report.Code, report.Body.String(), err)
 		}
 		item := out.Data.Items[0]
-		if item["paid_money"] != "9.75" || item["net_money"] != "10.00" || item["fee_money"] != "0.25" {
+		wantCSV := "9.75,10.00,0.25"
+		if kind == "transfer-accounts" {
+			// 付款账号统计 (epay_pro accountStat) lists 付款金额 and 花费金额 per
+			// payee account; the gross settlement debit is its 花费金额.
+			if item["paid_money"] != "9.75" || item["cost_money"] != "10.00" {
+				t.Fatal("payout account report discarded gross settlement debit", item)
+			}
+			wantCSV = "9.75,10.00"
+		} else if item["paid_money"] != "9.75" || item["net_money"] != "10.00" || item["fee_money"] != "0.25" {
 			t.Fatal("payout report discarded gross settlement debit or charged wrong fee", kind, item)
 		}
 		csv := readAdmin("/reports/" + kind + "?format=csv")
-		if csv.Code != 200 || !strings.Contains(csv.Body.String(), "9.75,10.00,0.25") {
+		if csv.Code != 200 || !strings.Contains(csv.Body.String(), wantCSV) {
 			t.Fatal("payout report csv", kind, csv.Code, csv.Body.String())
 		}
 	}

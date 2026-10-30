@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount } from "vue";
 import { ApiClient, displayValue } from "../api";
 import {
   buildBatchItems,
@@ -33,6 +33,14 @@ const policy = ref<BatchPolicy | null>(null),
   error = ref(""),
   notice = ref("");
 const rows = ref<BatchDraftRow[]>([emptyBatchRow()]);
+// Why 新建批量付款 is unavailable, shown beside the grey button: the admin has
+// not loaded a 付款商户 yet, or the loaded merchant's payout capability is off.
+const writesHint = computed(() => {
+  if (loading.value || creating.value || writes.value) return "";
+  if (!policy.value)
+    return props.client.area === "admin" ? "请先输入付款商户并查询" : "";
+  return "当前商户未开启付款能力，暂不能新建批量付款";
+});
 let controller: AbortController | undefined;
 let frozen: Record<string, unknown> | undefined;
 const ownerQuery = (): Record<string, string> =>
@@ -190,9 +198,8 @@ onBeforeUnmount(() => {
         />
       </KitField>
     </KitFilterBar>
-    <section class="panel records">
-      <h2>批量付款</h2>
-      <p class="muted">
+    <section class="panel records batch-records" aria-label="批量付款">
+      <p class="table-note">
         先整批预留，再单独执行。每批 1–100
         项；未知或已发送项目不重发，取消仅释放可证明尚未发送的项目。此功能不等同自动结算。
       </p>
@@ -207,8 +214,15 @@ onBeforeUnmount(() => {
         >
           新建批量付款
         </button>
+        <span v-if="writesHint" class="batch-hint" role="note">{{
+          writesHint
+        }}</span>
       </div>
-      <section v-if="creating && !uncertain" aria-label="新批次">
+      <section
+        v-if="creating && !uncertain"
+        class="batch-editor"
+        aria-label="新批次"
+      >
         <p>
           本次原请求号：<code>{{ external }}</code
           >。仅保存在当前页面，请记录用于恢复。
@@ -254,7 +268,7 @@ onBeforeUnmount(() => {
         </button>
       </section>
       <p v-if="uncertain" class="alert">
-        请先按上方原请求号查找已保存批次，再核对详情；收款资料已从当前表单清除。
+        原请求号已保留在上方「请求号」中，请先点「查询」查找已保存批次，再核对详情；收款资料已从当前表单清除。
       </p>
       <div class="table-scroll">
         <table class="pa-table">
@@ -326,3 +340,23 @@ onBeforeUnmount(() => {
     </section>
   </div>
 </template>
+<style scoped>
+/* Full-width records card (as 付款记录): the note, alerts, toolbar, editor
+   and the first/last table cells share the card's 20px inset. */
+.batch-records > .table-note {
+  padding-top: var(--space-4);
+}
+.batch-records > .alert {
+  margin: 0 var(--space-5) var(--space-3);
+}
+.batch-records > .table-tools {
+  padding-top: var(--space-2);
+}
+.batch-hint {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.batch-editor {
+  padding: 0 var(--space-5) var(--space-4);
+}
+</style>

@@ -8,6 +8,7 @@ import KitInput from "./KitInput.vue";
 const props = defineProps<{ client: ApiClient }>();
 const emit = defineEmits<{ reauthenticate: [] }>();
 const enabled = ref(false),
+  enrollable = ref(true),
   loaded = ref(false),
   busy = ref(false),
   error = ref(""),
@@ -38,10 +39,12 @@ function reset() {
 }
 async function status() {
   try {
-    const data = await props.client.request<{ enabled: boolean }>(
-      "/security/totp",
-    );
+    const data = await props.client.request<{
+      enabled: boolean;
+      enrollable?: boolean;
+    }>("/security/totp");
     enabled.value = data.enabled;
+    enrollable.value = data.enrollable !== false;
     loaded.value = true;
   } catch (e) {
     error.value = e instanceof Error ? e.message : "无法读取动态验证码设置";
@@ -108,6 +111,7 @@ onBeforeUnmount(reset);
         }}
       </p>
       <button
+        v-if="enabled || enrollable"
         class="pa-btn"
         :class="enabled ? 'pa-btn--danger' : 'pa-btn--primary'"
         :disabled="busy"
@@ -117,7 +121,10 @@ onBeforeUnmount(reset);
         "
       >
         {{ enabled ? "关闭动态验证码" : "绑定身份验证器" }}
-      </button></template
+      </button>
+      <p v-if="!enabled && !enrollable" class="muted">
+        平台未开启商户TOTP二次验证，暂不能绑定。
+      </p></template
     >
     <KitModal
       v-if="mode"

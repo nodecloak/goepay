@@ -181,8 +181,11 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="panel notice-settings">
-    <h2>{{ title || (admin ? "商户消息提醒设置" : "消息提醒设置") }}</h2>
+  <section
+    class="panel notice-settings"
+    :aria-label="title || (admin ? '商户消息提醒设置' : '消息提醒设置')"
+  >
+    <h2 v-if="title">{{ title }}</h2>
     <p v-if="!allowed" class="alert">
       请使用本人会话；管理员需要商户管理权限。
     </p>

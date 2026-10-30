@@ -214,10 +214,8 @@ onBeforeUnmount(() => {
     <p v-if="!canWrite" class="muted">
       当前为只读查看，保存需要本人超级管理员会话。
     </p>
-    <p v-if="loading" role="status" class="muted">正在读取销售配置…</p>
-    <section class="panel sale-policy-card">
+    <section class="panel sale-policy-card" aria-label="用户组购买设置">
       <div class="sale-policy-head">
-        <h2>用户组购买设置</h2>
         <button
           type="button"
           class="sale-refresh"
@@ -227,6 +225,13 @@ onBeforeUnmount(() => {
           <ShellIcon name="refresh" />刷新配置
         </button>
       </div>
+      <p
+        v-if="loading && !configuration"
+        role="status"
+        class="muted sale-loading"
+      >
+        正在读取销售配置…
+      </p>
       <template v-if="configuration">
         <div class="sale-policy">
           <span>用户组购买开关</span
@@ -460,11 +465,6 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 12px;
 }
-.sale-policy-head h2 {
-  margin: 0;
-  font-size: 16px;
-  line-height: 24px;
-}
 .sale-refresh {
   display: inline-flex;
   align-items: center;
@@ -485,6 +485,10 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: 12px;
   line-height: 20px;
+}
+.sale-loading {
+  margin: 16px 0 0;
+  font-size: 13px;
 }
 /* The switch saves on click, so it stays a button; it is drawn like KitSwitch. */
 .sale-switch {

@@ -83,7 +83,7 @@ test("live settlement reserve is visible and admin rejection restores its termin
   await login(page, "merchant");
   await page.goto("/merchant/settle/apply");
   await expect(
-    page.getByRole("heading", { name: "申请提现", exact: true, level: 2 }),
+    page.getByRole("region", { name: "申请提现", exact: true }),
   ).toBeVisible();
   const recipientPanel = page.getByRole("group", { name: "结算收款资料" });
   await expect(recipientPanel).not.toContainText("正在读取收款配置");

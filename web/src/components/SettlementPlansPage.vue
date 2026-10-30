@@ -345,7 +345,6 @@ onBeforeUnmount(() => {
 <template>
   <section class="panel" aria-label="结算计划">
     <div class="plans-head">
-      <h2>结算计划</h2>
       <KitHelpPopover>
         <p>
           计划生成授权仅生成待审核申请并冻结对应资金。自动审批和付款必须另行签发独立自动出款授权；普通计划任务资料不触发资金执行。
@@ -609,9 +608,6 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: var(--space-3, 12px);
   flex-wrap: wrap;
-}
-.plans-head h2 {
-  margin: 0;
 }
 .plan-form {
   display: grid;

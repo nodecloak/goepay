@@ -46,11 +46,9 @@ test("malformed wallet funds policy cannot be assumed T0 or authorize a transfer
   });
   await page.goto("/merchant/transfer");
   await page.getByRole("button", { name: "申请付款", exact: true }).click();
-  const modal = page.getByRole("dialog");
+  const modal = page.getByRole("dialog", { name: "转账付款" });
   await expect(modal).toContainText("资金政策或余额信息不完整");
-  await expect(
-    modal.getByRole("button", { name: "核对付款信息" }),
-  ).toBeDisabled();
+  await expect(modal.getByRole("button", { name: "立即转账" })).toBeDisabled();
   await expect(modal).not.toContainText("T+0");
   await expect(modal).not.toContainText("0.00");
   expect(writes).toBe(0);

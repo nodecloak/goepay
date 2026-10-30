@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"strconv"
 	"time"
 )
 
@@ -215,6 +216,36 @@ func (s *Store) Deposit(ctx context.Context, merchantID int64, action, externalN
 	}
 	if e = requireFundsAction(ctx, tx, "deposit", fmt.Sprintf("%d:%s", merchantID, externalNo)); e != nil {
 		return DepositAction{}, e
+	}
+	// 提取保证金要求最近 N 天内无订单且无投诉记录 (epay_pro deposit_day). The rule
+	// is enforced here, not only displayed: a release (withdrawal) is refused
+	// when user_deposit_day>0 and the merchant has any order or complaint within
+	// the window. A missing/zero setting leaves withdrawals unconditional, as
+	// today. Uses the order (created_at) and complaint (first_seen_at) tables.
+	if action == "release" {
+		var days int
+		var raw *string
+		if e = tx.QueryRow(ctx, "SELECT body->>'value' FROM backoffice_records WHERE resource='settings' AND body->>'key'='user_deposit_day' ORDER BY id LIMIT 1").Scan(&raw); e != nil {
+			if !errors.Is(e, pgx.ErrNoRows) {
+				return DepositAction{}, e
+			}
+		} else if raw != nil {
+			if n, perr := strconv.Atoi(*raw); perr == nil && n > 0 {
+				days = n
+			}
+		}
+		if days > 0 {
+			var blocked bool
+			if e = tx.QueryRow(ctx,
+				`SELECT EXISTS(SELECT 1 FROM orders WHERE merchant_id=$1 AND created_at>clock_timestamp()-make_interval(days=>$2))
+				    OR EXISTS(SELECT 1 FROM complaints133 WHERE owner_id=$1 AND first_seen_at>clock_timestamp()-make_interval(days=>$2))`,
+				merchantID, days).Scan(&blocked); e != nil {
+				return DepositAction{}, e
+			}
+			if blocked {
+				return DepositAction{}, ErrState
+			}
+		}
 	}
 	if _, e = tx.Exec(ctx, "INSERT INTO accounts(owner_id,kind) VALUES($1,'deposit'),($1,'deposit_reserved') ON CONFLICT DO NOTHING", merchantID); e != nil {
 		return DepositAction{}, e

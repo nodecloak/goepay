@@ -99,31 +99,39 @@ test("explicit bank capability validates policy and recipient then renders pendi
   });
   await page.goto("/merchant/transfer");
   await page.getByRole("button", { name: "申请付款", exact: true }).click();
-  const modal = page.getByRole("dialog", { name: "申请付款" });
-  await expect(modal.getByLabel("收款方式")).toHaveValue("bank");
-  await expect(modal.getByLabel("开户银行编号")).toHaveAttribute(
-    "required",
-    "",
+  const modal = page.getByRole("dialog", { name: "转账付款" });
+  // Only a bank channel exists, so 银行卡 is the selected tab.
+  await expect(modal.getByRole("tab", { name: "银行卡" })).toHaveAttribute(
+    "aria-selected",
+    "true",
   );
-  await expect(modal.getByLabel("收款人姓名")).toHaveAttribute("required", "");
-  await expect(modal.getByLabel("付款说明", { exact: true })).toHaveValue(
-    "Local bank payout",
+  await expect(
+    modal.locator(".pa-label--req", { hasText: "开户银行" }),
+  ).toHaveCount(1);
+  await expect(
+    modal.locator(".pa-label--req", { hasText: /^姓名$/ }),
+  ).toHaveCount(1);
+  await expect(modal.getByLabel("转账备注")).toHaveAttribute(
+    "placeholder",
+    "可留空，默认为：Local bank payout",
   );
-  await modal.getByLabel("收款账号").fill("6222020202020202020");
-  await modal.getByLabel("收款人姓名").fill("Test Person");
-  await modal.getByLabel("开户银行编号").selectOption("1002");
-  await modal.getByLabel("付款金额（元）").fill("0.99");
-  await modal.getByRole("button", { name: "核对付款信息" }).click();
+  await modal.getByLabel("银行卡号").fill("6222020202020202020");
+  await modal.getByLabel("姓名", { exact: true }).fill("Test Person");
+  await modal.getByRole("button", { name: "开户银行编号" }).click();
+  await modal.getByRole("option", { name: /（1002）$/ }).click();
+  await modal.getByLabel("转账金额").fill("0.99");
+  await modal.getByRole("button", { name: "立即转账" }).click();
   await expect(modal.getByRole("alert")).toContainText("不得低于 1.00");
-  await modal.getByLabel("付款金额（元）").fill("2.01");
-  await modal.getByRole("button", { name: "核对付款信息" }).click();
+  await modal.getByLabel("转账金额").fill("2.01");
+  await modal.getByRole("button", { name: "立即转账" }).click();
   await expect(modal.getByRole("alert")).toContainText("不得高于 2.00");
   expect(creates).toBe(0);
-  await modal.getByLabel("付款金额（元）").fill("1.00");
-  await modal.getByRole("button", { name: "核对付款信息" }).click();
-  await expect(modal).toContainText("每日同收款方次数上限");
-  await expect(modal).toContainText("Local bank payout");
-  await modal.getByRole("button", { name: "确认提交付款" }).click();
+  await modal.getByLabel("转账金额").fill("1.00");
+  await modal.getByRole("button", { name: "立即转账" }).click();
+  const check = page.getByRole("dialog", { name: "核对付款" });
+  await expect(check).toContainText("每日同收款方次数上限");
+  await expect(check).toContainText("Local bank payout");
+  await check.getByRole("button", { name: "确认提交付款" }).click();
   const detail = page.getByRole("dialog", { name: "付款详情" });
   await expect(detail).toContainText("历史账本成功不代表当前银行最终到账");
   await expect(detail).toContainText("服务费暂存（分）");

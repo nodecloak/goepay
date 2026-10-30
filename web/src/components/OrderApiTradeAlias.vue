@@ -326,9 +326,9 @@ onBeforeUnmount(() => {
         <p>仅修改显示别名；清空会移除别名。已验证的上游交易回执保持不变。</p>
         <dl>
           <dt>系统订单号</dt>
-          <dd>{{ tradeNo }}</dd>
+          <dd class="pa-order-no">{{ tradeNo }}</dd>
           <dt>已验证上游接口订单号</dt>
-          <dd>{{ verifiedApiTradeNo || "—" }}</dd>
+          <dd class="pa-order-no">{{ verifiedApiTradeNo || "—" }}</dd>
         </dl>
         <p v-if="loading" role="status">正在读取显示别名…</p>
         <p v-if="error" class="alert error" role="alert">{{ error }}</p>

@@ -8,6 +8,7 @@ import {
   nextTick,
 } from "vue";
 import { ApiClient, displayValue } from "../api";
+import { isOrderNumberKey } from "../order-number";
 import { effectiveRiskDescription } from "../core-risk-status";
 import { RouterLink } from "vue-router";
 import { groupDirectoryRates, groupUsersHref } from "../group-directory";
@@ -73,6 +74,7 @@ import ParentChannelPage from "./ParentChannelPage.vue";
 import PayTypePage from "./PayTypePage.vue";
 import MerchantDelegationPanel from "./MerchantDelegationPanel.vue";
 import BusinessNoticeEvents from "./BusinessNoticeEvents.vue";
+import BlacklistAddDialog from "./BlacklistAddDialog.vue";
 import { businessNoticeSettingsFields } from "../business-notice";
 const props = defineProps<{
   client: ApiClient;
@@ -339,13 +341,34 @@ const fieldFilters = ref<Record<string, string>>({});
 const selectedIds = ref<string[]>([]);
 const confirmBatch = ref(false);
 const batchBusy = ref(false);
+// Blacklist 批量添加 (Pro's 添加 dialog): the management page opens a dedicated
+// bulk/validity dialog instead of the generic single-record create, while the
+// generic editor is kept for 编辑. Only the admin blacklist resource uses it.
+const isBlacklist = computed(() => props.resource === "blacklist");
+const blacklistAddOpen = ref(false);
+const blacklistKindField = computed(() =>
+  schema.value?.fields.find((f) => f.name === "kind"),
+);
+function openCreate() {
+  if (isBlacklist.value) {
+    if (busy.value || loading.value || mode.value !== null) return;
+    blacklistAddOpen.value = true;
+    return;
+  }
+  open("create");
+}
+async function onBlacklistAdded(msg: string) {
+  blacklistAddOpen.value = false;
+  notice.value = msg;
+  await load();
+}
 function merchantRelatedLinks(id: unknown) {
   const value = String(id ?? "");
   if (!/^[1-9]\d{0,18}$/.test(value) || BigInt(value) > 9223372036854775807n)
     return [];
   return [
     { id: "detail", label: "详情" },
-    ...(canDelegate.value ? [{ id: "delegate", label: "代登录商户" }] : []),
+    ...(canDelegate.value ? [{ id: "delegate", label: "一键登录" }] : []),
     ...(canReadMerchantStatistics.value
       ? [{ id: "payment-statistics", label: "支付统计" }]
       : []),
@@ -616,6 +639,30 @@ const exportPath = computed(() => {
   return endpoint.value + "?" + q.toString();
 });
 const canBatchDelete = computed(() => schema.value?.batch_delete === true);
+const canBatchDomainStatus = computed(
+  () => schema.value?.batch_status === true,
+);
+const confirmDomainStatus = ref<null | boolean>(null);
+async function runBatchDomainStatus() {
+  const approved = confirmDomainStatus.value;
+  if (approved === null || batchBusy.value || !selectedIds.value.length) return;
+  batchBusy.value = true;
+  error.value = "";
+  try {
+    const res = await props.client.request<{ updated?: number }>(
+      endpoint.value + "/batch-status",
+      { method: "POST", body: { ids: selectedIds.value, approved } },
+    );
+    notice.value = `已${approved ? "通过" : "拒绝"} ${res?.updated ?? selectedIds.value.length} 条授权域名`;
+    confirmDomainStatus.value = null;
+    selectedIds.value = [];
+    await load();
+  } catch (e) {
+    error.value = message(e);
+  } finally {
+    batchBusy.value = false;
+  }
+}
 function applyFieldFilter(param: string, value: string) {
   fieldFilters.value = { ...fieldFilters.value, [param]: value };
   page.value = 1;
@@ -795,6 +842,10 @@ async function load() {
     path = endpoint.value;
   loading.value = true;
   error.value = "";
+  // A list shows a newly read schema together with its first page (see
+  // finally), so its toolbar buttons, filters and table appear at once
+  // instead of the toolbar changing while the page is still loading.
+  let pendingSchema: ResourceSchema | null = null;
   try {
     if (props.resource === "merchants") {
       const problem =
@@ -807,23 +858,24 @@ async function load() {
         return;
       }
     }
-    if (!schema.value) {
-      const loadedSchema = await client.request<ResourceSchema>(
-        path + "/schema",
-        { signal: c.signal },
-      );
+    let loadedSchema = schema.value;
+    if (!loadedSchema) {
+      loadedSchema = await client.request<ResourceSchema>(path + "/schema", {
+        signal: c.signal,
+      });
       if (c.signal.aborted || current !== contextEpoch) return;
-      schema.value = loadedSchema;
+      pendingSchema = loadedSchema;
     }
     if (props.entry) {
+      schema.value = loadedSchema;
       if (props.entry.mode === "edit" && !props.entry.id) {
         error.value = "资料编号无效";
         return;
       }
       if (
         !(props.entry.mode === "create"
-          ? schema.value.permissions.create
-          : schema.value.permissions.update)
+          ? loadedSchema.permissions.create
+          : loadedSchema.permissions.update)
       ) {
         error.value = "当前身份不能打开此资料编辑表单";
         return;
@@ -854,7 +906,10 @@ async function load() {
   } catch (e) {
     if (!c.signal.aborted && current === contextEpoch) error.value = message(e);
   } finally {
-    if (!c.signal.aborted && current === contextEpoch) loading.value = false;
+    if (!c.signal.aborted && current === contextEpoch) {
+      if (pendingSchema && !schema.value) schema.value = pendingSchema;
+      loading.value = false;
+    }
   }
 }
 async function open(
@@ -1135,7 +1190,7 @@ onBeforeUnmount(resetContext);
       v-else-if="!entry || schema?.description || showBusinessNotices"
       class="panel records"
     >
-      <div v-if="!entry" class="table-tools">
+      <div v-if="!entry && (schema || !loading)" class="table-tools">
         <a
           v-if="
             schema?.permissions.create && resource === 'onboarding-applications'
@@ -1154,7 +1209,7 @@ onBeforeUnmount(resetContext);
           type="button"
           class="primary"
           :disabled="busy"
-          @click="open('create')"
+          @click="openCreate"
         >
           <ShellIcon name="plus" />新增{{ entityLabel }}
         </button>
@@ -1170,6 +1225,24 @@ onBeforeUnmount(resetContext);
           @click="confirmBatch = true"
         >
           批量删除{{ selectedIds.length ? ` (${selectedIds.length})` : "" }}
+        </button>
+        <button
+          v-if="canBatchDomainStatus"
+          type="button"
+          class="pa-btn pa-btn--primary"
+          :disabled="busy || batchBusy || !selectedIds.length"
+          @click="confirmDomainStatus = true"
+        >
+          批量通过{{ selectedIds.length ? ` (${selectedIds.length})` : "" }}
+        </button>
+        <button
+          v-if="canBatchDomainStatus"
+          type="button"
+          class="pa-btn"
+          :disabled="busy || batchBusy || !selectedIds.length"
+          @click="confirmDomainStatus = false"
+        >
+          批量拒绝{{ selectedIds.length ? ` (${selectedIds.length})` : "" }}
         </button>
         <div class="table-tools-end">
           <CsvExportButton
@@ -1298,7 +1371,11 @@ onBeforeUnmount(resetContext);
                   >
                 </template>
               </td>
-              <td v-for="field in listFields" :key="field.name">
+              <td
+                v-for="field in listFields"
+                :key="field.name"
+                :class="{ 'pa-order-no': isOrderNumberKey(field.name) }"
+              >
                 <template v-if="isOriginalMerchantList && field.name === 'pay'">
                   <span
                     class="badge-stack merchant-state-tags"
@@ -1358,6 +1435,15 @@ onBeforeUnmount(resetContext);
                   v-else-if="field.name === 'enabled'"
                   :tone="stateTone('enabled', row.enabled)"
                   :text="consoleValue('enabled', row.enabled)"
+                />
+                <KitStatusTag
+                  v-else-if="
+                    isBlacklist &&
+                    field.name === 'expires_at' &&
+                    !String(row.expires_at || '')
+                  "
+                  tone="neutral"
+                  text="永久"
                 />
                 <span
                   v-else
@@ -1595,6 +1681,27 @@ onBeforeUnmount(resetContext);
         条记录。此操作走各记录的可恢复删除流程，不会物理清除数据。
       </p>
     </KitModal>
+    <KitModal
+      v-if="confirmDomainStatus !== null"
+      :title="confirmDomainStatus ? '批量通过确认' : '批量拒绝确认'"
+      :submit-text="confirmDomainStatus ? '通过' : '拒绝'"
+      :loading="batchBusy"
+      @close="confirmDomainStatus = null"
+      @submit="runBatchDomainStatus"
+    >
+      <p>
+        将{{ confirmDomainStatus ? "通过" : "拒绝" }}所选
+        {{ selectedIds.length }}
+        条授权域名。此操作逐条走后台审核流程并记录审核事件。
+      </p>
+    </KitModal>
+    <BlacklistAddDialog
+      v-if="blacklistAddOpen && isBlacklist"
+      :client="client"
+      :kind-field="blacklistKindField"
+      @close="blacklistAddOpen = false"
+      @saved="onBlacklistAdded"
+    />
   </template>
   <MerchantManualWithdrawal
     v-if="manualWithdrawalID && canManualWithdraw"
@@ -1658,9 +1765,7 @@ onBeforeUnmount(resetContext);
         entry
           ? 'panel resource-entry-form'
           : 'modal panel resource-modal' +
-            (resource === 'merchants' && mode === 'edit'
-              ? ' merchant-edit-modal'
-              : '') +
+            (resource === 'merchants' ? ' merchant-edit-modal' : '') +
             (isGroupEditor ? ' group-edit-modal' : '')
       "
       :role="entry ? undefined : 'dialog'"
@@ -1688,7 +1793,7 @@ onBeforeUnmount(resetContext);
           ×
         </button>
       </div>
-      <h2 v-else>
+      <h2 v-else-if="!entry">
         {{
           mode === "create"
             ? "新增"
@@ -1837,6 +1942,7 @@ onBeforeUnmount(resetContext);
         />
         <ResourceFields
           v-else
+          class="form-rows"
           :fields="formSchema!.fields"
           :values="values"
           :errors="fieldErrors"
@@ -1886,7 +1992,9 @@ onBeforeUnmount(resetContext);
   padding-top: 4dvh;
   padding-bottom: 4dvh;
 }
-.group-edit-modal {
+/* .modal.resource-modal sets 480px in style.css, which loads after this
+   file, so the wide editors need the same classes to keep their width. */
+.modal.resource-modal.group-edit-modal {
   width: min(100%, 1000px);
   max-height: 92dvh;
 }
@@ -1904,7 +2012,7 @@ onBeforeUnmount(resetContext);
   padding: 4px 12px;
   border: 0;
 }
-.merchant-edit-modal {
+.modal.resource-modal.merchant-edit-modal {
   width: min(100%, 900px);
 }
 </style>

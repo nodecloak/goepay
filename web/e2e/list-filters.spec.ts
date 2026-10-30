@@ -22,11 +22,19 @@ test("order filters reach the server as exact scoped values and clear on page ch
     return route.fulfill(ok({ items: [], total: 0 }));
   });
   await page.goto("/admin/trade/order");
-  await page.getByText("更多筛选", { exact: true }).click({ timeout: 5000 });
-  await page.getByLabel("状态筛选", { exact: true }).selectOption("paid");
-  await page.getByLabel("订单收入状态", { exact: true }).selectOption("held");
-  await page.getByLabel("支付方式筛选", { exact: true }).selectOption("alipay");
-  await page.getByLabel("商户 ID 筛选", { exact: true }).fill("1000");
+  // Filters migrated to a unified bar: 状态筛选 is always visible; the rest sit
+  // behind the 展开 toggle. Status/pay-method/income are KitSelect listboxes.
+  const pick = async (label: string, option: string) => {
+    await page.getByRole("button", { name: label, exact: true }).click();
+    await page.getByRole("option", { name: option, exact: true }).click();
+  };
+  await pick("状态筛选", "已支付");
+  await page.getByRole("button", { name: "展开", exact: true }).click();
+  await pick("订单收入状态", "收入冻结中");
+  await pick("支付方式筛选", "支付宝");
+  // 商户号 moved to the main search row for admin orders/refunds (no longer in
+  // the advanced 展开 panel); it still scopes the query to merchant_id.
+  await page.getByLabel("商户号筛选", { exact: true }).fill("1000");
   await page.getByLabel("通道 ID 筛选", { exact: true }).fill("7");
   await page.getByLabel("创建开始日期", { exact: true }).fill("2026-10-22");
   await page.getByLabel("创建结束日期", { exact: true }).fill("2026-10-23");
@@ -77,14 +85,16 @@ test("merchant list filters never expose an owner override and reset exact query
   });
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/merchant/trade/order");
-  await page.getByText("更多筛选", { exact: true }).click({ timeout: 5000 });
+  // The owner-override 商户 ID 筛选 is never exposed to a merchant, even expanded.
+  await page.getByRole("button", { name: "展开", exact: true }).click();
   await expect(page.getByLabel("商户 ID 筛选", { exact: true })).toHaveCount(0);
-  await page.getByLabel("状态筛选", { exact: true }).selectOption("unknown");
+  await page.getByRole("button", { name: "状态筛选", exact: true }).click();
+  await page.getByRole("option", { name: "结果待核对", exact: true }).click();
   await page.getByRole("button", { name: "查询", exact: true }).click();
   await expect
     .poll(() => queries.at(-1)?.searchParams.get("status"))
     .toBe("unknown");
-  await page.getByRole("button", { name: "清空筛选", exact: true }).click();
+  await page.getByRole("button", { name: "重置", exact: true }).click();
   await expect
     .poll(() => queries.at(-1)?.searchParams.has("status"))
     .toBe(false);

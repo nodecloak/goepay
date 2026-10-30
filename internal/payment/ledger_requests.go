@@ -239,6 +239,14 @@ func (s *Store) requestFundsTxSettlement(ctx context.Context, tx pgx.Tx, kind st
 	return v, nil
 }
 func (s *Store) ReviewFundsRequest(ctx context.Context, id int64, approve bool, actor string) (LedgerRequest, error) {
+	return s.ReviewFundsRequestWithReason(ctx, id, approve, actor, "")
+}
+
+// ReviewFundsRequestWithReason records an optional 拒绝原因 alongside the review
+// decision. The reason is stored on the immutable ledger_request_events row the
+// decision writes; it is ignored on approval (the original console only prompted
+// a reason when rejecting). An empty reason reproduces the prior behaviour.
+func (s *Store) ReviewFundsRequestWithReason(ctx context.Context, id int64, approve bool, actor, reason string) (LedgerRequest, error) {
 	if id <= 0 || actor == "" {
 		return LedgerRequest{}, ErrInvalid
 	}
@@ -247,14 +255,14 @@ func (s *Store) ReviewFundsRequest(ctx context.Context, id int64, approve bool, 
 		return LedgerRequest{}, e
 	}
 	defer tx.Rollback(ctx)
-	v, e := s.reviewFundsRequestTx(ctx, tx, id, approve, actor)
+	v, e := s.reviewFundsRequestTx(ctx, tx, id, approve, actor, reason)
 	if e != nil {
 		return v, e
 	}
 	return v, tx.Commit(ctx)
 }
 
-func (s *Store) reviewFundsRequestTx(ctx context.Context, tx pgx.Tx, id int64, approve bool, actor string) (LedgerRequest, error) {
+func (s *Store) reviewFundsRequestTx(ctx context.Context, tx pgx.Tx, id int64, approve bool, actor, reason string) (LedgerRequest, error) {
 	v, e := scanLedgerRequest(tx.QueryRow(ctx, "SELECT "+requestColumns+" FROM ledger_requests WHERE id=$1 FOR UPDATE", id))
 	if e != nil {
 		return v, e
@@ -307,7 +315,13 @@ func (s *Store) reviewFundsRequestTx(ctx context.Context, tx pgx.Tx, id int64, a
 	if _, e = tx.Exec(ctx, "UPDATE ledger_requests SET status=$2,updated_at=now() WHERE id=$1", id, target); e != nil {
 		return v, e
 	}
-	if _, e = tx.Exec(ctx, "INSERT INTO ledger_request_events(request_id,actor,status) VALUES($1,$2,$3)", id, actor, target); e != nil {
+	// The reason is a 拒绝原因 only; approvals never carry one. Empty stays NULL so
+	// historical and auto-generated events are indistinguishable from "no note".
+	var eventReason any
+	if !approve && reason != "" {
+		eventReason = reason
+	}
+	if _, e = tx.Exec(ctx, "INSERT INTO ledger_request_events(request_id,actor,status,reason) VALUES($1,$2,$3,$4)", id, actor, target, eventReason); e != nil {
 		return v, e
 	}
 	v.Status = target

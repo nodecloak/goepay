@@ -259,7 +259,7 @@ for (const sample of ["printing", "account", "schedule"] as const)
       await expect(page.getByLabel("商户名称", { exact: true })).toHaveValue(
         "本地演示商户",
       );
-    else await expect(page.getByRole("checkbox")).toBeVisible();
+    else await expect(page.getByRole("switch")).toBeVisible();
     await page.screenshot({
       path: `../.tools/pro-settings-${sample}-desktop.png`,
       fullPage: true,
@@ -267,8 +267,8 @@ for (const sample of ["printing", "account", "schedule"] as const)
     });
     await page.setViewportSize({ width: 375, height: 812 });
     if (sample !== "account") {
-      await page.getByRole("checkbox").check();
-      await expect(page.getByRole("checkbox")).toBeChecked();
+      await page.getByRole("switch").check();
+      await expect(page.getByRole("switch")).toBeChecked();
     }
     await page.screenshot({
       path: `../.tools/pro-settings-${sample}-375.png`,
@@ -364,7 +364,7 @@ test("Pro settlement recipient edit remains local until explicit save and fits m
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto("/merchant/settle/settings");
   await page.getByRole("button", { name: "修改收款资料", exact: true }).click();
-  await expect(page.getByLabel("新收款账号", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("收款账号", { exact: true })).toBeVisible();
   await page.screenshot({
     path: "../.tools/pro-settings-recipient-desktop.png",
     fullPage: true,

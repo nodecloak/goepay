@@ -73,6 +73,11 @@ type Capabilities struct {
 	SMSEnabled       bool `json:"sms_enabled"`
 	InviteRequired   bool `json:"invite_required"`
 	ExpiresSeconds   int  `json:"expires_seconds"`
+	// VerifyType restricts which channel a new merchant may register with:
+	// "email" (verifytype=0, only email), "phone" (verifytype=1, only phone)
+	// or "" (no restriction). It bounds the register flow only; recovery is
+	// never restricted.
+	VerifyType string `json:"verify_type"`
 }
 
 func New(pool *pgxpool.Pool, store *payment.Store, key []byte, sender Sender) (*Service, error) {
@@ -98,7 +103,11 @@ func (s *Service) Capabilities(ctx context.Context) (Capabilities, error) {
 		return Capabilities{}, e
 	}
 	smsOn, e := smsGatewayOn(ctx, tx)
-	return Capabilities{RegistrationOpen: open, InviteRequired: invite, EmailEnabled: s.sender != nil, SMSEnabled: smsOn, ExpiresSeconds: 600, ReviewRequired: pay == 2}, e
+	if e != nil {
+		return Capabilities{}, e
+	}
+	vt, e := verifyType(ctx, tx)
+	return Capabilities{RegistrationOpen: open, InviteRequired: invite, EmailEnabled: s.sender != nil, SMSEnabled: smsOn, ExpiresSeconds: 600, ReviewRequired: pay == 2, VerifyType: vt}, e
 }
 
 // smsGatewayOn reports whether the SMS gateway is enabled with an active
@@ -164,6 +173,32 @@ func policy(ctx context.Context, tx pgx.Tx) (bool, bool, error) {
 	}
 	return open, invite, rows.Err()
 }
+
+// verifyType reads the verifytype setting (商户相关 → 用户验证方式) in the same
+// transaction as policy(): resource 'settings', body->>'key'='verifytype',
+// first row by id. It returns "email" for the stored value "0", "phone" for
+// "1", and "" for no row or anything else — "" meaning no registration-channel
+// restriction. Read-only; takes the same FOR SHARE lock style as policy() so it
+// composes with the registration admission transaction.
+func verifyType(ctx context.Context, tx pgx.Tx) (string, error) {
+	var value string
+	e := tx.QueryRow(ctx, `SELECT COALESCE(body->>'value','') FROM backoffice_records
+	 WHERE resource='settings' AND body->>'key'='verifytype' ORDER BY id LIMIT 1 FOR SHARE`).Scan(&value)
+	if errors.Is(e, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if e != nil {
+		return "", e
+	}
+	switch value {
+	case "0":
+		return "email", nil
+	case "1":
+		return "phone", nil
+	default:
+		return "", nil
+	}
+}
 func limit(ctx context.Context, tx pgx.Tx, key []byte, seconds, max int) error {
 	var n int
 	e := tx.QueryRow(ctx, `INSERT INTO enrollment_limits(key_hash,window_start,attempts) VALUES($1,statement_timestamp(),1)
@@ -219,6 +254,17 @@ func (s *Service) Issue(ctx context.Context, in VerificationRequest) (Challenge,
 			return out, e
 		}
 		if !open {
+			return out, ErrClosed
+		}
+		// verifytype restricts which channel a new merchant may register with.
+		// This is the email send path, so "phone" (verifytype=1) refuses before
+		// any code is sent. Recovery is never restricted (guarded by the
+		// surrounding register-only branch).
+		vt, e := verifyType(ctx, tx)
+		if e != nil {
+			return out, e
+		}
+		if vt == "phone" {
 			return out, ErrClosed
 		}
 	}
@@ -408,6 +454,16 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (Registered, e
 		return out, e
 	}
 	if !open {
+		return out, ErrClosed
+	}
+	// This is the email registration path; "phone" (verifytype=1) refuses
+	// before any account is created. Rechecked here, not only at Issue, so a
+	// setting flipped after the code was sent still cannot complete.
+	vt, e := verifyType(ctx, tx)
+	if e != nil {
+		return out, e
+	}
+	if vt == "phone" {
 		return out, ErrClosed
 	}
 	payStatus, e := registrationPayStatus(ctx, tx)

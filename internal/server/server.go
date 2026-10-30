@@ -309,6 +309,12 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.proxyCredentialsConsole(w, r, role, session, parts, c.Value) {
 		return
 	}
+	if s.oauthCredentialsConsole(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.adminUserSecurityConsole(w, r, role, session, parts) {
+		return
+	}
 	if s.proxyConnectivityConsole(w, r, role, session, parts, c.Value) {
 		return
 	}
@@ -345,6 +351,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.refundFundingConsole(w, r, role, session, parts) {
+		return
+	}
+	if s.merchantDashboardTips(w, r, role, session, parts) {
 		return
 	}
 	if s.legacyRefundHistoryConsole(w, r, role, session, parts) {
@@ -396,6 +405,11 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.collectionStyleImagesConsole(w, r, role, session, parts) {
+		return
+	}
+	// Before orderOperations: its GET /orders/<trade_no> would read "summary"
+	// as an order number and answer "order not found".
+	if s.orderSummary(w, r, role, session, parts) {
 		return
 	}
 	if s.orderOperations(w, r, role, session, parts) {
@@ -524,7 +538,10 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.refundSummary(w, r, role, session, parts) {
 		return
 	}
-	if s.orderSummary(w, r, role, session, parts) {
+	if s.payTypeOptions(w, r, role, session, parts) {
+		return
+	}
+	if s.ledgerSummary(w, r, role, session, parts) {
 		return
 	}
 	if s.reports(w, r, role, session, parts) {
@@ -999,7 +1016,7 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		o, e := s.Store.CreateOrder(r.Context(), payment.CreateOrderInput{Version: wireVersion(legacy), MerchantID: id, OutTradeNo: p["out_trade_no"], Name: p["name"], Type: p["type"], Amount: amount, NotifyURL: p["notify_url"], ReturnURL: p["return_url"], Param: p["param"]})
 		if e != nil {
-			s.wire(w, legacy, nil, "order rejected")
+			s.wire(w, legacy, nil, orderRejectedMessage(e))
 			return
 		}
 		if net.ParseIP(buyerIP) != nil {

@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
+import { createRouter, createMemoryHistory } from "vue-router";
 import ChannelSharingOrderList from "../src/components/ChannelSharingOrderList.vue";
 import { ApiClient } from "../src/api";
 
@@ -31,17 +32,31 @@ const statsBody = {
   fail_count: "0",
 };
 
+function makeRouter(initial = "/profitsharing/order") {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: "/", component: { template: "<div/>" } },
+      { path: "/profitsharing/order", component: { template: "<div/>" } },
+      { path: "/:pathMatch(.*)*", component: { template: "<div/>" } },
+    ],
+  });
+  router.push(initial);
+  return router;
+}
+
 const render = (
   request: (...args: any[]) => any,
   area: "admin" | "merchant" = "admin",
   extra?: Record<string, any>,
+  router = makeRouter(),
 ) =>
   mount(ChannelSharingOrderList, {
     props: {
       client: Object.assign(new ApiClient(area), { request, ...extra }),
       area,
     },
-    global: { stubs: { Teleport: true } },
+    global: { stubs: { Teleport: true }, plugins: [router] },
   });
 
 function listRequest(extra?: (...args: any[]) => any) {
@@ -61,6 +76,19 @@ async function open(w: ReturnType<typeof render>) {
   await w.get("form.pa-filter").trigger("submit");
   await flushPromises();
 }
+
+it("accepts the server's numeric total (the live API shape) without a format error", async () => {
+  const request = vi.fn(async (path: string) =>
+    path.includes("/orders") ? { items: [], total: 0, limit: 20 } : {},
+  );
+  const w = render(request, "merchant");
+  await flushPromises();
+  expect(request.mock.calls.some(([p]) => String(p).includes("/orders"))).toBe(
+    true,
+  );
+  expect(w.text()).not.toContain("响应格式错误");
+  w.unmount();
+});
 
 it("renders Pro filters, toolbar, columns and joined fields from the server list", async () => {
   const w = render(listRequest());
@@ -155,5 +183,79 @@ it("merchant scope loads on mount without a merchant-id field", async () => {
   await flushPromises();
   expect(w.find('[aria-label="商户ID"]').exists()).toBe(false);
   expect(w.get("tbody").text()).toContain("sharing_aaa");
+  w.unmount();
+});
+
+it("分账回退 row action opens a per-receiver modal and posts to /returns", async () => {
+  const detail = {
+    external_no: "sharing_aaa",
+    out_no: "up_aaa",
+    state: "succeeded",
+    completed: true,
+    funds_released: true,
+    released_amount: "500",
+    items: [{ receiver_id: "9", amount: "500", state: "succeeded" }],
+  };
+  let returnBody: any;
+  const w = render(
+    listRequest((path: string, options?: any) => {
+      if (options?.method === "POST" && path === "/channel-sharing/returns") {
+        returnBody = options.body;
+        return { id: "1", state: "pending" };
+      }
+      // detail fetch for the opened record
+      if (/\/orders\/sharing_aaa(\?|$)/.test(path)) return detail;
+      return undefined;
+    }),
+  );
+  await open(w);
+  await w.get('[data-action="return"]').trigger("click");
+  await flushPromises();
+  // Modal fields present and receiver prefilled.
+  expect(w.find('[aria-label="分账接收方"]').exists()).toBe(true);
+  expect(w.find('[aria-label="回退金额（元）"]').exists()).toBe(true);
+  await w.get('[aria-label="回退金额（元）"]').setValue("3.00");
+  // First submit arms the confirm, second submit sends.
+  await w.get("form.pa-modal-body").trigger("submit");
+  await flushPromises();
+  await w.get("form.pa-modal-body").trigger("submit");
+  await flushPromises();
+  expect(returnBody).toMatchObject({
+    sharing_external_no: "sharing_aaa",
+    receiver_id: "9",
+    amount: "300",
+  });
+  expect(String(returnBody.external_no)).toMatch(/^return_[0-9a-f]{24}$/);
+  expect(returnBody.merchant_id).toBe("1000");
+  w.unmount();
+});
+
+it("操作台 row action emits open-flow", async () => {
+  const w = render(listRequest());
+  await open(w);
+  await w.get('[data-action="open-flow"]').trigger("click");
+  await flushPromises();
+  expect(w.emitted("open-flow")).toBeTruthy();
+  w.unmount();
+});
+
+it("prefills 分账规则ID from the rule_id route query (记录 deep-link)", async () => {
+  const router = makeRouter("/profitsharing/order?rule_id=5");
+  await router.isReady();
+  const seen: string[] = [];
+  const w = render(
+    listRequest((path: string) => {
+      if (path.includes("/orders") && !path.includes("statistics"))
+        seen.push(path);
+      return undefined;
+    }),
+    "merchant",
+    undefined,
+    router,
+  );
+  await flushPromises();
+  // Prefilled from the route query and carried into the server list call.
+  expect((w.vm as any).ruleId).toBe("5");
+  expect(seen.some((p) => p.includes("rule_id=5"))).toBe(true);
   w.unmount();
 });

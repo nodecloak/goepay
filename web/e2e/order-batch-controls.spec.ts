@@ -1,4 +1,13 @@
 import { test, expect, type Page } from "@playwright/test";
+// 批量操作 is now an ActionDropdown menu (not a native <select>): open its
+// trigger, then click the menu item for the action. Each item's label carries
+// its eligible count ("改已完成（可执行 2 条）"), so match by action label prefix.
+async function batch(page: Page, actionLabel: string) {
+  await page.getByRole("button", { name: "批量操作", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: new RegExp(`^${actionLabel}（`) })
+    .click();
+}
 async function setup(page: Page) {
   const posts: any[] = [];
   let lose = false,
@@ -67,8 +76,7 @@ test("selected batch has explicit confirmation and preserves revisions", async (
   const f = await setup(page);
   await page.goto("/admin/trade/order");
   await page.getByLabel("全选本页订单", { exact: true }).check();
-  await page.getByLabel("批量操作", { exact: true }).selectOption("mark-paid");
-  await page.getByRole("button", { name: "执行批量操作", exact: true }).click();
+  await batch(page, "改已完成");
   const dialog = page.getByRole("dialog", { name: "批量订单操作确认" });
   await expect(dialog).toContainText("2");
   expect(f.posts).toHaveLength(0);
@@ -91,8 +99,7 @@ test("unknown batch outcome reuses all original parameters after navigation", as
   const f = await setup(page);
   await page.goto("/admin/trade/order");
   await page.getByLabel("全选本页订单", { exact: true }).check();
-  await page.getByLabel("批量操作", { exact: true }).selectOption("archive");
-  await page.getByRole("button", { name: "执行批量操作", exact: true }).click();
+  await batch(page, "删除订单");
   let d = page.getByRole("dialog", { name: "批量订单操作确认" });
   await d.getByLabel("操作原因", { exact: true }).fill("本地归档");
   await d.getByLabel("我已核对选中订单", { exact: true }).check();
@@ -166,7 +173,7 @@ test("auto refresh pauses for batch confirmation and hidden tabs, then explicit 
   await page.getByLabel("刷新间隔（秒）", { exact: true }).fill("3");
   await page.getByRole("button", { name: "开始自动刷新", exact: true }).click();
   await page.getByLabel("全选本页订单", { exact: true }).check();
-  await page.getByRole("button", { name: "执行批量操作", exact: true }).click();
+  await batch(page, "改已完成");
   const dialog = page.getByRole("dialog", { name: "批量订单操作确认" });
   await dialog.waitFor();
   await page.clock.runFor(9000);

@@ -29,13 +29,26 @@ it("KitStatusTag shows the fixed word and semantic tone", () => {
   expect(explicit.get("span").classes()).toContain("pa-tag--warning");
 });
 
-it("KitPayMethod renders the coloured mark character and Chinese name", () => {
-  const w = mount(KitPayMethod, { props: { type: "alipay" } });
-  expect(w.text()).toContain("支");
-  expect(w.text()).toContain("支付宝");
-  expect(w.get(".pa-method-mark").classes()).toContain(
-    "pa-method-mark--alipay",
-  );
+it("KitPayMethod shows the Alipay and WeChat icons with the Chinese name", () => {
+  for (const [type, label] of [
+    ["alipay", "支付宝"],
+    ["wxpay", "微信支付"],
+  ]) {
+    const w = mount(KitPayMethod, { props: { type } });
+    const icon = w.get("img.pa-method-icon");
+    expect(icon.classes()).toContain(`pa-method-icon--${type}`);
+    expect(icon.attributes("src")).toContain(`${type}.png`);
+    expect(icon.attributes("aria-hidden")).toBe("true");
+    expect(w.find(".pa-method-mark").exists()).toBe(false);
+    expect(w.text()).toBe(label);
+  }
+});
+
+it("KitPayMethod keeps the letter mark for methods without an icon", () => {
+  const w = mount(KitPayMethod, { props: { type: "qqpay" } });
+  expect(w.find("img").exists()).toBe(false);
+  expect(w.get(".pa-method-mark").classes()).toContain("pa-method-mark--qqpay");
+  expect(w.text()).toContain("Q");
 });
 
 it("KitPagination emits page changes and page-size changes", async () => {

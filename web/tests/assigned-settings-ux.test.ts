@@ -20,6 +20,13 @@ it("maps the assigned settings keys to their epay_pro tab, label and control", (
     ["settle_bank", "settle", "银行卡结算开关", "select"],
     ["transfer_wxpay", "transfer", "微信转账接口通道", "select"],
     ["transfer_qqpay", "transfer", "QQ钱包转账接口通道", "select"],
+    ["transfer_bank", "transfer", "银行卡转账接口通道", "select"],
+    ["user_transfer_batch", "transfer", "用户中心批量代付功能", "select"],
+    ["subchannel_open", "merchant", "开启子通道管理功能", "select"],
+    ["user_profitsharing", "merchant", "开启添加分账规则(进件)", "select"],
+    ["user_totp_open", "merchant", "开启商户TOTP二次验证", "select"],
+    ["pay_domain_open", "merchant", "开启授权支付域名添加", "select"],
+    ["onecode_domains", "merchant", "聚合收款码可选域名", "textarea"],
     ["blockname", "pay", "商品屏蔽关键词", "text"],
     ["blockalert", "pay", "商品屏蔽显示内容", "text"],
     ["blackmsg", "pay", "黑名单拦截提示内容", "text"],
@@ -62,6 +69,48 @@ it("validates the assigned settings values like the original", () => {
   expect(() => store("reg_pay_price", "1.001")).toThrow();
   expect(store("reg_pay_uid", "5")).toBe("5");
   expect(() => store("reg_pay_uid", "-1")).toThrow();
+});
+
+// verifytype is epay_pro's 用户验证方式 (0 邮箱验证, 1 手机验证); the 聚合收款
+// domain list takes one origin per line; the feature switches store only 0/1;
+// enforce_domains is epay_pro's 未授权支付域名禁止支付.
+it("maps verifytype to 邮箱/手机验证 and validates the new merchant keys", () => {
+  const d = settingDefinition("verifytype", "verifytype");
+  expect(d.tab).toBe("merchant");
+  expect(d.label).toBe("用户验证方式");
+  expect(d.kind).toBe("select");
+  expect(d.options).toEqual([
+    { value: "0", label: "邮箱验证" },
+    { value: "1", label: "手机验证" },
+  ]);
+  expect(settingDefinition("enforce_domains", "enforce_domains").label).toBe(
+    "未授权支付域名禁止支付",
+  );
+  expect(settingDefinition("pay_domain_forbid", "pay_domain_forbid").tab).toBe(
+    "advanced",
+  );
+  const store = (key: string, v: string) =>
+    settingStorage(settingDefinition(key, key), v);
+  expect(store("user_transfer_batch", "1")).toBe("1");
+  expect(store("subchannel_open", "0")).toBe("0");
+  expect(() => store("user_totp_open", "2")).toThrow();
+  expect(() => store("verifytype", "2")).toThrow();
+  expect(
+    store(
+      "onecode_domains",
+      " https://pay.example.com\n\nhttps://pay2.example.com/ ",
+    ),
+  ).toBe("https://pay.example.com\nhttps://pay2.example.com/");
+  for (const bad of [
+    "a.com\nb.com",
+    "http://pay.example.com",
+    "https://pay.example.com/collect",
+    "https://u:p@pay.example.com",
+    Array.from({ length: 21 }, (_, i) => `https://p${i}.example.com`).join(
+      "\n",
+    ),
+  ])
+    expect(() => store("onecode_domains", bad), bad).toThrow();
 });
 
 // The layout places the new fields under the right tab in epay_pro's order and

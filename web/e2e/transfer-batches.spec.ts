@@ -10,6 +10,7 @@ test("batch prepare is separate from execute and lost response recovers original
   let prepares = 0,
     executes = 0,
     external = "",
+    lookedUp = "",
     batch: any;
   await page.route("**/console/v1/**", (route) => {
     const u = new URL(route.request().url()),
@@ -65,7 +66,8 @@ test("batch prepare is separate from execute and lost response recovers original
       };
       return route.abort("failed");
     }
-    if (p.endsWith("/transfer-batches"))
+    if (p.endsWith("/transfer-batches")) {
+      lookedUp = u.searchParams.get("external_no") ?? lookedUp;
       return route.fulfill(
         ok({
           items: batch ? [{ ...batch, items: [] }] : [],
@@ -73,6 +75,7 @@ test("batch prepare is separate from execute and lost response recovers original
           next_before_id: "0",
         }),
       );
+    }
     if (p.endsWith("/19/execute")) {
       executes++;
       batch.summary = { unknown: 1 };
@@ -100,12 +103,20 @@ test("batch prepare is separate from execute and lost response recovers original
   expect(prepares).toBe(1);
   expect(executes).toBe(0);
   expect(external.length).toBeGreaterThan(20);
-  await page
-    .getByRole("button", { name: "按原请求号查找", exact: true })
-    .click();
+  // The original request number stays in the read-only 请求号 filter; 查询
+  // looks the saved batch up by exactly that number (no new batch is made).
+  await expect(page.getByLabel("批次请求号", { exact: true })).toHaveValue(
+    external,
+  );
+  await expect(
+    page.getByRole("button", { name: "新建批量付款", exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "查询", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "查看批次 19", exact: true }),
   ).toBeVisible();
+  expect(lookedUp).toBe(external);
+  expect(prepares).toBe(1);
   await page.setViewportSize({ width: 375, height: 812 });
   expect(
     await page.evaluate(

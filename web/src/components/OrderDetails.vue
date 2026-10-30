@@ -23,6 +23,8 @@ import ScanRecoveryPanel from "./ScanRecoveryPanel.vue";
 import LegacyCombinedOrders204 from "./LegacyCombinedOrders204.vue";
 import OrderApiTradeAlias from "./OrderApiTradeAlias.vue";
 import ShellIcon from "./ShellIcon.vue";
+import CopyButton from "./CopyButton.vue";
+import { isOrderNumberKey } from "../order-number";
 import type { ScanRecoveryView } from "../scan-recovery";
 import {
   canReleaseAuthorization,
@@ -208,6 +210,14 @@ function orderDetailTone(
         : v === "pending" || v === "submitting" || v === "created"
           ? "warning"
           : "neutral";
+}
+// Only a real number is offered for copying; an empty or missing one shows its
+// placeholder text with no copy button.
+function copyableNumber(value: unknown): boolean {
+  return (
+    (typeof value === "string" || typeof value === "number") &&
+    String(value).trim() !== ""
+  );
 }
 const labels: Record<string, string> = {
   trade_no: "系统订单号",
@@ -534,7 +544,15 @@ onBeforeUnmount(() => controller?.abort());
                   v-if="key === 'status' || key === 'notification_state'"
                   :text="consoleValue(String(key), order[key], true)"
                   :tone="orderDetailTone(String(key), order[key])"
-                /><template v-else>{{
+                /><template v-else-if="isOrderNumberKey(String(key))"
+                  ><span class="pa-order-no">{{
+                    consoleValue(String(key), order[key], true)
+                  }}</span
+                  ><CopyButton
+                    v-if="copyableNumber(order[key])"
+                    :text="String(order[key]).trim()"
+                    :label="consoleColumnLabel(String(key), label)" /></template
+                ><template v-else>{{
                   consoleValue(String(key), order[key], true)
                 }}</template>
                 <OrderApiTradeAlias

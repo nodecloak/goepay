@@ -1,4 +1,11 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+// 查看方式 / 统计类型 are KitSelect custom comboboxes (not native <select>):
+// open the trigger by its aria-label, then click the option by its label.
+async function pick(page: Page, control: string, optionLabel: string) {
+  await page.getByLabel(control, { exact: true }).click();
+  await page.getByRole("option", { name: optionLabel, exact: true }).click();
+}
 
 for (const width of [375, 1280])
   test(`configured zero channels remain sortable with no fabricated merchant rows at ${width}`, async ({
@@ -48,7 +55,7 @@ for (const width of [375, 1280])
       });
     });
     await page.goto("/admin/trade/stat/user");
-    await page.getByLabel("查看方式", { exact: true }).selectOption("channel");
+    await pick(page, "查看方式", "以支付通道查看");
     await page.getByRole("button", { name: "查询统计", exact: true }).click();
     await expect(
       page.getByRole("columnheader", {
@@ -180,9 +187,11 @@ for (const transfer of [false, true])
         .toBe("uid");
       expect(reads.at(-1)!.searchParams.get("direction")).toBe("asc");
       const before = reads.length;
-      await page
-        .getByLabel("查看方式", { exact: true })
-        .selectOption("channel");
+      await pick(
+        page,
+        "查看方式",
+        transfer ? "以付款通道查看" : "以支付通道查看",
+      );
       expect(reads).toHaveLength(before);
       await expect(
         page.getByRole("button", { name: "导出筛选结果 CSV", exact: true }),
@@ -193,7 +202,7 @@ for (const transfer of [false, true])
       ).toBeVisible();
       expect(reads.at(-1)!.searchParams.get("method")).toBe("channel");
       if (!transfer) {
-        await page.getByLabel("统计类型", { exact: true }).selectOption("3");
+        await pick(page, "统计类型", "手续费利润统计");
         await page
           .getByRole("button", { name: "查询统计", exact: true })
           .click();

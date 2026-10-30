@@ -22,7 +22,7 @@ it("loads the typed template API for own super only and never generic template C
     },
   });
   await flushPromises();
-  expect(request.mock.calls[0]?.[0]).toBe("/templates?type=pay");
+  expect(request.mock.calls[0]?.[0]).toBe("/templates?type=home");
   w.unmount();
   for (const p of [
     { adminClass: "operator", ownSession: true },
@@ -73,6 +73,12 @@ it("preserves per-kind fields and rejects directory/config revision races before
       },
     });
     await flushPromises();
+    // The page opens on 首页模板; this case is about the pay kind.
+    await w
+      .findAll("nav.template-tabs button")
+      .find((b) => b.text() === "支付页模板")!
+      .trigger("click");
+    await flushPromises();
     expect(w.find("form").exists()).toBe(false);
     expect(w.find("[role=alert]").exists()).toBe(true);
     w.unmount();
@@ -105,4 +111,113 @@ it("does not continue configuration reads after unmount or revive a stale page",
   });
   await flushPromises();
   expect(request).toHaveBeenCalledTimes(1);
+});
+
+
+it("shows each template's preview picture on its card", async () => {
+  const request = vi.fn(async (path: string) =>
+    path.includes("?")
+      ? {
+          type: "pay",
+          revision: "0",
+          selected: "default",
+          items: [
+            { name: "default", title: "默认支付页模板", description: "本地" },
+            { name: "compact", title: "紧凑支付页模板", description: "本地" },
+          ],
+        }
+      : {
+          type: "pay",
+          name: "default",
+          revision: "0",
+          config: {
+            brand_name: "Local",
+            notice: "",
+            accent_color: "#007c91",
+            background_color: "#f4f8fa",
+            logo_asset_id: "",
+            density: "comfortable",
+            show_order_name: false,
+          },
+          fields: [],
+        },
+  );
+  const w = mount(TemplatePage, {
+    props: {
+      client: Object.assign(new ApiClient("admin"), { request }),
+      adminClass: "super",
+      ownSession: true,
+    },
+  });
+  await flushPromises();
+  // The page opens on 首页模板; switch to the pay kind this mock serves.
+  await w
+    .findAll("nav.template-tabs button")
+    .find((b) => b.text() === "支付页模板")!
+    .trigger("click");
+  await flushPromises();
+  expect(
+    w.findAll("img.template-thumb").map((i) => i.attributes("src")),
+  ).toEqual([
+    "/static/template-previews/pay-default.jpg",
+    "/static/template-previews/pay-compact.jpg",
+  ]);
+  // The card's 预览 button opens the template over the main content area.
+  await w.get('button[aria-label="预览 紧凑支付页模板"]').trigger("click");
+  const pane = w.get(".template-fullpreview");
+  expect(pane.attributes("role")).toBe("dialog");
+  expect(pane.get("iframe").attributes("src")).toBe(
+    "/console/v1/admin/templates/pay/compact/preview",
+  );
+  expect(pane.text()).toContain("紧凑支付页模板");
+  await pane.get('button[aria-label="关闭预览"]').trigger("click");
+  expect(w.find(".template-fullpreview").exists()).toBe(false);
+  // Esc closes it too, and opening a preview does not change the selection.
+  await w.get('button[aria-label="预览 默认支付页模板"]').trigger("click");
+  await w.get(".template-fullpreview").trigger("keydown", { key: "Escape" });
+  expect(w.find(".template-fullpreview").exists()).toBe(false);
+  expect(request.mock.calls.every((c) => !String(c[0]).includes("/select"))).toBe(
+    true,
+  );
+  w.unmount();
+});
+
+
+it("opens on the 首页模板 tab", async () => {
+  const names = ["default", ...Array.from({ length: 10 }, (_, n) => `index${n + 1}`), "minimal"];
+  const request = vi.fn(async (path: string) =>
+    path.includes("?")
+      ? {
+          type: "home",
+          revision: "0",
+          selected: "default",
+          items: names.map((name) => ({ name, title: name, description: "本地" })),
+        }
+      : {
+          type: "home",
+          name: "default",
+          revision: "0",
+          config: {
+            brand_name: "Local",
+            notice: "",
+            accent_color: "#007c91",
+            background_color: "#f4f8fa",
+            logo_asset_id: "",
+            density: "comfortable",
+          },
+          fields: [],
+        },
+  );
+  const w = mount(TemplatePage, {
+    props: {
+      client: Object.assign(new ApiClient("admin"), { request }),
+      adminClass: "super",
+      ownSession: true,
+    },
+  });
+  await flushPromises();
+  const pressed = w.find('nav.template-tabs button[aria-pressed="true"]');
+  expect(pressed.text()).toBe("首页模板");
+  expect(w.findAll("img.template-thumb").length).toBe(12);
+  w.unmount();
 });
