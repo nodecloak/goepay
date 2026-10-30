@@ -83,7 +83,7 @@ for (const width of [375, 1280]) {
     const { writes } = await fixture(page, "merchant");
     await page.goto("/merchant/applyments/create");
     await expect(
-      page.getByRole("heading", { name: "新增进件商户资料", exact: true }),
+      page.getByRole("region", { name: "新增进件商户资料", exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByRole("table")).toHaveCount(0);

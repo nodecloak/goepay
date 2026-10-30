@@ -427,9 +427,8 @@ onBeforeUnmount(() => {
         </form>
       </section>
     </div>
-    <section class="panel announcement-list">
+    <section class="panel announcement-list" aria-label="已发公告">
       <div class="panel-heading">
-        <h2>已发公告</h2>
         <div class="announcement-head-actions">
           <button
             v-if="schema?.permissions.create"
@@ -543,8 +542,7 @@ onBeforeUnmount(() => {
   gap: var(--space-2);
   flex-wrap: wrap;
 }
-.announcements-page > section > h2,
-.announcements-page .panel-heading h2 {
+.announcements-page > section > h2 {
   font-size: 16px;
   margin: 0 0 18px;
 }
@@ -608,9 +606,6 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-}
-.panel-heading h2 {
-  margin-bottom: 0;
 }
 .announcement-confirm {
   width: min(520px, calc(100vw - 32px));

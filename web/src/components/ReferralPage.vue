@@ -235,7 +235,6 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="panel referral" aria-label="邀请返现">
-    <h2>邀请返现</h2>
     <p>
       奖励来自原付款订单的已固定条款，奖励不超过原订单手续费；即时与按日奖励分别核对，任意成功退款将撤销整笔原奖励。历史发放、撤销和退款暂存流水不代表当前可提现余额。
     </p>

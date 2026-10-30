@@ -131,7 +131,7 @@ test("authorized order refund uses trade number and exact decimal, blocked pages
   });
   await page.goto("/admin/other/get-token");
   await expect(
-    page.getByRole("heading", { name: "获取支付用户标识" }),
+    page.getByRole("region", { name: "获取支付用户标识" }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "创建授权请求" }),

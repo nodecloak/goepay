@@ -198,8 +198,7 @@ onBeforeUnmount(() => {
         />
       </KitField>
     </KitFilterBar>
-    <section class="panel records batch-records">
-      <h2>批量付款</h2>
+    <section class="panel records batch-records" aria-label="批量付款">
       <p class="table-note">
         先整批预留，再单独执行。每批 1–100
         项；未知或已发送项目不重发，取消仅释放可证明尚未发送的项目。此功能不等同自动结算。
@@ -342,16 +341,10 @@ onBeforeUnmount(() => {
   </div>
 </template>
 <style scoped>
-/* Full-width records card (as 付款记录): the title, note, alerts, toolbar,
-   editor and the first/last table cells share the card's 20px inset. */
-.batch-records > h2 {
-  margin: 0;
-  padding: var(--space-4) var(--space-5) var(--space-2);
-  font-size: 15px;
-  line-height: 22px;
-}
+/* Full-width records card (as 付款记录): the note, alerts, toolbar, editor
+   and the first/last table cells share the card's 20px inset. */
 .batch-records > .table-note {
-  padding-top: 0;
+  padding-top: var(--space-4);
 }
 .batch-records > .alert {
   margin: 0 var(--space-5) var(--space-3);

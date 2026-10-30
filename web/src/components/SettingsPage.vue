@@ -24,7 +24,6 @@ import { siteKeys191 } from "../site191";
 const emit = defineEmits<{ siteChanged: [] }>();
 import {
   settingsTabs,
-  settingsTitles,
   settingsBlocks,
   requiredSettings,
   settingDefinition,
@@ -518,7 +517,6 @@ onBeforeUnmount(() => {
       >
         <p v-if="loading" role="status">正在读取设置…</p>
         <template v-else-if="schema">
-          <h2>{{ settingsTitles[active] }}</h2>
           <form
             v-if="fields.length"
             :id="formId"

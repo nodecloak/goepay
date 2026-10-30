@@ -207,7 +207,7 @@ for (const width of [1440, 375])
       page.getByRole("heading", { name: "添加公告", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "已发公告", exact: true }),
+      page.getByRole("region", { name: "已发公告", exact: true }),
     ).toBeVisible();
     await expect(page.locator(".announcement-list")).toContainText(
       "<b>不执行</b>",

@@ -318,8 +318,8 @@ onBeforeUnmount(() => controller?.abort());
     <section
       v-if="kind === 'memberships' && groups.length"
       class="panel membership-catalog"
+      aria-label="可购买用户组"
     >
-      <h2>可购买用户组</h2>
       <div class="membership-offers">
         <article
           v-for="g in groups"

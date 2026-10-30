@@ -40,7 +40,7 @@ test("platform printing saves an explicit CAS secret replacement only after conf
   });
   await page.goto("/admin/system/printing");
   await expect(
-    page.getByRole("heading", { name: "平台打印配置" }),
+    page.getByRole("region", { name: "平台打印配置" }),
   ).toBeVisible();
   await expect(page.getByText(/固定网关连接器可用/)).toBeVisible();
   await expect(page.getByText(/外部执行默认关闭/)).toBeVisible();

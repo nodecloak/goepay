@@ -232,7 +232,6 @@ onBeforeUnmount(() => controller?.abort());
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
     <template v-if="operation === 'cleanup'"
       ><div class="account-section clean-page">
-        <h2>系统数据清理</h2>
         <p class="muted">
           定期清理数据有助于提升访问速度。交易、账本、结算等财务记录不可变，相关清理项以禁用显示并标注原因。
         </p>
