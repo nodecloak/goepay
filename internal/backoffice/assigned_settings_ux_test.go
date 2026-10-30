@@ -98,7 +98,7 @@ func TestAssignedSettingsKeysRegistered(t *testing.T) {
 		"complain_open", "applyments_open", "mchrisk_open",
 		"reg_pay", "reg_pay_price", "reg_pay_uid",
 		"user_totp_open", "subchannel_open", "user_profitsharing", "user_transfer_batch",
-		"verifytype", "onecode_domains", "pay_domain_open", "pay_domain_forbid",
+		"verifytype", "onecode_domains", "pay_domain_open",
 	}
 	options := map[string]bool{}
 	for _, f := range definitions["settings"].fields {
