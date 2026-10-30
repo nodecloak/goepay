@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"goepay/internal/backoffice"
 	"goepay/internal/identity"
 	"net/http"
 	"time"
@@ -59,6 +60,21 @@ func (s *Server) security(w http.ResponseWriter, r *http.Request, role string, s
 	if action != "prepare" && action != "confirm" && action != "disable" {
 		response(w, 404, -1, "security operation not found", nil)
 		return true
+	}
+	// user_totp_open (default ON) gates merchant TOTP enrollment: when the
+	// administrator turns it off, a merchant may no longer enroll, but may still
+	// disable an existing authenticator so turning the feature off never locks
+	// an enrolled merchant out. Administrator TOTP is not gated.
+	if role == "merchant" && (action == "prepare" || action == "confirm") && s.Pool != nil {
+		on, e := backoffice.New(s.Pool, s.Store).MerchantFeatureVisible(r.Context(), "user_totp_open")
+		if e != nil {
+			response(w, 503, -1, "merchant feature unavailable", nil)
+			return true
+		}
+		if !on {
+			response(w, 403, -1, "未开启登录二次验证功能", nil)
+			return true
+		}
 	}
 	if action != "confirm" {
 		var hash string
