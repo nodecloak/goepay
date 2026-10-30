@@ -255,9 +255,9 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="panel pay-type-page" aria-label="支付方式">
-    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
+  <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+  <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
+  <section class="panel records pay-type-page" aria-label="支付方式">
     <div v-if="schema || !loading" class="table-tools">
       <button
         v-if="canCreate"
@@ -272,11 +272,6 @@ onBeforeUnmount(() => {
         >系统共有<strong>{{ items.length }}</strong
         >个支付方式</span
       >
-      <KitHelpPopover
-        v-if="schema?.description"
-        label="说明"
-        :text="schema.description"
-      />
       <div class="table-tools-end">
         <button
           type="button"
@@ -286,6 +281,11 @@ onBeforeUnmount(() => {
         >
           <ShellIcon name="refresh" />刷新
         </button>
+        <KitHelpPopover
+          v-if="schema?.description"
+          label="说明"
+          :text="schema.description"
+        />
       </div>
     </div>
     <div v-if="loading" class="loading-row" role="status">正在加载记录…</div>
@@ -391,6 +391,10 @@ onBeforeUnmount(() => {
 }
 .pay-type-page table {
   width: 100%;
+}
+/* No pager under this table: the card edge closes the last row. */
+.pay-type-page tbody tr:last-child td {
+  border-bottom: 0;
 }
 .row-actions {
   display: flex;

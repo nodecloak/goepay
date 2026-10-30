@@ -37,6 +37,7 @@ import KitPayMethod from "./KitPayMethod.vue";
 import KitEmpty from "./KitEmpty.vue";
 import KitModal from "./KitModal.vue";
 import KitPagination from "./KitPagination.vue";
+import ShellIcon from "./ShellIcon.vue";
 
 // GOEPAY 交易投诉 on Pro's model. One component serves all four Pro views
 // (admin 投诉记录/投诉统计/同步任务, merchant 投诉记录) selected by `path`, built
@@ -566,31 +567,33 @@ onMounted(reload);
         </template>
       </KitFilterBar>
 
-      <section class="panel complain-content" aria-label="投诉记录">
-        <div
-          v-if="listSummary"
-          class="complain-banner"
-          data-test="complain-summary"
-        >
-          <div class="complain-banner-cell">
-            <span class="complain-banner-label">今日投诉</span>
-            <b>{{ listSummary.today_count }}</b>
-            <small
-              >支付宝 {{ listSummary.today_alipay }} · 微信
-              {{ listSummary.today_wxpay }}</small
-            >
-          </div>
-          <div class="complain-banner-cell">
-            <span class="complain-banner-label">昨日投诉</span>
-            <b>{{ listSummary.yesterday_count }}</b>
-            <small
-              >支付宝 {{ listSummary.yesterday_alipay }} · 微信
-              {{ listSummary.yesterday_wxpay }}</small
-            >
-          </div>
-        </div>
+      <div
+        v-if="listSummary"
+        class="stat-grid complain-stat-grid"
+        data-test="complain-summary"
+      >
+        <section class="panel stat" aria-label="今日投诉">
+          <span class="stat-icon"><ShellIcon name="shield" /></span>
+          <p>今日投诉</p>
+          <strong>{{ listSummary.today_count }}</strong>
+          <span
+            >支付宝 {{ listSummary.today_alipay }} · 微信
+            {{ listSummary.today_wxpay }}</span
+          >
+        </section>
+        <section class="panel stat" aria-label="昨日投诉">
+          <span class="stat-icon"><ShellIcon name="shield" /></span>
+          <p>昨日投诉</p>
+          <strong>{{ listSummary.yesterday_count }}</strong>
+          <span
+            >支付宝 {{ listSummary.yesterday_alipay }} · 微信
+            {{ listSummary.yesterday_wxpay }}</span
+          >
+        </section>
+      </div>
 
-        <div class="pa-toolbar">
+      <section class="panel records" aria-label="投诉记录">
+        <div class="table-tools">
           <button
             type="button"
             class="pa-btn"
@@ -612,6 +615,7 @@ onMounted(reload);
           <template v-if="area === 'admin'">
             <KitSelect
               v-model="autoChannel"
+              class="complain-channel-select"
               :options="
                 channels.map((c) => ({
                   value: c.channel_id,
@@ -634,7 +638,7 @@ onMounted(reload);
           </template>
         </div>
 
-        <div class="pa-table-wrap">
+        <div class="table-scroll">
           <table class="pa-table">
             <thead>
               <tr>
@@ -704,34 +708,53 @@ onMounted(reload);
 
     <!-- 投诉统计 -->
     <template v-else-if="view === 'charts'">
-      <section class="panel complain-content" aria-label="投诉统计">
-        <div class="complain-cards">
-          <div class="complain-card">
-            <div class="complain-card-title">今日投诉</div>
-            <div class="complain-card-body">
-              <span>总投诉</span><b>{{ summary?.today_count ?? "0" }}</b>
-              <span>支付宝</span><b>{{ summary?.today_alipay ?? "0" }}</b>
-              <span>微信</span><b>{{ summary?.today_wxpay ?? "0" }}</b>
-            </div>
-          </div>
-          <div class="complain-card">
-            <div class="complain-card-title">昨日投诉</div>
-            <div class="complain-card-body">
-              <span>总投诉</span><b>{{ summary?.yesterday_count ?? "0" }}</b>
-              <span>支付宝</span><b>{{ summary?.yesterday_alipay ?? "0" }}</b>
-              <span>微信</span><b>{{ summary?.yesterday_wxpay ?? "0" }}</b>
-            </div>
-          </div>
-          <div class="complain-card">
-            <div class="complain-card-title">近7日投诉率</div>
-            <div class="complain-card-rate">
-              <b>{{ summary?.days7_rate ?? "-" }}</b>
-              <small>近7日投诉数 / 近7日支付订单数</small>
-            </div>
+      <div
+        class="stat-grid complain-stat-grid"
+        data-test="complain-charts-summary"
+      >
+        <section class="panel stat" aria-label="今日投诉">
+          <span class="stat-icon"><ShellIcon name="shield" /></span>
+          <p>今日投诉</p>
+          <strong>{{ summary?.today_count ?? "0" }}</strong>
+          <span
+            >支付宝 {{ summary?.today_alipay ?? "0" }} · 微信
+            {{ summary?.today_wxpay ?? "0" }}</span
+          >
+        </section>
+        <section class="panel stat" aria-label="昨日投诉">
+          <span class="stat-icon"><ShellIcon name="shield" /></span>
+          <p>昨日投诉</p>
+          <strong>{{ summary?.yesterday_count ?? "0" }}</strong>
+          <span
+            >支付宝 {{ summary?.yesterday_alipay ?? "0" }} · 微信
+            {{ summary?.yesterday_wxpay ?? "0" }}</span
+          >
+        </section>
+        <section class="panel stat" aria-label="近7日投诉率">
+          <span class="stat-icon"><ShellIcon name="chart" /></span>
+          <p>近7日投诉率</p>
+          <strong>{{ summary?.days7_rate ?? "-" }}</strong>
+          <span>近7日投诉数 / 近7日支付订单数</span>
+        </section>
+      </div>
+      <section class="panel records" aria-labelledby="complain-rank-title">
+        <div class="table-tools">
+          <h3 id="complain-rank-title" class="complain-table-title">
+            投诉数据统计&排行榜
+          </h3>
+          <div class="table-tools-end">
+            <button
+              type="button"
+              class="pa-btn"
+              data-action="reload"
+              :disabled="loading"
+              @click="reload"
+            >
+              <ShellIcon name="refresh" />刷新
+            </button>
           </div>
         </div>
-        <div class="complain-rank-title">投诉数据统计&排行榜</div>
-        <div class="pa-table-wrap">
+        <div class="table-scroll">
           <table class="pa-table">
             <thead>
               <tr>
@@ -761,11 +784,11 @@ onMounted(reload);
 
     <!-- 同步任务 -->
     <template v-else>
-      <section class="panel complain-content" aria-label="同步任务">
-        <p class="alert info" role="note">
-          在投诉记录页面选中某个支付通道后开启自动获取即可创建同步任务；在此可编辑每个通道的获取条件/频率/数量、启停或删除任务。另需在计划任务页面启动投诉同步任务。
-        </p>
-        <div class="pa-toolbar">
+      <p class="alert info" role="note">
+        在投诉记录页面选中某个支付通道后开启自动获取即可创建同步任务；在此可编辑每个通道的获取条件/频率/数量、启停或删除任务。另需在计划任务页面启动投诉同步任务。
+      </p>
+      <section class="panel records" aria-label="同步任务">
+        <div class="table-tools">
           <button
             type="button"
             class="pa-btn pa-btn--danger"
@@ -775,8 +798,19 @@ onMounted(reload);
           >
             批量删除{{ selectedTasks.size ? `（${selectedTasks.size}）` : "" }}
           </button>
+          <div class="table-tools-end">
+            <button
+              type="button"
+              class="pa-btn"
+              data-action="reload"
+              :disabled="loading || taskBusy"
+              @click="reload"
+            >
+              <ShellIcon name="refresh" />刷新
+            </button>
+          </div>
         </div>
-        <div class="pa-table-wrap">
+        <div class="table-scroll">
           <table class="pa-table">
             <thead>
               <tr>
@@ -1078,47 +1112,31 @@ onMounted(reload);
 </template>
 
 <style scoped>
-.complain-content {
-  display: grid;
-  gap: 16px;
-  padding: 18px;
+/* The page's own notes sit in the 16px column gap like its cards. */
+.complain-page > .alert {
+  margin: 0;
 }
-.complain-banner {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-}
-.complain-banner-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  border: 1px solid var(--line, #e5e7eb);
-  border-radius: 10px;
-  padding: 12px 14px;
-  background: var(--bg-card, #fff);
-}
-.complain-banner-label {
-  font-size: 13px;
-  color: var(--ink-muted, #6b7280);
-}
-.complain-banner-cell b {
-  font-size: 22px;
-  font-variant-numeric: tabular-nums;
-}
-.complain-banner-cell small {
-  color: var(--ink-muted, #6b7280);
+/* Today / yesterday (and 7-day rate) as the dashboard's stat cards, one row. */
+.complain-stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 .complain-presets {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
-.pa-toolbar {
-  display: flex;
-  gap: 10px;
+/* The channel picker keeps a normal field width in the toolbar. */
+.complain-channel-select {
+  flex: 0 1 280px;
 }
-.pa-table-wrap {
-  overflow-x: auto;
+.complain-table-title {
+  margin: 0;
+  font-size: 14px;
+  line-height: 32px;
+}
+/* No pager under these tables: the card edge closes the last row. */
+.records > .table-scroll:last-child tbody tr:last-child td {
+  border-bottom: 0;
 }
 .complain-detail {
   max-width: 260px;
@@ -1132,45 +1150,6 @@ onMounted(reload);
 }
 td small.muted {
   display: block;
-}
-.complain-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
-}
-.complain-card {
-  border: 1px solid var(--line, #e5e7eb);
-  border-radius: 12px;
-  padding: 16px;
-  background: var(--bg-card, #fff);
-}
-.complain-card-title {
-  font-weight: 600;
-  margin-bottom: 10px;
-}
-.complain-card-body {
-  display: grid;
-  grid-template-columns: auto 1fr auto 1fr auto 1fr;
-  gap: 6px 10px;
-  align-items: baseline;
-}
-.complain-card-body b {
-  font-variant-numeric: tabular-nums;
-}
-.complain-rank-title {
-  font-weight: 600;
-}
-.complain-card-rate {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.complain-card-rate b {
-  font-size: 26px;
-  font-variant-numeric: tabular-nums;
-}
-.complain-card-rate small {
-  color: var(--ink-muted, #6b7280);
 }
 .pa-c-sel {
   width: 36px;
