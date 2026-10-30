@@ -305,8 +305,8 @@ onBeforeUnmount(() => controller?.abort());
         balances.deposit_money !== undefined
       "
       class="panel account-section"
+      aria-label="保证金管理"
     >
-      <h2>保证金管理</h2>
       <div
         v-if="
           validAmount(String(balances.deposit_min_money)) &&

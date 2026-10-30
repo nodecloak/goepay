@@ -164,6 +164,11 @@ func (s *Store) createOrderWithPrintOrigin(ctx context.Context, in CreateOrderIn
 	if !enabled || payStatus != 1 {
 		return Order{}, ErrState
 	}
+	if purpose == "payment" {
+		if e = depositMinimumGateTx(ctx, tx, in.MerchantID); e != nil {
+			return Order{}, e
+		}
+	}
 	if collectionID > 0 {
 		var owner int64
 		if e = tx.QueryRow(ctx, "SELECT owner_id FROM backoffice_records WHERE id=$1 AND resource='collection-codes' AND body->>'enabled'='true' FOR SHARE", collectionID).Scan(&owner); e != nil {

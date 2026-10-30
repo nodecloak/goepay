@@ -100,7 +100,7 @@ func (s *Server) miniLaunchCreate(w http.ResponseWriter, r *http.Request, legacy
 	}
 	o, e := s.Store.CreateOrder(r.Context(), payment.CreateOrderInput{PaymentCost: cost, Version: wireVersion(legacy), MerchantID: mid, OutTradeNo: params["out_trade_no"], Name: params["name"], Type: params["type"], Amount: amount, NotifyURL: params["notify_url"], ReturnURL: params["return_url"], Param: params["param"]})
 	if e != nil {
-		s.wire(w, legacy, nil, "order rejected")
+		s.wire(w, legacy, nil, orderRejectedMessage(e))
 		return
 	}
 	if e = s.Store.SetOrderClientIP(r.Context(), o.ID, ip); e != nil {

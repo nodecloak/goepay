@@ -39,7 +39,8 @@ it("B15 #24: deposit page shows the minimum-required warning and the withdraw da
   });
   await flushPromises();
   const text = w.text();
-  expect(text).toContain("保证金管理");
+  expect(w.find('section[aria-label="保证金管理"]').exists()).toBe(true);
+  expect(w.find("h2").exists()).toBe(false);
   expect(text).toContain("当前平台要求最低缴纳保证金");
   expect(text).toContain("100.00");
   expect(text).toContain("提取保证金要求最近");
