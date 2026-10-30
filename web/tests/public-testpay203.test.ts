@@ -171,6 +171,16 @@ describe("original public TestPay203 entry", () => {
     expect(f.writes()).toEqual([]);
   });
 
+  it("titles a closed test page with the public site name", async () => {
+    const f = await setup({
+      onInit: async () => response(null, 403, "public test payment closed"),
+    });
+    const area = panel(f.wrapper);
+    expect(area.get("h1").text()).toBe("公开测试203 - 测试支付");
+    expect(area.get("footer").text()).toContain("公开测试203 ©");
+    expect(f.writes()).toEqual([]);
+  });
+
   it("submits only the original public fields after an explicit payment method click and blocks duplicate pending writes", async () => {
     const pending = deferred<Response>();
     const f = await setup({ onSubmit: () => pending.promise });

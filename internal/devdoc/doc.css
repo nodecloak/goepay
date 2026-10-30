@@ -1,0 +1,379 @@
+/* Developer documentation (/doc/). Light only, like the original epay_pro
+   doc site: a top bar, a 目录 sidebar and the article. No script is used;
+   groups and the phone 目录 open with <details>. */
+:root {
+  --doc-ink: #2b2f36;
+  --doc-muted: #626a75;
+  --doc-line: #e6e8eb;
+  --doc-soft: #f6f7f8;
+  --doc-side: #fafafa;
+  --doc-green: #0f8b5c;
+  --doc-green-bar: #16b777;
+  --doc-green-soft: #e8f6ef;
+  --doc-link: #1d6fd6;
+  --doc-url: #c2410c;
+  --doc-side-w: 280px;
+  --doc-top-h: 56px;
+  --doc-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #fff;
+  color: var(--doc-ink);
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.75;
+}
+a {
+  color: var(--doc-link);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--doc-link);
+  outline-offset: 2px;
+}
+
+/* Top bar */
+.doc-top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: var(--doc-top-h);
+  padding: 0 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--doc-line);
+}
+.doc-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--doc-ink);
+  font-size: 18px;
+  font-weight: 600;
+}
+.doc-brand:hover {
+  text-decoration: none;
+}
+.doc-brand img {
+  width: auto;
+  max-width: 140px;
+  height: 32px;
+  object-fit: contain;
+}
+.doc-brand-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.doc-brand-sub {
+  padding-left: 10px;
+  border-left: 1px solid var(--doc-line);
+  color: var(--doc-muted);
+  font-size: 14px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.doc-top-links a {
+  display: inline-block;
+  padding: 0 20px;
+  line-height: calc(var(--doc-top-h) - 4px);
+  border-bottom: 4px solid var(--doc-green-bar);
+  color: var(--doc-ink);
+  white-space: nowrap;
+}
+.doc-top-links a:hover {
+  text-decoration: none;
+  color: var(--doc-green);
+}
+
+/* Sidebar */
+.doc-shell {
+  display: flex;
+  min-height: calc(100vh - var(--doc-top-h));
+}
+.doc-side {
+  position: sticky;
+  top: var(--doc-top-h);
+  align-self: flex-start;
+  display: flex;
+  flex: 0 0 var(--doc-side-w);
+  flex-direction: column;
+  height: calc(100vh - var(--doc-top-h));
+  overflow-y: auto;
+  background: var(--doc-side);
+  border-right: 1px solid var(--doc-line);
+}
+.doc-side-tab {
+  margin: 0;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--doc-line);
+  color: var(--doc-green);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 44px;
+}
+.doc-side-tab::after {
+  content: "";
+  display: block;
+  width: 56px;
+  height: 2px;
+  margin-top: -2px;
+  background: var(--doc-green-bar);
+}
+.doc-side > .doc-tree {
+  flex: 1;
+  padding: 12px 0;
+}
+.doc-side-foot {
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--doc-line);
+  color: var(--doc-muted);
+  font-size: 13px;
+  text-align: center;
+}
+.doc-tree,
+.doc-tree ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.doc-tree a,
+.doc-tree summary {
+  position: relative;
+  display: block;
+  padding: 5px 16px 5px 34px;
+  color: var(--doc-ink);
+  font-size: 14px;
+  line-height: 22px;
+  cursor: pointer;
+}
+.doc-tree ul a {
+  padding-left: 50px;
+}
+.doc-tree a:hover,
+.doc-tree summary:hover {
+  background: #f0f1f3;
+  text-decoration: none;
+}
+.doc-tree a[aria-current="page"] {
+  background: var(--doc-green-soft);
+  box-shadow: inset -3px 0 0 var(--doc-green-bar);
+  color: var(--doc-green);
+  font-weight: 600;
+}
+.doc-tree summary {
+  list-style: none;
+}
+.doc-tree summary::-webkit-details-marker {
+  display: none;
+}
+.doc-tree summary::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: 18px;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+}
+.doc-tree details[open] > summary::before {
+  top: 10px;
+  transform: rotate(45deg);
+}
+
+/* Article */
+.doc-main {
+  flex: 1;
+  min-width: 0;
+  padding: 0 32px 24px;
+}
+.doc-mobile-nav {
+  display: none;
+}
+.doc-article {
+  max-width: 1100px;
+  margin: 0 auto;
+  overflow-wrap: anywhere;
+}
+.doc-article h1 {
+  margin: 0 0 20px;
+  padding: 24px 0 16px;
+  border-bottom: 1px solid var(--doc-line);
+  font-size: 32px;
+  line-height: 1.3;
+  text-align: center;
+}
+.doc-article h2 {
+  margin: 28px 0 12px;
+  font-size: 22px;
+  line-height: 1.4;
+}
+.doc-article h3 {
+  margin: 24px 0 10px;
+  font-size: 19px;
+  line-height: 1.4;
+}
+.doc-article h4 {
+  margin: 22px 0 8px;
+  font-size: 18px;
+  line-height: 1.4;
+}
+.doc-article p,
+.doc-article ul,
+.doc-article ol {
+  margin: 8px 0;
+}
+.doc-article li {
+  margin: 4px 0;
+}
+.doc-article blockquote {
+  margin: 16px 0;
+  padding: 14px 20px;
+  border-left: 5px solid var(--doc-green-bar);
+  background: var(--doc-soft);
+}
+.doc-article blockquote p {
+  margin: 0;
+}
+.doc-article code {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #f2f3f5;
+  color: #b4234a;
+  font-family: var(--doc-mono);
+  font-size: 0.92em;
+}
+.doc-article code.doc-url {
+  padding: 0;
+  background: none;
+  color: var(--doc-url);
+  font-size: 16px;
+  word-break: break-all;
+}
+.doc-article pre {
+  margin: 12px 0;
+  padding: 14px 16px;
+  overflow: auto;
+  border: 1px solid var(--doc-line);
+  border-radius: 4px;
+  background: #f6f8fa;
+  line-height: 1.6;
+}
+.doc-article pre code {
+  padding: 0;
+  background: none;
+  color: var(--doc-ink);
+  font-size: 13px;
+  white-space: pre;
+}
+.doc-table {
+  margin: 12px 0;
+  overflow-x: auto;
+}
+.doc-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.doc-table th,
+.doc-table td {
+  padding: 9px 15px;
+  border: 1px solid var(--doc-line);
+  line-height: 22px;
+  text-align: left;
+  vertical-align: top;
+  /* Not "anywhere" (set on the article): a cell keeps whole words, so a
+     narrow screen widens the table and scrolls it instead of splitting
+     names like out_trade_no. Very long values still wrap. */
+  overflow-wrap: break-word;
+}
+.doc-table th {
+  background: #f5f6f7;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.doc-note {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border: 1px solid #f1d58c;
+  border-radius: 4px;
+  background: #fff8e5;
+  color: #5f4500;
+}
+.doc-foot {
+  max-width: 1100px;
+  margin: 32px auto 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--doc-line);
+  color: var(--doc-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .doc-top {
+    padding: 0 12px;
+  }
+  .doc-top-links a {
+    padding: 0 12px;
+  }
+  .doc-side {
+    display: none;
+  }
+  .doc-main {
+    padding: 0 16px 20px;
+  }
+  .doc-mobile-nav {
+    display: block;
+    margin: 12px 0 0;
+    border: 1px solid var(--doc-line);
+    border-radius: 4px;
+    background: var(--doc-side);
+  }
+  .doc-mobile-nav > summary {
+    padding: 10px 14px;
+    color: var(--doc-green);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .doc-mobile-nav > .doc-tree {
+    padding: 6px 0 8px;
+    border-top: 1px solid var(--doc-line);
+  }
+  .doc-article h1 {
+    padding: 18px 0 12px;
+    font-size: 26px;
+  }
+  /* Parameter tables (4+ columns) scroll sideways in their frame on a
+     phone; two-column tables still fit the screen. */
+  .doc-table table:has(th:nth-child(4)) {
+    min-width: 760px;
+  }
+  .doc-table th,
+  .doc-table td {
+    padding: 8px 10px;
+  }
+}
+@media (max-width: 480px) {
+  .doc-brand-sub {
+    display: none;
+  }
+}
