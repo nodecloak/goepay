@@ -285,7 +285,16 @@ func validateSpecific(resource string, v map[string]any) error {
 		if known, err := validateMerchantFeatureSetting(key, value); known && err != nil {
 			return ErrInvalid
 		}
+		if known, err := validateDepositSetting(key, value); known && err != nil {
+			return ErrInvalid
+		}
+		if known, err := validateMerchantSwitchSetting(key, value); known && err != nil {
+			return ErrInvalid
+		}
 		if known, err := validateProxySetting(key, value); known && err != nil {
+			return ErrInvalid
+		}
+		if known, err := validateOAuthLoginSetting(key, value); known && err != nil {
 			return ErrInvalid
 		}
 		if known, err := validateRedpackSetting(key, value); known && err != nil {
@@ -431,6 +440,17 @@ func (s *Service) Create(ctx context.Context, p Principal, r string, in map[stri
 	d, e := definitionFor(p, r, true)
 	if e != nil {
 		return Item{}, e
+	}
+	// pay_domain_open (default ON) gates a merchant ADDING a 授权域名. A missing
+	// row means on, so a default install is unchanged; the admin is never gated.
+	if r == "domains" && p.Role == "merchant" {
+		on, fe := s.MerchantFeatureVisible(ctx, "pay_domain_open")
+		if fe != nil {
+			return Item{}, fe
+		}
+		if !on {
+			return Item{}, FeatureClosed("未开启授权支付域名添加")
+		}
 	}
 	if r == "merchants" {
 		return s.createMerchant(ctx, p, d, in)
@@ -800,6 +820,12 @@ func (s *Service) Delete(ctx context.Context, p Principal, r string, id int64) e
 	d, e := definitionFor(p, r, true)
 	if e != nil {
 		return e
+	}
+	if r == "admin-users" {
+		// A super administrator may remove another admin (self-protection and
+		// the last-super-admin invariant are enforced in deleteAdministrator and
+		// the DB trigger). noDelete still blocks the generic delete path below.
+		return s.deleteAdministrator(ctx, p, id)
 	}
 	if d.noDelete {
 		return ErrForbidden

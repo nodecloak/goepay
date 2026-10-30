@@ -45,7 +45,7 @@ func (s *Server) providerScanCreate(w http.ResponseWriter, r *http.Request, lega
 	}
 	o, e := s.Store.CreateOrder(r.Context(), payment.CreateOrderInput{PaymentCost: cost, Version: wireVersion(legacy), MerchantID: mid, OutTradeNo: p["out_trade_no"], Name: p["name"], Type: p["type"], Amount: amount, NotifyURL: p["notify_url"], ReturnURL: p["return_url"], Param: p["param"]})
 	if e != nil {
-		s.wire(w, legacy, nil, "order rejected")
+		s.wire(w, legacy, nil, orderRejectedMessage(e))
 		return
 	}
 	if e = s.Store.SetOrderClientIP(r.Context(), o.ID, ip); e != nil {

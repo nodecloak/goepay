@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
-import ShellIcon from "./ShellIcon.vue";
+import { computed, onMounted, ref, watch } from "vue";
 import PluginDetailDrawer from "./PluginDetailDrawer.vue";
 import KitStatusTag from "./KitStatusTag.vue";
+import KitPagination from "./KitPagination.vue";
+import { templatePreviewImage } from "../page-template";
 import {
-  builtinCount,
   builtinPlugin,
   catalogKey,
   filterCatalog,
@@ -21,11 +21,19 @@ const items = ref<CatalogEntry[]>([]),
   type = ref<PluginType>("payment"),
   query = ref(""),
   applied = ref(""),
-  selected = ref<CatalogEntry | null>(null);
+  selected = ref<CatalogEntry | null>(null),
+  page = ref(1),
+  pageSize = ref(20);
 const rows = computed(() =>
   filterCatalog(items.value, type.value, applied.value),
 );
-const builtin = computed(() => builtinCount(items.value));
+const pageRows = computed(() =>
+  rows.value.slice(
+    (page.value - 1) * pageSize.value,
+    page.value * pageSize.value,
+  ),
+);
+watch([type, applied], () => (page.value = 1));
 onMounted(async () => {
   try {
     items.value = await loadPluginCatalog();
@@ -41,16 +49,12 @@ function reset() {
 }
 </script>
 <template>
-  <section class="panel plugin-page" aria-label="应用市场">
-    <p class="alert plugin-notice" role="note">
-      <ShellIcon name="info" /><span
-        >Go 版插件随服务内置，不能在线购买、下载或安装 PHP
-        插件。下表是原应用市场的插件列表{{
-          loading ? "" : `，已内置 ${builtin} 个，其余暂不支持`
-        }}。</span
-      >
-    </p>
-    <form class="plugin-search" role="search" @submit.prevent="applied = query">
+  <div class="list-page">
+    <form
+      class="plugin-search list-filter-card panel"
+      role="search"
+      @submit.prevent="applied = query"
+    >
       <input
         v-model="query"
         aria-label="搜索应用名称或标识"
@@ -59,109 +63,127 @@ function reset() {
       /><button class="primary" :disabled="loading">搜索</button
       ><button type="button" :disabled="loading" @click="reset">重置</button>
     </form>
-    <div class="pill-tabs" role="tablist" aria-label="应用分类">
-      <button
-        v-for="t in pluginTypes"
-        :key="t[0]"
-        type="button"
-        role="tab"
-        :aria-selected="type === t[0]"
-        @click="type = t[0]"
-      >
-        {{ t[1] }}
-      </button>
-    </div>
-    <p v-if="loading" class="loading-row" role="status">正在读取应用列表…</p>
-    <p v-else-if="error" class="alert error" role="alert">{{ error }}</p>
-    <div v-else class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">应用名称</th>
-            <th scope="col">标识</th>
-            <th scope="col">简介</th>
-            <th scope="col">售价</th>
-            <th scope="col">开发商</th>
-            <th scope="col">版本</th>
-            <th scope="col" class="plugin-actions">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in rows" :key="catalogKey(item)">
-            <td>
-              <span class="plugin-name"
-                ><img v-if="item.icon" :src="item.icon" alt="" loading="lazy" />
-                <span v-else class="plugin-mark" aria-hidden="true">{{
-                  Array.from(item.title)[0]
-                }}</span
-                >{{ item.title
-                }}<KitStatusTag
-                  v-if="item.type === 'template' && item.sub"
-                  tone="neutral"
-                  :text="templateKinds[item.sub] || item.sub"
-              /></span>
-            </td>
-            <td class="numeric">{{ item.name }}</td>
-            <td class="plugin-desc">{{ item.desc || "-" }}</td>
-            <td>
-              <span
-                :class="Number(item.price) === 0 ? 'price-free' : 'price-paid'"
-                >{{ priceLabel(item.price) }}</span
-              >
-            </td>
-            <td>{{ item.author || "-" }}</td>
-            <td class="numeric">{{ item.version || "-" }}</td>
-            <td class="plugin-actions">
-              <button
-                type="button"
-                class="link-button"
-                :aria-label="'应用详情 ' + item.title"
-                @click="selected = item"
-              >
-                详情</button
-              ><KitStatusTag
-                :tone="builtinPlugin(item) ? 'success' : 'neutral'"
-                :text="builtinPlugin(item) ? '已内置' : '暂不支持'"
-              />
-            </td>
-          </tr>
-          <tr v-if="!rows.length">
-            <td colspan="7" class="empty">暂无数据</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p v-if="!loading && !error" class="plugin-foot">共 {{ rows.length }} 个</p>
+    <section class="panel records plugin-page" aria-label="应用市场">
+      <div class="table-tools">
+        <div class="pill-tabs" role="tablist" aria-label="应用分类">
+          <button
+            v-for="t in pluginTypes"
+            :key="t[0]"
+            type="button"
+            role="tab"
+            :aria-selected="type === t[0]"
+            @click="type = t[0]"
+          >
+            {{ t[1] }}
+          </button>
+        </div>
+      </div>
+      <p v-if="loading" class="loading-row" role="status">正在读取应用列表…</p>
+      <p v-else-if="error" class="alert error" role="alert">{{ error }}</p>
+      <div v-else class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">应用名称</th>
+              <th scope="col">标识</th>
+              <th scope="col">简介</th>
+              <th scope="col">售价</th>
+              <th scope="col">开发商</th>
+              <th scope="col">版本</th>
+              <th scope="col" class="plugin-actions">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in pageRows" :key="catalogKey(item)">
+              <td>
+                <span class="plugin-name"
+                  ><img
+                    v-if="
+                      item.type === 'template' &&
+                      item.sub &&
+                      builtinPlugin(item)
+                    "
+                    class="plugin-shot"
+                    :src="templatePreviewImage(item.sub, item.name)"
+                    alt=""
+                    loading="lazy" /><img
+                    v-else-if="item.icon"
+                    :src="item.icon"
+                    alt=""
+                    loading="lazy" />
+                  <span v-else class="plugin-mark" aria-hidden="true">{{
+                    Array.from(item.title)[0]
+                  }}</span
+                  >{{ item.title
+                  }}<KitStatusTag
+                    v-if="item.type === 'template' && item.sub"
+                    tone="neutral"
+                    :text="templateKinds[item.sub] || item.sub"
+                /></span>
+              </td>
+              <td class="numeric">{{ item.name }}</td>
+              <td class="plugin-desc">{{ item.desc || "-" }}</td>
+              <td>
+                <span
+                  :class="
+                    Number(item.price) === 0 ? 'price-free' : 'price-paid'
+                  "
+                  >{{ priceLabel(item.price) }}</span
+                >
+              </td>
+              <td>{{ item.author || "-" }}</td>
+              <td class="numeric">{{ item.version || "-" }}</td>
+              <td class="plugin-actions">
+                <button
+                  type="button"
+                  class="link-button"
+                  :aria-label="'应用详情 ' + item.title"
+                  @click="selected = item"
+                >
+                  详情</button
+                ><KitStatusTag
+                  :tone="builtinPlugin(item) ? 'success' : 'neutral'"
+                  :text="builtinPlugin(item) ? '已内置' : '暂不支持'"
+                />
+              </td>
+            </tr>
+            <tr v-if="!rows.length">
+              <td colspan="7" class="empty">暂无数据</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <KitPagination
+        v-if="!loading && !error && rows.length"
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total="rows.length"
+      />
+    </section>
     <PluginDetailDrawer
       v-if="selected"
       :entry="selected"
       title="应用详情"
       @close="selected = null"
     />
-  </section>
+  </div>
 </template>
 <style scoped>
-.plugin-notice {
+/* The search card is a standard filter card; keep the input flexible and the
+   two buttons at its natural width. */
+.plugin-search {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--warning-soft);
-  color: var(--ink);
-}
-.plugin-notice .shell-icon {
-  width: 16px;
-  height: 16px;
-  flex: none;
-  color: var(--warning-text);
-}
-.plugin-search {
-  display: flex;
-  gap: 8px;
-  max-width: 520px;
-  margin-bottom: 16px;
 }
 .plugin-search input {
   flex: 1;
+  max-width: 440px;
+}
+/* The category pills sit on the card's top edge inside the toolbar; the
+   toolbar already supplies the spacing below. */
+.table-tools .pill-tabs {
+  margin: 0;
 }
 .plugin-desc {
   min-width: 160px;
@@ -184,9 +206,12 @@ function reset() {
   color: var(--warning-text);
   font-weight: 600;
 }
-.plugin-foot {
-  margin: 12px 0 0;
-  font-size: 12px;
-  color: var(--ink-muted);
+.plugin-name > img.plugin-shot {
+  width: 72px;
+  height: 40px;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
 }
 </style>

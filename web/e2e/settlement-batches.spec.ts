@@ -112,7 +112,7 @@ for (const width of [375, 1280])
       page.getByRole("columnheader", { name: "批次号", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("columnheader", { name: "总笔数", exact: true }),
+      page.getByRole("columnheader", { name: "总数量", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "完成批次", exact: true }),

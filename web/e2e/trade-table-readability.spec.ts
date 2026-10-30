@@ -39,28 +39,27 @@ for (const area of ["admin", "merchant"] as const)
       await page.goto(`/${area}/trade/order`);
       const row = page.getByRole("row").filter({ hasText: order.out_trade_no });
       await expect(row).toHaveCount(1);
-      await expect(row).toContainText(order.api_trade_no);
-      await expect(row).toContainText("90071992547409.93");
-      const bounds = await row.evaluate((el) =>
-        Array.from(el.querySelectorAll("small"))
-          .filter((n) => /商户订单号|接口订单号/.test(n.textContent || ""))
-          .map((n) => {
-            const range = document.createRange();
-            range.selectNodeContents(n);
-            const cell = n.closest("td")!.getBoundingClientRect();
-            return {
-              full: n.textContent,
-              within: Array.from(range.getClientRects()).every(
-                (r) => r.left >= cell.left && r.right <= cell.right,
-              ),
-            };
-          }),
+      await expect(row).toContainText("90,071,992,547,409.93");
+      // The merchant number is one line that ends in an ellipsis inside its
+      // own cell; the full merchant and API numbers are in its hover text.
+      const merchantNo = row.locator("td.col-trade_no small");
+      await expect(merchantNo).toHaveAttribute(
+        "title",
+        `商户订单号：${order.out_trade_no}\n接口订单号：${order.api_trade_no}`,
       );
-      expect(bounds).toHaveLength(2);
-      expect(
-        bounds.every((b) => b.within),
-        JSON.stringify(bounds),
-      ).toBe(true);
+      const fit = await merchantNo.evaluate((n) => {
+        const box = n.getBoundingClientRect(),
+          cell = n.closest("td")!.getBoundingClientRect(),
+          style = getComputedStyle(n);
+        return {
+          inside: box.left >= cell.left && box.right <= cell.right,
+          clipped:
+            n.scrollWidth > n.clientWidth &&
+            style.overflowX === "hidden" &&
+            style.textOverflow === "ellipsis",
+        };
+      });
+      expect(fit).toEqual({ inside: true, clipped: true });
       const table = row.locator(
         "xpath=ancestor::div[contains(@class,'table-scroll')]",
       );
@@ -139,7 +138,7 @@ for (const area of ["admin", "merchant"] as const)
       await page.goto(`/${area}/trade/refund`);
       const row = page.getByRole("row").filter({ hasText: merchantRefund });
       await expect(row).toHaveCount(1);
-      await expect(row).toContainText("90071992547409.93");
+      await expect(row).toContainText("¥90,071,992,547,409.93");
       expect(
         await row.evaluate((el) => {
           const text = el.querySelector("small.refund-merchant-no")!;

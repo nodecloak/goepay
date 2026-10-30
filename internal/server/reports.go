@@ -104,6 +104,13 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request, role string, se
 	if role == "admin" {
 		mid = 0
 	}
+	// 付款账号统计 breaks down by the encrypted payee account, which no SQL
+	// GROUP BY can reach, so it runs in a dedicated handler that groups by the
+	// keyed recipient index and decrypts one representative intent per group.
+	if name == "transfer-accounts" {
+		s.transferAccountStatistics(w, r, session, start, end, page, limit, export)
+		return true
+	}
 	dimension, label, table, join, status, amount, owner, created := "", "", "orders o", "", "o.status", "o.amount", "o.merchant_id", "o.created_at"
 	netAmount, feeAmount, netLabel := "o.merchant_amount", "o.platform_fee", "商户净额（元）"
 	switch name {
@@ -162,12 +169,36 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request, role string, se
 	if name == "complaints" {
 		extra = " AND o.resource='complaints'"
 	}
-	base := fmt.Sprintf(" FROM %s%s WHERE ($1::bigint=0 OR %s=$1) AND %s >= $2 AND %s < $3%s", table, join, owner, created, created, extra)
+	args := []any{mid, start, end.AddDate(0, 0, 1)}
+	// 通道数据统计 (transfer-channels) mirrors epay_pro's channelStat search:
+	// a 付款方式 (type) filter on the authenticated rail and a 商户号 (uid)
+	// filter narrowing to one merchant. Both are optional; a blank value keeps
+	// the全部 view. Other reports are unaffected — the clause stays empty.
+	extra2 := ""
+	if name == "transfer-channels" {
+		if raw := r.URL.Query().Get("type"); raw != "" {
+			if !transferAccountStatMethods[raw] {
+				response(w, 400, -1, "invalid transfer method", nil)
+				return true
+			}
+			args = append(args, raw)
+			extra2 += fmt.Sprintf(" AND p.method=$%d", len(args))
+		}
+		if raw := r.URL.Query().Get("uid"); raw != "" {
+			merchant, e := strconv.ParseInt(raw, 10, 64)
+			if e != nil || merchant <= 0 || strconv.FormatInt(merchant, 10) != raw {
+				response(w, 400, -1, "invalid merchant", nil)
+				return true
+			}
+			args = append(args, merchant)
+			extra2 += fmt.Sprintf(" AND o.merchant_id=$%d", len(args))
+		}
+	}
+	base := fmt.Sprintf(" FROM %s%s WHERE ($1::bigint=0 OR %s=$1) AND %s >= $2 AND %s < $3%s%s", table, join, owner, created, created, extra, extra2)
 	moneySQL := func(expression string) string {
 		return "(COALESCE(sum(" + expression + ") FILTER(WHERE " + status + "='paid'),0)::numeric/100)::numeric(38,2)::text"
 	}
 	aggregate := fmt.Sprintf("SELECT %s AS dimension,count(*)::text AS orders,count(*) FILTER(WHERE %s='paid')::text AS paid_orders,%s AS paid_money,%s AS net_money,%s AS fee_money%s GROUP BY 1", dimension, status, moneySQL(amount), moneySQL(netAmount), moneySQL(feeAmount), base)
-	args := []any{mid, start, end.AddDate(0, 0, 1)}
 	if export {
 		s.exportCSV(w, r, session, "reports/"+name, aggregate+" ORDER BY 1 DESC", args)
 		return true
@@ -177,8 +208,9 @@ func (s *Server) reports(w http.ResponseWriter, r *http.Request, role string, se
 		s.fail(w, err)
 		return true
 	}
+	limitPlaceholder, offsetPlaceholder := len(args)+1, len(args)+2
 	args = append(args, limit, (page-1)*limit)
-	rows, err := s.Pool.Query(r.Context(), aggregate+" ORDER BY 1 DESC LIMIT $4 OFFSET $5", args...)
+	rows, err := s.Pool.Query(r.Context(), fmt.Sprintf("%s ORDER BY 1 DESC LIMIT $%d OFFSET $%d", aggregate, limitPlaceholder, offsetPlaceholder), args...)
 	if err != nil {
 		s.fail(w, err)
 		return true

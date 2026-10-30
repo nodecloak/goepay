@@ -345,121 +345,178 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <nav class="get-token-tabs" aria-label="获取用户标识">
-    <template v-for="t in proTabs" :key="t.id">
-      <button
-        v-if="!t.needsSuper || applicationAllowed"
-        :aria-pressed="tab === t.id"
-        :disabled="t.disabled === true"
-        :title="t.disabled ? t.reason : undefined"
-        @click="!t.disabled && (tab = t.id as typeof tab)"
-      >
-        {{ t.label
-        }}<span v-if="t.disabled" class="get-token-off">（暂不支持）</span>
-      </button>
-    </template>
-  </nav>
-  <p v-if="tab === 'douyin'" class="alert" role="note">
-    GOEPAY 暂未接入抖音开放平台授权，无法获取抖音
-    Openid。请使用微信或支付宝授权。
-  </p>
-  <ApplicationAuthorizationPanel
-    v-else-if="tab === 'alipay_app' && applicationAllowed"
-    :client="client"
-    :area="area"
-    :own-session="ownSession === true"
-    :admin-class="adminClass"
-  />
-  <IdentityProfileLookup
-    v-else-if="tab === 'profiles'"
-    :client="client"
-    :area="area"
-    :own-session="ownSession === true"
-  />
-  <section v-else class="panel" aria-label="获取支付用户标识">
-    <h2>获取支付用户标识</h2>
-    <p>
-      选择商户及应用，使用微信或支付宝完成授权。授权结果只允许发起会话读取一次，五分钟内有效。
+  <section class="panel get-token-card" aria-label="获取支付用户标识">
+    <nav class="pill-tabs get-token-tabs" aria-label="获取用户标识">
+      <template v-for="t in proTabs" :key="t.id">
+        <button
+          v-if="!t.needsSuper || applicationAllowed"
+          type="button"
+          :aria-pressed="tab === t.id"
+          :disabled="t.disabled === true"
+          :title="t.disabled ? t.reason : undefined"
+          @click="!t.disabled && (tab = t.id as typeof tab)"
+        >
+          {{ t.label
+          }}<span v-if="t.disabled" class="get-token-off">（暂不支持）</span>
+        </button>
+      </template>
+    </nav>
+    <p v-if="tab === 'douyin'" class="alert" role="note">
+      GOEPAY 暂未接入抖音开放平台授权，无法获取抖音
+      Openid。请使用微信或支付宝授权。
     </p>
-    <div class="form-grid">
-      <label v-if="area === 'admin'"
-        >商户 ID<input
-          v-model.trim="merchant"
-          aria-label="商户 ID"
-          inputmode="numeric"
-          autocomplete="off"
-      /></label>
-      <button data-action="capabilities" :disabled="busy" @click="capabilities">
-        读取授权通道
-      </button>
-      <label
-        >应用通道<select v-model="selected" :disabled="busy || !available">
-          <option value="">请选择通道</option>
-          <option
-            v-for="c in lookupChannels"
-            :key="c.channel_id"
-            :value="c.channel_id"
-          >
-            {{ c.provider === "wxpay" ? "微信" : "支付宝" }} · {{ c.app_id }} ·
-            #{{ c.channel_id }}
-          </option>
-        </select></label
-      >
-      <button
-        data-action="create"
-        :disabled="busy || !available || !selectedChannel"
-        @click="create"
-      >
-        创建授权请求
-      </button>
-    </div>
-    <p v-if="reason" role="status">{{ reason }}</p>
-    <p v-if="error" role="alert">{{ error }}</p>
-    <div v-if="current">
-      <p>
-        请求状态：{{ expired ? "已过期" : current.status }} · 应用：{{
-          current.app_id
-        }}
+    <ApplicationAuthorizationPanel
+      v-else-if="tab === 'alipay_app' && applicationAllowed"
+      :client="client"
+      :area="area"
+      :own-session="ownSession === true"
+      :admin-class="adminClass"
+    />
+    <IdentityProfileLookup
+      v-else-if="tab === 'profiles'"
+      :client="client"
+      :area="area"
+      :own-session="ownSession === true"
+    />
+    <template v-else>
+      <p class="get-token-note">
+        选择商户及应用，使用微信或支付宝完成授权。授权结果只允许发起会话读取一次，五分钟内有效。
       </p>
-      <p>到期时间：{{ current.expires_at }}</p>
-      <template v-if="authorization && !expired"
-        ><img
-          v-if="qr"
-          :src="qr"
-          width="240"
-          height="240"
-          alt="支付平台授权二维码"
-        />
-        <p>
-          <a
-            data-action="authorize"
-            :href="authorization"
-            target="_blank"
-            rel="noopener noreferrer"
-            referrerpolicy="no-referrer"
-            >打开支付平台授权</a
-          >
-        </p></template
-      >
-      <button data-action="query" :disabled="busy || expired" @click="query">
-        查询授权状态
-      </button>
-      <button
-        v-if="current.status === 'verified' && !expired"
-        data-action="reveal"
-        :disabled="busy"
-        @click="reveal"
-      >
-        读取一次授权结果
-      </button>
-      <div v-if="subject" role="status">
-        <p>
-          {{ label }}：<output>{{ subject }}</output>
-        </p>
-        <button data-action="clear-result" @click="clearMaterial">
-          清除显示
+      <div class="get-token-form">
+        <label v-if="area === 'admin'" class="get-token-field"
+          ><span>商户 ID</span
+          ><input
+            v-model.trim="merchant"
+            aria-label="商户 ID"
+            inputmode="numeric"
+            autocomplete="off"
+        /></label>
+        <button
+          class="pa-btn"
+          data-action="capabilities"
+          :disabled="busy"
+          @click="capabilities"
+        >
+          读取授权通道
+        </button>
+        <label class="get-token-field"
+          ><span>应用通道</span
+          ><select v-model="selected" :disabled="busy || !available">
+            <option value="">请选择通道</option>
+            <option
+              v-for="c in lookupChannels"
+              :key="c.channel_id"
+              :value="c.channel_id"
+            >
+              {{ c.provider === "wxpay" ? "微信" : "支付宝" }} ·
+              {{ c.app_id }} · #{{ c.channel_id }}
+            </option>
+          </select></label
+        >
+        <button
+          class="pa-btn pa-btn--primary"
+          data-action="create"
+          :disabled="busy || !available || !selectedChannel"
+          @click="create"
+        >
+          创建授权请求
         </button>
       </div>
-    </div>
+      <p v-if="reason" role="status">{{ reason }}</p>
+      <p v-if="error" role="alert">{{ error }}</p>
+      <div v-if="current">
+        <p>
+          请求状态：{{ expired ? "已过期" : current.status }} · 应用：{{
+            current.app_id
+          }}
+        </p>
+        <p>到期时间：{{ current.expires_at }}</p>
+        <template v-if="authorization && !expired"
+          ><img
+            v-if="qr"
+            :src="qr"
+            width="240"
+            height="240"
+            alt="支付平台授权二维码"
+          />
+          <p>
+            <a
+              data-action="authorize"
+              :href="authorization"
+              target="_blank"
+              rel="noopener noreferrer"
+              referrerpolicy="no-referrer"
+              >打开支付平台授权</a
+            >
+          </p></template
+        >
+        <button data-action="query" :disabled="busy || expired" @click="query">
+          查询授权状态
+        </button>
+        <button
+          v-if="current.status === 'verified' && !expired"
+          data-action="reveal"
+          :disabled="busy"
+          @click="reveal"
+        >
+          读取一次授权结果
+        </button>
+        <div v-if="subject" role="status">
+          <p>
+            {{ label }}：<output>{{ subject }}</output>
+          </p>
+          <button data-action="clear-result" @click="clearMaterial">
+            清除显示
+          </button>
+        </div>
+      </div>
+    </template>
   </section>
 </template>
+<style scoped>
+.get-token-card {
+  min-width: 0;
+}
+.get-token-tabs {
+  margin: 0 0 var(--space-4);
+}
+.get-token-off {
+  margin-left: 4px;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.get-token-note {
+  color: var(--ink-muted);
+  margin: 0 0 var(--space-4);
+}
+.get-token-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-4);
+}
+.get-token-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  min-width: 0;
+  width: clamp(220px, 28vw, 320px);
+  font-size: 13px;
+}
+.get-token-field > input,
+.get-token-field > select {
+  width: 100%;
+  margin: 0;
+}
+.get-token-form > .pa-btn {
+  min-height: var(--control-h);
+}
+.get-token-card output {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.get-token-card img {
+  display: block;
+}
+</style>

@@ -50,7 +50,11 @@ async function execute() {
       <p v-if="!enabled" class="muted">当前规则未启用，请先核实配置。</p>
     </form>
     <div v-if="confirm" class="alert">
-      <p>确认对订单 {{ tradeNo }} 按当前启用规则申请站内分账？</p>
+      <p>
+        确认对订单
+        <span class="pa-order-no">{{ tradeNo }}</span>
+        按当前启用规则申请站内分账？
+      </p>
       <div class="toolbar-actions">
         <button :disabled="busy" @click="confirm = false">取消</button
         ><button class="primary" :disabled="busy" @click="execute">

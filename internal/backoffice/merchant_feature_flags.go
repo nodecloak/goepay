@@ -47,8 +47,9 @@ func (s *Service) MerchantFeatureEnabled(ctx context.Context, key string) (bool,
 // entry shown and the endpoint open, and only an explicit "0" hides the menu
 // and refuses the workflow endpoint. internal_transfer / recharge / onecode
 // use this default-ON gate; complain_open / applyments_open / mchrisk_open use
-// MerchantFeatureEnabled (default off, surfaced only when turned on).
-var MerchantFeatureVisibleKeys = []string{"internal_transfer", "recharge", "onecode"}
+// MerchantFeatureEnabled (default off, surfaced only when turned on). The
+// wave-2 switches in MerchantSwitchDefaultOnKeys are default-ON too.
+var MerchantFeatureVisibleKeys = append([]string{"internal_transfer", "recharge", "onecode"}, MerchantSwitchDefaultOnKeys...)
 
 // MerchantFeatureVisible reports whether a default-ON merchant feature is
 // enabled: true unless the stored value is exactly "0". A missing row means ON,

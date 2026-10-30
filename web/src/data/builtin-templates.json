@@ -1,0 +1,98 @@
+[
+  {
+    "type": "home",
+    "name": "default",
+    "title": "默认首页模板",
+    "description": "居中横幅 + 功能卡片 + 合作伙伴"
+  },
+  {
+    "type": "home",
+    "name": "index1",
+    "title": "简约通用风首页模板",
+    "description": "左右分栏横幅 + 核心能力 + 服务指标"
+  },
+  {
+    "type": "home",
+    "name": "index2",
+    "title": "清新扁平风首页模板",
+    "description": "扁平横幅 + 常见问题 + 支付渠道"
+  },
+  {
+    "type": "home",
+    "name": "index3",
+    "title": "粒子特效首页模板",
+    "description": "粒子背景横幅 + 支付场景 + 支付渠道"
+  },
+  {
+    "type": "home",
+    "name": "index4",
+    "title": "Bootstrap企业风首页模板",
+    "description": "企业官网结构：服务指标 + 平台优势 + 选择理由"
+  },
+  {
+    "type": "home",
+    "name": "index5",
+    "title": "蓝色科技风首页模板",
+    "description": "整幅色块横幅 + 服务指标 + 核心能力"
+  },
+  {
+    "type": "home",
+    "name": "index6",
+    "title": "紫色科技风首页模板",
+    "description": "分栏横幅 + 卖点清单 + 接入流程"
+  },
+  {
+    "type": "home",
+    "name": "index7",
+    "title": "深色科技风首页模板",
+    "description": "深色视觉 + 解决方案 + 行动号召"
+  },
+  {
+    "type": "home",
+    "name": "index8",
+    "title": "经典商务风首页模板",
+    "description": "四项保障 + 收款场景 + 合作伙伴"
+  },
+  {
+    "type": "home",
+    "name": "index9",
+    "title": "简洁大气风首页模板",
+    "description": "大标题横幅 + 接入流程 + 核心能力"
+  },
+  {
+    "type": "home",
+    "name": "index10",
+    "title": "动效展示风首页模板",
+    "description": "渐变横幅 + 六步接入 + 进场动效"
+  },
+  {
+    "type": "home",
+    "name": "minimal",
+    "title": "单卡极简首页模板",
+    "description": "GOEPAY 附加样式：一张卡片，只有品牌与说明"
+  },
+  {
+    "type": "pay",
+    "name": "default",
+    "title": "默认支付页模板",
+    "description": "本地内置标准布局"
+  },
+  {
+    "type": "pay",
+    "name": "compact",
+    "title": "紧凑支付页模板",
+    "description": "本地内置紧凑布局"
+  },
+  {
+    "type": "qrpay",
+    "name": "default",
+    "title": "默认聚合收款页模板",
+    "description": "本地内置标准布局"
+  },
+  {
+    "type": "qrpay",
+    "name": "compact",
+    "title": "紧凑聚合收款页模板",
+    "description": "本地内置紧凑布局"
+  }
+]

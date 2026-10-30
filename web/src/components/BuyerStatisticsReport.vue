@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ApiClient } from "../api";
 import { reportDateRange, validDateRange } from "../reports";
+import { usePayTypeOptions } from "../pay-type-options";
 import CsvExportButton from "./CsvExportButton.vue";
 import OrderBlacklistDialog from "./OrderBlacklistDialog.vue";
 import KitPagination from "./KitPagination.vue";
@@ -15,6 +16,12 @@ const props = defineProps<{
   ownSession?: boolean;
   adminClass?: string;
 }>();
+const clientRef = computed(() => props.client);
+const payTypeChoices = usePayTypeOptions(clientRef);
+const payTypeOptions = computed(() => [
+  { value: "", label: "所有支付方式" },
+  ...payTypeChoices.value,
+]);
 type BuyerRow = {
   user: string;
   order_count: string;
@@ -239,12 +246,7 @@ onBeforeUnmount(() => {
         <KitField label="支付方式">
           <KitSelect
             v-model="type"
-            :options="[
-              { value: '', label: '所有支付方式' },
-              { value: 'alipay', label: '支付宝' },
-              { value: 'wxpay', label: '微信支付' },
-              { value: 'sandbox', label: '本地模拟' },
-            ]"
+            :options="payTypeOptions"
             aria-label="支付方式"
           />
         </KitField>
@@ -300,9 +302,6 @@ onBeforeUnmount(() => {
           >共 <strong>{{ total }}</strong> 条记录</span
         >
         <div class="table-tools-end">
-          <KitHelpPopover
-            text="只统计查询日期内已付款订单，日期按北京时间。未记录的账号或IP不合并为虚构用户；付款金额可按行刷新。"
-          />
           <button
             type="button"
             class="icon-button table-refresh"
@@ -313,6 +312,9 @@ onBeforeUnmount(() => {
           >
             <ShellIcon name="refresh" />
           </button>
+          <KitHelpPopover
+            text="只统计查询日期内已付款订单，日期按北京时间。未记录的账号或IP不合并为虚构用户；付款金额可按行刷新。"
+          />
         </div>
       </div>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
@@ -384,6 +386,7 @@ onBeforeUnmount(() => {
               <td>
                 <RouterLink
                   v-if="validTrade(row.trade_no)"
+                  class="pa-order-no"
                   :to="orderLink(row.trade_no, 'trade_no')"
                   >{{ row.trade_no }}</RouterLink
                 ><span v-else>未记录</span>

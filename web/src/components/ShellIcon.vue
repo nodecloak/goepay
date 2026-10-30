@@ -32,6 +32,8 @@ const paths: Record<string, string> = {
   filter: "M4 5h16l-6 7.5V19l-4 2v-8.5z",
   info: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM12 11v5.5M12 7.5v.5",
   plus: "M12 5v14M5 12h14",
+  copy: "M9 9h11v11H9zM15 9V4H4v11h5",
+  check: "M5 12.5l4.5 4.5L19 7.5",
   // Settings menu icons.
   "st-globe":
     "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9M12 3c-2.5 2.6-3.8 5.6-3.8 9s1.3 6.4 3.8 9",

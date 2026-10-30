@@ -36,6 +36,7 @@ import SettlementRecipientPanel from "./SettlementRecipientPanel.vue";
 import SettlementPayoutPanel from "./SettlementPayoutPanel.vue";
 import SettlementListTable from "./SettlementListTable.vue";
 import InternalTransferListTable from "./InternalTransferListTable.vue";
+import AdminInternalTransferListTable from "./AdminInternalTransferListTable.vue";
 import { hasOriginalSettlementProjection } from "../settlement-list";
 import { payoutFundingLabel, payoutStateLabel } from "../settlement-payout";
 import {
@@ -60,6 +61,9 @@ const emit = defineEmits<{ busy: [value: boolean]; submitted: [] }>();
 const internalMerchantList = computed(
   () => props.workflow === "internal-transfers" && props.area === "merchant",
 );
+const internalAdminList = computed(
+  () => props.workflow === "internal-transfers" && props.area === "admin",
+);
 const listNote = computed(() =>
   props.workflow === "settlements"
     ? "结算申请会独立预占申请总额；核准后仍需另行准备并明确发送钱包出款，审批通过不代表支付成功。缺失费用、资金归属或收款快照的历史记录不能出款；银行卡不适用本钱包流程。拒绝或已证明未发送的取消会释放对应冻结资金。"
@@ -77,6 +81,48 @@ function applyInternalFilters() {
 function resetInternalFilters() {
   internalDraft.value = { direction: "", status: "" };
   applyInternalFilters();
+}
+const adminInternalDraft = ref({
+  merchant_id: "",
+  recipient_id: "",
+  status: "",
+  from: "",
+  to: "",
+});
+const adminInternalApplied = ref({ ...adminInternalDraft.value });
+const adminInternalError = ref("");
+const idOrEmpty = (v: string) => v === "" || /^[1-9]\d{0,18}$/.test(v);
+function applyAdminInternalFilters() {
+  if (
+    !idOrEmpty(adminInternalDraft.value.merchant_id) ||
+    !idOrEmpty(adminInternalDraft.value.recipient_id)
+  ) {
+    adminInternalError.value = "发起方/收款方商户号格式无效";
+    return;
+  }
+  if (
+    adminInternalDraft.value.from &&
+    adminInternalDraft.value.to &&
+    adminInternalDraft.value.from > adminInternalDraft.value.to
+  ) {
+    adminInternalError.value = "开始日期不能晚于结束日期";
+    return;
+  }
+  adminInternalError.value = "";
+  adminInternalApplied.value = { ...adminInternalDraft.value };
+  page.value = 1;
+  void load();
+}
+function resetAdminInternalFilters() {
+  adminInternalDraft.value = {
+    merchant_id: "",
+    recipient_id: "",
+    status: "",
+    from: "",
+    to: "",
+  };
+  adminInternalError.value = "";
+  applyAdminInternalFilters();
 }
 const settlementRoute = readSettlementRoute(
   props.initialQuery || {},
@@ -151,6 +197,7 @@ const items = ref<Record<string, unknown>[]>([]),
   selected = ref<Record<string, unknown>>({}),
   checked = ref<string[]>([]),
   batchMode = ref(false);
+const rejectReason = ref("");
 watch(busy, (value) => emit("busy", value), { flush: "sync" });
 const validBoundMerchant = computed(
   () =>
@@ -386,6 +433,27 @@ async function load() {
                       : {}),
                   }
                 : {}),
+              ...(internalAdminList.value
+                ? {
+                    ...(adminInternalApplied.value.merchant_id
+                      ? { merchant_id: adminInternalApplied.value.merchant_id }
+                      : {}),
+                    ...(adminInternalApplied.value.recipient_id
+                      ? {
+                          recipient_id: adminInternalApplied.value.recipient_id,
+                        }
+                      : {}),
+                    ...(adminInternalApplied.value.status
+                      ? { status: adminInternalApplied.value.status }
+                      : {}),
+                    ...(adminInternalApplied.value.from
+                      ? { from: adminInternalApplied.value.from }
+                      : {}),
+                    ...(adminInternalApplied.value.to
+                      ? { to: adminInternalApplied.value.to }
+                      : {}),
+                  }
+                : {}),
               ...(props.area === "admin" && routeContext.merchantID
                 ? { merchant_id: routeContext.merchantID }
                 : {}),
@@ -522,6 +590,7 @@ function openDecision(
   selected.value = row;
   batchMode.value = false;
   dialog.value = action;
+  rejectReason.value = "";
   error.value = "";
 }
 async function decide() {
@@ -532,12 +601,20 @@ async function decide() {
   const ids = batchMode.value
     ? [...checked.value]
     : [String(selected.value.id)];
+  // A 拒绝原因 is only carried on a single admin internal-transfer rejection; it
+  // is an optional, trimmed note stored with the review's immutable event.
+  const reason =
+    action === "reject" &&
+    !batchMode.value &&
+    props.workflow === "internal-transfers"
+      ? rejectReason.value.trim()
+      : "";
   let completed = 0;
   try {
     for (const id of ids) {
       await props.client.request(
         `${endpoint}/${encodeURIComponent(id)}/${action}`,
-        { method: "POST", body: {} },
+        { method: "POST", body: reason ? { reason } : {} },
       );
       completed++;
     }
@@ -612,234 +689,321 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <template v-if="!application || !dialog">
-    <form
-      v-if="internalMerchantList && !application"
-      class="toolbar list-filter-card panel internal-transfer-filters"
-      aria-label="站内转账筛选"
-      @submit.prevent="applyInternalFilters"
-    >
-      <div class="pa-filter-fields list-filters-grid">
-        <KitField label="方向">
-          <KitSelect
-            v-model="internalDraft.direction"
-            :options="[
-              { value: '', label: '全部方向' },
-              { value: 'out', label: '转出' },
-              { value: 'in', label: '转入' },
-            ]"
+    <div class="list-page">
+      <form
+        v-if="internalMerchantList && !application"
+        class="toolbar list-filter-card panel internal-transfer-filters"
+        aria-label="站内转账筛选"
+        @submit.prevent="applyInternalFilters"
+      >
+        <div class="pa-filter-fields list-filters-grid">
+          <KitField label="方向">
+            <KitSelect
+              v-model="internalDraft.direction"
+              :options="[
+                { value: '', label: '全部方向' },
+                { value: 'out', label: '转出' },
+                { value: 'in', label: '转入' },
+              ]"
+              :disabled="loading || busy"
+              aria-label="方向"
+            />
+          </KitField>
+          <KitField label="状态">
+            <KitSelect
+              v-model="internalDraft.status"
+              :options="[
+                { value: '', label: '全部状态' },
+                { value: 'pending', label: '待审核' },
+                { value: 'approved', label: '成功' },
+                { value: 'rejected', label: '已拒绝' },
+              ]"
+              :disabled="loading || busy"
+              aria-label="状态"
+            />
+          </KitField>
+        </div>
+        <div class="pa-filter-actions">
+          <button
+            type="button"
+            class="pa-btn"
+            data-action="reset-internal-transfers"
             :disabled="loading || busy"
-            aria-label="方向"
-          />
-        </KitField>
-        <KitField label="状态">
-          <KitSelect
-            v-model="internalDraft.status"
-            :options="[
-              { value: '', label: '全部状态' },
-              { value: 'pending', label: '待审核' },
-              { value: 'approved', label: '成功' },
-              { value: 'rejected', label: '已拒绝' },
-            ]"
+            @click="resetInternalFilters"
+          >
+            重置
+          </button>
+          <button
+            type="submit"
+            class="pa-btn pa-btn--primary"
             :disabled="loading || busy"
-            aria-label="状态"
-          />
-        </KitField>
-      </div>
-      <div class="pa-filter-actions">
-        <button
-          type="button"
-          class="pa-btn"
-          data-action="reset-internal-transfers"
-          :disabled="loading || busy"
-          @click="resetInternalFilters"
-        >
-          重置
-        </button>
-        <button
-          type="submit"
-          class="pa-btn pa-btn--primary"
-          :disabled="loading || busy"
-        >
-          查询
-        </button>
-      </div>
-    </form>
-    <SettlementListFilters
-      v-if="workflow === 'settlements' && !application"
-      v-model="settlementDraft"
-      :area="area"
-      :loading="loading || busy"
-      @submit="applySettlementFilters"
-      @reset="resetSettlementFilters"
-    />
-    <p
-      v-if="
-        area === 'admin' &&
-        (workflow === 'settlements'
-          ? settlementApplied.merchant_id && !settlementRouteError
-          : routeContext.merchantID && !routeContext.error)
-      "
-      class="resource-description"
-    >
-      商户号：{{
-        workflow === "settlements"
-          ? settlementApplied.merchant_id
-          : routeContext.merchantID
-      }}
-    </p>
-    <RouterLink
-      v-if="
-        workflow === 'settlements' &&
-        (routeContext.merchantID || routeContext.error)
-      "
-      :to="`/${area}/settle/list`"
-      >清空筛选</RouterLink
-    >
-    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
-    <section class="panel records">
-      <div class="table-tools">
-        <button
-          v-if="workflow !== 'profitsharing'"
-          type="button"
-          class="primary"
-          :disabled="busy"
-          @click="openCreate"
-        >
-          <ShellIcon name="plus" />{{
-            workflow === "settlements" ? "申请结算" : "发起站内转账"
-          }}
-        </button>
-        <button
-          v-if="workflow === 'settlements' && !application"
-          type="button"
-          class="soft-button"
-          :disabled="loading || !!settlementRouteError"
-          @click="openStatistics"
-        >
-          结算统计
-        </button>
-        <KitHelpPopover v-if="!application" :text="listNote" />
-        <div class="table-tools-end">
-          <ActionDropdown
-            v-if="
-              area === 'admin' && workflow === 'settlements' && !application
-            "
-            label="批量操作"
-            trigger-text="批量操作"
-            :items="batchMenuItems"
-            :disabled="!checked.length || busy || loading"
-            @action="pickBatch"
-          />
-          <button v-if="!application" :disabled="loading" @click="load">
-            <ShellIcon name="refresh" />刷新
+          >
+            查询
           </button>
         </div>
-      </div>
-      <div v-if="loading" class="loading-row" role="status">
-        {{ internalMerchantList ? "正在加载站内转账…" : "正在加载申请…" }}
-      </div>
-      <InternalTransferListTable
-        v-else-if="internalMerchantList && !application"
-        :items="items"
-      />
-      <SettlementListTable
-        v-else-if="
-          !application &&
-          workflow === 'settlements' &&
-          hasOriginalSettlementProjection(items)
-        "
-        :items="items"
+      </form>
+      <form
+        v-if="internalAdminList && !application"
+        class="toolbar list-filter-card panel internal-transfer-filters"
+        aria-label="站内转账筛选"
+        @submit.prevent="applyAdminInternalFilters"
+      >
+        <div class="pa-filter-fields list-filters-grid">
+          <KitField label="发起方商户号">
+            <input
+              v-model="adminInternalDraft.merchant_id"
+              inputmode="numeric"
+              placeholder="发起方商户号"
+              aria-label="发起方商户号"
+            />
+          </KitField>
+          <KitField label="收款方商户号">
+            <input
+              v-model="adminInternalDraft.recipient_id"
+              inputmode="numeric"
+              placeholder="收款方商户号"
+              aria-label="收款方商户号"
+            />
+          </KitField>
+          <KitField label="状态">
+            <KitSelect
+              v-model="adminInternalDraft.status"
+              :options="[
+                { value: '', label: '全部状态' },
+                { value: 'pending', label: '待审核' },
+                { value: 'approved', label: '成功' },
+                { value: 'rejected', label: '已拒绝' },
+              ]"
+              :disabled="loading || busy"
+              aria-label="状态"
+            />
+          </KitField>
+          <KitField label="开始日期">
+            <input
+              v-model="adminInternalDraft.from"
+              type="date"
+              aria-label="开始日期"
+            />
+          </KitField>
+          <KitField label="结束日期">
+            <input
+              v-model="adminInternalDraft.to"
+              type="date"
+              aria-label="结束日期"
+            />
+          </KitField>
+        </div>
+        <p v-if="adminInternalError" class="alert error" role="alert">
+          {{ adminInternalError }}
+        </p>
+        <div class="pa-filter-actions">
+          <button
+            type="button"
+            class="pa-btn"
+            data-action="reset-admin-internal-transfers"
+            :disabled="loading || busy"
+            @click="resetAdminInternalFilters"
+          >
+            重置
+          </button>
+          <button
+            type="submit"
+            class="pa-btn pa-btn--primary"
+            :disabled="loading || busy"
+          >
+            查询
+          </button>
+        </div>
+      </form>
+      <SettlementListFilters
+        v-if="workflow === 'settlements' && !application"
+        v-model="settlementDraft"
         :area="area"
-        :checked="checked"
-        :busy="busy"
-        :client="client"
-        @check="check"
-        @decision="openDecision"
-        @payout="(id) => (payoutRequestId = id)"
+        :loading="loading || busy"
+        @submit="applySettlementFilters"
+        @reset="resetSettlementFilters"
       />
-      <div v-else-if="!application" class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th v-if="area === 'admin' && workflow === 'settlements'">
-                选择
-              </th>
-              <th v-for="column in columns" :key="column.key">
-                {{ column.label }}
-              </th>
-              <th v-if="area === 'admin' || workflow === 'settlements'">
-                操作
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in items" :key="String(row.id)">
-              <td v-if="area === 'admin' && workflow === 'settlements'">
-                <input
-                  type="checkbox"
-                  :aria-label="'选择申请 ' + row.id"
-                  :disabled="row.status !== 'pending'"
-                  :checked="checked.includes(String(row.id))"
-                  @change="
-                    check(
-                      String(row.id),
-                      ($event.target as HTMLInputElement).checked,
-                    )
-                  "
-                />
-              </td>
-              <td v-for="column in columns" :key="column.key">
-                <KitStatusTag
-                  v-if="column.key === 'status'"
-                  :text="displayValue(row.status)"
-                  :tone="workflowTone(String(row.status))"
-                />
-                <template v-else>{{ displayValue(row[column.key]) }}</template>
-              </td>
-              <td v-if="area === 'admin' || workflow === 'settlements'">
-                <div
-                  v-if="area === 'admin' && row.status === 'pending'"
-                  class="row-actions"
-                >
+      <p
+        v-if="
+          area === 'admin' &&
+          (workflow === 'settlements'
+            ? settlementApplied.merchant_id && !settlementRouteError
+            : routeContext.merchantID && !routeContext.error)
+        "
+        class="resource-description"
+      >
+        商户号：{{
+          workflow === "settlements"
+            ? settlementApplied.merchant_id
+            : routeContext.merchantID
+        }}
+      </p>
+      <RouterLink
+        v-if="
+          workflow === 'settlements' &&
+          (routeContext.merchantID || routeContext.error)
+        "
+        :to="`/${area}/settle/list`"
+        >清空筛选</RouterLink
+      >
+      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
+      <section class="panel records">
+        <div class="table-tools">
+          <button
+            v-if="workflow !== 'profitsharing'"
+            type="button"
+            class="primary"
+            :disabled="busy"
+            @click="openCreate"
+          >
+            <ShellIcon name="plus" />{{
+              workflow === "settlements" ? "申请结算" : "发起站内转账"
+            }}
+          </button>
+          <button
+            v-if="workflow === 'settlements' && !application"
+            type="button"
+            class="soft-button"
+            :disabled="loading || !!settlementRouteError"
+            @click="openStatistics"
+          >
+            结算统计
+          </button>
+          <div class="table-tools-end">
+            <ActionDropdown
+              v-if="
+                area === 'admin' && workflow === 'settlements' && !application
+              "
+              label="批量操作"
+              trigger-text="批量操作"
+              :items="batchMenuItems"
+              :disabled="!checked.length || busy || loading"
+              @action="pickBatch"
+            />
+            <button v-if="!application" :disabled="loading" @click="load">
+              <ShellIcon name="refresh" />刷新
+            </button>
+            <KitHelpPopover v-if="!application" :text="listNote" />
+          </div>
+        </div>
+        <div v-if="loading" class="loading-row" role="status">
+          {{
+            internalMerchantList || internalAdminList
+              ? "正在加载站内转账…"
+              : "正在加载申请…"
+          }}
+        </div>
+        <InternalTransferListTable
+          v-else-if="internalMerchantList && !application"
+          :items="items"
+        />
+        <AdminInternalTransferListTable
+          v-else-if="internalAdminList && !application"
+          :items="items"
+          :busy="busy"
+          @decision="openDecision"
+        />
+        <SettlementListTable
+          v-else-if="
+            !application &&
+            workflow === 'settlements' &&
+            hasOriginalSettlementProjection(items)
+          "
+          :items="items"
+          :area="area"
+          :checked="checked"
+          :busy="busy"
+          :client="client"
+          @check="check"
+          @decision="openDecision"
+          @payout="(id) => (payoutRequestId = id)"
+        />
+        <div v-else-if="!application" class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th v-if="area === 'admin' && workflow === 'settlements'">
+                  选择
+                </th>
+                <th v-for="column in columns" :key="column.key">
+                  {{ column.label }}
+                </th>
+                <th v-if="area === 'admin' || workflow === 'settlements'">
+                  操作
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in items" :key="String(row.id)">
+                <td v-if="area === 'admin' && workflow === 'settlements'">
+                  <input
+                    type="checkbox"
+                    :aria-label="'选择申请 ' + row.id"
+                    :disabled="row.status !== 'pending'"
+                    :checked="checked.includes(String(row.id))"
+                    @change="
+                      check(
+                        String(row.id),
+                        ($event.target as HTMLInputElement).checked,
+                      )
+                    "
+                  />
+                </td>
+                <td v-for="column in columns" :key="column.key">
+                  <KitStatusTag
+                    v-if="column.key === 'status'"
+                    :text="displayValue(row.status)"
+                    :tone="workflowTone(String(row.status))"
+                  />
+                  <template v-else>{{
+                    displayValue(row[column.key])
+                  }}</template>
+                </td>
+                <td v-if="area === 'admin' || workflow === 'settlements'">
+                  <div
+                    v-if="area === 'admin' && row.status === 'pending'"
+                    class="row-actions"
+                  >
+                    <button
+                      class="link-button"
+                      @click="openDecision(row, 'approve')"
+                    >
+                      核准</button
+                    ><button
+                      class="link-button danger-text"
+                      @click="openDecision(row, 'reject')"
+                    >
+                      拒绝
+                    </button>
+                  </div>
                   <button
+                    v-else-if="
+                      workflow === 'settlements' && row.status === 'approved'
+                    "
                     class="link-button"
-                    @click="openDecision(row, 'approve')"
+                    @click="payoutRequestId = String(row.id)"
                   >
-                    核准</button
-                  ><button
-                    class="link-button danger-text"
-                    @click="openDecision(row, 'reject')"
-                  >
-                    拒绝
+                    核对结算出款
                   </button>
-                </div>
-                <button
-                  v-else-if="
-                    workflow === 'settlements' && row.status === 'approved'
-                  "
-                  class="link-button"
-                  @click="payoutRequestId = String(row.id)"
-                >
-                  核对结算出款
-                </button>
-                <span v-else class="muted">已处理</span>
-              </td>
-            </tr>
-            <tr v-if="!items.length">
-              <td class="empty" :colspan="columns.length + 2">暂无申请</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <KitPagination
-        v-if="!application"
-        v-model:page="page"
-        v-model:page-size="limit"
-        :total="total"
-        @change="load"
-      />
-    </section>
+                  <span v-else class="muted">已处理</span>
+                </td>
+              </tr>
+              <tr v-if="!items.length">
+                <td class="empty" :colspan="columns.length + 2">暂无申请</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <KitPagination
+          v-if="!application"
+          v-model:page="page"
+          v-model:page-size="limit"
+          :total="total"
+          @change="load"
+        />
+      </section>
+    </div>
   </template>
   <SettlementStatistics
     v-if="statisticsOpen"
@@ -876,7 +1040,7 @@ onBeforeUnmount(() => {
             : '审批确认'
       "
     >
-      <h2>
+      <h2 v-if="!application">
         {{
           dialog === "create"
             ? workflow === "settlements"
@@ -933,7 +1097,12 @@ onBeforeUnmount(() => {
         />
         <label
           >金额（元）<span class="settle-amount-row"
-            ><input v-model="form.amount" required inputmode="decimal" /><button
+            ><input
+              v-model="form.amount"
+              required
+              inputmode="decimal"
+              aria-label="金额（元）"
+            /><button
               v-if="workflow === 'settlements'"
               type="button"
               class="settle-all-btn"
@@ -1029,6 +1198,20 @@ onBeforeUnmount(() => {
               : "请核对申请编号 " + selected.id + " 的账务信息。"
           }}
         </p>
+        <label
+          v-if="
+            dialog === 'reject' &&
+            !batchMode &&
+            workflow === 'internal-transfers'
+          "
+          >拒绝原因（选填）<textarea
+            v-model="rejectReason"
+            rows="2"
+            maxlength="500"
+            placeholder="填写拒绝原因，将记录在审核事件中"
+            aria-label="拒绝原因"
+          ></textarea>
+        </label>
         <div class="modal-actions">
           <button :disabled="busy" @click="dialog = null">取消</button
           ><button class="primary" :disabled="busy" @click="decide">

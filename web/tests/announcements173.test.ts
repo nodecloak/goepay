@@ -92,7 +92,9 @@ it("uses original two cards and content/sort/color without an extra required tit
   });
   await flushPromises();
   expect(w.text()).toContain("添加公告");
-  expect(w.text()).toContain("已发公告");
+  // The list keeps its name as a section label; no page-title heading.
+  expect(w.find('section[aria-label="已发公告"]').exists()).toBe(true);
+  expect(w.findAll("h2").map((h) => h.text())).not.toContain("已发公告");
   expect(w.find('input[aria-label="标题"]').exists()).toBe(false);
   await openAdd(w);
   const editor = w.get("[contenteditable]");

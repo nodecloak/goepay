@@ -61,6 +61,24 @@ it("reads the SMS capability strictly and defaults absent responses to false", (
     parseEnrollmentCapabilities({ ...base, sms_enabled: "true" }),
   ).toThrow();
 });
+it("reads the verify_type capability strictly and defaults absent responses to empty", () => {
+  const base = {
+    registration_open: true,
+    email_enabled: true,
+    invite_required: false,
+    expires_seconds: 600,
+  };
+  expect(parseEnrollmentCapabilities(base).verify_type).toBe("");
+  expect(
+    parseEnrollmentCapabilities({ ...base, verify_type: "email" }).verify_type,
+  ).toBe("email");
+  expect(
+    parseEnrollmentCapabilities({ ...base, verify_type: "phone" }).verify_type,
+  ).toBe("phone");
+  expect(() =>
+    parseEnrollmentCapabilities({ ...base, verify_type: "sms" }),
+  ).toThrow();
+});
 it("pending pay2 registration tells the user to wait for review and rejects malformed result states", () => {
   expect("registrationNotice" in enrollment).toBe(true);
   const notice = (

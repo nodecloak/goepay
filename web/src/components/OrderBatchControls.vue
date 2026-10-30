@@ -320,7 +320,11 @@ onBeforeUnmount(() => {
         <details v-if="pending">
           <summary>核对所选系统订单号</summary>
           <ul>
-            <li v-for="item in pending.items" :key="item.trade_no">
+            <li
+              v-for="item in pending.items"
+              :key="item.trade_no"
+              class="pa-order-no"
+            >
               {{ item.trade_no }}
             </li>
           </ul>

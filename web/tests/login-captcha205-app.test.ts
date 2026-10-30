@@ -54,7 +54,10 @@ it("205 leaves the login document after an existing durable session is read", as
 });
 
 it("205 carries only a neutral reauthentication instruction across a password-change document boundary", async () => {
-  const f = await setup({ route: "/merchant/login?reauth=password", metadata: async () => response({ enabled: false }) });
+  const f = await setup({
+    route: "/merchant/login?reauth=password",
+    metadata: async () => response({ enabled: false }),
+  });
   expect(f.wrapper.text()).toContain("请使用当前有效密码重新登录");
   expect(f.wrapper.text()).not.toContain("密码已修改");
   expect(f.credentialPosts()).toEqual([]);
@@ -208,6 +211,17 @@ async function setup(options: Options = {}) {
         return options.login ? options.login(call) : response(null, 401);
       if (method === "GET" && path === "/console/v1/merchant/dashboard")
         return response(actualDashboard.group100);
+      // Merchant dashboard health tips: a read-only post-login GET fired by
+      // DashboardOverview. Stubbed empty so it is expected, not rejected.
+      if (method === "GET" && path === "/console/v1/merchant/dashboard/tips")
+        return response({ tips: [] });
+      // Authenticated 支付方式 options read (list filters / statistics dropdowns):
+      // a legitimate post-login GET, stubbed so it is expected, not rejected.
+      if (
+        method === "GET" &&
+        /^\/console\/v1\/(merchant|admin)\/pay-type-options$/.test(path)
+      )
+        return response({ items: [] });
       // Every fetch is intercepted. Optional endpoints are also explicit: a
       // missing route cannot silently look like a successful future method.
       rejected.push(`${method} ${path}`);

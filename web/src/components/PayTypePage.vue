@@ -24,6 +24,7 @@ type Row = {
   type: string;
   name: string;
   enabled: boolean;
+  device: string;
 };
 const schema = ref<ResourceSchema | null>(null);
 const items = ref<Row[]>([]);
@@ -55,6 +56,9 @@ async function load() {
   const c = controller;
   loading.value = true;
   error.value = "";
+  // A newly read schema is shown together with the rows (see finally), so
+  // the 新增 and 说明 buttons do not appear while the list is still loading.
+  let pendingSchema: ResourceSchema | null = null;
   try {
     if (!schema.value) {
       const loaded = await props.client.request<ResourceSchema>(
@@ -62,7 +66,7 @@ async function load() {
         { signal: c.signal },
       );
       if (c.signal.aborted || current !== epoch) return;
-      schema.value = loaded;
+      pendingSchema = loaded;
     }
     const data = await props.client.request<{ items: Row[] }>(endpoint, {
       signal: c.signal,
@@ -73,11 +77,15 @@ async function load() {
       type: String(r.type ?? ""),
       name: String(r.name ?? payTypeLabel(r.type)),
       enabled: r.enabled === true,
+      device: String(r.device ?? "0"),
     }));
   } catch (e) {
     if (!c.signal.aborted && current === epoch) error.value = message(e);
   } finally {
-    if (!c.signal.aborted && current === epoch) loading.value = false;
+    if (!c.signal.aborted && current === epoch) {
+      if (pendingSchema) schema.value = pendingSchema;
+      loading.value = false;
+    }
   }
 }
 // The 状态 switch saves at once: a type with no record yet (id "0") POSTs a new
@@ -94,7 +102,12 @@ async function toggle(row: Row, value: boolean) {
       if (!canCreate.value) throw new Error("当前身份不能新增支付方式");
       await props.client.request(endpoint, {
         method: "POST",
-        body: { name: row.name, type: row.type, enabled: value },
+        body: {
+          name: row.name,
+          type: row.type,
+          enabled: value,
+          device: row.device,
+        },
       });
     } else {
       await props.client.request(endpoint + "/" + encodeURIComponent(row.id), {
@@ -137,6 +150,7 @@ async function openEdit(row: Row) {
       name: row.name,
       type: row.type,
       enabled: row.enabled,
+      device: row.device,
     };
     mode.value = "create";
     return;
@@ -220,6 +234,11 @@ async function remove() {
 function orderHref(type: string) {
   return `/${props.client.area}/trade/order?type=${encodeURIComponent(type)}`;
 }
+// 支持设备 label, matching epay_pro's display_device: 0 PC+Mobile, 1 PC,
+// 2 Mobile (an unknown/absent value reads as the 0 default).
+function deviceLabel(device: string) {
+  return device === "1" ? "PC" : device === "2" ? "Mobile" : "PC+Mobile";
+}
 watch(
   () => [props.client, props.client.csrfToken, props.client.area],
   () => {
@@ -236,10 +255,10 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="panel pay-type-page" aria-label="支付方式">
-    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
-    <div class="table-tools">
+  <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+  <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
+  <section class="panel records pay-type-page" aria-label="支付方式">
+    <div v-if="schema || !loading" class="table-tools">
       <button
         v-if="canCreate"
         type="button"
@@ -253,11 +272,6 @@ onBeforeUnmount(() => {
         >系统共有<strong>{{ items.length }}</strong
         >个支付方式</span
       >
-      <KitHelpPopover
-        v-if="schema?.description"
-        label="说明"
-        :text="schema.description"
-      />
       <div class="table-tools-end">
         <button
           type="button"
@@ -267,6 +281,11 @@ onBeforeUnmount(() => {
         >
           <ShellIcon name="refresh" />刷新
         </button>
+        <KitHelpPopover
+          v-if="schema?.description"
+          label="说明"
+          :text="schema.description"
+        />
       </div>
     </div>
     <div v-if="loading" class="loading-row" role="status">正在加载记录…</div>
@@ -285,7 +304,7 @@ onBeforeUnmount(() => {
           <tr v-for="row in items" :key="row.type + ':' + row.id">
             <td class="pa-c-num">{{ row.type }}</td>
             <td><KitPayMethod :type="row.type" /></td>
-            <td>PC+Mobile</td>
+            <td>{{ deviceLabel(row.device) }}</td>
             <td>
               <KitSwitch
                 v-if="canWrite"
@@ -343,6 +362,7 @@ onBeforeUnmount(() => {
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <ResourceFields
       v-if="schema"
+      class="form-rows"
       :fields="editableFields"
       :values="values"
       :errors="fieldErrors"
@@ -371,6 +391,10 @@ onBeforeUnmount(() => {
 }
 .pay-type-page table {
   width: 100%;
+}
+/* No pager under this table: the card edge closes the last row. */
+.pay-type-page tbody tr:last-child td {
+  border-bottom: 0;
 }
 .row-actions {
   display: flex;

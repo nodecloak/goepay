@@ -37,6 +37,58 @@ export function cents(value: string): bigint | undefined {
   const [whole, fraction = ""] = value.split(".");
   return BigInt(whole!) * 100n + BigInt(fraction.padEnd(2, "0"));
 }
+const yuan = (v: bigint) => `${v / 100n}.${String(v % 100n).padStart(2, "0")}`;
+/**
+ * What the paying merchant is charged for a transfer: the amount plus the
+ * fee, rounded the way the server rounds it (fee = amount × rate%, half up
+ * to the cent). Empty when the amount or the rate is not a valid figure.
+ */
+export function transferCost(
+  amount: string,
+  rate?: string,
+): { cost: string; fee: string } | undefined {
+  const a = cents(amount),
+    r = cents(rate || "0");
+  if (a === undefined || a <= 0n || r === undefined || r > 10000n) return;
+  const fee = (a / 10000n) * r + ((a % 10000n) * r + 5000n) / 10000n;
+  return { cost: yuan(a + fee), fee: yuan(fee) };
+}
+// The original 转账付款 dialog's wording for each GOEPAY payout type.
+export const transferTabs = [
+  { type: "alipay", label: "支付宝" },
+  { type: "wxpay", label: "微信" },
+  { type: "bank", label: "银行卡" },
+] as const;
+export const transferAccountLabel: Record<string, string> = {
+  alipay: "支付宝账号",
+  wxpay: "Openid",
+  bank: "银行卡号",
+};
+export const transferAccountPlaceholder: Record<string, string> = {
+  alipay: "支付宝登录账号或支付宝UID或支付宝Openid",
+  wxpay: "只能填写微信Openid",
+  bank: "收款方银行卡号",
+};
+export const transferNameLabel: Record<string, string> = {
+  alipay: "支付宝姓名",
+  wxpay: "真实姓名",
+  bank: "姓名",
+};
+export const transferNamePlaceholder = (type: string) =>
+  type === "bank" ? "收款方银行账户名称" : "不填写则不校验真实姓名";
+/** Original default 交易号: date("YmdHis") + 5 random digits, 19 digits. */
+export function defaultTransferNo(now = new Date(), rand = Math.random()) {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return (
+    now.getFullYear() +
+    p(now.getMonth() + 1) +
+    p(now.getDate()) +
+    p(now.getHours()) +
+    p(now.getMinutes()) +
+    p(now.getSeconds()) +
+    String(11111 + Math.floor(rand * 88889))
+  );
+}
 export function transferPolicyError(
   amount: string,
   minimum?: string,

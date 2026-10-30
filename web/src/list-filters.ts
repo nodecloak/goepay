@@ -10,6 +10,7 @@ export const orderSearchFields = [
   { value: "getmoney", label: "分成金额（元）" },
   { value: "buyer", label: "支付账号" },
   { value: "ip", label: "支付 IP" },
+  { value: "domain", label: "网站域名" },
   { value: "param", label: "扩展参数" },
 ] as const;
 export const refundSearchFields = [

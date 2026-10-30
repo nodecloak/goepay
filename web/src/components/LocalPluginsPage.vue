@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import ShellIcon from "./ShellIcon.vue";
 import PluginDetailDrawer from "./PluginDetailDrawer.vue";
+import KitPagination from "./KitPagination.vue";
 import {
   catalogKey,
   loadPluginCatalog,
@@ -18,10 +19,20 @@ const items = ref<CatalogEntry[]>([]),
   type = ref<PluginType>("payment"),
   query = ref(""),
   applied = ref(""),
-  selected = ref<CatalogEntry | null>(null);
+  selected = ref<CatalogEntry | null>(null),
+  page = ref(1),
+  pageSize = ref(20);
 const rows = computed(() =>
   localPlugins(items.value, type.value, applied.value),
 );
+const pageRows = computed(() =>
+  rows.value.slice(
+    (page.value - 1) * pageSize.value,
+    page.value * pageSize.value,
+  ),
+);
+watch([type, applied], () => (page.value = 1));
+const emit = defineEmits<{ loaded: [] }>();
 onMounted(async () => {
   try {
     items.value = await loadPluginCatalog();
@@ -29,6 +40,7 @@ onMounted(async () => {
     error.value = "插件列表读取失败，请刷新页面重试";
   } finally {
     loading.value = false;
+    emit("loaded");
   }
 });
 function reset() {
@@ -37,8 +49,12 @@ function reset() {
 }
 </script>
 <template>
-  <section class="panel plugin-page" aria-label="本地插件">
-    <form class="plugin-search" role="search" @submit.prevent="applied = query">
+  <div class="list-page">
+    <form
+      class="plugin-search list-filter-card panel"
+      role="search"
+      @submit.prevent="applied = query"
+    >
       <input
         v-model="query"
         aria-label="搜索插件名称或标识"
@@ -47,102 +63,119 @@ function reset() {
       /><button class="primary" :disabled="loading">搜索</button
       ><button type="button" :disabled="loading" @click="reset">重置</button>
     </form>
-    <div class="pill-tabs" role="tablist" aria-label="插件分类">
-      <button
-        v-for="t in tabs"
-        :key="t[0]"
-        type="button"
-        role="tab"
-        :aria-selected="type === t[0]"
-        @click="type = t[0]"
-      >
-        {{ t[1] }}
-      </button>
-    </div>
-    <p v-if="loading" class="loading-row" role="status">正在读取插件列表…</p>
-    <p v-else-if="error" class="alert error" role="alert">{{ error }}</p>
-    <div v-else class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">插件名称</th>
-            <th scope="col">插件标识</th>
-            <th scope="col">链接</th>
-            <th scope="col">包含的支付方式</th>
-            <th scope="col">包含的转账方式</th>
-            <th scope="col">开发商</th>
-            <th scope="col">版本号</th>
-            <th scope="col" class="plugin-actions">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in rows" :key="catalogKey(item)">
-            <td>
-              <span class="plugin-name"
-                ><img v-if="item.icon" :src="item.icon" alt="" loading="lazy" />
-                <span v-else class="plugin-mark" aria-hidden="true">{{
-                  Array.from(item.title)[0]
-                }}</span
-                >{{ item.title }}</span
-              >
-            </td>
-            <td class="numeric">{{ item.name }}</td>
-            <td>
-              <a
-                v-if="item.link"
-                class="plugin-link"
-                :href="item.link"
-                target="_blank"
-                rel="noreferrer noopener"
-                :aria-label="item.title + '官网'"
-                :title="item.link"
-                ><ShellIcon name="link"
-              /></a>
-              <span v-else>-</span>
-            </td>
-            <td>{{ item.pay.join(",") || "-" }}</td>
-            <td>{{ item.trans.join(",") || "-" }}</td>
-            <td>{{ item.author || "-" }}</td>
-            <td>内置</td>
-            <td class="plugin-actions">
-              <button
-                type="button"
-                class="link-button"
-                :aria-label="'插件详情 ' + item.title"
-                @click="selected = item"
-              >
-                详情
-              </button>
-            </td>
-          </tr>
-          <tr v-if="!rows.length">
-            <td colspan="8" class="empty">暂无数据</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="plugin-note muted">
-      <ShellIcon name="info" />Go 版插件随服务一起发布，不从 /plugins/payment/
-      目录加载 PHP 源码。其它插件需要在 Go
-      服务中实现后才会出现在这里，原应用市场列表见“应用市场”。
-    </p>
+    <section class="panel records plugin-page" aria-label="本地插件">
+      <div class="table-tools">
+        <div class="pill-tabs" role="tablist" aria-label="插件分类">
+          <button
+            v-for="t in tabs"
+            :key="t[0]"
+            type="button"
+            role="tab"
+            :aria-selected="type === t[0]"
+            @click="type = t[0]"
+          >
+            {{ t[1] }}
+          </button>
+        </div>
+      </div>
+      <p v-if="loading" class="loading-row" role="status">正在读取插件列表…</p>
+      <p v-else-if="error" class="alert error" role="alert">{{ error }}</p>
+      <div v-else class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">插件名称</th>
+              <th scope="col">插件标识</th>
+              <th scope="col">链接</th>
+              <th scope="col">包含的支付方式</th>
+              <th scope="col">包含的转账方式</th>
+              <th scope="col">开发商</th>
+              <th scope="col">版本号</th>
+              <th scope="col" class="plugin-actions">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in pageRows" :key="catalogKey(item)">
+              <td>
+                <span class="plugin-name"
+                  ><img
+                    v-if="item.icon"
+                    :src="item.icon"
+                    alt=""
+                    loading="lazy"
+                  />
+                  <span v-else class="plugin-mark" aria-hidden="true">{{
+                    Array.from(item.title)[0]
+                  }}</span
+                  >{{ item.title }}</span
+                >
+              </td>
+              <td class="numeric">{{ item.name }}</td>
+              <td>
+                <a
+                  v-if="item.link"
+                  class="plugin-link"
+                  :href="item.link"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  :aria-label="item.title + '官网'"
+                  :title="item.link"
+                  ><ShellIcon name="link"
+                /></a>
+                <span v-else>-</span>
+              </td>
+              <td>{{ item.pay.join(",") || "-" }}</td>
+              <td>{{ item.trans.join(",") || "-" }}</td>
+              <td>{{ item.author || "-" }}</td>
+              <td>内置</td>
+              <td class="plugin-actions">
+                <button
+                  type="button"
+                  class="link-button"
+                  :aria-label="'插件详情 ' + item.title"
+                  @click="selected = item"
+                >
+                  详情
+                </button>
+              </td>
+            </tr>
+            <tr v-if="!rows.length">
+              <td colspan="8" class="empty">暂无数据</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <KitPagination
+        v-if="!loading && !error && rows.length"
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total="rows.length"
+      />
+    </section>
     <PluginDetailDrawer
       v-if="selected"
       :entry="selected"
       title="插件详情"
       @close="selected = null"
     />
-  </section>
+  </div>
 </template>
 <style scoped>
+/* The search card is a standard filter card; keep the input flexible and the
+   two buttons at its natural width. */
 .plugin-search {
   display: flex;
+  align-items: center;
   gap: 8px;
-  max-width: 520px;
-  margin-bottom: 16px;
 }
 .plugin-search input {
   flex: 1;
+  max-width: 440px;
+}
+/* The category pills sit on the card's top edge inside the toolbar; the
+   toolbar already supplies the spacing below. */
+.table-tools .pill-tabs {
+  margin: 0;
 }
 .plugin-actions {
   white-space: nowrap;
@@ -164,21 +197,5 @@ function reset() {
 .plugin-link .shell-icon {
   width: 13px;
   height: 13px;
-}
-.plugin-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  margin: 16px 0 0;
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  font-size: 12px;
-}
-.plugin-note .shell-icon {
-  width: 14px;
-  height: 14px;
-  flex: none;
-  margin-top: 3px;
 }
 </style>

@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import type { ListFilters } from "../list-filters";
 import { ledgerTypeFilters } from "../list-filters";
 import type { Area } from "../menu";
 import KitField from "./KitField.vue";
 import KitSelect from "./KitSelect.vue";
 import KitInput from "./KitInput.vue";
-defineProps<{ kind: string; area: Area; loading?: boolean }>();
+const props = defineProps<{
+  kind: string;
+  area: Area;
+  loading?: boolean;
+  payTypeOptions?: { value: string; label: string }[];
+}>();
 const filters = defineModel<ListFilters>({ required: true });
 defineEmits<{ reset: [] }>();
 const expanded = ref(false);
@@ -28,12 +33,14 @@ const refundStatusOptions = [
   { value: "unknown", label: "结果待核对" },
   { value: "failed", label: "明确失败" },
 ];
-const typeOptions = [
+const typeOptions = computed(() => [
   { value: "", label: "全部方式" },
-  { value: "alipay", label: "支付宝" },
-  { value: "wxpay", label: "微信支付" },
-  { value: "sandbox", label: "本地模拟" },
-];
+  ...(props.payTypeOptions ?? [
+    { value: "alipay", label: "支付宝" },
+    { value: "wxpay", label: "微信支付" },
+    { value: "sandbox", label: "本地模拟" },
+  ]),
+]);
 const notificationOptions = [
   { value: "", label: "全部通知状态" },
   { value: "none", label: "尚无通知任务" },

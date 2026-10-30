@@ -156,7 +156,8 @@ async function send() {
     <div v-if="confirming && allowed" class="alert">
       <h4>核对商户通知重发</h4>
       <p>
-        订单 {{ tradeNo }} 将使用服务端保存的商户通知地址。原请求号
+        订单 <span class="pa-order-no">{{ tradeNo }}</span>
+        将使用服务端保存的商户通知地址。原请求号
         {{ requestNo }}
         会持久去重；网络错误时保留此请求号，只有明确的新操作才创建新号。
       </p>

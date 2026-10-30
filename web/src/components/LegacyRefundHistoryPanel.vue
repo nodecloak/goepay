@@ -111,8 +111,8 @@ async function load(next = false) {
         </thead>
         <tbody>
           <tr v-for="row in rows" :key="row.id">
-            <td>{{ row.refund_no }}</td>
-            <td>{{ row.trade_no }}</td>
+            <td class="pa-order-no">{{ row.refund_no }}</td>
+            <td class="pa-order-no">{{ row.trade_no }}</td>
             <td>{{ centsMoney(row.amount) }}</td>
             <td>{{ status(row.legacy_status) }}</td>
             <td>{{ row.export_id }}</td>

@@ -89,23 +89,35 @@ test("Ali bank transfer requires private account name without Wx code and keeps 
   });
   await page.goto("/merchant/transfer");
   await page.getByRole("button", { name: "申请付款", exact: true }).click();
-  const modal = page.getByRole("dialog", { name: "申请付款" });
-  await expect(modal.getByLabel("收款方式")).toHaveValue("alipay");
+  const modal = page.getByRole("dialog", { name: "转账付款" });
+  const pick = async (select: string, option: string | RegExp) => {
+    await modal.getByRole("button", { name: select }).click();
+    await modal.getByRole("option", { name: option, exact: true }).click();
+  };
+  await expect(modal.getByRole("tab", { name: "支付宝" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await expect(modal).not.toContainText("支付宝银行卡（对私）");
-  await modal.getByLabel("收款方式").selectOption("bank");
-  await modal.getByLabel("付款通道").selectOption("4");
-  await modal.getByLabel("开户银行编号").selectOption("1002");
-  await modal.getByLabel("付款通道").selectOption("3");
-  await expect(modal.getByLabel("收款人姓名")).toHaveAttribute("required", "");
-  await expect(modal.getByLabel("开户银行编号")).toHaveCount(0);
+  await modal.getByRole("tab", { name: "银行卡" }).click();
+  await pick("通道选择", "通道 4");
+  await pick("开户银行编号", /（1002）$/);
+  await pick("通道选择", "通道 3");
+  await expect(
+    modal.locator(".pa-label--req", { hasText: /^姓名$/ }),
+  ).toHaveCount(1);
+  await expect(modal.getByRole("button", { name: "开户银行编号" })).toHaveCount(
+    0,
+  );
   await expect(modal).toContainText("支付宝银行卡（对私）");
-  await modal.getByLabel("收款账号").fill("6222020202020202020");
-  await modal.getByLabel("收款人姓名").fill("Synthetic Person");
-  await modal.getByLabel("付款金额（元）").fill("1.00");
-  await modal.getByRole("button", { name: "核对付款信息" }).click();
-  await expect(modal).toContainText("无需微信银行编号");
+  await modal.getByLabel("银行卡号").fill("6222020202020202020");
+  await modal.getByLabel("姓名", { exact: true }).fill("Synthetic Person");
+  await modal.getByLabel("转账金额").fill("1.00");
+  await modal.getByRole("button", { name: "立即转账" }).click();
+  const check = page.getByRole("dialog", { name: "核对付款" });
+  await expect(check).toContainText("无需微信银行编号");
   expect(creates).toBe(0);
-  await modal.getByRole("button", { name: "确认提交付款" }).click();
+  await check.getByRole("button", { name: "确认提交付款" }).click();
   const detail = page.getByRole("dialog", { name: "付款详情" });
   await expect(detail).toContainText("预计银行手续费（分，仅估算）");
   await expect(detail).toContainText("17");
@@ -172,13 +184,9 @@ test("unknown or inconsistent bank product capability is not usable", async ({
   });
   await page.goto("/merchant/transfer");
   await page.getByRole("button", { name: "申请付款", exact: true }).click();
-  const modal = page.getByRole("dialog");
-  await expect(
-    modal.getByRole("button", { name: "核对付款信息" }),
-  ).toBeDisabled();
+  const modal = page.getByRole("dialog", { name: "转账付款" });
+  await expect(modal.getByRole("button", { name: "立即转账" })).toBeDisabled();
   await expect(modal).toContainText("银行卡产品能力尚未核实");
-  await expect(
-    modal.getByLabel("收款方式").locator('option[value="bank"]'),
-  ).toHaveCount(0);
+  await expect(modal.getByRole("tab", { name: "银行卡" })).toBeDisabled();
   expect(writes).toBe(0);
 });

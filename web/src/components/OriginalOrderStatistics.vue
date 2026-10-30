@@ -14,6 +14,7 @@ import {
   statisticsMoney,
   statisticsTrend,
 } from "../original-order-statistics";
+import { usePayTypeOptions } from "../pay-type-options";
 import CsvExportButton from "./CsvExportButton.vue";
 import ShellIcon from "./ShellIcon.vue";
 import KitHelpPopover from "./KitHelpPopover.vue";
@@ -21,6 +22,12 @@ import KitField from "./KitField.vue";
 import KitInput from "./KitInput.vue";
 import KitSelect from "./KitSelect.vue";
 const props = defineProps<{ client: ApiClient; report: string }>();
+const clientRef = computed(() => props.client);
+const payTypeChoices = usePayTypeOptions(clientRef);
+const payTypeOptions = computed(() => [
+  { value: "", label: "所有支付方式" },
+  ...payTypeChoices.value,
+]);
 const today = () => reportDateRange("today")!;
 const filter = reactive({
   type: "",
@@ -188,12 +195,7 @@ const visibleRows = computed(() =>
         <KitField label="支付方式">
           <KitSelect
             v-model="filter.type"
-            :options="[
-              { value: '', label: '所有支付方式' },
-              { value: 'alipay', label: '支付宝' },
-              { value: 'wxpay', label: '微信支付' },
-              { value: 'sandbox', label: '本地模拟' },
-            ]"
+            :options="payTypeOptions"
             aria-label="支付方式"
           />
         </KitField>
@@ -242,6 +244,16 @@ const visibleRows = computed(() =>
           >共 <strong>{{ items.length }}</strong> 条记录</span
         >
         <div class="table-tools-end">
+          <button
+            type="button"
+            class="icon-button table-refresh"
+            :aria-label="loading ? '正在更新…' : '刷新数据'"
+            :title="loading ? '正在更新…' : '刷新数据'"
+            :disabled="loading"
+            @click="load"
+          >
+            <ShellIcon name="refresh" />
+          </button>
           <KitHelpPopover>
             <p class="table-note">
               按北京时间的订单创建日期统计{{
@@ -259,16 +271,6 @@ const visibleRows = computed(() =>
               }}通道名称以已记录通道号标识。
             </p>
           </KitHelpPopover>
-          <button
-            type="button"
-            class="icon-button table-refresh"
-            :aria-label="loading ? '正在更新…' : '刷新数据'"
-            :title="loading ? '正在更新…' : '刷新数据'"
-            :disabled="loading"
-            @click="load"
-          >
-            <ShellIcon name="refresh" />
-          </button>
         </div>
       </div>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
@@ -397,6 +399,10 @@ const visibleRows = computed(() =>
 .statistics-total {
   font-weight: 600;
 }
+/* Same side padding as the toolbar above and the table below. */
+.original-statistics-trend {
+  padding: 0 var(--space-5);
+}
 .original-statistics-trend h2 {
   font-size: 16px;
   margin: 18px 0 12px;
@@ -416,6 +422,9 @@ const visibleRows = computed(() =>
   flex-wrap: wrap;
   list-style: none;
   padding: 0;
+  /* The legend buttons have 4px padding; this lines the first marker up
+     with the 近7天趋势 heading. */
+  margin-inline-start: -4px;
 }
 .trend-legend li {
   display: flex;

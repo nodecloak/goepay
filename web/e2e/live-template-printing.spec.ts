@@ -32,6 +32,8 @@ test("live Docker templates render in the protected iframe and both printing set
   await expect(
     page.getByRole("heading", { name: "模板配置", exact: true, level: 2 }),
   ).toBeVisible();
+  // The page opens on 首页模板; the checks below are about the pay frame.
+  await page.getByRole("button", { name: "支付页模板", exact: true }).click();
   await page
     .getByRole("button", { name: "预览已保存配置", exact: true })
     .click();
@@ -53,7 +55,7 @@ test("live Docker templates render in the protected iframe and both printing set
   expect(preview.headers()["cache-control"]).toContain("no-store");
   await page.goto("/admin/system/printing");
   await expect(
-    page.getByRole("heading", { name: "平台打印配置", exact: true, level: 2 }),
+    page.getByRole("region", { name: "平台打印配置", exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("打印服务")).toBeVisible();
   await expect(page.locator("main")).toContainText("外部执行默认关闭");

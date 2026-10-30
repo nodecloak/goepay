@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { chooseKitOption } from "./kit-select-helpers";
 
 for (const width of [1280, 375]) {
   test(`original merchant settlement permission edits and filters at ${width}`, async ({
@@ -104,7 +105,7 @@ for (const width of [1280, 375]) {
         exact: true,
       }),
     });
-    await expect(row).toContainText("结算：正常");
+    await expect(row).toContainText("结算");
     await row.getByRole("button", { name: "编辑", exact: true }).click();
     const dialog = page.getByRole("dialog", {
       name: "编辑商户管理",
@@ -125,10 +126,12 @@ for (const width of [1280, 375]) {
     expect(writes).toHaveLength(1);
     expect(writes[0]).toMatchObject({ settle: "0" });
     expect(writes[0]).not.toHaveProperty("settlement_permission_revision");
-    await expect(row).toContainText("结算：关闭");
-    await page
-      .getByLabel("商户状态筛选", { exact: true })
-      .selectOption("settle_0");
+    await expect(row).toContainText("停结");
+    await chooseKitOption(
+      page,
+      page.getByRole("button", { name: "商户状态筛选", exact: true }),
+      "结算状态关闭",
+    );
     expect(reads.at(-1)!.searchParams.has("dstatus")).toBe(false);
     await page.getByRole("button", { name: "查询", exact: true }).click();
     await expect

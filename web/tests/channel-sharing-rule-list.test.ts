@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
+import { createRouter, createMemoryHistory } from "vue-router";
 import ChannelSharingRuleList from "../src/components/ChannelSharingRuleList.vue";
 import { ApiClient } from "../src/api";
 
@@ -50,13 +51,25 @@ const rule = {
   ],
 };
 
+function makeRouter() {
+  return createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: "/", component: { template: "<div/>" } },
+      { path: "/profitsharing/order", component: { template: "<div/>" } },
+      { path: "/:pathMatch(.*)*", component: { template: "<div/>" } },
+    ],
+  });
+}
+
 const render = (
   request: (...args: any[]) => any,
   area: "admin" | "merchant" = "admin",
+  router = makeRouter(),
 ) =>
   mount(ChannelSharingRuleList, {
     props: { client: Object.assign(new ApiClient(area), { request }), area },
-    global: { stubs: { Teleport: true } },
+    global: { stubs: { Teleport: true }, plugins: [router] },
   });
 
 async function open(w: ReturnType<typeof render>) {
@@ -194,5 +207,51 @@ it("toggles a rule off through the disable endpoint", async () => {
   await w.get('[data-action="toggle"]').trigger("click");
   await flushPromises();
   expect(disabled).toBe(true);
+  w.unmount();
+});
+
+it("记录 row link navigates to 分账记录 filtered by the rule id", async () => {
+  const router = makeRouter();
+  const w = render(listRequest(), "admin", router);
+  await open(w);
+  const record = w.get('[data-action="record"]');
+  expect(record.text()).toBe("记录");
+  await record.trigger("click");
+  await flushPromises();
+  expect(router.currentRoute.value.path).toBe("/profitsharing/order");
+  expect(router.currentRoute.value.query.rule_id).toBe("5");
+  w.unmount();
+});
+
+it("the grey 新增 says why: query first, then the server's no-channel reason", async () => {
+  const none = {
+    ...caps,
+    available: false,
+    reason: "当前未配置支持渠道分账的通道；模拟通道不执行真实分账",
+    channels: [],
+  };
+  const request = listRequest(async (path: string) =>
+    path.includes("channels") ? none : undefined,
+  );
+  const w = render(request);
+  const button = () => w.get('[data-action="create"]');
+  const hint = () => w.find(".create-hint");
+  expect(button().attributes("disabled")).toBeDefined();
+  expect(hint().text()).toBe("请先输入商户ID并查询");
+  await open(w);
+  expect(button().attributes("disabled")).toBeDefined();
+  expect(hint().text()).toBe(none.reason);
+  // The reason is said once, beside the button.
+  expect(w.text().split(none.reason).length - 1).toBe(1);
+  w.unmount();
+});
+
+it("no hint once a supported channel is loaded", async () => {
+  const w = render(listRequest());
+  await open(w);
+  expect(
+    w.get('[data-action="create"]').attributes("disabled"),
+  ).toBeUndefined();
+  expect(w.find(".create-hint").exists()).toBe(false);
   w.unmount();
 });

@@ -25,7 +25,10 @@ func TestParentChannel180WeixinCatalogAndBindingsRequireCurrentOriginalSuper(t *
 					t.Fatal(err)
 				}
 			case "expired_session":
-				if _, err := f.p.Exec(t.Context(), `UPDATE console_sessions SET expires_at=clock_timestamp()-interval '1 second'`); err != nil {
+				// The server compares expires_at with its own clock, and the test
+				// database's clock runs about half a second ahead of the host, so
+				// a one-second margin made this case flaky. One hour is unambiguous.
+				if _, err := f.p.Exec(t.Context(), `UPDATE console_sessions SET expires_at=clock_timestamp()-interval '1 hour'`); err != nil {
 					t.Fatal(err)
 				}
 			case "disabled_admin":
@@ -41,7 +44,7 @@ func TestParentChannel180WeixinCatalogAndBindingsRequireCurrentOriginalSuper(t *
 			}
 			w := parent180HTTP(f, "POST", "/bind-weixin", `{"type":0,"weixin":"0","items":[]}`)
 			if w.Code != 401 && w.Code != 403 {
-				t.Fatal("non-super reached binding write", scenario, w.Code)
+				t.Fatal("non-super reached binding write", scenario, w.Code, w.Body.String())
 			}
 			if setup.creates.Load() != 0 {
 				t.Fatal("permission probe sent a payment")

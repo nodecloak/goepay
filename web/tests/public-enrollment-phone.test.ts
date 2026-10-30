@@ -17,16 +17,21 @@ function ok(data: unknown) {
     status: 200,
   });
 }
-const caps = (sms: boolean) => ({
+const caps = (sms: boolean, verify_type: "email" | "phone" | "" = "") => ({
   review_required: false,
   registration_open: true,
   email_enabled: true,
   sms_enabled: sms,
   invite_required: false,
   expires_seconds: 600,
+  verify_type,
 });
 
-async function setup(sms: boolean, purpose: "register" | "recover") {
+async function setup(
+  sms: boolean,
+  purpose: "register" | "recover",
+  verify_type: "email" | "phone" | "" = "",
+) {
   const calls: Call[] = [];
   vi.stubGlobal(
     "fetch",
@@ -34,7 +39,8 @@ async function setup(sms: boolean, purpose: "register" | "recover") {
       const path = String(input);
       const body = init?.body ? JSON.parse(String(init.body)) : undefined;
       calls.push({ path, body });
-      if (path.endsWith("/public/capabilities")) return ok(caps(sms));
+      if (path.endsWith("/public/capabilities"))
+        return ok(caps(sms, verify_type));
       if (path.endsWith("/public/sms-code")) return ok(null);
       if (path.endsWith("/public/register-phone"))
         return ok({ merchant_id: "5001", username: "phoneuser", pay: "1" });
@@ -136,4 +142,51 @@ it("offers phone find-password and submits to recover-password-phone", async () 
   expect(calls.some((c) => c.path.endsWith("/public/recover-password"))).toBe(
     false,
   );
+});
+
+it("verify_type=email on register shows only email and hides the phone channel even with SMS on", async () => {
+  const { w } = await setup(true, "register", "email");
+  // The channel tabs are suppressed and only the email path is offered.
+  expect(w.text()).not.toContain("手机验证");
+  expect(w.find('[name="enrollment-phone"]').exists()).toBe(false);
+  expect(w.find('[name="enrollment-email"]').exists()).toBe(true);
+});
+
+it("verify_type=phone on register shows only the phone path and hides email", async () => {
+  const { w, calls } = await setup(true, "register", "phone");
+  // No channel tabs, no email field; the phone field is shown directly.
+  expect(w.find('[name="enrollment-email"]').exists()).toBe(false);
+  expect(w.find('[name="enrollment-phone"]').exists()).toBe(true);
+  await w.get('[name="enrollment-phone"]').setValue("13800138222");
+  await w
+    .findAll("button")
+    .find((b) => b.text() === "发送验证码")!
+    .trigger("click");
+  await flushPromises();
+  // A send goes to the SMS endpoint, never the email verification-code one.
+  expect(calls.some((c) => c.path.endsWith("/public/sms-code"))).toBe(true);
+  expect(calls.some((c) => c.path.endsWith("/public/verification-code"))).toBe(
+    false,
+  );
+});
+
+it("verify_type=phone with SMS off shows the notice and keeps submit disabled", async () => {
+  const { w } = await setup(false, "register", "phone");
+  expect(w.text()).toContain(
+    "当前仅支持手机验证注册，短信服务暂不可用，请联系管理员",
+  );
+  // Neither contact field is offered.
+  expect(w.find('[name="enrollment-phone"]').exists()).toBe(false);
+  expect(w.find('[name="enrollment-email"]').exists()).toBe(false);
+  // The submit button is disabled.
+  const submit = w.findAll("button").find((b) => b.text() === "完成注册");
+  expect(submit).toBeDefined();
+  expect((submit!.element as HTMLButtonElement).disabled).toBe(true);
+});
+
+it("verify_type on recover is ignored: both channels remain available", async () => {
+  const { w } = await setup(true, "recover", "email");
+  // Recovery is never restricted, so the phone channel tab is still offered.
+  expect(w.text()).toContain("手机验证");
+  expect(w.find('[name="enrollment-email"]').exists()).toBe(true);
 });

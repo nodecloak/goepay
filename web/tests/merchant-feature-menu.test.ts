@@ -14,8 +14,40 @@ describe("merchant feature menu-hide", () => {
 
   it("shows all feature entries when no flags are supplied", () => {
     const all = ids();
-    for (const id of ["InternalTransfer", "Recharge", "Onecode", "Complain"])
+    for (const id of [
+      "InternalTransfer",
+      "Recharge",
+      "Onecode",
+      "Complain",
+      "MerchantTransferBatches",
+    ])
       expect(all, id).toContain(id);
+  });
+
+  it("hides the 批量付款 entry when user_transfer_batch is off, keeps it when on", () => {
+    expect(ids({ user_transfer_batch: false })).not.toContain(
+      "MerchantTransferBatches",
+    );
+    expect(ids({ user_transfer_batch: true })).toContain(
+      "MerchantTransferBatches",
+    );
+    expect(ids()).toContain("MerchantTransferBatches");
+  });
+
+  it("hides the 支付通道 (子通道) entry and route when subchannel_open is off", () => {
+    expect(ids()).toContain("SubChannel");
+    expect(ids({ subchannel_open: true })).toContain("SubChannel");
+    expect(ids({ subchannel_open: false })).not.toContain("SubChannel");
+    expect(
+      pageAuthorizedFor(
+        "merchant",
+        "/subchannel",
+        "merchant",
+        undefined,
+        undefined,
+        { subchannel_open: false },
+      ),
+    ).toBe(false);
   });
 
   it("hides an entry whose feature flag is false", () => {

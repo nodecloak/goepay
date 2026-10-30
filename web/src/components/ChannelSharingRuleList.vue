@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import { ApiError, type ApiClient } from "../api";
 import type { Area } from "../menu";
 import { minorYuan } from "../pro-console-fields";
@@ -11,6 +12,7 @@ import KitStatusTag from "./KitStatusTag.vue";
 import KitPayMethod from "./KitPayMethod.vue";
 import KitEmpty from "./KitEmpty.vue";
 import KitModal from "./KitModal.vue";
+import ShellIcon from "./ShellIcon.vue";
 
 // Pro 分账规则 (profitsharing/receiver) presented over GOEPAY's provider-bound
 // channel-sharing API. One Pro "规则" row = one payment channel's current rule
@@ -23,6 +25,19 @@ const props = defineProps<{
   client: ApiClient;
   area: Area;
 }>();
+
+const router = useRouter();
+
+// Pro 记录 row link: open 分账记录 (profitsharing/order) filtered to this rule's
+// id, mirroring epay_pro's 记录 → /profitsharing/order?rid=. The order list
+// reads rule_id from the route query and prefills its 分账规则ID filter.
+function openRecord(row: Row) {
+  if (!row.rule) return;
+  void router.push({
+    path: "/profitsharing/order",
+    query: { rule_id: row.rule.id },
+  });
+}
 
 type Channel = {
   channel_id: string;
@@ -71,6 +86,16 @@ const notice = ref("");
 const reason = ref("");
 const rows = ref<Row[]>([]);
 const loaded = ref(false);
+// Why 新增 is grey: the admin has not queried a merchant yet, or the merchant
+// has no channel that supports channel profit-sharing (the server's reason).
+const createHint = computed(() => {
+  if (loading.value || saving.value) return "";
+  if (!loaded.value)
+    return props.area === "admin" ? "请先输入商户ID并查询" : "";
+  if (!rows.value.length)
+    return reason.value || "当前商户没有支持渠道分账的支付通道";
+  return "";
+});
 
 // Pro 分账规则 list search: by 规则ID or 接收方账号 (client-side over loaded rows).
 const searchField = ref("id");
@@ -567,12 +592,14 @@ function onReset() {
       </KitField>
     </KitFilterBar>
 
-    <section class="panel sharing-rules" aria-label="分账规则">
-      <p v-if="error" class="error" role="alert">{{ error }}</p>
-      <p v-if="notice" class="success" role="status">{{ notice }}</p>
-      <p v-if="reason" class="muted" role="status">{{ reason }}</p>
+    <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+    <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
+    <p v-if="reason && rows.length" class="muted" role="status">
+      {{ reason }}
+    </p>
 
-      <div class="pa-toolbar">
+    <section class="panel records sharing-rules" aria-label="分账规则">
+      <div class="table-tools">
         <button
           type="button"
           class="pa-btn pa-btn--primary"
@@ -580,11 +607,14 @@ function onReset() {
           :disabled="loading || saving || !loaded || !rows.length"
           @click="openAdd"
         >
-          新增
+          <ShellIcon name="plus" />新增
         </button>
+        <span v-if="createHint" class="create-hint table-summary" role="note">{{
+          createHint
+        }}</span>
       </div>
 
-      <div class="pa-table-wrap">
+      <div class="table-scroll">
         <table class="pa-table">
           <thead>
             <tr>
@@ -653,6 +683,17 @@ function onReset() {
                     @click="toggleEnabled(row)"
                   >
                     {{ row.enabled ? "关闭" : "开启" }}
+                  </button>
+                  <button
+                    v-if="row.rule"
+                    type="button"
+                    class="pa-btn"
+                    data-action="record"
+                    :disabled="saving"
+                    title="查看该规则的分账记录"
+                    @click="openRecord(row)"
+                  >
+                    记录
                   </button>
                 </div>
               </td>
@@ -776,17 +817,13 @@ function onReset() {
 </template>
 
 <style scoped>
-.sharing-rules {
-  display: grid;
-  gap: 16px;
-  padding: 18px;
+.create-hint {
+  color: var(--ink-muted);
+  font-size: 12px;
 }
-.pa-toolbar {
-  display: flex;
-  gap: 10px;
-}
-.pa-table-wrap {
-  overflow-x: auto;
+/* No pager under this table: the card edge closes the last row. */
+.sharing-rules tbody tr:last-child td {
+  border-bottom: 0;
 }
 .sharing-recv {
   display: flex;

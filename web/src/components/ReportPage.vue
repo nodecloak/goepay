@@ -44,6 +44,20 @@ const from = ref(""),
   total = ref(0),
   loading = ref(false),
   error = ref("");
+const method = ref("");
+const merchantId = ref("");
+// epay_pro transfer/accountStat and channelStat both offer a 付款方式 filter;
+// channelStat additionally offers a 商户号 (uid) filter. GOEPAY surfaces 付款方式
+// on the per-account and per-channel transfer reports (their handlers accept the
+// `type` param), and 商户号 on the per-channel report (the `uid` param).
+const showTransferMethodFilter = computed(
+  () =>
+    props.report === "transfer-accounts" ||
+    props.report === "transfer-channels",
+);
+const showTransferMerchantFilter = computed(
+  () => props.report === "transfer-channels",
+);
 const summary = ref<Record<string, unknown> | null>(null);
 const complaintOverview = computed(() => props.report === "complaints");
 const reportNote = computed(() =>
@@ -72,6 +86,8 @@ function resetFilters() {
   shortcut.value = "";
   from.value = "";
   to.value = "";
+  method.value = "";
+  merchantId.value = "";
   page.value = 1;
   load();
 }
@@ -86,6 +102,10 @@ function reportQuery() {
   }
   if (from.value) q.set("from", from.value);
   if (to.value) q.set("to", to.value);
+  if (showTransferMethodFilter.value && method.value)
+    q.set("type", method.value);
+  if (showTransferMerchantFilter.value && merchantId.value)
+    q.set("uid", merchantId.value);
   return q;
 }
 const csvPath = computed(() => {
@@ -231,6 +251,32 @@ onBeforeUnmount(() => controller?.abort());
               @input="shortcut = ''"
             />
           </KitField>
+          <KitField v-if="showTransferMethodFilter" label="付款方式">
+            <KitSelect
+              v-model="method"
+              :options="[
+                { value: '', label: '全部方式' },
+                { value: 'alipay', label: '支付宝' },
+                { value: 'wxpay', label: '微信' },
+                { value: 'qqpay', label: 'QQ钱包' },
+                { value: 'bank', label: '银行卡' },
+              ]"
+              aria-label="付款方式"
+            />
+          </KitField>
+          <KitField v-if="showTransferMerchantFilter" label="商户号">
+            <input
+              v-model="merchantId"
+              type="text"
+              inputmode="numeric"
+              placeholder="全部商户"
+              aria-label="商户号"
+              @input="
+                merchantId = merchantId.replace(/[^0-9]/g, '');
+                shortcut = '';
+              "
+            />
+          </KitField>
         </template>
       </div>
       <div class="pa-filter-actions">
@@ -272,7 +318,6 @@ onBeforeUnmount(() => controller?.abort());
           >共 <strong>{{ total }}</strong> 条统计</span
         >
         <div class="table-tools-end">
-          <KitHelpPopover :text="reportNote" />
           <button
             type="button"
             class="icon-button table-refresh"
@@ -283,6 +328,7 @@ onBeforeUnmount(() => controller?.abort());
           >
             <ShellIcon name="refresh" />
           </button>
+          <KitHelpPopover :text="reportNote" />
         </div>
       </div>
       <div v-if="loading" class="loading-row" role="status">正在汇总统计…</div>

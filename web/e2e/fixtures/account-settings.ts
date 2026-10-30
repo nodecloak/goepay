@@ -31,6 +31,7 @@ export function accountSettingsReadFixture(
       qq: "",
       pay_minmoney: "",
       pay_maxmoney: "",
+      remain_money: "",
       bounds_valid: true,
       fingerprint: "a".repeat(64),
       can_update: true,

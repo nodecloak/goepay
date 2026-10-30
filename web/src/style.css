@@ -1141,6 +1141,13 @@ tbody tr:hover {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+/* Order and refund numbers (系统/商户/接口订单号, 退款单号) use the code font
+   everywhere, so long mixed digits and letters are easy to read and compare. */
+.pa-order-no,
+.pa-c-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
 .badge {
   display: inline-flex;
   align-items: center;
@@ -2107,18 +2114,52 @@ legend {
 }
 
 /* Dialogs: kit head (title + rule) and foot (rule + right-aligned
-   actions). */
-.modal > h2:first-child {
+   actions). Older dialogs open with an <h2>, an <h3>, or a .toolbar that
+   holds the title and a 关闭/刷新 button; they end with .modal-actions,
+   .toolbar-actions or a plain .toolbar of buttons. All get the same bars. */
+.modal > :is(h2, h3):first-child,
+.modal > .toolbar:first-child {
   margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-5)) var(--space-4);
   padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--line);
   font-size: 15px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--ink);
 }
-.modal > .modal-actions:last-child,
-.modal > form > .modal-actions:last-child {
+.modal > .toolbar:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.modal > .toolbar:first-child > :is(h2, h3) {
+  margin: 0;
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 600;
+}
+.modal > :is(.modal-actions, .toolbar-actions):last-child,
+.modal > form > :is(.modal-actions, .toolbar-actions):last-child,
+.modal > .toolbar:not(:first-child):last-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
   margin: var(--space-5) calc(-1 * var(--space-5)) calc(-1 * var(--space-5));
   padding: var(--space-3) var(--space-5);
   border-top: 1px solid var(--line);
+}
+.modal > .toolbar:not(:first-child):last-child > * {
+  margin-left: 0;
+}
+/* A toolbar inside the body (tabs, a refresh row) sits on the dialog's own
+   padding, not the 18px 20px a page-card toolbar adds. */
+.modal > .toolbar:not(:first-child):not(:last-child) {
+  padding: 0;
+  margin-bottom: var(--space-4);
 }
 @media (max-width: 768px) {
   .list-filter-card .search-group {
@@ -2157,7 +2198,8 @@ legend {
   background: var(--bg-hover);
   color: var(--ink);
 }
-.pill-tabs button[aria-selected="true"] {
+.pill-tabs button[aria-selected="true"],
+.pill-tabs button[aria-pressed="true"] {
   background: var(--primary-soft);
   color: var(--primary-text);
   font-weight: 500;
@@ -2437,14 +2479,21 @@ button.badge.state-toggle:hover:not(:disabled) {
   cursor: not-allowed;
   filter: none;
 }
+/* While loading, the spinner (14px) and its gap (4px) take 18px, and the
+   side padding gives up the same 18px (15px -> 6px each side). The button
+   keeps its width, so the filter row around it does not re-wrap or move. */
 .pa-btn--loading {
   pointer-events: none;
   opacity: 0.8;
+  gap: 4px;
+  padding-inline: 6px;
 }
 .pa-btn--loading::before {
   content: "";
-  width: 12px;
-  height: 12px;
+  box-sizing: border-box;
+  flex: none;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: 2px solid currentColor;
   border-right-color: transparent;
@@ -2873,6 +2922,13 @@ button.badge.state-toggle:hover:not(:disabled) {
   align-items: center;
   gap: 6px;
 }
+.pa-method-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  display: block;
+  object-fit: contain;
+}
 .pa-method-mark {
   width: 16px;
   height: 16px;
@@ -2883,12 +2939,6 @@ button.badge.state-toggle:hover:not(:disabled) {
   font-weight: 700;
   color: var(--on-chart);
   flex: none;
-}
-.pa-method-mark--alipay {
-  background: var(--chart-1);
-}
-.pa-method-mark--wxpay {
-  background: var(--chart-2);
 }
 .pa-method-mark--qqpay {
   background: var(--chart-3);
@@ -2989,6 +3039,113 @@ button.badge.state-toggle:hover:not(:disabled) {
   margin-right: auto;
   font-size: 12px;
   color: var(--ink-muted);
+}
+
+/* Dialog forms. Every dialog lays out its fields the way epay_pro's el-form
+   does: one label column (right-aligned, 100px; a longer label wraps), the
+   control filling the rest of the row, help and errors under the control,
+   and 16px between rows. KitModal uses KitField rows; the ResourcePage and
+   支付方式 dialogs use ResourceFields with class="form-rows". */
+.pa-modal,
+.modal {
+  --form-label-w: 100px;
+}
+.pa-modal-content .pa-field,
+:is(.pa-modal, .modal) .form-rows > label {
+  display: grid;
+  grid-template-columns: var(--form-label-w) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-3);
+  /* The global label rule adds 18px above and below every <label>. */
+  margin: 0;
+}
+:is(.pa-modal, .modal) .form-rows > label + label {
+  margin-top: var(--space-4);
+}
+.pa-modal-content .pa-field > .pa-label,
+:is(.pa-modal, .modal) .form-rows > label > .field-label {
+  text-align: right;
+  white-space: normal;
+}
+.pa-modal-content .pa-field > :not(.pa-label),
+:is(.pa-modal, .modal) .form-rows > label > :not(.field-label) {
+  grid-column: 2;
+  min-width: 0;
+  margin: 0;
+}
+.pa-modal-content
+  .pa-field
+  > :is(
+    .pa-input,
+    .pa-select,
+    select,
+    textarea,
+    input:not([type="checkbox"]):not([type="radio"])
+  ),
+:is(.pa-modal, .modal)
+  .form-rows
+  > label
+  > :is(select, textarea, input:not([type="checkbox"]):not([type="radio"])) {
+  width: 100%;
+}
+:is(.pa-modal, .modal)
+  .form-rows
+  > label
+  > :is(input[type="checkbox"], input[type="radio"]) {
+  justify-self: start;
+}
+:is(.pa-modal, .modal) .form-rows > label > :is(.field-help, .field-error) {
+  margin-top: var(--space-1);
+}
+/* Required: the same red "* " in front of the label as KitField. */
+.field-label--req::before {
+  content: "* ";
+  color: var(--danger-text);
+}
+/* Tall controls: the label lines up with their first line. */
+.pa-modal-content .pa-field:has(> textarea, > .pa-textarea),
+:is(.pa-modal, .modal)
+  .form-rows
+  > label:has(> textarea, > .admin-permission-tree) {
+  align-items: start;
+}
+.pa-modal-content .pa-field:has(> textarea, > .pa-textarea) > .pa-label,
+:is(.pa-modal, .modal)
+  .form-rows
+  > label:has(> textarea, > .admin-permission-tree)
+  > .field-label {
+  padding-top: calc((var(--control-h) - 19.5px) / 2);
+}
+/* Older dialogs (.modal): the same card surface as KitModal (some had none
+   and showed the page through), and tighter label spacing than the 18px the
+   global label rule gives: 16px between fields, 8px under a caption label
+   that sits above its control. */
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+.modal label {
+  margin: 0 0 var(--space-4);
+}
+.modal label:not(:has(input, select, textarea, .pa-input, .pa-select)) {
+  margin-bottom: var(--space-2);
+}
+@media (max-width: 520px) {
+  .pa-modal-content .pa-field,
+  :is(.pa-modal, .modal) .form-rows > label {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-1);
+  }
+  .pa-modal-content .pa-field > .pa-label,
+  :is(.pa-modal, .modal) .form-rows > label > .field-label {
+    text-align: left;
+    padding-top: 0;
+  }
+  .pa-modal-content .pa-field > :not(.pa-label),
+  :is(.pa-modal, .modal) .form-rows > label > :not(.field-label) {
+    grid-column: 1;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .pa-btn--loading::before {
@@ -3236,12 +3393,12 @@ textarea:focus {
   line-height: 1;
 }
 .pa-help-panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 60;
+  /* Rendered in <body>; KitHelpPopover sets top/left next to the trigger.
+     Above the modal scrim (1500) so a 说明 inside a dialog still shows. */
+  position: fixed;
+  z-index: 1600;
   width: max-content;
-  max-width: 360px;
+  max-width: min(360px, calc(100vw - 16px));
   padding: var(--space-3) var(--space-4);
   background: var(--bg-raised);
   border: 1px solid var(--line);
@@ -3818,8 +3975,22 @@ th {
   min-width: 0;
 }
 .list-page > .list-filter-card,
-.list-page > .pa-filter {
+.list-page > .pa-filter,
+.list-page > .alert {
   margin: 0;
+}
+/* Pages that render their cards straight into the content column (or into
+   the unnamed route wrapper) instead of a .list-page: consecutive cards sit
+   16px apart too. Vertical margins collapse in this block flow, so a card that
+   already carries a 16px bottom margin (the filter cards) stays 16px. */
+.content
+  > :is(.panel, .pa-filter, .list-filter-card, .stat-grid)
+  + :is(.panel, .pa-filter, .list-filter-card, .stat-grid),
+.content
+  > div:is(:not([class]), [class=""])
+  > :is(.panel, .pa-filter, .list-filter-card, .stat-grid)
+  + :is(.panel, .pa-filter, .list-filter-card, .stat-grid) {
+  margin-top: var(--space-4);
 }
 
 /* Any field grid inside a search card joins the card's one flex row, so its

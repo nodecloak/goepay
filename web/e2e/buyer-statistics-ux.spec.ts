@@ -55,7 +55,9 @@ for (const width of [1280, 375])
     await expect
       .poll(() => queries.at(-1)?.searchParams.get("view"))
       .toBe("original");
-    await expect(page.getByLabel("统计方式", { exact: true })).toHaveValue("0");
+    await expect(
+      page.getByRole("button", { name: "统计方式", exact: true }),
+    ).toContainText("支付账号统计");
     await expect(page.getByRole("columnheader")).toHaveText([
       "支付账号",
       "付款笔数",
@@ -91,7 +93,10 @@ for (const width of [1280, 375])
     await expect(dialog).toBeVisible();
     await expect(dialog.locator("input[readonly]")).toHaveValue("same-account");
     await dialog.getByRole("button", { name: "关闭", exact: true }).click();
-    await page.getByLabel("统计方式", { exact: true }).selectOption("2");
+    await page.getByRole("button", { name: "统计方式", exact: true }).click();
+    await page
+      .getByRole("option", { name: "支付手机号统计", exact: true })
+      .click();
     await page.getByRole("button", { name: "查询", exact: true }).click();
     await expect(
       page.getByText("未记录可信支付手机号，暂不可按手机号统计", {
@@ -165,7 +170,8 @@ test("late original account money cannot fill the next IP result and failures cl
     .getByRole("button", { name: "刷新付款金额 old-account", exact: true })
     .click();
   await expect.poll(() => refreshed).toBe(true);
-  await page.getByLabel("统计方式", { exact: true }).selectOption("1");
+  await page.getByRole("button", { name: "统计方式", exact: true }).click();
+  await page.getByRole("option", { name: "支付IP统计", exact: true }).click();
   await page.getByRole("button", { name: "查询", exact: true }).click();
   await expect(
     page.getByRole("cell", { name: "192.0.2.10", exact: true }),

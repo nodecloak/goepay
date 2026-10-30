@@ -3,13 +3,17 @@ import type { ResourceField } from "../resources";
 import { readonly } from "../resources";
 import AdminPermissionField from "./AdminPermissionField.vue";
 import { adminPermissionCatalog } from "../admin-permission-context";
-defineProps<{
+const props = defineProps<{
   fields: ResourceField[];
   values: Record<string, unknown>;
   errors: Record<string, string>;
   editing: boolean;
 }>();
 defineEmits<{ change: [name: string, value: unknown] }>();
+// Required, except a secret that may be left blank to keep it when editing.
+const marked = (field: ResourceField) =>
+  !!field.required &&
+  !(props.editing && (field.type === "password" || field.write_only));
 </script>
 <template>
   <div class="resource-fields">
@@ -18,15 +22,10 @@ defineEmits<{ change: [name: string, value: unknown] }>();
         v-if="!readonly(field, editing)"
         :class="{ 'checkbox-field': field.type === 'boolean' }"
         :for="'field-' + field.name"
-        >{{ field.label
-        }}<span
-          v-if="
-            field.required &&
-            !(editing && (field.type === 'password' || field.write_only))
-          "
-          class="required-mark"
-        >
-          *</span
+        ><span
+          class="field-label"
+          :class="{ 'field-label--req': marked(field) }"
+          >{{ field.label }}</span
         ><input
           v-if="field.type === 'boolean'"
           :id="'field-' + field.name"
@@ -49,6 +48,7 @@ defineEmits<{ change: [name: string, value: unknown] }>();
           v-else-if="field.options?.length || field.type === 'select'"
           :id="'field-' + field.name"
           :value="values[field.name]"
+          :aria-required="marked(field) || undefined"
           @change="
             $emit(
               'change',
@@ -70,6 +70,7 @@ defineEmits<{ change: [name: string, value: unknown] }>();
           :id="'field-' + field.name"
           :value="String(values[field.name] ?? '')"
           :maxlength="field.max_length"
+          :aria-required="marked(field) || undefined"
           rows="5"
           @input="
             $emit(
@@ -94,6 +95,7 @@ defineEmits<{ change: [name: string, value: unknown] }>();
               : undefined
           "
           :maxlength="field.max_length"
+          :aria-required="marked(field) || undefined"
           :aria-invalid="!!errors[field.name]"
           :aria-describedby="
             errors[field.name] ? 'error-' + field.name : undefined

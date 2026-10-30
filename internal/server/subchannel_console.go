@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"goepay/internal/backoffice"
 	"goepay/internal/identity"
 	"goepay/internal/payment"
 	"io"
@@ -106,6 +107,20 @@ func (s *Server) paymentSubchannelConsole(w http.ResponseWriter, r *http.Request
 	if s.Store == nil {
 		response(w, 503, -1, "payment subchannels unavailable", nil)
 		return true
+	}
+	// subchannel_open (default ON) gates the merchant-facing 子商户支付通道 views:
+	// when the administrator turns it off, a merchant may no longer read or act
+	// on subchannels. Administrator (super) management is not gated.
+	if role == "merchant" && s.Pool != nil {
+		on, e := backoffice.New(s.Pool, s.Store).MerchantFeatureVisible(r.Context(), "subchannel_open")
+		if e != nil {
+			response(w, 503, -1, "merchant feature unavailable", nil)
+			return true
+		}
+		if !on {
+			response(w, 403, -1, "未开启子商户支付通道功能", nil)
+			return true
+		}
 	}
 	a := payment.SubchannelActor{User: session.User, Token: token, CSRF: session.CSRF, Delegated: session.Issuer != nil}
 	if len(parts) == 4 && parts[3] == "collection-link" {

@@ -7,6 +7,10 @@ const props = defineProps<{
   cancelText?: string;
   width?: string;
   danger?: boolean;
+  /** Disable the submit button without showing the loading spinner. */
+  submitDisabled?: boolean;
+  /** Leave out the 取消 button; × and Esc still close the dialog. */
+  hideCancel?: boolean;
 }>();
 const emit = defineEmits<{ close: []; submit: [] }>();
 const panel = ref<HTMLElement>();
@@ -19,7 +23,7 @@ function onKeydown(event: KeyboardEvent) {
   }
   if (event.key !== "Tab") return;
   const focusable = panel.value?.querySelectorAll<HTMLElement>(
-    'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+    '.pa-modal-body a[href],.pa-modal-body button:not([disabled]),.pa-modal-body input:not([disabled]),.pa-modal-body select:not([disabled]),.pa-modal-body textarea:not([disabled]),.pa-modal-body [tabindex]:not([tabindex="-1"])',
   );
   if (!focusable || !focusable.length) return;
   const first = focusable[0]!;
@@ -38,7 +42,7 @@ onMounted(() => {
   void nextTick(() => {
     panel.value
       ?.querySelector<HTMLElement>(
-        "input:not([disabled]),select,textarea,button",
+        '.pa-modal-body input:not([disabled]),.pa-modal-body select:not([disabled]),.pa-modal-body textarea:not([disabled]),.pa-modal-body button:not([disabled]),.pa-modal-body a[href],.pa-modal-body [tabindex]:not([tabindex="-1"])',
       )
       ?.focus();
   });
@@ -76,7 +80,12 @@ onBeforeUnmount(() => {
             <span class="pa-modal-foot-extra"
               ><slot name="footer-extra"
             /></span>
-            <button type="button" class="pa-btn" @click="emit('close')">
+            <button
+              v-if="!hideCancel"
+              type="button"
+              class="pa-btn"
+              @click="emit('close')"
+            >
               {{ cancelText || "取消" }}
             </button>
             <button
@@ -86,7 +95,7 @@ onBeforeUnmount(() => {
                 danger ? 'pa-btn--danger' : 'pa-btn--primary',
                 { 'pa-btn--loading': loading },
               ]"
-              :disabled="loading"
+              :disabled="loading || submitDisabled"
             >
               {{ submitText || "保存" }}
             </button>

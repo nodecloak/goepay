@@ -8,6 +8,7 @@ import KitStatusTag from "./KitStatusTag.vue";
 import type { MerchantOrderActionID } from "../order-actions";
 import type { OrderActionID } from "../order-actions";
 import { beijingTimestamp } from "../console-datetime";
+import { isOrderNumberKey } from "../order-number";
 import {
   consoleValue,
   consoleColumnLabel,
@@ -98,9 +99,46 @@ function cellValue(key: string, value: unknown): string {
   const text = consoleValue(key, value, props.orders);
   return isMoneyKey(key) ? groupYuan(text) : text;
 }
+// Order rows follow epay_pro's list: two short lines per cell. The order
+// numbers cell shows the merchant order number under the system one; both
+// numbers, and the 接口订单号, are in its hover text and in 详情.
+function orderNumbersTitle(row: Record<string, unknown>): string {
+  return [
+    row.out_trade_no ? "商户订单号：" + String(row.out_trade_no) : "",
+    row.api_trade_no ? "接口订单号：" + String(row.api_trade_no) : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+type FlagTone = "success" | "warning" | "danger" | "neutral";
+function notifyTone(value: unknown): FlagTone {
+  return (
+    (
+      {
+        succeeded: "success",
+        pending: "warning",
+        running: "warning",
+        dead: "danger",
+      } as Record<string, FlagTone>
+    )[String(value)] ?? "neutral"
+  );
+}
+// epay_pro shows a notice state only once an order is paid; an unpaid order
+// has nothing to notify.
+function showNotify(row: Record<string, unknown>): boolean {
+  return (
+    row.status === "paid" || String(row.notification_state ?? "none") !== "none"
+  );
+}
+function refunded(row: Record<string, unknown>): boolean {
+  return /^[1-9]\d*$/.test(String(row.refunded_amount ?? ""));
+}
 </script>
 <template>
-  <div class="table-scroll" :class="{ 'trade-table': orders || refunds }">
+  <div
+    class="table-scroll"
+    :class="{ 'trade-table': orders || refunds, 'order-table': orders }"
+  >
     <table>
       <thead>
         <tr>
@@ -203,12 +241,14 @@ function cellValue(key: string, value: unknown): string {
             ]"
           >
             <template v-if="refunds && c.key === 'refund_no'">
-              <span class="cell">{{
+              <span class="cell pa-order-no">{{
                 String(row.platform_refund_no ?? row.refund_no ?? "—")
               }}</span>
-              <small class="cell refund-merchant-no">{{
-                String(row.out_refund_no ?? "未记录")
-              }}</small>
+              <small
+                class="cell refund-merchant-no"
+                :class="{ 'pa-order-no': row.out_refund_no }"
+                >{{ String(row.out_refund_no ?? "未记录") }}</small
+              >
             </template>
             <template v-else-if="refunds && c.key === 'amount'">
               <span class="cell numeric">¥{{ money(row.amount) }}</span>
@@ -234,7 +274,7 @@ function cellValue(key: string, value: unknown): string {
               v-else-if="
                 refunds && c.key === 'trade_no' && associatedOrder(row.trade_no)
               "
-              class="link-button"
+              class="link-button pa-order-no"
               :aria-label="'查看关联订单 ' + row.trade_no"
               @click="emit('detail', row)"
             >
@@ -243,7 +283,7 @@ function cellValue(key: string, value: unknown): string {
             <button
               v-else-if="orders && c.key === 'trade_no' && row.trade_no"
               type="button"
-              class="link-button trade-link"
+              class="link-button trade-link pa-order-no"
               :aria-label="'查看订单详情 ' + row.trade_no"
               @click="emit('detail', row)"
             >
@@ -253,7 +293,16 @@ function cellValue(key: string, value: unknown): string {
               v-else-if="c.key === 'type' && row[c.key]"
               :type="String(row[c.key])"
             />
-            <span v-else-if="isMoneyKey(c.key)" class="cell numeric"
+            <span
+              v-else-if="orders && c.key === 'name'"
+              class="cell order-ellipsis"
+              :title="String(row.name ?? '')"
+              >{{ cellValue(c.key, row[c.key]) }}</span
+            >
+            <span
+              v-else-if="isMoneyKey(c.key)"
+              class="cell"
+              :class="orders ? 'order-money' : 'numeric'"
               >¥{{ groupYuan(consoleValue(c.key, row[c.key], orders)) }}</span
             >
             <KitStatusTag
@@ -276,6 +325,7 @@ function cellValue(key: string, value: unknown): string {
             <span
               v-else
               class="cell"
+              :class="{ 'pa-order-no': isOrderNumberKey(c.key) }"
               :title="
                 ledger &&
                 (c.key === 'description' ||
@@ -295,34 +345,33 @@ function cellValue(key: string, value: unknown): string {
             >
             <small
               v-if="
-                orders && adminOrders && c.key === 'status' && row.admin_status
+                orders &&
+                adminOrders &&
+                c.key === 'status' &&
+                row.admin_status &&
+                row.admin_status !== row.status
               "
               class="cell muted"
-              >支付/账务状态：{{
-                consoleValue("status", row.status, true)
-              }}</small
+              >实际状态：{{ consoleValue("status", row.status, true) }}</small
             >
             <small
               v-if="orders && c.key === 'trade_no' && row.out_trade_no"
-              class="cell muted"
-              >商户订单号：{{ String(row.out_trade_no) }}</small
-            >
-            <small
-              v-if="orders && c.key === 'trade_no' && row.api_trade_no"
-              class="cell muted"
-              >接口订单号：{{ String(row.api_trade_no) }}</small
+              class="cell muted order-ellipsis pa-order-no"
+              :title="orderNumbersTitle(row)"
+              >{{ String(row.out_trade_no) }}</small
             >
             <small
               v-if="orders && c.key === 'merchant_id'"
-              class="cell muted order-domain"
+              class="cell muted order-ellipsis"
+              :title="row.domain ? String(row.domain) : undefined"
               >{{ row.domain ? String(row.domain) : "-" }}</small
             >
-            <small v-if="orders && c.key === 'name'" class="cell numeric muted"
+            <small v-if="orders && c.key === 'name'" class="cell order-amount"
               >¥{{ money(row.amount) }}</small
             >
             <small
               v-if="orders && c.key === 'realmoney'"
-              class="cell numeric muted"
+              class="cell order-money"
               >{{
                 row.merchant_amount === undefined ||
                 row.merchant_amount === null
@@ -330,17 +379,38 @@ function cellValue(key: string, value: unknown): string {
                   : "¥" + money(row.merchant_amount)
               }}</small
             >
-            <small v-if="orders && c.key === 'type'" class="cell muted">{{
-              row.plugin ? String(row.plugin) : "-"
-            }}</small>
+            <small
+              v-if="orders && c.key === 'type'"
+              class="cell muted order-ellipsis"
+              :title="row.plugin ? String(row.plugin) : undefined"
+              >{{ row.plugin ? String(row.plugin) : "-" }}</small
+            >
             <small v-if="orders && c.key === 'created_at'" class="cell muted">{{
               row.paid_at ? beijingTimestamp(row.paid_at) : "-"
             }}</small>
-            <KitStatusTag
-              v-if="orders && c.key === 'status'"
-              :status="String(row.notification_state ?? 'none')"
-              :orders="false"
-            />
+            <small
+              v-if="orders && c.key === 'status' && showNotify(row)"
+              class="cell order-flag"
+              :class="'order-flag--' + notifyTone(row.notification_state)"
+              >{{
+                consoleValue(
+                  "notification_state",
+                  row.notification_state ?? "none",
+                )
+              }}</small
+            >
+            <small
+              v-if="orders && c.key === 'status' && refunded(row)"
+              class="cell order-flag order-flag--danger"
+              >已退款 ¥{{ money(row.refunded_amount) }}</small
+            >
+            <small
+              v-if="
+                orders && c.key === 'status' && row.income_status === 'held'
+              "
+              class="cell order-flag order-flag--warning"
+              >收入冻结中</small
+            >
           </td>
           <td v-if="orders || $slots.actions" class="operation-cell">
             <slot name="actions" :row="row"
@@ -397,39 +467,63 @@ function cellValue(key: string, value: unknown): string {
   </div>
 </template>
 <style scoped>
-.trade-table .identifier-cell {
+.trade-table:not(.order-table) .identifier-cell {
   min-width: 200px;
   width: 240px;
 }
 .trade-table td {
   white-space: nowrap;
 }
-.trade-table td.identifier-cell,
-.trade-table td.col-name,
-.trade-table td.col-param {
+.trade-table:not(.order-table) td.identifier-cell {
   white-space: normal;
 }
-.trade-table td.col-name {
-  min-width: 140px;
-  max-width: 240px;
-}
-.trade-table td.col-param {
-  min-width: 96px;
-  max-width: 240px;
-}
-.trade-table .identifier-cell .cell:not(.badge),
-.trade-table .col-name .cell,
-.trade-table .col-param .cell {
+.trade-table:not(.order-table) .identifier-cell .cell:not(.badge) {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+/* Orders, as epay_pro's list: every cell is two short lines. A long value
+   ends in an ellipsis; the full text is in its hover text and in 详情. */
+.order-ellipsis {
+  display: block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.order-money,
+.order-amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.order-amount {
+  color: var(--warning-text);
+}
+small.cell.order-money,
+small.cell.order-amount {
+  font-size: 13px;
+}
+.order-table th.col-realmoney {
+  min-width: 88px;
+}
+.order-flag--success {
+  color: var(--success-text);
+}
+.order-flag--warning {
+  color: var(--warning-text);
+}
+.order-flag--danger {
+  color: var(--danger-text);
+}
+.order-flag--neutral {
+  color: var(--ink-muted);
 }
 .trade-link {
   padding: 0;
   min-height: 0;
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 12px;
-  line-height: 18px;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
   text-align: left;
 }
 .trade-link:hover {

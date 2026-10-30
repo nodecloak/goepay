@@ -273,7 +273,6 @@ onBeforeUnmount(reset);
 <template>
   <section class="list-page settlement-batches" aria-label="批量结算">
     <div class="batches-head">
-      <h2>批量结算</h2>
       <div v-if="allowed" class="batches-head-actions">
         <button
           type="button"
@@ -571,9 +570,6 @@ onBeforeUnmount(reset);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-}
-.batches-head h2 {
-  margin: 0;
 }
 .batches-head-actions {
   display: inline-flex;

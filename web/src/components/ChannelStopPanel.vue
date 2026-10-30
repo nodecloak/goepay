@@ -293,12 +293,22 @@ onBeforeUnmount(() => {
   </section>
 </template>
 <style scoped>
+/* A standard kit card, like the list card above it: kit border and radius,
+   the same 16px gap between cards, and content inset like a table toolbar. */
 .channel-stop-panel {
-  margin-bottom: 20px;
-  padding: 16px;
-  border: 1px solid var(--border, var(--line));
-  border-radius: 3px;
-  background: var(--surface, var(--bg-card));
+  margin: var(--space-4) 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+}
+.channel-stop-panel > .toolbar {
+  padding: var(--space-4) var(--space-5);
+}
+.channel-stop-panel > p {
+  margin: 0 var(--space-5) var(--space-4);
+}
+.channel-stop-panel > .channel-stop-confirm {
+  margin: var(--space-4) var(--space-5);
 }
 .channel-stop-panel h3 {
   margin: 0;
@@ -314,8 +324,8 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border, var(--line));
+  padding: 12px var(--space-5);
+  border-top: 1px solid var(--line);
 }
 .channel-stop-row > div {
   min-width: 0;
@@ -328,7 +338,6 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 .channel-stop-confirm {
-  margin-top: 16px;
   padding: 16px;
   background: var(--bg, var(--bg-raised));
   overflow-wrap: anywhere;

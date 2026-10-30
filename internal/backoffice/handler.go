@@ -95,6 +95,20 @@ func (s *Service) Serve(w http.ResponseWriter, r *http.Request, p Principal, par
 			writeError(w, e)
 			return
 		}
+		// pay_domain_open (default ON) gates a merchant ADDING a 授权域名: when the
+		// administrator turns it off, the merchant's 授权域名 schema reports
+		// create:false so ResourcePage hides 新增. A missing row means on (default
+		// install unchanged); the admin schema is never gated.
+		if resource == "domains" && p.Role == "merchant" {
+			on, fe := s.MerchantFeatureVisible(r.Context(), "pay_domain_open")
+			if fe != nil {
+				write(w, 503, nil, "merchant feature unavailable")
+				return
+			}
+			if !on {
+				schema.Permissions.Create = false
+			}
+		}
 		write(w, 200, schema, "")
 		return
 	}
@@ -183,6 +197,14 @@ func (s *Service) Serve(w http.ResponseWriter, r *http.Request, p Principal, par
 	}
 	if len(parts) == 2 && parts[1] == "batch-delete" && r.Method == "POST" {
 		s.serveBatchDelete(w, r, p, resource)
+		return
+	}
+	if len(parts) == 2 && parts[1] == "batch-create" && r.Method == "POST" {
+		s.serveBatchCreateBlacklist(w, r, p, resource)
+		return
+	}
+	if len(parts) == 2 && parts[1] == "batch-status" && r.Method == "POST" {
+		s.serveBatchDomainStatus(w, r, p, resource)
 		return
 	}
 	id, e := strconv.ParseInt(parts[1], 10, 64)

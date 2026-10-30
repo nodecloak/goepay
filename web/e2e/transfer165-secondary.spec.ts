@@ -58,12 +58,13 @@ for (const area of ["admin", "merchant"] as const)
       const table = page.locator(".original-transfer-list");
       await expect(table).toBeVisible();
       await expect(table.getByRole("columnheader")).toHaveText([
-        "交易号",
+        "交易号第三方交易号",
         ...(area === "admin" ? ["商户号"] : []),
-        "付款方式",
-        "付款账号",
-        "付款金额",
-        "提交时间",
+        "付款方式备注",
+        "付款账号姓名",
+        "付款金额花费金额",
+        "手续费",
+        "提交时间付款时间",
         "状态",
         "操作",
       ]);
@@ -76,7 +77,7 @@ for (const area of ["admin", "merchant"] as const)
       await expect(pending).toContainText("付款时间：未记录");
       await expect(pending).toContainText("结果待核对");
       expect(await pending.locator(".transfer-remark").textContent()).toBe(
-        "备注：含\t制表符",
+        "含\t制表符",
       );
       expect(
         await page.evaluate(

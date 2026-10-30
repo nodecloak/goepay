@@ -47,7 +47,7 @@ test("API rotation requires explicit password confirmation and keeps new key out
     .getByRole("button", { name: "重置 API 密钥", exact: true })
     .click();
   expect(rotations).toBe(0);
-  await page.getByLabel("当前登录密码").fill("current-secret-for-test");
+  await page.getByLabel("登录密码", { exact: true }).fill("current-secret-for-test");
   await page.getByRole("button", { name: "确认重置密钥" }).click();
   await expect(page.getByLabel("新 API 密钥", { exact: true })).toHaveValue(
     "new-test-only-key-value",
@@ -109,17 +109,17 @@ test("password confirmation blocks mismatched update then requires reauthenticat
   await page.getByLabel("当前密码", { exact: true }).fill("current-password");
   await page.getByLabel("新密码", { exact: true }).fill("new-password-long");
   await page
-    .getByLabel("再次输入新密码", { exact: true })
+    .getByLabel("确认密码", { exact: true })
     .fill("mismatched-password");
   await page.getByRole("button", { name: "修改密码", exact: true }).click();
   await expect(
     page
-      .getByRole("region", { name: "账户资料与安全设置", exact: true })
+      .getByRole("dialog", { name: "修改登录密码", exact: true })
       .getByRole("alert"),
   ).toContainText("两次新密码输入不一致");
   expect(changes).toBe(0);
   await page
-    .getByLabel("再次输入新密码", { exact: true })
+    .getByLabel("确认密码", { exact: true })
     .fill("new-password-long");
   await page.getByRole("button", { name: "修改密码", exact: true }).click();
   await expect(page.getByRole("button", { name: "登录工作台" })).toBeVisible();
@@ -202,7 +202,7 @@ for (const width of [375, 1440]) {
       .getByLabel("新密码", { exact: true })
       .fill("local-new-password199");
     await dialog
-      .getByLabel("再次输入新密码", { exact: true })
+      .getByLabel("确认密码", { exact: true })
       .fill("local-new-password199");
     expect(
       await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth),
@@ -219,7 +219,7 @@ for (const width of [375, 1440]) {
     await expect(current).toHaveValue("");
     await expect(dialog.getByLabel("新密码", { exact: true })).toHaveValue("");
     await expect(
-      dialog.getByLabel("再次输入新密码", { exact: true }),
+      dialog.getByLabel("确认密码", { exact: true }),
     ).toHaveValue("");
     await dialog.getByRole("button", { name: "取消", exact: true }).click();
     expect(writes).toBe(0);
@@ -269,7 +269,7 @@ test("cleanup requires preview and explicit confirmation with the echoed cutoff"
     page.getByRole("definition").filter({ hasText: "2026-10-21T16:00:00Z" }),
   ).toBeVisible();
   expect(bodies).toHaveLength(1);
-  await page.getByRole("button", { name: "清理以上过期登录状态" }).click();
+  await page.getByRole("button", { name: "立即删除", exact: true }).click();
   expect(bodies).toHaveLength(1);
   await page.getByRole("button", { name: "确认清理", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("过期登录状态已清理");

@@ -268,8 +268,8 @@ onBeforeUnmount(() => {
               </thead>
               <tbody>
                 <tr v-for="child in data.items" :key="child.sub_trade_no">
-                  <td>{{ child.sub_trade_no }}</td>
-                  <td>{{ child.api_trade_no || "—" }}</td>
+                  <td class="pa-order-no">{{ child.sub_trade_no }}</td>
+                  <td class="pa-order-no">{{ child.api_trade_no || "—" }}</td>
                   <td class="combined-money204">¥{{ child.money }}</td>
                   <td>
                     <span

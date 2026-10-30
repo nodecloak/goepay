@@ -98,12 +98,19 @@ for (const width of [375, 1440])
       .getByRole("button", { name: "新建关闭的计划", exact: true })
       .click();
     await page
-      .getByLabel("计划业务模式", { exact: true })
-      .selectOption("balance_threshold");
+      .getByRole("button", { name: "计划业务模式", exact: true })
+      .click();
+    await page
+      .getByRole("option", {
+        name: "商户余额自动转账（整余额阈值）",
+        exact: true,
+      })
+      .click();
     await page.getByLabel("计划名称", { exact: true }).fill("新的余额阈值计划");
     await page
-      .getByLabel("计划执行频率", { exact: true })
-      .selectOption("minute");
+      .getByRole("button", { name: "计划执行频率", exact: true })
+      .click();
+    await page.getByRole("option", { name: "按分钟", exact: true }).click();
     await page
       .getByLabel("锚点 RFC3339", { exact: true })
       .fill(plan.schedule.anchor_at);
