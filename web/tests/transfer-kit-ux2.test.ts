@@ -78,7 +78,7 @@ for (const area of ["admin", "merchant"] as const) {
     expect(tag.find(".pa-tag--success").exists()).toBe(true);
     const method = view.getComponent(KitPayMethod);
     expect(method.text()).toContain("微信");
-    expect(method.find(".pa-method-mark--wxpay").exists()).toBe(true);
+    expect(method.find("img.pa-method-icon--wxpay").exists()).toBe(true);
     view.unmount();
   });
 

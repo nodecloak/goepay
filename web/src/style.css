@@ -2914,6 +2914,13 @@ button.badge.state-toggle:hover:not(:disabled) {
   align-items: center;
   gap: 6px;
 }
+.pa-method-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  display: block;
+  object-fit: contain;
+}
 .pa-method-mark {
   width: 16px;
   height: 16px;
@@ -2924,12 +2931,6 @@ button.badge.state-toggle:hover:not(:disabled) {
   font-weight: 700;
   color: var(--on-chart);
   flex: none;
-}
-.pa-method-mark--alipay {
-  background: var(--chart-1);
-}
-.pa-method-mark--wxpay {
-  background: var(--chart-2);
 }
 .pa-method-mark--qqpay {
   background: var(--chart-3);
