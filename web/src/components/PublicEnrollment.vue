@@ -70,7 +70,7 @@ const phoneRestrictedUnavailable = computed(
 const byPhone = computed(() =>
   forcedPhone.value
     ? smsEnabled.value
-    : channel.value === "phone" && smsEnabled.value,
+    : !forcedEmail.value && channel.value === "phone" && smsEnabled.value,
 );
 // Which contact field to render: the phone field whenever the active channel is
 // phone (chosen or forced), the email field otherwise — but neither when phone
