@@ -1013,7 +1013,7 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		o, e := s.Store.CreateOrder(r.Context(), payment.CreateOrderInput{Version: wireVersion(legacy), MerchantID: id, OutTradeNo: p["out_trade_no"], Name: p["name"], Type: p["type"], Amount: amount, NotifyURL: p["notify_url"], ReturnURL: p["return_url"], Param: p["param"]})
 		if e != nil {
-			s.wire(w, legacy, nil, "order rejected")
+			s.wire(w, legacy, nil, orderRejectedMessage(e))
 			return
 		}
 		if net.ParseIP(buyerIP) != nil {
