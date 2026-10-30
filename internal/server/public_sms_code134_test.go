@@ -68,3 +68,37 @@ func TestPublicSMSCode134LoginPurposeInertWhenGatewayOff(t *testing.T) {
 		t.Fatal("unknown purpose must be 400", uw.Code, uw.Body.String())
 	}
 }
+
+// verifytype=0 (邮箱验证) forbids phone registration, so the register SMS send
+// must refuse before any code is sent even when the gateway is otherwise live.
+// The check is scoped to the register scene: recover and login sends are not
+// restricted by verifytype.
+func TestPublicSMSCode134VerifyTypeEmailRefusesRegisterSend(t *testing.T) {
+	f := channel168Local(t)
+	ctx := t.Context()
+	// Bring the SMS gateway up with an active provider so a refusal is the
+	// verifytype restriction, not the gateway being off.
+	seal := make([]byte, 64)
+	mac := make([]byte, 32)
+	if _, e := f.p.Exec(ctx, `INSERT INTO sms_providers134(provider,sealed,mac,configured)VALUES('aliyun',$1,$2,true)`, seal, mac); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := f.p.Exec(ctx, `UPDATE sms_gateway_head134 SET active='aliyun',status=1 WHERE singleton`); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := f.p.Exec(ctx, `INSERT INTO backoffice_records(resource,body) VALUES('settings','{"key":"verifytype","value":"0"}')`); e != nil {
+		t.Fatal(e)
+	}
+	r := httptest.NewRequest("POST", "/console/v1/public/sms-code",
+		strings.NewReader(`{"purpose":"register","phone":"13800138000"}`))
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	f.s.Handler().ServeHTTP(w, r)
+	if w.Code != 503 {
+		t.Fatal("register SMS send must refuse (503) under verifytype=0", w.Code, w.Body.String())
+	}
+	var codes int
+	if e := f.p.QueryRow(ctx, `SELECT count(*)FROM verification_codes134 WHERE scene='reg'`).Scan(&codes); e != nil || codes != 0 {
+		t.Fatal("no register code may be issued when verifytype forbids phone", codes, e)
+	}
+}

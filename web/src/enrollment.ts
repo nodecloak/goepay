@@ -6,6 +6,7 @@ export interface EnrollmentCapabilities {
   sms_enabled: boolean;
   invite_required: boolean;
   expires_seconds: number;
+  verify_type: "email" | "phone" | "";
 }
 export function parseEnrollmentCapabilities(
   value: unknown,
@@ -19,6 +20,8 @@ export function parseEnrollmentCapabilities(
     (x.review_required !== undefined &&
       typeof x.review_required !== "boolean") ||
     (x.sms_enabled !== undefined && typeof x.sms_enabled !== "boolean") ||
+    (x.verify_type !== undefined &&
+      !["email", "phone", ""].includes(x.verify_type as string)) ||
     !Number.isInteger(x.expires_seconds) ||
     Number(x.expires_seconds) <= 0
   )
@@ -27,6 +30,7 @@ export function parseEnrollmentCapabilities(
     ...x,
     review_required: x.review_required ?? false,
     sms_enabled: x.sms_enabled ?? false,
+    verify_type: x.verify_type ?? "",
   } as EnrollmentCapabilities;
 }
 export function registrationNotice(value: unknown): string {
