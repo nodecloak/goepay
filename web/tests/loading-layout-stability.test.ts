@@ -205,8 +205,12 @@ it("CollectionStylesPage keeps its toolbar first and shows the loading line wher
     global: { stubs: { RouterLink: true } },
   });
   await flushPromises();
-  const root = w.get(".collection-styles").element;
-  expect(root.firstElementChild?.classList.contains("toolbar")).toBe(true);
+  // The filter card leads, then the records card carries the toolbar first and
+  // the loading line where the style cards go; no pager while the list loads.
+  const records = w.get(".panel.records");
+  expect(
+    records.element.firstElementChild?.classList.contains("table-tools"),
+  ).toBe(true);
   expect(w.get(".loading-row").text()).toBe("正在读取收款码样式…");
   expect(w.find(".pa-pager").exists()).toBe(false);
   list.resolve({ items: [] });

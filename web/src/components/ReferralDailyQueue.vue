@@ -101,19 +101,32 @@ onBeforeUnmount(() => {
 <template>
   <section
     v-if="available === true"
-    class="referral-sublist"
+    class="panel records referral-daily"
     aria-label="每日待发奖励"
   >
-    <h3>每日待发奖励</h3>
-    <p>
-      按每笔原订单固定的手续费或订单金额基数计算，奖励不超过原手续费。次日北京时间起等待专用调度器按日发放；这里不表示调度器已启动，也不代表当前可提现余额。不按迟到汇总或当前用户组重算。
-    </p>
-    <p>
-      退款结果未知时暂存；退款失败恢复原待发额；首次成功退款撤销整笔原奖励。下表待发额是当前该原单待发账户金额，退款暂存时可为零，不表示已发放。
-    </p>
-    <button :disabled="loading" @click="load()">刷新待发奖励首页</button>
-    <p v-if="loading" role="status">正在核对原单待发奖励…</p>
-    <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+    <div class="table-tools">
+      <h3 class="referral-daily-title">每日待发奖励</h3>
+      <div class="table-tools-end">
+        <button
+          type="button"
+          class="pa-btn"
+          :disabled="loading"
+          @click="load()"
+        >
+          刷新待发奖励首页
+        </button>
+      </div>
+    </div>
+    <div class="referral-daily-notes">
+      <p>
+        按每笔原订单固定的手续费或订单金额基数计算，奖励不超过原手续费。次日北京时间起等待专用调度器按日发放；这里不表示调度器已启动，也不代表当前可提现余额。不按迟到汇总或当前用户组重算。
+      </p>
+      <p>
+        退款结果未知时暂存；退款失败恢复原待发额；首次成功退款撤销整笔原奖励。下表待发额是当前该原单待发账户金额，退款暂存时可为零，不表示已发放。
+      </p>
+      <p v-if="loading" role="status">正在核对原单待发奖励…</p>
+      <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+    </div>
     <div class="table-scroll">
       <table>
         <thead>
@@ -151,9 +164,11 @@ onBeforeUnmount(() => {
         </tbody>
       </table>
     </div>
-    <p v-if="!loading && !error && !items.length">暂无每日待发奖励记录</p>
-    <div class="pagination">
-      <span>共 {{ items.length }} 条</span>
+    <p v-if="!loading && !error && !items.length" class="referral-daily-empty">
+      暂无每日待发奖励记录
+    </p>
+    <div class="pa-pager">
+      <span class="pa-pager-total">共 {{ items.length }} 条</span>
       <div>
         <button :disabled="loading || cursor === '0'" @click="load()">
           待发奖励首页</button
@@ -168,17 +183,23 @@ onBeforeUnmount(() => {
 section {
   min-width: 0;
 }
-.referral-sublist {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: var(--space-4);
-  margin-top: var(--space-4);
+.referral-daily-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 32px;
 }
-.referral-sublist > h3 {
-  margin: 0 0 var(--space-3);
+.referral-daily-notes {
+  padding: 0 var(--space-5) var(--space-3);
 }
-p {
+.referral-daily-notes p {
   overflow-wrap: anywhere;
+  margin: 0 0 var(--space-2);
+}
+.referral-daily-empty {
+  margin: 0;
+  padding: var(--space-3) var(--space-5);
+  color: var(--ink-muted);
 }
 .table-scroll {
   max-width: 100%;
@@ -189,9 +210,5 @@ table {
 }
 small {
   display: block;
-}
-button {
-  min-height: var(--control-h);
-  margin: 0.3rem 0.5rem 0.3rem 0;
 }
 </style>
