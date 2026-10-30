@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"goepay/internal/smsgateway134"
 	"goepay/internal/verifycode134"
 )
@@ -65,6 +66,24 @@ func (s *Server) publicSMSCode134(w http.ResponseWriter, r *http.Request) bool {
 	if !validTestPhone(in.Phone) {
 		response(w, 400, -1, "invalid phone", nil)
 		return true
+	}
+	// verifytype (商户相关 → 用户验证方式) restricts the registration channel:
+	// "0" (邮箱验证) forbids phone registration, so the register SMS send must
+	// refuse before any code is sent. "1" and no row allow it. Recovery and
+	// login sends are never restricted. Treated as a closed flow, mirroring the
+	// gateway-off 503 style the handler already uses.
+	if scene == "reg" {
+		var value string
+		e := s.Pool.QueryRow(r.Context(), `SELECT COALESCE(body->>'value','') FROM backoffice_records
+	 WHERE resource='settings' AND body->>'key'='verifytype' ORDER BY id LIMIT 1`).Scan(&value)
+		if e != nil && !errors.Is(e, pgx.ErrNoRows) {
+			response(w, 503, -1, "sms verification unavailable", nil)
+			return true
+		}
+		if value == "0" {
+			response(w, 503, -1, "sms verification is not enabled", nil)
+			return true
+		}
 	}
 	source, _, e := net.SplitHostPort(r.RemoteAddr)
 	if e != nil {

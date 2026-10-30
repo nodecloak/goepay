@@ -49,16 +49,48 @@ const canonicalEmail = computed(() => email.value.trim().toLowerCase());
 const canonicalPhone = computed(() => phone.value.trim());
 const register = computed(() => props.purpose === "register");
 const smsEnabled = computed(() => !!capabilities.value?.sms_enabled);
-const byPhone = computed(() => channel.value === "phone" && smsEnabled.value);
+// verify_type restricts the registration channel (register purpose only;
+// recovery is never restricted): "email" shows only the email path, "phone"
+// shows only the phone path, "" leaves both as before.
+const restrictedChannel = computed<"email" | "phone" | "">(() =>
+  register.value ? (capabilities.value?.verify_type ?? "") : "",
+);
+const forcedEmail = computed(() => restrictedChannel.value === "email");
+const forcedPhone = computed(() => restrictedChannel.value === "phone");
+// The channel tabs only appear when SMS is on AND the admin has not pinned a
+// single channel.
+const showChannelTabs = computed(
+  () => smsEnabled.value && restrictedChannel.value === "",
+);
+// verify_type=phone but the SMS gateway is unavailable: phone is the only
+// permitted channel yet cannot send, so submit stays disabled with a notice.
+const phoneRestrictedUnavailable = computed(
+  () => forcedPhone.value && !smsEnabled.value,
+);
+const byPhone = computed(() =>
+  forcedPhone.value
+    ? smsEnabled.value
+    : channel.value === "phone" && smsEnabled.value,
+);
+// Which contact field to render: the phone field whenever the active channel is
+// phone (chosen or forced), the email field otherwise — but neither when phone
+// is forced yet unavailable (a notice shows instead).
+const showPhoneField = computed(() => byPhone.value);
+const showEmailField = computed(
+  () =>
+    !byPhone.value && !phoneRestrictedUnavailable.value && !forcedPhone.value,
+);
 // A phone send only needs an accepted request (no challenge); an email send
 // returns a challenge bound to the address. phoneRequested tracks the former.
 const phoneRequested = ref(false);
 const enabled = computed(() =>
-  byPhone.value
-    ? smsEnabled.value &&
-      (!register.value || !!capabilities.value?.registration_open)
-    : !!capabilities.value?.email_enabled &&
-      (!register.value || !!capabilities.value?.registration_open),
+  phoneRestrictedUnavailable.value
+    ? false
+    : byPhone.value
+      ? smsEnabled.value &&
+        (!register.value || !!capabilities.value?.registration_open)
+      : !!capabilities.value?.email_enabled &&
+        (!register.value || !!capabilities.value?.registration_open),
 );
 const cooldown = computed(() =>
   Math.max(0, Math.ceil((cooldownUntil.value - now.value) / 1000)),
@@ -429,7 +461,7 @@ onBeforeUnmount(() => {
     <div v-if="notice" class="alert" role="status">{{ notice }}</div>
     <template v-if="!completed">
       <p
-        v-if="capabilities && !byPhone && !capabilities.email_enabled"
+        v-if="capabilities && showEmailField && !capabilities.email_enabled"
         class="alert"
       >
         邮件发送尚未配置，当前不能发送验证码。
@@ -440,6 +472,9 @@ onBeforeUnmount(() => {
       >
         当前未开放商户注册。
       </p>
+      <p v-if="phoneRestrictedUnavailable" class="alert">
+        当前仅支持手机验证注册，短信服务暂不可用，请联系管理员
+      </p>
       <button
         v-if="!loading && !capabilities"
         :disabled="busy"
@@ -448,7 +483,7 @@ onBeforeUnmount(() => {
         重新读取服务能力
       </button>
       <div
-        v-if="capabilities && smsEnabled"
+        v-if="capabilities && showChannelTabs"
         class="enrollment-channel"
         role="group"
         aria-label="验证方式"
@@ -478,7 +513,7 @@ onBeforeUnmount(() => {
         <p v-if="register && capabilities?.review_required" class="alert">
           新注册商户的收款权限须经管理员审核；注册后可登录查看状态。
         </p>
-        <KitField v-if="byPhone" label="手机号码" required
+        <KitField v-if="showPhoneField" label="手机号码" required
           ><KitInput
             v-model="phone"
             name="enrollment-phone"
@@ -488,7 +523,7 @@ onBeforeUnmount(() => {
             :disabled="busy"
             required
         /></KitField>
-        <KitField v-else label="邮箱" required
+        <KitField v-else-if="showEmailField" label="邮箱" required
           ><KitInput
             v-model="email"
             name="enrollment-email"
