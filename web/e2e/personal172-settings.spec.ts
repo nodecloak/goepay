@@ -10,6 +10,7 @@ async function fixture(page: Page, conflict = false) {
     qq: "123456",
     pay_minmoney: "1.00",
     pay_maxmoney: "2.00",
+    remain_money: "",
     bounds_valid: true,
     fingerprint: "a".repeat(64),
     can_update: true,
@@ -39,6 +40,7 @@ async function fixture(page: Page, conflict = false) {
           qq: "7654321",
           pay_minmoney: "1.50",
           pay_maxmoney: "2.00",
+          remain_money: "",
           expected_fingerprint: state.fingerprint,
         });
         state = {
@@ -46,6 +48,7 @@ async function fixture(page: Page, conflict = false) {
           qq: body.qq,
           pay_minmoney: body.pay_minmoney,
           pay_maxmoney: body.pay_maxmoney,
+          remain_money: body.remain_money,
           fingerprint: "b".repeat(64),
         };
       }

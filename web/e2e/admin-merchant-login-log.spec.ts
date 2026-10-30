@@ -78,7 +78,7 @@ for (const width of [1280, 375])
       dialog.getByRole("cell", { name: "2026-10-25 08:00:00", exact: true }),
     ).toBeVisible();
     await dialog
-      .getByRole("button", { name: "下一页登录日志", exact: true })
+      .getByRole("button", { name: "下一页", exact: true })
       .click();
     await expect(
       dialog.getByRole("cell", { name: "192.0.2.1", exact: true }),
