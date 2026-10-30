@@ -54,14 +54,14 @@ test("order cells preserve string IDs and exact yuan while notification failure 
   });
   await page.goto("/admin/trade/order");
   expect(
-    (await page.getByLabel("搜索记录", { exact: true }).boundingBox())!.width,
+    (await page.getByLabel("搜索内容", { exact: true }).boundingBox())!.width,
   ).toBeGreaterThanOrEqual(160);
   const row = page.getByRole("row").filter({ hasText: order.trade_no });
-  await expect(row).toContainText("90071992547409.93");
-  await expect(row).toContainText("商户入账：90071992547409.92");
-  await expect(row).toContainText("已退款：0.23");
-  await expect(row).toContainText(order.api_trade_no);
-  await expect(row).toContainText("通道 ID：9007199254740993124");
+  // epay_pro two-line cells: the row shows the exact order amount (grouped yuan)
+  // and the refunded amount; merchant入账 / 通道 ID / 接口订单号 moved to the detail.
+  await expect(row).toContainText("¥90,071,992,547,409.93");
+  await expect(row).toContainText("已退款 ¥0.23");
+  await expect(row).toContainText(order.out_trade_no);
   await expect(row.getByText("已支付", { exact: true })).toBeVisible();
   await expect(row.getByText("通知失败", { exact: true })).toBeVisible();
   await expect(page.getByText(order.api_key, { exact: true })).toHaveCount(0);
@@ -71,9 +71,16 @@ test("order cells preserve string IDs and exact yuan while notification failure 
   });
   await row.getByRole("button", { name: "详情", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "订单详情" });
-  await expect(dialog).toContainText("订单金额（元）");
+  await expect(dialog).toContainText("订单金额");
   await expect(dialog).toContainText("90071992547409.93");
+  await expect(dialog).toContainText("商户入账额");
+  await expect(dialog).toContainText("90071992547409.92");
+  await expect(dialog).toContainText("已退款金额");
+  await expect(dialog).toContainText("0.23");
+  await expect(dialog).toContainText(order.api_trade_no);
+  await expect(dialog).toContainText("9007199254740993124");
   await expect(dialog).toContainText("通知失败");
+  await expect(dialog.getByText(order.api_key, { exact: true })).toHaveCount(0);
   expect(providerCalls).toBe(0);
 });
 
@@ -177,10 +184,10 @@ test("merchant list is compact and permission driven without copying secret fiel
   await expect(page.getByRole("columnheader")).toHaveText([
     "商户号 / 用户组",
     "名称",
-    "可用余额（元）",
+    "可用余额",
     "结算账号 / 姓名（脱敏）",
     "电子邮箱",
-    "注册时间（北京时间）",
+    "注册时间",
     "启用",
     "操作",
   ]);
@@ -221,10 +228,14 @@ test("merchant list is compact and permission driven without copying secret fiel
     path: test.info().outputPath("merchant-fields.png"),
     fullPage: true,
   });
-  await page.getByRole("button", { name: "详情", exact: true }).click();
+  // 详情 now lives in the row's 商户关联记录 overflow menu (read-only row).
+  await page
+    .getByRole("button", { name: `商户关联记录 ${merchant.id}`, exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "详情", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog).toContainText("冻结预留（元）1.23");
-  await expect(dialog).toContainText("待解冻收入（元）4.56");
+  await expect(dialog).toContainText("冻结预留1.23");
+  await expect(dialog).toContainText("待解冻收入4.56");
   await expect(dialog).not.toContainText("must-never-display");
   await expect(dialog).not.toContainText("legacy-plaintext-account");
   await page.getByRole("button", { name: "关闭", exact: true }).click();
@@ -275,7 +286,7 @@ for (const area of ["admin", "merchant"] as const)
       area === "admin" ? "/admin/merchant/record" : "/merchant/record",
     );
     await expect(
-      page.getByRole("columnheader", { name: "账户变更前（元）", exact: true }),
+      page.getByRole("columnheader", { name: "账户变更前", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("cell", { name: "92233720368547758.07", exact: true }),
@@ -284,13 +295,13 @@ for (const area of ["admin", "merchant"] as const)
       page.getByRole("cell", { name: "92233720368547758.06", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("cell", { name: "-0.01", exact: true }),
+      page.getByRole("cell", { name: "¥-0.01", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("cell", { name: entry.account_id, exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("cell", { name: "available", exact: true }),
+      page.getByRole("cell", { name: "可用余额", exact: true }),
     ).toBeVisible();
     if (area === "merchant")
       await expect(
@@ -327,7 +338,8 @@ test("merchant original daily preserves yuan fields and weighted summary without
     return route.fulfill(ok({ items: [], total: 0 }));
   });
   await page.goto("/merchant/trade/daily-stat");
-  await page.getByLabel("支付方式", { exact: true }).selectOption("wxpay");
+  await page.getByLabel("支付方式", { exact: true }).click();
+  await page.getByRole("option", { name: "微信支付", exact: true }).click();
   await page.getByRole("button", { name: "查询", exact: true }).click();
   await expect
     .poll(() => queries.at(-1)?.searchParams.get("type"))

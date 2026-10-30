@@ -143,7 +143,8 @@ for (const width of [375, 1440])
     expect(writes).toBe(0);
     await dialog.getByRole("button", { name: "执行已核对的原操作" }).click();
     await expect(panel.getByText("通道已恢复，原转账不会重发。")).toBeVisible();
-    await expect(panel.getByText("已恢复", { exact: true })).toBeVisible();
+    // Restored channel: no stopped channels remain, so the panel header reports 运行正常.
+    await expect(panel.getByText("运行正常", { exact: true })).toBeVisible();
     expect(writes).toBe(1);
     await page.evaluate(() => window.scrollTo(0, 0));
     expect(

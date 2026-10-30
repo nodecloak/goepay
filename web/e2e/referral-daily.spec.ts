@@ -107,9 +107,13 @@ test("daily selection stays in the original reviewed CAS and one-time funds gran
     return route.fulfill(ok({}));
   });
   await page.goto("/admin/system/referral-policies");
-  const mode = page.getByRole("combobox", { name: "发奖时机", exact: true });
-  await expect(mode).toHaveValue("immediate");
-  await mode.selectOption("daily");
+  // 发奖时机 is a KitSelect: its trigger shows the selected option's label.
+  const mode = page.getByLabel("发奖时机", { exact: true });
+  await expect(mode).toContainText("即时发奖");
+  await mode.click();
+  await page
+    .getByRole("option", { name: "次日北京时间待发", exact: true })
+    .click();
   await expect(page.getByText(/每笔原订单固定奖励/)).toContainText(
     "不代表调度器已启动",
   );
@@ -137,7 +141,7 @@ test("daily selection stays in the original reviewed CAS and one-time funds gran
     .getByRole("button", { name: "执行已核对的原操作", exact: true })
     .click();
   await expect(page.getByText(/当前修订 8/)).toBeVisible();
-  await expect(mode).toHaveValue("daily");
+  await expect(mode).toContainText("次日北京时间待发");
   expect(posted).toEqual([frozen]);
   expect(
     await page.evaluate(
