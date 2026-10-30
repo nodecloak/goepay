@@ -207,6 +207,8 @@ test("closed and unknown public key-login capability retain password entry", asy
         : r.fulfill({ status: 503, body: "{}" });
     if (p === "/console/v1/public/layout")
       return r.fulfill(ok({ zhuce: "", footer: "", format: "html" }));
+    if (p === "/console/v1/public/connect/options")
+      return r.fulfill(ok({ items: [] }));
     throw Error(`unexpected ${p}`);
   });
   await page.goto("/merchant/dashboard");
