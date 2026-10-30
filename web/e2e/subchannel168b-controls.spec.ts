@@ -44,10 +44,8 @@ for (const width of [1440, 375])
       });
     });
     await page.goto("/merchant/subchannel");
-    await page
-      .getByRole("heading", { name: "支付通道", exact: true })
-      .first()
-      .waitFor();
+    // 支付通道 no longer renders a page-title heading (h2 removed in 5657ce0);
+    // gate on the loaded merchant subchannel row instead.
     await expect(
       page.getByText(fixture.merchant.items[0].name, { exact: true }),
     ).toBeVisible();

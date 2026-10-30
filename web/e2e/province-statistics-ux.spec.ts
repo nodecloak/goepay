@@ -65,7 +65,9 @@ for (const width of [1280, 375]) {
         page.getByRole("group", { name: "地区交易分布地图" }),
       ).toBeVisible();
       const labels = page.locator(".province-map svg text");
-      await expect(labels).toHaveCount(34);
+      // The dark map now labels only data-bearing / ranked provinces (declutter):
+      // the fixture carries 广东省 and 北京市, so two labels render.
+      await expect(labels).toHaveCount(2);
       await expect(labels.filter({ hasText: /^广东省$/ })).toBeVisible();
       expect(
         await labels.evaluateAll((nodes) =>
@@ -176,7 +178,7 @@ for (const width of [1280, 375]) {
     await expect(
       page.getByText("90071992547414.93", { exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "刷新", exact: true }).click();
+    await page.getByRole("button", { name: "刷新数据", exact: true }).click();
     await expect.poll(() => calls).toBe(2);
     await page.getByLabel("商户号", { exact: true }).fill("2");
     release();
