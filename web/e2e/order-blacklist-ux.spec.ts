@@ -70,8 +70,10 @@ test("order IP blacklist requires explicit source confirmation and preserves the
 }) => {
   const f = await setup(page);
   await page.goto("/admin/trade/order");
+  await page.getByRole("button", { name: "详情", exact: true }).click();
   await page
-    .getByRole("button", { name: "拉黑IP BLACKLIST-ONE", exact: true })
+    .getByRole("dialog", { name: "订单详情", exact: true })
+    .getByRole("button", { name: "拉黑IP", exact: true })
     .click();
   let d = page.getByRole("dialog", { name: "添加黑名单 - IP地址" });
   await expect(d.getByLabel("IP地址", { exact: true })).toHaveValue(
@@ -92,8 +94,10 @@ test("order IP blacklist requires explicit source confirmation and preserves the
   await d
     .getByRole("button", { name: "关闭并保留原请求", exact: true })
     .click();
+  await page.getByRole("button", { name: "详情", exact: true }).click();
   await page
-    .getByRole("button", { name: "拉黑IP BLACKLIST-ONE", exact: true })
+    .getByRole("dialog", { name: "订单详情", exact: true })
+    .getByRole("button", { name: "拉黑IP", exact: true })
     .click();
   d = page.getByRole("dialog", { name: "添加黑名单 - IP地址" });
   await d.getByRole("button", { name: "核对原请求", exact: true }).click();

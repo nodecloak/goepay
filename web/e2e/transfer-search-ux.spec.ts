@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { chooseKitOption } from "./kit-select-helpers";
 for (const area of ["admin", "merchant"] as const)
   for (const width of [1280, 375]) {
     test(`original ${area} transfer filters keep applied CSV scope at ${width}`, async ({
@@ -45,16 +46,25 @@ for (const area of ["admin", "merchant"] as const)
       await expect(page.getByLabel("搜索字段", { exact: true })).toBeVisible({
         timeout: 3000,
       });
-      await expect(page.getByLabel("搜索字段", { exact: true })).toHaveValue(
-        "biz_no",
-      );
+      await expect(
+        page.getByRole("button", { name: "搜索字段", exact: true }),
+      ).toContainText("交易号");
+      await page.getByRole("button", { name: "展开", exact: true }).click();
       await expect(page.getByLabel("开始日期")).toBeVisible();
       expect(reads).toHaveLength(1);
-      await page.getByLabel("搜索字段", { exact: true }).selectOption("money");
+      await chooseKitOption(
+        page,
+        page.getByRole("button", { name: "搜索字段", exact: true }),
+        "付款金额",
+      );
       await page
-        .getByLabel("搜索付款记录", { exact: true })
+        .getByLabel("搜索内容", { exact: true })
         .fill("90071992547409.93");
-      await page.getByLabel("状态", { exact: true }).selectOption("unknown");
+      await chooseKitOption(
+        page,
+        page.getByRole("button", { name: "状态", exact: true }),
+        "结果待核对",
+      );
       await page.getByLabel("开始日期").fill("2026-10-01");
       await page.getByLabel("结束日期").fill("2026-10-26");
       if (area === "admin") {
@@ -101,7 +111,7 @@ for (const area of ["admin", "merchant"] as const)
       await download;
       expect(exports.at(-1)!.searchParams.get("q")).toBe("90071992547409.93");
       expect(exports.at(-1)!.searchParams.get("status")).toBe("unknown");
-      await page.getByLabel("搜索付款记录", { exact: true }).fill("1.001");
+      await page.getByLabel("搜索内容", { exact: true }).fill("1.001");
       await expect(
         page.getByRole("button", { name: "查询", exact: true }),
       ).toBeDisabled();
@@ -118,7 +128,7 @@ for (const area of ["admin", "merchant"] as const)
       await page.getByRole("button", { name: "重置", exact: true }).click();
       await reset;
       await expect(
-        page.getByLabel("搜索付款记录", { exact: true }),
+        page.getByLabel("搜索内容", { exact: true }),
       ).toHaveValue("");
       expect(reads.at(-1)!.searchParams.has("status")).toBe(false);
       expect(writes).toBe(0);

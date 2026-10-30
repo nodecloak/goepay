@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, useSlots } from "vue";
-defineProps<{ loading?: boolean; blocked?: boolean }>();
+defineProps<{ loading?: boolean; blocked?: boolean; label?: string }>();
 const emit = defineEmits<{ query: []; reset: [] }>();
 const slots = useSlots();
 const hasExtra = () => !!slots.extra;
@@ -9,6 +9,7 @@ const expanded = ref(false);
 <template>
   <form
     class="pa-filter"
+    :aria-label="label"
     @submit.prevent="emit('query')"
     @reset.prevent="emit('reset')"
   >

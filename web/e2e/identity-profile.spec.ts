@@ -130,7 +130,9 @@ for (const provider of ["wxpay", "alipay"])
       page.getByRole("heading", { name: "SDK对接资料" }),
     ).toBeVisible();
     await expect(page.getByText(/当前未提供厂商URL Link/)).toBeVisible();
-    await expect(page.locator("img")).toHaveCount(0);
+    await expect(
+      page.getByRole("region", { name: "独立应用用户标识" }).locator("img"),
+    ).toHaveCount(0);
     expect(exchanges).toBe(0);
     await page.getByLabel("本次SDK临时code").fill("local-one-use-code");
     await page.getByRole("button", { name: "检查并兑换本次临时码" }).click();
@@ -168,7 +170,9 @@ for (const provider of ["wxpay", "alipay"])
         () => document.documentElement.scrollWidth <= window.innerWidth,
       ),
     ).toBe(true);
-    await page.getByRole("button", { name: "原收款应用网页授权" }).click();
+    await page
+      .getByRole("button", { name: "微信公众号Openid", exact: true })
+      .click();
     await expect(
       page.getByText("private-independent-subject", { exact: true }),
     ).toHaveCount(0);
