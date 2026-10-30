@@ -119,15 +119,25 @@ for (const width of [1280, 375])
     await expect(row).toContainText("冻结预留：0.50");
     await expect(row).toContainText("待解冻收入：0.99");
     await expect(row).toContainText("***1234");
-    await expect(row).toContainText("收款配置：待审核");
-    await expect(row).toContainText("账户：已禁用");
-    await expect(row).toContainText("新付款受限：配置已关闭；支付权限待审核");
+    // 状态 shows epay_pro's compact chips (账户 封禁, 支付 待审); the effective
+    // new-payment restriction is the chips' hover text.
+    const states = row.locator(".merchant-state-tags");
+    await expect(states).toContainText("封禁");
+    await expect(states).toContainText("待审");
+    await expect(states).toHaveAttribute(
+      "title",
+      /新付款受限：配置已关闭；支付权限待审核/,
+    );
     await expect(row).not.toContainText("风控有效状态待核对");
     await expect(row).toContainText("手机：13000000145");
     await expect(row).toContainText("pay.example.invalid");
     await expect(row).not.toContainText("merchant-login-145");
     await expect(row).not.toContainText("never-visible");
-    await row.getByRole("button", { name: "详情", exact: true }).click();
+    // 详情 lives in the row's 更多 (商户关联记录) menu.
+    await row
+      .getByRole("button", { name: `商户关联记录 ${id}`, exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "详情", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText("merchant-login-145");
     await expect(dialog).toContainText("MD5");

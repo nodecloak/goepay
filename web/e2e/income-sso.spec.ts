@@ -50,6 +50,15 @@ test("operator and missing schema action cannot create delegation grants", async
   await expect(
     page.getByRole("cell", { name: "Target", exact: true }),
   ).toBeVisible();
+  // 一键登录 (代登录商户) lives in the row's 更多 menu; without the right it is absent.
+  const more = page.getByRole("button", {
+    name: "商户关联记录 1000",
+    exact: true,
+  });
+  await more.click();
+  await expect(
+    page.getByRole("menuitem", { name: "一键登录", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "代登录商户", exact: true }),
   ).toHaveCount(0);
@@ -59,6 +68,10 @@ test("operator and missing schema action cannot create delegation grants", async
   await expect(
     page.getByRole("cell", { name: "Target", exact: true }),
   ).toBeVisible();
+  await more.click();
+  await expect(
+    page.getByRole("menuitem", { name: "一键登录", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "代登录商户", exact: true }),
   ).toHaveCount(0);
@@ -131,7 +144,10 @@ test("unknown delegation consumption performs only merchant session verification
     );
   });
   await page.goto("/admin/merchant/merchant-list");
-  await page.getByRole("button", { name: "代登录商户", exact: true }).click();
+  await page
+    .getByRole("button", { name: "商户关联记录 1000", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "一键登录", exact: true }).click();
   await page
     .getByRole("button", { name: "确认建立代登录会话", exact: true })
     .click();
@@ -347,7 +363,10 @@ test("SSO is schema-gated, explains merchant replacement, consumes grant in body
     );
   });
   await page.goto("/admin/merchant/merchant-list");
-  await page.getByRole("button", { name: "代登录商户", exact: true }).click();
+  await page
+    .getByRole("button", { name: "商户关联记录 1000", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "一键登录", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "确认代登录" })).toContainText(
     "替换当前浏览器的商户会话",
   );
