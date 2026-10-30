@@ -92,8 +92,17 @@ for (const width of [1440, 375])
       body: JSON.stringify(layout, null, 2),
       contentType: "application/json",
     });
-    if (width === 1440)
-      expect((await card.boundingBox())!.x).toBeGreaterThanOrEqual(230);
+    if (width === 1440) {
+      // The 200px sidebar is the UI kit's deliberate width; assert the policy
+      // card clears the sidebar's right edge (no overlap) rather than a stale
+      // hard-coded 230.
+      const sidebarRight = await page
+        .locator(".console-sidebar")
+        .evaluate((el) => el.getBoundingClientRect().right);
+      expect((await card.boundingBox())!.x).toBeGreaterThanOrEqual(
+        sidebarRight,
+      );
+    }
     await expect(card).toContainText("33.33%");
     await expect(card).toContainText("100.00 元手续费");
     await expect(card).toContainText("33.33 元");
