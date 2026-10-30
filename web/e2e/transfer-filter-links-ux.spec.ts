@@ -35,10 +35,10 @@ for (const width of [1280, 375]) {
     await expect(page.getByLabel("商户号", { exact: true })).toHaveValue(
       "9223372036854775807",
     );
-    await expect(page.getByLabel("搜索字段", { exact: true })).toHaveValue(
-      "money",
-    );
-    await expect(page.getByLabel("搜索付款记录", { exact: true })).toHaveValue(
+    await expect(
+      page.getByRole("button", { name: "搜索字段", exact: true }),
+    ).toContainText("付款金额");
+    await expect(page.getByLabel("搜索内容", { exact: true })).toHaveValue(
       "90071992547409.93",
     );
     expect(reads).toHaveLength(1);
@@ -131,7 +131,7 @@ for (const width of [1280, 375]) {
     const dialog = page.getByRole("dialog", { name: "付款详情", exact: true });
     await expect(dialog.getByRole("status")).toContainText("付款成功");
     await expect(
-      page.getByRole("cell", { name: "暂无付款记录", exact: true }),
+      page.getByRole("cell", { name: "暂无数据", exact: true }),
     ).toBeVisible();
     await dialog.getByRole("button", { name: "关闭详情", exact: true }).click();
     await expect(

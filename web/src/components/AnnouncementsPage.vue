@@ -420,6 +420,13 @@ onBeforeUnmount(() => {
           <div class="modal-actions">
             <button type="button" :disabled="busy" @click="closeForm">
               取消</button
+            ><button
+              v-if="uncertain"
+              type="button"
+              :disabled="busy || loading"
+              @click="load"
+            >
+              刷新核对公告</button
             ><button type="submit" class="primary" :disabled="!canSave">
               {{ busy ? "处理中…" : selected ? "保存" : "添加" }}
             </button>

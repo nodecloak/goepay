@@ -204,15 +204,19 @@ for (const width of [1440, 375])
     const f = await fixture(page);
     await page.goto("/admin/system/anounce");
     await expect(
-      page.getByRole("heading", { name: "添加公告", exact: true }),
-    ).toBeVisible();
-    await expect(
       page.getByRole("region", { name: "已发公告", exact: true }),
     ).toBeVisible();
     await expect(page.locator(".announcement-list")).toContainText(
       "<b>不执行</b>",
     );
     expect(await page.locator(".announcement-list b").count()).toBe(0);
+    await page
+      .getByRole("button", { name: "添加公告", exact: true })
+      .first()
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "添加公告", exact: true }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "编辑 HTML", exact: true }).click();
     const source = page.getByRole("dialog", { name: "编辑 HTML", exact: true });
     await source
@@ -247,7 +251,10 @@ for (const width of [1440, 375])
     await expect(
       page.getByRole("heading", { name: "编辑公告", exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "取消编辑", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "编辑公告", exact: true })
+      .getByRole("button", { name: "取消", exact: true })
+      .click();
     await first.getByRole("button", { name: "删除", exact: true }).click();
     await page
       .getByRole("dialog", { name: "删除公告", exact: true })
@@ -268,18 +275,20 @@ for (const width of [1440, 375])
     await page.evaluate(() =>
       window.scrollTo({ top: 0, left: 0, behavior: "instant" }),
     );
-    await expect
-      .poll(async () =>
-        page.locator(".announcement-editor h2").evaluate((el) => {
-          const r = el.getBoundingClientRect(),
-            bar = document.querySelector(".topbar")!.getBoundingClientRect(),
-            main = document
-              .querySelector(".main-content")!
-              .getBoundingClientRect();
-          return r.left >= main.left && r.top >= bar.bottom;
-        }),
-      )
-      .toBe(true);
+    // The add/edit editor is now an on-demand dialog (epay_pro parity). Open it
+    // again and confirm it renders fully inside the viewport with no horizontal
+    // overflow, and that the console layout keeps its sidebar offset.
+    await page
+      .getByRole("button", { name: "添加公告", exact: true })
+      .first()
+      .click();
+    const editorDialog = page.getByRole("dialog", {
+      name: "添加公告",
+      exact: true,
+    });
+    const dialogBox = await editorDialog.boundingBox();
+    expect(dialogBox!.x).toBeGreaterThanOrEqual(0);
+    expect(dialogBox!.x + dialogBox!.width).toBeLessThanOrEqual(width);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -300,8 +309,6 @@ for (const width of [1440, 375])
         ".main-content",
         ".console-sidebar",
         ".content",
-        ".announcement-editor",
-        ".announcement-editor h2",
       ].map((q) => {
         const el = document.querySelector(q)!;
         const r = el.getBoundingClientRect();
@@ -316,10 +323,7 @@ for (const width of [1440, 375])
       }),
     }));
     if (width === 1440) {
-      expect(geometry.rects.find((r) => r.q === ".main-content")!.x).toBe(230);
-      expect(
-        geometry.rects.find((r) => r.q === ".announcement-editor h2")!.x,
-      ).toBeGreaterThan(230);
+      expect(geometry.rects.find((r) => r.q === ".main-content")!.x).toBe(200);
     }
     await info.attach("announcement-geometry", {
       body: JSON.stringify(geometry, null, 2),
@@ -331,6 +335,10 @@ test("real editor formats, clears styles and sanitizes clipboard before insertio
 }) => {
   const f = await fixture(page);
   await page.goto("/admin/system/anounce");
+  await page
+    .getByRole("button", { name: "添加公告", exact: true })
+    .first()
+    .click();
   const editor = page.getByRole("textbox", { name: "公告内容", exact: true });
   await editor.fill("排版173");
   await selectEditor(page);
@@ -364,6 +372,10 @@ test("a failed create is not blindly repeated and needs explicit refresh", async
 }) => {
   const f = await fixture(page, "admin", { unknown: true });
   await page.goto("/admin/system/anounce");
+  await page
+    .getByRole("button", { name: "添加公告", exact: true })
+    .first()
+    .click();
   const input = page.getByRole("textbox", { name: "公告内容", exact: true });
   await input.fill("未知结果173");
   await page.getByRole("button", { name: "添加", exact: true }).click();
@@ -373,7 +385,10 @@ test("a failed create is not blindly repeated and needs explicit refresh", async
   ).toBeDisabled();
   expect(f.writes).toHaveLength(1);
   await expect(input).toHaveText("未知结果173");
-  await page.getByRole("button", { name: "刷新核对公告", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "添加公告", exact: true })
+    .getByRole("button", { name: "刷新核对公告", exact: true })
+    .click();
   await expect(
     page.getByRole("button", { name: "添加", exact: true }),
   ).toBeEnabled();

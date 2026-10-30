@@ -64,7 +64,8 @@ test("super policy writes require explicit confirmation and original CAS body wh
   });
   await page.goto("/admin/system/referral-policies");
   await expect(page.getByText(/尚未配置本范围政策/)).toBeVisible();
-  await page.getByLabel("启用状态").selectOption("enabled");
+  await page.getByRole("button", { name: "启用状态", exact: true }).click();
+  await page.getByRole("option", { name: "启用", exact: true }).click();
   await page.getByLabel("返现比例 BPS").fill("5000");
   await page.getByRole("button", { name: "核对政策变更", exact: true }).click();
   expect(writes).toBe(0);

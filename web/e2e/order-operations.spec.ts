@@ -49,7 +49,7 @@ test("order detail queries only after a click and unknown close remains unverifi
   await page.goto("/merchant/trade/order");
   await openMerchantOrderDetails(page);
   const dialog = page.getByRole("dialog", { name: "订单详情" });
-  await expect(dialog).toContainText("商户入账额（元）0.99");
+  await expect(dialog).toContainText("商户入账额0.99");
   expect(queries).toBe(0);
   await dialog
     .getByRole("button", { name: "查询支付通道", exact: true })
