@@ -509,7 +509,7 @@ onBeforeUnmount(() => {
           手机验证
         </button>
       </div>
-      <form @submit.prevent="submit">
+      <form class="enrollment-form" @submit.prevent="submit">
         <p v-if="register && capabilities?.review_required" class="alert">
           新注册商户的收款权限须经管理员审核；注册后可登录查看状态。
         </p>
@@ -659,5 +659,14 @@ onBeforeUnmount(() => {
 .enrollment-channel-tab:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+/* A field's hint takes its own line under the field. In one row a long hint
+   (推广令牌's) squeezed the input beside it to 0px, so it could not be seen
+   or typed into. */
+.enrollment-form .pa-field {
+  flex-wrap: wrap;
+}
+.enrollment-form .pa-field > small {
+  flex: 1 0 100%;
 }
 </style>
