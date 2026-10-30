@@ -272,7 +272,9 @@ const stateName = (state: string) =>
       </div>
       <div v-if="result" class="test-result" aria-live="polite">
         <p>{{ stateName(result.state) }}</p>
-        <p v-if="result.trade_no">平台订单号：{{ result.trade_no }}</p>
+        <p v-if="result.trade_no">
+          平台订单号：<span class="pa-order-no">{{ result.trade_no }}</span>
+        </p>
         <p>{{ result.name }} · ¥{{ result.money }}</p>
         <a
           v-if="result.checkout_url"

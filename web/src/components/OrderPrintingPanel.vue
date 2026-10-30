@@ -204,7 +204,7 @@ onBeforeUnmount(() => {
       <template v-if="receipt && loaded">
         <dl class="record-detail">
           <dt>原订单</dt>
-          <dd>{{ receipt.trade_no }}</dd>
+          <dd class="pa-order-no">{{ receipt.trade_no }}</dd>
           <dt>实付金额</dt>
           <dd>{{ printingMoney(receipt.amount) }} 元</dd>
           <dt>商品</dt>
@@ -250,9 +250,8 @@ onBeforeUnmount(() => {
       <div v-if="confirming" class="alert">
         <p>
           确认打印订单
-          {{ tradeNo }} 的收据？已有受理记录时可能再次打印。请求号：{{
-            externalNo
-          }}
+          <span class="pa-order-no">{{ tradeNo }}</span>
+          的收据？已有受理记录时可能再次打印。请求号：{{ externalNo }}
         </p>
         <button
           :disabled="busy"

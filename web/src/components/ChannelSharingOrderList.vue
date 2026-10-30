@@ -624,7 +624,7 @@ onMounted(() => {
                 />
               </td>
               <td class="pa-c-num">
-                <span class="mono">{{ o.external_no }}</span>
+                <span class="mono pa-order-no">{{ o.external_no }}</span>
                 <small v-if="o.out_no" class="muted"
                   >接口号 {{ o.out_no }}</small
                 >

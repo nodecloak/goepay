@@ -1304,7 +1304,10 @@ onBeforeUnmount(() => {
                   >打开原支付页面</a
                 ><RouterLink
                   :to="`/${area}/trade/order?trade_no=${encodeURIComponent(modal.tradeNo)}`"
-                  >查看原订单 {{ modal.tradeNo }}</RouterLink
+                  >查看原订单
+                  <span class="pa-order-no">{{
+                    modal.tradeNo
+                  }}</span></RouterLink
                 ></template
               ><button
                 v-if="modal.executed"

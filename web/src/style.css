@@ -1141,6 +1141,13 @@ tbody tr:hover {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+/* Order and refund numbers (系统/商户/接口订单号, 退款单号) use the code font
+   everywhere, so long mixed digits and letters are easy to read and compare. */
+.pa-order-no,
+.pa-c-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
 .badge {
   display: inline-flex;
   align-items: center;

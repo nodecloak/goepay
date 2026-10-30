@@ -8,6 +8,7 @@ import {
   nextTick,
 } from "vue";
 import { ApiClient, displayValue } from "../api";
+import { isOrderNumberKey } from "../order-number";
 import { effectiveRiskDescription } from "../core-risk-status";
 import { RouterLink } from "vue-router";
 import { groupDirectoryRates, groupUsersHref } from "../group-directory";
@@ -1370,7 +1371,11 @@ onBeforeUnmount(resetContext);
                   >
                 </template>
               </td>
-              <td v-for="field in listFields" :key="field.name">
+              <td
+                v-for="field in listFields"
+                :key="field.name"
+                :class="{ 'pa-order-no': isOrderNumberKey(field.name) }"
+              >
                 <template v-if="isOriginalMerchantList && field.name === 'pay'">
                   <span
                     class="badge-stack merchant-state-tags"
