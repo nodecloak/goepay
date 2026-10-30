@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>{{if .Title}}{{.Title}} - {{end}}开发文档 - {{.SiteName}}</title>
+<link rel="stylesheet" href="{{.CSS}}">
+</head>
+<body>
+<header class="doc-top">
+<a class="doc-brand" href="/doc/index.html">{{if .LogoURL}}<img src="{{.LogoURL}}" alt="">{{end}}<span class="doc-brand-name">{{.SiteName}}</span><span class="doc-brand-sub">开发文档</span></a>
+<nav class="doc-top-links" aria-label="站点"><a href="/">返回官网</a></nav>
+</header>
+<div class="doc-shell">
+<aside class="doc-side" aria-label="文档目录">
+<p class="doc-side-tab">目录</p>
+{{template "tree" .Nav}}
+<p class="doc-side-foot">{{.SiteName}}</p>
+</aside>
+<main class="doc-main">
+<details class="doc-mobile-nav"><summary>目录</summary>{{template "tree" .Nav}}</details>
+<article class="doc-article">
+{{template "content" .}}
+</article>
+<footer class="doc-foot">{{.SiteName}} © {{.Year}} All Rights Reserved.</footer>
+</main>
+</div>
+</body>
+</html>
+{{define "tree"}}<ul class="doc-tree">{{range .}}{{if .Children}}<li><details{{if .Open}} open{{end}}><summary>{{.Title}}</summary>{{template "tree" .Children}}</details></li>{{else}}<li><a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}}>{{.Title}}</a></li>{{end}}{{end}}</ul>{{end}}

@@ -150,7 +150,11 @@ func main() {
 	if app.ProviderFlow != nil {
 		app.ProviderFlow.SubjectResolver = ordersubject.New(pool).Resolve
 	}
-	app.PublicTestPay203, e = server.NewPublicTestPayService203ForMaster(app, captcha203.NewGeetestVerifier(nil), seed, os.Getenv("GOEPAY_PUBLIC_ORIGIN"))
+	app.DocsAPIOrigin = os.Getenv("GOEPAY_PUBLIC_ORIGIN")
+	// The public test-pay page (/test) is a console page: its browser calls,
+	// Origin check and return address belong to the console origin, like the
+	// login CAPTCHA below. Single-origin installs are unchanged.
+	app.PublicTestPay203, e = server.NewPublicTestPayService203ForMaster(app, captcha203.NewGeetestVerifier(nil), seed, consoleOrigin)
 	if e != nil {
 		slog.Error("invalid public test payment configuration")
 		os.Exit(1)

@@ -1,0 +1,58 @@
+{{define "content"}}
+<h1 id="订单退款">订单退款</h1>
+<blockquote>需要先由平台开启用户退款功能，并在商户后台开启订单退款API接口开关，才能调用该接口发起订单退款。</blockquote>
+<h4 id="请求地址">请求地址：</h4>
+<p><code class="doc-url">{{.API}}api/pay/refund</code></p>
+<h4 id="请求方式">请求方式：</h4>
+<p>POST</p>
+<h4 id="请求参数说明">请求参数说明：</h4>
+<div class="doc-table"><table>
+<thead><tr><th>字段名</th><th>变量名</th><th>必填</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<tbody>
+<tr><td>商户ID</td><td>pid</td><td>是</td><td>Int</td><td>1001</td><td> </td></tr>
+<tr><td>平台订单号</td><td>trade_no</td><td>特殊</td><td>String</td><td>20160806151343349</td><td>与商户订单号必传其一，传入时优先使用</td></tr>
+<tr><td>商户订单号</td><td>out_trade_no</td><td>特殊</td><td>String</td><td>20160806151343351</td><td>与平台订单号必传其一</td></tr>
+<tr><td>退款金额</td><td>money</td><td>是</td><td>String</td><td>1.00</td><td>单位：元，须大于0；支持部分退款，累计退款金额不得超过订单金额</td></tr>
+<tr><td>商户退款单号</td><td>out_refund_no</td><td>否</td><td>String</td><td>20160806151343391</td><td>可避免重复请求退款；不传时平台自动生成，长度不超过128</td></tr>
+<tr><td>当前时间戳</td><td>timestamp</td><td>是</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
+<tr><td>签名字符串</td><td>sign</td><td>是</td><td>String</td><td> </td><td>参考签名规则</td></tr>
+<tr><td>签名类型</td><td>sign_type</td><td>是</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr>
+</tbody>
+</table></div>
+<h4 id="返回参数说明">返回参数说明：</h4>
+<div class="doc-table"><table>
+<thead><tr><th>字段名</th><th>变量名</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<tbody>
+<tr><td>返回状态码</td><td>code</td><td>Int</td><td>0</td><td>0为成功，其它值为失败</td></tr>
+<tr><td>返回信息</td><td>msg</td><td>String</td><td> </td><td>失败时返回原因；退款受理成功但结果待确认时也会返回提示</td></tr>
+<tr><td>平台退款单号</td><td>refund_no</td><td>String</td><td>10231</td><td>平台内部退款ID（整数字符串），用于退款查询</td></tr>
+<tr><td>商户退款单号</td><td>out_refund_no</td><td>String</td><td>20160806151343391</td><td> </td></tr>
+<tr><td>平台订单号</td><td>trade_no</td><td>String</td><td>20160806151343349</td><td> </td></tr>
+<tr><td>退款金额</td><td>money</td><td>String</td><td>1.00</td><td> </td></tr>
+<tr><td>扣减商户余额</td><td>reducemoney</td><td>String</td><td>1.00</td><td>本次退款实际扣减商户的金额</td></tr>
+<tr><td>当前时间戳</td><td>timestamp</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
+<tr><td>签名字符串</td><td>sign</td><td>String</td><td> </td><td>参考签名规则</td></tr>
+<tr><td>签名类型</td><td>sign_type</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr>
+</tbody>
+</table></div>
+<p class="doc-note">退款开关：本站退款需平台「用户退款」功能与商户「退款API」开关同时开启，否则返回 msg 为 refund request rejected。</p>
+<p class="doc-note">结果待确认：当上游未明确返回退款结果时，code 仍为 0，但返回 msg（如 refund accepted; processing outcome requires query 或 refund outcome requires query），此时请以订单退款查询的结果为准，切勿按失败重试。</p>
+<p class="doc-note">退款前提：订单须为已支付状态，预授权订单及不支持退款的支付插件无法退款。</p>
+<h4 id="返回示例">返回示例：</h4>
+<pre><code>{
+    "code": 0,
+    "refund_no": "10231",
+    "out_refund_no": "20160806151343391",
+    "trade_no": "20160806151343349",
+    "money": "1.00",
+    "reducemoney": "1.00",
+    "timestamp": "1721206072",
+    "sign_type": "RSA",
+    "sign": "……"
+}</code></pre>
+<h4 id="其他说明">其他说明：</h4>
+<ul>
+<li>少数插件对接的第三方平台不支持部分金额退款。</li>
+<li>重复提交相同的 out_refund_no 且金额一致时返回同一笔退款，可用于安全重试。</li>
+</ul>
+{{end}}

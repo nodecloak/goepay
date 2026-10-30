@@ -1,0 +1,11 @@
+{{define "content"}}
+<h1 id="支付方式列表">支付方式列表</h1>
+<blockquote><p>下表为本站当前启用的支付方式。<code>调用值</code>即接口中 <code>type</code> 参数应传入的值。</p></blockquote>
+<div class="doc-table"><table>
+<thead><tr><th>调用值</th><th>描述</th></tr></thead>
+<tbody>
+{{range .PayTypes}}<tr><td><code>{{.Type}}</code></td><td>{{.Name}}</td></tr>
+{{end}}</tbody>
+</table></div>
+{{if not .PayTypes}}<p class="doc-note">本站暂未启用任何支付方式，请联系站点管理员开通后再发起支付。</p>{{end}}
+{{end}}
