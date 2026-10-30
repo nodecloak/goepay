@@ -47,8 +47,8 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 		}
 		channels := []map[string]any{}
 		if s.ProviderFlow != nil {
-			// transfer_wxpay / transfer_qqpay hide a rail from the offered types.
-			transferSwitches, e := backoffice.New(s.Pool, s.Store).SettingValues(r.Context(), "transfer_wxpay", "transfer_qqpay")
+			// transfer_wxpay / transfer_qqpay / transfer_bank hide a rail from the offered types.
+			transferSwitches, e := backoffice.New(s.Pool, s.Store).SettingValues(r.Context(), "transfer_wxpay", "transfer_qqpay", "transfer_bank")
 			if e != nil {
 				s.fail(w, e)
 				return true
@@ -328,10 +328,10 @@ func (s *Server) transferAPI(w http.ResponseWriter, r *http.Request, id int64, p
 			s.wire(w, false, nil, "invalid transfer amount")
 			return
 		}
-		// transfer_wxpay / transfer_qqpay decide which transfer rails are offered;
-		// a type turned off is refused. Blank/missing keeps the rail offered, so
-		// a default install is unchanged.
-		if tv, e := backoffice.New(s.Pool, s.Store).SettingValues(r.Context(), "transfer_wxpay", "transfer_qqpay"); e != nil {
+		// transfer_wxpay / transfer_qqpay / transfer_bank decide which transfer rails
+		// are offered; a type turned off is refused. Blank/missing keeps the rail
+		// offered, so a default install is unchanged.
+		if tv, e := backoffice.New(s.Pool, s.Store).SettingValues(r.Context(), "transfer_wxpay", "transfer_qqpay", "transfer_bank"); e != nil {
 			s.wire(w, false, nil, "transfer configuration unavailable")
 			return
 		} else if !backoffice.TransferTypeOffered(tv, p["type"]) {

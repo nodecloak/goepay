@@ -85,7 +85,7 @@ func TestMerchantParitySwitchesGateMenuAndEndpoints(t *testing.T) {
 		t.Fatal("payment-subchannels feature-refused while subchannel_open default ON")
 	}
 	// TOTP prepare reaches the password check (401), not the feature 403.
-	if code, out := call(token, csrf, "POST", "/console/v1/merchant/security/totp/prepare", `{"current_password":"x"}`); code == 403 && msg(out) == "未开启登录二次验证功能" {
+	if code, out := call(token, csrf, "POST", "/console/v1/merchant/security/totp/prepare", `{"current_password":"x"}`); code == 403 && msg(out) == "未开启商户TOTP二次验证功能" {
 		t.Fatal("totp prepare feature-refused while user_totp_open default ON")
 	}
 
@@ -107,12 +107,12 @@ func TestMerchantParitySwitchesGateMenuAndEndpoints(t *testing.T) {
 	if code, out := call(token, csrf, "GET", "/console/v1/merchant/payment-subchannels", ""); code != 403 || msg(out) != "未开启子商户支付通道功能" {
 		t.Fatalf("payment-subchannels not feature-refused when off: %d %v", code, out)
 	}
-	if code, out := call(token, csrf, "POST", "/console/v1/merchant/security/totp/prepare", `{"current_password":"x"}`); code != 403 || msg(out) != "未开启登录二次验证功能" {
+	if code, out := call(token, csrf, "POST", "/console/v1/merchant/security/totp/prepare", `{"current_password":"x"}`); code != 403 || msg(out) != "未开启商户TOTP二次验证功能" {
 		t.Fatalf("totp prepare not feature-refused when off: %d %v", code, out)
 	}
 	// Disabling TOTP enrollment must still leave DISABLE reachable (not a feature
 	// 403) so an already-enrolled merchant is never locked out.
-	if code, out := call(token, csrf, "POST", "/console/v1/merchant/security/totp/disable", `{"current_password":"x","code":"000000"}`); code == 403 && msg(out) == "未开启登录二次验证功能" {
+	if code, out := call(token, csrf, "POST", "/console/v1/merchant/security/totp/disable", `{"current_password":"x","code":"000000"}`); code == 403 && msg(out) == "未开启商户TOTP二次验证功能" {
 		t.Fatal("totp disable wrongly feature-refused; an enrolled merchant could be locked out")
 	}
 }
