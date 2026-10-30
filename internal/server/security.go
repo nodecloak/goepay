@@ -38,7 +38,20 @@ func (s *Server) security(w http.ResponseWriter, r *http.Request, role string, s
 			s.fail(w, err)
 			return true
 		}
-		response(w, 200, 0, "", map[string]any{"enabled": enabled})
+		// enrollable reports whether a NEW authenticator may be bound: an admin
+		// always may; a merchant only when user_totp_open is on (missing row =
+		// on). The 关闭 path is never gated, so an enrolled merchant can always
+		// turn it off even after the feature is disabled.
+		enrollable := true
+		if role == "merchant" && s.Pool != nil {
+			on, e := backoffice.New(s.Pool, s.Store).MerchantFeatureVisible(r.Context(), "user_totp_open")
+			if e != nil {
+				response(w, 503, -1, "merchant feature unavailable", nil)
+				return true
+			}
+			enrollable = on
+		}
+		response(w, 200, 0, "", map[string]any{"enabled": enabled, "enrollable": enrollable})
 		return true
 	}
 	if r.Method != "POST" || len(parts) != 4 {
@@ -72,7 +85,7 @@ func (s *Server) security(w http.ResponseWriter, r *http.Request, role string, s
 			return true
 		}
 		if !on {
-			response(w, 403, -1, "未开启登录二次验证功能", nil)
+			response(w, 403, -1, "未开启商户TOTP二次验证功能", nil)
 			return true
 		}
 	}

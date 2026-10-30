@@ -441,6 +441,17 @@ func (s *Service) Create(ctx context.Context, p Principal, r string, in map[stri
 	if e != nil {
 		return Item{}, e
 	}
+	// pay_domain_open (default ON) gates a merchant ADDING a 授权域名. A missing
+	// row means on, so a default install is unchanged; the admin is never gated.
+	if r == "domains" && p.Role == "merchant" {
+		on, fe := s.MerchantFeatureVisible(ctx, "pay_domain_open")
+		if fe != nil {
+			return Item{}, fe
+		}
+		if !on {
+			return Item{}, FeatureClosed("未开启授权支付域名添加")
+		}
+	}
 	if r == "merchants" {
 		return s.createMerchant(ctx, p, d, in)
 	}
