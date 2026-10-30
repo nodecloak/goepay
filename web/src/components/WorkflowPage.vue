@@ -1093,7 +1093,12 @@ onBeforeUnmount(() => {
         />
         <label
           >金额（元）<span class="settle-amount-row"
-            ><input v-model="form.amount" required inputmode="decimal" /><button
+            ><input
+              v-model="form.amount"
+              required
+              inputmode="decimal"
+              aria-label="金额（元）"
+            /><button
               v-if="workflow === 'settlements'"
               type="button"
               class="settle-all-btn"
