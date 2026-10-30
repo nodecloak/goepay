@@ -82,6 +82,8 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
   ],
   merchant: [
     { group: "登录&注册配置" },
+    "verifytype",
+    "user_totp_open",
     "registration_open",
     "registration_invite_required",
     "user_review",
@@ -93,17 +95,14 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     "recharge",
     "onecode",
     "onecode_domains",
-    "subchannel_open",
-    "user_profitsharing",
-    "user_totp_open",
-    "verifytype",
     { embed: "scanpay" },
     { embed: "scanjs" },
-    "enforce_domains",
     "pay_domain_open",
-    "pay_domain_forbid",
+    "enforce_domains",
     { embed: "user-refund" },
     "refund_fee_payer",
+    "subchannel_open",
+    "user_profitsharing",
     { group: "进件配置（本轮暂缓）" },
     "applyments_open",
     "mchrisk_open",
@@ -274,7 +273,7 @@ export interface SettingDefinition {
   key: string;
   label: string;
   tab: SettingsTab;
-  kind: "text" | "email" | "select" | "integer" | "money" | "html";
+  kind: "text" | "textarea" | "email" | "select" | "integer" | "money" | "html";
   storage?: "cents" | "bps";
   options?: { value: string; label: string }[];
   hint?: string;
@@ -323,7 +322,7 @@ const labels: Record<
   registration_open: ["merchant", "开放商户注册", "select"],
   registration_invite_required: ["merchant", "注册必须邀请码", "select"],
   user_review: ["merchant", "新商户审核", "select"],
-  enforce_domains: ["merchant", "校验授权域名", "select"],
+  enforce_domains: ["merchant", "未授权支付域名禁止支付", "select"],
   payment_fee_enabled: ["pay", "支付手续费", "select"],
   test_open: ["site", "测试支付", "select"],
   test_pay_uid: ["site", "测试支付收款商户ID", "integer"],
@@ -411,14 +410,13 @@ const labels: Record<
   transfer_wxpay: ["transfer", "微信转账接口通道", "select"],
   transfer_qqpay: ["transfer", "QQ钱包转账接口通道", "select"],
   transfer_bank: ["transfer", "银行卡转账接口通道", "select"],
-  user_transfer_batch: ["transfer", "开启批量代付", "select"],
-  subchannel_open: ["merchant", "开启子商户支付通道", "select"],
-  user_profitsharing: ["merchant", "开启用户分账功能", "select"],
-  user_totp_open: ["merchant", "开启登录二次验证", "select"],
-  verifytype: ["merchant", "商户账号验证方式", "select"],
-  onecode_domains: ["merchant", "聚合收款可用域名", "text"],
-  pay_domain_open: ["merchant", "收款页面域名校验", "select"],
-  pay_domain_forbid: ["merchant", "收款页面禁止域名", "text"],
+  user_transfer_batch: ["transfer", "用户中心批量代付功能", "select"],
+  subchannel_open: ["merchant", "开启子通道管理功能", "select"],
+  user_profitsharing: ["merchant", "开启添加分账规则(进件)", "select"],
+  user_totp_open: ["merchant", "开启商户TOTP二次验证", "select"],
+  verifytype: ["merchant", "用户验证方式", "select"],
+  onecode_domains: ["merchant", "聚合收款码可选域名", "textarea"],
+  pay_domain_open: ["merchant", "开启授权支付域名添加", "select"],
   blockname: ["pay", "商品屏蔽关键词", "text"],
   blockalert: ["pay", "商品屏蔽显示内容", "text"],
   blackmsg: ["pay", "黑名单拦截提示内容", "text"],
@@ -514,11 +512,7 @@ export function settingDefinition(
       option("merchant", "商户承担（保留手续费）"),
     ];
   if (key === "verifytype")
-    d.options = [
-      option("0", "不验证"),
-      option("1", "邮箱验证"),
-      option("2", "手机验证"),
-    ];
+    d.options = [option("0", "邮箱验证"), option("1", "手机验证")];
   if (
     [
       "user_transfer",
@@ -652,20 +646,23 @@ export function settingDefinition(
   if (key === "mchrisk_open")
     d.hint = "进件管控记录按本轮范围暂缓，此开关当前仅保存配置。";
   if (key === "subchannel_open")
-    d.hint = "关闭后商户中心隐藏子商户支付通道入口并拒绝相关请求。";
+    d.hint = "关闭后商户中心隐藏支付通道（子通道）入口并拒绝相关请求。";
   if (key === "user_profitsharing")
-    d.hint = "关闭后商户无法使用用户分账功能（分账规则由管理员配置）。";
+    d.hint = "关闭后商户不能新增分账规则或分账接收方；已有规则仍可查看和停用。";
   if (key === "user_totp_open")
     d.hint =
-      "关闭后商户无法新开启登录二次验证；已开启的商户仍可自行关闭，不会被锁定。";
+      "开启后，商户可在账户设置中绑定TOTP，登录时进行二次验证。关闭后不能新绑定；已绑定的商户登录仍需验证，也可自行解绑。";
   if (key === "verifytype")
-    d.hint = "商户账号安全验证方式；手机/邮箱验证需对应渠道已接入才生效。";
+    d.hint =
+      "用于商户注册绑定邮箱/手机。选手机验证时需短信接口可用；未配置时两种方式都可用。";
   if (key === "onecode_domains")
-    d.hint = "聚合收款码可用域名，每行一个，最多2KB。";
+    d.hint =
+      "一行一个域名，例如 https://pay.example.com，最多20个。商户生成聚合收款码时可选；域名需解析到本站。";
   if (key === "pay_domain_open")
-    d.hint = "开启后收款页面校验来源域名是否在允许范围内。";
-  if (key === "pay_domain_forbid")
-    d.hint = "收款页面禁止使用的域名，每行一个，最多2KB。";
+    d.hint = "关闭后商户不能新增授权域名；已添加的域名不受影响。";
+  if (key === "enforce_domains")
+    d.hint =
+      "开启后，订单的异步/同步通知地址须在商户已审核通过的授权域名内，否则拒绝下单。";
   if (key === "user_transfer_batch")
     d.hint = "关闭后商户中心隐藏批量付款入口并拒绝相关请求。";
   if (key === "transfer_bank")
@@ -761,6 +758,39 @@ export function settingStorage(d: SettingDefinition, input: string): string {
     throw Error(`${d.label}：请填写明确的设置值，未配置的项目无需保存`);
   if (d.kind === "select" && !d.options?.some((o) => o.value === value))
     throw Error(`${d.label}：请选择有效选项`);
+  if (d.key === "onecode_domains") {
+    const lines = value
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const loopback = ["127.0.0.1", "localhost", "[::1]"];
+    const origin = (line: string) => {
+      try {
+        const u = new URL(line);
+        return (
+          (u.protocol === "https:" ||
+            (u.protocol === "http:" && loopback.includes(u.hostname))) &&
+          !u.username &&
+          !u.password &&
+          (u.pathname === "/" || u.pathname === "") &&
+          !u.search &&
+          !u.hash &&
+          !/^[a-z]+:\/\/[^/]*@/i.test(line)
+        );
+      } catch {
+        return false;
+      }
+    };
+    if (
+      new TextEncoder().encode(value).length > 2048 ||
+      lines.length > 20 ||
+      !lines.every(origin)
+    )
+      throw Error(
+        `${d.label}：一行一个 https 域名，例如 https://pay.example.com，最多20个`,
+      );
+    return lines.join("\n");
+  }
   if (d.key === "transfer_wxpay_scene_id" && !/^[0-9]{1,8}$/.test(value))
     throw Error(`${d.label}：请填写数字场景ID，如1001`);
   if (

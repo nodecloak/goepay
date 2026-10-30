@@ -671,6 +671,16 @@ onBeforeUnmount(() => {
                 :label="block.definition.label"
                 :disabled="!writable(block.definition) || controlsBusy"
               />
+              <textarea
+                v-else-if="block.definition.kind === 'textarea'"
+                v-model="values[block.key]"
+                class="pa-textarea"
+                rows="4"
+                :aria-label="block.definition.label"
+                :disabled="!writable(block.definition) || controlsBusy"
+                :maxlength="2048"
+                placeholder="未配置，使用系统默认"
+              ></textarea>
               <KitInput
                 v-else
                 v-model="values[block.key]!"

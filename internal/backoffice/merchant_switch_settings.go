@@ -1,70 +1,103 @@
 package backoffice
 
-import "strings"
+import (
+	"strings"
 
-// Original admin/set.php 商户相关 / 转账付款 switches that gate a whole merchant
-// feature, plus the 验证方式 selector and the 聚合收款 / 收款域名 keys. Each is
-// registered as a selectable settings key so the console surfaces it exactly as
-// epay_pro does, and validated to the original shape.
+	"goepay/internal/payment"
+)
+
+// Original admin/set.php 商户相关 / 转账付款 keys added in the wave-2 parity
+// pass, labelled as epay_pro labels them. What reads each one:
 //
-//	user_totp_open    "0"/"1"  商户登录二次验证（TOTP）开关
-//	subchannel_open   "0"/"1"  子商户支付通道开关
-//	user_profitsharing"0"/"1"  用户分账功能开关
-//	user_transfer_batch"0"/"1" 批量代付开关
-//	verifytype        "0".."2" 商户账号验证方式（0不验证/1邮箱/2手机）
-//	onecode_domains   text     聚合收款码可用域名（每行一个，最多 2KB）
-//	pay_domain_open   "0"/"1"  收款页面域名校验开关
-//	pay_domain_forbid text     收款页面禁止域名（每行一个，最多 2KB）
+//	user_totp_open      0/1  开启商户TOTP二次验证: merchant TOTP enrolment
+//	                         (/security/totp prepare and confirm). Turning it
+//	                         off never blocks disabling an existing binding.
+//	subchannel_open     0/1  开启子通道管理功能: the merchant 支付通道 page and
+//	                         its /payment-subchannels endpoint.
+//	user_profitsharing  0/1  开启添加分账规则(进件): merchant writes that add a
+//	                         分账规则 or 分账接收方 on /channel-sharing.
+//	user_transfer_batch 0/1  用户中心批量代付功能: the merchant 批量付款 page and
+//	                         its /transfer-batches endpoint.
+//	pay_domain_open     0/1  开启授权支付域名添加: a merchant adding 授权域名.
+//	verifytype          0/1  用户验证方式 (0 邮箱验证, 1 手机验证): the contact
+//	                         a new merchant must verify to register.
+//	onecode_domains     text 聚合收款码可选域名: one origin per line, offered on
+//	                         聚合收款 beside the platform address.
 //
-// The four feature switches default ON (a missing row leaves the feature
-// available, preserving today's behaviour); only an explicit "0" hides the
-// merchant entry and makes the matching endpoint refuse with the original
-// merchant-facing wording. verifytype / onecode_domains / pay_domain_* are
-// plain settings read by their business flows.
+// epay_pro's 未授权支付域名禁止支付 (pay_domain_forbid) is GOEPAY's existing
+// enforce_domains setting, so it is not registered twice. The feature switches
+// default ON: a missing row keeps today's behaviour and only an explicit "0"
+// closes the feature. verifytype and onecode_domains change nothing until an
+// administrator sets them.
 func init() {
 	d := definitions["settings"]
 	for i := range d.fields {
 		if d.fields[i].Name == "key" {
 			d.fields[i].Options = append(d.fields[i].Options,
-				Option{Label: "商户登录二次验证开关", Value: "user_totp_open"},
-				Option{Label: "子商户支付通道开关", Value: "subchannel_open"},
-				Option{Label: "用户分账功能开关", Value: "user_profitsharing"},
-				Option{Label: "批量代付开关", Value: "user_transfer_batch"},
-				Option{Label: "商户账号验证方式", Value: "verifytype"},
-				Option{Label: "聚合收款可用域名", Value: "onecode_domains"},
-				Option{Label: "收款页面域名校验开关", Value: "pay_domain_open"},
-				Option{Label: "收款页面禁止域名", Value: "pay_domain_forbid"},
+				Option{Label: "开启商户TOTP二次验证", Value: "user_totp_open"},
+				Option{Label: "开启子通道管理功能", Value: "subchannel_open"},
+				Option{Label: "开启添加分账规则(进件)", Value: "user_profitsharing"},
+				Option{Label: "用户中心批量代付功能", Value: "user_transfer_batch"},
+				Option{Label: "用户验证方式", Value: "verifytype"},
+				Option{Label: "聚合收款码可选域名", Value: "onecode_domains"},
+				Option{Label: "开启授权支付域名添加", Value: "pay_domain_open"},
 			)
 		}
 	}
 	definitions["settings"] = d
 }
 
-// MerchantSwitchDefaultOnKeys are the merchant feature switches added in the
-// 商户相关/转账付款 parity pass that default ON: a missing row means available,
-// an explicit "0" hides the merchant entry and refuses the endpoint. They share
-// the MerchantFeatureVisible gate.
-var MerchantSwitchDefaultOnKeys = []string{"user_totp_open", "subchannel_open", "user_profitsharing", "user_transfer_batch"}
+// MerchantSwitchDefaultOnKeys are the wave-2 merchant feature switches that
+// default ON: a missing row means available, an explicit "0" closes the
+// feature. They share the MerchantFeatureVisible gate and ride the session's
+// merchant_features payload.
+var MerchantSwitchDefaultOnKeys = []string{"user_totp_open", "subchannel_open", "user_profitsharing", "user_transfer_batch", "pay_domain_open"}
 
-// validateMerchantSwitchSetting reports whether key is one of the 商户相关/
-// 转账付款 parity keys and, if so, whether value is legal: the feature switches
-// and pay_domain_open are 0/1; verifytype is 0/1/2; the domain lists are newline
-// separated text up to 2KB (empty allowed, matching an unset $conf value).
+// onecodeDomainLimit caps how many extra 聚合收款 origins may be offered.
+const onecodeDomainLimit = 20
+
+// OnecodeDomainOrigins parses onecode_domains: one origin per line, blank lines
+// skipped, each accepted by payment.CollectionOrigin (https, or http on
+// loopback only; no path, query or credentials). Duplicates collapse to the
+// first. At most 20 origins and 2KB in all.
+func OnecodeDomainOrigins(raw string) ([]string, error) {
+	if len(raw) > 2048 {
+		return nil, ErrInvalid
+	}
+	out := []string{}
+	seen := map[string]bool{}
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		origin, e := payment.CollectionOrigin(line)
+		if e != nil {
+			return nil, ErrInvalid
+		}
+		if !seen[origin] {
+			seen[origin] = true
+			out = append(out, origin)
+		}
+	}
+	if len(out) > onecodeDomainLimit {
+		return nil, ErrInvalid
+	}
+	return out, nil
+}
+
+// validateMerchantSwitchSetting reports whether key is one of these keys and,
+// if so, whether value is legal: the switches and verifytype are 0/1;
+// onecode_domains must parse with OnecodeDomainOrigins.
 func validateMerchantSwitchSetting(key, value string) (bool, error) {
 	switch key {
-	case "user_totp_open", "subchannel_open", "user_profitsharing", "user_transfer_batch", "pay_domain_open":
+	case "user_totp_open", "subchannel_open", "user_profitsharing", "user_transfer_batch", "pay_domain_open", "verifytype":
 		if value != "0" && value != "1" {
 			return true, ErrInvalid
 		}
 		return true, nil
-	case "verifytype":
-		switch value {
-		case "0", "1", "2":
-			return true, nil
-		}
-		return true, ErrInvalid
-	case "onecode_domains", "pay_domain_forbid":
-		if len(value) > 2048 || strings.ContainsRune(value, '\x00') {
+	case "onecode_domains":
+		if _, e := OnecodeDomainOrigins(value); e != nil {
 			return true, ErrInvalid
 		}
 		return true, nil

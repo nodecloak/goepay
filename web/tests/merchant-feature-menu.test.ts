@@ -34,6 +34,22 @@ describe("merchant feature menu-hide", () => {
     expect(ids()).toContain("MerchantTransferBatches");
   });
 
+  it("hides the 支付通道 (子通道) entry and route when subchannel_open is off", () => {
+    expect(ids()).toContain("SubChannel");
+    expect(ids({ subchannel_open: true })).toContain("SubChannel");
+    expect(ids({ subchannel_open: false })).not.toContain("SubChannel");
+    expect(
+      pageAuthorizedFor(
+        "merchant",
+        "/subchannel",
+        "merchant",
+        undefined,
+        undefined,
+        { subchannel_open: false },
+      ),
+    ).toBe(false);
+  });
+
   it("hides an entry whose feature flag is false", () => {
     const shown = ids({
       internal_transfer: false,
