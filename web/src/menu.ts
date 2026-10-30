@@ -259,6 +259,7 @@ const merchantFeatureMenu: Record<string, string> = {
   complain_open: "Complain",
   applyments_open: "ApplymentsManage",
   mchrisk_open: "MchRisk",
+  user_transfer_batch: "MerchantTransferBatches",
 };
 
 // featureHiddenNodeIds collects the menu node ids to hide for the merchant area
