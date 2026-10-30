@@ -2121,6 +2121,7 @@ onBeforeUnmount(() => {
           :admin-class="session?.user.admin_class"
           :merchant-id="String(session?.user.id ?? '')"
           :own-session="!!session && !session.delegated_by"
+          :client="client"
       /></template>
       <template v-else>
         <form
