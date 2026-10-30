@@ -353,6 +353,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.refundFundingConsole(w, r, role, session, parts) {
 		return
 	}
+	if s.merchantDashboardTips(w, r, role, session, parts) {
+		return
+	}
 	if s.legacyRefundHistoryConsole(w, r, role, session, parts) {
 		return
 	}
