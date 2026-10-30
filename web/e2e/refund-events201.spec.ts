@@ -31,6 +31,9 @@ async function fixture(
     string,
     unknown
   >;
+  // Email recipient configured so the 邮件 channel is a deliverable choice in
+  // the notice matrix (test 297 picks it); other scenarios are unaffected.
+  notice = { ...notice, configured: { email: true } };
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("https://merchant-refund201.invalid/**", (route) => {
     directCallbacks.push(route.request().url());
@@ -173,11 +176,11 @@ for (const width of [1440, 375]) {
     await expect(
       f.panel.getByLabel("订单退款", { exact: false }),
     ).toBeChecked();
-    await expect(f.panel.getByLabel("交易投诉", { exact: true })).toHaveCount(
-      0,
-    );
+    await expect(
+      f.panel.getByLabel("交易投诉", { exact: true }),
+    ).not.toBeChecked();
     await expect(f.panel).toContainText(
-      "仅发送在平台提交的退款操作事件，不包括通过API退款的操作",
+      "发送在平台提交的退款操作事件，不包括通过API退款的操作",
     );
     const regions = await page
       .locator("section[aria-label]")
@@ -313,10 +316,10 @@ test("refund201 subscription and existing message push keep their independent pa
   await expect(
     notice.getByRole("heading", { name: "消息推送", exact: true }),
   ).toBeVisible();
-  await expect(notice.getByRole("combobox", { name: "订单支付成功", exact: true })).toHaveValue(
-    "0",
-  );
-  await notice.getByRole("combobox", { name: "订单支付成功", exact: true }).selectOption("2");
+  await expect(
+    notice.getByLabel("订单支付成功 关闭提醒", { exact: true }),
+  ).toBeChecked();
+  await notice.getByLabel("订单支付成功 邮件", { exact: true }).check();
   await notice.getByRole("button", { name: "保存设置", exact: true }).click();
   await expect(notice.getByRole("status")).toHaveText("通知设置已保存");
   expect(f.writes.map((write) => write.path)).toEqual([
