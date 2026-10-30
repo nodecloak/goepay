@@ -4,7 +4,10 @@ import (
 	"net/http"
 	"strings"
 
+	"goepay/internal/backoffice"
 	"goepay/internal/identity"
+	"goepay/internal/ledger"
+	"goepay/internal/smsgateway134"
 )
 
 // merchantDashboardTip is one actionable health notice shown as an alert banner
@@ -55,47 +58,81 @@ func (s *Server) merchantDashboardTips(w http.ResponseWriter, r *http.Request, r
 	return true
 }
 
-// collectMerchantDashboardTips derives the banner list from the merchant's own
-// account state. Every tip is a condition epay_pro warns the merchant about on
-// the dashboard and that GOEPAY can evaluate locally, worded the epay_pro way
-// and linked to the merchant route that fixes it.
-func (s *Server) collectMerchantDashboardTips(r *http.Request, mid int64) ([]merchantDashboardTip, error) {
-	ctx := r.Context()
-	tips := []merchantDashboardTip{}
+// merchantTipState is everything the tips depend on, read from the merchant's
+// own account state; merchantTipsFor turns it into banners without touching
+// the database, so each rule is unit-tested on its own.
+type merchantTipState struct {
+	Pay               int
+	SettlementMissing bool
+	PhoneBound        bool
+	SMSReady          bool
+	EmailBound        bool
+	DepositEnabled    bool
+	DepositMinCents   int64
+	DepositHeldCents  int64
+}
 
-	// Payment permission: pay=2 pending audit, pay=0 restricted. pay=1 normal.
-	var pay int
-	var phone, email string
-	var hasEmail bool
-	if e := s.Pool.QueryRow(ctx, `SELECT COALESCE((to_jsonb(m)->>'pay')::int,1),COALESCE(m.profile->>'phone',''),COALESCE((SELECT email FROM enrollment_emails WHERE merchant_id=m.id),m.profile->>'email',''),EXISTS(SELECT 1 FROM enrollment_emails WHERE merchant_id=m.id) OR COALESCE(m.profile->>'email','')<>'' FROM merchants m WHERE m.id=$1`, mid).Scan(&pay, &phone, &email, &hasEmail); e != nil {
-		return nil, e
-	}
-	switch pay {
+// merchantTipsFor lists the banners in a fixed order: payment status, deposit
+// shortfall, settlement account, phone, email. The phone tip only appears when
+// an SMS sender is active, because without one the merchant cannot bind a
+// phone and the banner could never be cleared.
+func merchantTipsFor(st merchantTipState) []merchantDashboardTip {
+	tips := []merchantDashboardTip{}
+	switch st.Pay {
 	case 2:
 		tips = append(tips, merchantDashboardTip{Type: "warning", Title: "您的支付功能正在审核中，审核通过后方可正常收款", Link: "/account/settings", LinkText: "查看账户"})
 	case 0:
 		tips = append(tips, merchantDashboardTip{Type: "error", Title: "您的支付功能已被限制，请联系平台客服处理", Link: "/account/settings", LinkText: "查看账户"})
 	}
+	// 当前平台要求最低缴纳保证金 N 元，否则无法调用接口发起支付 (enforced by
+	// payment.ErrDepositBelowMinimum on every payment order).
+	if st.DepositEnabled && st.DepositMinCents > 0 && st.DepositHeldCents < st.DepositMinCents {
+		tips = append(tips, merchantDashboardTip{Type: "error", Title: "您的保证金不足，当前平台要求最低缴纳保证金 " + ledger.Format(st.DepositMinCents) + " 元，否则无法调用接口发起支付", Link: "/account/deposit", LinkText: "缴纳保证金"})
+	}
+	if st.SettlementMissing {
+		tips = append(tips, merchantDashboardTip{Type: "warning", Title: "您还未设置结算账户，请尽快设置以便正常结算", Link: "/account/settings", LinkText: "前往设置"})
+	}
+	if st.SMSReady && !st.PhoneBound {
+		tips = append(tips, merchantDashboardTip{Type: "warning", Title: "您还未绑定手机号码，请尽快绑定以保障账户安全", Link: "/account/settings", LinkText: "前往绑定"})
+	}
+	if !st.EmailBound {
+		tips = append(tips, merchantDashboardTip{Type: "warning", Title: "您还未绑定邮箱，请尽快绑定以保障账户安全", Link: "/account/settings", LinkText: "前往绑定"})
+	}
+	return tips
+}
 
-	// Settlement account: epay_pro warns when the merchant has not set a
-	// settlement (收款) account. SettlementRecipient reports "missing" until one
-	// is configured.
+// collectMerchantDashboardTips reads the merchant's state for merchantTipsFor.
+// A phone counts as bound when either the registration phone or the verified
+// 账号绑定 mobile (bind_mobile) is set.
+func (s *Server) collectMerchantDashboardTips(r *http.Request, mid int64) ([]merchantDashboardTip, error) {
+	ctx := r.Context()
+	var st merchantTipState
+	var phone, bindMobile, email string
+	var hasEmail bool
+	if e := s.Pool.QueryRow(ctx, `SELECT COALESCE((to_jsonb(m)->>'pay')::int,1),COALESCE(m.profile->>'phone',''),COALESCE(m.profile->>'bind_mobile',''),COALESCE((SELECT email FROM enrollment_emails WHERE merchant_id=m.id),m.profile->>'email',''),EXISTS(SELECT 1 FROM enrollment_emails WHERE merchant_id=m.id) OR COALESCE(m.profile->>'email','')<>'' FROM merchants m WHERE m.id=$1`, mid).Scan(&st.Pay, &phone, &bindMobile, &email, &hasEmail); e != nil {
+		return nil, e
+	}
+	st.PhoneBound = strings.TrimSpace(phone) != "" || strings.TrimSpace(bindMobile) != ""
+	st.EmailBound = hasEmail && strings.TrimSpace(email) != ""
 	recipient, e := s.Store.SettlementRecipient(ctx, mid)
 	if e != nil {
 		return nil, e
 	}
-	if recipient.State == "missing" {
-		tips = append(tips, merchantDashboardTip{Type: "warning", Title: "您还未设置结算账户，请尽快设置以便正常结算", Link: "/account/settings", LinkText: "前往设置"})
+	st.SettlementMissing = recipient.State == "missing"
+	if len(s.CheckoutKey) == 32 {
+		if _, e := s.smsActiveSender(ctx, smsgateway134.New(s.Pool, s.CheckoutKey)); e == nil {
+			st.SMSReady = true
+		}
 	}
-
-	// Contact bindings: epay_pro requires 绑定手机号码 / 绑定邮箱 before several
-	// actions ("请先绑定手机号码！" / "请先绑定邮箱！").
-	if strings.TrimSpace(phone) == "" {
-		tips = append(tips, merchantDashboardTip{Type: "warning", Title: "您还未绑定手机号码，请尽快绑定以保障账户安全", Link: "/account/settings", LinkText: "前往绑定"})
+	deposit, e := backoffice.New(s.Pool, s.Store).DepositSettings(ctx)
+	if e != nil {
+		return nil, e
 	}
-	if !hasEmail || strings.TrimSpace(email) == "" {
-		tips = append(tips, merchantDashboardTip{Type: "warning", Title: "您还未绑定邮箱，请尽快绑定以保障账户安全", Link: "/account/settings", LinkText: "前往绑定"})
+	st.DepositEnabled, st.DepositMinCents = deposit.Enabled, deposit.MinCents
+	if st.DepositEnabled && st.DepositMinCents > 0 {
+		if st.DepositHeldCents, _, e = s.Store.DepositBalance(ctx, mid); e != nil {
+			return nil, e
+		}
 	}
-
-	return tips, nil
+	return merchantTipsFor(st), nil
 }
