@@ -49,11 +49,14 @@ for (const area of ["admin", "merchant"] as const)
       const table = page.locator(".original-transfer-list");
       await expect(table).toBeVisible();
       await expect(table.getByRole("columnheader")).toHaveText([
-        ...(area === "admin" ? ["交易号", "商户号"] : ["交易号"]),
-        "付款方式",
-        "付款账号",
-        "付款金额",
-        "提交时间",
+        ...(area === "admin"
+          ? ["交易号第三方交易号", "商户号"]
+          : ["交易号第三方交易号"]),
+        "付款方式备注",
+        "付款账号姓名",
+        "付款金额花费金额",
+        "手续费",
+        "提交时间付款时间",
         "状态",
         "操作",
       ]);
