@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"goepay/internal/identity"
 	"goepay/internal/payment"
 	"goepay/internal/simulation"
@@ -189,10 +190,20 @@ func TestPayDomainOpenGate(t *testing.T) {
 		c, _ := perms["create"].(bool)
 		return c
 	}
+	deleteFlags := func() string {
+		code, out := call("merchant", "GET", "/console/v1/merchant/resources/domains/schema", "")
+		if code != 200 {
+			t.Fatalf("merchant domains schema %d %v", code, out)
+		}
+		data, _ := out["data"].(map[string]any)
+		perms, _ := data["permissions"].(map[string]any)
+		return fmt.Sprint(perms["delete"], data["batch_delete"])
+	}
 	// Default (no row): merchant schema create true.
 	if !createFlag("merchant") {
 		t.Fatal("default merchant domains create not true")
 	}
+	deleteBefore := deleteFlags()
 	// Default: merchant can add a domain (not feature-refused).
 	if code, out := call("merchant", "POST", "/console/v1/merchant/resources/domains", `{"domain":"shop.example.com"}`); code == 403 && msg(out) == "未开启授权支付域名添加" {
 		t.Fatal("domains create feature-refused while pay_domain_open default ON")
@@ -202,6 +213,9 @@ func TestPayDomainOpenGate(t *testing.T) {
 	set("0")
 	if createFlag("merchant") {
 		t.Fatal("off merchant domains create still true")
+	}
+	if after := deleteFlags(); after != deleteBefore {
+		t.Fatalf("pay_domain_open changed the merchant's delete options: %s -> %s", deleteBefore, after)
 	}
 	if !createFlag("admin") {
 		t.Fatal("admin domains create gated by merchant switch")
