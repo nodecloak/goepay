@@ -85,6 +85,16 @@ const notice = ref("");
 const reason = ref("");
 const rows = ref<Row[]>([]);
 const loaded = ref(false);
+// Why 新增 is grey: the admin has not queried a merchant yet, or the merchant
+// has no channel that supports channel profit-sharing (the server's reason).
+const createHint = computed(() => {
+  if (loading.value || saving.value) return "";
+  if (!loaded.value)
+    return props.area === "admin" ? "请先输入商户ID并查询" : "";
+  if (!rows.value.length)
+    return reason.value || "当前商户没有支持渠道分账的支付通道";
+  return "";
+});
 
 // Pro 分账规则 list search: by 规则ID or 接收方账号 (client-side over loaded rows).
 const searchField = ref("id");
@@ -584,7 +594,9 @@ function onReset() {
     <section class="panel sharing-rules" aria-label="分账规则">
       <p v-if="error" class="error" role="alert">{{ error }}</p>
       <p v-if="notice" class="success" role="status">{{ notice }}</p>
-      <p v-if="reason" class="muted" role="status">{{ reason }}</p>
+      <p v-if="reason && rows.length" class="muted" role="status">
+        {{ reason }}
+      </p>
 
       <div class="pa-toolbar">
         <button
@@ -596,6 +608,9 @@ function onReset() {
         >
           新增
         </button>
+        <span v-if="createHint" class="create-hint" role="note">{{
+          createHint
+        }}</span>
       </div>
 
       <div class="pa-table-wrap">
@@ -808,7 +823,12 @@ function onReset() {
 }
 .pa-toolbar {
   display: flex;
+  align-items: center;
   gap: 10px;
+}
+.create-hint {
+  color: var(--ink-muted);
+  font-size: 12px;
 }
 .pa-table-wrap {
   overflow-x: auto;

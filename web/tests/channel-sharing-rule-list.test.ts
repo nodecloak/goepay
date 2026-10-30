@@ -222,3 +222,36 @@ it("记录 row link navigates to 分账记录 filtered by the rule id", async ()
   expect(router.currentRoute.value.query.rule_id).toBe("5");
   w.unmount();
 });
+
+it("the grey 新增 says why: query first, then the server's no-channel reason", async () => {
+  const none = {
+    ...caps,
+    available: false,
+    reason: "当前未配置支持渠道分账的通道；模拟通道不执行真实分账",
+    channels: [],
+  };
+  const request = listRequest(async (path: string) =>
+    path.includes("channels") ? none : undefined,
+  );
+  const w = render(request);
+  const button = () => w.get('[data-action="create"]');
+  const hint = () => w.find(".create-hint");
+  expect(button().attributes("disabled")).toBeDefined();
+  expect(hint().text()).toBe("请先输入商户ID并查询");
+  await open(w);
+  expect(button().attributes("disabled")).toBeDefined();
+  expect(hint().text()).toBe(none.reason);
+  // The reason is said once, beside the button.
+  expect(w.text().split(none.reason).length - 1).toBe(1);
+  w.unmount();
+});
+
+it("no hint once a supported channel is loaded", async () => {
+  const w = render(listRequest());
+  await open(w);
+  expect(
+    w.get('[data-action="create"]').attributes("disabled"),
+  ).toBeUndefined();
+  expect(w.find(".create-hint").exists()).toBe(false);
+  w.unmount();
+});
