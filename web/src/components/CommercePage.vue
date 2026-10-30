@@ -32,6 +32,7 @@ const items = ref<Record<string, unknown>[]>([]),
   notice = ref(""),
   receipt = ref<Record<string, unknown> | null>(null),
   balances = ref<Record<string, unknown>>({});
+const current = ref<Record<string, unknown> | null>(null);
 const review = ref<{
   row: Record<string, unknown>;
   action: "approve" | "reject";
@@ -188,8 +189,12 @@ async function load() {
     if (props.kind === "memberships") {
       const data = await props.client.request<{
         items: Record<string, unknown>[];
+        current?: Record<string, unknown>;
       }>("/membership-sales", { signal: c.signal });
-      if (!c.signal.aborted) groups.value = data.items;
+      if (!c.signal.aborted) {
+        groups.value = data.items;
+        current.value = data.current ?? null;
+      }
     }
   } catch (e) {
     if (!c.signal.aborted)
@@ -209,9 +214,23 @@ function open() {
     method: "page",
     quantity: "1",
   };
+  // epay_pro 保证金 page pre-fills 充值保证金 with the shortfall (deposit_min -
+  // held) when the merchant is below the platform minimum, so the default
+  // 转入保证金 amount tops the balance back up to the required minimum.
+  if (props.kind === "deposits" && props.area === "merchant") {
+    const shortfall = String(balances.value.deposit_shortfall_money ?? "");
+    if (/^(0|[1-9]\d*)(\.\d{1,2})?$/.test(shortfall) && Number(shortfall) > 0)
+      form.value.amount = shortfall;
+  }
   error.value = "";
   dialog.value = true;
   receipt.value = null;
+}
+function renew() {
+  // 续期：reuse the purchase flow with the current group preselected, exactly
+  // as epay_pro's 续期 button reopens the buy dialog for pe.my_gid.
+  open();
+  if (current.value?.my_gid) form.value.group_id = String(current.value.my_gid);
 }
 async function submit() {
   if (busy.value) return;
@@ -287,12 +306,33 @@ onBeforeUnmount(() => controller?.abort());
       "
       class="panel account-section"
     >
+      <h2>保证金管理</h2>
+      <div
+        v-if="
+          validAmount(String(balances.deposit_min_money)) &&
+          Number(balances.deposit_min_money) > 0
+        "
+        class="alert warning"
+        role="alert"
+      >
+        当前平台要求最低缴纳保证金
+        <strong>{{ displayValue(balances.deposit_min_money) }}</strong>
+        元，否则无法调用接口发起支付。
+      </div>
       <dl class="record-detail">
         <dt>保证金余额（元）</dt>
         <dd>{{ displayValue(balances.deposit_money) }}</dd>
         <dt>释放申请中（元）</dt>
         <dd>{{ displayValue(balances.pending_release_money) }}</dd>
       </dl>
+      <div
+        v-if="Number(balances.deposit_day) > 0"
+        class="alert info"
+        role="status"
+      >
+        提取保证金要求最近 <strong>{{ balances.deposit_day }}</strong>
+        天内无订单且无投诉记录。
+      </div>
     </section>
     <section
       v-if="receipt && kind === 'recharges'"
@@ -314,6 +354,39 @@ onBeforeUnmount(() => controller?.abort());
       <p v-else class="muted">
         支付链接尚未就绪，请刷新记录核实订单，或联系管理员。
       </p>
+    </section>
+    <section
+      v-if="kind === 'memberships' && current && current.my_group"
+      class="panel membership-current"
+    >
+      <div class="membership-current-grid">
+        <div>
+          <span class="membership-current-label">当前会员等级</span>
+          <div class="membership-current-value">
+            <span class="membership-level-tag">{{
+              displayValue(current.my_group)
+            }}</span>
+          </div>
+        </div>
+        <div class="membership-current-divider" aria-hidden="true"></div>
+        <div>
+          <span class="membership-current-label">到期时间</span>
+          <div class="membership-current-value">
+            <span>{{
+              current.endtime ? displayValue(current.endtime) : "—"
+            }}</span>
+            <button
+              v-if="current.can_renew"
+              type="button"
+              class="primary membership-renew"
+              :disabled="busy || loading || !groups.length"
+              @click="renew"
+            >
+              续期
+            </button>
+          </div>
+        </div>
+      </div>
     </section>
     <section
       v-if="kind === 'memberships' && groups.length"
@@ -540,5 +613,38 @@ onBeforeUnmount(() => controller?.abort());
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   flex: 1;
+}
+.membership-current-grid {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.membership-current-label {
+  font-size: 13px;
+  color: var(--muted, #6b7280);
+}
+.membership-current-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.membership-current-divider {
+  width: 1px;
+  align-self: stretch;
+  min-height: 40px;
+  background: var(--line);
+}
+.membership-level-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--custom-radius);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.membership-renew {
+  margin-left: 8px;
 }
 </style>
