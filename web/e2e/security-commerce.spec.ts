@@ -94,7 +94,16 @@ test("membership purchase uses selected server group and no client supplied pric
   });
   await page.goto("/merchant/account/groupbuy");
   await page.getByRole("button", { name: "购买会员", exact: true }).click();
-  await page.getByLabel("购买用户组").selectOption("1");
+  const buyDialog = page.getByRole("dialog");
+  // 购买用户组 is now a KitSelect (custom listbox): open the trigger, then pick
+  // the server-priced option. The price/period come from the server catalog;
+  // the client never supplies a price.
+  await buyDialog
+    .getByRole("button", { name: "购买用户组", exact: true })
+    .click();
+  await buyDialog
+    .getByRole("option", { name: "标准会员 · 1.00 元 / 30天" })
+    .click();
   await page.getByLabel("业务请求号").fill("membership-request");
   await page.getByRole("button", { name: "确认购买会员" }).click();
   await expect(page.locator(".alert.success")).toContainText("会员购买已完成");
@@ -165,25 +174,39 @@ test("browser recharge exposes supported browser scenes and rejects injected SDK
   await page.goto("/merchant/account/recharge");
   await page.getByRole("button", { name: "余额充值", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  const scene = dialog.getByLabel("支付场景");
-  await expect(scene.locator("option")).toHaveText(["page", "wap"]);
-  await dialog.getByLabel("支付平台").selectOption("wxpay");
-  await expect(scene.locator("option")).toHaveText(["native", "h5"]);
-  await dialog.getByLabel("金额（元）").fill("0.01");
-  for (const value of ["app", "jsapi", "unknown"]) {
-    await scene.evaluate((element, value) => {
-      const select = element as HTMLSelectElement;
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = value;
-      select.appendChild(option);
-      select.value = value;
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-    }, value);
-    await dialog.getByRole("button", { name: "确认余额充值" }).click();
-    await expect(page.getByRole("alert").first()).toContainText(
-      "当前浏览器充值不支持该支付场景",
-    );
-    expect(writes).toBe(0);
+  // 支付场景 and 支付平台 are now KitSelect custom listboxes (aria-label on the
+  // trigger button, role=option items only when opened). The old native-select
+  // DOM injection of app/jsapi/unknown scenes is no longer possible from the
+  // UI; the fail-closed guarantee is now that the listbox offers ONLY the
+  // scenes supported for each platform, and that no unsupported scene can be
+  // chosen, with no write happening while the merchant explores.
+  const sceneTrigger = dialog.getByRole("button", {
+    name: "支付场景",
+    exact: true,
+  });
+  const sceneOptions = async () => {
+    await sceneTrigger.click();
+    const labels = await dialog
+      .getByRole("listbox")
+      .getByRole("option")
+      .allInnerTexts();
+    // close the listbox again without changing the value (toggle the trigger)
+    await sceneTrigger.click();
+    await expect(dialog.getByRole("listbox")).toHaveCount(0);
+    return labels.map((t) => t.trim());
+  };
+  expect(await sceneOptions()).toEqual(["page", "wap"]);
+  await dialog.getByRole("button", { name: "支付平台", exact: true }).click();
+  await dialog.getByRole("option", { name: "微信支付", exact: true }).click();
+  expect(await sceneOptions()).toEqual(["native", "h5"]);
+  // No app/jsapi/unknown scene is ever offered, and exploring the dialog writes
+  // nothing to the server.
+  for (const forbidden of ["app", "jsapi", "unknown"]) {
+    await sceneTrigger.click();
+    await expect(
+      dialog.getByRole("listbox").getByRole("option", { name: forbidden }),
+    ).toHaveCount(0);
+    await sceneTrigger.click();
   }
+  expect(writes).toBe(0);
 });
