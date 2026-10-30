@@ -115,11 +115,14 @@ for (const width of [375, 1280])
     await expect(page.getByAltText("收款码样式预览")).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, 0));
     if (width === 1280) {
+      const sidebarRight = await page
+        .locator(".console-sidebar")
+        .evaluate((el) => el.getBoundingClientRect().right);
       expect(
         await page
           .locator(".main-content")
           .evaluate((el) => el.getBoundingClientRect().left),
-      ).toBeGreaterThanOrEqual(230);
+      ).toBeGreaterThanOrEqual(sidebarRight);
       await expect
         .poll(
           async () =>
@@ -127,7 +130,7 @@ for (const width of [375, 1280])
               .locator(".style-editor-form")
               .evaluate((el) => el.getBoundingClientRect().left),
         )
-        .toBeGreaterThanOrEqual(230);
+        .toBeGreaterThanOrEqual(sidebarRight);
     }
     await page.screenshot({
       path: testInfo.outputPath("collection-style-viewport.png"),
@@ -137,7 +140,10 @@ for (const width of [375, 1280])
       path: testInfo.outputPath("collection-style-editor.png"),
       fullPage: true,
     });
-    if (width === 1280)
+    if (width === 1280) {
+      const sidebarRight = await page
+        .locator(".console-sidebar")
+        .evaluate((el) => el.getBoundingClientRect().right);
       await expect
         .poll(
           async () =>
@@ -145,7 +151,8 @@ for (const width of [375, 1280])
               .locator(".style-editor-form")
               .evaluate((el) => el.getBoundingClientRect().left),
         )
-        .toBeGreaterThanOrEqual(230);
+        .toBeGreaterThanOrEqual(sidebarRight);
+    }
     await page.getByRole("button", { name: "保存样式", exact: true }).click();
     await expect.poll(() => writes.length).toBe(1);
     expect(writes[0].body.expected_revision).toBe("b".repeat(64));
