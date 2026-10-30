@@ -3975,7 +3975,8 @@ th {
   min-width: 0;
 }
 .list-page > .list-filter-card,
-.list-page > .pa-filter {
+.list-page > .pa-filter,
+.list-page > .alert {
   margin: 0;
 }
 

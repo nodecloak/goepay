@@ -235,14 +235,18 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <div class="list-page referral" aria-label="邀请返现">
-    <p class="alert info">
-      奖励来自原付款订单的已固定条款，奖励不超过原订单手续费；即时与按日奖励分别核对，任意成功退款将撤销整笔原奖励。历史发放、撤销和退款暂存流水不代表当前可提现余额。
-    </p>
-    <div class="referral-actions">
-      <button class="pa-btn" :disabled="loading || busy" @click="load">
-        重新读取邀请资料
-      </button>
-      <span v-if="loading" role="status" class="muted">正在核对邀请资料…</span>
+    <div class="alert info referral-note">
+      <span
+        >奖励来自原付款订单的已固定条款，奖励不超过原订单手续费；即时与按日奖励分别核对，任意成功退款将撤销整笔原奖励。历史发放、撤销和退款暂存流水不代表当前可提现余额。</span
+      >
+      <span class="referral-note-actions">
+        <span v-if="loading" role="status" class="muted"
+          >正在核对邀请资料…</span
+        >
+        <button class="pa-btn" :disabled="loading || busy" @click="load">
+          重新读取邀请资料
+        </button>
+      </span>
     </div>
     <p v-if="error" role="alert" class="alert error">{{ error }}</p>
     <p v-if="notice" role="status" class="alert success">{{ notice }}</p>
@@ -445,14 +449,28 @@ onBeforeUnmount(() => {
 .referral {
   min-width: 0;
 }
-.referral-actions {
+/* The note on the left, the page's reload action at its right end. */
+.referral-note {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+.referral-note-actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
   gap: var(--space-3);
 }
-.referral-actions .pa-btn {
+.referral-note-actions .pa-btn {
   min-height: var(--control-h);
+}
+/* Cards in the column are spaced by the 16px gap only: the policy card's own
+   1rem margin and the totals list's default margins doubled it. */
+.referral > .current-policy,
+.referral > .referral-stats {
+  margin: 0;
 }
 .referral-token {
   min-width: 0;

@@ -18,6 +18,7 @@ import KitSwitch from "./KitSwitch.vue";
 import KitStatusTag from "./KitStatusTag.vue";
 import KitPagination from "./KitPagination.vue";
 import KitHelpPopover from "./KitHelpPopover.vue";
+import ShellIcon from "./ShellIcon.vue";
 import {
   freshSubchannelFilters,
   readSubchannelPage,
@@ -977,7 +978,7 @@ onBeforeUnmount(() => {
             :disabled="!allowed || loading"
             @click="load"
           >
-            刷新
+            <ShellIcon name="refresh" />刷新
           </button>
           <KitHelpPopover label="说明">
             <p>

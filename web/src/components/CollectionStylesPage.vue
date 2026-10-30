@@ -18,6 +18,7 @@ import KitSwitch from "./KitSwitch.vue";
 import KitEmpty from "./KitEmpty.vue";
 import KitModal from "./KitModal.vue";
 import KitPagination from "./KitPagination.vue";
+import ShellIcon from "./ShellIcon.vue";
 const props = defineProps<{
   client: ApiClient;
   ownSession: boolean;
@@ -572,7 +573,7 @@ onBeforeUnmount(() => {
               :disabled="loading || busy"
               @click="initialize"
             >
-              刷新
+              <ShellIcon name="refresh" />刷新
             </button>
           </div>
         </div>
