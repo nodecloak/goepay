@@ -63,8 +63,9 @@ func TestMerchantDashboardTipsConditionsOnAndOff(t *testing.T) {
 	}
 
 	// Baseline: fixture merchant 1 has no phone, no email, no settlement
-	// recipient and pay=1 (normal). Expect: settlement + phone + email tips,
-	// no payment-status tip.
+	// recipient and pay=1 (normal). No SMS sender is active in the fixture, so
+	// the phone tip stays hidden (the merchant could not bind a phone).
+	// Expect: settlement + email tips, no phone or payment-status tip.
 	w, resp := fetchMerchantTips(t, s, merchantToken())
 	if w.Code != 200 {
 		t.Fatalf("tips %d %s", w.Code, w.Body.String())
@@ -72,8 +73,8 @@ func TestMerchantDashboardTipsConditionsOnAndOff(t *testing.T) {
 	if !tipByLink(resp, "/account/settings", "结算账户") {
 		t.Fatalf("missing settlement-account tip: %s", w.Body.String())
 	}
-	if !tipByLink(resp, "/account/settings", "手机号码") {
-		t.Fatalf("missing phone-binding tip: %s", w.Body.String())
+	if tipByLink(resp, "/account/settings", "手机号码") {
+		t.Fatalf("phone tip shown although no SMS sender can deliver a bind code: %s", w.Body.String())
 	}
 	if !tipByLink(resp, "/account/settings", "邮箱") {
 		t.Fatalf("missing email-binding tip: %s", w.Body.String())
@@ -118,6 +119,32 @@ func TestMerchantDashboardTipsConditionsOnAndOff(t *testing.T) {
 	}
 	if _, e := pool.Exec(ctx, "UPDATE merchants SET pay=1 WHERE id=1"); e != nil {
 		t.Fatal(e)
+	}
+
+	// A platform deposit minimum with nothing held: error-tone deposit tip that
+	// links to the deposit page; removing the minimum clears it.
+	if _, e := pool.Exec(ctx, `INSERT INTO backoffice_records(resource,body) VALUES('settings','{"key":"user_deposit_min","value":"10.00"}')`); e != nil {
+		t.Fatal(e)
+	}
+	_, resp = fetchMerchantTips(t, s, merchantToken())
+	deposit := false
+	for _, tip := range resp.Data.Tips {
+		if tip.Link == "/account/deposit" && strings.Contains(tip.Title, "10.00") {
+			if tip.Type != "error" || tip.LinkText == "" {
+				t.Fatalf("deposit tip shape: %+v", tip)
+			}
+			deposit = true
+		}
+	}
+	if !deposit {
+		t.Fatalf("missing deposit-shortfall tip: %+v", resp.Data.Tips)
+	}
+	if _, e := pool.Exec(ctx, `DELETE FROM backoffice_records WHERE resource='settings' AND body->>'key'='user_deposit_min'`); e != nil {
+		t.Fatal(e)
+	}
+	_, resp = fetchMerchantTips(t, s, merchantToken())
+	if tipByLink(resp, "/account/deposit", "保证金") {
+		t.Fatalf("deposit tip stays without a minimum: %+v", resp.Data.Tips)
 	}
 
 	// Resolve bindings and settlement account: those three tips vanish.
