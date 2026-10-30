@@ -138,17 +138,23 @@ func (s *Server) loadTransferAccountStats(ctx context.Context, method string, st
 	// its cost_amount. This mirrors reports.go's transfer net/cost expression so
 	// 花费金额 agrees with the channel/merchant transfer reports.
 	costExpr := "CASE WHEN sb.request_id IS NOT NULL THEN sp.net_amount WHEN sp.request_id IS NOT NULL THEN sp.gross_amount ELSE t.cost_amount END"
+	// A provider transfer's payee index is its policy row; a wallet settlement
+	// payout writes no policy row and keeps its own payee index on
+	// settlement_payouts (a bank settlement payout writes both). The inner join
+	// on policies used to drop wallet settlement payouts from this report while
+	// the channel and merchant reports counted them.
 	base := `FROM transfers t
- JOIN provider_transfer_policies pol ON pol.transfer_id=t.id
  JOIN provider_transfer_attempts a ON a.transfer_id=t.id
+ LEFT JOIN provider_transfer_policies pol ON pol.transfer_id=t.id
  LEFT JOIN bank_transfer_lifecycle b ON b.transfer_id=t.id
  LEFT JOIN settlement_payouts sp ON sp.transfer_id=t.id
  LEFT JOIN settlement_bank_payouts sb ON sb.transfer_id=t.id
  WHERE t.created_at >= $1 AND t.created_at < $2 AND ($3::text='' OR a.method=$3)`
 	args := []any{start, end.AddDate(0, 0, 1), method}
+	payee := "COALESCE(pol.recipient_hash, sp.recipient_hash)"
 
 	// Per-group aggregate with the representative intent chosen by lowest id.
-	grouped := `SELECT pol.recipient_hash AS hash,
+	grouped := `SELECT ` + payee + ` AS hash,
  (array_agg(t.id ORDER BY t.id))[1] AS repr_id,
  (array_agg(t.amount ORDER BY t.id))[1] AS repr_amount,
  (array_agg(a.recipient_cipher ORDER BY t.id))[1] AS repr_cipher,
@@ -157,7 +163,7 @@ func (s *Server) loadTransferAccountStats(ctx context.Context, method string, st
  count(*) FILTER (WHERE ` + paidState + `='paid') AS paid_orders,
  COALESCE(sum(t.amount) FILTER (WHERE ` + paidState + `='paid'),0) AS paid_money,
  COALESCE(sum(` + costExpr + `) FILTER (WHERE ` + paidState + `='paid'),0) AS cost_money
- ` + base + ` GROUP BY pol.recipient_hash`
+ ` + base + ` GROUP BY ` + payee
 
 	var total int64
 	if e := s.Pool.QueryRow(ctx, "SELECT count(*) FROM ("+grouped+") g", args...).Scan(&total); e != nil {

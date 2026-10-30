@@ -54,6 +54,7 @@ func TestBankTransferAPIAndConsoleDiscloseReturnInsteadOfStaleSuccess(t *testing
 	checkReport := func(wantPaid, wantMoney string) {
 		t.Helper()
 		for _, name := range []string{"transfer-accounts", "transfer-channels", "transfer-merchants"} {
+			labels := map[string]string{}
 			for _, format := range []string{"", "?format=csv"} {
 				r := httptest.NewRequest("GET", "/console/v1/admin/reports/"+name+format, nil)
 				r.AddCookie(&http.Cookie{Name: "goepay_admin", Value: adminToken})
@@ -67,17 +68,33 @@ func TestBankTransferAPIAndConsoleDiscloseReturnInsteadOfStaleSuccess(t *testing
 					if e != nil || len(rows) != 2 {
 						t.Fatalf("report CSV %v %d", e, len(rows))
 					}
-					if rows[1][2] != wantPaid || rows[1][3] != wantMoney {
-						t.Fatalf("%s counts reversed as paid: %v", name, rows[1])
+					// Column order differs per report (付款账号统计 adds 姓名), and the
+					// generic report CSVs head columns with keys while 付款账号统计
+					// uses labels, so locate 成功笔数 and 付款金额 by either.
+					paidAt, moneyAt := -1, -1
+					for i, h := range rows[0] {
+						switch h {
+						case "paid_orders", labels["paid_orders"]:
+							paidAt = i
+						case "paid_money", labels["paid_money"]:
+							moneyAt = i
+						}
+					}
+					if paidAt < 0 || moneyAt < 0 || rows[1][paidAt] != wantPaid || rows[1][moneyAt] != wantMoney {
+						t.Fatalf("%s counts reversed as paid: %v %v", name, rows[0], rows[1])
 					}
 				} else {
 					var out struct {
 						Data struct {
-							Items []map[string]string `json:"items"`
+							Columns []struct{ Key, Label string } `json:"columns"`
+							Items   []map[string]string           `json:"items"`
 						} `json:"data"`
 					}
 					if e := json.Unmarshal(w.Body.Bytes(), &out); e != nil || len(out.Data.Items) != 1 {
 						t.Fatalf("report JSON %v", e)
+					}
+					for _, c := range out.Data.Columns {
+						labels[c.Key] = c.Label
 					}
 					row := out.Data.Items[0]
 					if row["paid_orders"] != wantPaid || row["paid_money"] != wantMoney {

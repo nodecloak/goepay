@@ -115,7 +115,8 @@ func TestComplaints133MigrationCreatesForwardOnlyStoreAndIsReentrant(t *testing.
 	if _, err = p.Exec(ctx, `INSERT INTO complaint_tasks133(channel_id,num,frequency)VALUES(5,20,6)`); err != nil {
 		t.Fatal("task insert", err)
 	}
-	if _, err = p.Exec(ctx, `INSERT INTO complaint_tasks133(channel_id,num)VALUES(6,99)`); !isCheck(err) {
+	// Migration 000175 widened num to epay_pro's 1..200; 201 is out of range.
+	if _, err = p.Exec(ctx, `INSERT INTO complaint_tasks133(channel_id,num)VALUES(6,201)`); !isCheck(err) {
 		t.Fatal("num out of range must be refused", err)
 	}
 
