@@ -47,8 +47,10 @@ func (s *Service) MerchantFeatureEnabled(ctx context.Context, key string) (bool,
 // entry shown and the endpoint open, and only an explicit "0" hides the menu
 // and refuses the workflow endpoint. internal_transfer / recharge / onecode
 // use this default-ON gate; complain_open / applyments_open / mchrisk_open use
-// MerchantFeatureEnabled (default off, surfaced only when turned on).
-var MerchantFeatureVisibleKeys = []string{"internal_transfer", "recharge", "onecode"}
+// MerchantFeatureEnabled (default off, surfaced only when turned on). The
+// 商户相关/转账付款 parity switches (user_totp_open / subchannel_open /
+// user_profitsharing / user_transfer_batch) are default-ON too.
+var MerchantFeatureVisibleKeys = append([]string{"internal_transfer", "recharge", "onecode"}, MerchantSwitchDefaultOnKeys...)
 
 // MerchantFeatureVisible reports whether a default-ON merchant feature is
 // enabled: true unless the stored value is exactly "0". A missing row means ON,
