@@ -132,11 +132,39 @@ test("administrator receiver return requires exact funds authorization and unkno
       expect(r.headers()["x-csrf-token"]).toBe("local-csrf");
       return route.fulfill(ok(returned));
     }
+    // The 分账记录 list (offset paging) is what /profitsharing/order shows first.
+    if (p.endsWith("/orders") && new URL(r.url()).searchParams.has("offset"))
+      return route.fulfill(
+        ok({
+          items: [
+            {
+              id: "10",
+              external_no: "local-original-ps",
+              out_no: order.out_no,
+              state: "succeeded",
+              share_amount: "20",
+              order_amount: "100",
+              provider: "wxpay",
+              method: "native",
+              rule_id: "0",
+              channel_id: "7",
+              created_at: "2026-10-30T00:00:00Z",
+            },
+          ],
+          total: "1",
+          limit: 20,
+        }),
+      );
     return route.fulfill(
       ok({ items: p.endsWith("/orders") ? [order] : [], next_cursor: "0" }),
     );
   });
   await page.goto("/admin/profitsharing/order");
+  // epay_pro's list comes first: load the merchant's records, then open the
+  // 操作台 of the row to reach the original-receiver return flow.
+  await page.getByLabel("商户ID", { exact: true }).fill("1000");
+  await page.getByRole("button", { name: "查询", exact: true }).click();
+  await page.getByRole("button", { name: "操作台", exact: true }).click();
   const panel = page.getByRole("region", { name: "渠道分账记录" });
   await panel.getByLabel("商户 ID").fill("1000");
   await panel.getByRole("button", { name: "读取分账数据" }).click();

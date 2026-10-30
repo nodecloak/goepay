@@ -268,7 +268,7 @@ onBeforeUnmount(() => {
         </button>
       </section>
       <p v-if="uncertain" class="alert">
-        请先按上方原请求号查找已保存批次，再核对详情；收款资料已从当前表单清除。
+        原请求号已保留在上方「请求号」中，请先点「查询」查找已保存批次，再核对详情；收款资料已从当前表单清除。
       </p>
       <div class="table-scroll">
         <table class="pa-table">
