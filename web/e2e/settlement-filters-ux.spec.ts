@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { chooseKitOption } from "./kit-select-helpers";
 import { settlementListFixture } from "../tests/fixtures/settlement-list";
 for (const width of [1280, 375])
   for (const role of ["admin", "merchant"] as const) {
@@ -50,8 +51,17 @@ for (const width of [1280, 375])
       await form
         .getByLabel("结算账号/姓名", { exact: true })
         .fill("本地张三158");
-      await form.getByLabel("结算方式", { exact: true }).selectOption("bank");
-      await form.getByLabel("状态", { exact: true }).selectOption("0");
+      await chooseKitOption(
+        page,
+        form.getByRole("button", { name: "结算方式", exact: true }),
+        "银行卡",
+      );
+      await form.getByRole("button", { name: "展开", exact: true }).click();
+      await chooseKitOption(
+        page,
+        form.getByRole("button", { name: "状态", exact: true }),
+        "待结算",
+      );
       await form.getByLabel("开始日期").fill("2026-10-01");
       await form.getByLabel("结束日期").fill("2026-10-26");
       if (role === "admin")
