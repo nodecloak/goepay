@@ -11,8 +11,6 @@ export async function chooseKitOption(
 ) {
   await trigger.click();
   const listbox = page.getByRole("listbox");
-  await listbox
-    .getByRole("option", { name: optionLabel, exact: true })
-    .click();
+  await listbox.getByRole("option", { name: optionLabel, exact: true }).click();
   await expect(trigger).toContainText(optionLabel);
 }
