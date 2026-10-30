@@ -1465,7 +1465,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <PublicTestPay203 v-if="publicTestPayEntry203" />
+  <PublicTestPay203
+    v-if="publicTestPayEntry203"
+    :fallback-site-name="publicSite191?.sitename"
+  />
   <div v-else-if="initializing" class="loading-screen" role="status">
     正在验证会话…
   </div>
