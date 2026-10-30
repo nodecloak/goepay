@@ -20,7 +20,7 @@ func (s *Service) serveSettlementRecipient(w http.ResponseWriter, r *http.Reques
 			writeError(w, ErrForbidden)
 			return true
 		}
-		values, e := s.SettingValues(r.Context(), "settle_alipay", "settle_wxpay", "settle_qqpay", "settle_bank", "transfer_wxpay", "transfer_qqpay")
+		values, e := s.SettingValues(r.Context(), "settle_alipay", "settle_wxpay", "settle_qqpay", "settle_bank", "transfer_wxpay", "transfer_qqpay", "transfer_bank")
 		if e != nil {
 			writeError(w, e)
 			return true

@@ -128,3 +128,42 @@ it("unbinds an enabled authenticator through the kit modal with password + code"
     current_password: "synthetic-merchant-pw",
   });
 });
+
+it("hides 绑定 and shows the muted line when the platform disabled enrollment (enrollable:false)", async () => {
+  const c = newClient();
+  vi.spyOn(c, "request").mockImplementation(async (p) => {
+    if (p === "/security/totp")
+      return { enabled: false, enrollable: false } as never;
+    return {} as never;
+  });
+  const w = mount(TotpSettings, {
+    attachTo: document.body,
+    props: { client: c },
+  });
+  mounted.push(w);
+  await flushPromises();
+  // The 绑定身份验证器 button is gone; the muted explanation is shown.
+  expect(w.findAll("button").some((b) => b.text() === "绑定身份验证器")).toBe(
+    false,
+  );
+  expect(w.text()).toContain("平台未开启商户TOTP二次验证，暂不能绑定。");
+});
+
+it("still shows 绑定 when enrollable is absent (default true) or true", async () => {
+  const c = newClient();
+  vi.spyOn(c, "request").mockImplementation(async (p) => {
+    if (p === "/security/totp")
+      return { enabled: false, enrollable: true } as never;
+    return {} as never;
+  });
+  const w = mount(TotpSettings, {
+    attachTo: document.body,
+    props: { client: c },
+  });
+  mounted.push(w);
+  await flushPromises();
+  expect(w.findAll("button").some((b) => b.text() === "绑定身份验证器")).toBe(
+    true,
+  );
+  expect(w.text()).not.toContain("平台未开启商户TOTP二次验证");
+});
