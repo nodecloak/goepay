@@ -85,7 +85,7 @@ async function submit() {
 </script>
 <template>
   <KitModal
-    title="批量添加黑名单"
+    title="添加黑名单"
     submit-text="添加"
     width="520px"
     :loading="busy"
@@ -102,22 +102,23 @@ async function submit() {
         :disabled="busy"
       />
     </KitField>
-    <KitField label="拉黑内容（一行一条，可批量粘贴）">
+    <KitField label="拉黑内容">
       <textarea
         v-model="content"
         class="pa-textarea blacklist-add-textarea"
         rows="8"
         aria-label="拉黑内容"
-        placeholder="每行一条，例如一行一个 IP / 域名 / 买家标识"
+        placeholder="一行一条，可批量粘贴"
         :disabled="busy"
       ></textarea>
     </KitField>
     <p class="muted blacklist-add-count">当前有效行数：{{ lineCount }}</p>
-    <KitField label="有效期（天，0 为永久）">
+    <KitField label="有效期（天）">
       <KitInput
         v-model="days"
         inputmode="numeric"
         aria-label="有效期天数"
+        placeholder="0 为永久"
         :error="daysInvalid"
         :disabled="busy"
       />
