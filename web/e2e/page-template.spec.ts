@@ -60,18 +60,42 @@ test("typed templates require explicit confirmation and kind-wide CAS, private i
           csrf_token: "c",
         }),
       );
-    if (p.endsWith("/templates"))
-      return r.fulfill(
-        ok({
-          type: url.searchParams.get("type"),
-          revision,
-          selected,
-          items: [
-            { name: "default", title: "标准模板", description: "本地标准布局" },
-            { name: "compact", title: "紧凑模板", description: "本地紧凑布局" },
-          ],
-        }),
-      );
+    if (p.endsWith("/templates")) {
+      const kind = url.searchParams.get("type");
+      const items =
+        kind === "home"
+          ? [
+              "default",
+              "index1",
+              "index2",
+              "index3",
+              "index4",
+              "index5",
+              "index6",
+              "index7",
+              "index8",
+              "index9",
+              "index10",
+              "minimal",
+            ].map((name) => ({
+              name,
+              title: name === "default" ? "标准模板" : name,
+              description: "本地布局",
+            }))
+          : [
+              {
+                name: "default",
+                title: "标准模板",
+                description: "本地标准布局",
+              },
+              {
+                name: "compact",
+                title: "紧凑模板",
+                description: "本地紧凑布局",
+              },
+            ];
+      return r.fulfill(ok({ type: kind, revision, selected, items }));
+    }
     if (p.endsWith("/selection")) {
       const body = request.postDataJSON();
       writes.push({ path: p, body });
@@ -84,25 +108,40 @@ test("typed templates require explicit confirmation and kind-wide CAS, private i
         contentType: "text/html",
         body: "<p>PREVIEW-ONLY</p>",
       });
-    const m = p.match(
-      /\/templates\/(home|pay|qrpay)\/(default|compact)\/config$/,
-    );
+    const m = p.match(/\/templates\/(home|pay|qrpay)\/([a-z0-9]+)\/config$/);
     if (m) {
+      const kind = m[1] as "home" | "pay" | "qrpay";
       if (request.method() === "PUT") {
         const body = request.postDataJSON();
         writes.push({ path: p, body });
         saved[m[2]] = body.config;
         revision = String(Number(revision) + 1);
       }
+      const base = { ...(saved[m[2]] ?? cfg) };
+      if (kind !== "pay") delete base.show_order_name;
       return r.fulfill(
-        ok({ type: m[1], name: m[2], revision, config: saved[m[2]], fields }),
+        ok({
+          type: kind,
+          name: m[2],
+          revision,
+          config: base,
+          fields: fields.filter(
+            (f) => kind === "pay" || f.name !== "show_order_name",
+          ),
+        }),
       );
     }
     return r.fulfill(ok({}));
   });
   await page.goto("/admin/app/template");
   await expect(
-    page.getByRole("heading", { name: "模板配置", exact: true, level: 2 }),
+    page.getByRole("button", { name: "检查并保存模板设置" }),
+  ).toBeVisible();
+  // The console now opens on 首页模板; the typed default/compact card flow
+  // belongs to the 支付页模板 kind.
+  await page.getByRole("button", { name: "支付页模板", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "支付收银台 / default" }),
   ).toBeVisible();
   await page
     .getByLabel("品牌名称", { exact: true })
@@ -115,11 +154,14 @@ test("typed templates require explicit confirmation and kind-wide CAS, private i
   ).toBeVisible();
   expect(writes[0].body.expected_revision).toBe("0");
   expect(writes[0].body.config.brand_name).toBe("<img src=x onerror=1> brand");
-  await page.getByRole("button", { name: "紧凑模板 本地紧凑布局" }).click();
+  await page.getByRole("button", { name: /紧凑模板.*标识：compact/ }).click();
   await page.getByRole("button", { name: "检查并设为当前模板" }).click();
   expect(writes).toHaveLength(1);
   await page.getByRole("button", { name: "确认切换", exact: true }).click();
-  await expect(page.getByText(/当前选中：compact/)).toBeVisible();
+  await expect(
+    page.getByText("模板已切换；后续页面使用新外观。"),
+  ).toBeVisible();
+  await expect(page.getByText(/当前使用：.*（compact）/)).toBeVisible();
   expect(writes[1].body).toEqual({ expected_revision: "1", name: "compact" });
   await page.getByRole("button", { name: "预览已保存配置" }).click();
   await expect(page.locator("iframe")).toHaveAttribute(
@@ -162,28 +204,42 @@ test("template unknown response blocks repeated mutation until explicit reload a
       writes++;
       return r.abort("failed");
     }
-    if (p.endsWith("/templates"))
+    if (p.endsWith("/templates")) {
       return r.fulfill(
         ok({
-          type: "pay",
+          type: "home",
           revision: "0",
           selected: "default",
           items: [
-            { name: "default", title: "标准", description: "本地" },
-            { name: "compact", title: "紧凑", description: "本地" },
-          ],
+            "default",
+            "index1",
+            "index2",
+            "index3",
+            "index4",
+            "index5",
+            "index6",
+            "index7",
+            "index8",
+            "index9",
+            "index10",
+            "minimal",
+          ].map((name) => ({ name, title: name, description: "本地" })),
         }),
       );
-    if (p.endsWith("/config"))
+    }
+    if (p.endsWith("/config")) {
+      const homeCfg: any = { ...cfg };
+      delete homeCfg.show_order_name;
       return r.fulfill(
         ok({
-          type: "pay",
+          type: "home",
           name: "default",
           revision: "0",
-          config: cfg,
-          fields,
+          config: homeCfg,
+          fields: fields.filter((f) => f.name !== "show_order_name"),
         }),
       );
+    }
     return r.fulfill(ok({}));
   });
   await page.goto("/admin/app/template");
@@ -224,18 +280,32 @@ test("three template kinds keep typed fields and image upload stays a draft unti
           csrf_token: "c",
         }),
       );
-    if (p.endsWith("/templates"))
+    if (p.endsWith("/templates")) {
+      const kind = url.searchParams.get("type");
+      const items =
+        kind === "home"
+          ? [
+              "default",
+              "index1",
+              "index2",
+              "index3",
+              "index4",
+              "index5",
+              "index6",
+              "index7",
+              "index8",
+              "index9",
+              "index10",
+              "minimal",
+            ].map((name) => ({ name, title: name, description: "本地" }))
+          : [
+              { name: "default", title: "标准", description: "本地" },
+              { name: "compact", title: "紧凑", description: "本地" },
+            ];
       return r.fulfill(
-        ok({
-          type: url.searchParams.get("type"),
-          revision: "0",
-          selected: "default",
-          items: [
-            { name: "default", title: "标准", description: "本地" },
-            { name: "compact", title: "紧凑", description: "本地" },
-          ],
-        }),
+        ok({ type: kind, revision: "0", selected: "default", items }),
       );
+    }
     if (p.endsWith("/images") && request.method() === "POST") {
       uploads.push(request.headers()["x-csrf-token"]);
       return r.fulfill(
@@ -264,16 +334,23 @@ test("three template kinds keep typed fields and image upload stays a draft unti
     return r.fulfill(ok({}));
   });
   await page.goto("/admin/app/template");
-  await expect(page.getByLabel("显示订单名称")).toBeVisible();
-  await page.getByRole("button", { name: "首页", exact: true }).click();
+  // The console opens on 首页模板, which has no 显示订单名称 switch.
   await expect(
     page.getByRole("heading", { name: "首页 / default" }),
   ).toBeVisible();
   await expect(page.getByLabel("显示订单名称")).toHaveCount(0);
-  await page.getByRole("button", { name: "聚合收款页", exact: true }).click();
+  await page.getByRole("button", { name: "支付页模板", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "支付收银台 / default" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("显示订单名称")).toBeVisible();
+  await page
+    .getByRole("button", { name: "聚合收款页模板", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "聚合收款页 / default" }),
   ).toBeVisible();
+  await expect(page.getByLabel("显示订单名称")).toHaveCount(0);
   await page
     .getByLabel(/品牌标志/)
     .setInputFiles({ name: "local.png", mimeType: "image/png", buffer: image });
