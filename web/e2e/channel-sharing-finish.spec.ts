@@ -32,9 +32,26 @@ test("merchant independent finish shows original auto-finish as read-only and wa
     out_no: "PF" + "c".repeat(30),
     state: "pending",
   };
+  // The 渠道独立完结 panel lives inside the 操作台 overlay (ChannelSharingPage),
+  // which is opened from an order-list row. Give the Pro list one row so the
+  // 操作台 button renders.
+  const listRow = {
+    id: "5",
+    external_no: "rec-row-5",
+    out_no: "",
+    state: "succeeded",
+    share_amount: "2000",
+    order_amount: "10000",
+    provider: "wxpay",
+    method: "native",
+    rule_id: "15",
+    channel_id: "7",
+    created_at: "2026-10-01T00:00:00Z",
+  };
   await page.route("**/console/v1/**", (route) => {
     const r = route.request(),
-      p = new URL(r.url()).pathname;
+      u = new URL(r.url()),
+      p = u.pathname;
     if (p.endsWith("/session"))
       return route.fulfill(
         ok({
@@ -94,9 +111,20 @@ test("merchant independent finish shows original auto-finish as read-only and wa
       });
       return route.fulfill(ok(pending));
     }
+    if (p.endsWith("/orders") && r.method() === "GET") {
+      if (u.searchParams.has("offset"))
+        return route.fulfill(ok({ items: [listRow], total: "1", limit: 20 }));
+      return route.fulfill(ok({ items: [], next_cursor: "0" }));
+    }
     return route.fulfill(ok({ items: [], next_cursor: "0" }));
   });
   await page.goto("/merchant/profitsharing/order");
+  // Open the 操作台 overlay that hosts the 渠道独立完结 panel.
+  await page
+    .getByRole("region", { name: "分账记录", exact: true })
+    .getByRole("button", { name: "操作台" })
+    .first()
+    .click();
   const panel = page.getByRole("region", { name: "渠道独立完结", exact: true });
   await panel.getByLabel("完结平台订单号").fill("AUTO_FINISHED");
   await panel.getByRole("button", { name: "核对原订单完结状态" }).click();
