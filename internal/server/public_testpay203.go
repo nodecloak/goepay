@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -97,10 +98,52 @@ func (e publicTestEngine203) Types(ctx context.Context, mid int64) ([]publictest
 			out = append(out, publictestpay203.PayType{ID: strconv.FormatInt(id, 10), Name: body.Type, ShowName: body.Name})
 		}
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	// A type that was never saved in 支付方式 follows the original catalog
+	// default, as the payment router does (payTypeCatalogOpen): alipay and
+	// wxpay start open, so a fresh install offers them like the original
+	// pre_type rows. Such a type has no record id, so it is offered under
+	// testPayCatalogTypeID; typeid stays a positive integer.
+	ids := map[string]bool{}
+	for _, t := range out {
+		ids[t.ID] = true
+	}
+	for i, t := range originalPayTypes {
+		if !t.Open || !allowed[t.Name] {
+			continue
+		}
+		var saved bool
+		if err = e.s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM backoffice_records WHERE resource='pay-types' AND body->>'type'=$1)`, t.Name).Scan(&saved); err != nil {
+			return nil, err
+		}
+		id := strconv.FormatInt(testPayCatalogTypeID+int64(i), 10)
+		if !saved && !ids[id] {
+			out = append(out, publictestpay203.PayType{ID: id, Name: t.Name, ShowName: t.ShowName})
+		}
+	}
+	// Catalog order, like the original's pre_type id order (支付宝 first);
+	// records of one type keep their id order.
+	sort.SliceStable(out, func(i, j int) bool { return payTypeCatalogIndex(out[i].Name) < payTypeCatalogIndex(out[j].Name) })
 	if len(out) > 100 {
 		return nil, publictestpay203.ErrUnavailable
 	}
-	return out, rows.Err()
+	return out, nil
+}
+
+// testPayCatalogTypeID is the typeid base of a catalog 支付方式 that has no
+// stored record (originalPayTypes index added). Record ids come from a
+// sequence and never reach this range.
+const testPayCatalogTypeID int64 = 9_000_000_000_000_000_000
+
+func payTypeCatalogIndex(payType string) int {
+	for i, t := range originalPayTypes {
+		if t.Name == payType {
+			return i
+		}
+	}
+	return len(originalPayTypes)
 }
 func (e publicTestEngine203) Create(ctx context.Context, in publictestpay203.Intent, source string) (string, string, error) {
 	ctx = payment.WithCoreRiskCustomerIP(ctx, source, "direct_http")
