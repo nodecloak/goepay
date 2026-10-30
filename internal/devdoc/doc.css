@@ -300,6 +300,10 @@ summary:focus-visible {
   line-height: 22px;
   text-align: left;
   vertical-align: top;
+  /* Not "anywhere" (set on the article): a cell keeps whole words, so a
+     narrow screen widens the table and scrolls it instead of splitting
+     names like out_trade_no. Very long values still wrap. */
+  overflow-wrap: break-word;
 }
 .doc-table th {
   background: #f5f6f7;
@@ -357,6 +361,15 @@ summary:focus-visible {
   .doc-article h1 {
     padding: 18px 0 12px;
     font-size: 26px;
+  }
+  /* Parameter tables (4+ columns) scroll sideways in their frame on a
+     phone; two-column tables still fit the screen. */
+  .doc-table table:has(th:nth-child(4)) {
+    min-width: 760px;
+  }
+  .doc-table th,
+  .doc-table td {
+    padding: 8px 10px;
   }
 }
 @media (max-width: 480px) {
