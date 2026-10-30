@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, onMounted } from "vue";
 import ShellIcon from "./ShellIcon.vue";
 import RichContent from "./RichContent.vue";
 import DailyWelcome from "./DailyWelcome.vue";
 import type { Area } from "../menu";
-import { displayValue } from "../api";
+import { displayValue, type ApiClient } from "../api";
 import { beijingTimestamp as consoleDateTime } from "../console-datetime";
 const props = defineProps<{
   data: Record<string, unknown>;
@@ -12,10 +12,72 @@ const props = defineProps<{
   adminClass?: string;
   merchantId?: string;
   ownSession?: boolean;
+  client?: ApiClient;
 }>();
 const metric = ref("amount"),
   payment = ref("all"),
   details = ref(false);
+
+// Merchant dashboard health tips (epay_pro `tips[]`): closable alert banners,
+// each with a button routing to the console page that resolves the condition.
+// Fetched from the read-only GET /dashboard/tips; a failure leaves the list
+// empty so the dashboard overview is never broken by it. Closing a tip hides it
+// for the browser session only (sessionStorage), matching epay_pro's dismiss.
+interface DashboardTip {
+  type: string;
+  title: string;
+  link: string;
+  link_text: string;
+}
+const tips = ref<DashboardTip[]>([]);
+const closedTips = ref<Set<string>>(new Set());
+const closedTipsKey = "merchant_dashboard_tips_closed";
+function loadClosedTips() {
+  try {
+    const raw = sessionStorage.getItem(closedTipsKey);
+    if (raw) closedTips.value = new Set(JSON.parse(raw) as string[]);
+  } catch {
+    closedTips.value = new Set();
+  }
+}
+function persistClosedTips() {
+  try {
+    sessionStorage.setItem(
+      closedTipsKey,
+      JSON.stringify([...closedTips.value]),
+    );
+  } catch {
+    // Session storage may be unavailable (private mode); ignore.
+  }
+}
+const visibleTips = computed(() =>
+  tips.value.filter((tip) => !closedTips.value.has(tip.title)),
+);
+function closeTip(tip: DashboardTip) {
+  closedTips.value = new Set([...closedTips.value, tip.title]);
+  persistClosedTips();
+}
+function tipTone(type: string) {
+  return type === "error" || type === "warning" || type === "success"
+    ? type
+    : "warning";
+}
+onMounted(async () => {
+  if (props.area !== "merchant" || !props.client) return;
+  loadClosedTips();
+  try {
+    const result = await props.client.request<{ tips?: DashboardTip[] }>(
+      "/dashboard/tips",
+    );
+    tips.value = Array.isArray(result?.tips)
+      ? result.tips.filter(
+          (t) => t && typeof t.title === "string" && typeof t.link === "string",
+        )
+      : [];
+  } catch {
+    tips.value = [];
+  }
+});
 const record = (value: unknown): Record<string, any> =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, any>)
@@ -246,6 +308,32 @@ const quickLinks = computed(() =>
         >
       </p>
     </section>
+    <div
+      v-if="area === 'merchant' && visibleTips.length"
+      class="dashboard-tips"
+    >
+      <div
+        v-for="tip in visibleTips"
+        :key="tip.title"
+        class="dashboard-tip"
+        :class="'tip-' + tipTone(tip.type)"
+        role="alert"
+      >
+        <ShellIcon name="info" class="tip-icon" />
+        <span class="tip-title">{{ tip.title }}</span>
+        <RouterLink class="tip-action" :to="'/' + area + tip.link">{{
+          tip.link_text || "前往处理"
+        }}</RouterLink>
+        <button
+          type="button"
+          class="tip-close"
+          aria-label="关闭提示"
+          @click="closeTip(tip)"
+        >
+          ×
+        </button>
+      </div>
+    </div>
     <div class="stat-grid">
       <section v-for="card in cards" :key="card.title" class="panel stat">
         <span class="stat-icon"><ShellIcon :name="card.icon" /></span>
@@ -777,6 +865,69 @@ const quickLinks = computed(() =>
 }
 .welcome span {
   margin-left: 20px;
+}
+.dashboard-tips {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+.dashboard-tip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.dashboard-tip .tip-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+.dashboard-tip .tip-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.dashboard-tip .tip-action {
+  flex: none;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  white-space: nowrap;
+}
+.dashboard-tip .tip-close {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  font-size: 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.dashboard-tip .tip-close:hover {
+  opacity: 1;
+}
+.dashboard-tip.tip-warning {
+  background: var(--warning-soft, rgba(234, 179, 8, 0.12));
+  border-color: var(--warning, #d97706);
+  color: var(--warning-text, #92600a);
+}
+.dashboard-tip.tip-error {
+  background: var(--danger-soft, rgba(220, 38, 38, 0.12));
+  border-color: var(--danger, #dc2626);
+  color: var(--danger-text, #991b1b);
+}
+.dashboard-tip.tip-success {
+  background: var(--success-soft, rgba(22, 163, 74, 0.12));
+  border-color: var(--success, #16a34a);
+  color: var(--success-text, #166534);
 }
 @media (max-width: 1100px) {
   .dashboard-columns {
