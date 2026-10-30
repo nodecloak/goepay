@@ -185,6 +185,10 @@ func (s *Service) Serve(w http.ResponseWriter, r *http.Request, p Principal, par
 		s.serveBatchDelete(w, r, p, resource)
 		return
 	}
+	if len(parts) == 2 && parts[1] == "batch-create" && r.Method == "POST" {
+		s.serveBatchCreateBlacklist(w, r, p, resource)
+		return
+	}
 	if len(parts) == 2 && parts[1] == "batch-status" && r.Method == "POST" {
 		s.serveBatchDomainStatus(w, r, p, resource)
 		return

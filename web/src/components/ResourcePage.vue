@@ -73,6 +73,7 @@ import ParentChannelPage from "./ParentChannelPage.vue";
 import PayTypePage from "./PayTypePage.vue";
 import MerchantDelegationPanel from "./MerchantDelegationPanel.vue";
 import BusinessNoticeEvents from "./BusinessNoticeEvents.vue";
+import BlacklistAddDialog from "./BlacklistAddDialog.vue";
 import { businessNoticeSettingsFields } from "../business-notice";
 const props = defineProps<{
   client: ApiClient;
@@ -339,6 +340,27 @@ const fieldFilters = ref<Record<string, string>>({});
 const selectedIds = ref<string[]>([]);
 const confirmBatch = ref(false);
 const batchBusy = ref(false);
+// Blacklist 批量添加 (Pro's 添加 dialog): the management page opens a dedicated
+// bulk/validity dialog instead of the generic single-record create, while the
+// generic editor is kept for 编辑. Only the admin blacklist resource uses it.
+const isBlacklist = computed(() => props.resource === "blacklist");
+const blacklistAddOpen = ref(false);
+const blacklistKindField = computed(() =>
+  schema.value?.fields.find((f) => f.name === "kind"),
+);
+function openCreate() {
+  if (isBlacklist.value) {
+    if (busy.value || loading.value || mode.value !== null) return;
+    blacklistAddOpen.value = true;
+    return;
+  }
+  open("create");
+}
+async function onBlacklistAdded(msg: string) {
+  blacklistAddOpen.value = false;
+  notice.value = msg;
+  await load();
+}
 function merchantRelatedLinks(id: unknown) {
   const value = String(id ?? "");
   if (!/^[1-9]\d{0,18}$/.test(value) || BigInt(value) > 9223372036854775807n)
@@ -1186,7 +1208,7 @@ onBeforeUnmount(resetContext);
           type="button"
           class="primary"
           :disabled="busy"
-          @click="open('create')"
+          @click="openCreate"
         >
           <ShellIcon name="plus" />新增{{ entityLabel }}
         </button>
@@ -1408,6 +1430,15 @@ onBeforeUnmount(resetContext);
                   v-else-if="field.name === 'enabled'"
                   :tone="stateTone('enabled', row.enabled)"
                   :text="consoleValue('enabled', row.enabled)"
+                />
+                <KitStatusTag
+                  v-else-if="
+                    isBlacklist &&
+                    field.name === 'expires_at' &&
+                    !String(row.expires_at || '')
+                  "
+                  tone="neutral"
+                  text="永久"
                 />
                 <span
                   v-else
@@ -1659,6 +1690,13 @@ onBeforeUnmount(resetContext);
         条授权域名。此操作逐条走后台审核流程并记录审核事件。
       </p>
     </KitModal>
+    <BlacklistAddDialog
+      v-if="blacklistAddOpen && isBlacklist"
+      :client="client"
+      :kind-field="blacklistKindField"
+      @close="blacklistAddOpen = false"
+      @saved="onBlacklistAdded"
+    />
   </template>
   <MerchantManualWithdrawal
     v-if="manualWithdrawalID && canManualWithdraw"
