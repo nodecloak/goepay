@@ -48,8 +48,11 @@ type Server struct {
 	ProxyConnectivity        func(context.Context, httpclient.ProxyConfig) (string, error)
 	PaymentDefendVerifier206 captcha203.Verifier
 	PublicTestPay203         *publictestpay203.Service
-	LoginCaptcha205          *logincaptcha205.Service
-	Mail195TestEnabled       bool
+	// DocsAPIOrigin is the merchant API origin (GOEPAY_PUBLIC_ORIGIN) that the
+	// /doc/ pages print; empty shows plain paths.
+	DocsAPIOrigin      string
+	LoginCaptcha205    *logincaptcha205.Service
+	Mail195TestEnabled bool
 	// Private-PKI trust supplied by the host/test harness, never HTTP input.
 	Mail195SMTPRoots  *x509.CertPool
 	SystemUpdate      *systemupdate.Service
@@ -128,6 +131,12 @@ func (s *Server) Handler() http.Handler {
 			return
 		}
 		if s.templatePublic(w, r) {
+			return
+		}
+		if s.devDocs(w, r) {
+			return
+		}
+		if s.testPayAlias(w, r) {
 			return
 		}
 		if s.referralLegacyAlias(w, r) {

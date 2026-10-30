@@ -1,0 +1,81 @@
+{{define "content"}}
+<h1 id="转账发起">转账发起</h1>
+<blockquote>平台需开通代付功能，且在商户后台开启代付API接口开关，才能调用本接口发起转账。</blockquote>
+<h4 id="请求地址">请求地址：</h4>
+<p><code class="doc-url">{{.API}}api/transfer/submit</code></p>
+<h4 id="请求方式">请求方式：</h4>
+<p>POST</p>
+<h4 id="请求参数说明">请求参数说明：</h4>
+<div class="doc-table"><table>
+<thead><tr><th>字段名</th><th>变量名</th><th>必填</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<tbody>
+<tr><td>商户ID</td><td>pid</td><td>是</td><td>Int</td><td>1001</td><td> </td></tr>
+<tr><td>转账方式</td><td>type</td><td>是</td><td>String</td><td>alipay</td><td><a href="#转账方式列表">转账方式列表</a></td></tr>
+<tr><td>收款方账号</td><td>account</td><td>是</td><td>String</td><td>alipay@alipay.com</td><td>支付宝账号/微信OpenId/银行卡号</td></tr>
+<tr><td>收款方姓名</td><td>name</td><td>否</td><td>String</td><td>张三</td><td>选填，与账号一并提交给转账渠道核对；银行卡转账必填</td></tr>
+<tr><td>收款银行编号</td><td>bank_code</td><td>否</td><td>String</td><td>1002</td><td>仅微信银行卡转账需要传，填写微信支付规定的收款银行编号；其它方式请勿传</td></tr>
+<tr><td>转账通道ID</td><td>channel_id</td><td>否</td><td>Int</td><td> </td><td>指定商户可用的转账通道；不传自动选择支持该转账方式的通道</td></tr>
+<tr><td>转账金额</td><td>money</td><td>是</td><td>String</td><td>1.00</td><td>单位：元</td></tr>
+<tr><td>转账备注</td><td>remark</td><td>否</td><td>String</td><td> </td><td>选填；转账方式为支付宝时作为转账标题</td></tr>
+<tr><td>转账交易号</td><td>out_biz_no</td><td>否</td><td>String</td><td>2016080615134334917</td><td>传入后可避免出现重复请求转账；不传则由系统生成</td></tr>
+<tr><td>当前时间戳</td><td>timestamp</td><td>是</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
+<tr><td>签名字符串</td><td>sign</td><td>是</td><td>String</td><td> </td><td>参考签名规则</td></tr>
+<tr><td>签名类型</td><td>sign_type</td><td>是</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr>
+</tbody>
+</table></div>
+<p class="doc-note">调用前提：平台须已配置并开启代付（转账写入）功能，商户须在后台开启代付API接口开关，且所选转账方式（微信/QQ钱包/银行卡）在平台未被关闭。所选转账方式被关闭时返回“该转账方式已关闭”；平台未开启代付写入时返回“transfer writes disabled”。</p>
+<p class="doc-note">本站不支持原版的“安全发账本ID（bookid）”参数：传入 bookid 会被拒绝（msg 为 book transfer capability unavailable），请不要传入。</p>
+<h4 id="返回参数说明">返回参数说明：</h4>
+<div class="doc-table"><table>
+<thead><tr><th>字段名</th><th>变量名</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<tbody>
+<tr><td>返回状态码</td><td>code</td><td>Int</td><td>0</td><td>0为成功，其它值为失败</td></tr>
+<tr><td>错误信息</td><td>msg</td><td>String</td><td> </td><td>失败时返回转账失败原因</td></tr>
+<tr><td>转账状态</td><td>status</td><td>Int</td><td> </td><td>0：正在处理<br />1：转账成功<br />2：转账失败</td></tr>
+<tr><td>系统交易号</td><td>biz_no</td><td>String</td><td>2016080615134334917</td><td> </td></tr>
+<tr><td>商户交易号</td><td>out_biz_no</td><td>String</td><td>2016080615134334917</td><td>可用于后续转账查询</td></tr>
+<tr><td>接口转账单号</td><td>orderid</td><td>String</td><td>40001283951815782</td><td>支付宝微信返回的转账单号</td></tr>
+<tr><td>转账完成时间</td><td>paydate</td><td>String</td><td>2024-07-01 16:47:32</td><td> </td></tr>
+<tr><td>转账金额</td><td>amount</td><td>String</td><td>1.00</td><td>单位：元</td></tr>
+<tr><td>转账花费金额</td><td>cost_money</td><td>String</td><td> </td><td>从商户可用余额扣减的金额</td></tr>
+<tr><td>转账备注</td><td>remark</td><td>String</td><td> </td><td> </td></tr>
+<tr><td>结果待查询</td><td>query_required</td><td>Bool</td><td>true</td><td>上游结果未确定时返回，提示稍后调用转账查询</td></tr>
+<tr><td>当前时间戳</td><td>timestamp</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
+<tr><td>签名字符串</td><td>sign</td><td>String</td><td> </td><td>参考签名规则</td></tr>
+<tr><td>签名类型</td><td>sign_type</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr>
+</tbody>
+</table></div>
+<p class="doc-note">除原版字段外，本站还返回 amount（转账金额）与 remark（转账备注）；银行卡转账另会附带 bank_* 等银行产品相关字段。</p>
+<p class="doc-note">转账失败时 code 为 -1、msg 为 transfer failed; funds released，同时返回上表字段（status 为 2，并附带 errmsg），冻结的资金已退回可用余额。请求未被受理（如代付开关未开启、余额不足）时返回 code -1、msg 为 transfer rejected，不返回交易号。</p>
+<h4 id="转账方式列表">转账方式列表</h4>
+<div class="doc-table"><table>
+<thead><tr><th>状态值</th><th>描述</th></tr></thead>
+<tbody>
+<tr><td>alipay</td><td>支付宝</td></tr>
+<tr><td>wxpay</td><td>微信支付</td></tr>
+<tr><td>qqpay</td><td>QQ钱包</td></tr>
+<tr><td>bank</td><td>银行卡</td></tr>
+</tbody>
+</table></div>
+<p class="doc-note">具体可用的转账方式取决于商户所绑定渠道支持的转账能力以及平台开关；实际发起时只有渠道支持且未被关闭的方式才能成功。</p>
+<h4 id="其他说明">其他说明：</h4>
+<ul>
+<li>如果返回的转账状态 status=0（或返回 query_required=true），则需稍后调用<a href="/doc/transfer_query.html">转账查询</a>接口查询转账状态，请勿据此重复发起转账。</li>
+<li>结果未知规则：当上游结果无法立即确定时，本站保留本次转账的交易号与冻结资金并返回原交易号，不会生成新的转账意图；请使用相同的 out_biz_no 调用转账查询确认最终结果，避免重复扣款。</li>
+</ul>
+<h4 id="返回示例">返回示例：</h4>
+<pre><code>{
+    "code": 0,
+    "status": 1,
+    "biz_no": "2016080615134334917",
+    "out_biz_no": "2016080615134334917",
+    "orderid": "40001283951815782",
+    "paydate": "2024-07-01 16:47:32",
+    "amount": "1.00",
+    "cost_money": "1.03",
+    "remark": "",
+    "timestamp": "1721206072",
+    "sign_type": "RSA",
+    "sign": "xxxxxxxx"
+}</code></pre>
+{{end}}
