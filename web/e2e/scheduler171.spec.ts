@@ -110,7 +110,7 @@ async function setup(
     reads,
     release,
     row: page
-      .getByRole("row")
+      .locator("article.job-card")
       .filter({ has: page.getByText("每日邀请返现结算", { exact: true }) }),
   };
 }
@@ -121,10 +121,10 @@ for (const width of [1440, 375])
     await page.setViewportSize({ width, height: 900 });
     const f = await setup(page, { defer: true });
     await expect(
-      page.getByRole("heading", { name: "计划任务", exact: true }),
+      page.getByRole("region", { name: "计划任务", exact: true }),
     ).toBeVisible();
     const notify = page
-      .getByRole("row")
+      .locator("article.job-card")
       .filter({ has: page.getByText("订单异步通知重试", { exact: true }) });
     await expect(notify).toContainText("未接管");
     await expect(notify).not.toContainText("已关闭");

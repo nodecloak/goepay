@@ -44,7 +44,7 @@ test("mail-disabled enrollment cannot send and leaving the form clears sensitive
           expires_seconds: 600,
         }),
       );
-    sends++;
+    if (p.endsWith("/verification-code") || p.endsWith("/sms-code")) sends++;
     return route.fulfill(ok(null));
   });
   await page.goto("/merchant/dashboard");
@@ -302,12 +302,15 @@ test("unknown capabilities fail closed and mail service/rate-limit failures neve
         ),
       );
     }
-    sends++;
-    return route.fulfill({
-      status: sends === 1 ? 503 : 429,
-      contentType: "application/json",
-      body: JSON.stringify({ code: -1, message: "unavailable" }),
-    });
+    if (p.endsWith("/verification-code") || p.endsWith("/sms-code")) {
+      sends++;
+      return route.fulfill({
+        status: sends === 1 ? 503 : 429,
+        contentType: "application/json",
+        body: JSON.stringify({ code: -1, message: "unavailable" }),
+      });
+    }
+    return route.fulfill(ok(null));
   });
   await page.goto("/merchant/dashboard");
   await page.getByRole("button", { name: "注册商户", exact: true }).click();

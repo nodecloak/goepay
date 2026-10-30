@@ -113,6 +113,28 @@ async function fixture(page: Page, area: "admin" | "merchant") {
       return route.fulfill(ok({ state: "not_configured" }));
     if (path.endsWith("/transfers/capabilities"))
       return route.fulfill(ok({ channels: [], writes_enabled: false }));
+    if (path.endsWith("/complaints-charts")) {
+      return route.fulfill(
+        ok({
+          columns: [
+            { key: "dimension", label: "商户ID" },
+            { key: "today_count", label: "今日投诉总条数" },
+            { key: "today_money", label: "今日投诉金额（元）" },
+          ],
+          items: [{ dimension: "1", today_count: "2", today_money: "123.50" }],
+          summary: {
+            today_count: "2",
+            today_money: "123.50",
+            today_alipay: "1",
+            today_wxpay: "1",
+            yesterday_count: "0",
+            yesterday_money: "0.00",
+            yesterday_alipay: "0",
+            yesterday_wxpay: "0",
+          },
+        }),
+      );
+    }
     if (path.endsWith("/reports/complaints")) {
       expect(new URL(request.url()).searchParams.get("view")).toBe("overview");
       return route.fulfill(
@@ -200,7 +222,7 @@ for (const width of [375, 1280]) {
     ).toBe(true);
     await page.goto("/admin/complain/charts");
     await expect(
-      page.getByRole("heading", { name: "投诉数据统计&排行榜" }),
+      page.getByText("投诉数据统计&排行榜", { exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("columnheader", { name: "今日投诉金额（元）" }),

@@ -161,7 +161,9 @@ test("merchant original report exports the same payment type and original field 
     return route.fulfill(ok({ items: [], total: 0 }));
   });
   await page.goto("/merchant/trade/daily-stat");
-  await page.getByLabel("支付方式", { exact: true }).selectOption("alipay");
+  // 支付方式 is a KitSelect (custom listbox): open the trigger, pick 支付宝.
+  await page.getByRole("button", { name: "支付方式", exact: true }).click();
+  await page.getByRole("option", { name: "支付宝", exact: true }).click();
   await page.getByRole("button", { name: "查询", exact: true }).click();
   await expect(
     page.locator("tbody").getByRole("cell", { name: "0.01", exact: true }),

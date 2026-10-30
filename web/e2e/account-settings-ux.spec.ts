@@ -151,7 +151,7 @@ for (const width of [1280, 375]) {
       dialog.getByText("2026-10-25 08:00:00", { exact: true }),
     ).toBeVisible();
     await dialog
-      .getByRole("button", { name: "下一页登录日志", exact: true })
+      .getByRole("button", { name: "下一页", exact: true })
       .click();
     await expect(dialog.getByText("192.0.2.21", { exact: true })).toBeVisible();
     expect(f.reads.at(-1)!.searchParams.toString()).toBe("page=2&limit=20");
@@ -191,7 +191,7 @@ for (const width of [1280, 375]) {
     );
     await expect(dialog.getByText("192.0.2.1", { exact: true })).toHaveCount(0);
     await expect(
-      dialog.getByRole("button", { name: "下一页登录日志", exact: true }),
+      dialog.getByRole("button", { name: "下一页", exact: true }),
     ).toBeDisabled();
     expect(f.writes).toHaveLength(0);
   });
