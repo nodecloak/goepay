@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, useSlots } from "vue";
-defineProps<{ loading?: boolean }>();
+defineProps<{ loading?: boolean; disabled?: boolean }>();
 const emit = defineEmits<{ query: []; reset: [] }>();
 const slots = useSlots();
 const hasExtra = () => !!slots.extra;
@@ -22,7 +22,7 @@ const expanded = ref(false);
         type="submit"
         class="pa-btn pa-btn--primary"
         :class="{ 'pa-btn--loading': loading }"
-        :disabled="loading"
+        :disabled="loading || disabled"
       >
         查询
       </button>

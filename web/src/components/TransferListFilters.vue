@@ -43,6 +43,7 @@ const typeOptions = transferTypeFields.map((f) => ({
 <template>
   <KitFilterBar
     :loading="loading"
+    :disabled="!!error || !!blocked"
     @query="!error && !blocked && emit('query')"
     @reset="emit('reset')"
   >
