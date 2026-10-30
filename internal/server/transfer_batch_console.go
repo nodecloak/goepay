@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	adapter "goepay/internal/adapters/payment"
+	"goepay/internal/backoffice"
 	"goepay/internal/compat"
 	"goepay/internal/identity"
 	"goepay/internal/ledger"
@@ -28,6 +29,22 @@ type batchConsoleItem struct {
 func (s *Server) transferBatchConsole(w http.ResponseWriter, r *http.Request, role string, session identity.Session, parts []string) bool {
 	if len(parts) < 2 || parts[1] != "transfer-batches" {
 		return false
+	}
+	// user_transfer_batch (default ON) gates the merchant 批量付款 feature: when
+	// the administrator turns it off, the merchant menu entry is hidden and this
+	// endpoint refuses with the original merchant-facing wording. Administrator
+	// management of a merchant's batches is not gated. Checked before the
+	// provider-availability 503 so the refusal is deterministic.
+	if role == "merchant" && s.Pool != nil && s.Store != nil {
+		on, e := backoffice.New(s.Pool, s.Store).MerchantFeatureVisible(r.Context(), "user_transfer_batch")
+		if e != nil {
+			response(w, 503, -1, "merchant feature unavailable", nil)
+			return true
+		}
+		if !on {
+			response(w, 403, -1, "未开启批量代付功能", nil)
+			return true
+		}
 	}
 	if s.Store == nil || s.Pool == nil || s.ProviderFlow == nil {
 		response(w, 503, -1, "transfer service unavailable", nil)

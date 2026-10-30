@@ -92,9 +92,16 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     "internal_transfer",
     "recharge",
     "onecode",
+    "onecode_domains",
+    "subchannel_open",
+    "user_profitsharing",
+    "user_totp_open",
+    "verifytype",
     { embed: "scanpay" },
     { embed: "scanjs" },
     "enforce_domains",
+    "pay_domain_open",
+    "pay_domain_forbid",
     { embed: "user-refund" },
     "refund_fee_payer",
     { group: "进件配置（本轮暂缓）" },
@@ -148,9 +155,11 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     "transfer_wxpay_info_type",
     "transfer_wxpay_info_content",
     "transfer_qqpay",
+    "transfer_bank",
     { group: "代付配置" },
     "user_transfer",
     "user_transfer_red",
+    "user_transfer_batch",
     "transfer_minmoney",
     "transfer_maxmoney",
     "transfer_maxlimit",
@@ -401,6 +410,15 @@ const labels: Record<
   settle_bank: ["settle", "银行卡结算开关", "select"],
   transfer_wxpay: ["transfer", "微信转账接口通道", "select"],
   transfer_qqpay: ["transfer", "QQ钱包转账接口通道", "select"],
+  transfer_bank: ["transfer", "银行卡转账接口通道", "select"],
+  user_transfer_batch: ["transfer", "开启批量代付", "select"],
+  subchannel_open: ["merchant", "开启子商户支付通道", "select"],
+  user_profitsharing: ["merchant", "开启用户分账功能", "select"],
+  user_totp_open: ["merchant", "开启登录二次验证", "select"],
+  verifytype: ["merchant", "商户账号验证方式", "select"],
+  onecode_domains: ["merchant", "聚合收款可用域名", "text"],
+  pay_domain_open: ["merchant", "收款页面域名校验", "select"],
+  pay_domain_forbid: ["merchant", "收款页面禁止域名", "text"],
   blockname: ["pay", "商品屏蔽关键词", "text"],
   blockalert: ["pay", "商品屏蔽显示内容", "text"],
   blackmsg: ["pay", "黑名单拦截提示内容", "text"],
@@ -495,6 +513,12 @@ export function settingDefinition(
       option("platform", "平台承担（退手续费）"),
       option("merchant", "商户承担（保留手续费）"),
     ];
+  if (key === "verifytype")
+    d.options = [
+      option("0", "不验证"),
+      option("1", "邮箱验证"),
+      option("2", "手机验证"),
+    ];
   if (
     [
       "user_transfer",
@@ -512,6 +536,12 @@ export function settingDefinition(
       "settle_bank",
       "transfer_wxpay",
       "transfer_qqpay",
+      "transfer_bank",
+      "user_transfer_batch",
+      "subchannel_open",
+      "user_profitsharing",
+      "user_totp_open",
+      "pay_domain_open",
       "pageordername",
       "notifyordername",
       "forceqq",
@@ -621,6 +651,25 @@ export function settingDefinition(
     d.hint = "进件/实名相关业务按本轮范围暂缓，此开关当前仅保存配置。";
   if (key === "mchrisk_open")
     d.hint = "进件管控记录按本轮范围暂缓，此开关当前仅保存配置。";
+  if (key === "subchannel_open")
+    d.hint = "关闭后商户中心隐藏子商户支付通道入口并拒绝相关请求。";
+  if (key === "user_profitsharing")
+    d.hint = "关闭后商户无法使用用户分账功能（分账规则由管理员配置）。";
+  if (key === "user_totp_open")
+    d.hint =
+      "关闭后商户无法新开启登录二次验证；已开启的商户仍可自行关闭，不会被锁定。";
+  if (key === "verifytype")
+    d.hint = "商户账号安全验证方式；手机/邮箱验证需对应渠道已接入才生效。";
+  if (key === "onecode_domains")
+    d.hint = "聚合收款码可用域名，每行一个，最多2KB。";
+  if (key === "pay_domain_open")
+    d.hint = "开启后收款页面校验来源域名是否在允许范围内。";
+  if (key === "pay_domain_forbid")
+    d.hint = "收款页面禁止使用的域名，每行一个，最多2KB。";
+  if (key === "user_transfer_batch")
+    d.hint = "关闭后商户中心隐藏批量付款入口并拒绝相关请求。";
+  if (key === "transfer_bank")
+    d.hint = "银行卡转账通道开关；需对应渠道支持银行卡代付才生效。";
   if (key === "reg_pay") d.hint = "开启后新商户注册需先支付注册费用。";
   if (key === "reg_pay_price") d.hint = "注册付费金额（元）。";
   if (key === "reg_pay_uid")
