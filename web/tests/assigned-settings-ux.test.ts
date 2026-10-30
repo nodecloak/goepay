@@ -20,6 +20,14 @@ it("maps the assigned settings keys to their epay_pro tab, label and control", (
     ["settle_bank", "settle", "银行卡结算开关", "select"],
     ["transfer_wxpay", "transfer", "微信转账接口通道", "select"],
     ["transfer_qqpay", "transfer", "QQ钱包转账接口通道", "select"],
+    ["transfer_bank", "transfer", "银行卡转账接口通道", "select"],
+    ["user_transfer_batch", "transfer", "开启批量代付", "select"],
+    ["subchannel_open", "merchant", "开启子商户支付通道", "select"],
+    ["user_profitsharing", "merchant", "开启用户分账功能", "select"],
+    ["user_totp_open", "merchant", "开启登录二次验证", "select"],
+    ["pay_domain_open", "merchant", "收款页面域名校验", "select"],
+    ["onecode_domains", "merchant", "聚合收款可用域名", "text"],
+    ["pay_domain_forbid", "merchant", "收款页面禁止域名", "text"],
     ["blockname", "pay", "商品屏蔽关键词", "text"],
     ["blockalert", "pay", "商品屏蔽显示内容", "text"],
     ["blackmsg", "pay", "黑名单拦截提示内容", "text"],
@@ -62,6 +70,22 @@ it("validates the assigned settings values like the original", () => {
   expect(() => store("reg_pay_price", "1.001")).toThrow();
   expect(store("reg_pay_uid", "5")).toBe("5");
   expect(() => store("reg_pay_uid", "-1")).toThrow();
+});
+
+// verifytype is a 3-way account-verification selector (0/1/2); the merchant
+// domain lists are free text; the new feature switches store only 0/1.
+it("maps verifytype to its 3-way selector and validates the new merchant keys", () => {
+  const d = settingDefinition("verifytype", "verifytype");
+  expect(d.tab).toBe("merchant");
+  expect(d.label).toBe("商户账号验证方式");
+  expect(d.kind).toBe("select");
+  expect(d.options?.map((o) => o.value)).toEqual(["0", "1", "2"]);
+  const store = (key: string, v: string) =>
+    settingStorage(settingDefinition(key, key), v);
+  expect(store("user_transfer_batch", "1")).toBe("1");
+  expect(store("subchannel_open", "0")).toBe("0");
+  expect(() => store("user_totp_open", "2")).toThrow();
+  expect(store("onecode_domains", "a.com\nb.com")).toBe("a.com\nb.com");
 });
 
 // The layout places the new fields under the right tab in epay_pro's order and
