@@ -117,7 +117,11 @@ for (const width of [375, 1280])
       page.getByRole("img", { name: "全局品牌图标", exact: true }),
     ).toBeVisible();
     if (width === 375)
-      await page.getByRole("button", { name: "关闭菜单", exact: true }).click();
+      // Tap the scrim beside the 200px menu: its center sits under the menu
+      // once the slide-in ends, so a center click only won a race.
+      await page
+        .getByRole("button", { name: "关闭菜单", exact: true })
+        .click({ position: { x: 350, y: 400 } });
     expect(writes[1]).toEqual({ slot: "icon", fingerprint: "b".repeat(64) });
     await expect(
       page.getByRole("img", { name: "当前首页LOGO", exact: true }),
