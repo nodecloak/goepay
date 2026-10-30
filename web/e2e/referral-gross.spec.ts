@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { chooseKitOption } from "./kit-select-helpers";
 
 const ok = (data: unknown, status = 200) => ({
   status,
@@ -115,15 +116,19 @@ test("explicit gross policy preserves its original CAS basis through funds confi
   });
   await page.goto("/admin/system/referral-policies");
   await expect(
-    page.getByRole("combobox", { name: "奖励基数", exact: true }),
-  ).toHaveValue("fee");
-  await page
-    .getByRole("combobox", { name: "启用状态", exact: true })
-    .selectOption("enabled");
+    page.getByRole("button", { name: "奖励基数", exact: true }),
+  ).toContainText("原订单平台手续费");
+  await chooseKitOption(
+    page,
+    page.getByRole("button", { name: "启用状态", exact: true }),
+    "启用",
+  );
   await page.getByLabel("返现比例 BPS", { exact: true }).fill("5000");
-  await page
-    .getByRole("combobox", { name: "奖励基数", exact: true })
-    .selectOption("gross");
+  await chooseKitOption(
+    page,
+    page.getByRole("button", { name: "奖励基数", exact: true }),
+    "原订单金额（原手续费封顶）",
+  );
   await page.getByRole("button", { name: "核对政策变更", exact: true }).click();
   await expect(page.getByText(/确认全局政策修订/)).toContainText("原订单金额");
   expect(posted).toEqual([]);
@@ -154,8 +159,8 @@ test("explicit gross policy preserves its original CAS basis through funds confi
     .click();
   await expect(page.getByText(/当前修订 1/)).toBeVisible();
   await expect(
-    page.getByRole("combobox", { name: "奖励基数", exact: true }),
-  ).toHaveValue("gross");
+    page.getByRole("button", { name: "奖励基数", exact: true }),
+  ).toContainText("原订单金额（原手续费封顶）");
   expect(posted).toEqual([frozen]);
   await page.setViewportSize({ width: 375, height: 812 });
   await page.screenshot({
@@ -235,22 +240,26 @@ test("group basis overrides explicitly and an uncertain save never retries witho
   });
   await page.goto("/admin/system/referral-policies");
   await expect(
-    page.getByRole("combobox", { name: "奖励基数", exact: true }),
-  ).toHaveValue("fee");
-  await page
-    .getByRole("combobox", { name: "政策范围", exact: true })
-    .selectOption("group");
+    page.getByRole("button", { name: "奖励基数", exact: true }),
+  ).toContainText("原订单平台手续费");
+  await chooseKitOption(
+    page,
+    page.getByRole("button", { name: "政策范围", exact: true }),
+    "用户组",
+  );
   await page.getByLabel("用户组 ID", { exact: true }).fill("9");
   await page.getByRole("button", { name: "读取政策版本", exact: true }).click();
   await expect(
-    page.getByRole("combobox", { name: "奖励基数", exact: true }),
-  ).toHaveValue("gross");
+    page.getByRole("button", { name: "奖励基数", exact: true }),
+  ).toContainText("原订单金额（原手续费封顶）");
   await expect(page.getByText(/存在用户组政策时/)).toContainText(
     "不继承上层基数",
   );
-  await page
-    .getByRole("combobox", { name: "奖励基数", exact: true })
-    .selectOption("fee");
+  await chooseKitOption(
+    page,
+    page.getByRole("button", { name: "奖励基数", exact: true }),
+    "原订单平台手续费",
+  );
   await page.getByRole("button", { name: "核对政策变更", exact: true }).click();
   await page
     .getByRole("button", { name: "确认保存并授权", exact: true })
