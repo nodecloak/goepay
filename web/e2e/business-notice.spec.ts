@@ -67,20 +67,23 @@ for (const width of [375, 1280])
     });
     await expect(records).toContainText("站内转账待审核");
     await expect(records).toContainText("待核实");
-    const mode = page.getByRole("combobox", {
+    const mode = page.getByRole("button", {
       name: "域名与站内转账待审核提醒",
       exact: true,
     });
     await expect(mode).toBeVisible();
-    await expect(mode.locator("option")).toHaveText([
-      "未配置（使用系统默认）",
+    await expect(mode).toHaveText("未配置（使用系统默认）");
+    await mode.click();
+    const listbox = page.getByRole("listbox");
+    await expect(listbox.getByRole("option")).toHaveText([
       "关闭提醒",
       "电子邮件",
       "群机器人",
       "Telegram",
       "QQ Bot",
     ]);
-    await mode.selectOption("4");
+    await listbox.getByRole("option", { name: "Telegram", exact: true }).click();
+    await expect(mode).toHaveText("Telegram");
     expect(methods).toEqual(["GET"]);
     expect(
       await page.evaluate(
