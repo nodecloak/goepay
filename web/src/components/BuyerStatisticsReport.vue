@@ -302,9 +302,6 @@ onBeforeUnmount(() => {
           >共 <strong>{{ total }}</strong> 条记录</span
         >
         <div class="table-tools-end">
-          <KitHelpPopover
-            text="只统计查询日期内已付款订单，日期按北京时间。未记录的账号或IP不合并为虚构用户；付款金额可按行刷新。"
-          />
           <button
             type="button"
             class="icon-button table-refresh"
@@ -315,6 +312,9 @@ onBeforeUnmount(() => {
           >
             <ShellIcon name="refresh" />
           </button>
+          <KitHelpPopover
+            text="只统计查询日期内已付款订单，日期按北京时间。未记录的账号或IP不合并为虚构用户；付款金额可按行刷新。"
+          />
         </div>
       </div>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>

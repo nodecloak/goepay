@@ -318,7 +318,6 @@ onBeforeUnmount(() => controller?.abort());
           >共 <strong>{{ total }}</strong> 条统计</span
         >
         <div class="table-tools-end">
-          <KitHelpPopover :text="reportNote" />
           <button
             type="button"
             class="icon-button table-refresh"
@@ -329,6 +328,7 @@ onBeforeUnmount(() => controller?.abort());
           >
             <ShellIcon name="refresh" />
           </button>
+          <KitHelpPopover :text="reportNote" />
         </div>
       </div>
       <div v-if="loading" class="loading-row" role="status">正在汇总统计…</div>
