@@ -107,7 +107,6 @@ func (s *Service) Serve(w http.ResponseWriter, r *http.Request, p Principal, par
 			}
 			if !on {
 				schema.Permissions.Create = false
-				schema.BatchDelete = false
 			}
 		}
 		write(w, 200, schema, "")
