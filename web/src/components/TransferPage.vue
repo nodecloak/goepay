@@ -145,8 +145,16 @@ function closeDetails() {
       const rowButton = Array.from(
         row?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") || [],
       ).find((button) => button.textContent?.trim() === remembered?.label);
+      // The opener row left the current filter (its transfer no longer
+      // matches), so there is no row to restore to. Return focus to the query
+      // form so keyboard users land on a real control, not the page body.
+      const queryButton =
+        recordsPanel.value?.parentElement?.querySelector<HTMLButtonElement>(
+          'form.pa-filter button[type="submit"]:not(:disabled)',
+        );
       (
         rowButton ||
+        queryButton ||
         recordsPanel.value?.querySelector<HTMLButtonElement>(
           ".table-tools button:not(:disabled)",
         )
