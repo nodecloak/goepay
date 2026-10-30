@@ -201,7 +201,8 @@ function choose(name: string, click = false) {
       @submit.prevent="load"
     >
       <div class="pa-filter-fields list-filters-grid">
-        <KitField label="统计日期范围" class="province-range-field">
+        <div class="pa-field province-range-field">
+          <span class="pa-label">统计日期范围</span>
           <div class="province-ranges" role="group" aria-label="统计日期范围">
             <button
               v-for="range in ranges"
@@ -214,7 +215,7 @@ function choose(name: string, click = false) {
               {{ range.label }}
             </button>
           </div>
-        </KitField>
+        </div>
         <KitField v-if="admin" label="商户号">
           <KitInput
             v-model="uid"

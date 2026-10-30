@@ -142,25 +142,46 @@ for (const family of [
     });
     await page.goto("/admin/system/referral-policies");
     const panel = page.getByRole("region", {
-      name: membership ? "会员推广奖励政策" : "邀请返现政策",
+      name: membership ? "会员推广奖励政策" : "订单返现政策",
       exact: true,
     });
     await expect(panel).toBeVisible();
-    await panel
-      .getByRole("combobox", { name: "启用状态", exact: true })
-      .selectOption("enabled");
+    if (membership) {
+      await panel
+        .getByRole("combobox", { name: "启用状态", exact: true })
+        .selectOption("enabled");
+    } else {
+      // 启用状态 is now a KitSelect (custom listbox): open the trigger, pick 启用.
+      await panel
+        .getByRole("button", { name: "启用状态", exact: true })
+        .click();
+      await panel.getByRole("option", { name: "启用", exact: true }).click();
+    }
     await panel
       .getByLabel(membership ? "会员奖励比例 BPS" : "返现比例 BPS", {
         exact: true,
       })
       .fill("2500");
     if (!membership) {
+      // 奖励基数 and 发奖时机 are KitSelect too.
       await panel
-        .getByRole("combobox", { name: "奖励基数", exact: true })
-        .selectOption("profit");
+        .getByRole("button", { name: "奖励基数", exact: true })
+        .click();
       await panel
-        .getByRole("combobox", { name: "发奖时机", exact: true })
-        .selectOption(family === "profit-daily" ? "daily" : "immediate");
+        .getByRole("option", {
+          name: "配置估计利润（非实际账单）",
+          exact: true,
+        })
+        .click();
+      await panel
+        .getByRole("button", { name: "发奖时机", exact: true })
+        .click();
+      await panel
+        .getByRole("option", {
+          name: family === "profit-daily" ? "次日北京时间待发" : "即时发奖",
+          exact: true,
+        })
+        .click();
     }
     await panel
       .getByRole("button", {
