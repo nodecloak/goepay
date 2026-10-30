@@ -211,6 +211,10 @@ async function setup(options: Options = {}) {
         return options.login ? options.login(call) : response(null, 401);
       if (method === "GET" && path === "/console/v1/merchant/dashboard")
         return response(actualDashboard.group100);
+      // Merchant dashboard health tips: a read-only post-login GET fired by
+      // DashboardOverview. Stubbed empty so it is expected, not rejected.
+      if (method === "GET" && path === "/console/v1/merchant/dashboard/tips")
+        return response({ tips: [] });
       // Authenticated 支付方式 options read (list filters / statistics dropdowns):
       // a legitimate post-login GET, stubbed so it is expected, not rejected.
       if (
