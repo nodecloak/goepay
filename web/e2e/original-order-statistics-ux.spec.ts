@@ -1,4 +1,11 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+// 支付方式 is a KitSelect custom combobox (not native <select>): open the
+// trigger by its aria-label, then click the option by its label.
+async function pick(page: Page, control: string, optionLabel: string) {
+  await page.getByLabel(control, { exact: true }).click();
+  await page.getByRole("option", { name: optionLabel, exact: true }).click();
+}
 const row = {
   day: "2026-10-25",
   channel: "9007199254740993",
@@ -76,7 +83,7 @@ for (const width of [1280, 375]) {
     await expect(
       page.getByRole("row").filter({ hasText: "2026-10-25" }),
     ).toContainText("未知");
-    await page.getByLabel("支付方式", { exact: true }).selectOption("alipay");
+    await pick(page, "支付方式", "支付宝");
     await page.getByLabel("通道ID", { exact: true }).fill("9007199254740993");
     await page.getByLabel("商户号", { exact: true }).fill("1");
     await page.getByRole("button", { name: "查询", exact: true }).click();

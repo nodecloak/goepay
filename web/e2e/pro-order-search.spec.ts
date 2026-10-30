@@ -42,13 +42,16 @@ for (const area of ["admin", "merchant"] as const) {
     });
     await page.goto(`/${area}/trade/order`);
     const fields = page.getByLabel("订单搜索字段", { exact: true });
-    await expect(fields.locator("option")).toHaveCount(11);
-    await fields.selectOption("realmoney");
+    // 订单搜索字段 is a KitSelect: open it, assert all options, pick by label.
+    await fields.click();
+    await expect(page.getByRole("option")).toHaveCount(12);
+    await page.getByRole("option", { name: "实付金额（元）", exact: true }).click();
     await page
-      .getByLabel("搜索记录", { exact: true })
+      .getByLabel("搜索内容", { exact: true })
       .fill("92233720368547758.07");
-    await page.getByText("更多筛选", { exact: true }).click();
-    await page.getByLabel("通知状态筛选", { exact: true }).selectOption("dead");
+    await page.getByRole("button", { name: "展开", exact: true }).click();
+    await page.getByLabel("通知状态筛选", { exact: true }).click();
+    await page.getByRole("option", { name: "通知失败", exact: true }).click();
     await page.getByRole("button", { name: "查询", exact: true }).click();
     await expect
       .poll(() => queries.at(-1)?.searchParams.get("search_field"))
@@ -70,8 +73,9 @@ for (const area of ["admin", "merchant"] as const) {
     )!;
     expect(exported.searchParams.get("q")).toBe("92233720368547758.07");
     expect(exported.searchParams.get("notification_state")).toBe("dead");
-    await fields.selectOption("out_trade_no");
-    await page.getByLabel("搜索记录", { exact: true }).fill(" INV ");
+    await fields.click();
+    await page.getByRole("option", { name: "商户订单号", exact: true }).click();
+    await page.getByLabel("搜索内容", { exact: true }).fill(" INV ");
     await page.getByRole("button", { name: "查询", exact: true }).click();
     await expect
       .poll(() => queries.at(-1)?.searchParams.get("q"))
@@ -92,11 +96,11 @@ for (const area of ["admin", "merchant"] as const) {
       ),
     ).toBe(true);
     const input = await page
-      .getByLabel("搜索记录", { exact: true })
+      .getByLabel("搜索内容", { exact: true })
       .boundingBox();
     expect(input!.width).toBeGreaterThan(140);
-    await page.getByRole("button", { name: "清空筛选", exact: true }).click();
-    await expect(fields).toHaveValue("");
+    await page.getByRole("button", { name: "重置", exact: true }).click();
+    await expect(fields).toContainText("综合搜索");
     await expect
       .poll(() => queries.at(-1)?.searchParams.has("search_field"))
       .toBe(false);
