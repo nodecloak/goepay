@@ -67,14 +67,20 @@ for (const width of [375, 1280])
     await expect
       .poll(() => f.reads.at(-1)?.searchParams.get("dstatus"))
       .toBe("pay_2");
-    await page.getByLabel("商户搜索字段", { exact: true }).selectOption("uid");
+    await page
+      .getByRole("button", { name: "商户搜索字段", exact: true })
+      .click();
+    await page.getByRole("option", { name: "商户号", exact: true }).click();
     await page.getByLabel("搜索商户管理", { exact: true }).fill("2");
     await page
-      .getByLabel("商户状态筛选", { exact: true })
-      .selectOption("status_0");
+      .getByRole("button", { name: "商户状态筛选", exact: true })
+      .click();
     await page
-      .getByLabel("商户排序", { exact: true })
-      .selectOption("money_desc");
+      .getByRole("option", { name: "用户状态封禁", exact: true })
+      .click();
+    await page.getByRole("button", { name: "展开", exact: true }).click();
+    await page.getByRole("button", { name: "商户排序", exact: true }).click();
+    await page.getByRole("option", { name: "余额倒序", exact: true }).click();
     await page.getByLabel("注册开始日期", { exact: true }).fill("2026-10-01");
     await page.getByLabel("注册结束日期", { exact: true }).fill("2026-10-25");
     await page.getByLabel("用户组ID", { exact: true }).fill("3");
@@ -98,9 +104,9 @@ for (const width of [375, 1280])
       dispatchEvent(new PopStateEvent("popstate"));
     });
     await expect.poll(() => f.reads.at(-1)?.searchParams.get("q")).toBe("1000");
-    await expect(page.getByLabel("商户搜索字段", { exact: true })).toHaveValue(
-      "uid",
-    );
+    await expect(
+      page.getByRole("button", { name: "商户搜索字段", exact: true }),
+    ).toContainText("商户号");
     expect(f.reads.at(-1)!.searchParams.has("gid")).toBe(false);
     expect(f.writes).toHaveLength(0);
     expect(
