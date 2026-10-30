@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { chooseKitOption } from "./kit-select-helpers";
 for (const role of ["admin", "merchant"] as const)
   for (const width of [1280, 375])
     test(`original private transfer fields bind applied list and CSV for ${role} at ${width}`, async ({
@@ -44,17 +45,19 @@ for (const role of ["admin", "merchant"] as const)
         ["desc", "备注", "本地备注 %_158"],
       ]) {
         const n = reads.length;
-        await page
-          .getByLabel("搜索字段", { exact: true })
-          .selectOption({ label });
-        await page.getByLabel("搜索付款记录", { exact: true }).fill(value);
+        await chooseKitOption(
+          page,
+          page.getByRole("button", { name: "搜索字段", exact: true }),
+          label,
+        );
+        await page.getByLabel("搜索内容", { exact: true }).fill(value);
         expect(reads.length).toBe(n);
         await page.getByRole("button", { name: "查询", exact: true }).click();
         await expect.poll(() => reads.length).toBe(n + 1);
         expect(reads.at(-1)!.searchParams.get("search_field")).toBe(field);
         expect(reads.at(-1)!.searchParams.get("q")).toBe(value);
         await page
-          .getByLabel("搜索付款记录", { exact: true })
+          .getByLabel("搜索内容", { exact: true })
           .fill("changed-unapplied-private");
         const download = page.waitForEvent("download");
         await page
