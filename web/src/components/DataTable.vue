@@ -8,6 +8,7 @@ import KitStatusTag from "./KitStatusTag.vue";
 import type { MerchantOrderActionID } from "../order-actions";
 import type { OrderActionID } from "../order-actions";
 import { beijingTimestamp } from "../console-datetime";
+import { isOrderNumberKey } from "../order-number";
 import {
   consoleValue,
   consoleColumnLabel,
@@ -240,12 +241,14 @@ function refunded(row: Record<string, unknown>): boolean {
             ]"
           >
             <template v-if="refunds && c.key === 'refund_no'">
-              <span class="cell">{{
+              <span class="cell pa-order-no">{{
                 String(row.platform_refund_no ?? row.refund_no ?? "—")
               }}</span>
-              <small class="cell refund-merchant-no">{{
-                String(row.out_refund_no ?? "未记录")
-              }}</small>
+              <small
+                class="cell refund-merchant-no"
+                :class="{ 'pa-order-no': row.out_refund_no }"
+                >{{ String(row.out_refund_no ?? "未记录") }}</small
+              >
             </template>
             <template v-else-if="refunds && c.key === 'amount'">
               <span class="cell numeric">¥{{ money(row.amount) }}</span>
@@ -271,7 +274,7 @@ function refunded(row: Record<string, unknown>): boolean {
               v-else-if="
                 refunds && c.key === 'trade_no' && associatedOrder(row.trade_no)
               "
-              class="link-button"
+              class="link-button pa-order-no"
               :aria-label="'查看关联订单 ' + row.trade_no"
               @click="emit('detail', row)"
             >
@@ -280,7 +283,7 @@ function refunded(row: Record<string, unknown>): boolean {
             <button
               v-else-if="orders && c.key === 'trade_no' && row.trade_no"
               type="button"
-              class="link-button trade-link"
+              class="link-button trade-link pa-order-no"
               :aria-label="'查看订单详情 ' + row.trade_no"
               @click="emit('detail', row)"
             >
@@ -322,6 +325,7 @@ function refunded(row: Record<string, unknown>): boolean {
             <span
               v-else
               class="cell"
+              :class="{ 'pa-order-no': isOrderNumberKey(c.key) }"
               :title="
                 ledger &&
                 (c.key === 'description' ||
@@ -352,7 +356,7 @@ function refunded(row: Record<string, unknown>): boolean {
             >
             <small
               v-if="orders && c.key === 'trade_no' && row.out_trade_no"
-              class="cell muted order-ellipsis"
+              class="cell muted order-ellipsis pa-order-no"
               :title="orderNumbersTitle(row)"
               >{{ String(row.out_trade_no) }}</small
             >

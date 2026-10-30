@@ -134,7 +134,8 @@ onBeforeUnmount(() => {
         <tbody>
           <tr v-for="row in items" :key="row.order_id">
             <td>
-              {{ row.trade_no }}<small>{{ row.order_id }}</small>
+              <span class="pa-order-no">{{ row.trade_no }}</span
+              ><small>{{ row.order_id }}</small>
             </td>
             <td>{{ row.merchant_id }}</td>
             <td>{{ referralAmount(row.amount) }}</td>

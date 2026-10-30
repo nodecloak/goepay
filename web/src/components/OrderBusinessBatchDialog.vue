@@ -387,7 +387,7 @@ const stateText = (state: string) =>
           </p>
           <ol>
             <li v-for="item in batch.items" :key="item.trade_no">
-              <span>{{ item.trade_no }}</span
+              <span class="pa-order-no">{{ item.trade_no }}</span
               ><strong>{{ stateText(item.state) }}</strong>
             </li>
           </ol></template

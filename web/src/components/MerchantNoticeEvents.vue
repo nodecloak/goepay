@@ -109,7 +109,7 @@ onBeforeUnmount(() => {
           <tr v-for="item in items" :key="item.id">
             <td>{{ item.id }}</td>
             <td>{{ scenes[item.scene] ?? "其他通知" }}</td>
-            <td>{{ item.trade_no || "—" }}</td>
+            <td class="pa-order-no">{{ item.trade_no || "—" }}</td>
             <td>{{ time(item.at) }}</td>
             <td>{{ states[item.state] ?? "待核实" }}</td>
             <td>

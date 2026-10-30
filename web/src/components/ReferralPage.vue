@@ -386,7 +386,7 @@ onBeforeUnmount(() => {
           <tbody>
             <tr v-for="row in rewards" :key="row.id">
               <td>{{ row.id }}</td>
-              <td>{{ row.trade_no }}</td>
+              <td class="pa-order-no">{{ row.trade_no }}</td>
               <td>{{ row.invited_id }}</td>
               <td>{{ referralAmount(row.amount) }}</td>
               <td>{{ states[row.state] }}</td>

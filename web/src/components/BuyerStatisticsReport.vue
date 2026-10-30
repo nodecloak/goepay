@@ -386,6 +386,7 @@ onBeforeUnmount(() => {
               <td>
                 <RouterLink
                   v-if="validTrade(row.trade_no)"
+                  class="pa-order-no"
                   :to="orderLink(row.trade_no, 'trade_no')"
                   >{{ row.trade_no }}</RouterLink
                 ><span v-else>未记录</span>

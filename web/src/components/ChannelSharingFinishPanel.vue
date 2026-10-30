@@ -335,7 +335,8 @@ async function prepareRetry(row: Finish) {
       <article v-for="row in rows" :key="row.id">
         <strong>{{ row.external_no }}</strong>
         <p>
-          原订单 {{ row.trade_no }} · {{ states[row.state] }} ·
+          原订单 <span class="pa-order-no">{{ row.trade_no }}</span> ·
+          {{ states[row.state] }} ·
           {{ row.funds_released ? "原余款已释放" : "原资金仍保留" }}
         </p>
         <p>

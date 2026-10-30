@@ -211,7 +211,8 @@ onBeforeUnmount(() => {
     >
       <h2>添加黑名单 - {{ label }}</h2>
       <p class="muted">
-        系统订单号：{{ tradeNo }}。将本订单的{{
+        系统订单号：<span class="pa-order-no">{{ tradeNo }}</span
+        >。将本订单的{{
           label
         }}加入全局支付黑名单；0天为永久，停用或删除可解除拦截。
       </p>

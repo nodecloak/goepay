@@ -483,7 +483,7 @@ onBeforeUnmount(() => {
           </p>
           <p v-if="result.remark">备注：{{ result.remark }}</p>
           <p v-if="result.trade_no" class="scan-trade192">
-            订单号：{{ result.trade_no }}
+            订单号：<span class="pa-order-no">{{ result.trade_no }}</span>
           </p>
         </template>
         <button

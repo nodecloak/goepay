@@ -2440,7 +2440,12 @@ onBeforeUnmount(() => {
           <h2>{{ area === "admin" ? "API退款确认" : "申请退款" }}</h2>
           <div v-if="error" class="alert error" role="alert">{{ error }}</div>
           <form v-if="refundRow" @submit.prevent="submitRefund">
-            <p class="muted">订单 {{ refundRow.trade_no ?? refundRow.id }}</p>
+            <p class="muted">
+              订单
+              <span class="pa-order-no">{{
+                refundRow.trade_no ?? refundRow.id
+              }}</span>
+            </p>
             <label
               >退款金额（元）<input
                 v-model="refundMoney"

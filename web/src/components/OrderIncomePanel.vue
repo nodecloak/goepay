@@ -243,7 +243,7 @@ async function execute() {
       </h4>
       <dl class="record-detail">
         <dt>订单号</dt>
-        <dd>{{ tradeNo }}</dd>
+        <dd class="pa-order-no">{{ tradeNo }}</dd>
         <dt>金额（分）</dt>
         <dd>
           {{

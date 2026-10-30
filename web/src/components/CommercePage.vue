@@ -340,7 +340,9 @@ onBeforeUnmount(() => controller?.abort());
     >
       <h2>充值订单</h2>
       <p>
-        订单号 {{ displayValue(receipt.trade_no) }} · 状态
+        订单号
+        <span class="pa-order-no">{{ displayValue(receipt.trade_no) }}</span> ·
+        状态
         {{ displayValue(receipt.status) }}
       </p>
       <a
