@@ -25,7 +25,7 @@ for(const width of [375,1440])test('original parent Weixin selectors and batch r
  await page.screenshot({path:test.info().outputPath('weixin-editor-'+width+'.png'),fullPage:true});
  await dialog.locator('[data-parent-save]').click();await expect(dialog).toHaveCount(0);expect(f.writes.filter(x=>x.path.endsWith('/payment-channels/'+actual.bound.id))).toHaveLength(1);
  const request=f.writes.at(-1)!;expect(request.body.account).toMatchObject({appwxmp:'0',expected_bindings_fingerprint:actual.catalog.fingerprint});
- await page.getByRole('checkbox',{name:'选择通道 '+actual.bound.id}).check();await page.getByRole('button',{name:'批量关联微信公众号',exact:true}).click();await expect(page.getByRole('dialog',{name:'批量关联微信公众号'})).toContainText(actual.bound.id);
+ await page.getByRole('checkbox',{name:'选择通道 '+actual.bound.id}).check();await page.getByRole('button',{name:'批量操作',exact:true}).click();await page.getByRole('menuitem',{name:'批量关联微信公众号',exact:true}).click();await expect(page.getByRole('dialog',{name:'批量关联微信公众号'})).toContainText(actual.bound.id);
  await page.getByLabel('批量微信应用').selectOption('0');await page.screenshot({path:test.info().outputPath('weixin-batch-'+width+'.png'),fullPage:true});await page.getByRole('button',{name:'取消',exact:true}).click();expect(f.writes.some(x=>x.path.endsWith('/bind-weixin'))).toBe(false);
 });
 test('uncertain binding save reads the original parent before another mutation',async({page})=>{
