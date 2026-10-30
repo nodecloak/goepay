@@ -234,21 +234,29 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="panel referral" aria-label="邀请返现">
-    <p>
+  <div class="list-page referral" aria-label="邀请返现">
+    <p class="alert info">
       奖励来自原付款订单的已固定条款，奖励不超过原订单手续费；即时与按日奖励分别核对，任意成功退款将撤销整笔原奖励。历史发放、撤销和退款暂存流水不代表当前可提现余额。
     </p>
-    <button :disabled="loading || busy" @click="load">重新读取邀请资料</button>
-    <p v-if="loading" role="status">正在核对邀请资料…</p>
+    <div class="referral-actions">
+      <button class="pa-btn" :disabled="loading || busy" @click="load">
+        重新读取邀请资料
+      </button>
+      <span v-if="loading" role="status" class="muted">正在核对邀请资料…</span>
+    </div>
     <p v-if="error" role="alert" class="alert error">{{ error }}</p>
-    <p v-if="notice" role="status">{{ notice }}</p>
+    <p v-if="notice" role="status" class="alert success">{{ notice }}</p>
     <ReferralCurrentPolicyCard
       v-if="token && referralID(token.merchant_id)"
       :client="client"
       :merchant-i-d="token.merchant_id"
     />
-    <dl v-if="summary" class="referral-stats">
-      <div v-for="(label, key) in summaryLabels" :key="key">
+    <dl v-if="summary" class="stat-grid referral-stats">
+      <section
+        v-for="(label, key) in summaryLabels"
+        :key="key"
+        class="panel stat"
+      >
         <dt>{{ label }}</dt>
         <dd>
           {{
@@ -257,9 +265,13 @@ onBeforeUnmount(() => {
               : referralAmount(summary[key]!)
           }}{{ key === "invited_count" ? " 位" : " 元" }}
         </dd>
-      </div>
+      </section>
     </dl>
-    <section v-if="token" aria-label="推广令牌管理">
+    <section
+      v-if="token"
+      class="panel referral-token"
+      aria-label="推广令牌管理"
+    >
       <h3>推广链接</h3>
       <p>
         推广令牌用于新注册邀请关系，与注册准入邀请码独立。仅本人可发行、轮换或撤销；不能代他人绑定关系。
@@ -323,8 +335,10 @@ onBeforeUnmount(() => {
       :available="dailyAvailable"
       :promoter-id="token.merchant_id"
     />
-    <section class="referral-sublist" aria-label="已邀请商户">
-      <h3>已邀请商户</h3>
+    <section class="panel records referral-sublist" aria-label="已邀请商户">
+      <div class="table-tools">
+        <h3 class="referral-sublist-title">已邀请商户</h3>
+      </div>
       <div class="table-scroll">
         <table>
           <thead>
@@ -345,9 +359,11 @@ onBeforeUnmount(() => {
           </tbody>
         </table>
       </div>
-      <p v-if="!loading && !invitees.length">暂无邀请关系</p>
-      <div class="pagination">
-        <span>共 {{ invitees.length }} 条</span>
+      <p v-if="!loading && !invitees.length" class="referral-empty">
+        暂无邀请关系
+      </p>
+      <div class="pa-pager">
+        <span class="pa-pager-total">共 {{ invitees.length }} 条</span>
         <div>
           <button
             :disabled="loading || busy || inviteCursor === '0'"
@@ -369,8 +385,10 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </section>
-    <section class="referral-sublist" aria-label="邀请奖励流水">
-      <h3>邀请奖励流水</h3>
+    <section class="panel records referral-sublist" aria-label="邀请奖励流水">
+      <div class="table-tools">
+        <h3 class="referral-sublist-title">邀请奖励流水</h3>
+      </div>
       <div class="table-scroll">
         <table>
           <thead>
@@ -395,9 +413,11 @@ onBeforeUnmount(() => {
           </tbody>
         </table>
       </div>
-      <p v-if="!loading && !rewards.length">暂无奖励流水</p>
-      <div class="pagination">
-        <span>共 {{ rewards.length }} 条</span>
+      <p v-if="!loading && !rewards.length" class="referral-empty">
+        暂无奖励流水
+      </p>
+      <div class="pa-pager">
+        <span class="pa-pager-total">共 {{ rewards.length }} 条</span>
         <div>
           <button
             :disabled="loading || busy || rewardCursor === '0'"
@@ -419,55 +439,71 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </section>
-  </section>
+  </div>
 </template>
 <style scoped>
 .referral {
   min-width: 0;
 }
-.referral button {
+.referral-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.referral-actions .pa-btn {
+  min-height: var(--control-h);
+}
+.referral-token {
+  min-width: 0;
+}
+.referral-token button {
   min-height: var(--control-h);
   margin: 0.3rem 0.5rem 0.3rem 0;
 }
-.referral input {
+.referral-token input {
   display: block;
   max-width: 100%;
   width: 100%;
   min-height: var(--control-h);
 }
-.referral p {
+.referral-token > h3 {
+  margin: 0 0 var(--space-3);
+}
+.referral-token p {
   overflow-wrap: anywhere;
 }
 .referral-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
-.referral-stats div {
-  padding: var(--space-4);
-  background: var(--bg-card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+.referral-stats .stat {
+  min-height: 0;
 }
 .referral-stats dt {
   font-size: 13px;
   color: var(--ink-muted);
+  padding-inline-end: 0;
 }
 .referral-stats dd {
   margin: var(--space-2) 0 0;
   font-weight: 700;
-  font-size: 20px;
+  font-size: 24px;
   color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 .referral-sublist {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: var(--space-4);
-  margin-top: var(--space-4);
   min-width: 0;
 }
-.referral-sublist > h3 {
-  margin: 0 0 var(--space-3);
+.referral-sublist-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 32px;
+}
+.referral-empty {
+  margin: 0;
+  padding: var(--space-3) var(--space-5);
+  color: var(--ink-muted);
 }
 .referral table {
   min-width: 580px;

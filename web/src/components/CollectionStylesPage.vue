@@ -545,93 +545,120 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="collection-styles">
+  <section class="collection-styles" :class="{ 'list-page': !editing }">
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
     <template v-if="!editing">
-      <div class="toolbar">
+      <form class="list-filter-card panel" @submit.prevent="initialize">
         <label class="style-search"
-          >搜索样式<KitInput
+          ><span>搜索样式</span
+          ><KitInput
             v-model="query"
             placeholder="显示名称或风格标识"
-            aria-label="搜索样式" /></label
-        ><button :disabled="loading || busy" @click="initialize">刷新</button
-        ><RouterLink class="button-link" to="/admin/other/onecode/edit"
-          >新增样式</RouterLink
-        >
-      </div>
-      <div class="style-cards">
-        <article
-          v-for="item in visible"
-          :key="item.id"
-          class="panel style-card"
-        >
-          <div class="style-card-image">
-            <img
-              v-if="cardImages[item.id]"
-              :src="cardImages[item.id]"
-              :alt="
-                String(
-                  item.style?.label || item.fields.title || item.fields.name,
-                )
-              "
-            />
-            <div v-else class="empty-state">
-              {{ item.style ? "点击预览查看收款海报" : "旧版简单颜色样式" }}
-            </div>
-          </div>
-          <h3>
-            {{ item.style?.label || item.fields.title || item.fields.name }}
-          </h3>
-          <p class="muted">
-            标识：{{ item.fields.name }} · 排序：{{ item.style?.sort || 0 }}
-          </p>
-          <div class="toolbar">
-            <KitSwitch
-              :model-value="item.style?.enabled ?? item.fields.enabled === true"
-              :disabled="!canWrite || busy"
-              :label="
-                (item.style?.enabled ?? item.fields.enabled === true)
-                  ? '已启用'
-                  : '已禁用'
-              "
-              @change="toggle(item)"
-            /><button
-              v-if="item.style"
-              :disabled="previewing"
-              @click="previewCard(item)"
+            aria-label="搜索样式"
+        /></label>
+      </form>
+      <section class="panel records" aria-label="聚合收款码样式">
+        <div class="table-tools">
+          <RouterLink
+            class="pa-btn pa-btn--primary"
+            to="/admin/other/onecode/edit"
+            >新增样式</RouterLink
+          >
+          <div class="table-tools-end">
+            <button
+              type="button"
+              class="pa-btn"
+              :disabled="loading || busy"
+              @click="initialize"
             >
-              预览</button
-            ><RouterLink
-              :to="{
-                path: '/admin/other/onecode/edit',
-                query: { id: item.id },
-              }"
-              >编辑</RouterLink
-            ><button
-              class="danger"
-              :disabled="!canWrite || busy"
-              @click="deleteTarget = item"
-            >
-              删除
+              刷新
             </button>
           </div>
-        </article>
-      </div>
-      <div v-if="loading && !filtered.length" class="loading-row" role="status">
-        正在读取收款码样式…
-      </div>
-      <KitEmpty
-        v-else-if="!filtered.length"
-        text="暂无收款码样式，点击右上角新增"
-      />
-      <KitPagination
-        v-else
-        v-model:page="page"
-        v-model:page-size="pageSize"
-        :total="filtered.length"
-        :page-sizes="[12, 24, 48]"
-      />
+        </div>
+        <div class="style-card-region">
+          <div class="style-cards">
+            <article
+              v-for="item in visible"
+              :key="item.id"
+              class="panel style-card"
+            >
+              <div class="style-card-image">
+                <img
+                  v-if="cardImages[item.id]"
+                  :src="cardImages[item.id]"
+                  :alt="
+                    String(
+                      item.style?.label ||
+                        item.fields.title ||
+                        item.fields.name,
+                    )
+                  "
+                />
+                <div v-else class="empty-state">
+                  {{ item.style ? "点击预览查看收款海报" : "旧版简单颜色样式" }}
+                </div>
+              </div>
+              <h3>
+                {{ item.style?.label || item.fields.title || item.fields.name }}
+              </h3>
+              <p class="muted">
+                标识：{{ item.fields.name }} · 排序：{{ item.style?.sort || 0 }}
+              </p>
+              <div class="toolbar">
+                <KitSwitch
+                  :model-value="
+                    item.style?.enabled ?? item.fields.enabled === true
+                  "
+                  :disabled="!canWrite || busy"
+                  :label="
+                    (item.style?.enabled ?? item.fields.enabled === true)
+                      ? '已启用'
+                      : '已禁用'
+                  "
+                  @change="toggle(item)"
+                /><button
+                  v-if="item.style"
+                  :disabled="previewing"
+                  @click="previewCard(item)"
+                >
+                  预览</button
+                ><RouterLink
+                  :to="{
+                    path: '/admin/other/onecode/edit',
+                    query: { id: item.id },
+                  }"
+                  >编辑</RouterLink
+                ><button
+                  class="danger"
+                  :disabled="!canWrite || busy"
+                  @click="deleteTarget = item"
+                >
+                  删除
+                </button>
+              </div>
+            </article>
+          </div>
+          <div
+            v-if="loading && !filtered.length"
+            class="loading-row"
+            role="status"
+          >
+            正在读取收款码样式…
+          </div>
+          <KitEmpty
+            v-else-if="!filtered.length"
+            text="暂无收款码样式，点击右上角新增"
+          />
+        </div>
+        <KitPagination
+          v-if="filtered.length"
+          v-model:page="page"
+          v-model:page-size="pageSize"
+          :total="filtered.length"
+          :page-sizes="[12, 24, 48]"
+        />
+      </section>
     </template>
     <template v-else>
       <div class="toolbar">
@@ -906,6 +933,17 @@ onBeforeUnmount(() => {
 <style scoped>
 .collection-styles {
   min-width: 0;
+}
+.style-search {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  width: clamp(220px, 28vw, 300px);
+  font-size: 13px;
+}
+.style-card-region {
+  padding: var(--space-5);
 }
 .style-cards {
   display: grid;
