@@ -120,7 +120,12 @@ for (const width of [1440, 375])
     });
     await page.getByRole("button", { name: "登录工作台", exact: true }).click();
     await expect(page).toHaveURL(/\/merchant\/dashboard$/);
-    await expect(page.getByRole("button", { name: "退出登录" })).toBeVisible();
+    await page
+      .getByRole("button", { name: "本地密钥商户", exact: true })
+      .click();
+    await expect(
+      page.getByRole("menuitem", { name: "退出登录", exact: true }),
+    ).toBeVisible();
     expect(f.writes).toHaveLength(1);
     expect(f.writes[0].url).not.toContain("local-only-key");
     expect(
@@ -152,7 +157,12 @@ for (const mode of ["lost", "malformed"])
       .getByRole("button", { name: "重新检查登录状态", exact: true })
       .click();
     await expect(page).toHaveURL(/\/merchant\/dashboard$/);
-    await expect(page.getByRole("button", { name: "退出登录" })).toBeVisible();
+    await page
+      .getByRole("button", { name: "本地密钥商户", exact: true })
+      .click();
+    await expect(
+      page.getByRole("menuitem", { name: "退出登录", exact: true }),
+    ).toBeVisible();
     // One explicit read recovers the committed session; the fresh destination
     // document then reads it again without another credential write.
     await expect.poll(f.getSessions).toBe(initialSessionReads + 2);
