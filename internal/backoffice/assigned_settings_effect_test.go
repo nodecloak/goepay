@@ -138,11 +138,20 @@ func TestTransferTypeOffered(t *testing.T) {
 	if !TransferTypeOffered(map[string]string{}, "wxpay") {
 		t.Error("missing transfer_wxpay should default offered")
 	}
+	// transfer_bank is a known rail now; a missing key leaves it offered.
 	if !TransferTypeOffered(values, "bank") {
+		t.Error("missing transfer_bank should default offered")
+	}
+	if TransferTypeOffered(map[string]string{"transfer_bank": "0"}, "bank") {
+		t.Error("transfer_bank=0 should hide bank")
+	}
+	// An account type with no transfer_* switch is still offered.
+	if !TransferTypeOffered(values, "alipay") {
 		t.Error("unknown transfer rail should be offered")
 	}
+	// values leaves qqpay on and bank on (missing), wxpay off, in list order.
 	got := AllowedTransferTypes(values)
-	want := []string{"qqpay"}
+	want := []string{"qqpay", "bank"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("AllowedTransferTypes=%v want %v", got, want)
 	}

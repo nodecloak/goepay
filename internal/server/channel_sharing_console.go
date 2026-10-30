@@ -11,6 +11,7 @@ import (
 	"time"
 
 	adapter "goepay/internal/adapters/payment"
+	"goepay/internal/backoffice"
 	"goepay/internal/identity"
 	"goepay/internal/payment"
 )
@@ -254,6 +255,25 @@ func (s *Server) channelSharingConsole(w http.ResponseWriter, r *http.Request, r
 		fail(e)
 		return true
 	}
+	// user_profitsharing (default ON) gates a merchant ADDING a 分账规则 or 分账
+	// 接收方: POST rules/{channel} (len 4) and POST receivers (len 3). Disable,
+	// bind, unbind and every read stay open so a merchant never loses access to
+	// rules it already configured; the admin is never gated. A missing row means
+	// on, so a default install is unchanged.
+	profitsharingOn := true
+	if role == "merchant" {
+		on, fe := backoffice.New(s.Pool, s.Store).MerchantFeatureVisible(r.Context(), "user_profitsharing")
+		if fe != nil {
+			response(w, 503, -1, "merchant feature unavailable", nil)
+			return true
+		}
+		profitsharingOn = on
+	}
+	if role == "merchant" && !profitsharingOn && r.Method == "POST" &&
+		((len(parts) == 4 && parts[2] == "rules") || (len(parts) == 3 && parts[2] == "receivers")) {
+		response(w, 403, -1, "未开启添加分账规则功能", nil)
+		return true
+	}
 	respond := func(v any, e error) {
 		if e != nil {
 			fail(e)
@@ -271,6 +291,10 @@ func (s *Server) channelSharingConsole(w http.ResponseWriter, r *http.Request, r
 		return true
 	}
 	if resource == "channels" && len(parts) == 3 && r.Method == "GET" {
+		if role == "merchant" && !profitsharingOn {
+			response(w, 200, 0, "", map[string]any{"merchant_id": strconv.FormatInt(mid, 10), "available": false, "reason": "平台未开启添加分账规则功能", "channels": []payment.ChannelSharingChannelView{}})
+			return true
+		}
 		channels := []payment.ChannelSharingChannelView{}
 		reason := "当前未配置支持渠道分账的通道；模拟通道不执行真实分账"
 		if s.ProviderFlow != nil && !s.Sandbox && !s.ProviderFlow.LocalSimulation && s.ProviderFlow.AllowLive {
