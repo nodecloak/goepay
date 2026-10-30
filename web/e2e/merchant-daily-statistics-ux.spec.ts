@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { chooseKitOption } from "./kit-select-helpers";
 const total = {
   day: "合计",
   realmoney: "100.50",
@@ -79,7 +80,11 @@ for (const width of [1280, 375])
     await expect(page.getByLabel("商户号", { exact: true })).toHaveCount(0);
     await expect(page.getByLabel("通道ID", { exact: true })).toHaveCount(0);
     await expect(page.getByLabel("查询日期（开始）")).toHaveCount(0);
-    await page.getByLabel("支付方式", { exact: true }).selectOption("alipay");
+    await chooseKitOption(
+      page,
+      page.getByRole("button", { name: "支付方式", exact: true }),
+      "支付宝",
+    );
     await expect(page.locator("tfoot")).toHaveCount(0);
     await page.getByRole("button", { name: "查询", exact: true }).click();
     await expect

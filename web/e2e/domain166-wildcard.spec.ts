@@ -89,7 +89,7 @@ for (const area of ["admin", "merchant"] as const)
       const firstRow = page.locator("table tbody tr").first();
       await expect(firstRow.locator("td").nth(1)).toHaveText("1");
       await expect(firstRow.locator("td").nth(3)).toHaveText(
-        area === "admin" ? "是" : "否",
+        area === "admin" ? "已审核" : "待审核",
       );
       await page
         .getByRole("button", { name: "编辑", exact: true })

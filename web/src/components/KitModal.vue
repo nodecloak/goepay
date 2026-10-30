@@ -23,7 +23,7 @@ function onKeydown(event: KeyboardEvent) {
   }
   if (event.key !== "Tab") return;
   const focusable = panel.value?.querySelectorAll<HTMLElement>(
-    'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+    '.pa-modal-body a[href],.pa-modal-body button:not([disabled]),.pa-modal-body input:not([disabled]),.pa-modal-body select:not([disabled]),.pa-modal-body textarea:not([disabled]),.pa-modal-body [tabindex]:not([tabindex="-1"])',
   );
   if (!focusable || !focusable.length) return;
   const first = focusable[0]!;
@@ -42,7 +42,7 @@ onMounted(() => {
   void nextTick(() => {
     panel.value
       ?.querySelector<HTMLElement>(
-        "input:not([disabled]),select,textarea,button",
+        '.pa-modal-body input:not([disabled]),.pa-modal-body select:not([disabled]),.pa-modal-body textarea:not([disabled]),.pa-modal-body button:not([disabled]),.pa-modal-body a[href],.pa-modal-body [tabindex]:not([tabindex="-1"])',
       )
       ?.focus();
   });
