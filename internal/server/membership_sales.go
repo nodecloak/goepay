@@ -155,7 +155,12 @@ func (s *Server) membershipSalesConsole(w http.ResponseWriter, r *http.Request, 
 		if e != nil {
 			s.fail(w, e)
 		} else {
-			response(w, 200, 0, "", map[string]any{"items": offers, "enabled": enabled})
+			current, ce := s.Store.CurrentMembershipHeader(r.Context(), session.User.ID)
+			if ce != nil {
+				s.fail(w, ce)
+				return true
+			}
+			response(w, 200, 0, "", map[string]any{"items": offers, "enabled": enabled, "current": current})
 		}
 		return true
 	}
