@@ -40,10 +40,11 @@ test("filtered orders export includes all active filters, rejects JSON failure a
     return route.fulfill(ok({ items: [], total: 0 }));
   });
   await page.goto("/admin/trade/order");
-  await page.getByLabel("搜索记录", { exact: true }).fill("ORDER");
-  await page.getByText("更多筛选", { exact: true }).click();
-  await page.getByLabel("订单收入状态", { exact: true }).selectOption("held");
-  await page.getByLabel("商户 ID 筛选", { exact: true }).fill("1000");
+  await page.getByLabel("搜索内容", { exact: true }).fill("ORDER");
+  await page.getByRole("button", { name: "展开", exact: true }).click();
+  await page.getByRole("button", { name: "订单收入状态", exact: true }).click();
+  await page.getByRole("option", { name: "收入冻结中", exact: true }).click();
+  await page.getByLabel("商户号筛选", { exact: true }).fill("1000");
   await page
     .getByRole("button", { name: "导出筛选结果 CSV", exact: true })
     .click();
