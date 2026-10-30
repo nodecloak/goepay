@@ -18,7 +18,7 @@ const settings = {
     order_money: "10.00",
     balance_money: "20.00",
   },
-  configured: { qqbot_appsecret: true },
+  configured: { qqbot_appsecret: true, telegram_uid: true },
   target_masks: { qqbot_appsecret: "********" },
 };
 for (const area of ["admin", "merchant"] as const)
@@ -71,8 +71,8 @@ for (const area of ["admin", "merchant"] as const)
       await expect(page.getByRole("region", { name: "通知记录", exact: true })).toContainText("LOCAL-NOTICE80");
       await expect(page.getByRole("region", { name: "通知记录", exact: true })).toContainText("待核实");
       await page
-        .getByRole("combobox", { name: "订单支付成功", exact: true })
-        .selectOption("5");
+        .getByLabel("订单支付成功 Telegram", { exact: true })
+        .check();
       await page
         .locator('[data-target-action="telegram_uid"]')
         .selectOption("replace");
