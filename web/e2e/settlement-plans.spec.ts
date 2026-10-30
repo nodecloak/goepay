@@ -82,7 +82,9 @@ test("plan generation is separate from definition and mandatory authorization wh
   });
   await page.goto("/admin/settle/plans");
   await expect(page.getByRole("button", { name: "查看计划 4" })).toBeVisible();
+  await page.getByRole("button", { name: "说明", exact: true }).first().click();
   await expect(page.getByText(/仅生成待审核申请并冻结/).first()).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "查看计划 4" }).click();
   await page.getByLabel("授权开始 RFC3339").fill("2026-10-24T00:00:00Z");
   await page.getByLabel("授权截止 RFC3339").fill("2026-10-25T00:00:00Z");
