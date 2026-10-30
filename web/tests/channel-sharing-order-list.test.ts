@@ -77,6 +77,19 @@ async function open(w: ReturnType<typeof render>) {
   await flushPromises();
 }
 
+it("accepts the server's numeric total (the live API shape) without a format error", async () => {
+  const request = vi.fn(async (path: string) =>
+    path.includes("/orders") ? { items: [], total: 0, limit: 20 } : {},
+  );
+  const w = render(request, "merchant");
+  await flushPromises();
+  expect(request.mock.calls.some(([p]) => String(p).includes("/orders"))).toBe(
+    true,
+  );
+  expect(w.text()).not.toContain("响应格式错误");
+  w.unmount();
+});
+
 it("renders Pro filters, toolbar, columns and joined fields from the server list", async () => {
   const w = render(listRequest());
   await open(w);

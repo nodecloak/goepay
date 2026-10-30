@@ -3979,6 +3979,19 @@ th {
 .list-page > .alert {
   margin: 0;
 }
+/* Pages that render their cards straight into the content column (or into
+   the unnamed route wrapper) instead of a .list-page: consecutive cards sit
+   16px apart too. Vertical margins collapse in this block flow, so a card that
+   already carries a 16px bottom margin (the filter cards) stays 16px. */
+.content
+  > :is(.panel, .pa-filter, .list-filter-card, .stat-grid)
+  + :is(.panel, .pa-filter, .list-filter-card, .stat-grid),
+.content
+  > div:is(:not([class]), [class=""])
+  > :is(.panel, .pa-filter, .list-filter-card, .stat-grid)
+  + :is(.panel, .pa-filter, .list-filter-card, .stat-grid) {
+  margin-top: var(--space-4);
+}
 
 /* Any field grid inside a search card joins the card's one flex row, so its
    fields are 220px like the order page's and sit on the same baseline as

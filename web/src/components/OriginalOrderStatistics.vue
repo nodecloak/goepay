@@ -244,6 +244,16 @@ const visibleRows = computed(() =>
           >共 <strong>{{ items.length }}</strong> 条记录</span
         >
         <div class="table-tools-end">
+          <button
+            type="button"
+            class="icon-button table-refresh"
+            :aria-label="loading ? '正在更新…' : '刷新数据'"
+            :title="loading ? '正在更新…' : '刷新数据'"
+            :disabled="loading"
+            @click="load"
+          >
+            <ShellIcon name="refresh" />
+          </button>
           <KitHelpPopover>
             <p class="table-note">
               按北京时间的订单创建日期统计{{
@@ -261,16 +271,6 @@ const visibleRows = computed(() =>
               }}通道名称以已记录通道号标识。
             </p>
           </KitHelpPopover>
-          <button
-            type="button"
-            class="icon-button table-refresh"
-            :aria-label="loading ? '正在更新…' : '刷新数据'"
-            :title="loading ? '正在更新…' : '刷新数据'"
-            :disabled="loading"
-            @click="load"
-          >
-            <ShellIcon name="refresh" />
-          </button>
         </div>
       </div>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>

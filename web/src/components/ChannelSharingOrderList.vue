@@ -189,9 +189,14 @@ async function load() {
     const result: any = await props.client.request(
       `/channel-sharing/orders${qs ? "?" + qs : ""}`,
     );
+    // The server sends total as a JSON number (ChannelSharingOrderListPage),
+    // like every other list; amounts and ids stay exact digit strings.
+    const totalOK =
+      unsigned(result?.total) ||
+      (Number.isSafeInteger(result?.total) && result.total >= 0);
     if (
       !Array.isArray(result?.items) ||
-      !unsigned(result.total) ||
+      !totalOK ||
       typeof result.limit !== "number"
     )
       throw Error("分账记录列表响应格式错误");
