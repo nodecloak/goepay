@@ -27,6 +27,7 @@ for (const width of [375, 1280]) {
           expect(req.postDataJSON()).toEqual({
             name: "待审核商户",
             email: "review82@example.test",
+            phone: "",
           });
         }
         return route.fulfill(
