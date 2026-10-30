@@ -36,12 +36,15 @@ test("login errors, scope navigation, and mobile layout", async ({ page }) => {
   await page.getByRole("button", { name: "登录工作台" }).click();
   await expect(page.getByRole("alert")).toHaveText("用户名或密码错误");
   await page.getByRole("link", { name: "商户后台", exact: true }).click();
+  await expect(page).toHaveURL(/\/merchant\/login/);
   await expect(page.getByRole("heading", { name: "商户登录" })).toBeVisible();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
+  await expect
+    .poll(() =>
+      page
+        .evaluate(() => document.documentElement.scrollWidth <= innerWidth)
+        .catch(() => null),
+    )
+    .toBe(true);
 });
 test("authorized order refund uses trade number and exact decimal, blocked pages stay honest", async ({
   page,
@@ -112,7 +115,7 @@ test("authorized order refund uses trade number and exact decimal, blocked pages
   });
   await page.goto("/admin/trade/order");
   await expect(
-    page.getByRole("cell", { name: "TRADE-001", exact: true }),
+    page.getByRole("button", { name: "查看订单详情 TRADE-001", exact: true }),
   ).toBeVisible();
   await openAdminAPIRefund(page, "TRADE-001");
   await page.getByLabel("退款金额（元）").fill("0.01");
@@ -123,10 +126,10 @@ test("authorized order refund uses trade number and exact decimal, blocked pages
   expect(posted).toMatchObject({ amount: "0.01" });
   await page.goto("/admin/app/app-store");
   await expect(
-    page.getByRole("heading", { name: "此功能尚未接入" }),
+    page.getByRole("region", { name: "应用市场" }),
   ).toBeVisible();
   await page.screenshot({
-    path: "test-results/unavailable-desktop.png",
+    path: "test-results/app-store-desktop.png",
     fullPage: true,
   });
   await page.goto("/admin/other/get-token");
