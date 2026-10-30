@@ -1,0 +1,27 @@
+{{define "content"}}
+<h1 id="SDK下载">SDK下载</h1>
+<blockquote><p>提供 PHP SDK，封装了发起支付、查询订单、申请退款以及回调验签等功能，建议对接时参考。</p></blockquote>
+
+<h2 id="PHP-SDK">PHP SDK</h2>
+<div class="doc-table"><table>
+<thead><tr><th>版本</th><th>签名算法</th><th>适用接口</th><th>下载</th></tr></thead>
+<tbody>
+<tr><td><code>V2.0</code></td><td>RSA（SHA256WithRSA）</td><td>V2 接口（<code>api/pay/*</code> 等）</td><td><a href="/doc/sdk/SDK_2.0.zip">SDK_2.0.zip</a></td></tr>
+<tr><td><code>V1</code></td><td>MD5</td><td><a href="/doc/v1_legacy_api.html">V1 旧版接口</a>（<code>submit.php</code> / <code>mapi.php</code> / <code>api.php</code>）</td><td><a href="/doc/sdk/SDK.zip">SDK.zip</a></td></tr>
+</tbody>
+</table></div>
+<p>新接入请使用 V2.0 SDK；V1 SDK 仅用于维护已有的旧版接口对接。</p>
+
+<h2 id="V2-SDK配置">V2 SDK 配置</h2>
+<p>V2.0 SDK 的 <code>lib/epay.config.php</code> 中需填写以下信息：</p>
+<div class="doc-table"><table>
+<thead><tr><th>配置项</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>apiurl</code></td><td>支付接口根地址，填写 <code class="doc-url">{{.API}}</code></td></tr>
+<tr><td><code>pid</code></td><td>商户 ID</td></tr>
+<tr><td><code>platform_public_key</code></td><td>平台公钥，用于对接口返回与异步通知验签</td></tr>
+<tr><td><code>merchant_private_key</code></td><td>商户私钥，用于对请求签名</td></tr>
+</tbody>
+</table></div>
+<p class="doc-note">V2.0 SDK 的 <code>EpayCore</code> 使用的接口路径与本站一致：发起支付（页面跳转）<code>api/pay/submit</code>、发起支付（API）<code>api/pay/create</code>、订单查询 <code>api/pay/query</code>、订单退款 <code>api/pay/refund</code>。商户私钥在 商户后台-&gt;账户中心-&gt;API 信息 页面点击【生成 RSA 密钥对】获得，平台公钥在同一页面查看。</p>
+{{end}}

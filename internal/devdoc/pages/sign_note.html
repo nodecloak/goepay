@@ -1,0 +1,24 @@
+{{define "content"}}
+<h1 id="签名规则">签名规则</h1>
+<blockquote>对本平台接口发起的请求，需要进行签名；针对接口返回的数据以及异步通知回调的数据，需进行验签。</blockquote>
+<h2 id="签名步骤">签名步骤</h2>
+<p>1、获取请求报文所有<strong>非空</strong>请求参数（不包括数组、字节类型参数，如文件、字节流），剔除 <code>sign</code> 与 <code>sign_type</code> 字段，按照第一个字符的键值 ASCII 码递增排序（字母升序排序），如果遇到相同字符则按照第二个字符的键值 ASCII 码递增排序，以此类推。</p>
+<p>2、将排序后的参数与其对应值，组合成“<code>参数名=参数值</code>”的格式，并且把这些参数用 <code>&amp;</code> 字符连接起来，此时生成的字符串为待签名字符串。参数值不做 URL 编码。</p>
+<p>3、使用<strong>商户私钥</strong>对待签名字符串进行 RSA 签名（<code>SHA256WithRSA</code>），结果经 Base64 编码后作为 <code>sign</code>。</p>
+<p class="doc-note">值为空字符串的参数不参与签名。请不要传入只含空格等空白字符的参数值：官方 SDK 会把这类值当作空值不签，而本站校验请求时会把它计入，两边结果不一致会导致验签失败。</p>
+<h2 id="待签名字符串示例">待签名字符串示例</h2>
+<pre><code>money=1.00&amp;name=VIP会员&amp;notify_url=http://www.pay.com/notify_url.php&amp;out_trade_no=20160806151343349&amp;pid=1001&amp;timestamp=1721206072&amp;type=alipay</code></pre>
+<h2 id="时间戳">时间戳</h2>
+<p>V2 请求必须携带 <code>timestamp</code>（10位整数，单位秒），与本站服务器时间相差超过 300 秒的请求会被拒绝。请保持服务器时间准确。</p>
+<h2 id="验签步骤">验签步骤</h2>
+<p>对接口返回的数据，以及异步通知、页面跳转通知回调的数据，需进行验签：</p>
+<p>1、先按签名步骤第1、2步获取待签名字符串。返回数据中的数组或对象（如订单列表 <code>data</code>）不参与签名；值为空或只含空白字符的字段也不参与。</p>
+<p>2、使用<strong>平台公钥</strong>，对待签名字符串与 <code>sign</code> 进行 RSA 验签（<code>SHA256WithRSA</code>）。</p>
+<p>3、返回数据与回调数据都带有 <code>timestamp</code>、<code>sign_type</code>（固定为 RSA）与 <code>sign</code> 字段。建议同时校验 <code>timestamp</code> 与当前时间相差不超过 300 秒，官方 SDK 即按此校验。</p>
+<h2 id="注意事项">注意事项</h2>
+<p>1、<strong>商户私钥</strong>（private key）用于请求签名，生成后请妥善保管，不要泄露。</p>
+<p>2、<strong>平台公钥</strong>（public key）用于接口返回数据、异步通知回调数据的验签。</p>
+<p>3、RSA 密钥长度至少为 2048 位；V2 接口的 <code>sign_type</code> 必须为 <code>RSA</code>。</p>
+<p>4、V1 旧版接口使用 MD5 签名，规则见 <a href="/doc/v1_legacy_api.html#md5-签名算法">V1旧版接口文档</a>。</p>
+<p>5、具体发起支付与验签的示例代码可下载 <a href="/doc/sdk.html">SDK</a> 查看。</p>
+{{end}}

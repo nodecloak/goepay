@@ -1,0 +1,62 @@
+{{define "content"}}
+<h1 id="转账查询">转账查询</h1>
+<blockquote>根据系统交易号或商户交易号查询转账状态。</blockquote>
+<h4 id="请求地址">请求地址：</h4>
+<p><code class="doc-url">{{.API}}api/transfer/query</code></p>
+<h4 id="请求方式">请求方式：</h4>
+<p>POST</p>
+<h4 id="请求参数说明">请求参数说明：</h4>
+<div class="doc-table"><table>
+<thead><tr><th>字段名</th><th>变量名</th><th>必填</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<tbody>
+<tr><td>商户ID</td><td>pid</td><td>是</td><td>Int</td><td>1001</td><td> </td></tr>
+<tr><td>系统交易号</td><td>biz_no</td><td>否</td><td>String</td><td>2016080615134334919</td><td>与商户交易号必传其一</td></tr>
+<tr><td>商户交易号</td><td>out_biz_no</td><td>否</td><td>String</td><td>2016080615134334919</td><td>与系统交易号必传其一</td></tr>
+<tr><td>当前时间戳</td><td>timestamp</td><td>是</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
+<tr><td>签名字符串</td><td>sign</td><td>是</td><td>String</td><td> </td><td>参考签名规则</td></tr>
+<tr><td>签名类型</td><td>sign_type</td><td>是</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr>
+</tbody>
+</table></div>
+<p class="doc-note">biz_no 与 out_biz_no 至少传其一；两者都不传返回“transfer number required”，查不到对应转账返回“transfer not found”。</p>
+<h4 id="返回参数说明">返回参数说明：</h4>
+<div class="doc-table"><table>
+<thead><tr><th>字段名</th><th>变量名</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<tbody>
+<tr><td>返回状态码</td><td>code</td><td>Int</td><td>0</td><td>0为成功，其它值为失败</td></tr>
+<tr><td>错误信息</td><td>msg</td><td>String</td><td> </td><td>失败时返回原因</td></tr>
+<tr><td>转账状态</td><td>status</td><td>Int</td><td> </td><td>0：正在处理<br />1：转账成功<br />2：转账失败</td></tr>
+<tr><td>转账失败标记</td><td>errmsg</td><td>String</td><td>transfer failed</td><td>status=2 时才返回，固定为 transfer failed；具体原因请在商户后台查看</td></tr>
+<tr><td>系统交易号</td><td>biz_no</td><td>String</td><td>2016080615134334917</td><td> </td></tr>
+<tr><td>商户交易号</td><td>out_biz_no</td><td>String</td><td>2016080615134334917</td><td> </td></tr>
+<tr><td>接口转账单号</td><td>orderid</td><td>String</td><td>40001283951815782</td><td>支付宝微信返回的转账单号</td></tr>
+<tr><td>转账完成时间</td><td>paydate</td><td>String</td><td>2024-07-01 16:47:32</td><td> </td></tr>
+<tr><td>转账金额</td><td>amount</td><td>String</td><td> </td><td>单位：元</td></tr>
+<tr><td>转账花费金额</td><td>cost_money</td><td>String</td><td> </td><td>从商户可用余额扣减的金额</td></tr>
+<tr><td>转账备注</td><td>remark</td><td>String</td><td> </td><td> </td></tr>
+<tr><td>结果待查询</td><td>query_required</td><td>Bool</td><td>true</td><td>上游结果仍未确定时返回，可稍后再次查询</td></tr>
+<tr><td>当前时间戳</td><td>timestamp</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
+<tr><td>签名字符串</td><td>sign</td><td>String</td><td> </td><td>参考签名规则</td></tr>
+<tr><td>签名类型</td><td>sign_type</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr>
+</tbody>
+</table></div>
+<p class="doc-note">转账状态 status：0 处理中，1 成功，2 失败（失败或已冲正）。当平台向上游核验仍未得到确定结果时，本站会返回 query_required=true 且不写入任何未经核验的余额，请稍后再次查询。</p>
+<h4 id="其他说明">其他说明：</h4>
+<ul>
+<li>转账凭证查询：本站另提供 <code class="doc-url">{{.API}}api/transfer/proof</code>（POST）接口，用于获取转账凭证。请求参数为 pid、biz_no 或 out_biz_no（二者传其一）及签名参数；返回 biz_no、out_biz_no、file_id（凭证文件ID）、status（凭证状态）、url（凭证下载地址）。凭证需在转账完成后方可获取，未就绪或不支持时返回失败提示。</li>
+</ul>
+<h4 id="返回示例">返回示例：</h4>
+<pre><code>{
+    "code": 0,
+    "status": 1,
+    "biz_no": "2016080615134334917",
+    "out_biz_no": "2016080615134334917",
+    "orderid": "40001283951815782",
+    "paydate": "2024-07-01 16:47:32",
+    "amount": "1.00",
+    "cost_money": "1.03",
+    "remark": "",
+    "timestamp": "1721206072",
+    "sign_type": "RSA",
+    "sign": "xxxxxxxx"
+}</code></pre>
+{{end}}

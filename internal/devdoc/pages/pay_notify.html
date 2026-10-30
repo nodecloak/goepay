@@ -1,0 +1,49 @@
+{{define "content"}}
+<h1 id="支付结果通知">支付结果通知</h1>
+<blockquote>订单支付成功后，本站会向下单时传入的 notify_url 发送服务器异步通知；若传入了 return_url，支付完成后用户浏览器还会被跳转到 return_url（页面跳转通知）。</blockquote>
+<h4 id="通知类型">通知类型：</h4>
+<p>服务器异步通知（notify_url）、页面跳转通知（return_url）</p>
+<h4 id="请求方式">请求方式：</h4>
+<p>GET（本站通过 GET 请求将参数拼接在 notify_url / return_url 的查询字符串中发送）</p>
+<h4 id="请求参数说明">请求参数说明：</h4>
+<div class="doc-table"><table>
+<thead><tr><th>字段名</th><th>变量名</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<tbody>
+<tr><td>商户ID</td><td>pid</td><td>Int</td><td>1001</td><td> </td></tr>
+<tr><td>平台订单号</td><td>trade_no</td><td>String</td><td>20160806151343349</td><td> </td></tr>
+<tr><td>商户订单号</td><td>out_trade_no</td><td>String</td><td>20160806151343351</td><td> </td></tr>
+<tr><td>支付方式</td><td>type</td><td>String</td><td>alipay</td><td><a href="/doc/paytype.html">支付方式列表</a></td></tr>
+<tr><td>商品名称</td><td>name</td><td>String</td><td>VIP会员</td><td>后台开启隐藏商品名称时固定为 product</td></tr>
+<tr><td>商品金额</td><td>money</td><td>String</td><td>1.00</td><td>单位：元</td></tr>
+<tr><td>交易状态</td><td>trade_status</td><td>String</td><td>TRADE_SUCCESS</td><td>固定为 TRADE_SUCCESS</td></tr>
+<tr><td>业务扩展参数</td><td>param</td><td>String</td><td> </td><td>下单时传入的 param，原样返回；为空则不带此参数</td></tr>
+<tr><td>当前时间戳</td><td>timestamp</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
+<tr><td>签名字符串</td><td>sign</td><td>String</td><td> </td><td>参考签名规则</td></tr>
+<tr><td>签名类型</td><td>sign_type</td><td>String</td><td>RSA</td><td>固定为RSA</td></tr>
+</tbody>
+</table></div>
+<p class="doc-note">与原版不同：本站异步通知只携带以上字段，不包含 api_trade_no、addtime、endtime、buyer 等字段。如需这些信息，请在收到通知后调用 <a href="/doc/pay_query.html">订单查询</a> 获取。</p>
+<p class="doc-note">若 notify_url / return_url 本身带有查询参数，本站会保留这些参数并一并纳入签名；验签时请对收到的全部参数（sign、sign_type 除外）参与计算。</p>
+<p class="doc-note">param 仅在下单时非空时才会出现在通知中。</p>
+<h4 id="返回示例">通知示例（notify_url 收到的查询参数）：</h4>
+<pre><code>pid=1001&amp;trade_no=20160806151343349&amp;out_trade_no=20160806151343351
+&amp;type=alipay&amp;name=VIP%E4%BC%9A%E5%91%98&amp;money=1.00
+&amp;trade_status=TRADE_SUCCESS&amp;timestamp=1721206072&amp;sign_type=RSA&amp;sign=……</code></pre>
+<h4 id="返回内容说明">返回内容说明：</h4>
+<p>收到异步通知后，商户服务器需原样输出字符串 <code>success</code>（HTTP 200，纯文本，不含多余字符）以表示已接收到订单通知。本站读取响应体最多 4096 字节，响应必须恰好等于 <code>success</code> 才视为成功，否则按失败处理并进入重试。</p>
+<h4 id="重试机制">重试机制：</h4>
+<p>当商户未正确返回 <code>success</code>（或连接失败、读取失败）时，本站会自动重试通知：</p>
+<ul>
+<li>默认：重试间隔从 2 秒开始逐次加倍（2 秒、4 秒、8 秒……，单次最长约 17 分钟），连同首次通知最多发送 12 次。</li>
+<li>平台在后台开启「订单异步通知重试」计划任务后：第1次失败后约 1 分钟、第2次后约 9 分钟、第3次后约 40 分钟、第4次后约 1 小时，连同首次最多发送 5 次。</li>
+</ul>
+<p class="doc-note">连续多个订单回调失败且后台开启了相应风控时，本站可能自动关闭该商户的新支付权限（可在后台配置触发订单数与是否邮件提醒）。</p>
+<h4 id="页面跳转通知说明">页面跳转通知（return_url）说明：</h4>
+<p>若下单时传入了 return_url，用户在收银台完成支付后，浏览器会被 302 跳转回 return_url，携带与异步通知相同的签名参数（pid、trade_no、out_trade_no、type、name、money、trade_status、param、timestamp、sign_type、sign；其中 name 始终为真实商品名称）。页面跳转仅用于前端展示，请勿仅凭跳转判断支付成功，务必以异步通知或主动查单为准。</p>
+<h4 id="其他说明">其他说明：</h4>
+<ul>
+<li>商户系统代码内务必对返回的签名 sign 进行校验，并且判断 trade_status 的值是否等于 TRADE_SUCCESS。</li>
+<li>支付平台可能会增加回调字段，验证签名时必须支持增加的扩展字段。</li>
+<li>验签所用公钥为【平台公钥】，签名算法与下单一致（RSA，即 SHA256WithRSA）。</li>
+</ul>
+{{end}}

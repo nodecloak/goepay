@@ -1,0 +1,36 @@
+{{define "content"}}
+<h1 id="页面跳转支付">页面跳转支付</h1>
+<blockquote>此接口可用于用户前台直接发起支付，使用form表单跳转或拼接成url跳转。</blockquote>
+<h4 id="请求地址">请求地址：</h4>
+<p><code class="doc-url">{{.API}}api/pay/submit</code></p>
+<h4 id="请求方式">请求方式：</h4>
+<p>POST 或 GET（推荐POST，不容易被劫持）</p>
+<h4 id="请求参数说明">请求参数说明：</h4>
+<div class="doc-table"><table>
+<thead><tr><th>字段名</th><th>变量名</th><th>必填</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<tbody>
+<tr><td>商户ID</td><td>pid</td><td>是</td><td>Int</td><td>1001</td><td> </td></tr>
+<tr><td>支付方式</td><td>type</td><td>否</td><td>String</td><td>alipay</td><td>不传会跳转到收银台由用户选择 <a href="/doc/paytype.html">支付方式列表</a></td></tr>
+<tr><td>商户订单号</td><td>out_trade_no</td><td>是</td><td>String</td><td>20160806151343349</td><td>仅限字母、数字与 . _ - |，最长128字节</td></tr>
+<tr><td>异步通知地址</td><td>notify_url</td><td>否</td><td>String</td><td>http://www.pay.com/notify_url.php</td><td>服务器异步通知地址；不传则不会收到异步通知</td></tr>
+<tr><td>跳转通知地址</td><td>return_url</td><td>否</td><td>String</td><td>http://www.pay.com/return_url.php</td><td>页面跳转通知地址；不传则支付后不跳回商户页面</td></tr>
+<tr><td>商品名称</td><td>name</td><td>是</td><td>String</td><td>VIP会员</td><td>如超过127个字节会自动截取</td></tr>
+<tr><td>商品金额</td><td>money</td><td>是</td><td>String</td><td>1.00</td><td>单位：元，最大2位小数，须大于0</td></tr>
+<tr><td>业务扩展参数</td><td>param</td><td>否</td><td>String</td><td>没有请留空</td><td>支付后原样返回</td></tr>
+<tr><td>自定义通道ID</td><td>channel_id</td><td>否</td><td>Int</td><td> </td><td>指定商户可用的支付通道ID；不传自动选择</td></tr>
+<tr><td>当前时间戳</td><td>timestamp</td><td>是</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
+<tr><td>签名字符串</td><td>sign</td><td>是</td><td>String</td><td> </td><td>参考签名规则</td></tr>
+<tr><td>签名类型</td><td>sign_type</td><td>是</td><td>String</td><td>RSA</td><td>固定为RSA</td></tr>
+</tbody>
+</table></div>
+<p class="doc-note">原版的 merchant_id（自定义进件商户ID）、cert_no、cert_name、min_age（限制买家）与 fee_mode（手续费承担方）参数本站暂不支持：传入后只参与签名校验，不产生效果；手续费承担方以商户后台配置为准。</p>
+<h4 id="处理结果">处理结果：</h4>
+<p>参数校验通过后，本接口以 HTTP 302 跳转到本站收银台页面，由收银台完成后续支付（二维码、跳转客户端等）；支付完成后再按 return_url 跳回商户页面。</p>
+<p>参数校验失败时返回 JSON：<code>{"code":-1,"msg":"失败原因",…}</code>，同样带有本站签名的 timestamp、sign_type、sign 字段。</p>
+<h4 id="其他说明">其他说明：</h4>
+<ul>
+<li>支付方式（type）不传会跳转到收银台支付。</li>
+<li>本接口以发起请求的浏览器 IP 作为用户 IP，不读取 clientip 参数。</li>
+<li>需要服务器后端下单并自行展示支付页面时，请改用 <a href="/doc/pay_create.html">统一下单接口</a>。</li>
+</ul>
+{{end}}

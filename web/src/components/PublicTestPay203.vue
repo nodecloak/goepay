@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import alipayIcon from "../assets/paytype/alipay.png";
+import wxpayIcon from "../assets/paytype/wxpay.png";
 const route = useRoute(),
   router = useRouter();
+const payIcons: Record<string, string> = {
+  alipay: alipayIcon,
+  wxpay: wxpayIcon,
+};
 const prefix = "/console/v1/public/testpay";
 interface PayType {
   id: string;
@@ -638,183 +644,368 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <main class="public-testpay203" aria-label="测试支付">
-    <header>
-      <h1>{{ siteName }} - 测试支付</h1>
-      <RouterLink to="/">返回首页</RouterLink>
-    </header>
-    <section class="panel testpay-card">
-      <template v-if="paidMoney"
-        ><h2>订单已支付成功！</h2>
-        <p>支付金额：¥ {{ paidMoney }}</p>
-        <button class="primary" type="button" @click="returnTest">
-          返回测试
-        </button></template
-      >
-      <template v-else
-        ><h2>测试支付</h2>
-        <p v-if="loading" role="status">正在加载测试支付…</p>
-        <p
-          v-if="error"
-          ref="errorBox"
-          class="alert error"
-          role="alert"
-          tabindex="-1"
-        >
-          {{ error }}
-        </p>
-        <form v-if="state" novalidate @submit.prevent>
-          <label
-            >商户订单号<input
-              :value="state.trade_no"
-              name="trade_no"
-              readonly
-              autocomplete="off"
-          /></label>
-          <label
-            >商品名称<input value="支付测试" readonly autocomplete="off"
-          /></label>
-          <label
-            >付款金额
-            <div class="testpay-money">
-              <span aria-hidden="true">¥</span
-              ><input
-                ref="moneyInput"
-                v-model="money"
-                name="money"
-                inputmode="decimal"
-                maxlength="10"
-                autocomplete="off"
-                :disabled="loading || busy || unknown"
-              /></div
-          ></label>
-          <p v-if="state.captcha_open === 1" class="muted">
-            请点击下方支付方式，完成滑动验证后即可跳转支付
-          </p>
-          <p v-if="state.paytype.length === 0" class="muted">
-            暂无可用支付方式，请稍后重试。
-          </p>
-          <div class="testpay-methods">
-            <button
-              v-for="type in state.paytype"
-              :key="type.id"
-              type="button"
-              class="primary"
-              :disabled="
-                loading ||
-                busy ||
-                unknown ||
-                (state.captcha_open === 1 && !ready)
-              "
-              @click="pay(type)"
+  <div class="testpay-page" data-theme="light">
+    <main class="public-testpay203" aria-label="测试支付">
+      <header class="testpay-head">
+        <h1>{{ siteName }} - 测试支付</h1>
+        <a href="/">返回首页</a>
+      </header>
+      <section class="testpay-card">
+        <div class="testpay-body">
+          <template v-if="paidMoney"
+            ><div class="testpay-done">
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                class="testpay-done-icon"
+              >
+                <circle cx="12" cy="12" r="11" />
+                <path d="m7 12.5 3.2 3.2L17.5 8.5" />
+              </svg>
+              <h2>订单已支付成功！</h2>
+              <p>支付金额：¥ {{ paidMoney }}</p>
+              <button class="testpay-primary" type="button" @click="returnTest">
+                返回测试
+              </button>
+            </div></template
+          >
+          <template v-else
+            ><p v-if="loading" class="testpay-tip" role="status">
+              正在加载测试支付…
+            </p>
+            <p
+              v-if="error"
+              ref="errorBox"
+              class="testpay-alert"
+              role="alert"
+              tabindex="-1"
             >
-              {{ type.showname }}
+              {{ error }}
+            </p>
+            <form v-if="state" novalidate @submit.prevent>
+              <label class="testpay-group"
+                ><span class="testpay-addon" aria-hidden="true"
+                  ><svg viewBox="0 0 16 16">
+                    <path
+                      d="M1 3h1v10H1zM3 3h.5v10H3zM4.5 3H6v10H4.5zM7 3h.5v10H7zM8.5 3H9v10h-.5zM10 3h1.5v10H10zM12.5 3h.5v10h-.5zM14 3h1v10h-1z"
+                    /></svg></span
+                ><span class="sr-only">商户订单号</span
+                ><input
+                  :value="state.trade_no"
+                  name="trade_no"
+                  readonly
+                  autocomplete="off"
+              /></label>
+              <label class="testpay-group"
+                ><span class="testpay-addon" aria-hidden="true"
+                  ><svg viewBox="0 0 16 16">
+                    <path
+                      d="M0 1.5h2.6l.6 2H15l-1.8 6.6H4.6l.4 1.4h8.2v1.3H4L1.7 2.8H0zM5 14.5a1.2 1.2 0 1 0 2.4 0 1.2 1.2 0 0 0-2.4 0zm6 0a1.2 1.2 0 1 0 2.4 0 1.2 1.2 0 0 0-2.4 0z"
+                    /></svg></span
+                ><span class="sr-only">商品名称</span
+                ><input value="支付测试" readonly autocomplete="off"
+              /></label>
+              <label class="testpay-group"
+                ><span class="testpay-addon testpay-yen" aria-hidden="true"
+                  >¥</span
+                ><span class="sr-only">付款金额</span
+                ><input
+                  ref="moneyInput"
+                  v-model="money"
+                  name="money"
+                  inputmode="decimal"
+                  maxlength="10"
+                  autocomplete="off"
+                  :disabled="loading || busy || unknown"
+              /></label>
+              <p v-if="state.captcha_open === 1" class="testpay-tip">
+                请点击下方支付方式，完成滑动验证后即可跳转支付
+              </p>
+              <p v-if="state.paytype.length === 0" class="testpay-tip">
+                暂无可用支付方式，请稍后重试。
+              </p>
+              <div v-else class="testpay-methods">
+                <button
+                  v-for="type in state.paytype"
+                  :key="type.id"
+                  type="button"
+                  class="testpay-method"
+                  :disabled="
+                    loading ||
+                    busy ||
+                    unknown ||
+                    (state.captcha_open === 1 && !ready)
+                  "
+                  @click="pay(type)"
+                >
+                  <img
+                    v-if="payIcons[type.name]"
+                    :src="payIcons[type.name]"
+                    alt=""
+                    width="18"
+                    height="18"
+                    draggable="false"
+                  /><span>{{ type.showname }}</span>
+                </button>
+              </div>
+            </form>
+            <button
+              v-if="unknown"
+              type="button"
+              class="testpay-secondary"
+              :disabled="busy || loading"
+              @click="recheck"
+            >
+              核对原测试订单
             </button>
-          </div>
-        </form>
-        <button
-          v-if="unknown"
-          type="button"
-          :disabled="busy || loading"
-          @click="recheck"
-        >
-          核对原测试订单
-        </button>
-        <button
-          v-else-if="!state && !loading"
-          type="button"
-          :disabled="busy"
-          @click="load"
-        >
-          重新读取测试
-        </button>
-      </template>
-      <footer>
-        {{ siteName }} © {{ new Date().getFullYear() }} All Rights Reserved.
-      </footer>
-    </section>
-  </main>
+            <button
+              v-else-if="!state && !loading"
+              type="button"
+              class="testpay-secondary"
+              :disabled="busy"
+              @click="load"
+            >
+              重新读取测试
+            </button>
+          </template>
+        </div>
+        <footer class="testpay-foot">
+          {{ siteName }} © {{ new Date().getFullYear() }} All Rights Reserved.
+        </footer>
+      </section>
+    </main>
+  </div>
 </template>
 <style scoped>
-.public-testpay203 {
-  width: min(560px, calc(100% - 32px));
-  margin: 40px auto;
-  color: var(--text, var(--ink));
+/* Public page laid out like the original epay_pro /user/test: a light card
+   with icon-prefixed fields, joined pay buttons and a footer bar. It always
+   uses the light theme tokens (data-theme="light" on the wrapper). */
+.testpay-page {
+  min-height: 100vh;
+  padding: 1px 0;
+  background: var(--bg-card);
+  color: var(--ink);
 }
-.public-testpay203 header {
+.public-testpay203 {
+  width: min(730px, calc(100% - 24px));
+  margin: 30px auto 40px;
+  font-size: 14px;
+}
+.testpay-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 12px;
   flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
 }
-.public-testpay203 h1 {
-  font-size: 20px;
+.testpay-head h1 {
   margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 400;
 }
-.public-testpay203 header a {
-  font-size: 14px;
+.testpay-head a {
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-decoration: none;
+}
+.testpay-head a:hover {
+  color: var(--primary-text);
+  text-decoration: underline;
 }
 .testpay-card {
-  padding: 28px;
+  overflow: hidden;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
 }
-.testpay-card h2 {
-  font-size: 20px;
-  margin: 0 0 24px;
+.testpay-body {
+  padding: 15px;
 }
-.testpay-card label {
-  display: grid;
-  gap: 8px;
-  margin: 20px 0;
-  min-width: 0;
+.testpay-body form {
+  margin: 0;
 }
-.testpay-card input {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-.testpay-card input[readonly] {
-  background: var(--surface-alt, var(--bg-raised));
-  color: var(--muted, var(--ink));
-}
-.testpay-money {
+.testpay-group {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: stretch;
+  min-width: 0;
+  height: 34px;
+  margin: 0 0 18px;
+}
+.testpay-addon {
+  display: grid;
+  flex: 0 0 40px;
+  place-items: center;
+  border: 1px solid var(--line-control);
+  border-right: 0;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--ink);
+}
+.testpay-addon svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+.testpay-yen {
+  font-size: 15px;
+  font-weight: 700;
+}
+.testpay-group input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--line-control);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--bg-card);
+  box-shadow: none;
+  color: var(--ink);
+  font-size: 14px;
+}
+.testpay-group input[readonly] {
+  background: var(--bg-raised);
+  color: var(--ink-muted);
+}
+.testpay-group input:disabled {
+  background: var(--bg-raised);
+  color: var(--ink-muted);
+  cursor: not-allowed;
 }
 .testpay-methods {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 24px 0;
+  margin: 0;
 }
-.testpay-methods button {
-  flex: 1;
-  min-width: 100px;
+.testpay-method {
+  display: inline-flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  height: 34px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--line-control);
+  border-radius: 0;
+  background: var(--bg-card);
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
 }
-.testpay-card p {
-  line-height: 1.7;
+.testpay-method + .testpay-method {
+  margin-left: -1px;
 }
-.testpay-card footer {
+.testpay-method:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+.testpay-method:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.testpay-method:only-child {
+  border-radius: var(--radius-sm);
+}
+.testpay-method:hover:not(:disabled) {
+  position: relative;
+  z-index: 1;
+  background: var(--bg-hover);
+}
+.testpay-method:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.testpay-method img {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+.testpay-tip {
+  margin: 0 0 14px;
+  color: var(--ink-muted);
+  line-height: 1.6;
+}
+.testpay-alert {
+  margin: 0 0 15px;
+  padding: 10px 12px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  line-height: 1.6;
+}
+.testpay-primary,
+.testpay-secondary {
+  height: 34px;
+  margin: 0;
+  padding: 0 16px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  cursor: pointer;
+}
+.testpay-primary {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+.testpay-primary:hover {
+  background: var(--primary-hover);
+}
+.testpay-secondary {
+  border: 1px solid var(--line-control);
+  background: var(--bg-card);
+  color: var(--ink);
+}
+.testpay-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.testpay-done {
+  padding: 18px 0 8px;
   text-align: center;
-  font-size: 12px;
-  color: var(--muted, var(--ink));
-  margin-top: 32px;
+}
+.testpay-done-icon {
+  width: 48px;
+  height: 48px;
+  fill: none;
+  stroke: var(--success);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+.testpay-done h2 {
+  margin: 12px 0 6px;
+  color: var(--success-text);
+  font-size: 18px;
+}
+.testpay-done p {
+  margin: 0 0 16px;
+  font-size: 15px;
+}
+.testpay-foot {
+  padding: 10px 15px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-raised);
+  color: var(--ink);
+  font-size: 14px;
+  text-align: center;
   overflow-wrap: anywhere;
 }
-.testpay-card input:focus-visible,
-.testpay-card button:focus-visible,
-.testpay-card [role="alert"]:focus {
-  outline: 2px solid var(--primary, var(--focus));
-  outline-offset: 3px;
+.testpay-head a:focus-visible,
+.testpay-group input:focus-visible,
+.testpay-body button:focus-visible,
+.testpay-alert:focus {
+  position: relative;
+  z-index: 2;
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
-@media (max-width: 600px) {
+@media (max-width: 480px) {
   .public-testpay203 {
-    margin: 24px auto;
-  }
-  .testpay-card {
-    padding: 20px;
+    margin-top: 20px;
   }
 }
 </style>
