@@ -392,9 +392,13 @@ const client = ref(new ApiClient(area.value)),
   initializing = ref(true),
   busy = ref(false),
   loading = ref(false);
+// Only the order and refund lists show the 支付方式 filter; other pages must
+// not send this read (pages such as 计划任务 assert they read nothing extra).
 const payTypeFilterOptions = usePayTypeOptions(
   client,
-  computed(() => session.value !== null),
+  computed(
+    () => session.value !== null && ["orders", "refunds"].includes(kind.value),
+  ),
 );
 const error = ref(""),
   notice = ref(""),
