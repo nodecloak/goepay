@@ -217,9 +217,9 @@ for (const width of [1280, 375]) {
       .getByRole("button", { name: "修改收款资料", exact: true })
       .click();
     await panel
-      .getByLabel("新收款账号", { exact: true })
+      .getByLabel("收款账号", { exact: true })
       .fill("local119@example.invalid");
-    await panel.getByLabel("新收款姓名", { exact: true }).fill("本地收款人");
+    await panel.getByLabel("真实姓名", { exact: true }).fill("本地收款人");
     await panel
       .getByRole("button", { name: "保存收款版本", exact: true })
       .click();
