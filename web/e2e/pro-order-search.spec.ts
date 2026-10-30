@@ -45,7 +45,9 @@ for (const area of ["admin", "merchant"] as const) {
     // 订单搜索字段 is a KitSelect: open it, assert all options, pick by label.
     await fields.click();
     await expect(page.getByRole("option")).toHaveCount(12);
-    await page.getByRole("option", { name: "实付金额（元）", exact: true }).click();
+    await page
+      .getByRole("option", { name: "实付金额（元）", exact: true })
+      .click();
     await page
       .getByLabel("搜索内容", { exact: true })
       .fill("92233720368547758.07");
