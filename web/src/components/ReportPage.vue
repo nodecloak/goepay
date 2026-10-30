@@ -45,10 +45,18 @@ const from = ref(""),
   loading = ref(false),
   error = ref("");
 const method = ref("");
-// epay_pro transfer/accountStat offers a 付款方式 filter; GOEPAY surfaces it
-// only on the per-account report, whose server handler accepts the `type` param.
+const merchantId = ref("");
+// epay_pro transfer/accountStat and channelStat both offer a 付款方式 filter;
+// channelStat additionally offers a 商户号 (uid) filter. GOEPAY surfaces 付款方式
+// on the per-account and per-channel transfer reports (their handlers accept the
+// `type` param), and 商户号 on the per-channel report (the `uid` param).
 const showTransferMethodFilter = computed(
-  () => props.report === "transfer-accounts",
+  () =>
+    props.report === "transfer-accounts" ||
+    props.report === "transfer-channels",
+);
+const showTransferMerchantFilter = computed(
+  () => props.report === "transfer-channels",
 );
 const summary = ref<Record<string, unknown> | null>(null);
 const complaintOverview = computed(() => props.report === "complaints");
@@ -79,6 +87,7 @@ function resetFilters() {
   from.value = "";
   to.value = "";
   method.value = "";
+  merchantId.value = "";
   page.value = 1;
   load();
 }
@@ -95,6 +104,8 @@ function reportQuery() {
   if (to.value) q.set("to", to.value);
   if (showTransferMethodFilter.value && method.value)
     q.set("type", method.value);
+  if (showTransferMerchantFilter.value && merchantId.value)
+    q.set("uid", merchantId.value);
   return q;
 }
 const csvPath = computed(() => {
@@ -251,6 +262,19 @@ onBeforeUnmount(() => controller?.abort());
                 { value: 'bank', label: '银行卡' },
               ]"
               aria-label="付款方式"
+            />
+          </KitField>
+          <KitField v-if="showTransferMerchantFilter" label="商户号">
+            <input
+              v-model="merchantId"
+              type="text"
+              inputmode="numeric"
+              placeholder="全部商户"
+              aria-label="商户号"
+              @input="
+                merchantId = merchantId.replace(/[^0-9]/g, '');
+                shortcut = '';
+              "
             />
           </KitField>
         </template>
