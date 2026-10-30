@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import alipayIcon from "../assets/paytype/alipay.png";
 import wxpayIcon from "../assets/paytype/wxpay.png";
@@ -61,10 +61,16 @@ class PublicError extends Error {
     super(message);
   }
 }
+// The public site name (App's /console/v1/public/site read) titles the page
+// until the test service answers, and when it is closed it never sends one.
+const props = defineProps<{ fallbackSiteName?: string }>();
 const state = ref<Initial>(),
   money = ref("1.00"),
   paidMoney = ref(""),
-  siteName = ref("测试支付");
+  siteName = ref("");
+const shownSiteName = computed(
+  () => siteName.value || props.fallbackSiteName || "测试支付",
+);
 const loading = ref(false),
   busy = ref(false),
   unknown = ref(false),
@@ -647,7 +653,7 @@ onBeforeUnmount(() => {
   <div class="testpay-page" data-theme="light">
     <main class="public-testpay203" aria-label="测试支付">
       <header class="testpay-head">
-        <h1>{{ siteName }} - 测试支付</h1>
+        <h1>{{ shownSiteName }} - 测试支付</h1>
         <a href="/">返回首页</a>
       </header>
       <section class="testpay-card">
@@ -770,7 +776,8 @@ onBeforeUnmount(() => {
           </template>
         </div>
         <footer class="testpay-foot">
-          {{ siteName }} © {{ new Date().getFullYear() }} All Rights Reserved.
+          {{ shownSiteName }} © {{ new Date().getFullYear() }} All Rights
+          Reserved.
         </footer>
       </section>
     </main>
