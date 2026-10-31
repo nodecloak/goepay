@@ -578,14 +578,55 @@ onBeforeUnmount(() => {
             />
           </template>
         </section>
-        <div v-if="intent" role="dialog" aria-label="确认独立身份交换">
-          <p>
-            确认仅为应用
-            {{ current.app_id }}
-            兑换本次SDK临时码？不会创建订单或付款。未知结果只能查询原请求。
-          </p>
-          <button :disabled="busy" @click="complete">确认兑换标识</button
-          ><button :disabled="busy" @click="intent = null">取消兑换</button>
+        <div
+          v-if="intent"
+          class="pa-scrim pa-modal-scrim"
+          @pointerdown.self="!busy && (intent = null)"
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label="确认独立身份交换"
+            class="pa-modal identity-intent"
+            @keydown.esc.prevent="!busy && (intent = null)"
+          >
+            <header class="pa-modal-head">
+              <h2 class="pa-modal-title">确认独立身份交换</h2>
+              <button
+                type="button"
+                class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+                aria-label="关闭"
+                :disabled="busy"
+                @click="intent = null"
+              >
+                ×
+              </button>
+            </header>
+            <div class="pa-modal-content">
+              <p>
+                确认仅为应用
+                {{ current.app_id }}
+                兑换本次SDK临时码？不会创建订单或付款。未知结果只能查询原请求。
+              </p>
+            </div>
+            <footer class="pa-modal-foot">
+              <button
+                type="button"
+                class="pa-btn"
+                :disabled="busy"
+                @click="intent = null"
+              >
+                取消兑换</button
+              ><button
+                type="button"
+                class="pa-btn pa-btn--primary"
+                :disabled="busy"
+                @click="complete"
+              >
+                确认兑换标识
+              </button>
+            </footer>
+          </section>
         </div>
         <p v-if="current.status === 'processing'" role="status">
           兑换处理中或响应未确定，请查询原请求，禁止重复提交临时码。
