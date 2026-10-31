@@ -967,6 +967,7 @@ onMounted(reload);
       title="处理投诉"
       :loading="detailBusy"
       submit-text="渠道处理并完成"
+      drawer
       width="600px"
       @close="detail = null"
       @submit="submitProviderComplete"
@@ -1122,7 +1123,6 @@ onMounted(reload);
       title="编辑同步任务"
       :loading="taskBusy"
       submit-text="保存"
-      width="480px"
       @close="editTask = null"
       @submit="submitTaskEdit"
     >
