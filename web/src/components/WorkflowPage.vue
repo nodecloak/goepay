@@ -1254,10 +1254,23 @@ onBeforeUnmount(() => {
   </div>
   <div
     v-if="dialog"
-    :class="application ? 'workflow-application' : 'modal-backdrop'"
+    :class="
+      application
+        ? 'workflow-application'
+        : 'modal-backdrop' + (dialog === 'create' ? ' drawer-backdrop' : '')
+    "
   >
     <section
-      :class="application ? 'panel workflow-application-form' : 'modal panel'"
+      :class="
+        application
+          ? 'panel workflow-application-form'
+          : 'modal panel' + (dialog === 'create' ? ' modal-drawer' : '')
+      "
+      :style="
+        !application && dialog === 'create'
+          ? { '--drawer-w': '560px' }
+          : undefined
+      "
       :role="application ? undefined : 'dialog'"
       :aria-modal="application ? undefined : true"
       :aria-label="
@@ -1268,19 +1281,30 @@ onBeforeUnmount(() => {
             : '审批确认'
       "
     >
-      <h2 v-if="!application">
-        {{
-          dialog === "create"
-            ? workflow === "settlements"
-              ? application
-                ? "申请提现"
-                : "申请结算"
-              : "发起站内转账"
-            : dialog === "approve"
-              ? "核准账务申请"
-              : "拒绝账务申请"
-        }}
-      </h2>
+      <div v-if="!application" class="workflow-modal-head">
+        <h2>
+          {{
+            dialog === "create"
+              ? workflow === "settlements"
+                ? application
+                  ? "申请提现"
+                  : "申请结算"
+                : "发起站内转账"
+              : dialog === "approve"
+                ? "核准账务申请"
+                : "拒绝账务申请"
+          }}
+        </h2>
+        <button
+          type="button"
+          class="workflow-modal-x"
+          :disabled="busy"
+          aria-label="关闭"
+          @click="dialog = null"
+        >
+          ×
+        </button>
+      </div>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
       <form v-if="dialog === 'create'" @submit.prevent="submit">
         <p v-if="restoringIntent212" role="status">正在恢复本人原资金请求…</p>
@@ -1541,5 +1565,33 @@ onBeforeUnmount(() => {
 }
 .settle-live > span {
   color: var(--ink, inherit);
+}
+/* Head of the account-申请 dialog: title left, close × right, sticky above
+   the scrolling body. */
+.workflow-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.modal > .workflow-modal-head {
+  position: sticky;
+  top: calc(-1 * var(--space-5));
+  z-index: 3;
+  background: var(--bg-card);
+}
+.workflow-modal-head h2 {
+  margin: 0;
+}
+.workflow-modal-x {
+  font-size: 24px;
+  line-height: 1;
+  padding: 4px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted, inherit);
+}
+.workflow-modal-x:hover:not(:disabled) {
+  background: var(--bg-hover);
 }
 </style>
