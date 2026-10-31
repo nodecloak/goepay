@@ -1852,17 +1852,6 @@ onBeforeUnmount(() => {
       <SiteContacts191 v-if="publicSite191" :site="publicSite191" />
     </section>
     <section class="login-panel">
-      <nav class="area-switch" aria-label="登录身份">
-        <RouterLink
-          to="/admin/dashboard"
-          :class="{ selected: area === 'admin' }"
-          >管理后台</RouterLink
-        ><RouterLink
-          to="/merchant/dashboard"
-          :class="{ selected: area === 'merchant' }"
-          >商户后台</RouterLink
-        >
-      </nav>
       <PublicEnrollment
         v-if="area === 'merchant' && enrollmentPurpose"
         :key="enrollmentPurpose"
