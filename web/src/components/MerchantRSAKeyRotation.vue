@@ -230,15 +230,18 @@ async function generate() {
           }}私钥仅在本次成功响应展示。
         </p>
         <form @submit.prevent="generate">
-          <label
-            >确认当前登录密码<input
-              v-model="password"
-              type="password"
-              required
-              maxlength="1024"
-              autocomplete="current-password"
-              autofocus
-          /></label>
+          <div class="form-rows">
+            <label
+              ><span class="field-label field-label--req">确认当前登录密码</span
+              ><input
+                v-model="password"
+                type="password"
+                required
+                maxlength="1024"
+                autocomplete="current-password"
+                autofocus
+            /></label>
+          </div>
           <div class="modal-actions">
             <button type="button" @click="close">关闭</button
             ><button class="danger-button" :disabled="busy">
