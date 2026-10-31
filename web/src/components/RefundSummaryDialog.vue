@@ -111,7 +111,18 @@ onBeforeUnmount(() => {
       tabindex="-1"
       @keydown="keydown"
     >
-      <h2 :id="id + '-title'">退款统计</h2>
+      <div class="toolbar">
+        <h2 :id="id + '-title'">退款统计</h2>
+        <button
+          ref="closeButton"
+          type="button"
+          class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+          aria-label="关闭"
+          @click="emit('close')"
+        >
+          ×
+        </button>
+      </div>
       <p class="muted">统计当前筛选条件下的全部退款记录，不受列表分页限制。</p>
       <p v-if="loading" role="status">正在读取退款统计…</p>
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
@@ -127,12 +138,7 @@ onBeforeUnmount(() => {
       <div class="modal-actions">
         <button v-if="error" type="button" :disabled="loading" @click="load">
           重试读取退款统计</button
-        ><button
-          ref="closeButton"
-          type="button"
-          class="primary"
-          @click="emit('close')"
-        >
+        ><button type="button" class="primary" @click="emit('close')">
           关闭
         </button>
       </div>

@@ -363,7 +363,18 @@ const stateText = (state: string) =>
         aria-modal="true"
         aria-label="批量订单业务确认"
       >
-        <h2>{{ batchBusinessLabels185[action] }}确认</h2>
+        <div class="toolbar">
+          <h2>{{ batchBusinessLabels185[action] }}确认</h2>
+          <button
+            type="button"
+            class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+            aria-label="关闭"
+            :disabled="busy"
+            @click="close"
+          >
+            ×
+          </button>
+        </div>
         <p>已选 {{ selected.length }} 条订单</p>
         <p v-if="action === 'refund'" class="muted">
           逐笔按原订单可退金额处理；首次退款前核对本批资金授权。出现失败或待核对结果时停止后续项目。
@@ -395,13 +406,17 @@ const stateText = (state: string) =>
         <ol v-else>
           <li v-for="trade in selected" :key="trade">{{ trade }}</li>
         </ol>
-        <label
-          >操作原因<textarea
-            v-model="reason"
-            maxlength="240"
-            :disabled="busy || !!pending || !allowed"
-          /></label
-        ><label class="batch185-check"
+        <div class="form-rows">
+          <label
+            ><span class="field-label">操作原因</span
+            ><textarea
+              v-model="reason"
+              maxlength="240"
+              :disabled="busy || !!pending || !allowed"
+            />
+          </label>
+        </div>
+        <label class="batch185-check"
           ><input
             v-model="ack"
             type="checkbox"

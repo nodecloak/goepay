@@ -278,7 +278,18 @@ onBeforeUnmount(() => {
       :aria-label="title"
       @keydown="trapFocus"
     >
-      <h2>{{ title }}</h2>
+      <div class="toolbar">
+        <h2>{{ title }}</h2>
+        <button
+          type="button"
+          class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+          aria-label="关闭"
+          :disabled="busy"
+          @click="emit('close')"
+        >
+          ×
+        </button>
+      </div>
       <p class="muted">
         系统订单号：<span class="pa-order-no">{{ tradeNo }}</span>
       </p>
@@ -345,28 +356,32 @@ onBeforeUnmount(() => {
             </p>
             <p v-if="manualBlocked" role="alert">
               仅本人超级管理员可处理已支付订单的手动退款。
-            </p>
-            <label
-              >退款金额（元）<input
+            </p></template
+          >
+          <div class="form-rows">
+            <label v-if="action === 'manual-refund'"
+              ><span class="field-label field-label--req">退款金额（元）</span
+              ><input
                 v-model="amount"
                 inputmode="decimal"
                 required
                 :disabled="locked || busy || manualBlocked" /></label
-            ><label class="offline-confirm"
+            ><label
+              ><span class="field-label field-label--req">操作原因</span
               ><input
-                v-model="ack"
-                type="checkbox"
-                :disabled="locked || busy || manualBlocked"
-              />我确认已完成线下退款，本次只记录账务，不向支付通道发起退款</label
-            ></template
+                v-model="reason"
+                required
+                maxlength="80"
+                :disabled="locked || busy || done"
+            /></label>
+          </div>
+          <label v-if="action === 'manual-refund'" class="offline-confirm"
+            ><input
+              v-model="ack"
+              type="checkbox"
+              :disabled="locked || busy || manualBlocked"
+            />我确认已完成线下退款，本次只记录账务，不向支付通道发起退款</label
           >
-          <label
-            >操作原因<input
-              v-model="reason"
-              required
-              maxlength="80"
-              :disabled="locked || busy || done"
-          /></label>
           <p class="muted">操作请求号：{{ externalNo }}</p>
           <div class="modal-actions">
             <button type="button" :disabled="busy" @click="emit('close')">

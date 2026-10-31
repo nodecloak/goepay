@@ -499,13 +499,13 @@ onBeforeUnmount(() => controller?.abort());
 </script>
 <template>
   <div
-    class="pa-scrim pa-modal-scrim order-detail-scrim"
+    class="pa-scrim pa-modal-scrim pa-drawer-scrim order-detail-scrim"
     @keydown.esc="!busy && !incomeBusy && !apiTradeAliasActive && emit('close')"
     @click.self="!busy && !incomeBusy && !apiTradeAliasActive && emit('close')"
   >
     <section
       ref="drawer"
-      class="pa-modal order-detail-modal"
+      class="pa-modal pa-drawer order-detail-modal"
       role="dialog"
       aria-modal="true"
       aria-label="订单详情"
@@ -931,26 +931,13 @@ onBeforeUnmount(() => controller?.abort());
 </template>
 <style scoped>
 /* Order detail opens as a right-side drawer, like epay_pro (el-drawer rtl,
-   500px, 订单详细信息) and as the owner asked. The kit modal head/body/foot are
-   reused inside it; the body scrolls. */
-.order-detail-scrim {
-  display: grid;
-  place-items: stretch end;
-  padding: 0;
-}
+   订单详细信息) and as the owner asked. It rides the shared .pa-drawer scrim and
+   panel (fixed overlay, full height, sticky head/foot, scrolling body); only
+   the 500px width and the body padding are local. */
 .order-detail-modal {
-  width: min(100%, 500px);
-  height: 100dvh;
-  max-height: none;
-  margin: 0;
-  border-radius: 0;
-  border-left: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
+  --drawer-w: 500px;
 }
 .order-detail-body {
-  overflow: auto;
-  flex: 1 1 auto;
   padding: var(--space-4) var(--space-5);
 }
 .order-detail-foot {
