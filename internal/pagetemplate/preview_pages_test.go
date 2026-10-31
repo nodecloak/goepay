@@ -56,6 +56,16 @@ func TestWriteTemplatePreviewPages(t *testing.T) {
 			if e = os.WriteFile(filepath.Join(dir, kind+"-"+v.Name+".html"), b.Bytes(), 0o644); e != nil {
 				t.Fatal(e)
 			}
+			// Each home style also serves the service agreement page.
+			if kind == "home" {
+				b.Reset()
+				if e = RenderAgreement(&b, r, HomeData{SiteName: "GOEPAY", Org: "示例科技有限公司", Email: "support@example.com", QQ: "10001", QQURL: "https://wpa.qq.com/msgrd?v=3&uin=10001", WeWork: "https://work.weixin.qq.com/kfid/kfc0000000000000000", QQGroup: "https://qm.qq.com/q/example", RegistrationOpen: true}); e != nil {
+					t.Fatal(kind, v.Name, "agreement", e)
+				}
+				if e = os.WriteFile(filepath.Join(dir, kind+"-"+v.Name+"-agreement.html"), b.Bytes(), 0o644); e != nil {
+					t.Fatal(e)
+				}
+			}
 		}
 	}
 }

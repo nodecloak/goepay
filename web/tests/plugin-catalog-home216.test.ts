@@ -46,8 +46,8 @@ it.each(names)(
     )!;
     expect(row, `market home/${name}`).toBeDefined();
     expect(row.desc).toBe(source.description);
-    expect(row.version).toBe("2");
-    expect(source.version).toBe("2");
+    expect(row.version).toBe("3");
+    expect(source.version).toBe("3");
     const captured = original.find(
       (x) => x.type === "template" && x.sub === "home" && x.name === name,
     );
@@ -85,7 +85,7 @@ it("overlays only the known home description/version while preserving original m
   const source = registry.find(
     (x) => x.type === "home" && x.name === "index7",
   )!;
-  expect(home).toEqual({ ...custom, desc: source.description, version: "2" });
+  expect(home).toEqual({ ...custom, desc: source.description, version: "3" });
   expect(
     result.find((x) => x.type === "template" && x.name === foreign.name),
   ).toBe(foreign);
@@ -106,7 +106,7 @@ it("uses serialized registry versions for added templates and remains idempotent
   const generated = withBuiltinTemplates([]);
   expect(generated).toHaveLength(16);
   for (const row of generated) {
-    expect(row.version).toBe(row.sub === "home" ? "2" : "1");
+    expect(row.version).toBe(row.sub === "home" ? "3" : "1");
     const source = registry.find(
       (x) => x.type === row.sub && x.name === row.name,
     )!;
@@ -137,9 +137,9 @@ it("renders the updated homepage description and version in the real app market 
     (x) => x.type === "home" && x.name === "default",
   )!;
   expect(row.find(".plugin-desc").text()).toBe(source.description);
-  expect(row.findAll("td")[5].text()).toBe("2");
+  expect(row.findAll("td")[5].text()).toBe("3");
   await row.get('button[aria-label="应用详情 默认首页模板"]').trigger("click");
   const drawer = w.get('[role="dialog"][aria-label="应用详情"]');
   expect(drawer.text()).toContain(source.description);
-  expect(drawer.findAll("dd")[3].text()).toBe("2");
+  expect(drawer.findAll("dd")[3].text()).toBe("3");
 });

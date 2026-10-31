@@ -7,9 +7,10 @@
 // Writes web/public/static/template-previews/<kind>-<name>.jpg (640x360) for
 // every entry in web/src/data/builtin-templates.json, or only the given kinds.
 import { chromium } from "playwright-core";
+import { createServer } from "node:http";
 import { mkdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { dirname, extname, join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const src = process.argv[2];
 if (!src) {
@@ -24,6 +25,29 @@ mkdirSync(out, { recursive: true });
 const list = JSON.parse(
   readFileSync(join(web, "src", "data", "builtin-templates.json"), "utf8"),
 ).filter((t) => !only.size || only.has(t.type));
+// The pages are served over loopback HTTP, with /static/ from web/public, so
+// the site-absolute brand images and icons load as they do on the real site.
+const types = {
+  ".html": "text/html; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".ico": "image/x-icon",
+};
+const server = createServer((req, res) => {
+  const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
+  const root = path.startsWith("/static/") ? join(web, "public") : resolve(src);
+  const file = resolve(root, "." + path);
+  try {
+    if (!file.startsWith(resolve(root) + sep)) throw Error("outside");
+    res.writeHead(200, { "Content-Type": types[extname(file)] || "application/octet-stream" });
+    res.end(readFileSync(file));
+  } catch {
+    res.writeHead(404).end();
+  }
+});
+await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
+const base = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch();
 try {
   for (const t of list) {
@@ -35,7 +59,7 @@ try {
       locale: "zh-CN",
       reducedMotion: "reduce",
     });
-    await page.goto(pathToFileURL(join(src, `${t.type}-${t.name}.html`)).href);
+    await page.goto(`${base}/${t.type}-${t.name}.html`, { waitUntil: "load" });
     await page.screenshot({
       path: join(out, `${t.type}-${t.name}.jpg`),
       type: "jpeg",
@@ -46,4 +70,5 @@ try {
   }
 } finally {
   await browser.close();
+  server.close();
 }
