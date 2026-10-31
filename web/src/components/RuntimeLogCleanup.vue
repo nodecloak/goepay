@@ -220,14 +220,17 @@ onBeforeUnmount(() => {
       <p>
         清除指定天数前的运行日志显示，原运行记录保留归档。支付账务、登录和业务审计不会清除。
       </p>
-      <label
-        >保留天数<input
-          v-model="days"
-          aria-label="保留天数"
-          inputmode="numeric"
-          maxlength="4"
-          :disabled="busy || !!pending || done || !canWrite"
-      /></label>
+      <div class="form-rows">
+        <label
+          ><span class="field-label">保留天数</span
+          ><input
+            v-model="days"
+            aria-label="保留天数"
+            inputmode="numeric"
+            maxlength="4"
+            :disabled="busy || !!pending || done || !canWrite"
+        /></label>
+      </div>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
       <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
       <p v-if="preview">
@@ -262,10 +265,6 @@ onBeforeUnmount(() => {
   max-height: calc(100dvh - 32px);
   overflow: auto;
   overflow-wrap: anywhere;
-}
-.runtime-cleanup label {
-  display: grid;
-  gap: 8px;
 }
 .runtime-cleanup input {
   min-width: 0;
