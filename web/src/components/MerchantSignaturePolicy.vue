@@ -207,7 +207,7 @@ onBeforeUnmount(() => {
     <template v-else-if="state">
       <p>当前方式：{{ signaturePolicyLabel(state) }}</p>
       <p class="muted">
-        MD5+RSA兼容支持原版接入；V2接口使用RSA。仅RSA将停止接受MD5及旧版密钥查询。
+        MD5+RSA允许两种签名方式；V2接口使用RSA。仅RSA将停止接受MD5及V1密钥查询。
       </p>
       <div v-if="state.can_update">
         <label for="merchant-signature-policy">签名方式</label

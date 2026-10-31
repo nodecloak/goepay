@@ -4,7 +4,7 @@ const shown = ref(true),
   brandFallback = ref(true),
   revision = ref(0);
 const iconURL = "/static/img/icon.png";
-const brandMarkURL = "/static/goepay-mark.svg";
+const brandMarkURL = "/static/goepay-mark.svg?v=ae4e09ed1e3b";
 function refresh() {
   shown.value = true;
   brandFallback.value = true;

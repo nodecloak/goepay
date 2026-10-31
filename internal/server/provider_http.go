@@ -447,7 +447,7 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	}
 	purpose := "checkout"
 	if len(parts) == 2 {
-		if parts[1] != "return" && parts[1] != "qr.png" && parts[1] != "scan-region" && parts[1] != "scan-region-continue" {
+		if parts[1] != "return" && parts[1] != "qr.png" && parts[1] != "status" && parts[1] != "scan-region" && parts[1] != "scan-region-continue" {
 			http.NotFound(w, r)
 			return
 		}
@@ -466,6 +466,16 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	order, e := s.Store.OrderByTradeNo(r.Context(), parts[0])
 	if e != nil {
 		http.NotFound(w, r)
+		return
+	}
+	// The bearer token is the same one required to display this checkout.
+	// Polling observes the locally confirmed order only: it never calls a
+	// provider or causes another payment attempt.
+	if len(parts) == 2 && parts[1] == "status" {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		_ = json.NewEncoder(w).Encode(map[string]bool{"paid": order.Status == "paid"})
 		return
 	}
 	charge104, e := s.Store.AuthenticatedOrderCharge104(r.Context(), order)
@@ -546,6 +556,20 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 		w.Write(png)
 		return
 	}
+	if len(parts) == 1 && order.Status == "paid" && order.ReturnURL != "" && attempt.Method == "native" && attempt.MaterialType == "qrcode" {
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		http.Redirect(w, r, s.ProviderReturnURL(order.TradeNo), http.StatusFound)
+		return
+	}
+	checkoutHTML := attempt.Material
+	if purpose == "checkout" && len(parts) == 1 && order.Status != "paid" && attempt.State == "pending" && attempt.MaterialType == "html" && order.Type == "alipay" {
+		var err error
+		checkoutHTML, err = s.prepareOriginalCheckoutHTML(r.Context(), order, attempt)
+		if err != nil {
+			http.Error(w, "checkout material unavailable", http.StatusServiceUnavailable)
+			return
+		}
+	}
 	nonceBytes := make([]byte, 16)
 	if _, e := rand.Read(nonceBytes); e != nil {
 		http.Error(w, "checkout unavailable", 500)
@@ -553,7 +577,8 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	}
 	nonce := base64.RawStdEncoding.EncodeToString(nonceBytes)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action http: https:; script-src 'nonce-"+nonce+"'")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; style-src 'unsafe-inline'; img-src 'self'; connect-src 'self'; form-action http: https:; script-src 'nonce-"+nonce+"'")
 	// pageordername=1 hides the real goods name on the scan/checkout page,
 	// showing "onlinepay" (no per-order override exists here) — Payment.php:87/122.
 	displayName := order.Name
@@ -585,14 +610,17 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, "<p>订单正在核实，请稍后查单。</p></main></body></html>")
 		return
 	}
-	material, e := s.coreRiskPublicPaymentMaterial(r.Context(), order, attempt)
-	if e != nil {
-		http.Error(w, "original scan protection unavailable", 503)
-		return
+	material := attempt.Material
+	if attempt.MaterialType != "html" {
+		material, e = s.coreRiskPublicPaymentMaterial(r.Context(), order, attempt)
+		if e != nil {
+			http.Error(w, "original scan protection unavailable", 503)
+			return
+		}
 	}
 	switch attempt.MaterialType {
 	case "html":
-		io.WriteString(w, attempt.Material)
+		io.WriteString(w, checkoutHTML)
 	case "qrcode":
 		qrURL := *r.URL
 		qrURL.Path += "/qr.png"
@@ -606,6 +634,17 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 			io.WriteString(w, "<p>授权材料仅用于买家确认冻结，实际扣款成功后才入账。</p>")
 		}
 		fmt.Fprintf(w, `<p>请使用%s扫描%s。</p><img width="320" height="320" alt="%s" src="%s"><p>%s</p>`, clientName, label, label, html.EscapeString(qrURL.String()), html.EscapeString(material))
+		if attempt.Method == "native" {
+			statusURL := *r.URL
+			statusURL.Path += "/status"
+			statusJSON, _ := json.Marshal(statusURL.String())
+			returnURL := ""
+			if order.ReturnURL != "" {
+				returnURL = s.ProviderReturnURL(order.TradeNo)
+			}
+			returnJSON, _ := json.Marshal(returnURL)
+			fmt.Fprintf(w, `<p id="payment-status">等待支付结果确认…</p><script nonce="%s">(function(){const statusURL=%s,returnURL=%s;async function poll(){try{const response=await fetch(statusURL,{cache:'no-store',credentials:'omit'});if(response.status===403){document.getElementById('payment-status').textContent='页面验证已过期，请回到商户订单页重新打开；已付款请勿重复支付';return;}if(response.ok){const result=await response.json();if(result.paid===true){if(returnURL){location.replace(returnURL);}else{document.getElementById('payment-status').textContent='支付已完成';}return;}}}catch(e){}setTimeout(poll,3000);}setTimeout(poll,3000);})();</script>`, nonce, statusJSON, returnJSON)
+		}
 	case "jump", "urlscheme":
 		if !s.checkoutJumpAllowed(material) {
 			http.Error(w, "invalid payment material", 500)

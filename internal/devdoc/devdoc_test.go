@@ -51,10 +51,13 @@ func TestEveryCatalogPageRenders(t *testing.T) {
 			if !strings.Contains(out, "<h1") || !strings.Contains(out, "<title>"+titles[slug]+" - 开发文档 - 示例支付</title>") {
 				t.Fatalf("%s: missing heading or title", slug)
 			}
-			for _, bad := range []string{"{{", "}}", "{:", "{$", "<script", "<form", "<iframe", "码上付", "ma3fu", "pay.www.com", "src=\"http", "style=\""} {
+			for _, bad := range []string{"{{", "}}", "{:", "{$", "<form", "<iframe", "onclick=", "javascript:", "码上付", "ma3fu", "pay.www.com", "src=\"http", "style=\""} {
 				if strings.Contains(out, bad) {
 					t.Fatalf("%s: rendered page contains %q", slug, bad)
 				}
+			}
+			if strings.Count(out, "<script") != 1 || !strings.Contains(out, `<script type="module" src="/doc/doc.js?v=`) {
+				t.Fatal("only the versioned same-origin documentation module is allowed")
 			}
 			ids := map[string]bool{}
 			for _, m := range idPattern.FindAllStringSubmatch(out, -1) {
@@ -80,7 +83,8 @@ func TestEveryCatalogPageRenders(t *testing.T) {
 						t.Fatalf("%s: in-page link %q has no target", slug, href)
 					}
 				case strings.HasPrefix(href, "/doc/sdk/"):
-					if _, ok := sdk[strings.TrimPrefix(href, "/doc/sdk/")]; !ok {
+					name, _, _ := strings.Cut(strings.TrimPrefix(href, "/doc/sdk/"), "?")
+					if _, ok := sdk[name]; !ok {
 						t.Fatalf("%s: SDK link %q has no archive", slug, href)
 					}
 				case strings.HasPrefix(href, "/doc/doc.css"), href == "/":
@@ -133,7 +137,7 @@ func TestCurrentGroupIsOpen(t *testing.T) {
 		t.Skip("pay_query not written yet")
 	}
 	out = render(t, "pay_query", testSite)
-	if !strings.Contains(out, `<details open><summary>支付相关接口</summary>`) || !strings.Contains(out, `<a href="/doc/pay_query.html" aria-current="page">订单查询</a>`) {
+	if !strings.Contains(out, `<details open><summary>支付相关接口</summary>`) || !regexp.MustCompile(`<a[^>]*href="/doc/pay_query\.html"[^>]*aria-current="page"[^>]*>`).MatchString(out) {
 		t.Fatal("the group of the current page is not open")
 	}
 }
@@ -159,7 +163,7 @@ func TestServeRoutes(t *testing.T) {
 		if w.Code != 200 || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/html") || !strings.Contains(w.Body.String(), "接口说明及规范") {
 			t.Fatalf("%s: %d %s", p, w.Code, w.Header().Get("Content-Type"))
 		}
-		if csp := w.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "default-src 'none'") || !strings.Contains(csp, "style-src 'self'") || strings.Contains(csp, "script-src") {
+		if csp := w.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "default-src 'none'") || !strings.Contains(csp, "style-src 'self'") || !strings.Contains(csp, "script-src 'self'") || !strings.Contains(csp, "connect-src 'self'") || strings.Contains(csp, "unsafe-inline") {
 			t.Fatalf("%s: CSP %q", p, csp)
 		}
 		if w.Header().Get("X-Content-Type-Options") != "nosniff" || w.Header().Get("Cache-Control") != "no-store" {
@@ -194,8 +198,13 @@ func TestServeRoutes(t *testing.T) {
 			t.Fatalf("sdk %s: disposition %q", name, w.Header().Get("Content-Disposition"))
 		}
 	}
-	if len(sdk) != 2 {
-		t.Fatalf("expected the V1 and V2 SDK archives, got %d", len(sdk))
+	if len(sdk) != 1 {
+		t.Fatalf("expected only the Go SDK archive, got %d", len(sdk))
+	}
+	for _, name := range []string{"GoEPay_Go_SDK.zip"} {
+		if _, ok := sdk[name]; !ok {
+			t.Errorf("missing supported client archive %s", name)
+		}
 	}
 	if w := serve(t, "GET", "/doc/sdk/missing.zip", okSite); w.Code != http.StatusNotFound {
 		t.Fatalf("missing sdk: %d", w.Code)

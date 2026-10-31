@@ -1,27 +1,75 @@
 {{define "content"}}
-<h1 id="SDK下载">SDK下载</h1>
-<blockquote><p>提供 PHP SDK，封装了发起支付、查询订单、申请退款以及回调验签等功能，建议对接时参考。</p></blockquote>
-
-<h2 id="PHP-SDK">PHP SDK</h2>
+<h1 id="SDK下载">Go SDK 与接入示例</h1>
+<p class="doc-lead">本项目提供标准库实现的 Go SDK 源码，支持 V2 支付请求签名、API 回包验签及通知验证。</p>
+<h2 id="Go-SDK">Go SDK 下载</h2>
+<p><a href="{{.GoSDKURL}}">下载 GoEPay_Go_SDK.zip</a>。包含 Go 源码、<code>go.mod</code>、本地测试、README 和不发送真实请求的示例；无需第三方依赖。包内 <code>go.mod</code>声明 Go 1.22，本轮使用 Go 1.27.3 进行测试。</p>
 <div class="doc-table"><table>
-<thead><tr><th>版本</th><th>签名算法</th><th>适用接口</th><th>下载</th></tr></thead>
+<thead><tr><th>方法</th><th>用途</th><th>执行行为</th></tr></thead>
 <tbody>
-<tr><td><code>V2.0</code></td><td>RSA（SHA256WithRSA）</td><td>V2 接口（<code>api/pay/*</code> 等）</td><td><a href="/doc/sdk/SDK_2.0.zip">SDK_2.0.zip</a></td></tr>
-<tr><td><code>V1</code></td><td>MD5</td><td><a href="/doc/v1_legacy_api.html">V1 旧版接口</a>（<code>submit.php</code> / <code>mapi.php</code> / <code>api.php</code>）</td><td><a href="/doc/sdk/SDK.zip">SDK.zip</a></td></tr>
+<tr><td><code>SubmitURL</code></td><td>构造 <code>api/pay/submit</code>签名跳转地址</td><td>仅本地构造，不发送 HTTP</td></tr>
+<tr><td><code>Create</code> / <code>Query</code></td><td>统一下单 / 查询订单</td><td>带 context 的表单 POST，验证签名回包</td></tr>
+<tr><td><code>Refund</code> / <code>RefundQuery</code> / <code>Close</code></td><td>申请退款 / 查询退款 / 关闭订单</td><td>显式调用时发送，SDK 不自动重试</td></tr>
+<tr><td><code>VerifyNotification</code></td><td>验证 V2 回调的签名、时间窗及商户</td><td>离线验证，不替代业务订单与金额核对及幂等处理</td></tr>
 </tbody>
 </table></div>
-<p>新接入请使用 V2.0 SDK；V1 SDK 仅用于维护已有的旧版接口对接。</p>
+<p class="doc-note">本 Go SDK 面向上述六个 V2 支付路径，要求顶层标量响应，遇数组或对象拒绝处理。商户订单列表、转账、V1、V1 MD5 通知不在其包装范围；这些接口可按对应协议自行对接，不应直接套用本客户端。</p>
+<h2 id="本地模块接入">本地模块接入</h2>
+<p>下载包是源码交付，未声称已发布到公共模块仓库。将压缩包内的 <code>GoEPay_Go_SDK</code>目录放到项目 <code>third_party/goepay-sdk</code>，使用本地 replace。下面的保留示例模块名与包内 <code>go.mod</code>一致，<code>v0.0.0</code>仅用于本地模块引用：</p>
+<pre><code>go mod edit -replace=example.com/goepay-sdk=./third_party/goepay-sdk
+go mod edit -require=example.com/goepay-sdk@v0.0.0
+go test ./...</code></pre>
+<p>先在解压目录执行 <code>go test ./...</code>，再运行自己的接入测试。包内测试使用本机测试 HTTP 服务和临时生成的 RSA 密钥，不依赖生产账户。</p>
+<h2 id="Go配置示例">Go 配置与离线构造示例</h2>
+<p>下面只构造地址，不发送支付请求。<code>GOEPAY_API_URL</code>填写接口根地址 <code class="doc-url">{{.API}}</code>；商户 ID 与密钥使用自己的配置。私钥文件内容必须为合法 PEM，不放在前端或公开目录。</p>
+<pre><code>package main
 
-<h2 id="V2-SDK配置">V2 SDK 配置</h2>
-<p>V2.0 SDK 的 <code>lib/epay.config.php</code> 中需填写以下信息：</p>
-<div class="doc-table"><table>
-<thead><tr><th>配置项</th><th>说明</th></tr></thead>
-<tbody>
-<tr><td><code>apiurl</code></td><td>支付接口根地址，填写 <code class="doc-url">{{.API}}</code></td></tr>
-<tr><td><code>pid</code></td><td>商户 ID</td></tr>
-<tr><td><code>platform_public_key</code></td><td>平台公钥，用于对接口返回与异步通知验签</td></tr>
-<tr><td><code>merchant_private_key</code></td><td>商户私钥，用于对请求签名</td></tr>
-</tbody>
-</table></div>
-<p class="doc-note">V2.0 SDK 的 <code>EpayCore</code> 使用的接口路径与本站一致：发起支付（页面跳转）<code>api/pay/submit</code>、发起支付（API）<code>api/pay/create</code>、订单查询 <code>api/pay/query</code>、订单退款 <code>api/pay/refund</code>。商户私钥在 商户后台-&gt;账户中心-&gt;API 信息 页面点击【生成 RSA 密钥对】获得，平台公钥在同一页面查看。</p>
+import (
+    "log"
+    "net/url"
+    "os"
+    "strconv"
+
+    goepay "example.com/goepay-sdk"
+)
+
+func main() {
+    pid, err := strconv.ParseInt(os.Getenv("GOEPAY_MERCHANT_ID"), 10, 64)
+    if err != nil {
+        log.Fatal("请配置商户 ID")
+    }
+    privateKey, err := os.ReadFile(os.Getenv("GOEPAY_MERCHANT_PRIVATE_KEY_FILE"))
+    if err != nil {
+        log.Fatal("无法读取商户私钥")
+    }
+    publicKey, err := os.ReadFile(os.Getenv("GOEPAY_PLATFORM_PUBLIC_KEY_FILE"))
+    if err != nil {
+        log.Fatal("无法读取平台公钥")
+    }
+    client, err := goepay.New(goepay.Config{
+        BaseURL: os.Getenv("GOEPAY_API_URL"),
+        MerchantID: pid,
+        MerchantPrivateKeyPEM: privateKey,
+        PlatformPublicKeyPEM: publicKey,
+    })
+    if err != nil {
+        log.Fatal("请检查 Go SDK 配置")
+    }
+    params := make(url.Values)
+    params.Set("type", "alipay")
+    params.Set("out_trade_no", "merchant-order-001")
+    params.Set("name", "示例商品")
+    params.Set("money", "1.00")
+    params.Set("notify_url", "https://merchant.example.com/payments/notify")
+    params.Set("return_url", "https://merchant.example.com/payments/return")
+    signedURL, err := client.SubmitURL(params)
+    if err != nil {
+        log.Fatal("构造请求失败")
+    }
+    _ = signedURL // 在应用中按需使用，避免记录带签名的完整地址。
+    log.Print("仅构造签名地址，不发送请求")
+}</code></pre>
+<p><code>pid</code>、<code>timestamp</code>、<code>sign_type</code>和 <code>sign</code>由客户端填充，不应在业务参数中重复传入。API 方法需显式传入 <code>context.Context</code>；发生超时、响应验签失败或结果未知时，用原业务单号查询，不能自动新建资金请求。</p>
+<h2 id="Go通知处理">Go 通知处理</h2>
+<p>在 GET 通知处理器内先检查请求方法，再使用 <code>url.ParseQuery(r.URL.RawQuery)</code>并处理解析错误，将完整查询集合交给 <code>VerifyNotification</code>；不要使用会掩盖重复参数或解析错误的取值方式。验签通过后，核对本地原订单的商户、订单号、金额及 <code>TRADE_SUCCESS</code>状态，在事务中幂等落库。处理成功或已正确处理的重复通知才返回 HTTP 200 和精确小写正文 <code>success</code>，不带空格或换行。</p>
+<p>通知签名与时间窗不能代替订单业务检查，也不能自行保证“只处理一次”。具体字段和应答规则见<a href="/doc/pay_notify.html">支付结果通知</a>，规范见<a href="/doc/sign_note.html">Go 服务签名规则</a>。</p>
 {{end}}

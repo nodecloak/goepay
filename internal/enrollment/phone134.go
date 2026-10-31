@@ -263,7 +263,9 @@ func (s *Service) RecoverByPhone(ctx context.Context, in RecoverPhoneInput) erro
 	e = tx.QueryRow(ctx, `SELECT p.merchant_id,u.username,u.auth_version FROM enrollment_phones134 p
 	 JOIN console_users u ON u.username=p.username AND u.role='merchant' AND u.subject_id=p.merchant_id
 	 JOIN merchants m ON m.id=p.merchant_id
-	 WHERE p.phone_hash=$1 AND u.enabled AND m.enabled FOR UPDATE OF u`, s.digest("phone", phone)).Scan(&merchantID, &username, &authVersion)
+	 WHERE p.phone_hash=$1 AND u.enabled AND m.enabled
+	 AND (COALESCE(m.profile->>'bind_mobile','')='' OR m.profile->>'bind_mobile'=p.phone)
+	 FOR UPDATE OF m,u`, s.digest("phone", phone)).Scan(&merchantID, &username, &authVersion)
 	if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 		return e
 	}

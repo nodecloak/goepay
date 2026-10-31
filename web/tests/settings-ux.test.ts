@@ -147,6 +147,16 @@ it("blocks writes after a failed refresh rather than saving stale unconfirmed se
       .find((b) => b.text() === "刷新设置")!
       .trigger("click");
     await flushPromises();
+    const confirmation = document.querySelector(
+      '[role="dialog"][aria-label="放弃未保存的设置？"]',
+    );
+    expect(confirmation).not.toBeNull();
+    const discard = [...confirmation!.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "放弃修改并刷新",
+    );
+    expect(discard).toBeDefined();
+    discard!.click();
+    await flushPromises();
     expect(w.text()).toContain("settings unavailable");
     expect(
       w
@@ -243,8 +253,7 @@ it("uses exact yuan and percent controls without treating basis points as percen
     ).toHaveProperty("value", "1.01");
     await w.get('input[aria-label="最低结算金额（元）"]').setValue("1.24");
     await w
-      .findAll("button")
-      .find((b) => b.text() === "保存本页设置")!
+      .get('#settings-panel-settle button[type="submit"][form]')
       .trigger("click");
     await flushPromises();
     expect(writes).toEqual([

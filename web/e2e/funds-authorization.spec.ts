@@ -111,11 +111,24 @@ test("administrator refund requires masked preview, funds password and explicit 
   await expect(modal).toHaveCount(0);
   expect(submitted).toEqual([originalBody]);
   await expect(page.getByRole("status")).toContainText("尚未核实");
-  expect(
-    await page.evaluate(() =>
-      Object.keys(localStorage).concat(Object.keys(sessionStorage)),
-    ),
-  ).toEqual([]);
+  const durable = await page.evaluate(() => ({
+    keys: Object.keys(localStorage),
+    values: JSON.stringify({ ...localStorage }),
+    sessionKeys: Object.keys(sessionStorage),
+  }));
+  expect(durable.keys).toHaveLength(1);
+  expect(durable.keys[0]).toMatch(
+    /^goepay\.funds-intent212\.[a-f0-9]{64}\.refund\.AUTH$/,
+  );
+  expect(durable.values).toContain(String(originalBody.external_no));
+  for (const secret of [
+    "Admin-funds-password",
+    "once-only-grant",
+    "short-challenge",
+    "csrf",
+  ])
+    expect(durable.values).not.toContain(secret);
+  expect(durable.sessionKeys).toEqual([]);
   expect(page.url()).not.toContain("grant");
 });
 test("administrator funds settings clear credentials on rejected update without storing them", async ({

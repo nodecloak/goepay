@@ -1,4 +1,5 @@
 import type { ApiClient } from "./api";
+import builtinTemplateData from "./data/builtin-templates.json";
 export type TemplateKind = "home" | "pay" | "qrpay";
 export type TemplateName = string;
 export interface TemplateField {
@@ -57,7 +58,13 @@ function namesFor(kind: string): string[] {
  * web/public/static/template-previews by web/scripts/template-previews.mjs.
  */
 export function templatePreviewImage(kind: string, name: string): string {
-  return `/static/template-previews/${encodeURIComponent(kind)}-${encodeURIComponent(name)}.jpg`;
+  const image = `/static/template-previews/${encodeURIComponent(kind)}-${encodeURIComponent(name)}.jpg`;
+  const version =
+    kind === "home"
+      ? builtinTemplateData.find((entry) => entry.type === kind && entry.name === name)
+          ?.version
+      : undefined;
+  return version ? `${image}?v=${encodeURIComponent(version)}` : image;
 }
 function revision(v: unknown): v is string {
   return (

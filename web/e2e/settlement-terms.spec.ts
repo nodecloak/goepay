@@ -139,7 +139,40 @@ test("settlement fee confirmation binds amount and never treats approval as payo
       expect(route.request().postDataJSON().expected_fee_cents).toBe("3");
       expect(route.request().postDataJSON().expected_net_cents).toBe("120");
       expect(route.request().postDataJSON().recipient_config_id).toBe("42");
-      return route.fulfill({ ...ok({}), status: 201 });
+      return route.fulfill({
+        ...ok({
+          id: "212",
+          kind: "settlements",
+          merchant_id: "1",
+          external_no: route.request().postDataJSON().external_no,
+          status: "pending",
+          amount: "1.23",
+          amount_cents: "123",
+          external_payout: false,
+          created_at: "2026-10-30T00:00:00Z",
+          settlement: {
+            gross_amount: "123",
+            fee_amount: "3",
+            net_amount: "120",
+            retained_cents: "0",
+          },
+          settlement_recipient: {
+            state: "recorded",
+            config_id: "42",
+            type: "alipay",
+            app_id: "",
+            account_masked: "***1234",
+            name_masked: "***",
+          },
+          settlement_funding: {
+            state: "reserved",
+            account_id: "7",
+            gross_amount: "123",
+            reserved_amount: "123",
+          },
+        }),
+        status: 201,
+      });
     }
     return route.fulfill(ok({ items: [], total: 0 }));
   });
@@ -160,9 +193,9 @@ test("settlement fee confirmation binds amount and never treats approval as payo
   await page
     .getByRole("button", { name: "按已核对费用提交", exact: true })
     .click();
-  await expect(
-    page.getByText("申请已提交，请根据记录状态核实处理结果", { exact: true }),
-  ).toBeVisible();
+  const notice = page.getByRole("status").filter({ hasText: "申请已提交" });
+  await expect(notice).toContainText("已提交并登记");
+  await expect(notice).toContainText("根据原记录状态核实处理结果");
   expect(posts).toBe(1);
 });
 

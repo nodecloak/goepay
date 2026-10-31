@@ -228,6 +228,23 @@ async function prepare(wrapper: VueWrapper) {
   await flushPromises();
   return wrapper.get('[role="dialog"]');
 }
+async function confirmLocalReread(wrapper: VueWrapper, reads: () => Call[]) {
+  const before = reads().length,
+    body = new DOMWrapper(document.body);
+  const discard = () =>
+    body.get('[role="dialog"][aria-label="放弃未保存的设置？"]');
+  expect(discard().text()).toContain("创建订单人机验证");
+  await button(discard(), /^继续编辑$/).trigger("click");
+  await flushPromises();
+  expect(body.find('[role="dialog"]').exists()).toBe(false);
+  expect(reads()).toHaveLength(before);
+  await button(panel(wrapper), /重新读取|刷新/).trigger("click");
+  await flushPromises();
+  expect(discard().text()).toContain("创建订单人机验证");
+  await button(discard(), /^放弃修改并重新读取$/).trigger("click");
+  await flushPromises();
+  expect(reads()).toHaveLength(before + 1);
+}
 afterEach(() => {
   for (const wrapper of mounted.splice(0)) wrapper.unmount();
   document.body.innerHTML = "";
@@ -437,6 +454,8 @@ it("206 CAS409 requires rereading and a fresh confirmation with the new fingerpr
   expect(panel(f.wrapper).text()).toMatch(/重新|刷新|变化|冲突/);
   await button(panel(f.wrapper), /重新读取|刷新/).trigger("click");
   await flushPromises();
+  expect(f.reads()).toHaveLength(1);
+  await confirmLocalReread(f.wrapper, f.reads);
   expect(
     panel(f.wrapper).get('select[name="pay_verify"]').element,
   ).toHaveProperty("value", "0");
@@ -477,6 +496,8 @@ it("206 an unknown PATCH outcome permits only a read before another write", asyn
   expect(f.writes()).toHaveLength(1);
   await button(area, /重新读取|刷新/).trigger("click");
   await flushPromises();
+  expect(f.reads()).toHaveLength(1);
+  await confirmLocalReread(f.wrapper, f.reads);
   expect(f.writes()).toHaveLength(1);
   expect(
     panel(f.wrapper).get('select[name="pay_verify"]').element,

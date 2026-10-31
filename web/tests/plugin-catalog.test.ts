@@ -119,7 +119,7 @@ it("the market page lists the original plugins with their Go state and a detail 
   expect(w.get("tbody").text()).toContain("通莞金服");
   await w.get('button[aria-label="应用详情 通莞金服"]').trigger("click");
   const drawer = w.get('[role="dialog"][aria-label="应用详情"]');
-  expect(drawer.text()).toContain("Go 版尚未实现该插件");
+  expect(drawer.text()).toContain("该插件尚未实现，暂不可使用");
   w.unmount();
 });
 
@@ -145,7 +145,7 @@ it("the market pages long lists and shows every template as installed", async ()
   // Every template row carries its preview picture, and the drawer shows it large.
   const shots = w.findAll("img.plugin-shot").map((i) => i.attributes("src"));
   expect(shots.length).toBe(builtinTemplates.length);
-  expect(shots).toContain("/static/template-previews/home-index7.jpg");
+  expect(shots).toContain("/static/template-previews/home-index7.jpg?v=2");
   expect(shots).toContain("/static/template-previews/qrpay-compact.jpg");
   await w
     .get('button[aria-label="应用详情 深色科技风首页模板"]')
@@ -154,7 +154,7 @@ it("the market pages long lists and shows every template as installed", async ()
     '[role="dialog"][aria-label="应用详情"] img.plugin-preview',
   );
   expect(big.attributes("src")).toBe(
-    "/static/template-previews/home-index7.jpg",
+    "/static/template-previews/home-index7.jpg?v=2",
   );
   expect(big.attributes("alt")).toBe("深色科技风首页模板 预览截图");
   w.unmount();
@@ -228,6 +228,6 @@ it("the market tags unimplemented addons 暂不支持 with the honest Go-state n
   await w.get('button[aria-label="应用详情 支付宝安全发"]').trigger("click");
   const drawer = w.get('[role="dialog"][aria-label="应用详情"]');
   expect(drawer.text()).toContain("暂不支持");
-  expect(drawer.text()).toContain("Go 版尚未实现该插件");
+  expect(drawer.text()).toContain("该插件尚未实现，暂不可使用");
   w.unmount();
 });

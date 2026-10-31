@@ -221,7 +221,7 @@ function checkAll(event: Event) {
                 >
                   核对结算出款</button
                 ><button
-                  v-if="row.canInspectPayout"
+                  v-if="row.canConfirmReceipt"
                   type="button"
                   class="link-button settlement-confirm"
                   :disabled="busy || !!confirmBusy"
@@ -269,7 +269,7 @@ function checkAll(event: Event) {
               >
                 核对结算出款</button
               ><button
-                v-if="row.canInspectPayout"
+                v-if="row.canConfirmReceipt"
                 type="button"
                 class="link-button settlement-confirm"
                 :disabled="busy || !!confirmBusy"

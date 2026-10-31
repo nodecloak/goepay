@@ -117,5 +117,9 @@ func (s *Service) serveOriginalSettlementList(w http.ResponseWriter, r *http.Req
 		item["auto"] = autoByID[v.ID]
 		items = append(items, item)
 	}
+	if e = s.attachSettlementReceiptCapabilities(r.Context(), items); e != nil {
+		writeError(w, e)
+		return
+	}
 	write(w, 200, map[string]any{"items": items, "total": total, "page": f.Page, "limit": f.Limit}, "")
 }

@@ -10,6 +10,7 @@ const props = defineProps<{
   client: ApiClient;
   target: string;
   body: Record<string, unknown>;
+  beforeDispatch?: () => void;
 }>();
 const summaryLabels: Record<string, string> = {
   expected_event_id: "原通道停用记录",
@@ -262,6 +263,7 @@ async function execute() {
         method: "POST",
         body: capturedBody,
         paymentAuthorization: authorization,
+        beforeDispatch: props.beforeDispatch,
       },
     );
     if (!active) return;

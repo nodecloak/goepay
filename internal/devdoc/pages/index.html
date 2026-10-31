@@ -1,17 +1,41 @@
 {{define "content"}}
-<h1 id="接口说明及规范">接口说明及规范</h1>
-<h2 id="协议规则">协议规则</h2>
+<h1 id="接口说明及规范">构建可靠的支付集成</h1>
+<p class="doc-lead">从第一条请求，到可核对的支付结果。这里提供 Go 服务端接口规范、可编辑的请求示例，以及能验证签名和参数的在线文档沙箱。</p>
 <p>接口根地址：<code class="doc-url">{{.API}}</code></p>
-<p>提交数据格式：<code>application/x-www-form-urlencoded</code></p>
-<p>返回数据格式：<code>JSON</code></p>
-<p>字符编码：<code>UTF-8</code></p>
-<p>签名算法：<code>SHA256WithRSA</code></p>
-<h2 id="V2升级说明">V2升级说明</h2>
-<p>1、V2接口全面使用 RSA 签名算法；V1接口使用 MD5 签名算法</p>
-<p>2、V2接口改用全新的接口地址，支持退款、代付等功能；V1接口使用submit.php和mapi.php提交订单</p>
-<p>3、V2接口新增timestamp入参和返回值用于校验时间戳</p>
-<h2 id="获取RSA密钥对">获取RSA密钥对</h2>
-<p>在 商户后台-&gt;账户中心-&gt;API 信息 页面，点击【生成 RSA 密钥对】，生成后注意保存【商户私钥】，私钥只显示这一次。对接接口时只需要用到【平台公钥】与【商户私钥】。</p>
-<h2 id="旧版接口文档">旧版接口文档</h2>
-<p><a href="/doc/v1_legacy_api.html">查看V1旧版接口文档</a></p>
+<div class="doc-start-cards">
+<a class="doc-start-card" href="/doc/pay_query.html"><span class="doc-card-kicker">在线测试</span><strong>试一条查单请求</strong><small>编辑样例参数，查看签名校验和响应。</small><span aria-hidden="true">↗</span></a>
+<a class="doc-start-card" href="/doc/pay_create.html"><span class="doc-card-kicker">支付接入</span><strong>发起统一下单</strong><small>理解请求字段、支付资料和处理结果。</small><span aria-hidden="true">↗</span></a>
+<a class="doc-start-card" href="/doc/pay_notify.html"><span class="doc-card-kicker">结果核对</span><strong>接收支付通知</strong><small>验签、核对订单，并完成幂等处理。</small><span aria-hidden="true">↗</span></a>
+</div>
+<h2 id="Go快速接入">Go 快速接入</h2>
+<ol>
+<li>在商户后台的 API 信息页面确认商户 ID、平台公钥及商户密钥配置。使用 RSA 时将商户私钥安全保存在自己的服务端。</li>
+<li>下载 <a href="{{.GoSDKURL}}">Go SDK 源码包</a>，按 <a href="/doc/sdk.html">本地模块接入说明</a>完成配置，先运行包内的本地测试。</li>
+<li>按业务使用<a href="/doc/pay_submit.html">页面跳转支付</a>或<a href="/doc/pay_create.html">统一下单</a>，金额以十进制字符串传递。</li>
+<li>接收<a href="/doc/pay_notify.html">异步通知</a>，验签、核对商户及原订单金额，并在本地事务中幂等更新业务状态。只有处理成功后才返回规定应答。</li>
+<li>超时或结果未知时，使用原业务单号<a href="/doc/pay_query.html">查询订单</a>或<a href="/doc/pay_refundquery.html">查询退款</a>，不要自动换单号重试资金请求。</li>
+</ol>
+<h2 id="在线文档沙箱">在线文档沙箱</h2>
+<p>打开任一 V2 请求接口，右侧工作台会按该接口展示参数。点击“发送沙箱请求”，浏览器使用临时 RSA 凭据构造签名，文档服务实际验证参数与签名，返回带沙箱平台签名的动态示例。工作台展示请求、响应、耗时和验签结果，可切换并复制 cURL、Go 或 HTTP 示例。</p>
+<p>文档沙箱使用固定样例，不保存订单，不读取真实账户，不联系支付通道，也不发起付款、退款或转账。查单可使用 <code>DOC_PAID</code>、<code>DOC_PENDING</code> 等编号查看不同状态。沙箱与实际商户接口的接入规则、可用产品和业务结果应分别核对。</p>
+<h2 id="协议规则">协议规则</h2>
+<div class="doc-table"><table>
+<thead><tr><th>项目</th><th>当前 Go 实现</th></tr></thead>
+<tbody>
+<tr><td>传输</td><td>正式接入使用 HTTPS；文本按 UTF-8 编码</td></tr>
+<tr><td>请求格式</td><td><code>application/x-www-form-urlencoded</code>，单个字段只能有一个标量值；页面跳转支付另支持 GET 查询参数</td></tr>
+<tr><td>V2 签名</td><td><code>sign_type=RSA</code>，SHA-256 + RSA PKCS#1 v1.5，Base64 编码签名</td></tr>
+<tr><td>时间戳</td><td>正十进制 Unix 秒字符串，服务端接受与当前时间相差不超过 300 秒的 RSA 请求</td></tr>
+<tr><td>响应</td><td>API 返回 JSON；页面跳转接口的成功结果可为跳转或 HTML。不能只凭 HTTP 200 或 <code>code=0</code>判断付款完成</td></tr>
+<tr><td>金额</td><td>元为单位的十进制字符串；Go 服务内部按整数分处理。不要用浮点计算订单金额</td></tr>
+</tbody>
+</table></div>
+<h2 id="V2升级说明">V2 接口与开放条件</h2>
+<p>本组文档主要说明 <code>api/pay/*</code>、<code>api/merchant/*</code> 和 <code>api/transfer/*</code> 的 V2 接口。接口是否可用，仍取决于商户状态、权限、签名策略及实际开通的通道；文档列出接口并不表示所有商户已获准退款或转账。</p>
+<p><a href="/doc/paytype.html">支付方式列表</a>反映本站配置的开放类型，具体产品和交易权限以商户配置及接口结果为准。支付、退款和转账均应分别核对自己的业务状态，不能将受理状态当作最终资金结果。</p>
+<h2 id="获取RSA密钥对">准备 RSA 密钥</h2>
+<p>在商户后台的 API 信息页面管理 RSA 密钥。商户私钥用于签署请求，平台公钥用于验证响应及 V2 回调。生成私钥后及时安全保存，不将私钥、MD5 密钥或带签名的请求写入公开仓库、前端页面或日志。</p>
+<p>密钥至少为 2048 位。Go SDK 接受 PEM 格式的商户私钥与平台公钥；协议的精确拼串、空值和嵌套返回字段边界见<a href="/doc/sign_note.html">签名规则</a>。</p>
+<h2 id="旧版接口文档">V1 接口</h2>
+<p>本项目提供 V1 和 V2 两种接口版本。V1 使用 <code>submit.php</code>、<code>mapi.php</code> 和 <code>api.php</code> 路径，具体参数、鉴权及通知算法见<a href="/doc/v1_legacy_api.html">V1 接口文档</a>。接口版本决定协议规则，接入时应选择对应的签名和通知处理方式。</p>
 {{end}}

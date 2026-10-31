@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { ApiClient } from "../api";
+import { useSettingsDraft212 } from "../settings-drafts212";
 
 interface Profile202 {
   id: string;
@@ -31,6 +32,7 @@ const state = ref<Setting202 | null>(null),
 const loading = ref(false),
   busy = ref(false),
   confirming = ref(false),
+  unresolvedSave = ref(false),
   error = ref(""),
   notice = ref("");
 const confirmButton = ref<HTMLButtonElement | null>(null),
@@ -54,6 +56,19 @@ const changed = computed(
         (!state.value.available ||
           selected.value.id !== state.value.profile_id ||
           selected.value.revision !== state.value.profile_revision))),
+);
+const { confirmDiscard: confirmDraftDiscard } = useSettingsDraft212(
+  "微信原生扫码授权",
+  () =>
+    confirming.value ||
+    unresolvedSave.value ||
+    (!!state.value &&
+      (enabled.value !== state.value.enabled ||
+        (enabled.value &&
+          profileID.value !==
+            (state.value.enabled && state.value.available
+              ? state.value.profile_id
+              : "")))),
 );
 const canSave = computed(
   () =>
@@ -104,9 +119,19 @@ function accept(value: Setting202) {
   enabled.value = value.enabled;
   // A rotation leaves the old binding visible but requires a fresh selection.
   profileID.value = value.enabled && value.available ? value.profile_id : "";
+  unresolvedSave.value = false;
 }
 async function load() {
   if (!allowed.value || loading.value || busy.value) return;
+  const discardEpoch = epoch;
+  if (
+    !(await confirmDraftDiscard()) ||
+    discardEpoch !== epoch ||
+    !allowed.value ||
+    loading.value ||
+    busy.value
+  )
+    return;
   const run = ++epoch,
     ac = new AbortController();
   controller?.abort();
@@ -153,6 +178,7 @@ async function save() {
   controller?.abort();
   controller = ac;
   busy.value = true;
+  unresolvedSave.value = true;
   confirming.value = false;
   error.value = "";
   notice.value = "";
@@ -200,6 +226,7 @@ watch(
     loading.value = false;
     busy.value = false;
     confirming.value = false;
+    unresolvedSave.value = false;
     void load();
   },
   { immediate: true, flush: "sync" },

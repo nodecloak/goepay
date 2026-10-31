@@ -21,7 +21,7 @@ test("live operator navigation and direct API access enforce server administrato
   const dialog = page.getByRole("dialog");
   const username = "live-operator-" + Date.now(),
     password = "local-test-" + crypto.randomUUID();
-  await dialog.getByLabel("账号", { exact: false }).fill(username);
+  await dialog.getByRole("textbox", { name: /账号$/ }).fill(username);
   await dialog.getByLabel("名称", { exact: false }).fill("Local operator test");
   await dialog.getByLabel("密码", { exact: false }).fill(password);
   await expect(dialog.getByLabel("权限等级", { exact: false })).toHaveValue(

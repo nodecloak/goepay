@@ -1,89 +1,87 @@
 {{define "content"}}
 <h1 id="查询订单列表">查询订单列表</h1>
-<blockquote>查询订单列表可用于对账或同步订单状态等。</blockquote>
-<h4 id="请求地址">请求地址：</h4>
+<blockquote><p>Go 版接口：分页读取本商户已保存订单，用于展示与核对，不主动逐单访问上游。</p></blockquote>
+<h2 id="请求地址">请求地址</h2>
 <p><code class="doc-url">{{.API}}api/merchant/orders</code></p>
-<h4 id="请求方式">请求方式：</h4>
-<p>POST</p>
-<h4 id="请求参数说明">请求参数说明：</h4>
+<h2 id="请求方式">请求方式</h2>
+<p><code>POST</code>，UTF-8，<code>application/x-www-form-urlencoded</code>。除页面跳转接口外，V2 不接受 GET。</p>
+<h2 id="请求参数说明">请求参数说明</h2>
 <div class="doc-table"><table>
-<thead><tr><th>字段名</th><th>变量名</th><th>必填</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
 <tbody>
-<tr><td>商户ID</td><td>pid</td><td>是</td><td>Int</td><td>1001</td><td> </td></tr>
-<tr><td>查询偏移</td><td>offset</td><td>否</td><td>Int</td><td>0</td><td>从0开始，默认0</td></tr>
-<tr><td>每页条数</td><td>limit</td><td>否</td><td>Int</td><td>50</td><td>默认20，最大50，超过50按50返回</td></tr>
-<tr><td>过滤订单状态</td><td>status</td><td>否</td><td>Int</td><td>1</td><td><a href="#订单状态列表">订单状态列表</a>，不传或传空返回全部</td></tr>
-<tr><td>当前时间戳</td><td>timestamp</td><td>是</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
-<tr><td>签名字符串</td><td>sign</td><td>是</td><td>String</td><td> </td><td>参考签名规则</td></tr>
-<tr><td>签名类型</td><td>sign_type</td><td>是</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr>
+<tr><td>pid</td><td>是</td><td>商户 ID，正整数，以商户后台 API 信息为准。</td></tr>
+<tr><td>timestamp</td><td>是</td><td>当前 Unix 时间戳，十进制整数秒；请求时间与服务器相差不超过 300 秒。</td></tr>
+<tr><td>sign_type</td><td>是</td><td>固定为 <code>RSA</code>；不会为 V2 请求自动改用 MD5。</td></tr>
+<tr><td>sign</td><td>是</td><td>商户私钥生成的 SHA256WithRSA / PKCS#1 v1.5 签名，标准 Base64 字符串。</td></tr>
+<tr><td>offset</td><td>否</td><td>从 0 开始，默认 0；允许 0—10000000。</td></tr>
+<tr><td>limit</td><td>否</td><td>默认 20，允许正整数不超过 1000000；超过 50 按 50 返回。</td></tr>
+<tr><td>status</td><td>否</td><td>留空查询全部；仅接受 0、1、2、3、4。V2 使用 offset/limit，不使用 page。</td></tr>
 </tbody>
 </table></div>
-<p class="doc-note">offset、limit 非必填：offset 不传默认 0，limit 不传默认 20。limit 必须为 1 以上的整数，大于 50 时按 50 返回；limit 或 offset 不是合法非负整数时返回失败（msg 为 invalid limit / invalid offset）。</p>
-<h4 id="订单状态列表">订单状态列表</h4>
+<p>所有请求参数先按<a href="/doc/sign_note.html">签名规则</a>签名，再进行表单编码。字段只允许唯一标量值；重复键、数组形式及歧义参数名会被拒绝。</p>
+<h2 id="订单状态列表">订单状态列表</h2>
 <div class="doc-table"><table>
-<thead><tr><th>状态值</th><th>描述</th></tr></thead>
+<thead><tr><th>status</th><th>过滤含义</th></tr></thead>
 <tbody>
-<tr><td>0</td><td>未支付</td></tr>
-<tr><td>1</td><td>已支付</td></tr>
-<tr><td>2</td><td>已退款</td></tr>
-<tr><td>3</td><td>已冻结</td></tr>
-<tr><td>4</td><td>预授权</td></tr>
+<tr><td>0</td><td>未支付，包括尚未付款或已关闭等未支付投影；不能单凭此数值区分关闭。</td></tr>
+<tr><td>1</td><td>已支付，尚未全退且收入没有冻结。</td></tr>
+<tr><td>2</td><td>已全额退款，以实际原始支付金额核对。</td></tr>
+<tr><td>3</td><td>已支付且收入冻结中，尚未全退。</td></tr>
+<tr><td>4</td><td>预授权尚未释放；不能当作实际扣款成功。</td></tr>
 </tbody>
 </table></div>
-<p class="doc-note">过滤状态 status 支持 0~4（与订单查询的支付状态一致），不再仅限 0 / 1；传入其它值返回失败（msg 为 invalid status）。</p>
-<h4 id="返回参数说明">返回参数说明：</h4>
+<h2 id="返回参数说明">返回参数说明</h2>
 <div class="doc-table"><table>
-<thead><tr><th>字段名</th><th>变量名</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<thead><tr><th>参数</th><th>类型</th><th>说明</th></tr></thead>
 <tbody>
-<tr><td>返回状态码</td><td>code</td><td>Int</td><td>0</td><td>0为成功，其它值为失败</td></tr>
-<tr><td>错误信息</td><td>msg</td><td>String</td><td> </td><td>失败时返回原因</td></tr>
-<tr><td>订单列表</td><td>data</td><td>Array</td><td> </td><td>订单对象数组，字段见下表</td></tr>
-<tr><td>当前时间戳</td><td>timestamp</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
-<tr><td>签名字符串</td><td>sign</td><td>String</td><td> </td><td>参考签名规则</td></tr>
-<tr><td>签名类型</td><td>sign_type</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr>
+<tr><td>code</td><td>Number</td><td>V2：0 表示本次接口调用完成；-1 表示错误或需要继续核对，不等于资金最终状态。</td></tr>
+<tr><td>msg</td><td>String</td><td>按返回分支出现的说明，客户端不应依赖固定中文文案。</td></tr>
+<tr><td>timestamp</td><td>String</td><td>平台签名时的 Unix 整数秒。</td></tr>
+<tr><td>sign_type</td><td>String</td><td>RSA。</td></tr>
+<tr><td>sign</td><td>String</td><td>使用平台公钥验证的签名。</td></tr>
+<tr><td>data</td><td>Array</td><td>订单对象数组，按订单内部 ID 倒序。V2 不返回总数 count。</td></tr>
 </tbody>
 </table></div>
-<h4 id="订单列表字段">订单列表（data）每项字段：</h4>
+<p class="doc-note">先检查 HTTP 状态和响应格式，再验证平台签名及 timestamp，最后读取业务字段。平台密钥可用时，正常业务错误也会签名；裸 HTTP 参数/方法错误或签名基础设施不可用时，响应可能没有签名，不能把它当作可信成功结果。</p>
+<h2 id="订单列表字段">订单列表字段</h2>
 <div class="doc-table"><table>
-<thead><tr><th>字段名</th><th>变量名</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<thead><tr><th>data 每项字段</th><th>说明</th></tr></thead>
 <tbody>
-<tr><td>平台订单号</td><td>trade_no</td><td>String</td><td>20160806151343349</td><td> </td></tr>
-<tr><td>商户订单号</td><td>out_trade_no</td><td>String</td><td>20160806151343351</td><td> </td></tr>
-<tr><td>接口订单号</td><td>api_trade_no</td><td>String</td><td>40001249985198893</td><td>微信支付宝返回的单号</td></tr>
-<tr><td>支付方式</td><td>type</td><td>String</td><td>alipay</td><td><a href="/doc/paytype.html">支付方式列表</a></td></tr>
-<tr><td>支付状态</td><td>status</td><td>Int</td><td>1</td><td><a href="#订单状态列表">订单状态列表</a></td></tr>
-<tr><td>商户ID</td><td>pid</td><td>Int</td><td>1001</td><td> </td></tr>
-<tr><td>订单创建时间</td><td>addtime</td><td>String</td><td>2024-07-01 16:47:32</td><td> </td></tr>
-<tr><td>订单完成时间</td><td>endtime</td><td>String</td><td>2024-07-01 16:49:24</td><td>未支付时为空字符串</td></tr>
-<tr><td>商品名称</td><td>name</td><td>String</td><td> </td><td> </td></tr>
-<tr><td>商品金额</td><td>money</td><td>String</td><td>1.00</td><td>单位：元</td></tr>
-<tr><td>已退款金额</td><td>refundmoney</td><td>String</td><td> </td><td>仅部分退款情况才返回</td></tr>
-<tr><td>业务扩展参数</td><td>param</td><td>String</td><td> </td><td> </td></tr>
-<tr><td>支付用户标识</td><td>buyer</td><td>String</td><td> </td><td>一般为openid</td></tr>
+<tr><td>trade_no / out_trade_no / api_trade_no</td><td>平台订单、商户订单与核验后的上游/授权号。</td></tr>
+<tr><td>pid / type / name / money / status</td><td>商户、支付方式、名称、商品金额及状态。</td></tr>
+<tr><td>addtime / endtime</td><td>东八区时间；未付款 endtime 为空。</td></tr>
+<tr><td>param / buyer</td><td>业务扩展字符串及买家标识。</td></tr>
+<tr><td>refundmoney</td><td>仅部分退款时出现的累计成功退款额。</td></tr>
 </tbody>
 </table></div>
-<p class="doc-note">列表项字段与<a href="/doc/pay_query.html">订单查询</a>基本一致，但列表项不包含 clientip（支付用户IP），且 endtime 在订单未完成时返回空字符串而非省略。</p>
-<h4 id="返回示例">返回示例：</h4>
+<p class="doc-note">接口协议的顶层签名不参与 <code>data</code> 数组或其子对象内容。数组不能仅凭该签名获得内容完整性保证；必须使用 HTTPS，资金决策按原订单调用已验签的<a href="/doc/pay_query.html">单笔查询</a>核对。</p>
+<h2 id="处理规则">处理规则</h2>
+<ul>
+<li>列表是本地投影，不是逐单上游核验；可能与随后单笔查单更新的状态存在时间差。</li>
+<li>列表项不含 clientip、authorization_release_state；分页没有快照游标，并发新增时需按订单号去重。</li>
+</ul>
+<h2 id="返回示例">返回示例</h2>
 <pre><code>{
-    "code": 0,
-    "data": [
-        {
-            "trade_no": "20160806151343349",
-            "out_trade_no": "20160806151343351",
-            "api_trade_no": "40001249985198893",
-            "type": "alipay",
-            "status": 1,
-            "pid": 1001,
-            "addtime": "2024-07-01 16:47:32",
-            "endtime": "2024-07-01 16:49:24",
-            "name": "商品名称",
-            "money": "1.00",
-            "param": "",
-            "buyer": ""
-        }
-    ],
-    "timestamp": "1721206072",
-    "sign_type": "RSA",
-    "sign": "xxxxxxxx"
+  &quot;code&quot;: 0,
+  &quot;data&quot;: [
+    {
+      &quot;trade_no&quot;: &quot;GO202610310001&quot;,
+      &quot;out_trade_no&quot;: &quot;ORDER_001&quot;,
+      &quot;api_trade_no&quot;: &quot;PROVIDER_ORDER&quot;,
+      &quot;pid&quot;: 1001,
+      &quot;type&quot;: &quot;alipay&quot;,
+      &quot;name&quot;: &quot;示例商品&quot;,
+      &quot;money&quot;: &quot;1.00&quot;,
+      &quot;status&quot;: 1,
+      &quot;addtime&quot;: &quot;2026-10-31 10:00:00&quot;,
+      &quot;endtime&quot;: &quot;2026-10-31 10:01:00&quot;,
+      &quot;param&quot;: &quot;&quot;,
+      &quot;buyer&quot;: &quot;&quot;
+    }
+  ],
+  &quot;timestamp&quot;: &quot;1793400000&quot;,
+  &quot;sign_type&quot;: &quot;RSA&quot;,
+  &quot;sign&quot;: &quot;BASE64_SIGNATURE&quot;
 }</code></pre>
+<p class="doc-note">示例中的编号、时间和签名仅用于说明字段；请求时生成当前时间戳和真实签名，不能直接复制示例签名。</p>
 {{end}}

@@ -309,6 +309,26 @@ func (g guarded) PluginName() string {
 	return ""
 }
 
+// Preparing a previously stored checkout form is read-only and does not enable
+// provider financial operations. Unsupported providers fail closed.
+func (g guarded) PrepareCheckoutHTML(material, tradeNo string) (string, error) {
+	if p, ok := g.Provider.(interface {
+		PrepareCheckoutHTML(string, string) (string, error)
+	}); ok {
+		return p.PrepareCheckoutHTML(material, tradeNo)
+	}
+	return "", provider.ErrUnsupported
+}
+
+func (g guarded) RefreshCheckoutHTML(material, tradeNo, returnURL string) (string, error) {
+	if p, ok := g.Provider.(interface {
+		RefreshCheckoutHTML(string, string, string) (string, error)
+	}); ok {
+		return p.RefreshCheckoutHTML(material, tradeNo, returnURL)
+	}
+	return "", provider.ErrUnsupported
+}
+
 type guarded struct {
 	provider.Provider
 	allowLive           bool

@@ -4,28 +4,42 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
+<link rel="icon" href="/static/favicon.svg?v=5d88b80d23bc" type="image/svg+xml">
+<link rel="icon" href="/static/favicon.ico?v=95fc6270769c" sizes="any">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=c66b93d729f4">
 <title>{{if .Title}}{{.Title}} - {{end}}开发文档 - {{.SiteName}}</title>
 <link rel="stylesheet" href="{{.CSS}}">
+<script type="module" src="{{.JS}}"></script>
 </head>
-<body>
+<body data-doc-page="{{.Slug}}">
+<a class="doc-skip" href="#doc-content">跳至正文</a>
 <header class="doc-top">
-<a class="doc-brand" href="/doc/index.html">{{if .LogoURL}}<img src="{{.LogoURL}}" alt="">{{end}}<span class="doc-brand-name">{{.SiteName}}</span><span class="doc-brand-sub">开发文档</span></a>
-<nav class="doc-top-links" aria-label="站点"><a href="/">返回官网</a></nav>
+<a class="doc-brand" href="/doc/index.html">{{if .LogoURL}}<img src="{{.LogoURL}}" alt=""><span class="doc-brand-name">{{.SiteName}}</span>{{else}}<img class="doc-brand-logo" src="/static/goepay-wordmark-onlight.svg?v=90cafbd35591" width="750" height="210" alt="{{.SiteName}}">{{end}}<span class="doc-brand-sub">开发者中心</span></a>
+<button class="doc-search-trigger" type="button" data-search-open aria-haspopup="dialog"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="10.75" cy="10.75" r="6.75"></circle><path d="m16 16 4.5 4.5"></path></svg><span>搜索文档、接口…</span><kbd>Ctrl K</kbd></button>
+<nav class="doc-top-links" aria-label="站点"><a href="/doc/index.html">文档</a><a href="/doc/sdk.html">Go SDK</a><a class="doc-home-link" href="/">返回官网 <span aria-hidden="true">↗</span></a></nav>
 </header>
 <div class="doc-shell">
 <aside class="doc-side" aria-label="文档目录">
-<p class="doc-side-tab">目录</p>
+<div class="doc-side-head"><span class="doc-side-tab">开发文档</span><span class="doc-version">{{if eq .Slug "v1_legacy_api"}}V1{{else}}V2{{end}}</span></div>
 {{template "tree" .Nav}}
-<p class="doc-side-foot">{{.SiteName}}</p>
+<div class="doc-side-foot"><a href="/doc/v1_legacy_api.html" data-doc-link data-group="接口版本">V1 接口参考 <span aria-hidden="true">↗</span></a><a class="doc-sdk-link" href="{{.GoSDKURL}}">下载 Go SDK <span aria-hidden="true">↓</span></a><p>Go 服务端 · RSA 签名</p></div>
 </aside>
-<main class="doc-main">
-<details class="doc-mobile-nav"><summary>目录</summary>{{template "tree" .Nav}}</details>
+<div class="doc-workspace{{if .Endpoint}} doc-workspace--api{{end}}">
+<div class="doc-mobile-tools"><details class="doc-mobile-nav"><summary><span>文档目录</span><span class="doc-version">{{if eq .Slug "v1_legacy_api"}}V1{{else}}V2{{end}}</span></summary>{{template "tree" .Nav}}<a class="doc-mobile-v1" href="/doc/v1_legacy_api.html" data-doc-link>V1 接口参考</a></details><button type="button" class="doc-mobile-search" data-search-open aria-label="搜索文档"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18"><circle cx="10.75" cy="10.75" r="6.75"></circle><path d="m16 16 4.5 4.5"></path></svg></button></div>
+<main class="doc-main" id="doc-content" tabindex="-1">
+<div class="doc-breadcrumb"><a href="/doc/index.html">开发文档</a><span aria-hidden="true">/</span><span>{{.Title}}</span></div>
+{{if .Endpoint}}<div class="doc-endpoint-heading"><span class="doc-method">{{.Endpoint.Method}}</span><code>{{.Endpoint.Path}}</code><span class="doc-protocol">V2</span></div>{{else}}<p class="doc-eyebrow">{{if eq .Slug "sdk"}}SDK &amp; EXAMPLES{{else if eq .Slug "v1_legacy_api"}}API REFERENCE · V1{{else}}DEVELOPER GUIDE{{end}}</p>{{end}}
 <article class="doc-article">
 {{template "content" .}}
 </article>
-<footer class="doc-foot">{{.SiteName}} © {{.Year}} All Rights Reserved.</footer>
+<footer class="doc-foot"><span>{{.SiteName}} © {{.Year}}</span><a href="/doc/sign_note.html">签名规则</a><a href="/doc/sdk.html">Go SDK</a></footer>
 </main>
+<aside class="doc-assist{{if .Endpoint}} doc-assist--console{{end}}" aria-label="{{if .Endpoint}}接口在线测试{{else}}页面导航与接入资源{{end}}">
+{{if .Endpoint}}{{template "console" .}}{{else}}<div class="doc-guide-rail"><nav class="doc-toc" aria-label="本页内容"><p class="doc-rail-label">本页内容</p><ol data-doc-toc></ol><noscript><p class="doc-muted">按正文标题阅读本页。</p></noscript></nav><div class="doc-quick-start"><span class="doc-rail-label">开始一次接口验证</span><h2>从请求到验签，连起来看。</h2><p>编辑参数，在文档沙箱中检查签名与响应。</p><a href="/doc/pay_create.html">打开统一下单 <span aria-hidden="true">→</span></a></div><a class="doc-resource-link" href="/doc/sdk.html"><span class="doc-resource-icon" aria-hidden="true">&lt;/&gt;</span><span><strong>Go SDK</strong><small>源码、测试与接入示例</small></span><span aria-hidden="true">↗</span></a></div>{{end}}
+</aside>
 </div>
+</div>
+<dialog class="doc-search-dialog" id="doc-search-dialog" aria-labelledby="doc-search-title"><div class="doc-search-box"><label id="doc-search-title" for="doc-search-input">搜索开发文档</label><div class="doc-search-input-row"><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><circle cx="10.75" cy="10.75" r="6.75"></circle><path d="m16 16 4.5 4.5"></path></svg><input id="doc-search-input" data-search-input type="search" placeholder="搜索接口、签名或接入说明" autocomplete="off" spellcheck="false"><button type="button" data-search-close aria-label="关闭搜索">Esc</button></div></div><p class="doc-search-status" data-search-status role="status" aria-live="polite">输入关键词查找文档</p><ol class="doc-search-results" data-search-results></ol><div class="doc-search-foot"><span><kbd>↑</kbd><kbd>↓</kbd> 选择</span><span><kbd>Enter</kbd> 打开</span><span><kbd>Esc</kbd> 关闭</span></div></dialog>
 </body>
 </html>
-{{define "tree"}}<ul class="doc-tree">{{range .}}{{if .Children}}<li><details{{if .Open}} open{{end}}><summary>{{.Title}}</summary>{{template "tree" .Children}}</details></li>{{else}}<li><a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}}>{{.Title}}</a></li>{{end}}{{end}}</ul>{{end}}
+{{define "tree"}}<ul class="doc-tree">{{range .}}{{if .Children}}<li class="doc-nav-group"><details{{if .Open}} open{{end}}><summary>{{.Title}}</summary>{{template "tree" .Children}}</details></li>{{else}}<li><a href="{{.Href}}" data-doc-link data-search-extra="{{.Path}} {{.Method}}"{{if .Current}} aria-current="page"{{end}}><span class="doc-nav-title">{{.Title}}</span>{{if .Method}}<span class="doc-nav-method">{{.Method}}</span>{{end}}</a></li>{{end}}{{end}}</ul>{{end}}

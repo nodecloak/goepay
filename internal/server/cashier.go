@@ -31,6 +31,10 @@ import (
 // is exactly the fields a submit with a type would have used; no order exists
 // until the payer chooses.
 type cashierIntent struct {
+	// Version belongs to the authenticated entry point, independently of the
+	// browser rendering mode or request signature algorithm. Omitted v is an
+	// already issued pre-217 token and retains its original V1 behavior.
+	Version    string `json:"v,omitempty"`
 	MerchantID int64  `json:"m"`
 	OutTradeNo string `json:"o"`
 	Name       string `json:"n"`
@@ -84,6 +88,18 @@ func (s *Server) decodeCashierIntent(r *http.Request) (cashierIntent, bool) {
 		return in, false
 	}
 	if json.Unmarshal(raw, &in) != nil || in.MerchantID <= 0 || in.OutTradeNo == "" {
+		return in, false
+	}
+	if in.Version == "" {
+		var fields map[string]json.RawMessage
+		if json.Unmarshal(raw, &fields) != nil {
+			return in, false
+		}
+		if _, explicit := fields["v"]; explicit {
+			return in, false
+		}
+		in.Version = "v1"
+	} else if in.Version != "v1" && in.Version != "v2" {
 		return in, false
 	}
 	if in.Expires < time.Now().Unix() {
@@ -230,8 +246,8 @@ func (s *Server) cashierChoose(w http.ResponseWriter, r *http.Request, in cashie
 	if in.Buyer != "" {
 		p["sub_openid"] = in.Buyer
 	}
-	// providerCreate resolves channel/method, creates the order once (idempotent
-	// on out_trade_no — a replay resumes it), and continues to payment. It is
-	// the browser page flow (legacy=true → HTML/redirect), matching submit.php.
-	s.providerCreate(w, r, true, in.MerchantID, p)
+	// The /cashier request path already selects the browser redirect in
+	// providerCreate. Retain the authenticated protocol for the stored order
+	// and its later callback instead of using V1 to request browser rendering.
+	s.providerCreate(w, r, in.Version == "v1", in.MerchantID, p)
 }

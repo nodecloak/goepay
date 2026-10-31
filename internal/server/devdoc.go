@@ -13,8 +13,8 @@ import (
 	"goepay/internal/siteinfo"
 )
 
-// devDocs serves the public developer documentation (/doc/), the original
-// epay_pro doc site. It needs no session; the pages show the site name, the
+// devDocs serves the Go service's public developer documentation (/doc/).
+// It needs no session; the pages show the site name, the
 // merchant API address and the enabled 支付方式.
 func (s *Server) devDocs(w http.ResponseWriter, r *http.Request) bool {
 	if !devdoc.Match(r.URL.Path) {

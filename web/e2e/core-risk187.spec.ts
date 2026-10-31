@@ -105,6 +105,28 @@ for (const width of [1440, 375])
         await region
           .getByRole("button", { name: "刷新风控设置", exact: true })
           .click();
+        const discard = page.getByRole("dialog", {
+          name: "放弃未保存的设置？",
+          exact: true,
+        });
+        await expect(discard).toContainText("核心支付风控");
+        expect(reads).toBe(1);
+        await discard
+          .getByRole("button", { name: "继续编辑", exact: true })
+          .click();
+        await expect(discard).toBeHidden();
+        expect(reads).toBe(1);
+        expect(writes).toHaveLength(1);
+        await region
+          .getByRole("button", { name: "刷新风控设置", exact: true })
+          .click();
+        await expect(discard).toContainText("核心支付风控");
+        await discard
+          .getByRole("button", {
+            name: "放弃修改并重新读取",
+            exact: true,
+          })
+          .click();
         await expect(region).toContainText("修订 2");
         expect(reads).toBe(2);
       } else

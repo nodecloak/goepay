@@ -11,6 +11,8 @@ bin/
 node_modules/
 web/node_modules/
 web/dist/
+web/.vitest/
+web/vt-stat-targeted.out
 web/test-results/
 web/playwright-report/
 playwright-report/
@@ -24,3 +26,5 @@ test-results/
 *.key
 .DS_Store
 Thumbs.db
+__pycache__/
+*.py[cod]

@@ -1,62 +1,68 @@
 {{define "content"}}
 <h1 id="转账查询">转账查询</h1>
-<blockquote>根据系统交易号或商户交易号查询转账状态。</blockquote>
-<h4 id="请求地址">请求地址：</h4>
+<blockquote><p>Go 版接口：查询属于本商户的原转账，必要时从原通道核验，不创建新转账。</p></blockquote>
+<h2 id="请求地址">请求地址</h2>
 <p><code class="doc-url">{{.API}}api/transfer/query</code></p>
-<h4 id="请求方式">请求方式：</h4>
-<p>POST</p>
-<h4 id="请求参数说明">请求参数说明：</h4>
+<h2 id="请求方式">请求方式</h2>
+<p><code>POST</code>，UTF-8，<code>application/x-www-form-urlencoded</code>。除页面跳转接口外，V2 不接受 GET。</p>
+<h2 id="请求参数说明">请求参数说明</h2>
 <div class="doc-table"><table>
-<thead><tr><th>字段名</th><th>变量名</th><th>必填</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
 <tbody>
-<tr><td>商户ID</td><td>pid</td><td>是</td><td>Int</td><td>1001</td><td> </td></tr>
-<tr><td>系统交易号</td><td>biz_no</td><td>否</td><td>String</td><td>2016080615134334919</td><td>与商户交易号必传其一</td></tr>
-<tr><td>商户交易号</td><td>out_biz_no</td><td>否</td><td>String</td><td>2016080615134334919</td><td>与系统交易号必传其一</td></tr>
-<tr><td>当前时间戳</td><td>timestamp</td><td>是</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
-<tr><td>签名字符串</td><td>sign</td><td>是</td><td>String</td><td> </td><td>参考签名规则</td></tr>
-<tr><td>签名类型</td><td>sign_type</td><td>是</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr>
+<tr><td>pid</td><td>是</td><td>商户 ID，正整数，以商户后台 API 信息为准。</td></tr>
+<tr><td>timestamp</td><td>是</td><td>当前 Unix 时间戳，十进制整数秒；请求时间与服务器相差不超过 300 秒。</td></tr>
+<tr><td>sign_type</td><td>是</td><td>固定为 <code>RSA</code>；不会为 V2 请求自动改用 MD5。</td></tr>
+<tr><td>sign</td><td>是</td><td>商户私钥生成的 SHA256WithRSA / PKCS#1 v1.5 签名，标准 Base64 字符串。</td></tr>
+<tr><td>out_biz_no</td><td>二选一</td><td>原商户转账单号，非空时用于读取原交易。</td></tr>
+<tr><td>biz_no</td><td>二选一</td><td>平台系统交易号；与 out_biz_no 同传时还会校验是否匹配该笔交易。</td></tr>
 </tbody>
 </table></div>
-<p class="doc-note">biz_no 与 out_biz_no 至少传其一；两者都不传返回“transfer number required”，查不到对应转账返回“transfer not found”。</p>
-<h4 id="返回参数说明">返回参数说明：</h4>
-<div class="doc-table"><table>
-<thead><tr><th>字段名</th><th>变量名</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
-<tbody>
-<tr><td>返回状态码</td><td>code</td><td>Int</td><td>0</td><td>0为成功，其它值为失败</td></tr>
-<tr><td>错误信息</td><td>msg</td><td>String</td><td> </td><td>失败时返回原因</td></tr>
-<tr><td>转账状态</td><td>status</td><td>Int</td><td> </td><td>0：正在处理<br />1：转账成功<br />2：转账失败</td></tr>
-<tr><td>转账失败标记</td><td>errmsg</td><td>String</td><td>transfer failed</td><td>status=2 时才返回，固定为 transfer failed；具体原因请在商户后台查看</td></tr>
-<tr><td>系统交易号</td><td>biz_no</td><td>String</td><td>2016080615134334917</td><td> </td></tr>
-<tr><td>商户交易号</td><td>out_biz_no</td><td>String</td><td>2016080615134334917</td><td> </td></tr>
-<tr><td>接口转账单号</td><td>orderid</td><td>String</td><td>40001283951815782</td><td>支付宝微信返回的转账单号</td></tr>
-<tr><td>转账完成时间</td><td>paydate</td><td>String</td><td>2024-07-01 16:47:32</td><td> </td></tr>
-<tr><td>转账金额</td><td>amount</td><td>String</td><td> </td><td>单位：元</td></tr>
-<tr><td>转账花费金额</td><td>cost_money</td><td>String</td><td> </td><td>从商户可用余额扣减的金额</td></tr>
-<tr><td>转账备注</td><td>remark</td><td>String</td><td> </td><td> </td></tr>
-<tr><td>结果待查询</td><td>query_required</td><td>Bool</td><td>true</td><td>上游结果仍未确定时返回，可稍后再次查询</td></tr>
-<tr><td>当前时间戳</td><td>timestamp</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
-<tr><td>签名字符串</td><td>sign</td><td>String</td><td> </td><td>参考签名规则</td></tr>
-<tr><td>签名类型</td><td>sign_type</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr>
-</tbody>
-</table></div>
-<p class="doc-note">转账状态 status：0 处理中，1 成功，2 失败（失败或已冲正）。当平台向上游核验仍未得到确定结果时，本站会返回 query_required=true 且不写入任何未经核验的余额，请稍后再次查询。</p>
-<h4 id="其他说明">其他说明：</h4>
+<p>所有请求参数先按<a href="/doc/sign_note.html">签名规则</a>签名，再进行表单编码。字段只允许唯一标量值；重复键、数组形式及歧义参数名会被拒绝。</p>
+<h2 id="处理规则">处理规则</h2>
 <ul>
-<li>转账凭证查询：本站另提供 <code class="doc-url">{{.API}}api/transfer/proof</code>（POST）接口，用于获取转账凭证。请求参数为 pid、biz_no 或 out_biz_no（二者传其一）及签名参数；返回 biz_no、out_biz_no、file_id（凭证文件ID）、status（凭证状态）、url（凭证下载地址）。凭证需在转账完成后方可获取，未就绪或不支持时返回失败提示。</li>
+<li>至少提供一种原交易号；均未提供返回 transfer number required，未匹配本商户原交易返回 transfer not found。</li>
+<li>status=0 表示处理中或结果未确定。上游核验暂时失败时，接口可返回 code=0、原状态及 query_required=true，不能当作成功或失败。</li>
+<li>status=2 的状态投影包含失败或已冲正。银行卡产品还须结合 bank_lifecycle、ledger_status 及已核验费用/退回额理解账务结果。</li>
+<li>原交易恢复按当前读权限及原资金规则执行；关闭新转账权限不代表原交易已取消。</li>
 </ul>
-<h4 id="返回示例">返回示例：</h4>
+<h2 id="返回参数说明">返回参数说明</h2>
+<div class="doc-table"><table>
+<thead><tr><th>参数</th><th>类型</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>code</td><td>Number</td><td>V2：0 表示本次接口调用完成；-1 表示错误或需要继续核对，不等于资金最终状态。</td></tr>
+<tr><td>msg</td><td>String</td><td>按返回分支出现的说明，客户端不应依赖固定中文文案。</td></tr>
+<tr><td>timestamp</td><td>String</td><td>平台签名时的 Unix 整数秒。</td></tr>
+<tr><td>sign_type</td><td>String</td><td>RSA。</td></tr>
+<tr><td>sign</td><td>String</td><td>使用平台公钥验证的签名。</td></tr>
+<tr><td>status</td><td>Number</td><td>0 处理中/未知，1 成功，2 失败或已冲正。</td></tr>
+<tr><td>biz_no / out_biz_no</td><td>String</td><td>平台系统交易号及原商户转账单号。</td></tr>
+<tr><td>orderid</td><td>String</td><td>核验后的上游转账单号，无则空。</td></tr>
+<tr><td>paydate</td><td>String</td><td>上游完成时间，无则空。</td></tr>
+<tr><td>amount / cost_money</td><td>String</td><td>转账本金及资金成本金额；cost_money 为原规则冻结/核对的金额，不能当作到账回执。</td></tr>
+<tr><td>remark</td><td>String</td><td>保存的转账备注。</td></tr>
+<tr><td>query_required</td><td>Boolean</td><td>上游尚未得到确定核验结果时可出现 true，需查询原交易。</td></tr>
+<tr><td>errmsg</td><td>String</td><td>status=2 时可出现 transfer failed，具体原因在后台处理记录中查看。</td></tr>
+</tbody>
+</table></div>
+<p class="doc-note">先检查 HTTP 状态和响应格式，再验证平台签名及 timestamp，最后读取业务字段。平台密钥可用时，正常业务错误也会签名；裸 HTTP 参数/方法错误或签名基础设施不可用时，响应可能没有签名，不能把它当作可信成功结果。</p>
+<h2 id="银行卡结果扩展">银行卡结果扩展</h2>
+<p>银行卡产品可附带 <code>bank_product</code>、<code>bank_estimated_fee_amount</code>、<code>bank_estimated_fee_known</code>、<code>bank_lifecycle</code>、<code>ledger_status</code>、<code>bank_fee_amount</code>、<code>bank_fee_known</code>、<code>bank_service_fee_held</code>、<code>bank_returned_principal</code>、<code>bank_returned_service_fee</code>、<code>bank_returned_fee</code>、<code>bank_reversal_journals</code>。金额为元字符串；known 标志决定费用是否已确定，不能将未知费用的 0.00 当作实际零费用。</p>
+<h2 id="转账凭证查询">转账凭证查询</h2>
+<p>凭证地址：<code class="doc-url">{{.API}}api/transfer/proof</code>，POST 表单，使用本页相同身份、原交易号和 RSA 签名。仅已支持且原通道允许的交易可查询；返回 <code>biz_no</code>、<code>out_biz_no</code>、<code>file_id</code>、<code>status</code>、<code>url</code> 及签名公共字段。未就绪或不支持时返回错误。凭证文件地址本身也不是替代交易状态核验的依据。</p>
+<h2 id="返回示例">返回示例</h2>
 <pre><code>{
-    "code": 0,
-    "status": 1,
-    "biz_no": "2016080615134334917",
-    "out_biz_no": "2016080615134334917",
-    "orderid": "40001283951815782",
-    "paydate": "2024-07-01 16:47:32",
-    "amount": "1.00",
-    "cost_money": "1.03",
-    "remark": "",
-    "timestamp": "1721206072",
-    "sign_type": "RSA",
-    "sign": "xxxxxxxx"
+  &quot;code&quot;: 0,
+  &quot;status&quot;: 1,
+  &quot;biz_no&quot;: &quot;GO_TRANSFER_001&quot;,
+  &quot;out_biz_no&quot;: &quot;TRANSFER_001&quot;,
+  &quot;orderid&quot;: &quot;PROVIDER_TRANSFER&quot;,
+  &quot;paydate&quot;: &quot;2026-10-31 10:01:00&quot;,
+  &quot;amount&quot;: &quot;1.00&quot;,
+  &quot;cost_money&quot;: &quot;1.03&quot;,
+  &quot;remark&quot;: &quot;业务转账&quot;,
+  &quot;timestamp&quot;: &quot;1793400000&quot;,
+  &quot;sign_type&quot;: &quot;RSA&quot;,
+  &quot;sign&quot;: &quot;BASE64_SIGNATURE&quot;
 }</code></pre>
+<p class="doc-note">示例中的编号、时间和签名仅用于说明字段；请求时生成当前时间戳和真实签名，不能直接复制示例签名。</p>
 {{end}}

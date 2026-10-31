@@ -2,6 +2,8 @@ package server
 
 import (
 	"encoding/json"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"goepay/internal/backoffice"
@@ -15,6 +17,29 @@ func adminUser(class string, perms []string) identity.User {
 		u.Permissions = b
 	}
 	return u
+}
+
+func TestChannelSharingHTTPEnforcesPageGrantBeforeFinancialOperation(t *testing.T) {
+	s := &Server{} // An authorized request stops at the unavailable local store.
+	for _, tc := range []struct {
+		grant, path string
+		parts       []string
+		want        int
+	}{
+		{"PsReceiver", "/console/v1/admin/channel-sharing/orders", []string{"admin", "channel-sharing", "orders"}, 403},
+		{"PsOrder", "/console/v1/admin/channel-sharing/orders", []string{"admin", "channel-sharing", "orders"}, 503},
+		{"PsOrder", "/console/v1/admin/channel-sharing/returns", []string{"admin", "channel-sharing", "returns"}, 503},
+		{"PsReceiver", "/console/v1/admin/channel-sharing/returns", []string{"admin", "channel-sharing", "returns"}, 403},
+		{"PsOrder", "/console/v1/admin/channel-sharing/receivers", []string{"admin", "channel-sharing", "receivers"}, 403},
+	} {
+		r := httptest.NewRequest("POST", tc.path, strings.NewReader(`{}`))
+		r.Header.Set("X-CSRF-Token", "csrf")
+		w := httptest.NewRecorder()
+		session := identity.Session{User: adminUser("operator", []string{tc.grant}), CSRF: "csrf"}
+		if !s.channelSharingConsole(w, r, "admin", session, tc.parts) || w.Code != tc.want {
+			t.Errorf("grant %s POST %s: status %d, want %d", tc.grant, tc.path, w.Code, tc.want)
+		}
+	}
 }
 
 func TestAdminRequestAllowedSuperAlwaysAllowed(t *testing.T) {
@@ -148,5 +173,68 @@ func TestAdminPermissionCatalogMatchesBackoffice(t *testing.T) {
 		if !adminMenuKeys[k] {
 			t.Fatalf("key %s in backoffice but not server catalog", k)
 		}
+	}
+}
+
+func TestAdminPageGrantsAreIsolated(t *testing.T) {
+	cases := []struct {
+		grant string
+		allow [][]string
+		deny  [][]string
+	}{
+		{"PsReceiver", [][]string{{"admin", "channel-sharing", "rules", "1"}, {"admin", "channel-sharing", "receivers"}, {"admin", "channel-sharing", "channels"}}, [][]string{{"admin", "channel-sharing", "orders"}, {"admin", "channel-sharing", "returns"}, {"admin", "resources", "profitsharing-rules"}}},
+		{"PsOrder", [][]string{{"admin", "channel-sharing", "orders"}, {"admin", "channel-sharing", "returns"}, {"admin", "channel-sharing", "payment", "T1"}, {"admin", "channel-sharing", "channels"}}, [][]string{{"admin", "channel-sharing", "rules", "1"}, {"admin", "channel-sharing", "receivers"}, {"admin", "resources", "profitsharing-rules"}}},
+		{"PsInternal", [][]string{{"admin", "resources", "profitsharing-rules"}, {"admin", "workflows", "profitsharing-rules", "1", "execute"}}, [][]string{{"admin", "channel-sharing", "orders"}, {"admin", "channel-sharing", "rules", "1"}}},
+		{"PayChannel", [][]string{{"admin", "payment-channels"}}, [][]string{{"admin", "payment-subchannels"}}},
+		{"SubChannelManage", [][]string{{"admin", "payment-subchannels"}, {"admin", "payment-subchannels", "schemas"}}, [][]string{{"admin", "payment-channels"}}},
+		{"Record", [][]string{{"admin", "ledger"}, {"admin", "ledger", "summary"}}, [][]string{{"admin", "settlement-batches"}}},
+		{"BatchSettle", [][]string{{"admin", "settlement-batches"}, {"admin", "settlement-batches", "1", "approve"}}, [][]string{{"admin", "workflows", "settlements"}}},
+		{"SettleList", [][]string{{"admin", "workflows", "settlements"}}, [][]string{{"admin", "settlement-batches"}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.grant, func(t *testing.T) {
+			u := adminUser("operator", []string{tc.grant})
+			for _, p := range tc.allow {
+				if !adminRequestAllowed(u, p) {
+					t.Errorf("grant %s denied %v", tc.grant, p)
+				}
+			}
+			for _, p := range tc.deny {
+				if adminRequestAllowed(u, p) {
+					t.Errorf("grant %s wrongly allows %v", tc.grant, p)
+				}
+			}
+		})
+	}
+}
+
+func TestConsoleSessionUserPreservesEmptyPermissionSet(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		user identity.User
+		want string
+	}{
+		{"unrestricted", adminUser("operator", nil), "absent"},
+		{"empty", adminUser("operator", []string{}), "[]"},
+		{"granted", adminUser("operator", []string{"OrderList"}), `["OrderList"]`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b, err := json.Marshal(consoleSessionUser(tc.user))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fields map[string]json.RawMessage
+			if err = json.Unmarshal(b, &fields); err != nil {
+				t.Fatal(err)
+			}
+			got, present := fields["permissions"]
+			if tc.want == "absent" {
+				if present {
+					t.Fatalf("expected absent permissions, got %s", got)
+				}
+			} else if !present || string(got) != tc.want {
+				t.Fatalf("permissions = %s, present = %v, want %s", got, present, tc.want)
+			}
+		})
 	}
 }

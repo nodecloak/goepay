@@ -103,6 +103,7 @@ const manualBlocked = computed(
     props.action === "manual-refund" && data.value?.can_manual_refund !== true,
 );
 async function load() {
+  const initial = data.value === null;
   loading.value = true;
   error.value = "";
   try {
@@ -148,7 +149,7 @@ async function load() {
     if (!controller.signal.aborted) {
       loading.value = false;
       await nextTick();
-      if (!controller.signal.aborted)
+      if (initial && !controller.signal.aborted)
         dialogElement.value
           ?.querySelector<HTMLElement>(
             "input:not([disabled]):not([readonly]),textarea:not([disabled]),button:not([disabled])",
@@ -283,8 +284,16 @@ onBeforeUnmount(() => {
       </p>
       <div v-if="loading" role="status">正在读取原订单…</div>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <button
+        v-if="error && data"
+        type="button"
+        :disabled="loading || busy"
+        @click="load"
+      >
+        重新读取订单
+      </button>
       <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
-      <template v-if="data && !loading">
+      <template v-if="data">
         <OrderIncomePanel
           v-if="action === 'freeze' || action === 'unfreeze'"
           :key="tradeNo + '/' + action"
@@ -295,6 +304,8 @@ onBeforeUnmount(() => {
           :can-freeze="data.can_freeze_income === true"
           :can-unfreeze="data.can_unfreeze_income === true"
           :has-pending-refund="data.income_refund_pending"
+          :disabled="loading"
+          :refresh-failed="!!error"
           :initial-action="action"
           @busy="busy = $event"
           @updated="panelUpdated"
@@ -306,6 +317,8 @@ onBeforeUnmount(() => {
           :order-status="data.order.status"
           :allowed="data.can_resend_notification === true"
           :notification="data.notification"
+          :disabled="loading"
+          :refresh-failed="!!error"
           :initial-confirm="true"
           @busy="busy = $event"
           @updated="panelUpdated"

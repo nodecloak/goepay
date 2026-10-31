@@ -112,8 +112,8 @@ func TestHomeLinksBannerLogoAndDensityFollowSettings(t *testing.T) {
 		t.Fatal("site logo must win over the template image")
 	}
 	cfg.LogoAssetID = "../../etc"
-	if out := render("default", cfg, HomeData{}); strings.Contains(out, "<img") {
-		t.Fatal("malformed asset id rendered as an image")
+	if out := render("default", cfg, HomeData{}); strings.Contains(out, "../../etc") || !strings.Contains(out, `/static/goepay-wordmark-onlight.svg?v=90cafbd35591`) {
+		t.Fatal("malformed asset id must use the default brand image")
 	}
 	cfg.Density = "compact"
 	if out := render("index1", cfg, HomeData{}); !strings.Contains(out, `data-density="compact"`) {

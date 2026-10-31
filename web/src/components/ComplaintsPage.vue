@@ -50,6 +50,7 @@ const props = defineProps<{
   client: ApiClient;
   area: Area;
   path: string;
+  canConfigure?: boolean;
 }>();
 
 type View = "list" | "charts" | "task";
@@ -62,6 +63,20 @@ const view = computed<View>(() => {
 const loading = ref(false);
 const error = ref("");
 const notice = ref("");
+const featureDisabled = ref(false);
+function readFailure(e: unknown, fallback: string) {
+  featureDisabled.value =
+    e instanceof ApiError &&
+    e.responseDecoded &&
+    e.status === 403 &&
+    e.code === -1 &&
+    e.message === "complaint feature disabled";
+  error.value = featureDisabled.value
+    ? ""
+    : e instanceof Error
+      ? e.message
+      : fallback;
+}
 
 // ---- 投诉记录 (list) ----
 const searchField = ref("");
@@ -124,6 +139,7 @@ async function loadList() {
     rows.value = res.items;
     total.value = res.total;
     loaded.value = true;
+    featureDisabled.value = false;
     // Summary banner (今日/昨日), best-effort; absence never blocks the list.
     try {
       listSummary.value = await fetchComplaintSummary(props.client);
@@ -131,7 +147,7 @@ async function loadList() {
       listSummary.value = null;
     }
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "读取投诉记录失败";
+    readFailure(e, "读取投诉记录失败");
   } finally {
     loading.value = false;
   }
@@ -329,8 +345,9 @@ async function loadCharts() {
     chartRows.value = data.items || [];
     chartColumns.value = data.columns || [];
     loaded.value = true;
+    featureDisabled.value = false;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "读取投诉统计失败";
+    readFailure(e, "读取投诉统计失败");
   } finally {
     loading.value = false;
   }
@@ -346,8 +363,9 @@ async function loadTasks() {
     tasks.value = await fetchComplaintTasks(props.client);
     selectedTasks.value = new Set();
     loaded.value = true;
+    featureDisabled.value = false;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "读取同步任务失败";
+    readFailure(e, "读取同步任务失败");
   } finally {
     loading.value = false;
   }
@@ -511,7 +529,38 @@ onMounted(reload);
 </script>
 
 <template>
-  <div class="list-page complain-page" :aria-label="'交易投诉'">
+  <div
+    v-if="featureDisabled"
+    class="list-page complain-page"
+    aria-label="交易投诉"
+  >
+    <section class="panel records" aria-label="交易投诉未启用">
+      <h2>交易投诉尚未启用</h2>
+      <p class="muted">
+        平台已关闭交易投诉功能，当前不能获取、处理投诉或维护同步任务。
+      </p>
+      <p v-if="!canConfigure || area !== 'admin'" class="muted">
+        如需使用，请联系平台管理员。
+      </p>
+      <div class="toolbar-actions">
+        <a
+          v-if="canConfigure && area === 'admin'"
+          class="pa-btn pa-btn--primary"
+          href="/admin/system/settings?tab=complaint"
+          >前往投诉设置</a
+        >
+        <button
+          type="button"
+          class="pa-btn"
+          :disabled="loading"
+          @click="reload"
+        >
+          重新检查功能状态
+        </button>
+      </div>
+    </section>
+  </div>
+  <div v-else class="list-page complain-page" aria-label="交易投诉">
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
 

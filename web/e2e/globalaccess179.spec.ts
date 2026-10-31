@@ -9,7 +9,8 @@ const ok = (data: unknown) => ({
   body: JSON.stringify({ code: 0, message: "", data }),
 });
 async function settings(page: Page, mode = "normal") {
-  let state = actual.admin_closed;
+  let state = actual.admin_closed,
+    reads = 0;
   const writes: unknown[] = [],
     errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -97,7 +98,7 @@ async function settings(page: Page, mode = "normal") {
             contentType: "application/json",
             body: "{",
           });
-      }
+      } else reads++;
       return r.fulfill(ok(state));
     }
     throw Error(`unexpected ${q.method()} ${path}`);
@@ -106,7 +107,7 @@ async function settings(page: Page, mode = "normal") {
   await expect(
     page.getByRole("region", { name: "网站图片设置", exact: true }),
   ).toContainText("品牌图片设置无法确认，请重新读取");
-  return { writes, errors };
+  return { writes, errors, reads: () => reads };
 }
 for (const width of [1440, 375])
   test(`original platform tabs preserve hidden gate at ${width}`, async ({
@@ -183,7 +184,25 @@ for (const mode of ["lost", "malformed"])
     await expect(panel.getByRole("switch")).toHaveCount(0);
     expect(f.writes).toHaveLength(1);
     await panel.getByRole("button", { name: "重新读取平台功能" }).click();
+    const discard = page.getByRole("dialog", {
+      name: "放弃未保存的设置？",
+      exact: true,
+    });
+    await expect(discard).toContainText("密钥登录");
+    expect(f.reads()).toBe(1);
+    await discard
+      .getByRole("button", { name: "继续编辑", exact: true })
+      .click();
+    await expect(discard).toBeHidden();
+    expect(f.reads()).toBe(1);
+    expect(f.writes).toHaveLength(1);
+    await panel.getByRole("button", { name: "重新读取平台功能" }).click();
+    await expect(discard).toContainText("密钥登录");
+    await discard
+      .getByRole("button", { name: "放弃修改并重新读取", exact: true })
+      .click();
     await expect(panel.getByRole("switch")).toBeChecked();
+    expect(f.reads()).toBe(2);
     expect(f.writes).toHaveLength(1);
   });
 test("closed and unknown public key-login capability retain password entry", async ({

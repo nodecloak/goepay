@@ -161,9 +161,9 @@ func combineRefundState207(plan []combineSubRefund207) string {
 	}
 }
 
-// combineRefund207 sends (send=true) or queries each nonterminal share with
-// its fixed refund number, sub trade number and sub transaction id. It stops
-// at the first unknown outcome; nothing is ever re-sent under a new number.
+// combineRefund207 queries claimed shares, and when send is authorized claims
+// and sends each previously unclaimed share once. The durable claim precedes
+// network I/O; a crash after the claim requires querying, never another send.
 func (g ProviderFlow) combineRefund207(ctx context.Context, p provider.Provider, refundID int64, plan []combineSubRefund207, send bool) (string, error) {
 	for i := range plan {
 		share := &plan[i]
@@ -173,7 +173,23 @@ func (g ProviderFlow) combineRefund207(ctx context.Context, p provider.Provider,
 		req := provider.RefundRequest{TradeNo: share.Sub.SubTradeNo, ProviderTradeNo: share.Sub.TransactionID, RefundNo: share.ProviderRefundNo, TotalAmount: share.Sub.Amount, Amount: share.Amount}
 		var result provider.RefundResult
 		var err error
+		claimed := false
 		if send && share.State == "pending" {
+			tag, claimErr := g.Store.pool.Exec(ctx, `INSERT INTO combine_refund_send_claims207(refund_id,position) VALUES($1,$2) ON CONFLICT DO NOTHING`, refundID, share.Position)
+			if claimErr != nil {
+				return "unknown", claimErr
+			}
+			claimed = tag.RowsAffected() == 1
+		} else if !send && share.State == "pending" {
+			var exists bool
+			if err := g.Store.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM combine_refund_send_claims207 WHERE refund_id=$1 AND position=$2)`, refundID, share.Position).Scan(&exists); err != nil {
+				return "unknown", err
+			}
+			if !exists {
+				continue
+			}
+		}
+		if claimed {
 			result, err = p.Refund(ctx, req)
 		} else {
 			result, err = p.QueryRefund(ctx, req)
@@ -181,7 +197,7 @@ func (g ProviderFlow) combineRefund207(ctx context.Context, p provider.Provider,
 		state := "unknown"
 		if err != nil {
 			var rejection *provider.ProviderError
-			if send && errors.As(err, &rejection) && definiteProviderRejection(rejection) {
+			if claimed && errors.As(err, &rejection) && definiteProviderRejection(rejection) {
 				state = "failed"
 			}
 		} else if result.RefundNo == share.ProviderRefundNo && result.Amount == share.Amount {

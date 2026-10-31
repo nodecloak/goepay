@@ -105,7 +105,20 @@ test("internal transfer sends exact money string and preserves idempotency numbe
     if (req.method() === "POST") {
       body = req.postDataJSON();
       expect(req.headers()["x-csrf-token"]).toBe("token");
-      return route.fulfill(ok({ id: "1" }));
+      return route.fulfill(
+        ok({
+          id: "1",
+          kind: "internal-transfers",
+          merchant_id: "1000",
+          recipient_id: "1001",
+          external_no: body?.external_no,
+          status: "pending",
+          amount: "0.01",
+          amount_cents: "1",
+          external_payout: false,
+          created_at: "2026-10-30T00:00:00Z",
+        }),
+      );
     }
     return route.fulfill(ok({ items: [], total: 0 }));
   });

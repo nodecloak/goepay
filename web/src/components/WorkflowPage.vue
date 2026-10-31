@@ -9,6 +9,7 @@ import {
   onMounted,
   onBeforeUnmount,
   nextTick,
+  inject,
 } from "vue";
 import {
   freshSettlementFilters,
@@ -24,6 +25,14 @@ import KitField from "./KitField.vue";
 import KitSelect from "./KitSelect.vue";
 import SettlementStatistics from "./SettlementStatistics.vue";
 import { ApiClient, ApiError, validAmount } from "../api";
+import {
+  fundsPrincipal212,
+  fundsScope212,
+  FundsIntentStore212,
+  fundsDefinitiveRefusal212,
+  verifiedWorkflow212,
+  type FundsIntent212,
+} from "../funds-intent212";
 import type { Area } from "../menu";
 import { displayValue } from "../api";
 import {
@@ -221,6 +230,84 @@ const form = ref({
   amount: "",
   external_no: "",
 });
+const principalContext212 = inject(fundsPrincipal212, undefined);
+const pendingIntent212 = ref<FundsIntent212 | null>(null),
+  restoringIntent212 = ref(false),
+  intentStorageError212 = ref("");
+let intentStore212: FundsIntentStore212 | null = null,
+  intentEpoch212 = 0;
+const intentMerchant212 = () =>
+  props.area === "admin"
+    ? form.value.merchant_id
+    : props.selfID || principalContext212?.value?.id || "";
+const intentNotice212 = computed(() =>
+  pendingIntent212.value?.phase === "accepted"
+    ? `原申请已登记（${pendingIntent212.value.record?.id}），审批或外部付款结果请以原记录为准。`
+    : "上次申请结果尚未核实；原金额、收款对象/版本和请求号已锁定，请查询原申请或重试原请求。",
+);
+async function restoreIntent212() {
+  const stamp = ++intentEpoch212,
+    payer = intentMerchant212();
+  intentStore212 = null;
+  pendingIntent212.value = null;
+  intentStorageError212.value = "";
+  if (props.workflow === "profitsharing" || !/^[1-9]\d{0,18}$/.test(payer))
+    return;
+  const context =
+    principalContext212?.value ||
+    (props.selfID && props.client.csrfToken
+      ? {
+          area: props.area,
+          id: props.selfID,
+          issuer: "",
+          csrf: props.client.csrfToken,
+        }
+      : null);
+  if (!context) return;
+  restoringIntent212.value = true;
+  try {
+    const scope = await fundsScope212(context);
+    if (stamp !== intentEpoch212 || dialog.value !== "create") return;
+    const store = new FundsIntentStore212(scope, props.workflow, payer),
+      saved = store.read();
+    intentStore212 = store;
+    pendingIntent212.value = saved;
+    if (saved)
+      form.value = {
+        merchant_id: props.area === "admin" ? payer : "",
+        recipient_id: saved.body.recipient_id || "",
+        amount: saved.body.amount,
+        external_no: saved.body.external_no,
+      };
+  } catch (e) {
+    if (stamp === intentEpoch212)
+      intentStorageError212.value =
+        e instanceof Error ? e.message : "无法保存原资金请求";
+  } finally {
+    if (stamp === intentEpoch212) restoringIntent212.value = false;
+  }
+}
+watch(
+  () => [
+    principalContext212?.value,
+    props.client,
+    props.selfID,
+    props.boundMerchantID,
+  ],
+  () => {
+    intentEpoch212++;
+    intentStore212 = null;
+    pendingIntent212.value = null;
+    restoringIntent212.value = false;
+    intentStorageError212.value = "";
+    if (dialog.value === "create") {
+      dialog.value = null;
+      form.value.amount = "";
+      form.value.external_no = "";
+    }
+  },
+  { flush: "sync" },
+);
 let controller: AbortController | undefined,
   fundsController: AbortController | undefined,
   fundsEpoch = 0;
@@ -327,7 +414,15 @@ watch(
   scheduleLivePreview,
   { flush: "post" },
 );
-watch(() => form.value.merchant_id, invalidateFunds, { flush: "sync" });
+watch(
+  () => form.value.merchant_id,
+  () => {
+    invalidateFunds();
+    if (props.area === "admin" && dialog.value === "create")
+      void restoreIntent212();
+  },
+  { flush: "sync" },
+);
 watch(dialog, (value) => {
   if (value !== "create") invalidateFunds();
 });
@@ -510,9 +605,16 @@ function openCreate() {
   dialog.value = "create";
   invalidateFunds();
   if (props.area === "merchant") void loadFunds();
+  void restoreIntent212();
 }
 async function submit() {
-  if (busy.value) return;
+  if (
+    busy.value ||
+    restoringIntent212.value ||
+    pendingIntent212.value ||
+    intentStorageError212.value
+  )
+    return;
   if (
     props.area === "admin" &&
     props.boundMerchantID !== undefined &&
@@ -564,11 +666,9 @@ async function submit() {
       body.expected_net_cents = settlementPreview.value.net_cents;
       body.recipient_config_id = settlementRecipient.value!.config_id;
     }
-    await props.client.request(endpoint, { method: "POST", body });
-    notice.value = "申请已提交，请根据记录状态核实处理结果";
-    dialog.value = null;
-    emit("submitted");
-    if (!props.application) await load();
+    if (!intentStore212)
+      throw new Error("本人会话或本地保存状态尚未核实，尚未发送资金请求");
+    await sendOriginalIntent212({ target: endpoint, body });
   } catch (e) {
     error.value = e instanceof Error ? e.message : "提交失败";
     if (
@@ -581,6 +681,132 @@ async function submit() {
     }
   } finally {
     busy.value = false;
+  }
+}
+async function sendOriginalIntent212(
+  original: Pick<FundsIntent212, "target" | "body">,
+  retry = false,
+) {
+  const stamp = intentEpoch212,
+    store = intentStore212,
+    currentClient = props.client;
+  if (!store) throw new Error("原申请尚未恢复，不能发送");
+  let dispatched = false;
+  let saved = retry ? (original as FundsIntent212) : null;
+  try {
+    const result = await currentClient.request<Record<string, unknown>>(
+      original.target,
+      {
+        method: "POST",
+        body: original.body,
+        beforeDispatch: () => {
+          if (stamp !== intentEpoch212 || currentClient !== props.client)
+            throw new Error("本人会话或原申请已变化，尚未发送");
+          if (!retry) {
+            saved = store.begin(original.target, { ...original.body });
+            pendingIntent212.value = saved;
+          }
+          dispatched = true;
+        },
+      },
+    );
+    if (stamp !== intentEpoch212 || currentClient !== props.client) return;
+    if (!saved) throw new Error("原申请发送状态无法核对");
+    const record = verifiedWorkflow212(result, saved, saved.object);
+    pendingIntent212.value = store.accept(record);
+    // A complete response confirms this application was registered (not paid).
+    // Ordinary successful submissions need no recovery acknowledgement later.
+    if (!retry) {
+      store.clear();
+      pendingIntent212.value = null;
+    }
+    notice.value = "申请已提交并登记，请根据原记录状态核实处理结果";
+    dialog.value = null;
+    emit("submitted");
+    if (!props.application) await load();
+  } catch (e) {
+    if (stamp !== intentEpoch212 || currentClient !== props.client) return;
+    if (!dispatched) {
+      error.value =
+        (retry
+          ? "本次核对或授权未完成，尚未重发；之前的原申请结果仍待核实，已保留原请求。"
+          : "申请尚未发送，请修正或完成核对后提交。") +
+        (e instanceof Error ? e.message : "请求未发送");
+    } else if (!retry && saved && fundsDefinitiveRefusal212(e, saved)) {
+      store.clear();
+      pendingIntent212.value = null;
+      error.value =
+        "本次申请已明确拒绝，未重新发送。" +
+        (e instanceof Error ? e.message : "请求拒绝");
+      settlementPreview.value = null;
+      previewBinding = "";
+    } else
+      error.value =
+        "申请结果尚未核实。已保存原金额、收款对象/版本和请求号，请查询或重试原请求。" +
+        (e instanceof Error ? e.message : "请求失败");
+  }
+}
+async function retryOriginalIntent212() {
+  if (
+    busy.value ||
+    !pendingIntent212.value ||
+    pendingIntent212.value.phase !== "unknown"
+  )
+    return;
+  busy.value = true;
+  error.value = "";
+  try {
+    await sendOriginalIntent212(pendingIntent212.value, true);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "原请求重试未确认";
+  } finally {
+    busy.value = false;
+  }
+}
+async function queryOriginalIntent212() {
+  const saved = pendingIntent212.value,
+    store = intentStore212,
+    stamp = intentEpoch212;
+  if (busy.value || !saved || !store) return;
+  busy.value = true;
+  error.value = "";
+  try {
+    const q = new URLSearchParams({ external_no: saved.body.external_no });
+    if (props.area === "admin") q.set("merchant_id", saved.object);
+    const data = await props.client.request(`${saved.target}/lookup?${q}`);
+    if (stamp !== intentEpoch212) return;
+    pendingIntent212.value = store.accept(
+      verifiedWorkflow212(data, saved, saved.object),
+    );
+  } catch (e) {
+    if (stamp === intentEpoch212)
+      error.value =
+        e instanceof ApiError && e.status === 404
+          ? "尚未查到原申请，不代表未受理；继续保留原请求号，不要重新创建。"
+          : e instanceof Error
+            ? e.message
+            : "原申请查询失败";
+  } finally {
+    if (stamp === intentEpoch212) busy.value = false;
+  }
+}
+async function finishOriginalIntent212() {
+  if (
+    busy.value ||
+    !intentStore212 ||
+    pendingIntent212.value?.phase !== "accepted" ||
+    !pendingIntent212.value.record ||
+    !["pending", "approved", "rejected"].includes(
+      pendingIntent212.value.record.status,
+    )
+  )
+    return;
+  try {
+    intentStore212.clear();
+    pendingIntent212.value = null;
+    openCreate();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "原申请状态未能保存";
   }
 }
 function openDecision(
@@ -846,7 +1072,9 @@ onBeforeUnmount(() => {
         :to="`/${area}/settle/list`"
         >清空筛选</RouterLink
       >
-      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <div v-if="error && !dialog" class="alert error" role="alert">
+        {{ error }}
+      </div>
       <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
       <section class="panel records">
         <div class="table-tools">
@@ -1055,10 +1283,52 @@ onBeforeUnmount(() => {
       </h2>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
       <form v-if="dialog === 'create'" @submit.prevent="submit">
+        <p v-if="restoringIntent212" role="status">正在恢复本人原资金请求…</p>
+        <p v-if="intentStorageError212" class="alert error" role="alert">
+          {{ intentStorageError212 }}
+        </p>
+        <div v-if="pendingIntent212" class="alert" role="status">
+          <p>{{ intentNotice212 }}</p>
+          <p v-if="pendingIntent212.body.recipient_config_id">
+            原收款版本：{{
+              pendingIntent212.body.recipient_config_id
+            }}；重试仅使用此版本，不采用后来修改的收款资料。
+          </p>
+          <div class="toolbar-actions">
+            <button
+              type="button"
+              :disabled="busy"
+              @click="queryOriginalIntent212"
+            >
+              查询原申请
+            </button>
+            <button
+              v-if="pendingIntent212.phase === 'unknown'"
+              type="button"
+              :disabled="busy"
+              @click="retryOriginalIntent212"
+            >
+              重试原申请请求
+            </button>
+            <button
+              v-if="pendingIntent212.phase === 'accepted'"
+              type="button"
+              :disabled="busy"
+              @click="finishOriginalIntent212"
+            >
+              已核对记录，开始新申请
+            </button>
+          </div>
+        </div>
         <label v-if="area === 'admin'"
           >付款商户 ID<input
             v-model="form.merchant_id"
-            :readonly="boundMerchantID !== undefined"
+            :readonly="
+              boundMerchantID !== undefined ||
+              !!pendingIntent212 ||
+              busy ||
+              restoringIntent212
+            "
             required
             inputmode="numeric" /></label
         ><button
@@ -1084,6 +1354,7 @@ onBeforeUnmount(() => {
         <label v-if="workflow === 'internal-transfers'"
           >收款商户 ID<input
             v-model="form.recipient_id"
+            :readonly="!!pendingIntent212 || busy || restoringIntent212"
             required
             inputmode="numeric"
         /></label>
@@ -1092,13 +1363,14 @@ onBeforeUnmount(() => {
           :client="client"
           :admin="area === 'admin'"
           :merchant-i-d="form.merchant_id"
-          :disabled="busy"
+          :disabled="busy || !!pendingIntent212 || restoringIntent212"
           @change="recipientChanged"
         />
         <label
           >金额（元）<span class="settle-amount-row"
             ><input
               v-model="form.amount"
+              :readonly="!!pendingIntent212 || busy || restoringIntent212"
               required
               inputmode="decimal"
               aria-label="金额（元）"
@@ -1106,7 +1378,12 @@ onBeforeUnmount(() => {
               v-if="workflow === 'settlements'"
               type="button"
               class="settle-all-btn"
-              :disabled="busy || !hasCurrentFunds"
+              :disabled="
+                busy ||
+                !hasCurrentFunds ||
+                !!pendingIntent212 ||
+                restoringIntent212
+              "
               @click="fillAll"
             >
               全部
@@ -1135,13 +1412,19 @@ onBeforeUnmount(() => {
           {{ liveError }}
         </p>
         <label
-          >业务请求号<input v-model="form.external_no" required maxlength="128"
+          >业务请求号<input
+            v-model="form.external_no"
+            :readonly="!!pendingIntent212 || busy || restoringIntent212"
+            required
+            maxlength="128"
         /></label>
         <p class="muted">
           重复请求必须保留相同请求号。以记录状态和资金明细为准。
         </p>
         <div
-          v-if="workflow === 'settlements' && settlementPreview"
+          v-if="
+            workflow === 'settlements' && settlementPreview && !pendingIntent212
+          "
           class="alert"
           role="status"
         >
@@ -1175,8 +1458,15 @@ onBeforeUnmount(() => {
           >
             取消</button
           ><button
+            v-if="!pendingIntent212"
             class="primary"
-            :disabled="busy || !hasCurrentFunds || !hasRecipient"
+            :disabled="
+              busy ||
+              !hasCurrentFunds ||
+              !hasRecipient ||
+              restoringIntent212 ||
+              !!intentStorageError212
+            "
           >
             {{
               busy

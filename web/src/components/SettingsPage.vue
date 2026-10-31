@@ -1,13 +1,27 @@
 <script setup lang="ts">
 import CorePaymentRisk from "./CorePaymentRisk.vue";
 import PaymentDefend206 from "./PaymentDefend206.vue";
-import { computed, ref, watch, toRaw, onBeforeUnmount, useId } from "vue";
+import {
+  computed,
+  ref,
+  watch,
+  toRaw,
+  onMounted,
+  onBeforeUnmount,
+  useId,
+  inject,
+  provide,
+  shallowReactive,
+} from "vue";
+import { routerKey } from "vue-router";
+import { settingsDraftRegistry212Key } from "../settings-drafts212";
 import { ApiClient, ApiError } from "../api";
 import type { ResourceSchema } from "../resources";
 import ShellIcon from "./ShellIcon.vue";
 import KitSwitch from "./KitSwitch.vue";
 import KitSelect from "./KitSelect.vue";
 import KitInput from "./KitInput.vue";
+import KitModal from "./KitModal.vue";
 import BusinessNoticeEvents from "./BusinessNoticeEvents.vue";
 import RichTextEditor from "./RichTextEditor.vue";
 import PlatformMerchantAccessSettings from "./PlatformMerchantAccessSettings.vue";
@@ -61,6 +75,15 @@ const active = ref<SettingsTab>("site"),
   uncertain = ref(false),
   error = ref(""),
   notice = ref("");
+const router = inject(routerKey, undefined);
+watch(
+  () => router?.currentRoute.value.query.tab,
+  (tab) => {
+    if (typeof tab === "string" && settingsTabs.some(([key]) => key === tab))
+      active.value = tab as SettingsTab;
+  },
+  { immediate: true },
+);
 const scanBusy = computed(() => scanpayBusy.value || scanJSBusy.value);
 const riskBusy = computed(() => coreRiskBusy.value || paymentDefendBusy.value);
 const canWrite = computed(
@@ -77,9 +100,9 @@ function writable(d: SettingDefinition) {
       : schema.value?.permissions.create)
   );
 }
-const fields = computed(() =>
+const fieldsFor = (tab: SettingsTab) =>
   definitions.value
-    .filter((d) => d.tab === active.value)
+    .filter((d) => d.tab === tab)
     .filter(
       (d) =>
         !["test_pay_uid", "captcha_open_test"].includes(d.key) ||
@@ -99,14 +122,19 @@ const fields = computed(() =>
           d.key === "mail_name" &&
           definitions.value.some((x) => x.key === "mail_recv")
         ),
-    ),
-);
+    );
+const fields = computed(() => fieldsFor(active.value));
 function original(d: SettingDefinition) {
   const r = records.value[d.key];
   return r ? settingDisplay(d, r.value) : settingInitialValue(d);
 }
 // Fields and the separately saved blocks, in the original console's order.
-const blocks = computed(() => settingsBlocks(active.value, fields.value));
+const blocksFor = (tab: SettingsTab) => settingsBlocks(tab, fieldsFor(tab));
+const visitedTabs = ref(new Set<SettingsTab>([active.value]));
+const panelVersion = ref(0);
+watch(active, (tab) => {
+  visitedTabs.value = new Set([...visitedTabs.value, tab]);
+});
 // Inputs are tied to this form by id, so the ordered rows can sit between
 // blocks that carry their own forms and buttons.
 const formId = `settings-form-${useId()}`;
@@ -182,12 +210,81 @@ const controlsBusy = computed(
     uncertain.value,
 );
 const changed = computed(() => fields.value.filter(dirty));
+// Ordinary fields and independently saved panels share one in-memory guard.
+const allChanged = computed(() => definitions.value.filter(dirty));
+const registeredDrafts = shallowReactive(
+  new Map<symbol, { label: string; isDirty: () => boolean }>(),
+);
+const dirtyPanels = computed(() =>
+  [...registeredDrafts.values()].filter((entry) => entry.isDirty()),
+);
+const allChangedCount = computed(
+  () => allChanged.value.length + dirtyPanels.value.length,
+);
+const discardAction = ref<"refresh" | "leave" | "panel-refresh" | null>(null);
+const scopedDiscardLabels = ref<string[] | null>(null);
+const discardLabels = computed(
+  () =>
+    scopedDiscardLabels.value || dirtyPanels.value.map((entry) => entry.label),
+);
+const discardCount = computed(() =>
+  scopedDiscardLabels.value
+    ? scopedDiscardLabels.value.length
+    : allChangedCount.value,
+);
+provide(settingsDraftRegistry212Key, {
+  register(label, isDirty) {
+    const token = Symbol(label);
+    registeredDrafts.set(token, { label, isDirty });
+    return () => registeredDrafts.delete(token);
+  },
+  confirmDiscard: (label) => confirmDiscard("panel-refresh", [label]),
+});
+let resolveDiscard: ((discard: boolean) => void) | undefined;
+function finishDiscard(discard: boolean) {
+  const resolve = resolveDiscard;
+  resolveDiscard = undefined;
+  discardAction.value = null;
+  scopedDiscardLabels.value = null;
+  resolve?.(discard);
+}
+function confirmDiscard(
+  action: "refresh" | "leave" | "panel-refresh",
+  labels?: string[],
+): Promise<boolean> {
+  if (!labels && !allChangedCount.value) return Promise.resolve(true);
+  if (resolveDiscard) return Promise.resolve(false);
+  scopedDiscardLabels.value = labels || null;
+  discardAction.value = action;
+  return new Promise((resolve) => {
+    resolveDiscard = resolve;
+  });
+}
+async function refreshSettings() {
+  if (await confirmDiscard("refresh")) {
+    panelVersion.value++;
+    await load();
+  }
+}
+function warnBeforeUnload(event: BeforeUnloadEvent) {
+  if (!allChangedCount.value) return;
+  event.preventDefault();
+  event.returnValue = "";
+}
+const removeRouteGuard = router?.beforeEach((to, from) =>
+  to.path === from.path ? true : confirmDiscard("leave"),
+);
+onMounted(() => window.addEventListener("beforeunload", warnBeforeUnload));
 let controller: AbortController | undefined,
   alive = true,
   epoch = 0,
   readyClient: ApiClient | undefined,
   readyCSRF = "";
 function resetContext() {
+  finishDiscard(false);
+  registeredDrafts.clear();
+  panelVersion.value++;
+  visitedTabs.value = new Set([active.value]);
   epoch++;
   controller?.abort();
   paymentDefendBusy.value = false;
@@ -442,10 +539,16 @@ const guidance: Partial<Record<SettingsTab, string>> = {
   sms: "当前尚未接入短信业务插件。",
   iptype: "当前不提供在线IP归属服务配置，未采集的地域统计显示未知。",
   advanced:
-    "Go服务的运行参数通过部署配置管理；原PHP/Swoole脚本和在线执行功能不适用。",
+    "服务运行参数通过部署配置管理，当前不支持在线执行脚本。",
 };
 watch(
-  () => [props.client, props.adminClass, props.ownSession] as const,
+  () =>
+    [
+      props.client,
+      props.client.csrfToken,
+      props.adminClass,
+      props.ownSession,
+    ] as const,
   () => {
     resetContext();
     error.value = "";
@@ -454,6 +557,9 @@ watch(
   { immediate: true },
 );
 onBeforeUnmount(() => {
+  removeRouteGuard?.();
+  window.removeEventListener("beforeunload", warnBeforeUnload);
+  finishDiscard(false);
   alive = false;
   epoch++;
   controller?.abort();
@@ -473,7 +579,7 @@ onBeforeUnmount(() => {
           mailBusy ||
           brandBusy
         "
-        @click="load"
+        @click="refreshSettings"
       >
         <ShellIcon name="refresh" />刷新设置
       </button>
@@ -509,256 +615,294 @@ onBeforeUnmount(() => {
           <ShellIcon :name="tabIcons[tab[0]]" />{{ tab[1] }}
         </button>
       </div>
-      <div
-        :id="`settings-panel-${active}`"
-        class="settings-panel"
-        role="tabpanel"
-        :aria-labelledby="`settings-tab-${active}`"
-      >
-        <p v-if="loading" role="status">正在读取设置…</p>
-        <template v-else-if="schema">
-          <form
-            v-if="fields.length"
-            :id="formId"
-            class="settings-form"
-            aria-label="系统设置表单"
-            @submit.prevent="save"
-          ></form>
-          <p v-if="!canWrite" class="muted">
-            当前为只读查看，修改需要本人超级管理员会话。
-          </p>
-          <p v-if="guidance[active]" class="muted">{{ guidance[active] }}</p>
-          <nav
-            v-if="links[active]"
-            class="settings-links"
-            aria-label="相关设置"
-          >
-            <a v-for="link in links[active]" :key="link[0]" :href="link[0]">{{
-              link[1]
-            }}</a>
-          </nav>
-          <MailSettings195
-            v-if="active === 'mail'"
-            :client="client"
-            :admin-class="adminClass"
-            :own-session="ownSession"
-            @busy="mailBusy = $event"
-          />
-          <SmsSettings134
-            v-if="active === 'sms'"
-            :client="client"
-            :admin-class="adminClass"
-            :own-session="ownSession"
-            @busy="smsBusy = $event"
-          />
-          <template v-if="active === 'risk'">
-            <div :inert="paymentDefendBusy">
-              <CorePaymentRisk
-                :client="client"
-                :allowed="adminClass === 'super' && ownSession"
-                @busy="coreRiskBusy = $event"
-              />
-            </div>
-            <PaymentDefend206
+      <template v-for="[panelTab] in settingsTabs" :key="panelTab">
+        <div
+          v-if="visitedTabs.has(panelTab)"
+          v-show="active === panelTab"
+          :key="`${panelTab}:${panelVersion}`"
+          :id="`settings-panel-${panelTab}`"
+          class="settings-panel"
+          role="tabpanel"
+          :aria-labelledby="`settings-tab-${panelTab}`"
+        >
+          <p v-if="loading" role="status">正在读取设置…</p>
+          <template v-else-if="schema">
+            <form
+              v-if="fieldsFor(panelTab).length"
+              :id="`${formId}-${panelTab}`"
+              class="settings-form"
+              aria-label="系统设置表单"
+              @submit.prevent="save"
+            ></form>
+            <p v-if="!canWrite" class="muted">
+              当前为只读查看，修改需要本人超级管理员会话。
+            </p>
+            <p v-if="guidance[panelTab]" class="muted">
+              {{ guidance[panelTab] }}
+            </p>
+            <nav
+              v-if="links[panelTab]"
+              class="settings-links"
+              aria-label="相关设置"
+            >
+              <a
+                v-for="link in links[panelTab]"
+                :key="link[0]"
+                :href="link[0]"
+                >{{ link[1] }}</a
+              >
+            </nav>
+            <MailSettings195
+              v-if="panelTab === 'mail'"
               :client="client"
               :admin-class="adminClass"
               :own-session="ownSession"
-              :disabled="
-                busy ||
-                coreRiskBusy ||
-                platformBusy ||
-                scanBusy ||
-                brandBusy ||
-                mailBusy
-              "
-              @busy="paymentDefendBusy = $event"
+              @busy="mailBusy = $event"
             />
-          </template>
-          <template v-for="block in blocks" :key="block.key">
-            <h3 v-if="block.type === 'group'" class="settings-group">
-              {{ block.title }}
-            </h3>
-            <div v-else-if="block.type === 'embed'" class="settings-embed">
-              <SiteBrandSettings193
-                v-if="block.embed === 'brand'"
+            <SmsSettings134
+              v-if="panelTab === 'sms'"
+              :client="client"
+              :admin-class="adminClass"
+              :own-session="ownSession"
+              @busy="smsBusy = $event"
+            />
+            <template v-if="panelTab === 'risk'">
+              <div :inert="paymentDefendBusy">
+                <CorePaymentRisk
+                  :client="client"
+                  :allowed="adminClass === 'super' && ownSession"
+                  @busy="coreRiskBusy = $event"
+                />
+              </div>
+              <PaymentDefend206
                 :client="client"
                 :admin-class="adminClass"
                 :own-session="ownSession"
-                @busy="brandBusy = $event"
-              />
-              <CaptchaKeySettings203
-                v-else-if="block.embed === 'captcha-key'"
-                :client="client"
-                :admin-class="adminClass"
-                :own-session="ownSession"
-              />
-              <PlatformMerchantAccessSettings
-                v-else-if="
-                  block.embed === 'keylogin' || block.embed === 'user-refund'
-                "
-                :key="block.embed"
-                :client="client"
-                :admin-class="adminClass"
-                :own-session="ownSession"
-                :field="
-                  block.embed === 'keylogin' ? 'close_keylogin' : 'user_refund'
-                "
-                @busy="platformBusy = $event"
-              />
-              <ScanpaySettings192
-                v-else-if="block.embed === 'scanpay'"
-                :client="client"
-                :admin-class="adminClass"
-                :own-session="ownSession"
-                @busy="scanpayBusy = $event"
-              />
-              <ScanJSSettings202
-                v-else-if="block.embed === 'scanjs'"
-                :client="client"
-                :admin-class="adminClass"
-                :own-session="ownSession"
-                @busy="scanJSBusy = $event"
-              />
-              <BuyerFeeSettings104
-                v-else-if="block.embed === 'buyer-fee'"
-                kind="global"
-                :client="client"
-                :allowed="ownSession && adminClass === 'super'"
-                @busy="platformBusy = $event"
-              />
-              <ProxyCredentialSettings
-                v-else-if="block.embed === 'proxy-credentials'"
-                :client="client"
-                :admin-class="adminClass"
-                :own-session="ownSession"
-              />
-              <OAuthCredentialSettings
-                v-else-if="block.embed === 'oauth-credentials'"
-                :client="client"
-                :admin-class="adminClass"
-                :own-session="ownSession"
-              />
-            </div>
-            <div
-              v-else
-              class="setting-field"
-              :class="{
-                'setting-dirty': dirty(block.definition),
-                'setting-required': requiredSettings.has(block.key),
-              }"
-            >
-              <label :id="`setting-label-${block.key}`">{{
-                block.definition.label
-              }}</label>
-              <KitSwitch
-                v-if="isSwitch(block.definition)"
-                :model-value="switchOn(block.definition)"
-                :label="switchOn(block.definition) ? '开启' : '关闭'"
-                :disabled="!writable(block.definition) || controlsBusy"
-                @update:model-value="setSwitch(block.definition, $event)"
-              />
-              <KitSelect
-                v-else-if="block.definition.kind === 'select'"
-                v-model="values[block.key]!"
-                :options="block.definition.options || []"
-                placeholder="未配置（使用系统默认）"
-                :aria-label="block.definition.label"
-                :disabled="!writable(block.definition) || controlsBusy"
-              />
-              <RichTextEditor
-                v-else-if="block.definition.kind === 'html'"
-                v-model="values[block.key]!"
-                :label="block.definition.label"
-                :disabled="!writable(block.definition) || controlsBusy"
-              />
-              <textarea
-                v-else-if="block.definition.kind === 'textarea'"
-                v-model="values[block.key]"
-                class="pa-textarea"
-                rows="4"
-                :aria-label="block.definition.label"
-                :disabled="!writable(block.definition) || controlsBusy"
-                :maxlength="2048"
-                placeholder="未配置，使用系统默认"
-              ></textarea>
-              <KitInput
-                v-else
-                v-model="values[block.key]!"
-                :aria-label="block.definition.label"
-                :type="block.definition.kind === 'email' ? 'email' : 'text'"
-                :inputmode="
-                  block.definition.kind === 'money'
-                    ? 'decimal'
-                    : block.definition.kind === 'integer'
-                      ? 'numeric'
-                      : undefined
-                "
-                :disabled="!writable(block.definition) || controlsBusy"
-                :maxlength="1000"
-                placeholder="未配置，使用系统默认"
-              />
-              <small v-if="block.definition.hint" class="muted">{{
-                block.definition.hint
-              }}</small>
-              <button
-                v-if="dirty(block.definition)"
-                type="button"
-                class="link-button"
                 :disabled="
                   busy ||
+                  coreRiskBusy ||
                   platformBusy ||
-                  riskBusy ||
+                  scanBusy ||
+                  brandBusy ||
+                  mailBusy
+                "
+                @busy="paymentDefendBusy = $event"
+              />
+            </template>
+            <template v-for="block in blocksFor(panelTab)" :key="block.key">
+              <h3 v-if="block.type === 'group'" class="settings-group">
+                {{ block.title }}
+              </h3>
+              <div v-else-if="block.type === 'embed'" class="settings-embed">
+                <SiteBrandSettings193
+                  v-if="block.embed === 'brand'"
+                  :client="client"
+                  :admin-class="adminClass"
+                  :own-session="ownSession"
+                  @busy="brandBusy = $event"
+                />
+                <CaptchaKeySettings203
+                  v-else-if="block.embed === 'captcha-key'"
+                  :client="client"
+                  :admin-class="adminClass"
+                  :own-session="ownSession"
+                />
+                <PlatformMerchantAccessSettings
+                  v-else-if="
+                    block.embed === 'keylogin' || block.embed === 'user-refund'
+                  "
+                  :key="block.embed"
+                  :client="client"
+                  :admin-class="adminClass"
+                  :own-session="ownSession"
+                  :field="
+                    block.embed === 'keylogin'
+                      ? 'close_keylogin'
+                      : 'user_refund'
+                  "
+                  @busy="platformBusy = $event"
+                />
+                <ScanpaySettings192
+                  v-else-if="block.embed === 'scanpay'"
+                  :client="client"
+                  :admin-class="adminClass"
+                  :own-session="ownSession"
+                  @busy="scanpayBusy = $event"
+                />
+                <ScanJSSettings202
+                  v-else-if="block.embed === 'scanjs'"
+                  :client="client"
+                  :admin-class="adminClass"
+                  :own-session="ownSession"
+                  @busy="scanJSBusy = $event"
+                />
+                <BuyerFeeSettings104
+                  v-else-if="block.embed === 'buyer-fee'"
+                  kind="global"
+                  :client="client"
+                  :allowed="ownSession && adminClass === 'super'"
+                  @busy="platformBusy = $event"
+                />
+                <ProxyCredentialSettings
+                  v-else-if="block.embed === 'proxy-credentials'"
+                  :client="client"
+                  :admin-class="adminClass"
+                  :own-session="ownSession"
+                />
+                <OAuthCredentialSettings
+                  v-else-if="block.embed === 'oauth-credentials'"
+                  :client="client"
+                  :admin-class="adminClass"
+                  :own-session="ownSession"
+                />
+              </div>
+              <div
+                v-else
+                class="setting-field"
+                :class="{
+                  'setting-dirty': dirty(block.definition),
+                  'setting-required': requiredSettings.has(block.key),
+                }"
+              >
+                <label :id="`setting-label-${block.key}`">{{
+                  block.definition.label
+                }}</label>
+                <KitSwitch
+                  v-if="isSwitch(block.definition)"
+                  :model-value="switchOn(block.definition)"
+                  :label="switchOn(block.definition) ? '开启' : '关闭'"
+                  :disabled="!writable(block.definition) || controlsBusy"
+                  @update:model-value="setSwitch(block.definition, $event)"
+                />
+                <KitSelect
+                  v-else-if="block.definition.kind === 'select'"
+                  v-model="values[block.key]!"
+                  :options="block.definition.options || []"
+                  placeholder="未配置（使用系统默认）"
+                  :aria-label="block.definition.label"
+                  :disabled="!writable(block.definition) || controlsBusy"
+                />
+                <RichTextEditor
+                  v-else-if="block.definition.kind === 'html'"
+                  v-model="values[block.key]!"
+                  :label="block.definition.label"
+                  :disabled="!writable(block.definition) || controlsBusy"
+                />
+                <textarea
+                  v-else-if="block.definition.kind === 'textarea'"
+                  v-model="values[block.key]"
+                  class="pa-textarea"
+                  rows="4"
+                  :aria-label="block.definition.label"
+                  :disabled="!writable(block.definition) || controlsBusy"
+                  :maxlength="2048"
+                  placeholder="未配置，使用系统默认"
+                ></textarea>
+                <KitInput
+                  v-else
+                  v-model="values[block.key]!"
+                  :aria-label="block.definition.label"
+                  :type="block.definition.kind === 'email' ? 'email' : 'text'"
+                  :inputmode="
+                    block.definition.kind === 'money'
+                      ? 'decimal'
+                      : block.definition.kind === 'integer'
+                        ? 'numeric'
+                        : undefined
+                  "
+                  :disabled="!writable(block.definition) || controlsBusy"
+                  :maxlength="1000"
+                  placeholder="未配置，使用系统默认"
+                />
+                <small v-if="block.definition.hint" class="muted">{{
+                  block.definition.hint
+                }}</small>
+                <button
+                  v-if="dirty(block.definition)"
+                  type="button"
+                  class="link-button"
+                  :disabled="
+                    busy ||
+                    platformBusy ||
+                    riskBusy ||
+                    scanBusy ||
+                    mailBusy ||
+                    brandBusy
+                  "
+                  @click="values[block.key] = original(block.definition)"
+                >
+                  撤销此项编辑
+                </button>
+              </div>
+            </template>
+            <p v-if="!fields.length && active !== 'mail'" class="empty">
+              {{
+                panelTab === "site" ||
+                panelTab === "merchant" ||
+                panelTab === "risk"
+                  ? "该分类暂无其它通用设置项。"
+                  : "该分类当前没有可在线维护的设置项。"
+              }}
+            </p>
+            <div v-if="fieldsFor(panelTab).length" class="settings-actions">
+              <button
+                type="submit"
+                class="primary"
+                :form="`${formId}-${panelTab}`"
+                :disabled="
+                  !canWrite ||
+                  busy ||
+                  platformBusy ||
                   scanBusy ||
                   mailBusy ||
-                  brandBusy
+                  brandBusy ||
+                  uncertain ||
+                  !fieldsFor(panelTab).some(dirty)
                 "
-                @click="values[block.key] = original(block.definition)"
               >
-                撤销此项编辑
-              </button>
+                {{ busy ? "正在保存…" : "保存本页设置" }}</button
+              ><span class="muted"
+                >{{
+                  fieldsFor(panelTab).filter(dirty).length
+                    ? `本页有${fieldsFor(panelTab).filter(dirty).length}项未保存`
+                    : "本页没有未保存修改"
+                }}。未编辑的默认项不会写入。</span
+              >
             </div>
+            <BusinessNoticeEvents
+              v-if="panelTab === 'notice'"
+              :client="client"
+              :own-session="ownSession"
+              :admin-class="adminClass"
+            />
           </template>
-          <p v-if="!fields.length && active !== 'mail'" class="empty">
-            {{
-              active === "site" || active === "merchant" || active === "risk"
-                ? "该分类暂无其它通用设置项。"
-                : "该分类当前没有可在线维护的设置项。"
-            }}
-          </p>
-          <div v-if="fields.length" class="settings-actions">
-            <button
-              type="submit"
-              class="primary"
-              :form="formId"
-              :disabled="
-                !canWrite ||
-                busy ||
-                platformBusy ||
-                scanBusy ||
-                mailBusy ||
-                brandBusy ||
-                uncertain ||
-                !changed.length
-              "
-            >
-              {{ busy ? "正在保存…" : "保存本页设置" }}</button
-            ><span class="muted"
-              >{{
-                changed.length
-                  ? `本页有${changed.length}项未保存`
-                  : "本页没有未保存修改"
-              }}。未编辑的默认项不会写入。</span
-            >
-          </div>
-          <BusinessNoticeEvents
-            v-if="active === 'notice'"
-            :client="client"
-            :own-session="ownSession"
-            :admin-class="adminClass"
-          />
-        </template>
-      </div>
+        </div>
+      </template>
     </div>
+    <KitModal
+      v-if="discardAction"
+      title="放弃未保存的设置？"
+      cancel-text="继续编辑"
+      :submit-text="
+        discardAction === 'refresh'
+          ? '放弃修改并刷新'
+          : discardAction === 'panel-refresh'
+            ? '放弃修改并重新读取'
+            : '放弃修改并离开'
+      "
+      danger
+      @close="finishDiscard(false)"
+      @submit="finishDiscard(true)"
+    >
+      <p>
+        所有分类共{{
+          discardCount
+        }}项设置未保存。继续后将放弃这些修改，不会保存到服务器。
+      </p>
+      <p v-if="discardLabels.length" class="muted">
+        未保存面板：{{ discardLabels.join("、") }}
+      </p>
+    </KitModal>
   </section>
 </template>
 <style scoped>

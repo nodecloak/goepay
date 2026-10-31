@@ -55,6 +55,11 @@ func adminRequestAllowed(user identity.User, parts []string) bool {
 	if len(parts) >= 2 && alwaysAllowedAdminFamily(parts[1]) {
 		return true
 	}
+	// Both channel-sharing pages need the read-only channel capability list.
+	// The handler itself only implements GET for this exact route.
+	if len(parts) == 3 && parts[1] == "channel-sharing" && parts[2] == "channels" {
+		return granted["PsReceiver"] || granted["PsOrder"]
+	}
 	key := routeMenuKey(parts)
 	if key == "" {
 		// Unmapped routes (super-only pages, system operations) are denied to a

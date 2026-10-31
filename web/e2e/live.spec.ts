@@ -1,3 +1,4 @@
+import { expectNoConsoleErrors, logoutConsole } from "./live-console";
 import { readLocalSandboxEnv } from "./local-sandbox-env";
 import { test, expect } from "@playwright/test";
 test.use({ trace: "off" });
@@ -23,11 +24,15 @@ test("live Docker admin and merchant sessions, dashboard, lists, and logout", as
     await page.getByRole("button", { name: "登录工作台" }).click();
     // A failed login must not leave the seed credential in failure snapshots.
     const passwordField = page.getByLabel("密码", { exact: true });
-    if (await passwordField.isVisible()) await passwordField.fill("");
     await expect(page.locator(".stat")).toHaveCount(4);
-    await expect(page.getByRole("alert")).toHaveCount(0);
-    await page.getByRole("link", { name: "订单管理", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "订单管理" })).toBeVisible();
+    await expect(passwordField).toHaveCount(0);
+    await expect(page.locator(".stat")).toHaveCount(4);
+    await expectNoConsoleErrors(page);
+    await page
+      .locator("main")
+      .getByRole("link", { name: "订单管理", exact: true })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`/${area}/trade/order$`));
     await expect(page.getByRole("table")).toBeVisible();
     await page.setViewportSize({ width: 375, height: 812 });
     await expect(page.getByRole("button", { name: "展开菜单" })).toBeVisible();
@@ -48,7 +53,7 @@ test("live Docker admin and merchant sessions, dashboard, lists, and logout", as
       animations: "disabled",
     });
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.getByRole("button", { name: "退出登录" }).click();
+    await logoutConsole(page);
     await expect(
       page.getByRole("button", { name: "登录工作台" }),
     ).toBeVisible();

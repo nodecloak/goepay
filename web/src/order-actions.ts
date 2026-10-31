@@ -10,8 +10,9 @@ export type OrderActionID =
   | "fill"
   | "delete"
   | "restore";
+export type AdminOrderMenuActionID = OrderActionID | "recover-refund";
 export interface OrderAction {
-  id: OrderActionID;
+  id: AdminOrderMenuActionID;
   label: string;
   separatorBefore?: boolean;
 }
@@ -21,6 +22,7 @@ export type MerchantOrderActionID =
   | "query"
   | "notify"
   | "refund"
+  | "recover-refund"
   | "print"
   | "refund-history";
 export function merchantOrderActions(
@@ -42,6 +44,10 @@ export function merchantOrderActions(
       href: "/merchant/record?trade_no=" + encodeURIComponent(trade),
     },
   ];
+  // This flag is populated from the current principal's validated local
+  // intent. Recovery is a read/resume action, never a new refund capability.
+  if (row.local_refund_recovery212 === true)
+    out.push({ id: "recover-refund", label: "核对原退款" });
   if (row.status === "pending" && caps.query === true)
     out.push({ id: "query", label: "手动补单" });
   const money = (v: unknown) =>
@@ -85,6 +91,14 @@ const labels: Record<OrderActionID, string> = {
   restore: "恢复订单",
 };
 export function adminOrderActions(row: Record<string, unknown>): OrderAction[] {
+  const original = adminOrderBusinessActions(row);
+  return row.local_refund_recovery212 === true
+    ? [{ id: "recover-refund", label: "核对原退款" }, ...original]
+    : original;
+}
+function adminOrderBusinessActions(
+  row: Record<string, unknown>,
+): OrderAction[] {
   const item = (id: OrderActionID, separatorBefore = false): OrderAction => ({
     id,
     label: labels[id],

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, toRaw, watch } from "vue";
 import { ApiClient } from "../api";
+import { useSettingsDraft212 } from "../settings-drafts212";
 import {
   mailFields194,
   mailValues194,
@@ -26,6 +27,17 @@ const allowed = computed(
     props.adminClass === "super" &&
     props.ownSession,
 );
+const unresolvedDraft = ref(false);
+const { confirmDiscard: confirmDraftDiscard } = useSettingsDraft212(
+  "邮件发送频率",
+  () =>
+    unresolvedDraft.value ||
+    (!!state.value &&
+      !!draft.value &&
+      mailFields194.some(
+        ([key]) => String(draft.value![key]) !== String(state.value![key]),
+      )),
+);
 let epoch = 0,
   alive = true,
   controller: AbortController | undefined,
@@ -40,6 +52,7 @@ function clear() {
   busy.value = false;
   readyClient = undefined;
   readyCSRF = "";
+  unresolvedDraft.value = false;
 }
 function current(
   run: number,
@@ -61,7 +74,23 @@ function current(
 }
 async function load() {
   if (!allowed.value || busy.value || loading.value) return;
+  const discardEpoch = epoch,
+    discardClient = toRaw(props.client),
+    discardCSRF = discardClient.csrfToken;
+  if (
+    !(await confirmDraftDiscard()) ||
+    !alive ||
+    discardEpoch !== epoch ||
+    !allowed.value ||
+    busy.value ||
+    loading.value ||
+    discardClient !== toRaw(props.client) ||
+    discardCSRF !== toRaw(props.client).csrfToken
+  )
+    return;
+  const wasUnresolved = unresolvedDraft.value;
   clear();
+  unresolvedDraft.value = wasUnresolved;
   error.value = "";
   notice.value = "";
   const run = epoch,
@@ -77,6 +106,7 @@ async function load() {
     if (!current(run, client, csrf, ac.signal)) return;
     state.value = v;
     draft.value = mailValues194(v);
+    unresolvedDraft.value = false;
     readyClient = client;
     readyCSRF = csrf;
   } catch {
@@ -131,11 +161,13 @@ async function save() {
       throw Error("保存结果无法确认，请重新读取");
     state.value = saved;
     draft.value = mailValues194(saved);
+    unresolvedDraft.value = false;
     notice.value = "保存成功";
   } catch {
     if (current(run, client, csrf, ac.signal)) {
       state.value = null;
       draft.value = null;
+      unresolvedDraft.value = true;
       error.value = "保存结果无法确认，请重新读取后核对";
     }
   } finally {
@@ -143,7 +175,12 @@ async function save() {
   }
 }
 watch(
-  () => [props.client, props.adminClass, props.ownSession],
+  () => [
+    props.client,
+    props.client.csrfToken,
+    props.adminClass,
+    props.ownSession,
+  ],
   () => {
     clear();
     void load();

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { ApiClient } from "../api";
+import { useSettingsDraft212 } from "../settings-drafts212";
 import {
   readBrand193,
   uploadBrand193,
@@ -16,6 +17,7 @@ const emit = defineEmits<{ busy: [value: boolean] }>();
 const state = ref<Brand193 | null>(null),
   loading = ref(false),
   busy = ref(false),
+  unresolvedUpload = ref(false),
   error = ref(""),
   notice = ref("");
 const allowed = computed(
@@ -23,6 +25,10 @@ const allowed = computed(
     props.client.area === "admin" &&
     props.adminClass === "super" &&
     props.ownSession,
+);
+const { confirmDiscard: confirmDraftDiscard } = useSettingsDraft212(
+  "品牌图片上传",
+  () => busy.value || unresolvedUpload.value,
 );
 let epoch = 0,
   alive = true,
@@ -32,6 +38,15 @@ function valid(run: number, signal: AbortSignal) {
 }
 async function load() {
   if (!allowed.value || busy.value || loading.value) return;
+  const discardEpoch = epoch;
+  if (
+    !(await confirmDraftDiscard()) ||
+    discardEpoch !== epoch ||
+    !allowed.value ||
+    busy.value ||
+    loading.value
+  )
+    return;
   const run = ++epoch,
     ac = new AbortController();
   controller?.abort();
@@ -44,7 +59,10 @@ async function load() {
     const v = readBrand193(
       await props.client.request("/settings/branding", { signal: ac.signal }),
     );
-    if (valid(run, ac.signal)) state.value = v;
+    if (valid(run, ac.signal)) {
+      state.value = v;
+      unresolvedUpload.value = false;
+    }
   } catch {
     if (valid(run, ac.signal)) error.value = "品牌图片设置无法确认，请重新读取";
   } finally {
@@ -61,6 +79,15 @@ async function upload(slot: "logo" | "icon", event: Event) {
   controller?.abort();
   controller = ac;
   busy.value = true;
+  // Invalid files are rejected locally by uploadBrand193 before any request.
+  // Only a valid, immediately submitted file can have an unknown upload result.
+  unresolvedUpload.value =
+    file.size > 0 &&
+    file.size < 2 * 1024 * 1024 &&
+    (!file.type ||
+      ["image/png", "image/jpeg", "image/jpg", "image/gif"].includes(
+        file.type,
+      ));
   error.value = "";
   notice.value = "";
   try {
@@ -81,6 +108,7 @@ async function upload(slot: "logo" | "icon", event: Event) {
     )
       throw new Error("上传结果无法确认，请重新读取");
     state.value = v;
+    unresolvedUpload.value = false;
     notice.value = (slot === "logo" ? "首页LOGO" : "全局LOGO") + "上传成功";
     refreshBrand193();
   } catch (e) {
@@ -107,6 +135,7 @@ watch(
     state.value = null;
     loading.value = false;
     busy.value = false;
+    unresolvedUpload.value = false;
     error.value = "";
     notice.value = "";
     void load();

@@ -1,48 +1,55 @@
 {{define "content"}}
 <h1 id="可用余额查询">可用余额查询</h1>
-<blockquote>查询商户当前可用于代付转账的余额及手续费率。</blockquote>
-<h4 id="请求地址">请求地址：</h4>
+<blockquote><p>Go 版接口：读取当前商户可用于转账出账的余额口径，不预占资金或承诺转账一定获批。</p></blockquote>
+<h2 id="请求地址">请求地址</h2>
 <p><code class="doc-url">{{.API}}api/transfer/balance</code></p>
-<h4 id="请求方式">请求方式：</h4>
-<p>POST</p>
-<h4 id="请求参数说明">请求参数说明：</h4>
+<h2 id="请求方式">请求方式</h2>
+<p><code>POST</code>，UTF-8，<code>application/x-www-form-urlencoded</code>。除页面跳转接口外，V2 不接受 GET。</p>
+<h2 id="请求参数说明">请求参数说明</h2>
 <div class="doc-table"><table>
-<thead><tr><th>字段名</th><th>变量名</th><th>必填</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
 <tbody>
-<tr><td>商户ID</td><td>pid</td><td>是</td><td>Int</td><td>1001</td><td> </td></tr>
-<tr><td>当前时间戳</td><td>timestamp</td><td>是</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
-<tr><td>签名字符串</td><td>sign</td><td>是</td><td>String</td><td> </td><td>参考签名规则</td></tr>
-<tr><td>签名类型</td><td>sign_type</td><td>是</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr>
+<tr><td>pid</td><td>是</td><td>商户 ID，正整数，以商户后台 API 信息为准。</td></tr>
+<tr><td>timestamp</td><td>是</td><td>当前 Unix 时间戳，十进制整数秒；请求时间与服务器相差不超过 300 秒。</td></tr>
+<tr><td>sign_type</td><td>是</td><td>固定为 <code>RSA</code>；不会为 V2 请求自动改用 MD5。</td></tr>
+<tr><td>sign</td><td>是</td><td>商户私钥生成的 SHA256WithRSA / PKCS#1 v1.5 签名，标准 Base64 字符串。</td></tr>
 </tbody>
 </table></div>
-<p class="doc-note">本接口需商户在后台开启代付API接口开关，未开启时返回“merchant transfer API unavailable”。</p>
-<h4 id="返回参数说明">返回参数说明：</h4>
+<p>所有请求参数先按<a href="/doc/sign_note.html">签名规则</a>签名，再进行表单编码。字段只允许唯一标量值；重复键、数组形式及歧义参数名会被拒绝。</p>
+<h2 id="处理规则">处理规则</h2>
+<ul>
+<li>必须拥有商户代付授权及有效转账 API 权限；未开放时返回 merchant transfer API unavailable。</li>
+<li>available_money 是考虑当前出账限制后的可用额度，ledger_available_money 是账务可用额，二者可能不同。并发操作后额度会变化，实际写入仍做事务校验。</li>
+<li>transfer_rate 是商户当前配置费率，不是所有产品最终总费用报价。上游费用、最低费用或银行卡状态由产品及交易核验决定。</li>
+</ul>
+<h2 id="返回参数说明">返回参数说明</h2>
 <div class="doc-table"><table>
-<thead><tr><th>字段名</th><th>变量名</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<thead><tr><th>参数</th><th>类型</th><th>说明</th></tr></thead>
 <tbody>
-<tr><td>返回状态码</td><td>code</td><td>Int</td><td>0</td><td>0为成功，其它值为失败</td></tr>
-<tr><td>错误信息</td><td>msg</td><td>String</td><td> </td><td>失败时返回原因</td></tr>
-<tr><td>商户可用余额</td><td>available_money</td><td>String</td><td>1.00</td><td>单位：元，当前可用于代付的余额（已扣除今日受限金额）</td></tr>
-<tr><td>账户余额</td><td>ledger_available_money</td><td>String</td><td>1.00</td><td>单位：元，商户账户中的可用余额总额</td></tr>
-<tr><td>今日受限金额</td><td>today_blocked_money</td><td>String</td><td>0.00</td><td>单位：元，T+1 结算时今日收款暂不可出账的金额；T+0 时为 0.00</td></tr>
-<tr><td>结算周期</td><td>settle_type</td><td>Int</td><td>0</td><td>0：T+0，1：T+1</td></tr>
-<tr><td>转账手续费率</td><td>transfer_rate</td><td>String</td><td>3</td><td>单位：%</td></tr>
-<tr><td>当前时间戳</td><td>timestamp</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
-<tr><td>签名字符串</td><td>sign</td><td>String</td><td> </td><td>参考签名规则</td></tr>
-<tr><td>签名类型</td><td>sign_type</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr>
+<tr><td>code</td><td>Number</td><td>V2：0 表示本次接口调用完成；-1 表示错误或需要继续核对，不等于资金最终状态。</td></tr>
+<tr><td>msg</td><td>String</td><td>按返回分支出现的说明，客户端不应依赖固定中文文案。</td></tr>
+<tr><td>timestamp</td><td>String</td><td>平台签名时的 Unix 整数秒。</td></tr>
+<tr><td>sign_type</td><td>String</td><td>RSA。</td></tr>
+<tr><td>sign</td><td>String</td><td>使用平台公钥验证的签名。</td></tr>
+<tr><td>available_money</td><td>String</td><td>当前可出账金额，单位元。</td></tr>
+<tr><td>ledger_available_money</td><td>String</td><td>账务可用余额，单位元。</td></tr>
+<tr><td>today_blocked_money</td><td>String</td><td>当前今日受限金额，T+1 时可能不可出账。</td></tr>
+<tr><td>settle_type</td><td>Number</td><td>出账周期：0 为 T+0，1 为 T+1。</td></tr>
+<tr><td>transfer_rate</td><td>String</td><td>商户转账服务费率，百分比配置。</td></tr>
 </tbody>
 </table></div>
-<p class="doc-note">除原版的 available_money 与 transfer_rate 外，本站还返回 ledger_available_money（账户余额）、today_blocked_money（今日受限金额）与 settle_type（结算周期）三个字段。</p>
-<h4 id="返回示例">返回示例：</h4>
+<p class="doc-note">先检查 HTTP 状态和响应格式，再验证平台签名及 timestamp，最后读取业务字段。平台密钥可用时，正常业务错误也会签名；裸 HTTP 参数/方法错误或签名基础设施不可用时，响应可能没有签名，不能把它当作可信成功结果。</p>
+<h2 id="返回示例">返回示例</h2>
 <pre><code>{
-    "code": 0,
-    "available_money": "1.00",
-    "ledger_available_money": "1.00",
-    "today_blocked_money": "0.00",
-    "settle_type": 0,
-    "transfer_rate": "3",
-    "timestamp": "1721206072",
-    "sign_type": "RSA",
-    "sign": "xxxxxxxx"
+  &quot;code&quot;: 0,
+  &quot;available_money&quot;: &quot;20.00&quot;,
+  &quot;ledger_available_money&quot;: &quot;30.00&quot;,
+  &quot;today_blocked_money&quot;: &quot;10.00&quot;,
+  &quot;settle_type&quot;: 1,
+  &quot;transfer_rate&quot;: &quot;3&quot;,
+  &quot;timestamp&quot;: &quot;1793400000&quot;,
+  &quot;sign_type&quot;: &quot;RSA&quot;,
+  &quot;sign&quot;: &quot;BASE64_SIGNATURE&quot;
 }</code></pre>
+<p class="doc-note">示例中的编号、时间和签名仅用于说明字段；请求时生成当前时间戳和真实签名，不能直接复制示例签名。</p>
 {{end}}

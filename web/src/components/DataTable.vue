@@ -6,7 +6,7 @@ import KitPayMethod from "./KitPayMethod.vue";
 import KitEmpty from "./KitEmpty.vue";
 import KitStatusTag from "./KitStatusTag.vue";
 import type { MerchantOrderActionID } from "../order-actions";
-import type { OrderActionID } from "../order-actions";
+import type { AdminOrderMenuActionID } from "../order-actions";
 import { beijingTimestamp } from "../console-datetime";
 import { isOrderNumberKey } from "../order-number";
 import {
@@ -37,7 +37,10 @@ const emit = defineEmits<{
   "selection-change": [trades: string[]];
   refund: [row: Record<string, unknown>];
   detail: [row: Record<string, unknown>];
-  "order-action": [row: Record<string, unknown>, action: OrderActionID];
+  "order-action": [
+    row: Record<string, unknown>,
+    action: AdminOrderMenuActionID,
+  ];
   "merchant-order-action": [
     row: Record<string, unknown>,
     action: MerchantOrderActionID,
@@ -360,6 +363,35 @@ function refunded(row: Record<string, unknown>): boolean {
               :title="orderNumbersTitle(row)"
               >{{ String(row.out_trade_no) }}</small
             >
+            <div
+              v-if="orders && c.key === 'trade_no'"
+              class="order-mobile-summary"
+              aria-label="订单金额与支付状态"
+            >
+              <strong>订单金额 ¥{{ money(row.amount) }}</strong>
+              <span
+                >支付状态：{{ consoleValue("status", row.status, true) }}</span
+              >
+              <span
+                v-if="
+                  adminOrders &&
+                  row.admin_status &&
+                  row.admin_status !== row.status
+                "
+                class="muted"
+                >后台标记：{{
+                  consoleValue("status", row.admin_status, true)
+                }}</span
+              >
+              <span
+                v-if="row.income_status === 'held'"
+                class="order-flag--warning"
+                >收入冻结中</span
+              >
+              <span v-if="refunded(row)" class="order-flag--danger"
+                >已退款 ¥{{ money(row.refunded_amount) }}</span
+              >
+            </div>
             <small
               v-if="orders && c.key === 'merchant_id'"
               class="cell muted order-ellipsis"
@@ -467,6 +499,30 @@ function refunded(row: Record<string, unknown>): boolean {
   </div>
 </template>
 <style scoped>
+.order-mobile-summary {
+  display: none;
+}
+@media (max-width: 640px) {
+  .order-table .col-trade_no {
+    min-width: 170px;
+    width: 170px;
+  }
+  .order-mobile-summary {
+    display: grid;
+    gap: 4px;
+    max-width: 180px;
+    margin-top: 7px;
+    font-size: 12px;
+    line-height: 17px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .order-mobile-summary strong {
+    font-size: 13px;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+}
 .trade-table:not(.order-table) .identifier-cell {
   min-width: 200px;
   width: 240px;

@@ -1,65 +1,67 @@
 {{define "content"}}
 <h1 id="查询商户信息">查询商户信息</h1>
-<blockquote>查询商户的基本信息、余额与订单统计数据。</blockquote>
-<h4 id="请求地址">请求地址：</h4>
+<blockquote><p>Go 版接口：读取当前已认证商户的状态、账务可用余额及订单统计，不返回商户私钥。</p></blockquote>
+<h2 id="请求地址">请求地址</h2>
 <p><code class="doc-url">{{.API}}api/merchant/info</code></p>
-<h4 id="请求方式">请求方式：</h4>
-<p>POST</p>
-<h4 id="请求参数说明">请求参数说明：</h4>
+<h2 id="请求方式">请求方式</h2>
+<p><code>POST</code>，UTF-8，<code>application/x-www-form-urlencoded</code>。除页面跳转接口外，V2 不接受 GET。</p>
+<h2 id="请求参数说明">请求参数说明</h2>
 <div class="doc-table"><table>
-<thead><tr><th>字段名</th><th>变量名</th><th>必填</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
 <tbody>
-<tr><td>商户ID</td><td>pid</td><td>是</td><td>Int</td><td>1001</td><td> </td></tr>
-<tr><td>当前时间戳</td><td>timestamp</td><td>是</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
-<tr><td>签名字符串</td><td>sign</td><td>是</td><td>String</td><td> </td><td>参考签名规则</td></tr>
-<tr><td>签名类型</td><td>sign_type</td><td>是</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr>
+<tr><td>pid</td><td>是</td><td>商户 ID，正整数，以商户后台 API 信息为准。</td></tr>
+<tr><td>timestamp</td><td>是</td><td>当前 Unix 时间戳，十进制整数秒；请求时间与服务器相差不超过 300 秒。</td></tr>
+<tr><td>sign_type</td><td>是</td><td>固定为 <code>RSA</code>；不会为 V2 请求自动改用 MD5。</td></tr>
+<tr><td>sign</td><td>是</td><td>商户私钥生成的 SHA256WithRSA / PKCS#1 v1.5 签名，标准 Base64 字符串。</td></tr>
 </tbody>
 </table></div>
-<h4 id="返回参数说明">返回参数说明：</h4>
+<p>所有请求参数先按<a href="/doc/sign_note.html">签名规则</a>签名，再进行表单编码。字段只允许唯一标量值；重复键、数组形式及歧义参数名会被拒绝。</p>
+<h2 id="返回参数说明">返回参数说明</h2>
 <div class="doc-table"><table>
-<thead><tr><th>字段名</th><th>变量名</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<thead><tr><th>参数</th><th>类型</th><th>说明</th></tr></thead>
 <tbody>
-<tr><td>返回状态码</td><td>code</td><td>Int</td><td>0</td><td>0为成功，其它值为失败</td></tr>
-<tr><td>错误信息</td><td>msg</td><td>String</td><td> </td><td>失败时返回原因</td></tr>
-<tr><td>商户ID</td><td>pid</td><td>Int</td><td>1001</td><td> </td></tr>
-<tr><td>商户状态</td><td>status</td><td>Int</td><td>1</td><td>固定返回 1（正常）</td></tr>
-<tr><td>支付状态</td><td>pay_status</td><td>Int</td><td>1</td><td>0：关闭，1：开启</td></tr>
-<tr><td>结算状态</td><td>settle_status</td><td>Int</td><td>1</td><td>0：关闭，1：开启</td></tr>
-<tr><td>商户余额</td><td>money</td><td>String</td><td>50.00</td><td>单位：元</td></tr>
-<tr><td>结算方式</td><td>settle_type</td><td>Int</td><td>0</td><td>本站暂不通过接口返回，固定为 0</td></tr>
-<tr><td>结算账户</td><td>settle_account</td><td>String</td><td> </td><td>本站暂不通过接口返回，固定为空</td></tr>
-<tr><td>结算账户姓名</td><td>settle_name</td><td>String</td><td> </td><td>本站暂不通过接口返回，固定为空</td></tr>
-<tr><td>订单总数量</td><td>order_num</td><td>Int</td><td>10</td><td> </td></tr>
-<tr><td>今日订单数量</td><td>order_num_today</td><td>Int</td><td>3</td><td> </td></tr>
-<tr><td>昨日订单数量</td><td>order_num_lastday</td><td>Int</td><td>2</td><td> </td></tr>
-<tr><td>今日订单收入</td><td>order_money_today</td><td>String</td><td>45.00</td><td>单位：元</td></tr>
-<tr><td>昨日订单收入</td><td>order_money_lastday</td><td>String</td><td>35.00</td><td>单位：元</td></tr>
-<tr><td>当前时间戳</td><td>timestamp</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
-<tr><td>签名字符串</td><td>sign</td><td>String</td><td> </td><td>参考签名规则</td></tr>
-<tr><td>签名类型</td><td>sign_type</td><td>String</td><td>RSA</td><td>默认为RSA</td></tr>
+<tr><td>code</td><td>Number</td><td>V2：0 表示本次接口调用完成；-1 表示错误或需要继续核对，不等于资金最终状态。</td></tr>
+<tr><td>msg</td><td>String</td><td>按返回分支出现的说明，客户端不应依赖固定中文文案。</td></tr>
+<tr><td>timestamp</td><td>String</td><td>平台签名时的 Unix 整数秒。</td></tr>
+<tr><td>sign_type</td><td>String</td><td>RSA。</td></tr>
+<tr><td>sign</td><td>String</td><td>使用平台公钥验证的签名。</td></tr>
+<tr><td>pid</td><td>Number</td><td>当前商户 ID。</td></tr>
+<tr><td>status</td><td>Number</td><td>能通过此入口读取的启用商户返回 1。</td></tr>
+<tr><td>pay_status</td><td>Number</td><td>商户支付开关状态，实际下单还须通过平台及通道策略。</td></tr>
+<tr><td>settle_status</td><td>Number</td><td>按当前商户结算权限解析的 0/1 标记。</td></tr>
+<tr><td>money</td><td>String</td><td>账务可用余额，单位元；不等同转账当前可出账额度。</td></tr>
+<tr><td>settle_type / settle_account / settle_name</td><td>Number / String / String</td><td>结算方式及收款资料；settle_type 不是转账余额页的 T+0/T+1 字段。</td></tr>
+<tr><td>order_num</td><td>Number</td><td>订单总数。</td></tr>
+<tr><td>order_num_today / order_num_lastday</td><td>Number</td><td>按订单创建时间统计的今日/昨日订单数，包含未付订单。</td></tr>
+<tr><td>order_money_today / order_money_lastday</td><td>String</td><td>对应创建日期区间内当前 paid 订单的商品金额合计，单位元。</td></tr>
 </tbody>
 </table></div>
-<p class="doc-note">商户状态 status 恒为 1；本站对已封禁或待审核商户不会放行到本接口，因此不会返回 0 或 2。</p>
-<p class="doc-note">今日、昨日订单数量（order_num_today / order_num_lastday）统计的是当日创建的全部订单；今日、昨日订单收入（order_money_today / order_money_lastday）仅统计当日已支付订单金额。时间按东八区（UTC+8）自然日划分。</p>
-<p class="doc-note">结算账户请在商户后台的结算设置中查看；本接口的 settle_type、settle_account、settle_name 字段为兼容原版而保留。</p>
-<h4 id="返回示例">返回示例：</h4>
+<p class="doc-note">先检查 HTTP 状态和响应格式，再验证平台签名及 timestamp，最后读取业务字段。平台密钥可用时，正常业务错误也会签名；裸 HTTP 参数/方法错误或签名基础设施不可用时，响应可能没有签名，不能把它当作可信成功结果。</p>
+<h2 id="处理规则">处理规则</h2>
+<ul>
+<li>今日/昨日边界为业务时区东八区。统计基于订单创建时间，不是支付完成时间，也不是退款后净收入。</li>
+<li>本 V2 响应不返回 key；商户签名私钥只能从商户密钥管理流程安全获取。</li>
+<li>需要判断可出账余额时使用<a href="/doc/transfer_balance.html">转账可用余额</a>并满足相应权限，不能仅依据 money 发起资金操作。</li>
+</ul>
+<h2 id="返回示例">返回示例</h2>
 <pre><code>{
-    "code": 0,
-    "pid": 1001,
-    "status": 1,
-    "pay_status": 1,
-    "settle_status": 1,
-    "money": "50.00",
-    "settle_type": 0,
-    "settle_account": "",
-    "settle_name": "",
-    "order_num": 10,
-    "order_num_today": 3,
-    "order_num_lastday": 2,
-    "order_money_today": "45.00",
-    "order_money_lastday": "35.00",
-    "timestamp": "1721206072",
-    "sign_type": "RSA",
-    "sign": "xxxxxxxx"
+  &quot;code&quot;: 0,
+  &quot;pid&quot;: 1001,
+  &quot;status&quot;: 1,
+  &quot;pay_status&quot;: 1,
+  &quot;settle_status&quot;: 1,
+  &quot;money&quot;: &quot;100.00&quot;,
+  &quot;settle_type&quot;: 0,
+  &quot;settle_account&quot;: &quot;&quot;,
+  &quot;settle_name&quot;: &quot;&quot;,
+  &quot;order_num&quot;: 20,
+  &quot;order_num_today&quot;: 3,
+  &quot;order_num_lastday&quot;: 5,
+  &quot;order_money_today&quot;: &quot;1.00&quot;,
+  &quot;order_money_lastday&quot;: &quot;5.00&quot;,
+  &quot;timestamp&quot;: &quot;1793400000&quot;,
+  &quot;sign_type&quot;: &quot;RSA&quot;,
+  &quot;sign&quot;: &quot;BASE64_SIGNATURE&quot;
 }</code></pre>
+<p class="doc-note">示例中的编号、时间和签名仅用于说明字段；请求时生成当前时间戳和真实签名，不能直接复制示例签名。</p>
 {{end}}

@@ -134,6 +134,16 @@ it("an uncertain save discards its draft and requires an explicit fresh read wit
     .find((b) => b.text() === "重新读取邮件频率配置")!
     .trigger("click");
   await flushPromises();
+  const confirm = document.querySelector(
+    '[role="dialog"][aria-label="放弃未保存的设置？"]',
+  );
+  expect(confirm).not.toBeNull();
+  const reread = [...confirm!.querySelectorAll("button")].find(
+    (b) => b.textContent?.trim() === "放弃修改并重新读取",
+  );
+  expect(reread).toBeDefined();
+  reread!.click();
+  await flushPromises();
   expect(writes).toHaveLength(1);
   expect(w.find('form[aria-label="邮件发送频率配置"]').exists()).toBe(true);
   w.unmount();

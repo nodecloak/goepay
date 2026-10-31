@@ -58,12 +58,13 @@ type Page struct {
 type Service struct {
 	// Supplied by the host from its actual configured providers, never the
 	// unrelated editable channel directory or a request-supplied identity.
-	GroupChannelAllowed  func(int64, string) bool
-	GroupRoutingChannels func() ([]GroupPaymentChannel, error)
-	RechargeValidate     func(context.Context, int64, map[string]string) error
-	RechargeStart        func(context.Context, int64, string, map[string]string) (string, error)
-	pool                 *pgxpool.Pool
-	store                *payment.Store
+	GroupChannelAllowed   func(int64, string) bool
+	GroupRoutingChannels  func() ([]GroupPaymentChannel, error)
+	RechargeValidate      func(context.Context, int64, map[string]string) error
+	RechargeStart         func(context.Context, int64, string, map[string]string) (string, error)
+	SettlementConfirmURLs func(context.Context, []int64) (map[int64]string, error)
+	pool                  *pgxpool.Pool
+	store                 *payment.Store
 }
 
 func New(pool *pgxpool.Pool, store *payment.Store) *Service {

@@ -3,11 +3,14 @@ package server
 import (
 	"context"
 	"crypto/subtle"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	connect "goepay/internal/adapters/connectlogin"
 	"goepay/internal/connectconfig"
 	"goepay/internal/connectstate135"
@@ -420,6 +423,9 @@ func (s *Server) connectComplete(w http.ResponseWriter, r *http.Request) bool {
 	if e = tx.QueryRow(r.Context(), `SELECT id FROM merchants WHERE profile->>$1=$2 AND id<>$3 LIMIT 1`, uidKey, pending.SocialUID, mid).Scan(&other); e == nil {
 		response(w, 409, -1, "该第三方账号已被其他商户绑定", nil)
 		return true
+	} else if !errors.Is(e, pgx.ErrNoRows) {
+		s.fail(w, e)
+		return true
 	}
 	var enabled bool
 	if e = tx.QueryRow(r.Context(), `SELECT enabled FROM merchants WHERE id=$1 FOR UPDATE`, mid).Scan(&enabled); e != nil || !enabled {
@@ -427,6 +433,11 @@ func (s *Server) connectComplete(w http.ResponseWriter, r *http.Request) bool {
 		return true
 	}
 	if _, e = tx.Exec(r.Context(), `UPDATE merchants SET profile=COALESCE(profile,'{}'::jsonb)||jsonb_build_object($2::text,$3::text)WHERE id=$1 AND enabled`, mid, uidKey, pending.SocialUID); e != nil {
+		var pg *pgconn.PgError
+		if errors.As(e, &pg) && pg.Code == "23505" {
+			response(w, 409, -1, "该第三方账号已被其他商户绑定", nil)
+			return true
+		}
 		s.fail(w, e)
 		return true
 	}
@@ -466,6 +477,9 @@ func (s *Server) connectBindOpenID(w http.ResponseWriter, r *http.Request, provi
 	if e == nil {
 		response(w, 409, -1, "该第三方账号已被其他商户绑定", nil)
 		return true
+	} else if !errors.Is(e, pgx.ErrNoRows) {
+		s.fail(w, e)
+		return true
 	}
 	var enabled bool
 	if e = tx.QueryRow(r.Context(), `SELECT enabled FROM merchants WHERE id=$1 FOR UPDATE`, merchant).Scan(&enabled); e != nil || !enabled {
@@ -473,6 +487,11 @@ func (s *Server) connectBindOpenID(w http.ResponseWriter, r *http.Request, provi
 		return true
 	}
 	if _, e = tx.Exec(r.Context(), `UPDATE merchants SET profile=COALESCE(profile,'{}'::jsonb)||jsonb_build_object($2::text,$3::text)WHERE id=$1 AND enabled`, merchant, uidKey, openid); e != nil {
+		var pg *pgconn.PgError
+		if errors.As(e, &pg) && pg.Code == "23505" {
+			response(w, 409, -1, "该第三方账号已被其他商户绑定", nil)
+			return true
+		}
 		s.fail(w, e)
 		return true
 	}
@@ -501,8 +520,11 @@ func (s *Server) connectLoginOpenID(w http.ResponseWriter, r *http.Request, prov
 	uidKey := connectUIDKey(provider)
 	var mid int64
 	var username string
+	var version int64
 	var enabled bool
-	e := s.Pool.QueryRow(r.Context(), `SELECT m.id,m.enabled,COALESCE((SELECT min(username)FROM console_users WHERE role='merchant' AND subject_id=m.id AND enabled),'')FROM merchants m WHERE m.profile->>$1=$2 LIMIT 1`, uidKey, openid).Scan(&mid, &enabled, &username)
+	e := s.Pool.QueryRow(r.Context(), `SELECT m.id,m.enabled,COALESCE(u.username,''),COALESCE(u.auth_version,0)
+ FROM merchants m LEFT JOIN LATERAL (SELECT username,auth_version FROM console_users WHERE role='merchant' AND subject_id=m.id AND enabled ORDER BY username LIMIT 1) u ON true
+ WHERE m.profile->>$1=$2 LIMIT 1`, uidKey, openid).Scan(&mid, &enabled, &username, &version)
 	if e != nil || !enabled || username == "" {
 		// Unknown identity — never auto-login/register. Record a single-use
 		// pending-connect and land on the login page with the original prompt.
@@ -515,7 +537,15 @@ func (s *Server) connectLoginOpenID(w http.ResponseWriter, r *http.Request, prov
 		http.Redirect(w, r, base+"/merchant/login?connect="+url.QueryEscape(pending), http.StatusFound)
 		return true
 	}
-	user := identity.User{ID: mid, Role: "merchant", Username: username, AuthVersion: 1}
+	// A provider callback does not include an authenticator code. Refuse the
+	// shortcut for accounts with MFA rather than issuing an incomplete session.
+	// Enrolling MFA increments auth_version, so a concurrent change also makes
+	// persistent session creation fail against the version read above.
+	if !s.checkMFA(r.Context(), username, "merchant", "") {
+		response(w, 403, -1, "此账号已启用双重验证，请使用账号登录", nil)
+		return true
+	}
+	user := identity.User{ID: mid, Role: "merchant", Username: username, AuthVersion: version}
 	token, _, e := s.Sessions.Create(user)
 	if e != nil {
 		response(w, 503, -1, "登录会话创建失败", nil)

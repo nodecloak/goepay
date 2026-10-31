@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { ApiClient } from "../api";
+import { useSettingsDraft212 } from "../settings-drafts212";
 interface Setting {
   scanpay_open: "0" | "1";
   configured: boolean;
@@ -19,6 +20,7 @@ const state = ref<Setting | null>(null),
   loading = ref(false),
   busy = ref(false),
   confirming = ref(false),
+  unresolvedSave = ref(false),
   error = ref(""),
   notice = ref("");
 const confirm = ref<HTMLButtonElement | null>(null),
@@ -28,6 +30,13 @@ const allowed = computed(
     props.client.area === "admin" &&
     props.adminClass === "super" &&
     props.ownSession,
+);
+const { confirmDiscard: confirmDraftDiscard } = useSettingsDraft212(
+  "付款码支付设置",
+  () =>
+    confirming.value ||
+    unresolvedSave.value ||
+    (!!state.value && enabled.value !== (state.value.scanpay_open === "1")),
 );
 let epoch = 0,
   alive = true,
@@ -53,9 +62,19 @@ function parse(v: Setting): Setting {
 function accept(v: Setting) {
   state.value = parse(v);
   enabled.value = v.scanpay_open === "1";
+  unresolvedSave.value = false;
 }
 async function load() {
   if (busy.value || loading.value || !allowed.value) return;
+  const discardEpoch = epoch;
+  if (
+    !(await confirmDraftDiscard()) ||
+    discardEpoch !== epoch ||
+    busy.value ||
+    loading.value ||
+    !allowed.value
+  )
+    return;
   const run = ++epoch,
     ac = new AbortController();
   controller?.abort();
@@ -106,6 +125,7 @@ async function save() {
   controller = ac;
   confirming.value = false;
   busy.value = true;
+  unresolvedSave.value = true;
   error.value = "";
   notice.value = "";
   try {
@@ -148,6 +168,7 @@ watch(
     busy.value = false;
     loading.value = false;
     confirming.value = false;
+    unresolvedSave.value = false;
     void load();
   },
   { immediate: true, flush: "sync" },
