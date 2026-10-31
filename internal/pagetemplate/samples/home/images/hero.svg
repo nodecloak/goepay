@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 320" width="420" height="320" role="img" aria-label="payment illustration">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eff6ff"/>
+      <stop offset="1" stop-color="#dbeafe"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="420" height="320" rx="20" fill="url(#g2)"/>
+  <circle cx="340" cy="70" r="46" fill="#bfdbfe" opacity="0.7"/>
+  <circle cx="70" cy="260" r="34" fill="#bfdbfe" opacity="0.6"/>
+  <g transform="rotate(-8 210 160)">
+    <rect x="90" y="96" width="240" height="150" rx="16" fill="url(#g1)"/>
+    <rect x="110" y="122" width="54" height="40" rx="6" fill="#fcd34d"/>
+    <rect x="110" y="196" width="150" height="12" rx="6" fill="#ffffff" opacity="0.85"/>
+    <rect x="110" y="216" width="96" height="10" rx="5" fill="#ffffff" opacity="0.6"/>
+    <circle cx="296" cy="214" r="16" fill="#ffffff" opacity="0.85"/>
+    <circle cx="276" cy="214" r="16" fill="#ffffff" opacity="0.45"/>
+  </g>
+  <g transform="translate(250 150)">
+    <circle cx="40" cy="40" r="40" fill="#ffffff"/>
+    <path d="M26 41l10 10 20-22" fill="none" stroke="#22c55e" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

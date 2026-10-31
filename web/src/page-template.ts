@@ -18,11 +18,25 @@ export interface TemplateConfigView {
   fields: TemplateField[];
   fallback?: string;
 }
+export type TemplateSource = "builtin" | "upload";
+export interface TemplateListItem {
+  name: TemplateName;
+  title: string;
+  description: string;
+  source: TemplateSource;
+  // Upload items only.
+  picture_url?: string;
+  upload_version?: number;
+  updated_at?: string;
+  updated_by?: string;
+  files?: number;
+  size?: number;
+}
 export interface TemplateList {
   type: TemplateKind;
   revision: string;
   selected: string;
-  items: { name: TemplateName; title: string; description: string }[];
+  items: TemplateListItem[];
 }
 export interface TemplateAsset {
   id: string;
@@ -33,8 +47,8 @@ export interface TemplateAsset {
 const kinds = ["home", "pay", "qrpay"],
   // The home kind ships the original template names (default, index1-10),
   // GOEPAY's single-card style and five anime (二次元) styles; pay/qrpay ship
-  // the two checkout card layouts, and pay also an anime one. The console
-  // only ever selects a built-in name.
+  // the two checkout card layouts, and pay also an anime one. Administrators
+  // add their own styles by uploading template packages (source "upload").
   homeNames = [
     "default",
     "index1",
@@ -53,13 +67,17 @@ const kinds = ["home", "pay", "qrpay"],
     "manga",
     "mecha",
     "candy",
-    "custom",
   ],
   cardNames = ["default", "compact"],
   payNames = [...cardNames, "anime"],
-  assetID = /^[0-9a-f]{64}$/;
+  assetID = /^[0-9a-f]{64}$/,
+  // An uploaded template name: the server enforces the same rule.
+  uploadName = /^[a-z][a-z0-9-]{0,30}[a-z0-9]$/;
 function namesFor(kind: string): string[] {
   return kind === "home" ? homeNames : kind === "pay" ? payNames : cardNames;
+}
+function builtinName(kind: string, name: string): boolean {
+  return namesFor(kind).includes(name);
 }
 /**
  * The preview picture of a built-in template, generated into
@@ -133,13 +151,21 @@ function config(
     throw new Error("请核对名称、说明、颜色、间距和本地图片ID");
   return out;
 }
+// A config/body name is either a built-in name of the kind or a valid upload
+// name (the server rejects an unknown upload, so the shape check is enough).
+function configName(kind: string, name: string): boolean {
+  return (
+    builtinName(kind, name) ||
+    (uploadName.test(name) && !isReservedName(name))
+  );
+}
 export function templateConfigBody(
   view: TemplateConfigView,
   draft: Record<string, unknown>,
 ): Record<string, unknown> {
   if (
     !kinds.includes(view.type) ||
-    !namesFor(view.type).includes(view.name) ||
+    !configName(view.type, view.name) ||
     !revision(view.revision)
   )
     throw new Error("请重新读取原模板版本");
@@ -149,7 +175,7 @@ export function readTemplateConfig(raw: unknown): TemplateConfigView {
   const v = object(raw);
   if (
     !kinds.includes(String(v.type)) ||
-    !namesFor(String(v.type)).includes(String(v.name)) ||
+    !configName(String(v.type), String(v.name)) ||
     !revision(v.revision) ||
     !Array.isArray(v.fields)
   )
@@ -196,6 +222,57 @@ export function readTemplateConfig(raw: unknown): TemplateConfigView {
     fallback: typeof v.fallback === "string" ? v.fallback : undefined,
   };
 }
+// Names that an uploaded template may never use: every built-in name of any
+// kind, plus the reserved words the server keeps for its own routes. Mirrors
+// internal/pagetemplate reserved-name rules so the console never shows an
+// upload under a name the server would refuse.
+const reservedWords = new Set([
+  "default",
+  "compact",
+  "anime",
+  "minimal",
+  "sakura",
+  "starry",
+  "manga",
+  "mecha",
+  "candy",
+  "custom",
+  "upload",
+  "uploads",
+  "sample",
+  "selection",
+  "images",
+  "files",
+  "preview",
+  "versions",
+]);
+function isReservedName(name: string): boolean {
+  return reservedWords.has(name) || /^index[0-9]*$/.test(name);
+}
+function count(value: unknown): number {
+  if (!Number.isSafeInteger(value) || Number(value) < 0)
+    throw new Error("模板响应格式无效，请重新读取");
+  return value as number;
+}
+function positive(value: unknown): number {
+  const n = count(value);
+  if (n < 1) throw new Error("模板响应格式无效，请重新读取");
+  return n;
+}
+function text(value: unknown, field: string): string {
+  if (typeof value !== "string") throw new Error(`${field}格式无效`);
+  return value;
+}
+function pictureURL(value: unknown): string {
+  // The server leaves the field out when a package has no preview picture.
+  if (value === "" || value === undefined) return "";
+  if (
+    typeof value !== "string" ||
+    !/^\/template-files\/[0-9a-f]{32}\/[^?#]+$/.test(value)
+  )
+    throw new Error("模板预览图地址无效，请重新读取");
+  return value;
+}
 export function readTemplateList(raw: unknown): TemplateList {
   const v = object(raw);
   if (
@@ -205,27 +282,52 @@ export function readTemplateList(raw: unknown): TemplateList {
     !Array.isArray(v.items)
   )
     throw new Error("模板目录读取失败");
-  const allowed = namesFor(String(v.type));
-  if (v.items.length !== allowed.length) throw new Error("模板目录读取失败");
+  const kind = v.type as TemplateKind;
+  const allowed = namesFor(kind);
+  const seenBuiltin = new Set<string>();
   const seen = new Set<string>();
-  const items = v.items.map((raw) => {
+  const items: TemplateListItem[] = v.items.map((raw) => {
     const item = object(raw);
+    const name = String(item.name);
     if (
-      !allowed.includes(String(item.name)) ||
-      seen.has(String(item.name)) ||
+      seen.has(name) ||
       typeof item.title !== "string" ||
-      typeof item.description !== "string"
+      typeof item.description !== "string" ||
+      (item.source !== "builtin" && item.source !== "upload")
     )
       throw new Error("模板目录包含未审核项");
-    seen.add(String(item.name));
+    seen.add(name);
+    if (item.source === "builtin") {
+      if (!allowed.includes(name)) throw new Error("模板目录包含未审核项");
+      seenBuiltin.add(name);
+      return {
+        name: name as TemplateName,
+        title: item.title,
+        description: item.description,
+        source: "builtin",
+      };
+    }
+    // An uploaded item: a valid, non-reserved upload name and the upload fields.
+    if (!uploadName.test(name) || isReservedName(name))
+      throw new Error("模板目录包含未审核项");
     return {
-      name: item.name as TemplateName,
+      name: name as TemplateName,
       title: item.title,
       description: item.description,
+      source: "upload",
+      picture_url: pictureURL(item.picture_url),
+      upload_version: positive(item.upload_version),
+      updated_at: text(item.updated_at, "时间"),
+      updated_by: text(item.updated_by, "操作人"),
+      files: count(item.files),
+      size: count(item.size),
     };
   });
+  // Every built-in of the kind must be present exactly once; uploads are free.
+  if (seenBuiltin.size !== allowed.length)
+    throw new Error("模板目录读取失败");
   return {
-    type: v.type as TemplateKind,
+    type: kind,
     revision: v.revision,
     selected: v.selected,
     items,
@@ -272,180 +374,326 @@ export async function uploadTemplateImage(
   return a as unknown as TemplateAsset;
 }
 
-// --- Custom HTML home template -------------------------------------------
+// --- Uploaded page templates ---------------------------------------------
 //
-// The super administrator pastes raw HTML + CSS for the 自定义 HTML 首页模板
-// ("custom" home name). Every save/restore appends an immutable version and
-// notifies the administrator out of band. The server sanitizes the HTML at
-// render time; the console only enforces the source byte limits and reads the
-// typed responses strictly, rejecting any unexpected shape.
-export const customHtmlLimit = 65536,
-  customCssLimit = 32768;
-export type CustomNoticeState = "pending" | "accepted" | "unknown";
-export interface CustomHtmlVersion {
-  version: number;
-  revision: string;
-  html: string;
-  css: string;
-  frame: boolean;
-  created_at: string;
-  actor: string;
-  restored_from: number;
-}
-export interface CustomHtmlSample {
-  html: string;
-  css: string;
-  frame: boolean;
-}
-export interface CustomVersionRow {
-  version: number;
-  created_at: string;
-  actor: string;
-  html_bytes: number;
-  css_bytes: number;
-  frame: boolean;
-  restored_from: number;
-  notice: CustomNoticeState;
-}
-export interface CustomSaveResult {
-  version: number;
-  revision: string;
+// The super administrator uploads a .zip template package for any of the three
+// kinds. The server checks the package, keeps every version immutable and
+// notifies the administrator out of band. The console calls `check` first,
+// shows what the package becomes, then `uploads` with the list revision. All
+// responses are read strictly: an unexpected shape is rejected rather than
+// shown. The byte limit (at most 10 MiB) is enforced before any request.
+export const uploadPackageLimit = 10 * 1024 * 1024;
+export type TemplateNoticeState = "pending" | "accepted" | "unknown";
+export interface TemplateUploadReport {
+  warnings: string[];
   removed: Record<string, number>;
+  ignored: string[];
 }
-const utf8Bytes = (value: string): number =>
-  typeof TextEncoder !== "undefined"
-    ? new TextEncoder().encode(value).length
-    : // Fallback for environments without TextEncoder (unused in the app).
-      unescape(encodeURIComponent(value)).length;
-export function customHtmlByteLength(value: string): number {
-  return utf8Bytes(value);
+export interface TemplateUploadCheck extends TemplateUploadReport {
+  type: TemplateKind;
+  name: string;
+  title: string;
+  exists: boolean;
+  selected: boolean;
+  next_version: number;
+  identical: boolean;
+  files: number;
+  size: number;
 }
-function text(value: unknown, field: string): string {
-  if (typeof value !== "string") throw new Error(`${field}格式无效`);
-  return value;
+export interface TemplateUploadResult extends TemplateUploadReport {
+  type: TemplateKind;
+  name: string;
+  title: string;
+  version: number;
+  revision: string;
+  created: boolean;
+  selected: boolean;
+  files: number;
+  size: number;
 }
-function count(value: unknown): number {
-  if (!Number.isSafeInteger(value) || Number(value) < 0)
-    throw new Error("自定义模板响应格式无效，请重新读取");
-  return value as number;
+export interface TemplateVersionRow {
+  version: number;
+  operation: "upload" | "restore" | "remove" | "select";
+  restored_from: number;
+  title: string;
+  package_version: string;
+  author: string;
+  files: number;
+  size: number;
+  created_at: string;
+  actor: string;
+  notice: TemplateNoticeState;
 }
-function version(value: unknown): number {
-  if (!Number.isSafeInteger(value) || Number(value) < 0)
-    throw new Error("自定义模板版本号无效，请重新读取");
-  return value as number;
+export interface TemplateRestoreResult {
+  version: number;
+  revision: string;
 }
-function frame(value: unknown): boolean {
-  if (typeof value !== "boolean")
-    throw new Error("“保留系统导航和页脚”必须为开关值");
-  return value;
+export interface TemplateRemoveResult {
+  revision: string;
 }
-function noticeState(value: unknown): CustomNoticeState {
+function noticeState(value: unknown): TemplateNoticeState {
   if (value !== "pending" && value !== "accepted" && value !== "unknown")
-    throw new Error("自定义模板通知状态无效，请重新读取");
+    throw new Error("模板通知状态无效，请重新读取");
   return value;
 }
-/** GET /home/custom/html and GET /home/custom/versions/<n>. */
-export function readCustomHtml(raw: unknown): CustomHtmlVersion {
-  const v = object(raw);
-  const n = version(v.version);
-  if (n === 0)
-    return {
-      version: 0,
-      revision: revision(v.revision) ? (v.revision as string) : "0",
-      html: typeof v.html === "string" ? v.html : "",
-      css: typeof v.css === "string" ? v.css : "",
-      frame: v.frame === undefined ? true : frame(v.frame),
-      created_at: typeof v.created_at === "string" ? v.created_at : "",
-      actor: typeof v.actor === "string" ? v.actor : "",
-      restored_from: 0,
-    };
-  if (!revision(v.revision)) throw new Error("自定义模板修订号无效，请重新读取");
-  const restored = count(v.restored_from ?? 0);
-  if (restored >= n)
-    throw new Error("自定义模板来源版本无效，请重新读取");
+function operation(value: unknown): TemplateVersionRow["operation"] {
+  if (
+    value !== "upload" &&
+    value !== "restore" &&
+    value !== "remove" &&
+    value !== "select"
+  )
+    throw new Error("模板版本操作无效，请重新读取");
+  return value;
+}
+function packageVersion(value: unknown): string {
+  if (typeof value !== "string" || !/^[0-9A-Za-z.+-]{0,32}$/.test(value))
+    throw new Error("模板包版本号无效，请重新读取");
+  return value;
+}
+function report(v: Record<string, unknown>): TemplateUploadReport {
+  if (
+    !Array.isArray(v.warnings) ||
+    v.warnings.some((w) => typeof w !== "string") ||
+    !Array.isArray(v.ignored) ||
+    v.ignored.some((w) => typeof w !== "string")
+  )
+    throw new Error("模板处理报告无效，请重新读取");
+  const removedRaw = v.removed === undefined ? {} : object(v.removed);
+  const removed: Record<string, number> = {};
+  for (const [key, value] of Object.entries(removedRaw)) {
+    if (!key) throw new Error("模板移除报告无效，请重新读取");
+    removed[key] = count(value);
+  }
   return {
-    version: n,
-    revision: v.revision as string,
-    html: text(v.html, "HTML"),
-    css: text(v.css, "CSS"),
-    frame: frame(v.frame),
-    created_at: text(v.created_at, "时间"),
-    actor: text(v.actor, "操作人"),
-    restored_from: restored,
+    warnings: v.warnings as string[],
+    removed,
+    ignored: v.ignored as string[],
   };
 }
-/** GET /home/custom/sample. */
-export function readCustomSample(raw: unknown): CustomHtmlSample {
+// POST /<kind>/uploads/check.
+export function readUploadCheck(
+  kind: TemplateKind,
+  raw: unknown,
+): TemplateUploadCheck {
   const v = object(raw);
+  if (v.type !== kind) throw new Error("模板类型不一致，请重新读取");
+  const name = String(v.name);
+  if (!uploadName.test(name) || isReservedName(name))
+    throw new Error("模板名称无效，请重新读取");
+  if (
+    typeof v.exists !== "boolean" ||
+    typeof v.selected !== "boolean" ||
+    typeof v.identical !== "boolean"
+  )
+    throw new Error("模板检查结果无效，请重新读取");
   return {
-    html: text(v.html, "HTML"),
-    css: text(v.css, "CSS"),
-    frame: frame(v.frame),
+    type: kind,
+    name,
+    title: text(v.title, "标题"),
+    exists: v.exists,
+    selected: v.selected,
+    next_version: positive(v.next_version),
+    identical: v.identical,
+    files: count(v.files),
+    size: count(v.size),
+    ...report(v),
   };
 }
-/** GET /home/custom/versions (newest first, at most 50). */
-export function readCustomVersions(raw: unknown): CustomVersionRow[] {
+// POST /<kind>/uploads (201).
+export function readUploadResult(
+  kind: TemplateKind,
+  raw: unknown,
+): TemplateUploadResult {
   const v = object(raw);
-  if (!Array.isArray(v.items)) throw new Error("自定义模板版本列表读取失败");
-  if (v.items.length > 50) throw new Error("自定义模板版本列表读取失败");
+  if (v.type !== kind) throw new Error("模板类型不一致，请重新读取");
+  const name = String(v.name);
+  if (!uploadName.test(name) || isReservedName(name))
+    throw new Error("模板名称无效，请重新读取");
+  if (
+    !revision(v.revision) ||
+    typeof v.created !== "boolean" ||
+    typeof v.selected !== "boolean"
+  )
+    throw new Error("模板上传结果无效，请重新读取");
+  return {
+    type: kind,
+    name,
+    title: text(v.title, "标题"),
+    version: positive(v.version),
+    revision: v.revision,
+    created: v.created,
+    selected: v.selected,
+    files: count(v.files),
+    size: count(v.size),
+    ...report(v),
+  };
+}
+// GET /<kind>/<name>/versions (newest 50).
+export function readTemplateVersions(raw: unknown): TemplateVersionRow[] {
+  const v = object(raw);
+  if (!Array.isArray(v.items) || v.items.length > 50)
+    throw new Error("模板版本列表读取失败");
   const seen = new Set<number>();
   return v.items.map((raw) => {
     const item = object(raw);
-    const n = version(item.version);
-    if (n < 1 || seen.has(n)) throw new Error("自定义模板版本列表包含无效项");
+    const n = positive(item.version);
+    if (seen.has(n)) throw new Error("模板版本列表包含无效项");
     seen.add(n);
     const restored = count(item.restored_from ?? 0);
-    if (restored >= n) throw new Error("自定义模板版本列表包含无效项");
+    if (restored >= n) throw new Error("模板版本列表包含无效项");
     return {
       version: n,
+      operation: operation(item.operation),
+      restored_from: restored,
+      title: text(item.title, "标题"),
+      package_version: packageVersion(item.package_version),
+      author: text(item.author, "作者"),
+      files: count(item.files),
+      size: count(item.size),
       created_at: text(item.created_at, "时间"),
       actor: text(item.actor, "操作人"),
-      html_bytes: count(item.html_bytes),
-      css_bytes: count(item.css_bytes),
-      frame: frame(item.frame),
-      restored_from: restored,
       notice: noticeState(item.notice),
     };
   });
 }
-/** PUT /home/custom/html and POST /home/custom/versions/<n>/restore. */
-export function readCustomSaveResult(raw: unknown): CustomSaveResult {
+// POST /<kind>/<name>/versions/<n>/restore.
+export function readRestoreResult(raw: unknown): TemplateRestoreResult {
   const v = object(raw);
-  const n = version(v.version);
-  if (n < 1 || !revision(v.revision))
-    throw new Error("自定义模板保存结果无效，请重新读取");
-  const removedRaw = v.removed === undefined ? {} : object(v.removed);
-  const removed: Record<string, number> = {};
-  for (const [key, value] of Object.entries(removedRaw)) {
-    if (typeof key !== "string" || !key)
-      throw new Error("自定义模板移除报告无效，请重新读取");
-    removed[key] = count(value);
-  }
-  return { version: n, revision: v.revision as string, removed };
+  if (!revision(v.revision)) throw new Error("模板恢复结果无效，请重新读取");
+  return { version: positive(v.version), revision: v.revision };
 }
-/**
- * PUT /home/custom/html body. Enforces the UTF-8 byte limits (the server also
- * enforces them, with a Chinese reason, but the editor catches them first).
- */
-export function customHtmlBody(
-  revisionValue: string,
-  html: string,
-  css: string,
-  frameValue: boolean,
-): { expected_revision: string; html: string; css: string; frame: boolean } {
-  if (!revision(revisionValue)) throw new Error("请重新读取自定义模板版本");
-  if (typeof html !== "string" || typeof css !== "string")
-    throw new Error("HTML 和 CSS 必须为文本");
-  if (typeof frameValue !== "boolean")
-    throw new Error("“保留系统导航和页脚”必须为开关值");
-  if (customHtmlByteLength(html) > customHtmlLimit)
-    throw new Error("HTML 超过 64 KiB");
-  if (customHtmlByteLength(css) > customCssLimit)
-    throw new Error("CSS 超过 32 KiB");
-  return {
-    expected_revision: revisionValue,
-    html,
-    css,
-    frame: frameValue,
-  };
+// POST /<kind>/<name>/remove.
+export function readRemoveResult(raw: unknown): TemplateRemoveResult {
+  const v = object(raw);
+  if (!revision(v.revision)) throw new Error("模板删除结果无效，请重新读取");
+  return { revision: v.revision };
+}
+function assertUploadTarget(kind: TemplateKind, name: string): void {
+  if (!kinds.includes(kind)) throw new Error("模板类型无效");
+  if (!uploadName.test(name) || isReservedName(name))
+    throw new Error("上传模板名称无效");
+}
+// The body for restore and remove: the list revision, checked as the server
+// expects it (a decimal string).
+export function templateRevisionBody(revisionValue: string): {
+  expected_revision: string;
+} {
+  if (!revision(revisionValue)) throw new Error("请重新读取模板版本");
+  return { expected_revision: revisionValue };
+}
+// --- Upload / sample multipart POST --------------------------------------
+async function postTemplatePackage<T>(
+  client: ApiClient,
+  path: string,
+  fields: Record<string, string>,
+  file: File,
+  read: (body: unknown) => T,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (client.area !== "admin" || !client.csrfToken)
+    throw new Error("需要本人管理员登录");
+  if (file.size < 1 || file.size > uploadPackageLimit)
+    throw new Error("模板包大小须为1字节至10MiB");
+  const form = new FormData();
+  // expected_revision (and any other fields) first, then the file, as the
+  // server reads the revision before the package.
+  for (const [key, value] of Object.entries(fields)) form.append(key, value);
+  form.append("file", file);
+  const response = await fetch(`/console/v1/admin${path}`, {
+    method: "POST",
+    headers: { "X-CSRF-Token": client.csrfToken, Accept: "application/json" },
+    body: form,
+    credentials: "same-origin",
+    signal,
+  });
+  if (response.status === 401) {
+    client.csrfToken = "";
+    client.onUnauthorized?.();
+  }
+  let body: { code?: number; message?: string; data?: unknown };
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error("服务器返回格式错误，请稍后重试");
+  }
+  if (!response.ok || body.code !== 0)
+    throw new TemplateUploadError(
+      body.message || "模板包上传失败",
+      response.status,
+    );
+  return read(body.data);
+}
+// A 409 on upload/restore/remove means the list revision moved; the console
+// tells the user to reload rather than resending. A 422 carries a Chinese
+// reason that is shown verbatim.
+export class TemplateUploadError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+export function checkTemplatePackage(
+  client: ApiClient,
+  kind: TemplateKind,
+  file: File,
+  signal?: AbortSignal,
+): Promise<TemplateUploadCheck> {
+  if (!kinds.includes(kind)) throw new Error("模板类型无效");
+  return postTemplatePackage(
+    client,
+    `/templates/${kind}/uploads/check`,
+    {},
+    file,
+    (body) => readUploadCheck(kind, body),
+    signal,
+  );
+}
+export function uploadTemplatePackage(
+  client: ApiClient,
+  kind: TemplateKind,
+  expectedRevision: string,
+  file: File,
+  signal?: AbortSignal,
+): Promise<TemplateUploadResult> {
+  if (!kinds.includes(kind)) throw new Error("模板类型无效");
+  if (!revision(expectedRevision)) throw new Error("请重新读取模板版本");
+  return postTemplatePackage(
+    client,
+    `/templates/${kind}/uploads`,
+    { expected_revision: expectedRevision },
+    file,
+    (body) => readUploadResult(kind, body),
+    signal,
+  );
+}
+// --- URL builders --------------------------------------------------------
+// The sample package download.
+export function templateSampleURL(kind: TemplateKind): string {
+  if (!kinds.includes(kind)) throw new Error("模板类型无效");
+  return `/console/v1/admin/templates/${kind}/sample`;
+}
+// A version's package download.
+export function templateVersionPackageURL(
+  kind: TemplateKind,
+  name: string,
+  version: number,
+): string {
+  assertUploadTarget(kind, name);
+  if (!Number.isSafeInteger(version) || version < 1)
+    throw new Error("模板版本号无效");
+  return `/console/v1/admin/templates/${kind}/${name}/versions/${version}/package`;
+}
+// A version preview (sandboxed in an iframe by the caller).
+export function templateVersionPreviewURL(
+  kind: TemplateKind,
+  name: string,
+  version: number,
+): string {
+  assertUploadTarget(kind, name);
+  if (!Number.isSafeInteger(version) || version < 1)
+    throw new Error("模板版本号无效");
+  return `/console/v1/admin/templates/${kind}/${name}/versions/${version}/preview`;
 }

@@ -585,29 +585,30 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	if pon, e := backoffice.New(s.Pool, s.Store).SettingValue(r.Context(), "pageordername"); e == nil {
 		displayName = backoffice.CheckoutDisplayName(pon, order.Name, "")
 	}
-	if !s.pageTemplateOpen(w, r, "pay", pagetemplate.Page{Title: "支付收银台", TradeNo: order.TradeNo, Amount: ledger.Format(charge104), OrderName: displayName, Sandbox: s.Sandbox}, nil) {
+	tail, ok := s.pageTemplateOpen(w, r, "pay", pagetemplate.Page{Title: "支付收银台", TradeNo: order.TradeNo, Amount: ledger.Format(charge104), OrderName: displayName, Sandbox: s.Sandbox}, nil)
+	if !ok {
 		return
 	}
 	if purpose == "return" {
 		fmt.Fprintf(w, "<p>平台订单状态：%s</p><p>以平台异步通知或查单结果为准。</p>", html.EscapeString(order.Status))
-		io.WriteString(w, "</main></body></html>")
+		io.WriteString(w, tail)
 		return
 	}
 	if order.Status == "paid" {
 		if attempt.Method == "scan" {
-			io.WriteString(w, "<p>付款码支付已完成，平台已确认支付；如有退款，请以订单查询的退款状态为准。</p></main></body></html>")
+			io.WriteString(w, "<p>付款码支付已完成，平台已确认支付；如有退款，请以订单查询的退款状态为准。</p>"+tail)
 		} else {
-			io.WriteString(w, "<p>该订单已确认支付；如有退款，请以订单查询的退款状态为准。</p></main></body></html>")
+			io.WriteString(w, "<p>该订单已确认支付；如有退款，请以订单查询的退款状态为准。</p>"+tail)
 		}
 		return
 	}
 	if attempt.Method == "scan" {
 		io.WriteString(w, "<p>付款码支付正在核实，请使用原订单查单。</p>")
-		io.WriteString(w, "</main></body></html>")
+		io.WriteString(w, tail)
 		return
 	}
 	if attempt.State != "pending" {
-		io.WriteString(w, "<p>订单正在核实，请稍后查单。</p></main></body></html>")
+		io.WriteString(w, "<p>订单正在核实，请稍后查单。</p>"+tail)
 		return
 	}
 	material := attempt.Material
@@ -694,7 +695,7 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	default:
 		io.WriteString(w, "<p>暂不支持该支付材料。</p>")
 	}
-	io.WriteString(w, "</main></body></html>")
+	io.WriteString(w, tail)
 }
 
 func (s *Server) checkoutJumpAllowed(raw string) bool {

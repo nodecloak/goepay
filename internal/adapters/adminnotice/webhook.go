@@ -6,9 +6,9 @@ import (
 	"context"
 	"errors"
 	"goepay/internal/merchantnotice"
+	"goepay/internal/templatechange"
 	"net/http"
 	"strings"
-	"time"
 )
 
 var ErrDelivery = errors.New("administrator notice submission unavailable")
@@ -63,13 +63,13 @@ func (w *Webhook) SendChannelStopped(ctx context.Context, to string, channel, ev
 	return nil
 }
 
-func (w *Webhook) SendPageTemplateChanged(ctx context.Context, to string, version, restoredFrom int64, actor string, at time.Time) error {
+func (w *Webhook) SendPageTemplateNotice(ctx context.Context, to string, n templatechange.Notice) error {
 	if w == nil || ctx == nil || ctx.Err() != nil || to != w.target {
 		return ErrDelivery
 	}
-	title, text, e := pageTemplateChangedMessage(version, restoredFrom, actor, at)
+	title, text, e := n.Message()
 	if e != nil {
-		return e
+		return ErrDelivery
 	}
 	var payload any
 	switch w.kind {

@@ -35,6 +35,15 @@ type Template struct {
 	Description string `json:"description"`
 	PreviewURL  string `json:"preview_url"`
 	HasConfig   bool   `json:"has_config"`
+	// Source is "builtin" or "upload" in the console list. The fields after
+	// it describe the newest version of an uploaded template.
+	Source        string `json:"source,omitempty"`
+	PictureURL    string `json:"picture_url,omitempty"`
+	UploadVersion int    `json:"upload_version,omitempty"`
+	UpdatedAt     string `json:"updated_at,omitempty"`
+	UpdatedBy     string `json:"updated_by,omitempty"`
+	Files         int    `json:"files,omitempty"`
+	Size          int64  `json:"size,omitempty"`
 }
 type Option struct {
 	Label string `json:"label"`
@@ -53,8 +62,8 @@ type Resolved struct {
 	Revision   int64
 	Config     Config
 	Fallback   string
-	// Custom is the newest saved version when the home template is custom.
-	Custom *CustomContent
+	// Upload is the version shown when the selected template was uploaded.
+	Upload *UploadedTemplate
 }
 type Page struct {
 	SiteLogo                                        bool
@@ -156,9 +165,12 @@ func object(raw []byte) (map[string]json.RawMessage, error) {
 	}
 	return m, nil
 }
+
+// ParseConfig reads the typed configuration of a built-in template or of an
+// uploaded one (whose existence the store checks).
 func ParseConfig(kind, name string, raw json.RawMessage) (Config, error) {
 	var c Config
-	if _, ok := Lookup(kind, name); !ok {
+	if _, ok := Lookup(kind, name); !ok && !(validKind(kind) && ValidUploadName(name)) {
 		return c, ErrInvalid
 	}
 	m, e := object(raw)

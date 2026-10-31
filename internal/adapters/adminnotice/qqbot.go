@@ -3,6 +3,7 @@ package adminnotice
 import (
 	"context"
 	"encoding/json"
+	"goepay/internal/templatechange"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -76,13 +77,13 @@ func (q *QQBot) SendChannelStopped(ctx context.Context, to string, channel, even
 	return nil
 }
 
-func (q *QQBot) SendPageTemplateChanged(ctx context.Context, to string, version, restoredFrom int64, actor string, at time.Time) error {
+func (q *QQBot) SendPageTemplateNotice(ctx context.Context, to string, n templatechange.Notice) error {
 	if q == nil || ctx == nil || ctx.Err() != nil || !qqIdentity.MatchString(to) {
 		return ErrDelivery
 	}
-	title, text, e := pageTemplateChangedMessage(version, restoredFrom, actor, at)
+	title, text, e := n.Message()
 	if e != nil {
-		return e
+		return ErrDelivery
 	}
 	work, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()

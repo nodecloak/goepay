@@ -12,8 +12,9 @@ import (
 // The pay and qrpay frames. Open writes everything up to the page content;
 // the checkout, cashier, mini-launch and collection handlers then write their
 // own content (paragraphs, the QR picture, a jump link or button, a form) into
-// <main> and close it. The CSS below therefore styles those plain elements as
-// they arrive: no handler has to know the template.
+// <main> and finish with the closing Open returned (an uploaded template has
+// more markup after <main>). The CSS below therefore styles those plain
+// elements as they arrive: no handler has to know the template.
 
 type frame struct {
 	Resolved
@@ -125,7 +126,11 @@ const mascotSVG = `<span class="template-mascot" aria-hidden="true"><svg viewBox
 
 const lockSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`
 
-var opening = template.Must(template.New("page-open").Parse(`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">{{if .Page.Keywords}}<meta name="keywords" content="{{.Page.Keywords}}">{{end}}{{if .Page.Description}}<meta name="description" content="{{.Page.Description}}">{{end}}<title>{{.Page.Title}}</title><style>{{.CSS}}</style><body data-template="{{.Name}}" data-template-type="{{.Type}}">{{if ne .Name "compact"}}<div class="template-band" aria-hidden="true"></div>{{end}}<main class="template-{{.Name}}"><header class="template-head"><span class="template-brand">{{if .LogoURL}}<img class="template-logo" alt="品牌图片" src="{{.LogoURL}}">{{end}}<span class="template-brand-name">{{.Config.BrandName}}</span></span><span class="template-secure">` + lockSVG + `安全支付</span></header>{{if eq .Type "qrpay"}}<section class="template-payee"><span class="template-avatar" aria-hidden="true">{{.Initial}}</span><h1>{{.Page.Title}}</h1>{{if .MerchantName}}<p class="template-payee-name">收款商户：{{.MerchantName}}</p>{{end}}</section>{{else}}<section class="template-summary">{{if eq .Name "anime"}}` + mascotSVG + `{{end}}<h1>{{.Page.Title}}</h1>{{if .Amount}}<p class="template-amount"><span>支付金额</span><strong><small>¥</small>{{.Amount}}</strong></p>{{end}}{{if or .TradeNo (and .Config.ShowOrderName .OrderName) .MerchantName}}<dl class="template-meta">{{if .TradeNo}}<dt>订单号</dt><dd>{{.TradeNo}}</dd>{{end}}{{if and .Config.ShowOrderName .OrderName}}<dt>商品名称</dt><dd>{{.OrderName}}</dd>{{end}}{{if .MerchantName}}<dt>收款商户</dt><dd>{{.MerchantName}}</dd>{{end}}</dl>{{end}}</section>{{end}}{{if .Preview}}<p class="template-preview-note">仅为模板预览，不发起支付。</p>{{end}}{{if .Config.Notice}}<p class="template-notice">{{.Config.Notice}}</p>{{end}}{{if .Sandbox}}<p class="template-sandbox">本地模拟环境，不涉及真实资金。</p>{{end}}`))
+var opening = template.Must(template.New("page-open").Parse(`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">{{if .Page.Keywords}}<meta name="keywords" content="{{.Page.Keywords}}">{{end}}{{if .Page.Description}}<meta name="description" content="{{.Page.Description}}">{{end}}<title>{{.Page.Title}}</title><style>{{.CSS}}</style><body data-template="{{.Name}}" data-template-type="{{.Type}}">{{if ne .Name "compact"}}<div class="template-band" aria-hidden="true"></div>{{end}}<main class="template-{{.Name}}">{{template "block" .}}`))
+
+// The header, summary and notices: the top of <main> in built-in templates,
+// and of the checkout block in uploaded ones.
+var _ = template.Must(opening.New("block").Parse(`<header class="template-head"><span class="template-brand">{{if .LogoURL}}<img class="template-logo" alt="品牌图片" src="{{.LogoURL}}">{{end}}<span class="template-brand-name">{{.Config.BrandName}}</span></span><span class="template-secure">` + lockSVG + `安全支付</span></header>{{if eq .Type "qrpay"}}<section class="template-payee"><span class="template-avatar" aria-hidden="true">{{.Initial}}</span><h1>{{.Page.Title}}</h1>{{if .MerchantName}}<p class="template-payee-name">收款商户：{{.MerchantName}}</p>{{end}}</section>{{else}}<section class="template-summary">{{if eq .Name "anime"}}` + mascotSVG + `{{end}}<h1>{{.Page.Title}}</h1>{{if .Amount}}<p class="template-amount"><span>支付金额</span><strong><small>¥</small>{{.Amount}}</strong></p>{{end}}{{if or .TradeNo (and .Config.ShowOrderName .OrderName) .MerchantName}}<dl class="template-meta">{{if .TradeNo}}<dt>订单号</dt><dd>{{.TradeNo}}</dd>{{end}}{{if and .Config.ShowOrderName .OrderName}}<dt>商品名称</dt><dd>{{.OrderName}}</dd>{{end}}{{if .MerchantName}}<dt>收款商户</dt><dd>{{.MerchantName}}</dd>{{end}}</dl>{{end}}</section>{{end}}{{if .Preview}}<p class="template-preview-note">仅为模板预览，不发起支付。</p>{{end}}{{if .Config.Notice}}<p class="template-notice">{{.Config.Notice}}</p>{{end}}{{if .Sandbox}}<p class="template-sandbox">本地模拟环境，不涉及真实资金。</p>{{end}}`))
 
 // initial is the first character of the payee shown in the qrpay avatar.
 func initial(names ...string) string {
@@ -137,20 +142,22 @@ func initial(names ...string) string {
 	return "G"
 }
 
-func Open(w io.Writer, r Resolved, p Page) error {
+// Open writes a pay or qrpay page up to its content and returns the closing
+// that the caller writes after the content.
+func Open(w io.Writer, r Resolved, p Page) (string, error) {
 	if p.BrandName != "" {
 		r.Config.BrandName = p.BrandName
 	}
 	raw, _ := json.Marshal(r.Config.Public(r.Type))
 	cfg, e := ParseConfig(r.Type, r.Name, raw)
 	if e != nil {
-		return e
+		return "", e
 	}
 	r.Config = cfg
 	f := frame{Resolved: r, Page: p, Width: 520, Padding: 28, TextColor: "#163047"}
 	if p.ForegroundColor != "" {
 		if !colorPattern.MatchString(p.ForegroundColor) {
-			return ErrInvalid
+			return "", ErrInvalid
 		}
 		f.TextColor = p.ForegroundColor
 	}
@@ -169,11 +176,17 @@ func Open(w io.Writer, r Resolved, p Page) error {
 	}
 	if p.SiteLogo {
 		if r.Type != "home" || p.Preview {
-			return ErrInvalid
+			return "", ErrInvalid
 		}
 		f.LogoURL = "/static/img/logo.png"
 	}
 	f.Initial = initial(p.MerchantName, cfg.BrandName)
+	if r.Upload != nil {
+		if r.Type == "home" {
+			return "", ErrInvalid
+		}
+		return openUpload(w, f)
+	}
 	css := frameBaseCSS
 	switch r.Name {
 	case "compact":
@@ -189,6 +202,8 @@ func Open(w io.Writer, r Resolved, p Page) error {
 		"$WIDTH", strconv.Itoa(f.Width),
 		"$PAD", strconv.Itoa(f.Padding),
 	).Replace(css))
-	return opening.Execute(w, f)
+	if e = opening.Execute(w, f); e != nil {
+		return "", e
+	}
+	return "</main></body></html>", nil
 }
-func Close(w io.Writer) error { _, e := io.WriteString(w, "</main></body></html>"); return e }

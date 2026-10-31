@@ -180,12 +180,12 @@ func (s *Server) cashierPage(w http.ResponseWriter, r *http.Request, in cashierI
 	types := s.cashierAllowedTypes(r, in.MerchantID)
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action 'self'")
 	page := pagetemplate.Page{Title: "收银台", Amount: in.Money, OrderName: backoffice.CheckoutDisplayName(s.cashierHideName(r), in.Name, ""), Sandbox: s.Sandbox}
-	if !s.pageTemplateOpen(w, r, "pay", page, nil) {
+	tail, ok := s.pageTemplateOpen(w, r, "pay", page, nil)
+	if !ok {
 		return
 	}
 	if len(types) == 0 {
-		io.WriteString(w, "<p>当前没有可用的支付方式，请联系商户。</p>")
-		pagetemplate.Close(w)
+		io.WriteString(w, "<p>当前没有可用的支付方式，请联系商户。</p>"+tail)
 		return
 	}
 	token := r.URL.Query().Get("t")
@@ -198,8 +198,7 @@ func (s *Server) cashierPage(w http.ResponseWriter, r *http.Request, in cashierI
 		}
 		io.WriteString(w, `<label><input type="radio" name="type" value="`+html.EscapeString(t.Name)+`"`+checked+`> `+html.EscapeString(t.ShowName)+`</label>`)
 	}
-	io.WriteString(w, `</fieldset><button type="submit">立即支付</button></form>`)
-	pagetemplate.Close(w)
+	io.WriteString(w, `</fieldset><button type="submit">立即支付</button></form>`+tail)
 }
 
 // cashierHideName reads pageordername so the cashier page follows the same

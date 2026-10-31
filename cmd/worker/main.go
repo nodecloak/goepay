@@ -85,7 +85,7 @@ func main() {
 		os.Exit(1)
 	}
 	if noticeRuntime != nil {
-		kinds = append(kinds, "admin.channel-stopped", "admin.page-template-changed")
+		kinds = append(kinds, "admin.channel-stopped", "admin.page-template-notice")
 	}
 	merchantNotices, e := newMerchantNoticeRuntime(pool, os.Getenv)
 	if e != nil {
@@ -165,7 +165,7 @@ func main() {
 			} else {
 				e = store.DeliverChannelStopNotice(jobCtx, j.ID, j.Token, noticeTo, noticeSender)
 			}
-		} else if j.Kind == "admin.page-template-changed" {
+		} else if j.Kind == "admin.page-template-notice" {
 			noticeSender, noticeTo, noticeError := noticeRuntime.Resolve(jobCtx)
 			changeSender, ok := noticeSender.(templatenotice.ChangeNoticeSender)
 			if noticeError != nil || noticeSender == nil || !ok {
@@ -222,7 +222,7 @@ func main() {
 			reason := "notification delivery failed"
 			if j.Kind == "admin.channel-stopped" {
 				reason = "administrator notice requires original claim review"
-			} else if j.Kind == "admin.page-template-changed" {
+			} else if j.Kind == "admin.page-template-notice" {
 				reason = "administrator template notice requires original claim review"
 			} else if j.Kind == "merchant.notice" || j.Kind == "merchant.payment-disabled-notice" {
 				reason = "merchant notice requires original configuration or claim review"
