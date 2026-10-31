@@ -133,6 +133,9 @@ func (s *Server) Handler() http.Handler {
 		if s.templatePublic(w, r) {
 			return
 		}
+		if s.agreementPublic(w, r) {
+			return
+		}
 		if s.devDocs(w, r) {
 			return
 		}

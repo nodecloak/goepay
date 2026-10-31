@@ -3,84 +3,84 @@
     "type": "home",
     "name": "default",
     "title": "默认首页模板",
-    "version": "2",
+    "version": "3",
     "description": "品牌主张 + 支付流程示意 + 完整接入指引"
   },
   {
     "type": "home",
     "name": "index1",
     "title": "简约通用风首页模板",
-    "version": "2",
+    "version": "3",
     "description": "分栏工作台 + 订单流转 + 开发者资源"
   },
   {
     "type": "home",
     "name": "index2",
     "title": "清新扁平风首页模板",
-    "version": "2",
+    "version": "3",
     "description": "清新服务概览 + 接入步骤 + 原生问答"
   },
   {
     "type": "home",
     "name": "index3",
     "title": "粒子特效首页模板",
-    "version": "2",
+    "version": "3",
     "description": "点阵横幅 + 场景说明 + 安全接入路径"
   },
   {
     "type": "home",
     "name": "index4",
     "title": "Bootstrap企业风首页模板",
-    "version": "2",
+    "version": "3",
     "description": "企业服务结构 + 能力清单 + 业务接入指南"
   },
   {
     "type": "home",
     "name": "index5",
     "title": "蓝色科技风首页模板",
-    "version": "2",
+    "version": "3",
     "description": "蓝色整幅主视觉 + 支付链路 + 接口资源"
   },
   {
     "type": "home",
     "name": "index6",
     "title": "紫色科技风首页模板",
-    "version": "2",
+    "version": "3",
     "description": "紫色分栏 + 接口示意 + 完整开发指引"
   },
   {
     "type": "home",
     "name": "index7",
     "title": "深色科技风首页模板",
-    "version": "2",
+    "version": "3",
     "description": "深色工作台 + 结果核对 + 场景与文档"
   },
   {
     "type": "home",
     "name": "index8",
     "title": "经典商务风首页模板",
-    "version": "2",
+    "version": "3",
     "description": "经典商务排版 + 业务路径 + 服务说明"
   },
   {
     "type": "home",
     "name": "index9",
     "title": "简洁大气风首页模板",
-    "version": "2",
+    "version": "3",
     "description": "大字主张 + 清晰步骤 + 文档阅读路径"
   },
   {
     "type": "home",
     "name": "index10",
     "title": "动效展示风首页模板",
-    "version": "2",
+    "version": "3",
     "description": "轻动态主视觉 + 完整接入流程 + 开发资源"
   },
   {
     "type": "home",
     "name": "minimal",
     "title": "单卡极简首页模板",
-    "version": "2",
+    "version": "3",
     "description": "紧凑编辑式布局，保留能力、指引、文档与问答"
   },
   {
