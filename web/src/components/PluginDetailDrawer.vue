@@ -77,9 +77,15 @@ onMounted(() => drawer.value?.focus());
           <dd>{{ typeLabel }}</dd>
           <dt>开发商</dt>
           <dd>{{ entry.author || "-" }}</dd>
-          <dt>原版版本</dt>
+          <dt>
+            {{
+              entry.type === "template" && entry.sub === "home" && builtin
+                ? "模板版本"
+                : "插件版本"
+            }}
+          </dt>
           <dd>{{ entry.version || "-" }}</dd>
-          <dt>原版售价</dt>
+          <dt>参考售价</dt>
           <dd>{{ priceLabel(entry.price) }}</dd>
           <template v-if="entry.type === 'payment'">
             <dt>包含的支付方式</dt>
@@ -102,7 +108,7 @@ onMounted(() => drawer.value?.focus());
             {{
               builtin
                 ? builtin.note
-                : "Go 版尚未实现该插件。原 PHP 插件不能在 Go 服务中运行，需要按原接口移植后才能使用。"
+                : "该插件尚未实现，暂不可使用。"
             }}
           </dd>
         </dl>

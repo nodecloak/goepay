@@ -49,7 +49,8 @@ test("login errors, scope navigation, and mobile layout", async ({ page }) => {
 test("authorized order refund uses trade number and exact decimal, blocked pages stay honest", async ({
   page,
 }) => {
-  let posted: unknown;
+  let posted: unknown,
+    writes = 0;
   await page.route("**/console/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith("/security/payment-password"))
@@ -88,7 +89,13 @@ test("authorized order refund uses trade number and exact decimal, blocked pages
     )
       return route.fulfill(
         ok({
-          order: { trade_no: "TRADE-001", status: "paid", amount: "1" },
+          order: {
+            id: "91",
+            merchant_id: "1000",
+            trade_no: "TRADE-001",
+            status: "paid",
+            amount: "1",
+          },
           reporting: { refunded_amount: "0" },
           admin_control: { status: "", archived: false, revision: "0" },
         }),
@@ -97,14 +104,29 @@ test("authorized order refund uses trade number and exact decimal, blocked pages
       expect(path).toBe("/console/v1/admin/orders/TRADE-001/refund");
       expect(route.request().headers()["x-csrf-token"]).toBe("csrf-e2e");
       posted = route.request().postDataJSON();
-      return route.fulfill(ok({ refund_no: "R1", status: "succeeded" }));
+      writes++;
+      return route.fulfill(
+        ok({
+          id: "77",
+          merchant_id: "1000",
+          order_id: "91",
+          refund_no: (posted as Record<string, unknown>).external_no,
+          amount: "1",
+          merchant_amount: "1",
+          fee_amount: "0",
+          status: "succeeded",
+        }),
+      );
     }
     return route.fulfill(
       ok({
         items: [
           {
-            id: "internal-id",
+            id: "91",
+            merchant_id: "1000",
             trade_no: "TRADE-001",
+            amount: "1",
+            refunded_amount: "0",
             money: "0.01",
             status: "paid",
           },
@@ -120,14 +142,20 @@ test("authorized order refund uses trade number and exact decimal, blocked pages
   await openAdminAPIRefund(page, "TRADE-001");
   await page.getByLabel("退款金额（元）").fill("0.01");
   await page.getByRole("button", { name: "确认申请退款" }).click();
-  await expect(page.locator(".alert.success")).toHaveText(
-    "退款成功（R1），请核对退款记录和资金明细。",
+  const refund = page.getByRole("dialog", { name: "API退款确认", exact: true });
+  await expect(refund.getByRole("status")).toContainText(
+    "原退款已核实：退款成功",
   );
+  await expect(refund.getByRole("status")).toContainText("原退款记录：77");
   expect(posted).toMatchObject({ amount: "0.01" });
+  expect(writes).toBe(1);
+  await refund
+    .getByRole("button", { name: "已核对，结束本次退款", exact: true })
+    .click();
+  await expect(refund).toHaveCount(0);
+  expect(writes).toBe(1);
   await page.goto("/admin/app/app-store");
-  await expect(
-    page.getByRole("region", { name: "应用市场" }),
-  ).toBeVisible();
+  await expect(page.getByRole("region", { name: "应用市场" })).toBeVisible();
   await page.screenshot({
     path: "test-results/app-store-desktop.png",
     fullPage: true,

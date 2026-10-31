@@ -9,6 +9,7 @@ import {
   watch,
 } from "vue";
 import { ApiError, type ApiClient } from "../api";
+import { useSettingsDraft212 } from "../settings-drafts212";
 import CoreRiskActions from "./CoreRiskActions.vue";
 import {
   coreRiskFields,
@@ -70,11 +71,30 @@ const dirty = computed(
     !!current.value &&
     JSON.stringify(draft.value) !== JSON.stringify(current.value.settings),
 );
+const { confirmDiscard: confirmDraftDiscard } = useSettingsDraft212(
+  "核心支付风控",
+  () =>
+    dirty.value ||
+    !!confirm.value ||
+    !!pendingRun.value ||
+    uncertain.value ||
+    busy.value ||
+    actionBusy.value,
+);
 const fields = computed(() =>
   coreRiskFields.filter((f) => !f.parent || draft.value[f.parent] === "1"),
 );
 async function load() {
   if (!props.allowed || busy.value || actionBusy.value) return;
+  const discardEpoch = epoch;
+  if (
+    !(await confirmDraftDiscard()) ||
+    discardEpoch !== epoch ||
+    !props.allowed ||
+    busy.value ||
+    actionBusy.value
+  )
+    return;
   context();
   abort?.abort();
   const c = new AbortController();

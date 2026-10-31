@@ -1,24 +1,35 @@
 {{define "content"}}
-<h1 id="签名规则">签名规则</h1>
-<blockquote>对本平台接口发起的请求，需要进行签名；针对接口返回的数据以及异步通知回调的数据，需进行验签。</blockquote>
-<h2 id="签名步骤">签名步骤</h2>
-<p>1、获取请求报文所有<strong>非空</strong>请求参数（不包括数组、字节类型参数，如文件、字节流），剔除 <code>sign</code> 与 <code>sign_type</code> 字段，按照第一个字符的键值 ASCII 码递增排序（字母升序排序），如果遇到相同字符则按照第二个字符的键值 ASCII 码递增排序，以此类推。</p>
-<p>2、将排序后的参数与其对应值，组合成“<code>参数名=参数值</code>”的格式，并且把这些参数用 <code>&amp;</code> 字符连接起来，此时生成的字符串为待签名字符串。参数值不做 URL 编码。</p>
-<p>3、使用<strong>商户私钥</strong>对待签名字符串进行 RSA 签名（<code>SHA256WithRSA</code>），结果经 Base64 编码后作为 <code>sign</code>。</p>
-<p class="doc-note">值为空字符串的参数不参与签名。请不要传入只含空格等空白字符的参数值：官方 SDK 会把这类值当作空值不签，而本站校验请求时会把它计入，两边结果不一致会导致验签失败。</p>
+<h1 id="签名规则">Go 服务 V2 签名规则</h1>
+<p>以下规则对应当前 Go 服务的实际解析及签名实现。新 Go 对接可使用<a href="/doc/sdk.html">Go SDK</a>，协议为 SHA-256 + <strong>RSA PKCS#1 v1.5</strong>。商户使用商户私钥签请求，使用平台公钥验响应及 V2 通知。</p>
+<h2 id="签名步骤">请求签名步骤</h2>
+<ol>
+<li>请求为 UTF-8 标量字段。先将商户 ID、Unix 秒 <code>timestamp</code> 和 <code>sign_type=RSA</code>放入参数集合。每个键只允许一个值；重复参数、数组式键、包含空格或点等歧义字符的键会被服务端拒绝。</li>
+<li>剔除 <code>sign</code>、<code>sign_type</code> 以及值为<strong>空字符串</strong>的字段。其余参数按参数名的字节顺序升序排列；仅空白字符串在请求中仍参与签名，建议不要传这类值。</li>
+<li>使用解码后的原始值拼接 <code>key=value</code>，以 <code>&amp;</code>连接，参数值在这一步不做 URL 编码，不修改空格、大小写或金额的小数表示。</li>
+<li>对拼串进行 SHA-256 哈希，并使用 RSA PKCS#1 v1.5 签名。标准 Base64 编码结果写入 <code>sign</code>。</li>
+<li>最后将整个参数集合按表单规则 URL 编码发送。Go 可使用 <code>url.Values.Encode()</code>；不要在拼串之前编码，也不要手动拼接含 <code>+</code>、<code>&amp;</code> 或 Base64 字符的请求。</li>
+</ol>
 <h2 id="待签名字符串示例">待签名字符串示例</h2>
-<pre><code>money=1.00&amp;name=VIP会员&amp;notify_url=http://www.pay.com/notify_url.php&amp;out_trade_no=20160806151343349&amp;pid=1001&amp;timestamp=1721206072&amp;type=alipay</code></pre>
+<pre><code>money=1.00&amp;name=示例商品&amp;notify_url=https://merchant.example.com/payments/notify&amp;out_trade_no=merchant-order-001&amp;pid=1001&amp;timestamp=1793404800&amp;type=alipay</code></pre>
+<p>这里的 <code>&amp;</code> 是拼串分隔符。时间戳仅为说明，真实请求须使用当时的时间；金额字符串 <code>1.00</code>不能在签名后改成 <code>1</code>。</p>
 <h2 id="时间戳">时间戳</h2>
-<p>V2 请求必须携带 <code>timestamp</code>（10位整数，单位秒），与本站服务器时间相差超过 300 秒的请求会被拒绝。请保持服务器时间准确。</p>
-<h2 id="验签步骤">验签步骤</h2>
-<p>对接口返回的数据，以及异步通知、页面跳转通知回调的数据，需进行验签：</p>
-<p>1、先按签名步骤第1、2步获取待签名字符串。返回数据中的数组或对象（如订单列表 <code>data</code>）不参与签名；值为空或只含空白字符的字段也不参与。</p>
-<p>2、使用<strong>平台公钥</strong>，对待签名字符串与 <code>sign</code> 进行 RSA 验签（<code>SHA256WithRSA</code>）。</p>
-<p>3、返回数据与回调数据都带有 <code>timestamp</code>、<code>sign_type</code>（固定为 RSA）与 <code>sign</code> 字段。建议同时校验 <code>timestamp</code> 与当前时间相差不超过 300 秒，官方 SDK 即按此校验。</p>
+<p>RSA 请求必须携带正十进制 Unix 秒 <code>timestamp</code>，与服务端时间相差不超过 300 秒，边界包含 300 秒。保持服务器时间同步；使用毫秒、负数、非数字、过期或未来过远的值都会失败。Go SDK 对已签名 API 回包及 V2 通知也执行同样的新鲜度验证。</p>
+<h2 id="验签步骤">响应及 V2 通知验签</h2>
+<ol>
+<li>对顶层标量字段构建参数集合。JSON 数字使用原十进制表示，字符串保持原值，布尔值 <code>true</code>映射为 <code>1</code>，<code>false</code>及 <code>null</code>映射为空串。</li>
+<li>排除 <code>sign</code>、<code>sign_type</code>、空串和仅空白字符串；这里的空白字符为 ASCII 空格、Tab、换行、回车、NUL、垂直制表符。数组和对象不参与顶层签名。</li>
+<li>按参数名排序并使用原始值拼串，以平台公钥进行 SHA-256 / RSA PKCS#1 v1.5 验签，要求 <code>sign_type=RSA</code>且时间戳在有效窗口内。</li>
+<li>验签之后仍要核对商户、原订单、应付金额及预期状态，并通过本地事务防止重复交付。新鲜时间戳不等于业务通知未被处理过。</li>
+</ol>
+<p class="doc-note">接口协议中的列表 <code>data</code> 等数组和对象不受顶层 RSA 签名覆盖，必须使用 HTTPS 保护完整传输；资金状态应按原业务单号查询并核对。本站 Go SDK 的支付客户端只接收顶层标量回包，遇到嵌套回包会拒绝，不能将它用于文档中的商户列表接口。</p>
+<h2 id="错误响应">错误响应也需区分来源</h2>
+<p>平台签名密钥可用时，Go 服务的 V2 业务成功及业务错误 JSON 都会添加签名。错误 HTTP 方法、无法解析的表单、网关失败或签名密钥不可用等情况可能产生未签名响应；这类内容只能作为未认证的错误信息，不能据此确认支付、退款或转账结果。</p>
+<p>Go SDK 对携带签名的错误回包同样验签，未签名错误明确返回未认证结果。网络异常、验签失败及时间戳失败都应保留原业务单号核查，不自动重新发起资金操作。</p>
 <h2 id="注意事项">注意事项</h2>
-<p>1、<strong>商户私钥</strong>（private key）用于请求签名，生成后请妥善保管，不要泄露。</p>
-<p>2、<strong>平台公钥</strong>（public key）用于接口返回数据、异步通知回调数据的验签。</p>
-<p>3、RSA 密钥长度至少为 2048 位；V2 接口的 <code>sign_type</code> 必须为 <code>RSA</code>。</p>
-<p>4、V1 旧版接口使用 MD5 签名，规则见 <a href="/doc/v1_legacy_api.html#md5-签名算法">V1旧版接口文档</a>。</p>
-<p>5、具体发起支付与验签的示例代码可下载 <a href="/doc/sdk.html">SDK</a> 查看。</p>
+<ul>
+<li>RSA 密钥至少 2048 位。商户私钥保存在商户服务端，平台公钥仅用于验签，不需要平台私钥。</li>
+<li>请求的空值规则与响应的空值规则不同；使用 Go SDK 可避免混用规则。</li>
+<li>异步通知由平台以 GET 发送。若回调 URL 原有查询参数，它们也属于回调验签集合；不得预占支付字段或签名字段，详见<a href="/doc/pay_notify.html">通知说明</a>。</li>
+<li>V1 订单的通知规则与 V2 不同。本文 Go SDK 仅支持 V2；已有 V1 对接参见<a href="/doc/v1_legacy_api.html#md5-签名算法">V1 MD5 签名规则</a>。</li>
+</ul>
 {{end}}

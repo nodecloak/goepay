@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	provider "goepay/internal/adapters/payment"
 	"goepay/internal/payment"
 	"html"
 	"net"
@@ -19,6 +21,9 @@ func coreRiskHTTPMaterial(a payment.ProviderAttempt) bool {
 	return e == nil && (u.Scheme == "https" || u.Scheme == "http") && u.Hostname() != "" && u.User == nil && u.Fragment == "" && !strings.ContainsAny(a.Material, "\r\n\x00")
 }
 func (s *Server) coreRiskPublicPaymentMaterial(ctx context.Context, o payment.Order, a payment.ProviderAttempt) (string, error) {
+	if a.MaterialType == "html" && o.Type == "alipay" {
+		return s.prepareOriginalCheckoutHTML(ctx, o, a)
+	}
 	if !coreRiskHTTPMaterial(a) {
 		return a.Material, nil
 	}
@@ -30,6 +35,42 @@ func (s *Server) coreRiskPublicPaymentMaterial(ctx context.Context, o payment.Or
 		return s.checkoutURL(o.TradeNo, "scan-region"), nil
 	}
 	return a.Material, nil
+}
+
+// prepareOriginalCheckoutHTML restores the bound account, then prepares the
+// saved native Alipay form without updating its immutable attempt or sending to
+// the provider. Ported plugins and unsupported providers retain their material.
+func (s *Server) prepareOriginalCheckoutHTML(ctx context.Context, o payment.Order, a payment.ProviderAttempt) (string, error) {
+	original, err := s.originalOrderServer(ctx, o.TradeNo, a.ChannelID)
+	if err != nil || original.ProviderFlow == nil {
+		return "", payment.ErrConflict
+	}
+	p := original.ProviderFlow.Providers[a.ChannelID]
+	if p == nil || p.ID() != "alipay" {
+		return "", payment.ErrConflict
+	}
+	if plugin, ok := p.(interface{ PluginName() string }); ok && plugin.PluginName() != "" {
+		return a.Material, nil
+	}
+	if refresh, ok := p.(interface {
+		RefreshCheckoutHTML(string, string, string) (string, error)
+	}); ok {
+		prepared, refreshErr := refresh.RefreshCheckoutHTML(a.Material, o.TradeNo, s.ProviderReturnURL(o.TradeNo))
+		if !errors.Is(refreshErr, provider.ErrUnsupported) {
+			return prepared, refreshErr
+		}
+	}
+	preparer, ok := p.(interface {
+		PrepareCheckoutHTML(string, string) (string, error)
+	})
+	if !ok {
+		return a.Material, nil
+	}
+	prepared, err := preparer.PrepareCheckoutHTML(a.Material, o.TradeNo)
+	if errors.Is(err, provider.ErrUnsupported) {
+		return a.Material, nil
+	}
+	return prepared, err
 }
 func (s *Server) coreRiskScanCheckout(w http.ResponseWriter, r *http.Request, o payment.Order, a payment.ProviderAttempt, purpose string) {
 	w.Header().Set("Cache-Control", "no-store")

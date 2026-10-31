@@ -991,7 +991,7 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 				s.wire(w, legacy, nil, "invalid payment parameters")
 				return
 			}
-			intent := cashierIntent{MerchantID: id, OutTradeNo: p["out_trade_no"], Name: truncateUTF8Bytes(p["name"], 127), Money: p["money"], NotifyURL: p["notify_url"], ReturnURL: p["return_url"], Param: p["param"], Buyer: p["sub_openid"], ClientIP: buyerIP, Expires: time.Now().Add(30 * time.Minute).Unix()}
+			intent := cashierIntent{Version: wireVersion(legacy), MerchantID: id, OutTradeNo: p["out_trade_no"], Name: truncateUTF8Bytes(p["name"], 127), Money: p["money"], NotifyURL: p["notify_url"], ReturnURL: p["return_url"], Param: p["param"], Buyer: p["sub_openid"], ClientIP: buyerIP, Expires: time.Now().Add(30 * time.Minute).Unix()}
 			target := s.cashierURL(intent)
 			if route == "/api/pay/submit" {
 				http.Redirect(w, r, target, http.StatusFound)

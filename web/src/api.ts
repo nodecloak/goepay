@@ -6,6 +6,9 @@ export interface FundsActionRequest {
   target: string;
   body: Record<string, unknown>;
   signal?: AbortSignal;
+  // Called synchronously only at original-business dispatch, never for status,
+  // challenge or password verification. A storage failure must stop the POST.
+  beforeDispatch?: () => void;
 }
 export type FundsActionResult = { status: number; data: unknown };
 export interface User {
@@ -36,6 +39,12 @@ export class ApiError extends Error {
     public code: number,
     public retryAfterSeconds?: number,
     public responseDecoded = true,
+    public requestNotRecorded?: {
+      kind: string;
+      merchant_id: string;
+      external_no: string;
+      reason: string;
+    },
   ) {
     super(message);
   }
@@ -56,6 +65,7 @@ export class ApiClient {
       signal?: AbortSignal;
       paymentAuthorization?: string;
       fundsAuthorizationChecked?: boolean;
+      beforeDispatch?: () => void;
     } = {},
   ): Promise<T> {
     return (await this.requestResult<T>(path, options)).data;
@@ -68,6 +78,7 @@ export class ApiClient {
       signal?: AbortSignal;
       paymentAuthorization?: string;
       fundsAuthorizationChecked?: boolean;
+      beforeDispatch?: () => void;
     } = {},
   ): Promise<{ status: number; data: T }> {
     const method = options.method || "GET";
@@ -83,6 +94,7 @@ export class ApiClient {
           target: `/console/v1/admin${path}`,
           body: (options.body || {}) as Record<string, unknown>,
           signal: options.signal,
+          beforeDispatch: options.beforeDispatch,
         },
         () =>
           this.requestResult(path, {
@@ -120,12 +132,18 @@ export class ApiClient {
     const keyLogin = this.area === "merchant" && path === "/key-login";
     const requestArea = this.area;
     const requestCSRF = this.csrfToken;
+    const requestBody =
+      options.body === undefined ? undefined : JSON.stringify(options.body);
+    if (options.signal?.aborted)
+      throw (
+        options.signal.reason || new DOMException("请求已取消", "AbortError")
+      );
+    options.beforeDispatch?.();
     const response = await fetch(`/console/v1/${this.area}${path}`, {
       method,
       credentials: "same-origin",
       headers,
-      body:
-        options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: requestBody,
       signal: options.signal,
     });
     let payload: { code: number; message?: string; data: T };
@@ -159,6 +177,13 @@ export class ApiClient {
         /^\d{1,5}$/.test(response.headers.get("Retry-After") || "")
           ? Number(response.headers.get("Retry-After"))
           : undefined,
+        true,
+        workflowRefusalProof212(
+          response.status,
+          path,
+          options.body,
+          payload.data,
+        ),
       );
     return { status: response.status, data: payload.data };
   }
@@ -355,6 +380,45 @@ export class ApiClient {
     this.csrfToken = s.csrf_token;
     return s;
   }
+}
+
+// A decoded, request-bound console proof is narrower than an HTTP 409. Legacy
+// conflicts, malformed responses and mismatched identities remain uncertain.
+function workflowRefusalProof212(
+  status: number,
+  path: string,
+  body: unknown,
+  data: unknown,
+): ApiError["requestNotRecorded"] {
+  const match = /^\/workflows\/(settlements|internal-transfers)$/.exec(path);
+  if (
+    status !== 409 ||
+    !match ||
+    !body ||
+    typeof body !== "object" ||
+    !data ||
+    typeof data !== "object"
+  )
+    return;
+  const b = body as Record<string, unknown>,
+    d = data as Record<string, unknown>;
+  if (
+    d.request_not_recorded !== true ||
+    d.kind !== match[1] ||
+    typeof d.external_no !== "string" ||
+    d.external_no !== b.external_no ||
+    typeof d.merchant_id !== "string" ||
+    !/^[1-9]\d{0,18}$/.test(d.merchant_id) ||
+    !["conflict", "insufficient"].includes(String(d.reason)) ||
+    (b.merchant_id !== undefined && b.merchant_id !== d.merchant_id)
+  )
+    return;
+  return {
+    kind: String(d.kind),
+    merchant_id: d.merchant_id,
+    external_no: d.external_no,
+    reason: String(d.reason),
+  };
 }
 export const validAmount = (x: string) =>
   /^(0|[1-9]\d{0,13})(\.\d{1,2})?$/.test(x) && /[1-9]/.test(x);

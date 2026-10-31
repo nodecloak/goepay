@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, useId, watch } from "vue";
 import { ApiClient, ApiError } from "../api";
+import { useSettingsDraft212 } from "../settings-drafts212";
 import { isPersonalMerchantID } from "../merchant-personal-settings";
 import {
   buyerFeeBody104,
@@ -22,6 +23,7 @@ const id = useId(),
   state = ref<BuyerFee104 | Minimum104 | null>(null),
   loading = ref(false),
   busy = ref(false),
+  unresolvedSave = ref(false),
   error = ref(""),
   notice = ref("");
 const draft = reactive({
@@ -59,6 +61,17 @@ const title = computed(() =>
       ? "最低手续费"
       : "通道最低手续费",
 );
+const { confirmDiscard: confirmDraftDiscard } = useSettingsDraft212(
+  title.value,
+  () =>
+    unresolvedSave.value ||
+    (!!state.value &&
+      ("mode" in state.value
+        ? draft.mode !== state.value.mode ||
+          draft.mode_feerate !== state.value.mode_feerate
+        : draft.payfee_lessthan !== state.value.payfee_lessthan ||
+          draft.payfee_mincost !== state.value.payfee_mincost)),
+);
 let epoch = 0,
   controller: AbortController | undefined,
   confirmedContext: Context | undefined;
@@ -93,7 +106,7 @@ function draftFrom(value: BuyerFee104 | Minimum104 | null) {
   draft.payfee_mincost =
     value && "payfee_mincost" in value ? value.payfee_mincost : "";
 }
-function clear(message = "") {
+function clear(message = "", preserveUnresolved = false) {
   confirmedContext = undefined;
   epoch++;
   controller?.abort();
@@ -104,6 +117,7 @@ function clear(message = "") {
   busy.value = false;
   error.value = message;
   notice.value = "";
+  if (!preserveUnresolved) unresolvedSave.value = false;
 }
 function valid(run: number, c: AbortController, bound: Context) {
   if (run !== epoch || c.signal.aborted) return false;
@@ -120,7 +134,16 @@ function parse(value: unknown, bound: Context) {
 }
 async function load() {
   if (loading.value || busy.value) return;
-  clear();
+  const discardEpoch = epoch;
+  if (
+    !(await confirmDraftDiscard()) ||
+    discardEpoch !== epoch ||
+    loading.value ||
+    busy.value ||
+    !allowed.value
+  )
+    return;
+  clear("", true);
   if (!allowed.value) return;
   const bound = context(),
     run = epoch,
@@ -133,6 +156,7 @@ async function load() {
     state.value = parse(value, bound);
     confirmedContext = bound;
     draftFrom(state.value);
+    unresolvedSave.value = false;
   } catch {
     if (valid(run, c, bound)) error.value = "手续费设置无法确认，请重新读取";
   } finally {
@@ -162,6 +186,7 @@ async function save() {
   controller?.abort();
   controller = c;
   busy.value = true;
+  unresolvedSave.value = true;
   error.value = "";
   notice.value = "";
   try {
@@ -185,6 +210,7 @@ async function save() {
     state.value = after;
     confirmedContext = bound;
     draftFrom(after);
+    unresolvedSave.value = false;
     notice.value = "保存成功，仅对后续新订单生效";
   } catch (e) {
     if (valid(run, c, bound))
@@ -192,6 +218,7 @@ async function save() {
         e instanceof ApiError && e.status === 409
           ? "手续费设置已变化，请重新读取并核对后保存"
           : "保存结果无法确认，请重新读取后核对",
+        true,
       );
   } finally {
     if (valid(run, c, bound)) busy.value = false;
@@ -204,6 +231,7 @@ function cancel() {
     return;
   }
   draftFrom(state.value);
+  unresolvedSave.value = false;
   error.value = "";
   notice.value = "";
 }

@@ -35,6 +35,7 @@ func (s *Server) backoffice(w http.ResponseWriter, r *http.Request, role string,
 		return false
 	}
 	service := backoffice.New(s.Pool, s.Store)
+	service.SettlementConfirmURLs = s.transferConfirmURLs
 	service.GroupRoutingChannels = s.groupPaymentChannels
 	service.GroupChannelAllowed = func(id int64, kind string) bool {
 		return s.ProviderFlow != nil && s.ProviderFlow.Providers[id] != nil && s.ProviderFlow.Providers[id].ID() == kind && len(s.ProviderFlow.Providers[id].Capabilities().Methods) > 0

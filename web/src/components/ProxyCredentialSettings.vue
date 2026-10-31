@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, toRaw, watch } from "vue";
 import { ApiClient, ApiError } from "../api";
+import { useSettingsDraft212 } from "../settings-drafts212";
 const props = withDefaults(
   defineProps<{
     client: ApiClient;
@@ -20,6 +21,7 @@ const state = ref<Metadata>(),
   editing = ref<Field>(),
   loading = ref(false),
   busy = ref(false),
+  unresolvedSave = ref(false),
   error = ref(""),
   notice = ref("");
 const apikeyInput = ref<HTMLInputElement>(),
@@ -49,6 +51,10 @@ function isAllowed() {
   );
 }
 const allowed = computed(isAllowed);
+const { confirmDiscard: confirmDraftDiscard } = useSettingsDraft212(
+  "代理密码和接口密钥",
+  () => !!draft.value.password || !!draft.value.apikey || unresolvedSave.value,
+);
 function same(source = tracked) {
   const now = context();
   return (
@@ -60,7 +66,7 @@ function same(source = tracked) {
     source.adminClass === now.adminClass
   );
 }
-function clear(message = "") {
+function clear(message = "", preserveUnresolved = false) {
   ++epoch;
   controller?.abort();
   controller = undefined;
@@ -71,6 +77,7 @@ function clear(message = "") {
   busy.value = false;
   error.value = message;
   notice.value = "";
+  if (!preserveUnresolved) unresolvedSave.value = false;
   tracked = context();
 }
 function current(
@@ -105,7 +112,16 @@ function read(raw: unknown): Metadata {
 }
 async function load() {
   if (busy.value || loading.value) return;
-  clear();
+  const discardEpoch = epoch;
+  if (
+    !(await confirmDraftDiscard()) ||
+    discardEpoch !== epoch ||
+    busy.value ||
+    loading.value ||
+    !isAllowed()
+  )
+    return;
+  clear("", true);
   if (!isAllowed()) return;
   const source = tracked,
     run = epoch,
@@ -117,7 +133,10 @@ async function load() {
       "/settings/proxy-credentials",
       { signal: c.signal },
     );
-    if (current(run, c, source)) state.value = read(raw);
+    if (current(run, c, source)) {
+      state.value = read(raw);
+      unresolvedSave.value = false;
+    }
   } catch {
     if (current(run, c, source))
       error.value = "代理密钥状态读取失败，请重新读取";
@@ -140,6 +159,7 @@ function cancelEdit() {
   if (busy.value) return;
   editing.value = undefined;
   draft.value = { password: "", apikey: "" };
+  unresolvedSave.value = false;
   error.value = "";
 }
 function randomKey() {
@@ -172,6 +192,7 @@ async function save(field: Field, action: "replace" | "clear") {
   controller?.abort();
   controller = c;
   busy.value = true;
+  unresolvedSave.value = true;
   editing.value = undefined;
   draft.value = { password: "", apikey: "" };
   error.value = "";
@@ -186,6 +207,7 @@ async function save(field: Field, action: "replace" | "clear") {
     if (next.fingerprint === before.fingerprint)
       throw Error("unconfirmed proxy credential operation");
     state.value = next;
+    unresolvedSave.value = false;
     notice.value =
       (field === "apikey" ? "API接口密钥" : "代理密码") +
       (action === "replace" ? "已保存" : "已清除");

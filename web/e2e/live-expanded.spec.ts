@@ -1,3 +1,4 @@
+import { logoutConsole } from "./live-console";
 import { readLocalSandboxEnv } from "./local-sandbox-env";
 import { test, expect } from "@playwright/test";
 function password() {
@@ -57,10 +58,24 @@ test("live persisted domain CRUD, scoped reports, account and operational reads"
     "/admin/system/update",
   ]) {
     await page.goto(path);
-    await expect(page.getByRole("table").first()).toBeVisible();
+    if (path.endsWith("/cron")) {
+      await expect(
+        page.getByRole("region", { name: "计划任务", exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "执行记录", exact: true }).first(),
+      ).toBeVisible();
+    } else if (path.endsWith("/update")) {
+      await expect(
+        page.getByRole("region", { name: "系统更新", exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "重新检测", exact: true }),
+      ).toBeVisible();
+    } else await expect(page.getByRole("table").first()).toBeVisible();
     await expect(page.getByRole("alert")).toHaveCount(0);
   }
-  await page.getByRole("button", { name: "退出登录" }).click();
+  await logoutConsole(page);
   await login(page, "merchant");
   for (const path of [
     "/merchant/account/settings",
@@ -96,10 +111,10 @@ test("live settlement reserve is visible and admin rejection restores its termin
       .getByRole("button", { name: "配置收款资料", exact: true })
       .click();
     await recipientPanel
-      .getByLabel("新收款账号", { exact: true })
+      .getByLabel("收款账号", { exact: true })
       .fill("local-settlement@example.invalid");
     await recipientPanel
-      .getByLabel("新收款姓名", { exact: true })
+      .getByLabel("真实姓名", { exact: true })
       .fill("Local Settlement Fixture");
     await recipientPanel
       .getByRole("button", { name: "保存收款版本", exact: true })
@@ -124,14 +139,14 @@ test("live settlement reserve is visible and admin rejection restores its termin
   const body = await response.json();
   expect(response.status(), body.message).toBe(201);
   await expect(page.locator(".alert.success")).toContainText("申请已提交");
-  await page.getByRole("button", { name: "退出登录" }).click();
+  await logoutConsole(page);
   await login(page, "admin");
   await page.goto("/admin/settle/list");
   const row = page.locator(`[data-settlement-id="${body.data.id}"]`);
   await expect(row).toBeVisible();
   await row.getByRole("button", { name: "拒绝", exact: true }).click();
   await page.getByRole("button", { name: "确认拒绝", exact: true }).click();
-  await expect(row.locator(".settlement-status")).toHaveText("结算失败");
+  await expect(row.getByText("结算失败", { exact: true })).toBeVisible();
   await expect(row).toContainText("申请已拒绝");
   const original = await page.request.get(
     `/console/v1/admin/workflows/settlements?limit=100`,

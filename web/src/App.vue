@@ -12,6 +12,7 @@ import {
   onBeforeUnmount,
   onMounted,
   nextTick,
+  provide,
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { applyTheme, saveTheme, storedTheme, type ConsoleTheme } from "./theme";
@@ -28,6 +29,15 @@ import {
   type FundsActionRequest,
   type FundsActionResult,
 } from "./api";
+import {
+  fundsPrincipal212,
+  fundsScope212,
+  FundsIntentStore212,
+  fundsDefinitiveRefusal212,
+  fundsAmountCents212,
+  verifiedRefund212,
+  type FundsIntent212,
+} from "./funds-intent212";
 import {
   resolvePage,
   viewKind,
@@ -79,7 +89,7 @@ import OrderDetails from "./components/OrderDetails.vue";
 import MerchantOrderActionDialog from "./components/MerchantOrderActionDialog.vue";
 import type { MerchantOrderActionID } from "./order-actions";
 import AdminOrderActionDialog from "./components/AdminOrderActionDialog.vue";
-import type { OrderActionID } from "./order-actions";
+import type { OrderActionID, AdminOrderMenuActionID } from "./order-actions";
 import { merchantOrderActions } from "./order-actions";
 import { refundNotice } from "./order-operations";
 import { centsMoney } from "./settlement-terms";
@@ -210,6 +220,28 @@ function openEnrollment(purpose: "register" | "recover") {
   error.value = "";
   notice.value = "";
   enrollmentPurpose.value = purpose;
+}
+function enrollmentFromEntry216(allowPromotion = false): "register" | null {
+  if (area.value !== "merchant" || session.value) return null;
+  if (route.path === "/merchant/login" && route.query.enroll === "register")
+    return "register";
+  return allowPromotion && promotionPrefill.value ? "register" : null;
+}
+async function closeEnrollment216() {
+  enrollmentPurpose.value = null;
+  promotionPrefill.value = "";
+  if (
+    route.path !== "/merchant/login" ||
+    !Object.hasOwn(route.query, "enroll")
+  )
+    return;
+  const query = { ...route.query };
+  delete query.enroll;
+  try {
+    await router.replace({ path: "/merchant/login", query, hash: route.hash });
+  } catch {
+    error.value = "返回登录页面失败，请重新加载页面";
+  }
 }
 const listFilters = ref(freshListFilters());
 const refundSummaryQuery = ref<string | null>(null);
@@ -392,6 +424,17 @@ const client = ref(new ApiClient(area.value)),
   initializing = ref(true),
   busy = ref(false),
   loading = ref(false);
+const moneyPrincipal212 = computed(() =>
+  session.value
+    ? {
+        area: area.value,
+        id: String(session.value.user.id),
+        issuer: String(session.value.delegated_by?.id || ""),
+        csrf: session.value.csrf_token,
+      }
+    : null,
+);
+provide(fundsPrincipal212, moneyPrincipal212);
 // Only the order and refund lists show the 支付方式 filter; other pages must
 // not send this read (pages such as 计划任务 assert they read nothing extra).
 const payTypeFilterOptions = usePayTypeOptions(
@@ -553,6 +596,37 @@ const refundRow = ref<Record<string, unknown> | null>(null),
   refundExternal = ref(""),
   refundFunding = ref<Record<string, unknown> | null>(null),
   refundFundingBinding = ref("");
+const refundIntent212 = ref<FundsIntent212 | null>(null),
+  refundRestoring212 = ref(false),
+  refundStorageError212 = ref(""),
+  refundRecoveryOnly212 = ref(false),
+  refundListRecoveryError212 = ref("");
+let refundStore212: FundsIntentStore212 | null = null,
+  refundEpoch212 = 0;
+watch(
+  moneyPrincipal212,
+  () => {
+    refundEpoch212++;
+    refundStore212 = null;
+    refundIntent212.value = null;
+    refundRestoring212.value = false;
+    refundStorageError212.value = "";
+    refundRecoveryOnly212.value = false;
+    refundListRecoveryError212.value = "";
+  },
+  { flush: "sync" },
+);
+const refundRecoveryNotice212 = computed(() => {
+  const intent = refundIntent212.value;
+  if (!intent) return "";
+  if (intent.record?.status === "succeeded")
+    return "原退款已核实：退款成功，请核对资金明细。";
+  if (intent.record?.status === "failed")
+    return "原退款已核实：退款失败，请核对记录后结束本次操作。";
+  return intent.phase === "accepted"
+    ? "原退款申请已登记，处理结果尚待核对；金额和请求号保持锁定。"
+    : "上次退款结果尚未核实；原金额和请求号已锁定，请查询原退款或重试原请求。";
+});
 let orderDetailsOpener: {
   element: HTMLElement;
   client: ApiClient;
@@ -639,13 +713,35 @@ async function returnMerchantFocus(context: MerchantMenuReturn | null) {
   const target = context.element?.isConnected
     ? context.element
     : document.querySelector<HTMLElement>(
-        `[data-merchant-order-trade="${context.trade}"] button`,
+        `button[aria-label="订单操作 ${context.trade}"]`,
       );
   target?.focus();
 }
 watch(loading, (value) => {
   if (!value && pendingMenuFocus) void returnMerchantFocus(pendingMenuFocus);
 });
+function openAdminOrderAction(
+  row: Record<string, unknown>,
+  action: AdminOrderMenuActionID,
+) {
+  if (area.value !== "admin") return;
+  if (action === "recover-refund") {
+    if (row.local_refund_recovery212 !== true) return;
+    refundMenuReturn = {
+      element:
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null,
+      trade: String(row.trade_no),
+      client: client.value,
+      csrf: client.value.csrfToken,
+      path: route.fullPath,
+    };
+    void openRefund(row, true);
+    return;
+  }
+  orderAction.value = { row, action };
+}
 function openMerchantOrderAction(
   row: Record<string, unknown>,
   action: MerchantOrderActionID,
@@ -653,6 +749,21 @@ function openMerchantOrderAction(
   if (area.value !== "merchant") return;
   if (action === "detail") {
     openOrderDetails(row);
+    return;
+  }
+  if (action === "recover-refund") {
+    if (row.local_refund_recovery212 !== true) return;
+    refundMenuReturn = {
+      element:
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null,
+      trade: String(row.trade_no),
+      client: client.value,
+      csrf: client.value.csrfToken,
+      path: route.fullPath,
+    };
+    void openRefund(row, true);
     return;
   }
   if (!["query", "notify", "refund", "print"].includes(action)) return;
@@ -693,6 +804,11 @@ function merchantRefund(row: Record<string, unknown>) {
 async function closeRefundModal() {
   if (busy.value) return;
   refundRow.value = null;
+  // The table uses the shared error state to decide whether it can render.
+  // A dismissed refund error must not hide the row needed to resume its intent.
+  error.value = "";
+  if (kind.value === "orders")
+    items.value = await refundRecoveryRows212(items.value);
   const context = refundMenuReturn;
   refundMenuReturn = null;
   await returnMerchantFocus(context);
@@ -1117,7 +1233,12 @@ async function load() {
         total: number;
       }>(`/${kind.value}?${q}`, { signal: c.signal });
       if (!c.signal.aborted) {
-        items.value = data.items || [];
+        const rows =
+          kind.value === "orders"
+            ? await refundRecoveryRows212(data.items || [])
+            : data.items || [];
+        if (c.signal.aborted) return;
+        items.value = rows;
         total.value = data.total || 0;
       }
     }
@@ -1130,14 +1251,55 @@ async function load() {
     if (!c.signal.aborted) loading.value = false;
   }
 }
-function openRefund(row: Record<string, unknown>) {
-  if (row.income_status === "held" && row.can_refund_held_income !== true) {
+async function refundRecoveryRows212(rows: Record<string, unknown>[]) {
+  const clean: Record<string, unknown>[] = rows.map((row) => ({
+    ...row,
+    local_refund_recovery212: false,
+  }));
+  const context = moneyPrincipal212.value;
+  if (!context) return clean;
+  try {
+    const principal = await fundsScope212(context);
+    if (context !== moneyPrincipal212.value) return clean;
+    let issue = "";
+    for (const row of clean) {
+      if (
+        typeof row.trade_no !== "string" ||
+        !/^[A-Za-z0-9_-]{1,64}$/.test(row.trade_no)
+      )
+        continue;
+      try {
+        row.local_refund_recovery212 = !!new FundsIntentStore212(
+          principal,
+          "refund",
+          row.trade_no,
+        ).read();
+      } catch (e) {
+        issue =
+          "原退款恢复资料无法核对，未开放新的恢复或退款请求。" + message(e);
+      }
+    }
+    refundListRecoveryError212.value = issue;
+    return clean;
+  } catch (e) {
+    refundListRecoveryError212.value =
+      "无法检查本人原退款请求，请恢复浏览器存储后再核对。" + message(e);
+    return clean;
+  }
+}
+async function openRefund(row: Record<string, unknown>, recoveryOnly = false) {
+  if (
+    !recoveryOnly &&
+    row.income_status === "held" &&
+    row.can_refund_held_income !== true
+  ) {
     orderDetails.value = row;
     notice.value = "请先读取订单详情，核对冻结款的专用退款来源";
     return;
   }
   const remaining104 = orderRefundRemaining104(row);
   if (
+    !recoveryOnly &&
     (Object.hasOwn(row, "realmoney") ||
       Object.hasOwn(row, "charge_verified104")) &&
     remaining104 === undefined
@@ -1145,15 +1307,56 @@ function openRefund(row: Record<string, unknown>) {
     error.value = "实际支付金额无法核对，请重新读取原订单";
     return;
   }
-  refundRow.value = row;
+  refundRecoveryOnly212.value = recoveryOnly;
+  refundRow.value = recoveryOnly ? null : row;
   refundMoney.value = "";
   if (area.value === "admin" && remaining104 !== undefined && remaining104 > 0n)
     refundMoney.value = centsMoney(remaining104.toString());
-  refundExternal.value = crypto.randomUUID();
+  refundExternal.value = recoveryOnly ? "" : crypto.randomUUID();
   refundFunding.value = null;
   refundFundingBinding.value = "";
   notice.value = "";
   error.value = "";
+  refundIntent212.value = null;
+  refundStore212 = null;
+  refundStorageError212.value = "";
+  const context = moneyPrincipal212.value,
+    stamp = ++refundEpoch212;
+  refundRestoring212.value = true;
+  try {
+    if (!context) throw new Error("本人会话尚未核实，不能恢复资金请求");
+    const principal = await fundsScope212(context);
+    if (stamp !== refundEpoch212 || context !== moneyPrincipal212.value) return;
+    const store = new FundsIntentStore212(
+      principal,
+      "refund",
+      String(row.trade_no ?? row.id),
+    );
+    const intent = store.read();
+    if (recoveryOnly && !intent)
+      throw new Error("当前主体未找到该订单的原退款请求，未开放新的退款");
+    refundStore212 = store;
+    refundIntent212.value = intent;
+    if (intent) {
+      refundRow.value = row;
+      refundMoney.value = intent.body.amount;
+      refundExternal.value = intent.body.external_no;
+    }
+  } catch (e) {
+    if (stamp === refundEpoch212) {
+      refundStorageError212.value = message(e);
+      if (recoveryOnly) {
+        refundListRecoveryError212.value = message(e);
+        items.value = items.value.map((item) =>
+          item.trade_no === row.trade_no
+            ? { ...item, local_refund_recovery212: false }
+            : item,
+        );
+      }
+    }
+  } finally {
+    if (stamp === refundEpoch212) refundRestoring212.value = false;
+  }
 }
 function resetListFilters() {
   listRouteError.value = "";
@@ -1164,6 +1367,14 @@ function resetListFilters() {
   void load();
 }
 async function submitRefund() {
+  if (
+    busy.value ||
+    refundRestoring212.value ||
+    refundRecoveryOnly212.value ||
+    refundIntent212.value ||
+    refundStorageError212.value
+  )
+    return;
   if (!validAmount(refundMoney.value)) {
     error.value = "请输入大于 0、最多两位小数的退款金额";
     return;
@@ -1205,33 +1416,180 @@ async function submitRefund() {
       }
       return;
     }
-    const result = await client.value.requestResult(
-      `/orders/${encodeURIComponent(String(row.trade_no ?? row.id))}/refund`,
-      {
-        method: "POST",
-        body: { amount: refundMoney.value, external_no: refundExternal.value },
-      },
-    );
-    refundRow.value = null;
-    orderAction.value = null;
-    includeArchivedOrders.value = false;
-    blacklistSelection.value = null;
-    notice.value = refundNotice(result.data, result.status);
-    await load();
-    const context = refundMenuReturn;
-    refundMenuReturn = null;
-    await returnMerchantFocus(context);
+    if (!refundStore212) throw new Error("无法保存原退款请求，尚未发送");
+    await sendRefundIntent212({
+      target: `/orders/${String(row.trade_no ?? row.id)}/refund`,
+      body: { amount: refundMoney.value, external_no: refundExternal.value },
+    });
   } catch (e) {
     error.value = message(e);
   } finally {
     busy.value = false;
   }
 }
+async function sendRefundIntent212(
+  intent: Pick<FundsIntent212, "target" | "body">,
+  retry = false,
+) {
+  const store = refundStore212,
+    stamp = refundEpoch212,
+    currentClient = client.value,
+    originalOrder = refundRow.value;
+  if (!store) throw new Error("原退款请求尚未恢复");
+  let dispatched = false;
+  notice.value = "";
+  try {
+    const result = await currentClient.requestResult<Record<string, unknown>>(
+      intent.target,
+      {
+        method: "POST",
+        body: intent.body,
+        beforeDispatch: () => {
+          if (stamp !== refundEpoch212 || currentClient !== client.value)
+            throw new Error("本人会话或原操作已变化，尚未发送退款");
+          if (!retry)
+            refundIntent212.value = store.begin(intent.target, {
+              ...intent.body,
+            });
+          dispatched = true;
+        },
+      },
+    );
+    if (stamp !== refundEpoch212 || currentClient !== client.value) return;
+    const merchant =
+      originalOrder?.merchant_id ??
+      (area.value === "merchant" ? session.value?.user.id : undefined);
+    const record = verifiedRefund212(
+      result.data,
+      intent,
+      {
+        merchant_id: merchant === undefined ? undefined : String(merchant),
+        order_id:
+          originalOrder?.id === undefined
+            ? undefined
+            : String(originalOrder.id),
+      },
+      result.status,
+    );
+    refundIntent212.value = store.accept(record);
+    notice.value = refundNotice(
+      { status: record.status, refund_no: intent.body.external_no },
+      result.status,
+    );
+  } catch (e) {
+    if (stamp !== refundEpoch212 || currentClient !== client.value) return;
+    if (!dispatched) {
+      error.value = retry
+        ? "本次核对或授权未完成，尚未重发；之前的原退款结果仍待核实，已保留原请求。" +
+          message(e)
+        : "退款尚未发送，请修正或完成核对后提交。" + message(e);
+    } else if (!retry && fundsDefinitiveRefusal212(e)) {
+      store.clear();
+      refundIntent212.value = null;
+      error.value = "本次请求已明确拒绝，未按新请求重新发送。" + message(e);
+    } else {
+      notice.value = refundNotice(undefined, 202);
+      error.value =
+        "退款结果尚未核实。已保留原金额及请求号，请查询或重试原请求。" +
+        message(e);
+    }
+  }
+}
+async function retryRefundIntent212() {
+  if (
+    busy.value ||
+    !refundIntent212.value ||
+    refundIntent212.value.phase !== "unknown"
+  )
+    return;
+  busy.value = true;
+  error.value = "";
+  try {
+    await sendRefundIntent212(refundIntent212.value, true);
+  } catch (e) {
+    error.value = message(e);
+  } finally {
+    busy.value = false;
+  }
+}
+async function queryRefundIntent212() {
+  const intent = refundIntent212.value,
+    store = refundStore212,
+    stamp = refundEpoch212;
+  if (busy.value || !intent || !store) return;
+  busy.value = true;
+  error.value = "";
+  try {
+    const q = new URLSearchParams({
+      search_field: "out_refund_no",
+      q: intent.body.external_no,
+      limit: "2",
+    });
+    const merchant = String(
+      refundRow.value?.merchant_id ||
+        (area.value === "merchant" ? session.value?.user.id : ""),
+    );
+    if (merchant) q.set("merchant_id", merchant);
+    const data = await client.value.request<{
+      items: Record<string, unknown>[];
+    }>("/refunds?" + q);
+    if (stamp !== refundEpoch212) return;
+    if (!Array.isArray(data.items) || data.items.length > 1)
+      throw new Error("原退款查询结果不唯一，不能解除原请求");
+    const row = data.items[0];
+    if (!row) {
+      error.value =
+        "尚未查到原退款，不代表未受理；继续保留原请求号，不能重新生成请求。";
+      return;
+    }
+    if (
+      row.trade_no !== intent.object ||
+      String(row.out_refund_no ?? row.refund_no) !== intent.body.external_no ||
+      row.amount !== fundsAmountCents212(intent.body.amount) ||
+      (merchant && row.merchant_id !== merchant) ||
+      !/^[1-9]\d{0,18}$/.test(String(row.id)) ||
+      ![
+        "succeeded",
+        "failed",
+        "pending",
+        "unknown",
+        "processing",
+        "reserved",
+      ].includes(String(row.status))
+    )
+      throw new Error("原退款金额或订单归属不一致，请保留原请求核对");
+    refundIntent212.value = store.accept({
+      id: String(row.id),
+      status: String(row.status),
+    });
+  } catch (e) {
+    if (stamp === refundEpoch212) error.value = message(e);
+  } finally {
+    if (stamp === refundEpoch212) busy.value = false;
+  }
+}
+async function finishRefundIntent212() {
+  if (
+    busy.value ||
+    !refundStore212 ||
+    !["succeeded", "failed"].includes(
+      refundIntent212.value?.record?.status || "",
+    )
+  )
+    return;
+  try {
+    refundStore212.clear();
+    refundIntent212.value = null;
+    await closeRefundModal();
+    await load();
+  } catch (e) {
+    error.value = message(e);
+  }
+}
 watch(
   [area, publicTestPayEntry203],
   () => {
-    enrollmentPurpose.value =
-      area.value === "merchant" && promotionPrefill.value ? "register" : null;
+    enrollmentPurpose.value = enrollmentFromEntry216(true);
     if (area.value !== "merchant") promotionPrefill.value = "";
     refundSummaryQuery.value = null;
     refundSummaryReturn = undefined;
@@ -1251,7 +1609,10 @@ watch(session, (value) => {
   refundSummaryReturn = undefined;
   orderSummaryQuery.value = null;
   orderSummaryReturn = undefined;
-  if (value) promotionPrefill.value = "";
+  if (value) {
+    promotionPrefill.value = "";
+    enrollmentPurpose.value = null;
+  }
   if (!value) {
     settleFundsAction(new Error("管理员会话已失效，资金授权已清除"));
     refundRow.value = null;
@@ -1271,7 +1632,7 @@ watch(
     orderSummaryReturn = undefined;
     promotionPrefill.value = "";
     settleFundsAction(new Error("页面已切换，资金授权已清除，请核对原业务"));
-    enrollmentPurpose.value = null;
+    enrollmentPurpose.value = enrollmentFromEntry216();
     pageNumber.value = 1;
     search.value = "";
     listFilters.value = freshListFilters();
@@ -1509,10 +1870,7 @@ onBeforeUnmount(() => {
         :initial-promotion-token="promotionPrefill"
         :registration-announcement="publicLayout?.zhuce ?? ''"
         @prefill-consumed="promotionPrefill = ''"
-        @close="
-          enrollmentPurpose = null;
-          promotionPrefill = '';
-        "
+        @close="closeEnrollment216"
       />
       <template v-else>
         <h2>{{ area === "admin" ? "管理员登录" : "商户登录" }}</h2>
@@ -1767,6 +2125,13 @@ onBeforeUnmount(() => {
     </template>
     <main class="content">
       <p
+        v-if="kind === 'orders' && refundListRecoveryError212"
+        role="alert"
+        class="alert error"
+      >
+        {{ refundListRecoveryError212 }}
+      </p>
+      <p
         v-if="area === 'merchant' && session.delegated_by"
         role="status"
         class="alert"
@@ -1775,8 +2140,10 @@ onBeforeUnmount(() => {
         分钟，管理员退出或权限撤销后失效。
       </p>
       <div class="page-heading-spacer"></div>
-      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-      <div v-if="notice" class="alert success" role="status">
+      <div v-if="error && !refundRow" class="alert error" role="alert">
+        {{ error }}
+      </div>
+      <div v-if="notice && !refundRow" class="alert success" role="status">
         {{ notice }}
       </div>
       <section v-if="!page || !authorized" class="panel unavailable">
@@ -1816,6 +2183,11 @@ onBeforeUnmount(() => {
         :client="client"
         :area="area"
         :path="path"
+        :can-configure="
+          area === 'admin' &&
+          session?.user.admin_class === 'super' &&
+          !session?.delegated_by
+        "
       />
       <SettlementSchedulePage
         v-else-if="kind === 'settlement-schedule'"
@@ -2317,7 +2689,7 @@ onBeforeUnmount(() => {
             "
             @refund="openRefund"
             @detail="openOrderDetails"
-            @order-action="(row, action) => (orderAction = { row, action })"
+            @order-action="openAdminOrderAction"
             @merchant-order-action="openMerchantOrderAction"
             @blacklist="openBlacklist"
           />
@@ -2437,12 +2809,67 @@ onBeforeUnmount(() => {
           class="modal panel"
           role="dialog"
           aria-modal="true"
-          :aria-label="area === 'admin' ? 'API退款确认' : '申请退款'"
+          :aria-label="
+            refundRecoveryOnly212
+              ? '核对原退款'
+              : area === 'admin'
+                ? 'API退款确认'
+                : '申请退款'
+          "
           @keydown="trapRefundFocus"
         >
-          <h2>{{ area === "admin" ? "API退款确认" : "申请退款" }}</h2>
+          <h2>
+            {{
+              refundRecoveryOnly212
+                ? "核对原退款"
+                : area === "admin"
+                  ? "API退款确认"
+                  : "申请退款"
+            }}
+          </h2>
           <div v-if="error" class="alert error" role="alert">{{ error }}</div>
           <form v-if="refundRow" @submit.prevent="submitRefund">
+            <p v-if="refundRestoring212" role="status">
+              正在恢复本人原退款请求…
+            </p>
+            <p v-if="refundStorageError212" role="alert" class="alert error">
+              {{ refundStorageError212 }}
+            </p>
+            <div v-if="refundIntent212" role="status" class="alert">
+              {{ refundRecoveryNotice212 }}
+              <p v-if="refundIntent212.record">
+                原退款记录：{{ refundIntent212.record.id }}
+              </p>
+              <div class="toolbar-actions">
+                <button
+                  type="button"
+                  :disabled="busy"
+                  @click="queryRefundIntent212"
+                >
+                  查询原退款
+                </button>
+                <button
+                  v-if="refundIntent212.phase === 'unknown'"
+                  type="button"
+                  :disabled="busy"
+                  @click="retryRefundIntent212"
+                >
+                  重试原退款请求
+                </button>
+                <button
+                  v-if="
+                    ['succeeded', 'failed'].includes(
+                      refundIntent212.record?.status || '',
+                    )
+                  "
+                  type="button"
+                  :disabled="busy"
+                  @click="finishRefundIntent212"
+                >
+                  已核对，结束本次退款
+                </button>
+              </div>
+            </div>
             <p class="muted">
               订单
               <span class="pa-order-no">{{
@@ -2452,12 +2879,24 @@ onBeforeUnmount(() => {
             <label
               >退款金额（元）<input
                 v-model="refundMoney"
+                :readonly="
+                  !!refundIntent212 ||
+                  busy ||
+                  refundRestoring212 ||
+                  refundRecoveryOnly212
+                "
                 inputmode="decimal"
                 required
                 autofocus /></label
             ><label
               >退款请求号<input
                 v-model="refundExternal"
+                :readonly="
+                  !!refundIntent212 ||
+                  busy ||
+                  refundRestoring212 ||
+                  refundRecoveryOnly212
+                "
                 required
                 maxlength="128"
             /></label>
@@ -2483,7 +2922,13 @@ onBeforeUnmount(() => {
             <div class="modal-actions">
               <button type="button" :disabled="busy" @click="closeRefundModal">
                 取消</button
-              ><button class="primary" :disabled="busy">
+              ><button
+                v-if="!refundIntent212 && !refundRecoveryOnly212"
+                class="primary"
+                :disabled="
+                  busy || refundRestoring212 || !!refundStorageError212
+                "
+              >
                 {{
                   busy
                     ? "正在处理…"
@@ -2503,6 +2948,7 @@ onBeforeUnmount(() => {
     :client="client"
     :target="fundsAction.target"
     :body="fundsAction.body"
+    :before-dispatch="fundsAction.beforeDispatch"
     @close="settleFundsAction(new Error('资金授权已取消，尚未自动提交原业务'))"
     @completed="(result) => settleFundsAction(undefined, result)"
     @failed="(error) => settleFundsAction(error)"

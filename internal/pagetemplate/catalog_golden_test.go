@@ -20,6 +20,7 @@ type builtinTemplate struct {
 	Type        string `json:"type"`
 	Name        string `json:"name"`
 	Title       string `json:"title"`
+	Version     string `json:"version"`
 	Description string `json:"description"`
 }
 
@@ -32,7 +33,7 @@ func buildTemplateCatalog(t *testing.T) []builtinTemplate {
 			t.Fatal(e)
 		}
 		for _, v := range list {
-			out = append(out, builtinTemplate{Type: v.Type, Name: v.Name, Title: v.Title, Description: v.Description})
+			out = append(out, builtinTemplate{Type: v.Type, Name: v.Name, Title: v.Title, Version: v.Version, Description: v.Description})
 		}
 	}
 	return out

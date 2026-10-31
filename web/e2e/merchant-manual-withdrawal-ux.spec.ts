@@ -78,7 +78,37 @@ for (const width of [1280, 375])
           expected_fee_cents: "3",
           expected_net_cents: "120",
         });
-        data = { id: "159", status: "pending" };
+        data = {
+          id: "159",
+          kind: "settlements",
+          merchant_id: id,
+          external_no: req.postDataJSON().external_no,
+          status: "pending",
+          amount: "1.23",
+          amount_cents: "123",
+          external_payout: false,
+          created_at: "2026-10-30T00:00:00Z",
+          settlement: {
+            gross_amount: "123",
+            fee_amount: "3",
+            net_amount: "120",
+            retained_cents: "0",
+          },
+          settlement_recipient: {
+            state: "recorded",
+            config_id: "159",
+            type: "alipay",
+            app_id: "",
+            account_masked: "***0159",
+            name_masked: "***",
+          },
+          settlement_funding: {
+            state: "reserved",
+            account_id: "7",
+            gross_amount: "123",
+            reserved_amount: "123",
+          },
+        };
         status = 201;
       }
       return route.fulfill({ status, json: { code: 0, data } });

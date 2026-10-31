@@ -30,7 +30,7 @@ test("live Docker templates render in the protected iframe and both printing set
   expect((await dashboard.json()).data.sandbox).toBe(true);
   await page.goto("/admin/app/template");
   await expect(
-    page.getByRole("heading", { name: "模板配置", exact: true, level: 2 }),
+    page.getByRole("navigation", { name: "模板类型", exact: true }),
   ).toBeVisible();
   // The page opens on 首页模板; the checks below are about the pay frame.
   await page.getByRole("button", { name: "支付页模板", exact: true }).click();
@@ -48,7 +48,9 @@ test("live Docker templates render in the protected iframe and both printing set
   expect(await frame.locator("form,script,button").count()).toBe(0);
   const previewPath = await page.locator("iframe").getAttribute("src");
   const preview = await page.request.get(previewPath!);
-  expect(preview.headers()["x-frame-options"]).toBe("SAMEORIGIN");
+  expect(preview.headers()["content-security-policy"]).toContain(
+    "frame-ancestors 'self'",
+  );
   expect(preview.headers()["content-security-policy"]).toContain(
     "script-src 'none'",
   );
@@ -68,11 +70,7 @@ test("live Docker templates render in the protected iframe and both printing set
   await login("merchant");
   await page.goto("/merchant/account/printing");
   await expect(
-    page.getByRole("heading", {
-      name: "我的订单打印设置",
-      exact: true,
-      level: 2,
-    }),
+    page.getByRole("region", { name: "我的订单打印设置", exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("自动打印范围")).toBeVisible();
   await page.setViewportSize({ width: 375, height: 812 });

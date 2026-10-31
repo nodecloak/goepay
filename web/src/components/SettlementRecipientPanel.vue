@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from "vue";
+import { ref, computed, watch, onBeforeUnmount, nextTick } from "vue";
 import { ApiClient, ApiError } from "../api";
 import {
   readSettlementRecipient,
   recipientConfigurationBody,
   type SettlementRecipient,
   type RecipientDraft,
+  type RecipientFieldErrors,
+  recipientFieldErrors,
+  recipientBankOptions,
 } from "../settlement-recipient";
 import KitField from "./KitField.vue";
 import KitInput from "./KitInput.vue";
@@ -17,6 +20,9 @@ const props = defineProps<{
   disabled: boolean;
 }>();
 const emit = defineEmits<{ change: [SettlementRecipient | null] }>();
+const panel = ref<HTMLElement>(),
+  fieldErrors = ref<RecipientFieldErrors>({}),
+  manualBankCode = ref(false);
 const current = ref<SettlementRecipient | null>(null),
   loading = ref(false),
   saving = ref(false),
@@ -53,6 +59,8 @@ function clear() {
   controller?.abort();
   current.value = null;
   draft.value = empty();
+  fieldErrors.value = {};
+  manualBankCode.value = false;
   editing.value = false;
   loading.value = false;
   error.value = "";
@@ -96,6 +104,11 @@ async function load() {
 }
 function edit() {
   draft.value = empty();
+  if (current.value?.type && allowedTypes.value.includes(current.value.type)) {
+    draft.value.type = current.value.type;
+    if (current.value.type === "wxpay")
+      draft.value.app_id = current.value.app_id;
+  }
   if (
     !allowedTypes.value.includes(draft.value.type) &&
     allowedTypes.value.length
@@ -104,17 +117,34 @@ function edit() {
       ? allowedTypes.value.find((t) => t !== "qqpay") || allowedTypes.value[0]!
       : allowedTypes.value[0]!;
   editing.value = true;
+  fieldErrors.value = {};
+  manualBankCode.value = false;
   notice.value = "";
   emit("change", null);
 }
 function cancel() {
   draft.value = empty();
   editing.value = false;
+  fieldErrors.value = {};
   emit("change", current.value);
 }
 async function save() {
   if (saving.value || !current.value) return;
   error.value = "";
+  fieldErrors.value = recipientFieldErrors(draft.value);
+  if (Object.keys(fieldErrors.value).length) {
+    error.value = "请核对标记的收款资料";
+    await nextTick();
+    const field = ["type", "account", "name", "app_id", "bank_code"].find(
+      (key) => fieldErrors.value[key as keyof RecipientFieldErrors],
+    );
+    panel.value
+      ?.querySelector<HTMLElement>(
+        `[data-recipient-field="${field}"] input, [data-recipient-field="${field}"] button`,
+      )
+      ?.focus();
+    return;
+  }
   const generation = epoch;
   try {
     const body = recipientConfigurationBody(
@@ -148,15 +178,24 @@ async function save() {
 watch(() => [props.admin, props.merchantID], load, { immediate: true });
 watch(
   () => draft.value.type,
-  () => {
+  (type) => {
     draft.value.bank_code = "";
-    draft.value.app_id = "";
+    draft.value.app_id =
+      type === "wxpay" && current.value?.type === "wxpay"
+        ? current.value.app_id
+        : "";
+    fieldErrors.value = {};
+    manualBankCode.value = false;
   },
 );
 onBeforeUnmount(clear);
 </script>
 <template>
-  <fieldset class="settlement-recipient" :disabled="disabled || saving">
+  <fieldset
+    ref="panel"
+    class="settlement-recipient"
+    :disabled="disabled || saving"
+  >
     <legend>结算收款资料</legend>
     <p v-if="loading" role="status">正在读取收款配置…</p>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
@@ -191,44 +230,110 @@ onBeforeUnmount(clear);
           请完整输入新收款资料。此操作只更新后续申请，不更改旧快照，也不会汇款。
         </p>
         <div class="recipient-form">
-          <KitField label="收款方式">
+          <KitField label="收款方式" data-recipient-field="type">
             <KitSelect
               v-model="draft.type"
               :options="typeOptions"
               aria-label="收款方式"
             />
           </KitField>
-          <KitField label="收款账号">
+          <KitField label="收款账号" data-recipient-field="account" required>
             <KitInput
               v-model="draft.account"
               :maxlength="128"
               autocomplete="off"
               aria-label="收款账号"
+              :error="!!fieldErrors.account"
             />
+            <span
+              v-if="fieldErrors.account"
+              class="recipient-field-error"
+              role="alert"
+              >{{ fieldErrors.account }}</span
+            >
           </KitField>
-          <KitField label="真实姓名">
+          <KitField label="真实姓名" data-recipient-field="name" required>
             <KitInput
               v-model="draft.name"
               :maxlength="128"
               autocomplete="off"
               aria-label="真实姓名"
+              :error="!!fieldErrors.name"
             />
+            <span
+              v-if="fieldErrors.name"
+              class="recipient-field-error"
+              role="alert"
+              >{{ fieldErrors.name }}</span
+            >
           </KitField>
-          <KitField v-if="draft.type === 'wxpay'" label="收款所属 AppID">
+          <KitField
+            v-if="draft.type === 'wxpay'"
+            label="收款所属 AppID"
+            data-recipient-field="app_id"
+            required
+          >
             <KitInput
               v-model="draft.app_id"
               :maxlength="128"
               autocomplete="off"
               aria-label="收款所属 AppID"
+              :error="!!fieldErrors.app_id"
             />
+            <span class="muted recipient-field-help"
+              >收款账号应为该应用下的OpenID；AppID与OpenID必须属于同一应用。不清楚时请向平台管理员获取，不能填写微信号。</span
+            >
+            <span
+              v-if="fieldErrors.app_id"
+              class="recipient-field-error"
+              role="alert"
+              >{{ fieldErrors.app_id }}</span
+            >
           </KitField>
-          <KitField v-if="draft.type === 'bank'" label="银行代码（按渠道要求）">
+          <KitField
+            v-if="draft.type === 'bank'"
+            label="开户银行（按渠道要求）"
+            data-recipient-field="bank_code"
+          >
+            <KitSelect
+              v-if="!manualBankCode"
+              v-model="draft.bank_code"
+              :options="recipientBankOptions"
+              aria-label="选择开户银行"
+            />
             <KitInput
+              v-else
               v-model="draft.bank_code"
               :maxlength="32"
               autocomplete="off"
               aria-label="银行代码"
+              inputmode="numeric"
+              :error="!!fieldErrors.bank_code"
             />
+            <span class="muted recipient-field-help"
+              >列表复用平台已有微信银行编号。仅通道要求银行代码时选择；其他渠道代码请向平台管理员获取。</span
+            >
+            <button
+              type="button"
+              class="link-button recipient-bank-mode"
+              @click="
+                manualBankCode = !manualBankCode;
+                draft.bank_code = '';
+                fieldErrors.bank_code = undefined;
+              "
+            >
+              {{
+                manualBankCode
+                  ? "使用已有银行编号"
+                  : "按管理员提供的代码手动填写"
+              }}
+            </button>
+            <span
+              v-if="fieldErrors.bank_code"
+              class="recipient-field-error"
+              role="alert"
+              >{{ fieldErrors.bank_code }}</span
+            >
           </KitField>
         </div>
         <div class="row-actions">
@@ -253,6 +358,21 @@ onBeforeUnmount(clear);
   </fieldset>
 </template>
 <style scoped>
+.recipient-field-error {
+  color: var(--danger-text, #c62828);
+  font-size: 12px;
+}
+.recipient-field-help {
+  display: block;
+  font-size: 12px;
+  font-weight: normal;
+  line-height: 1.5;
+}
+.recipient-bank-mode {
+  justify-self: start;
+  text-align: left;
+  white-space: normal;
+}
 .recipient-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

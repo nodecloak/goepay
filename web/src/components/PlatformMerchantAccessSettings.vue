@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, toRaw, watch } from "vue";
 import { ApiClient, ApiError } from "../api";
+import { useSettingsDraft212 } from "../settings-drafts212";
 import {
   parsePlatformMerchantAccess,
   platformMerchantAccessBody,
@@ -19,6 +20,7 @@ const state = ref<PlatformMerchantAccess | null>(null),
   loading = ref(false),
   busy = ref(false),
   confirming = ref(false),
+  unresolvedSave = ref(false),
   error = ref(""),
   notice = ref("");
 const saveButton = ref<HTMLButtonElement>(),
@@ -32,6 +34,17 @@ const allowed = computed(
 );
 const label = computed(() =>
   props.field === "close_keylogin" ? "密钥登录" : "开启商户自助退款",
+);
+const { confirmDiscard: confirmDraftDiscard } = useSettingsDraft212(
+  label.value,
+  () =>
+    confirming.value ||
+    unresolvedSave.value ||
+    (!!state.value &&
+      enabled.value !==
+        (props.field === "close_keylogin"
+          ? state.value.close_keylogin === "0"
+          : state.value.user_refund === "1")),
 );
 let epoch = 0,
   alive = true,
@@ -52,7 +65,7 @@ function same() {
     (k) => v[k as keyof typeof v] === tracked[k as keyof typeof v],
   );
 }
-function clear(message = "") {
+function clear(message = "", preserveUnresolved = false) {
   epoch++;
   controller?.abort();
   state.value = null;
@@ -62,6 +75,7 @@ function clear(message = "") {
   busy.value = false;
   error.value = message;
   notice.value = "";
+  if (!preserveUnresolved) unresolvedSave.value = false;
   tracked = capture();
 }
 function ensure() {
@@ -81,10 +95,20 @@ function accept(value: PlatformMerchantAccess) {
     props.field === "close_keylogin"
       ? value.close_keylogin === "0"
       : value.user_refund === "1";
+  unresolvedSave.value = false;
 }
 async function load() {
   if (busy.value || loading.value) return;
-  clear();
+  const discardEpoch = epoch;
+  if (
+    !(await confirmDraftDiscard()) ||
+    discardEpoch !== epoch ||
+    busy.value ||
+    loading.value ||
+    !ensure()
+  )
+    return;
+  clear("", true);
   if (!allowed.value) return;
   const run = epoch,
     c = new AbortController(),
@@ -132,6 +156,7 @@ async function save() {
   controller = c;
   confirming.value = false;
   busy.value = true;
+  unresolvedSave.value = true;
   error.value = "";
   notice.value = "";
   try {

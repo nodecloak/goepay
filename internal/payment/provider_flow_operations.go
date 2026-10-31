@@ -375,6 +375,16 @@ func refundProviderState(state string) string {
 	}
 }
 func (g ProviderFlow) QueryRefund(ctx context.Context, merchantID int64, refundNo string) (Refund, error) {
+	return g.queryRefund(ctx, merchantID, refundNo, false)
+}
+
+// ResumeRefund continues an already authorized combined refund. It is for
+// the durable reconciliation worker, never the public refund-query endpoint.
+func (g ProviderFlow) ResumeRefund(ctx context.Context, merchantID int64, refundNo string) (Refund, error) {
+	return g.queryRefund(ctx, merchantID, refundNo, g.paymentWritesEnabled())
+}
+
+func (g ProviderFlow) queryRefund(ctx context.Context, merchantID int64, refundNo string, resume bool) (Refund, error) {
 	if g.Store == nil {
 		return Refund{}, ErrInvalid
 	}
@@ -386,7 +396,7 @@ func (g ProviderFlow) QueryRefund(ctx context.Context, merchantID int64, refundN
 	if e = g.Store.pool.QueryRow(ctx, "SELECT trade_no FROM orders WHERE id=$1", r.OrderID).Scan(&tradeNo); e != nil {
 		return r, e
 	}
-	o, _, p, e := g.owned(ctx, merchantID, tradeNo)
+	o, a, p, e := g.owned(ctx, merchantID, tradeNo)
 	if e != nil {
 		return r, e
 	}
@@ -408,11 +418,16 @@ func (g ProviderFlow) QueryRefund(ctx context.Context, merchantID int64, refundN
 	if subs, e := g.Store.CombineSubOrders(ctx, o.ID); e != nil {
 		return r, e
 	} else if len(subs) > 0 {
+		if resume {
+			if e = g.Store.checkChannelWrite(ctx, a.ChannelID); e != nil {
+				return r, e
+			}
+		}
 		plan, e := g.Store.planCombineRefund207(ctx, r.ID, o.ID, r.Amount, providerRefundNo)
 		if e != nil {
 			return r, e
 		}
-		state, queryErr := g.combineRefund207(ctx, p, r.ID, plan, false)
+		state, queryErr := g.combineRefund207(ctx, p, r.ID, plan, resume)
 		if queryErr != nil || state == "pending" || state == "unknown" {
 			return r, queryErr
 		}

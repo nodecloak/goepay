@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, toRaw, watch } from "vue";
 import { ApiClient, ApiError } from "../api";
+import { useSettingsDraft212 } from "../settings-drafts212";
 import {
   paymentDefend206Body,
   paymentDefend206Keys,
@@ -29,6 +30,7 @@ const state = ref<PaymentDefend206Policy>(),
   loading = ref(false),
   busy = ref(false),
   uncertain = ref(false),
+  unresolvedSave = ref(false),
   confirming = ref(false),
   error = ref(""),
   notice = ref("");
@@ -79,6 +81,7 @@ function clear(message = "") {
   loading.value = false;
   busy.value = false;
   uncertain.value = false;
+  unresolvedSave.value = false;
   confirming.value = false;
   error.value = message;
   notice.value = "";
@@ -110,6 +113,10 @@ const dirty = computed(
     !!draft.value &&
     !samePaymentDefend206Settings(state.value.settings, draft.value),
 );
+const { confirmDiscard: confirmDraftDiscard } = useSettingsDraft212(
+  "创建订单人机验证",
+  () => dirty.value || confirming.value || unresolvedSave.value,
+);
 const locked = computed(
   () =>
     !allowed.value ||
@@ -125,6 +132,16 @@ const canSave = computed(
 );
 async function load() {
   if (!ensure() || busy.value || confirming.value || props.disabled) return;
+  const discardEpoch = epoch;
+  if (
+    !(await confirmDraftDiscard()) ||
+    discardEpoch !== epoch ||
+    !ensure() ||
+    busy.value ||
+    confirming.value ||
+    props.disabled
+  )
+    return;
   controller?.abort();
   const source = tracked,
     run = ++epoch,
@@ -147,6 +164,7 @@ async function load() {
     state.value = next;
     draft.value = { ...next.settings };
     uncertain.value = false;
+    unresolvedSave.value = false;
   } catch {
     if (current(run, c, source))
       error.value = "当前支付验证设置无法确认，请重新读取后再编辑。";
@@ -190,6 +208,7 @@ async function submit() {
   controller?.abort();
   controller = c;
   busy.value = true;
+  unresolvedSave.value = true;
   confirming.value = false;
   prepared = undefined;
   error.value = "";
@@ -212,6 +231,7 @@ async function submit() {
     state.value = next;
     draft.value = { ...next.settings };
     uncertain.value = false;
+    unresolvedSave.value = false;
     notice.value = "支付验证设置已保存。";
   } catch (reason) {
     if (!current(run, c, source)) return;

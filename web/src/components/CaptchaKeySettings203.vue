@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, toRaw, watch } from "vue";
 import { ApiClient, ApiError } from "../api";
+import { useSettingsDraft212 } from "../settings-drafts212";
 const props = withDefaults(
   defineProps<{
     client: ApiClient;
@@ -24,6 +25,7 @@ const state = ref<Metadata>(),
   confirming = ref<"replace" | "clear">(),
   loading = ref(false),
   busy = ref(false),
+  unresolvedSave = ref(false),
   error = ref(""),
   notice = ref("");
 const refresh = ref<HTMLButtonElement>(),
@@ -54,6 +56,10 @@ function isAllowed() {
   );
 }
 const allowed = computed(isAllowed);
+const { confirmDiscard: confirmDraftDiscard } = useSettingsDraft212(
+  "极验验证码密钥",
+  () => !!draft.value || !!confirming.value || unresolvedSave.value,
+);
 function same(source = tracked) {
   const now = context();
   return (
@@ -65,7 +71,7 @@ function same(source = tracked) {
     source.adminClass === now.adminClass
   );
 }
-function clear(message = "") {
+function clear(message = "", preserveUnresolved = false) {
   ++epoch;
   controller?.abort();
   controller = undefined;
@@ -78,6 +84,7 @@ function clear(message = "") {
   busy.value = false;
   error.value = message;
   notice.value = "";
+  if (!preserveUnresolved) unresolvedSave.value = false;
   tracked = context();
 }
 function ensure() {
@@ -114,7 +121,16 @@ function read(raw: unknown): Metadata {
 }
 async function load() {
   if (busy.value || loading.value) return;
-  clear();
+  const discardEpoch = epoch;
+  if (
+    !(await confirmDraftDiscard()) ||
+    discardEpoch !== epoch ||
+    busy.value ||
+    loading.value ||
+    !isAllowed()
+  )
+    return;
+  clear("", true);
   if (!isAllowed()) return;
   const source = tracked,
     run = epoch,
@@ -125,7 +141,10 @@ async function load() {
     const raw = await source.client.request<unknown>("/settings/captcha", {
       signal: c.signal,
     });
-    if (current(run, c, source)) state.value = read(raw);
+    if (current(run, c, source)) {
+      state.value = read(raw);
+      unresolvedSave.value = false;
+    }
   } catch {
     if (current(run, c, source))
       error.value = "验证码密钥状态读取失败，请重新读取密钥状态";
@@ -149,6 +168,7 @@ function cancelEdit() {
   editing.value = false;
   confirming.value = undefined;
   prepared = undefined;
+  unresolvedSave.value = false;
   error.value = "";
   notice.value = "";
 }
@@ -210,6 +230,7 @@ async function save() {
   editing.value = false;
   confirming.value = undefined;
   busy.value = true;
+  unresolvedSave.value = true;
   error.value = "";
   notice.value = "";
   try {
@@ -226,6 +247,7 @@ async function save() {
     )
       throw Error("unconfirmed CAPTCHA key operation");
     state.value = next;
+    unresolvedSave.value = false;
     notice.value =
       body.action === "replace" ? "验证码密钥已保存" : "验证码密钥已清除";
   } catch (reason) {

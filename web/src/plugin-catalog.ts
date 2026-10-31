@@ -85,6 +85,7 @@ export interface BuiltinTemplate {
   type: string;
   name: string;
   title: string;
+  version: string;
   description: string;
 }
 
@@ -189,6 +190,9 @@ export function withBuiltinTemplates(
   items: readonly CatalogEntry[],
 ): CatalogEntry[] {
   const have = new Set(items.map((item) => catalogKey(item)));
+  const home = new Map(
+    builtinTemplates.filter((t) => t.type === "home").map((t) => [t.name, t]),
+  );
   const extra: CatalogEntry[] = builtinTemplates
     .filter((t) => !have.has(`template:${t.type}:${t.name}`))
     .map((t) => ({
@@ -198,14 +202,21 @@ export function withBuiltinTemplates(
       title: t.title,
       desc: t.description,
       author: "GOEPAY",
-      version: "1.0",
+      version: t.version,
       price: "0.00",
       pay: [],
       trans: [],
       icon: "/static/icon/category/template.png",
     }));
   const templates = [
-    ...items.filter((item) => item.type === "template"),
+    ...items
+      .filter((item) => item.type === "template")
+      .map((item) => {
+        const current = item.sub === "home" ? home.get(item.name) : undefined;
+        return current
+          ? { ...item, desc: current.description, version: current.version }
+          : item;
+      }),
     ...extra,
   ].sort(
     (a, b) =>

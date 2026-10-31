@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, toRaw, watch, nextTick } from "vue";
-import { ApiClient } from "../api";
+import { ApiClient, ApiError } from "../api";
+import { useSettingsDraft212 } from "../settings-drafts212";
 import { readMailAccount195, type MailAccount195 } from "../mail-accounts195";
 import MailFrequency194 from "./MailFrequency194.vue";
 import MailTest195 from "./MailTest195.vue";
@@ -14,6 +15,7 @@ const tab = ref<"channel" | "rate">("channel"),
   busy = ref(false),
   rateBusy = ref(false),
   testBusy = ref(false),
+  testDraftDirty = ref(false),
   loading = ref(false),
   error = ref(""),
   notice = ref(""),
@@ -25,6 +27,27 @@ const draft = ref({
   username: "",
   password: "",
   enabled: false,
+});
+const hasDraft = ref(false),
+  unresolvedDraft = ref(false),
+  visitedRate = ref(false);
+const draftDirty = computed(
+  () =>
+    unresolvedDraft.value ||
+    (hasDraft.value &&
+      (!state.value ||
+        draft.value.host !== state.value.config.host ||
+        draft.value.port !== state.value.config.port ||
+        draft.value.username !== state.value.config.username ||
+        draft.value.enabled !== (state.value.status === 1) ||
+        !!draft.value.password)),
+);
+const { confirmDiscard: confirmDraftDiscard } = useSettingsDraft212(
+  "SMTP账号",
+  () => draftDirty.value,
+);
+watch(tab, (value) => {
+  if (value === "rate") visitedRate.value = true;
 });
 const allowed = computed(
   () =>
@@ -73,6 +96,8 @@ function reset() {
   loading.value = false;
   readyClient = undefined;
   readyCSRF = "";
+  hasDraft.value = false;
+  unresolvedDraft.value = false;
 }
 function current(
   run: number,
@@ -94,7 +119,23 @@ function current(
 }
 async function load() {
   if (!allowed.value || busy.value || loading.value) return;
+  const discardEpoch = epoch,
+    discardClient = toRaw(props.client),
+    discardCSRF = discardClient.csrfToken;
+  if (
+    !(await confirmDraftDiscard(["测试邮件"])) ||
+    !alive ||
+    discardEpoch !== epoch ||
+    !allowed.value ||
+    busy.value ||
+    loading.value ||
+    discardClient !== toRaw(props.client) ||
+    discardCSRF !== toRaw(props.client).csrfToken
+  )
+    return;
+  const wasUnresolved = unresolvedDraft.value;
   reset();
+  unresolvedDraft.value = wasUnresolved;
   error.value = "";
   notice.value = "";
   const run = epoch,
@@ -111,6 +152,7 @@ async function load() {
     );
     if (!current(run, client, csrf, control.signal)) return;
     state.value = v;
+    unresolvedDraft.value = false;
     readyClient = client;
     readyCSRF = csrf;
   } catch {
@@ -130,6 +172,11 @@ function close() {
     enabled: false,
   };
   opened.value = false;
+  hasDraft.value = false;
+  unresolvedDraft.value = false;
+}
+function suspend() {
+  if (!busy.value) opened.value = false;
 }
 async function open() {
   if (
@@ -144,7 +191,9 @@ async function open() {
   }
   const c = state.value.config;
   previousFocus = document.activeElement as HTMLElement | null;
-  draft.value = { ...c, password: "", enabled: state.value.status === 1 };
+  if (!hasDraft.value)
+    draft.value = { ...c, password: "", enabled: state.value.status === 1 };
+  hasDraft.value = true;
   opened.value = true;
   error.value = "";
   notice.value = "";
@@ -159,6 +208,11 @@ async function save() {
   ) {
     reset();
     error.value = "会话已变化，请重新读取SMTP账号";
+    return;
+  }
+  if (testDraftDirty.value) {
+    error.value =
+      "请先核对原测试邮件结果，或取消未提交的测试邮件，再修改SMTP账号。";
     return;
   }
   const originalDraft = draft.value;
@@ -222,12 +276,25 @@ async function save() {
       throw Error("save result mismatch");
     state.value = v;
     opened.value = false;
+    hasDraft.value = false;
+    unresolvedDraft.value = false;
     notice.value = "保存成功";
-  } catch {
+  } catch (e) {
     if (current(run, client, csrf, control.signal)) {
-      state.value = null;
-      opened.value = false;
-      error.value = "保存结果无法确认，请重新读取后核对";
+      unresolvedDraft.value = true;
+      if (
+        e instanceof ApiError &&
+        e.responseDecoded &&
+        e.status >= 400 &&
+        e.status < 500 &&
+        e.status !== 409
+      ) {
+        error.value = "保存未完成，请核对草稿后重试。" + e.message;
+      } else {
+        state.value = null;
+        opened.value = false;
+        error.value = "保存结果无法确认，当前草稿仍保留；请重新读取后核对";
+      }
     }
   } finally {
     originalDraft.password = "";
@@ -236,7 +303,12 @@ async function save() {
   }
 }
 watch(
-  () => [props.client, props.adminClass, props.ownSession],
+  () => [
+    props.client,
+    props.client.csrfToken,
+    props.adminClass,
+    props.ownSession,
+  ],
   () => {
     reset();
     void load();
@@ -279,13 +351,14 @@ onBeforeUnmount(() => {
       </button>
     </div>
     <MailFrequency194
-      v-if="tab === 'rate'"
+      v-if="visitedRate"
+      v-show="tab === 'rate'"
       :client="client"
       :admin-class="adminClass"
       :own-session="ownSession"
       @busy="rateBusy = $event"
     />
-    <template v-else>
+    <div v-show="tab === 'channel'">
       <p v-if="!allowed" class="muted">账号设置需要超级管理员本人会话。</p>
       <template v-else>
         <button :disabled="loading || busy || opened || testBusy" @click="load">
@@ -316,7 +389,7 @@ onBeforeUnmount(() => {
                       @click="open"
                       :disabled="busy || opened || testBusy"
                     >
-                      账号设置
+                      {{ draftDirty ? "继续编辑草稿" : "账号设置" }}
                     </button>
                   </td>
                 </tr>
@@ -328,10 +401,11 @@ onBeforeUnmount(() => {
             :account="state"
             :allowed="allowed"
             @busy="testBusy = $event"
+            @dirty="testDraftDirty = $event"
           />
         </template>
       </template>
-    </template>
+    </div>
     <div
       v-if="opened"
       class="modal-backdrop"
@@ -404,6 +478,9 @@ onBeforeUnmount(() => {
           <p class="muted">常用端口465(SSL)或587(TLS)。QQ邮箱使用授权码。</p>
           <p v-if="error" role="alert" class="alert error">{{ error }}</p>
           <div class="modal-actions">
+            <button type="button" :disabled="busy" @click="suspend">
+              收起并保留草稿
+            </button>
             <button type="button" :disabled="busy" @click="close">取消</button
             ><button class="primary" type="submit" :disabled="busy">
               {{ busy ? "保存中…" : "保存" }}

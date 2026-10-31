@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, toRaw, watch } from "vue";
 import { ApiClient } from "../api";
+import { useSettingsDraft212 } from "../settings-drafts212";
 import type { MailAccount195 } from "../mail-accounts195";
 const props = defineProps<{
   client: ApiClient;
   account: MailAccount195;
   allowed: boolean;
 }>();
-const emit = defineEmits<{ busy: [boolean] }>();
+const emit = defineEmits<{ busy: [boolean]; dirty: [boolean] }>();
 const opened = ref(false),
   busy = ref(false),
   to = ref(""),
@@ -19,6 +20,15 @@ const available = computed(
   () =>
     props.allowed && props.account.test_available && props.account.status === 1,
 );
+const draftDirty = computed(
+  () =>
+    (!!opened.value && !!to.value) || busy.value || status.value === "unknown",
+);
+useSettingsDraft212("测试邮件", () => draftDirty.value);
+watch(draftDirty, (value) => emit("dirty", value), {
+  immediate: true,
+  flush: "sync",
+});
 let epoch = 0,
   alive = true,
   ac: AbortController | undefined,
@@ -152,9 +162,18 @@ async function act(query: boolean) {
     if (current(run, control.signal)) busy.value = false;
   }
 }
-watch(() => [props.client, props.allowed, props.account.fingerprint], reset, {
-  flush: "sync",
-});
+watch(
+  () => [
+    props.client,
+    props.client.csrfToken,
+    props.allowed,
+    props.account.fingerprint,
+  ],
+  reset,
+  {
+    flush: "sync",
+  },
+);
 watch(
   () => opened.value || busy.value,
   (v) => emit("busy", v),
@@ -164,6 +183,7 @@ onBeforeUnmount(() => {
   alive = false;
   reset();
   emit("busy", false);
+  emit("dirty", false);
 });
 </script>
 <template>

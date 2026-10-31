@@ -336,7 +336,10 @@ func (a *Alipay) Create(ctx context.Context, r CreateRequest) (CreateResult, err
 		return CreateResult{}, e
 	}
 	var b strings.Builder
-	b.WriteString(`<form method="post" action="` + html.EscapeString(a.config.GatewayURL) + `">`)
+	// Alipay selects request decoding from the gateway URL before parsing the
+	// POST body. Keep charset in the signed body as well, matching the Pro SDK.
+	gateway := a.config.GatewayURL + "?" + (url.Values{"charset": {p["charset"]}}).Encode()
+	b.WriteString(`<form method="post" accept-charset="UTF-8" action="` + html.EscapeString(gateway) + `">`)
 	keys := make([]string, 0, len(p))
 	for k := range p {
 		keys = append(keys, k)

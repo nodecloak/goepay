@@ -115,12 +115,26 @@ func routeMenuKey(parts []string) string {
 		return "RefundList"
 	case "transfers", "transfer-batches", "transfer-batch-imports", "redpacks", "wxtrans":
 		return "TransferList"
-	case "channel-sharing", "profitsharing-rules":
-		return "PsReceiver"
-	case "settlement-plans", "settlement-plan-runs", "settlement-plan-authorizations", "settlement-batches", "settlement-payouts":
+	case "channel-sharing":
+		switch sub {
+		case "channels", "rules", "receivers":
+			return "PsReceiver"
+		case "orders", "returns", "finishes", "finish-preview", "payment":
+			return "PsOrder"
+		}
+		return ""
+	case "profitsharing-rules":
+		return "PsInternal"
+	case "settlement-batches":
+		return "BatchSettle"
+	case "settlement-plans", "settlement-plan-runs", "settlement-plan-authorizations", "settlement-payouts":
 		return "SettleList"
-	case "payment-channels", "payment-subchannels":
+	case "payment-channels":
 		return "PayChannel"
+	case "payment-subchannels":
+		return "SubChannelManage"
+	case "ledger":
+		return "Record"
 	case "payment-risk":
 		return "Risk"
 	case "complaint-sync-tasks":
@@ -161,6 +175,8 @@ func routeMenuKey(parts []string) string {
 			return "InternalTransfer"
 		case "memberships", "deposits", "recharges":
 			return "GroupBuy"
+		case "profitsharing-rules":
+			return "PsInternal"
 		case "settlement-plans", "settlement-auto", "settlement-payouts":
 			return "SettleList"
 		}
@@ -225,7 +241,7 @@ func resourceMenuKey(resource string) string {
 	case "risk-records":
 		return "Risk"
 	case "profitsharing-rules":
-		return "PsReceiver"
+		return "PsInternal"
 	}
 	return ""
 }

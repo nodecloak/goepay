@@ -1,11 +1,12 @@
-// Package devdoc renders the public developer documentation at /doc/, modelled
-// on epay_pro app/view/doc: a top bar, a 目录 sidebar and one page per
-// interface. Pages are html/template fragments in pages/<slug>.html that define
+// Package devdoc renders the Go service's public developer documentation at
+// /doc/, with a top bar, a catalog sidebar and one page per interface.
+// Pages are html/template fragments in pages/<slug>.html that define
 // "content"; every value that differs per site (site name, logo, merchant API
 // address, enabled pay types) comes from Site, so no page hard-codes a host.
 //
-// The pages carry no script, form or third-party asset: the stylesheet is
-// served from /doc/doc.css and the SDK archives from /doc/sdk/.
+// The portal uses same-origin CSS and one external module; its request console
+// talks only to the isolated documentation playground. No third-party asset or
+// form submission is used.
 package devdoc
 
 import (
@@ -20,7 +21,7 @@ import (
 	"time"
 )
 
-//go:embed layout.html doc.css pages/*.html sdk/*.zip
+//go:embed layout.html console.html doc.css doc.js pages/*.html sdk/GoEPay_Go_SDK.zip
 var files embed.FS
 
 // PayType is one enabled 支付方式: Type is the 调用值 a merchant sends as
@@ -49,10 +50,7 @@ type Node struct {
 	Children []Node
 }
 
-// Catalog mirrors the original 目录 (epay_pro app/view/doc catalogList) and
-// keeps its order. The original 投诉相关接口 group is left out because GOEPAY
-// has no merchant complaint API: /api/complain/* answers "capability not
-// implemented".
+// Catalog defines the published merchant integration documentation.
 var Catalog = []Node{
 	{Title: "接口说明", Slug: "index"},
 	{Title: "签名规则", Slug: "sign_note"},
@@ -80,11 +78,13 @@ var Catalog = []Node{
 
 // hidden pages are reached by a link from another page but are not listed in
 // 目录, as in the original.
-var hidden = []Node{{Title: "V1旧版接口文档", Slug: "v1_legacy_api"}}
+var hidden = []Node{{Title: "V1接口文档", Slug: "v1_legacy_api"}}
 
 type navItem struct {
 	Title    string
 	Href     string
+	Method   string
+	Path     string
 	Current  bool
 	Open     bool
 	Children []navItem
@@ -92,11 +92,14 @@ type navItem struct {
 
 type view struct {
 	Site
-	Title string
-	Slug  string
-	Nav   []navItem
-	CSS   string
-	Year  int
+	Title    string
+	Slug     string
+	Nav      []navItem
+	CSS      string
+	JS       string
+	Endpoint *EndpointSpec
+	GoSDKURL string
+	Year     int
 }
 
 var (
@@ -105,6 +108,9 @@ var (
 	notFound *template.Template
 	css      []byte
 	cssURL   string
+	js       []byte
+	jsURL    string
+	goSDKURL string
 	sdk      = map[string][]byte{}
 )
 
@@ -123,15 +129,20 @@ func init() {
 		if _, err := fs.Stat(files, "pages/"+slug+".html"); err != nil {
 			continue
 		}
-		pages[slug] = template.Must(template.New("layout.html").ParseFS(files, "layout.html", "pages/"+slug+".html"))
+		pages[slug] = template.Must(template.New("layout.html").ParseFS(files, "layout.html", "console.html", "pages/"+slug+".html"))
 	}
-	notFound = template.Must(template.New("layout.html").ParseFS(files, "layout.html", "pages/notfound.html"))
+	notFound = template.Must(template.New("layout.html").ParseFS(files, "layout.html", "console.html", "pages/notfound.html"))
 	var err error
 	if css, err = files.ReadFile("doc.css"); err != nil {
 		panic(err)
 	}
 	sum := sha256.Sum256(css)
 	cssURL = "/doc/doc.css?v=" + hex.EncodeToString(sum[:5])
+	if js, err = files.ReadFile("doc.js"); err != nil {
+		panic(err)
+	}
+	jsSum := sha256.Sum256(js)
+	jsURL = "/doc/doc.js?v=" + hex.EncodeToString(jsSum[:6])
 	archives, err := fs.Glob(files, "sdk/*.zip")
 	if err != nil {
 		panic(err)
@@ -143,6 +154,8 @@ func init() {
 		}
 		sdk[strings.TrimPrefix(name, "sdk/")] = b
 	}
+	goSDKSum := sha256.Sum256(sdk["GoEPay_Go_SDK.zip"])
+	goSDKURL = "/doc/sdk/GoEPay_Go_SDK.zip?v=" + hex.EncodeToString(goSDKSum[:6])
 }
 
 // Match reports whether path belongs to the documentation site.
@@ -164,6 +177,9 @@ func nav(current string) []navItem {
 			item := navItem{Title: n.Title, Current: n.Slug != "" && n.Slug == current}
 			if n.Slug != "" {
 				item.Href = "/doc/" + n.Slug + ".html"
+				if endpoint := EndpointForSlug(n.Slug); endpoint != nil {
+					item.Method, item.Path = endpoint.Method, endpoint.Path
+				}
 			}
 			item.Children = build(n.Children)
 			for _, c := range item.Children {
@@ -189,7 +205,7 @@ func Render(b *bytes.Buffer, slug string, site Site, now time.Time) (bool, error
 	if !ok {
 		t, title, slug = notFound, "页面不存在", ""
 	}
-	return ok, t.ExecuteTemplate(b, "layout.html", view{Site: site, Title: title, Slug: slug, Nav: nav(slug), CSS: cssURL, Year: now.Year()})
+	return ok, t.ExecuteTemplate(b, "layout.html", view{Site: site, Title: title, Slug: slug, Nav: nav(slug), CSS: cssURL, JS: jsURL, Endpoint: EndpointForSlug(slug), GoSDKURL: goSDKURL, Year: now.Year()})
 }
 
 // Serve answers one /doc/ request. load supplies the per-site values; it is
@@ -198,6 +214,9 @@ func Serve(w http.ResponseWriter, r *http.Request, load func(*http.Request) (Sit
 	h := w.Header()
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Referrer-Policy", "no-referrer")
+	if SandboxServe(w, r) {
+		return
+	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		h.Set("Allow", "GET, HEAD")
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -213,10 +232,16 @@ func Serve(w http.ResponseWriter, r *http.Request, load func(*http.Request) (Sit
 		h.Set("Cache-Control", "public, max-age=86400")
 		write(w, r, http.StatusOK, css)
 		return
+	case path == "/doc/doc.js":
+		h.Set("Content-Type", "text/javascript; charset=utf-8")
+		h.Set("Cache-Control", "public, max-age=86400")
+		write(w, r, http.StatusOK, js)
+		return
 	case strings.HasPrefix(path, "/doc/sdk/"):
 		name := strings.TrimPrefix(path, "/doc/sdk/")
 		b, ok := sdk[name]
 		if !ok {
+			h.Set("Cache-Control", "no-store")
 			http.NotFound(w, r)
 			return
 		}
@@ -241,7 +266,7 @@ func Serve(w http.ResponseWriter, r *http.Request, load func(*http.Request) (Sit
 	}
 	h.Set("Content-Type", "text/html; charset=utf-8")
 	h.Set("Cache-Control", "no-store")
-	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+	h.Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
 	status := http.StatusOK
 	if !found {
 		status = http.StatusNotFound

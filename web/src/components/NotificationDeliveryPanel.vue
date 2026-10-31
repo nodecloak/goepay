@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount, onMounted } from "vue";
 import { ApiClient, ApiError, displayValue } from "../api";
+import { orderOperationMemory212 } from "../order-operation-memory212";
+import { fundsDefinitiveRefusal212 } from "../funds-intent212";
 const props = defineProps<{
   client: ApiClient;
   tradeNo: string;
@@ -8,18 +10,35 @@ const props = defineProps<{
   allowed: boolean;
   notification?: Record<string, unknown> | null;
   disabled?: boolean;
+  refreshFailed?: boolean;
   initialConfirm?: boolean;
 }>();
 const emit = defineEmits<{ updated: []; busy: [value: boolean] }>();
-const requestNo = ref(""),
+interface PendingNotice212 {
+  requestNo: string;
+  error: string;
+  notice: string;
+  failed: boolean;
+  uncertain: boolean;
+  result: Record<string, unknown> | null;
+  retryAt: number;
+}
+const memory212 = orderOperationMemory212<PendingNotice212>(
+    props.client,
+    "notify",
+    props.tradeNo,
+  ),
+  retained212 = memory212.read();
+const requestNo = ref(retained212?.requestNo || ""),
   confirming = ref(false),
   busy = ref(false),
-  error = ref(""),
-  notice = ref(""),
-  failed = ref(false),
-  uncertain = ref(false),
-  result = ref<Record<string, unknown> | null>(null),
-  retryAt = ref(0),
+  error = ref(retained212?.error || ""),
+  notice = ref(retained212?.notice || ""),
+  failed = ref(retained212?.failed || false),
+  uncertain = ref(retained212?.uncertain || false),
+  requestSent = ref(!!retained212),
+  result = ref<Record<string, unknown> | null>(retained212?.result || null),
+  retryAt = ref(retained212?.retryAt || 0),
   now = ref(Date.now());
 const timer = setInterval(() => (now.value = Date.now()), 1000);
 onBeforeUnmount(() => clearInterval(timer));
@@ -30,7 +49,11 @@ const cooldown = computed(() =>
   Math.max(0, Math.ceil((retryAt.value - now.value) / 1000)),
 );
 const blocked = computed(
-  () => !!props.disabled || busy.value || cooldown.value > 0,
+  () =>
+    !!props.disabled ||
+    busy.value ||
+    cooldown.value > 0 ||
+    (!!props.refreshFailed && !requestSent.value),
 );
 const terminal = computed(
   () =>
@@ -54,11 +77,13 @@ watch(
 function open(newIntent: boolean) {
   if (!allowed.value || blocked.value) return;
   if (newIntent) {
+    if (props.refreshFailed) return;
     if (requestNo.value && !terminal.value) return;
     requestNo.value = crypto.randomUUID();
     result.value = null;
     failed.value = false;
     uncertain.value = false;
+    requestSent.value = false;
   }
   if (!requestNo.value) return;
   error.value = "";
@@ -66,10 +91,30 @@ function open(newIntent: boolean) {
   confirming.value = true;
 }
 onMounted(() => {
-  if (props.initialConfirm) open(true);
+  if (props.initialConfirm && !retained212) open(true);
+});
+onBeforeUnmount(() => {
+  if (
+    !requestSent.value ||
+    (!uncertain.value && terminal.value && cooldown.value === 0)
+  ) {
+    memory212.clear();
+    return;
+  }
+  memory212.save({
+    requestNo: requestNo.value,
+    error: error.value,
+    notice: notice.value,
+    failed: failed.value,
+    uncertain: uncertain.value,
+    result: result.value ? { ...result.value } : null,
+    retryAt: retryAt.value,
+  });
 });
 async function send() {
   if (!allowed.value || blocked.value || !requestNo.value) return;
+  const retryingUnknown = uncertain.value;
+  let dispatched = false;
   busy.value = true;
   emit("busy", true);
   confirming.value = false;
@@ -80,7 +125,14 @@ async function send() {
   try {
     const response = await props.client.requestResult<Record<string, unknown>>(
       `/orders/${encodeURIComponent(props.tradeNo)}/resend-notification`,
-      { method: "POST", body: { external_no: requestNo.value } },
+      {
+        method: "POST",
+        body: { external_no: requestNo.value },
+        beforeDispatch: () => {
+          dispatched = true;
+          requestSent.value = true;
+        },
+      },
     );
     result.value = response.data;
     uncertain.value = false;
@@ -96,11 +148,17 @@ async function send() {
             : "通知结果尚未核实，请核对原通知请求。";
   } catch (e) {
     failed.value = true;
-    if (e instanceof ApiError && e.status === 429) {
+    if (!retryingUnknown && !dispatched) {
+      uncertain.value = false;
+      error.value = `本次通知请求尚未发送，请核对原因后重试。${e instanceof Error ? e.message : "请求未发送"}`;
+    } else if (e instanceof ApiError && e.status === 429) {
       now.value = Date.now();
       if (e.retryAfterSeconds !== undefined)
         retryAt.value = now.value + e.retryAfterSeconds * 1000;
       error.value = `当前通知重发处于冷却期${e.retryAfterSeconds === undefined ? "" : `，请等待 ${e.retryAfterSeconds} 秒`}。保留原请求号后重试。${e.message}`;
+    } else if (!retryingUnknown && fundsDefinitiveRefusal212(e)) {
+      uncertain.value = false;
+      error.value = `本次通知请求已明确拒绝，请核对原因后重试原请求。${e instanceof Error ? e.message : "请求被拒绝"}`;
     } else
       error.value = `通知请求结果未知，请保留原请求号并重试原请求，避免创建新的发送。${e instanceof Error ? e.message : "请求失败"}`;
   } finally {
@@ -147,7 +205,7 @@ async function send() {
         {{ failed ? "重试原通知请求" : "核对原通知请求" }}</button
       ><button
         v-if="requestNo && terminal"
-        :disabled="blocked"
+        :disabled="blocked || refreshFailed"
         @click="open(true)"
       >
         发起新的通知重发

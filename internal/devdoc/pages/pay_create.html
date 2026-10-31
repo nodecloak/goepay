@@ -1,140 +1,106 @@
 {{define "content"}}
 <h1 id="统一下单接口">统一下单接口</h1>
-<blockquote>此接口可用于服务器后端发起支付请求，会返回支付二维码链接、支付跳转 url 等。</blockquote>
-<h4 id="请求地址">请求地址：</h4>
+<blockquote><p>Go 版接口：由商户后端以 RSA 签名发起下单，返回后续支付所需的材料。</p></blockquote>
+<h2 id="请求地址">请求地址</h2>
 <p><code class="doc-url">{{.API}}api/pay/create</code></p>
-<h4 id="请求方式">请求方式：</h4>
-<p>POST</p>
-<h4 id="请求参数说明">请求参数说明：</h4>
+<h2 id="请求方式">请求方式</h2>
+<p><code>POST</code>，UTF-8，<code>application/x-www-form-urlencoded</code>。除页面跳转接口外，V2 不接受 GET。</p>
+<h2 id="请求参数说明">请求参数说明</h2>
 <div class="doc-table"><table>
-<thead><tr><th>字段名</th><th>变量名</th><th>必填</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
+<thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
 <tbody>
-<tr><td>商户ID</td><td>pid</td><td>是</td><td>Int</td><td>1001</td><td> </td></tr>
-<tr><td>接口类型</td><td>method</td><td>否</td><td>String</td><td>web</td><td>不传按通用网页支付处理 <a href="#接口类型列表">接口类型列表</a></td></tr>
-<tr><td>设备类型</td><td>device</td><td>否</td><td>String</td><td>pc</td><td>仅通用网页支付参考 <a href="#设备类型列表">设备类型列表</a></td></tr>
-<tr><td>支付方式</td><td>type</td><td>是</td><td>String</td><td>alipay</td><td>付款码支付(method=scan)可不传 <a href="/doc/paytype.html">支付方式列表</a></td></tr>
-<tr><td>商户订单号</td><td>out_trade_no</td><td>是</td><td>String</td><td>20160806151343349</td><td>仅限字母、数字与 . _ - |，最长128字节</td></tr>
-<tr><td>异步通知地址</td><td>notify_url</td><td>否</td><td>String</td><td>http://www.pay.com/notify_url.php</td><td>服务器异步通知地址；不传则不会收到异步通知</td></tr>
-<tr><td>跳转通知地址</td><td>return_url</td><td>否</td><td>String</td><td>http://www.pay.com/return_url.php</td><td>页面跳转通知地址</td></tr>
-<tr><td>商品名称</td><td>name</td><td>是</td><td>String</td><td>VIP会员</td><td>如超过127个字节会自动截取</td></tr>
-<tr><td>商品金额</td><td>money</td><td>是</td><td>String</td><td>1.00</td><td>单位：元，最大2位小数，须大于0</td></tr>
-<tr><td>用户IP地址</td><td>clientip</td><td>否</td><td>String</td><td>192.168.1.100</td><td>用户发起支付的IP地址；传入时须为合法IP</td></tr>
-<tr><td>业务扩展参数</td><td>param</td><td>否</td><td>String</td><td>没有请留空</td><td>支付后原样返回</td></tr>
-<tr><td>被扫支付授权码</td><td>auth_code</td><td>否</td><td>String</td><td> </td><td>仅付款码支付(method=scan)需要传</td></tr>
-<tr><td>用户Openid</td><td>sub_openid</td><td>否</td><td>String</td><td> </td><td>仅JSAPI支付需要传</td></tr>
-<tr><td>应用AppId</td><td>sub_appid</td><td>否</td><td>String</td><td> </td><td>JSAPI支付可选；传入时须与通道配置的应用一致</td></tr>
-<tr><td>是否小程序</td><td>is_applet</td><td>否</td><td>Int</td><td> </td><td>仅JSAPI/小程序支付可传，1:是小程序，0或不传:否</td></tr>
-<tr><td>自定义通道ID</td><td>channel_id</td><td>否</td><td>Int</td><td> </td><td>指定商户可用的支付通道ID；不传自动选择</td></tr>
-<tr><td>当前时间戳</td><td>timestamp</td><td>是</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
-<tr><td>签名字符串</td><td>sign</td><td>是</td><td>String</td><td> </td><td>参考签名规则</td></tr>
-<tr><td>签名类型</td><td>sign_type</td><td>是</td><td>String</td><td>RSA</td><td>固定为RSA</td></tr>
+<tr><td>pid</td><td>是</td><td>商户 ID，正整数，以商户后台 API 信息为准。</td></tr>
+<tr><td>timestamp</td><td>是</td><td>当前 Unix 时间戳，十进制整数秒；请求时间与服务器相差不超过 300 秒。</td></tr>
+<tr><td>sign_type</td><td>是</td><td>固定为 <code>RSA</code>；不会为 V2 请求自动改用 MD5。</td></tr>
+<tr><td>sign</td><td>是</td><td>商户私钥生成的 SHA256WithRSA / PKCS#1 v1.5 签名，标准 Base64 字符串。</td></tr>
+<tr><td>out_trade_no</td><td>是</td><td>商户内唯一订单号，最长 128 字节，只允许字母、数字及 <code>. _ - |</code>。同一业务须持续使用原单号。</td></tr>
+<tr><td>money</td><td>是</td><td>商品订单金额，十进制元字符串，见下方金额说明。</td></tr>
+<tr><td>name</td><td>建议</td><td>商品名称；Go 服务按 UTF-8 边界截到 127 字节，留空时由商品/通道规则决定是否接受。</td></tr>
+<tr><td>type</td><td>按接口</td><td><code>alipay</code> 或 <code>wxpay</code>，须为本站启用且商户有权使用的支付方式。</td></tr>
+<tr><td>notify_url</td><td>否</td><td>商户异步通知 HTTPS 地址，例如 <code>https://merchant.example.com/payments/notify</code>；留空不会收到异步通知。</td></tr>
+<tr><td>return_url</td><td>否</td><td>用户回跳地址，例如 <code>https://merchant.example.com/payments/return</code>；回跳不能作为交付依据。</td></tr>
+<tr><td>param</td><td>否</td><td>原样回传的业务扩展字符串，不应包含密钥或个人敏感信息。</td></tr>
+<tr><td>channel_id</td><td>否</td><td>指定商户已授权的通道 ID；不能借此使用其他商户通道。</td></tr>
+<tr><td>method</td><td>否</td><td>默认网页模式；支持组合由通道能力决定，见接口类型列表。</td></tr>
+<tr><td>device</td><td>否</td><td>网页模式参考：<code>pc</code> 或 <code>mobile</code>。</td></tr>
+<tr><td>clientip</td><td>否</td><td>买家合法 IP；提供后同时执行买家 IP 和调用服务器真实 IP 的策略校验。</td></tr>
+<tr><td>auth_code</td><td>条件</td><td><code>method=scan</code> 时提供付款码；不可记录或复用付款码。</td></tr>
+<tr><td>sub_openid</td><td>条件</td><td>JSAPI/小程序产品的用户标识，或在已配置的授权流程中取得。</td></tr>
+<tr><td>sub_appid</td><td>否</td><td>传入时须与所用通道的应用身份一致。</td></tr>
+<tr><td>is_applet</td><td>否</td><td>仅接受 <code>0</code>/<code>1</code>；小程序参数须与实际产品匹配。</td></tr>
+<tr><td>oauth</td><td>否</td><td>仅接受 <code>0</code>/<code>1</code>；只有当前通道已配置并允许的授权产品可用。</td></tr>
 </tbody>
 </table></div>
-<p class="doc-note">原版的 merchant_id（自定义进件商户ID）、cert_no、cert_name、min_age（限制买家）与 fee_mode（手续费承担方）参数本站暂不支持：传入后只参与签名校验，不产生效果；手续费承担方以商户后台配置为准。</p>
-<p class="doc-note">clientip 为可选；传入时必须是合法 IP 地址，否则返回参数错误。该地址作为买家 IP 使用，本站仍会同时校验发起请求的服务器 IP。</p>
-<h4 id="返回参数说明">返回参数说明：</h4>
-<div class="doc-table"><table>
-<thead><tr><th>字段名</th><th>变量名</th><th>类型</th><th>示例值</th><th>描述</th></tr></thead>
-<tbody>
-<tr><td>返回状态码</td><td>code</td><td>Int</td><td>0</td><td>0为成功，其它值为失败</td></tr>
-<tr><td>错误信息</td><td>msg</td><td>String</td><td> </td><td>失败时返回原因</td></tr>
-<tr><td>平台订单号</td><td>trade_no</td><td>String</td><td>20160806151343349</td><td>平台内部的订单号</td></tr>
-<tr><td>发起支付类型</td><td>pay_type</td><td>String</td><td>jump</td><td>参考 <a href="#发起支付类型说明">发起支付类型说明</a></td></tr>
-<tr><td>发起支付参数</td><td>pay_info</td><td>String</td><td>weixin://wxpay/bizpayurl?pr=04IPMKM</td><td>根据不同的发起支付类型，返回内容也不一样</td></tr>
-<tr><td>当前时间戳</td><td>timestamp</td><td>String</td><td>1721206072</td><td>10位整数，单位秒</td></tr>
-<tr><td>签名字符串</td><td>sign</td><td>String</td><td> </td><td>参考签名规则</td></tr>
-<tr><td>签名类型</td><td>sign_type</td><td>String</td><td>RSA</td><td>固定为RSA</td></tr>
-</tbody>
-</table></div>
-<p class="doc-note">返回结果（成功或失败）都带有本站签名的 timestamp、sign_type、sign 三个字段；失败时 code 为 -1，msg 为失败原因。</p>
-<h4 id="返回示例">返回示例：</h4>
-<pre><code>{
-    "code": 0,
-    "trade_no": "20160806151343349",
-    "pay_type": "qrcode",
-    "pay_info": "weixin://wxpay/bizpayurl?pr=04IPMKM",
-    "timestamp": "1721206072",
-    "sign_type": "RSA",
-    "sign": "……"
-}</code></pre>
-<pre><code>{
-    "code": 0,
-    "trade_no": "20160806151343349",
-    "pay_type": "jump",
-    "pay_info": "https://pay.example.com/checkout/20160806151343349?expires=...&amp;token=...",
-    "timestamp": "1721206072",
-    "sign_type": "RSA",
-    "sign": "……"
-}</code></pre>
-<pre><code>{
-    "code": 0,
-    "trade_no": "20160806151343351",
-    "pay_type": "jsapi",
-    "pay_info": "{\"appId\":\"wx2421b1c4370ec43b\",\"timeStamp\":\"1395712654\",\"nonceStr\":\"e61463f8efa94090b1f366cccfbbb444\",\"package\":\"prepay_id=up_wx21201855730335ac86f8c43d1889123400\",\"signType\":\"RSA\",\"paySign\":\"……\"}",
-    "timestamp": "1721206072",
-    "sign_type": "RSA",
-    "sign": "……"
-}</code></pre>
-<pre><code>{
-    "code": 0,
-    "trade_no": "2024072320222180092",
-    "pay_type": "scan",
-    "pay_info": "{\"type\":\"wxpay\",\"trade_no\":\"2024072320222180092\",\"api_trade_no\":\"4200002345202407238253501450\",\"buyer\":\"o9uAcc6VlZxhcujpKIqQuWWoDQc\",\"money\":\"1.00\"}",
-    "timestamp": "1721206072",
-    "sign_type": "RSA",
-    "sign": "……"
-}</code></pre>
-<pre><code>{
-    "code": 0,
-    "trade_no": "2024072320222180018",
-    "pay_type": "wxapp",
-    "pay_info": "{\"appId\":\"wxbb48bac536053072\",\"miniProgramId\":\"gh_bf9cd8cf50b5\",\"path\":\"pages/pay/index?money=1.00&amp;url=...\"}",
-    "timestamp": "1721206072",
-    "sign_type": "RSA",
-    "sign": "……"
-}</code></pre>
-<h4 id="接口类型列表">接口类型列表</h4>
-<div class="doc-table"><table>
-<thead><tr><th>调用值</th><th>描述</th></tr></thead>
-<tbody>
-<tr><td>web</td><td>通用网页支付（按通道能力自动返回跳转url/二维码/html等），method 不传时同样按网页支付处理</td></tr>
-<tr><td>jump</td><td>跳转支付（仅会返回跳转url，pay_type 固定为 jump）</td></tr>
-<tr><td>jsapi</td><td>JSAPI支付（公众号/小程序内支付使用，返回JSAPI参数，需传入 sub_openid）</td></tr>
-<tr><td>app</td><td>APP支付（iOS/安卓APP内支付使用，返回APP支付参数）</td></tr>
-<tr><td>scan</td><td>付款码支付（需传入 auth_code，必须 POST；支付成功后返回订单信息）</td></tr>
-<tr><td>applet</td><td>小程序跳转支付（微信返回 wxapp 跳转参数，支付宝返回 urlscheme）</td></tr>
-</tbody>
-</table></div>
-<p class="doc-note">各接口类型是否可用取决于商户所配置通道的能力；通道不支持的组合会返回失败。</p>
-<h4 id="设备类型列表">设备类型列表</h4>
-<div class="doc-table"><table>
-<thead><tr><th>调用值</th><th>描述</th></tr></thead>
-<tbody>
-<tr><td>pc</td><td>电脑浏览器（默认）</td></tr>
-<tr><td>mobile</td><td>手机浏览器（支付宝通道优先使用手机网站支付）</td></tr>
-</tbody>
-</table></div>
-<p class="doc-note">本站只区分 pc 与 mobile；原版的 qq、wechat、alipay、douyin 等取值按 pc 处理。</p>
-<h4 id="发起支付类型说明">发起支付类型说明</h4>
-<div class="doc-table"><table>
-<thead><tr><th>发起支付类型(pay_type)</th><th>pay_info 内容</th></tr></thead>
-<tbody>
-<tr><td>jump</td><td>支付跳转 url（本站收银台地址），直接跳转即可</td></tr>
-<tr><td>html</td><td>一段 html 代码，用于支付跳转</td></tr>
-<tr><td>qrcode</td><td>支付二维码内容字符串，自行生成二维码展示</td></tr>
-<tr><td>urlscheme</td><td>支付宝小程序跳转 url scheme</td></tr>
-<tr><td>jsapi</td><td>用于发起JSAPI支付的参数（JSON 字符串）</td></tr>
-<tr><td>app</td><td>用于发起APP支付的参数</td></tr>
-<tr><td>scan</td><td>付款码支付成功，返回支付订单信息（JSON，含 type/trade_no/api_trade_no/buyer/money）</td></tr>
-<tr><td>wxapp</td><td>微信小程序跳转参数（JSON，含 appId/miniProgramId/path），在 APP 中拉起小程序完成支付</td></tr>
-</tbody>
-</table></div>
-<h4 id="其他说明">其他说明：</h4>
+<p>所有请求参数先按<a href="/doc/sign_note.html">签名规则</a>签名，再进行表单编码。字段只允许唯一标量值；重复键、数组形式及歧义参数名会被拒绝。</p>
+<h2 id="处理规则">处理规则</h2>
 <ul>
-<li>代码中需根据接口返回的 pay_type 值来展示具体的支付页面，例如扫码页面等。如果不便处理各类型，可在 method 传入 jump，这样 pay_type 固定返回 jump，直接跳转本站收银台支付即可。</li>
-<li>付款码支付可不传支付方式 type，会根据 auth_code 自动判断支付方式；该方式必须使用 POST 提交。</li>
-<li>type 为空时返回 <code>支付方式(type)不能为空</code>（付款码支付除外）。</li>
-<li>若平台对该商户开启了强制收银台，本接口不创建订单，而是返回 <code>{"code":0,"pay_type":"jump","url":"收银台地址","jump_url":"收银台地址",…}</code>，跳转地址在 url 字段，不含 trade_no 与 pay_info。</li>
+<li>除 <code>method=scan</code> 的付款码识别，通常必须填写 <code>type</code>；未填写会返回 <code>支付方式(type)不能为空</code>。</li>
+<li>商户被强制使用收银台时，不立即创建订单，而返回 <code>pay_type=jump</code> 及 <code>url</code>、<code>jump_url</code>；此分支没有 <code>trade_no</code>、<code>pay_info</code>。</li>
+<li>用户在收银台选择支付方式后，仍创建 V2 订单并使用 RSA 通知，不会因为进入浏览器页面而改用 V1 回调。</li>
+<li><code>code=0</code> 只表示取得材料或请求已处理，不能作为已付款凭证。超时或结果不明时，使用原商户订单号查询，不要更换订单号重新下单。</li>
+<li>自定义进件参数 <code>merchant_id</code>、<code>cert_no</code>、<code>cert_name</code>、<code>min_age</code> 和请求级 <code>fee_mode</code> 不在本接口能力内；额外参数虽会参与验签，不代表会产生业务效果。</li>
 </ul>
-<p class="doc-note">本站不会返回原版的 wxplugin（微信小程序插件）类型。</p>
+<p>金额使用元为单位的十进制字符串，例如 <code>1.00</code>，最多 2 位小数且支付/退款/转账时必须大于 0；不要使用浮点数或科学计数法。Go 服务按整数分核对和记账。</p>
+<h2 id="返回参数说明">返回参数说明</h2>
+<div class="doc-table"><table>
+<thead><tr><th>参数</th><th>类型</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>code</td><td>Number</td><td>V2：0 表示本次接口调用完成；-1 表示错误或需要继续核对，不等于资金最终状态。</td></tr>
+<tr><td>msg</td><td>String</td><td>按返回分支出现的说明，客户端不应依赖固定中文文案。</td></tr>
+<tr><td>timestamp</td><td>String</td><td>平台签名时的 Unix 整数秒。</td></tr>
+<tr><td>sign_type</td><td>String</td><td>RSA。</td></tr>
+<tr><td>sign</td><td>String</td><td>使用平台公钥验证的签名。</td></tr>
+<tr><td>trade_no</td><td>String</td><td>平台订单号；强制收银台分支除外。</td></tr>
+<tr><td>pay_type</td><td>String</td><td>材料类型，按下方类型处理。</td></tr>
+<tr><td>pay_info</td><td>String</td><td>该类型的材料；嵌套 JSON 材料也以字符串返回并整体参与签名。</td></tr>
+<tr><td>url / jump_url</td><td>String</td><td>强制收银台分支的本站跳转地址。</td></tr>
+</tbody>
+</table></div>
+<p class="doc-note">先检查 HTTP 状态和响应格式，再验证平台签名及 timestamp，最后读取业务字段。平台密钥可用时，正常业务错误也会签名；裸 HTTP 参数/方法错误或签名基础设施不可用时，响应可能没有签名，不能把它当作可信成功结果。</p>
+<h2 id="返回示例">返回示例</h2>
+<pre><code>{
+  &quot;code&quot;: 0,
+  &quot;trade_no&quot;: &quot;GO202610310001&quot;,
+  &quot;pay_type&quot;: &quot;jump&quot;,
+  &quot;pay_info&quot;: &quot;https://pay.example.com/checkout/GO202610310001?expires=EXPIRES&amp;token=TOKEN&quot;,
+  &quot;timestamp&quot;: &quot;1793400000&quot;,
+  &quot;sign_type&quot;: &quot;RSA&quot;,
+  &quot;sign&quot;: &quot;BASE64_SIGNATURE&quot;
+}</code></pre>
+<p class="doc-note">示例中的编号、时间和签名仅用于说明字段；请求时生成当前时间戳和真实签名，不能直接复制示例签名。</p>
+<h2 id="接口类型列表">接口类型列表</h2>
+<div class="doc-table"><table>
+<thead><tr><th>method</th><th>行为</th></tr></thead>
+<tbody>
+<tr><td>web / 留空</td><td>按商户及通道配置选择网页支付。</td></tr>
+<tr><td>jump</td><td>要求托管跳转材料，避免自行处理多种支付展示。</td></tr>
+<tr><td>jsapi</td><td>公众号/小程序内支付，使用已绑定应用和用户身份。</td></tr>
+<tr><td>app</td><td>原生 App 支付；部分配置可转为小程序跳转材料。</td></tr>
+<tr><td>scan</td><td>付款码支付，必须 POST 并提供 auth_code，可根据付款码识别 type。结果未知继续查询原订单。</td></tr>
+<tr><td>applet</td><td>跳转至已配置的小程序产品。</td></tr>
+<tr><td>preauth</td><td>仅已配置且商户可用的支付宝预授权产品；授权并不等于实际扣款。</td></tr>
+</tbody>
+</table></div>
+<h2 id="设备类型列表">设备类型列表</h2>
+<div class="doc-table"><table>
+<thead><tr><th>device</th><th>行为</th></tr></thead>
+<tbody>
+<tr><td>pc</td><td>默认桌面网页选择。</td></tr>
+<tr><td>mobile</td><td>移动网页选择，例如已开通的支付宝手机网站产品。</td></tr>
+</tbody>
+</table></div>
+<h2 id="发起支付类型说明">发起支付类型说明</h2>
+<div class="doc-table"><table>
+<thead><tr><th>pay_type</th><th>pay_info 及处理</th></tr></thead>
+<tbody>
+<tr><td>jump</td><td>托管支付地址，按已验签地址引导用户导航。</td></tr>
+<tr><td>qrcode</td><td>二维码内容，生成二维码后由用户付款。</td></tr>
+<tr><td>html</td><td>通道支付 HTML 材料，需按照受信任通道的安全展示策略处理，不能当作付款确认。</td></tr>
+<tr><td>jsapi / app</td><td>平台返回的调用材料；按终端产品调用钱包，不将钱包前端提示作为最终结果。</td></tr>
+<tr><td>scan</td><td>付款码处理结果的 JSON 字符串；仍须核对返回订单及实际支付结果。</td></tr>
+<tr><td>wxapp / urlscheme</td><td>已配置的小程序跳转参数或 scheme。</td></tr>
+</tbody>
+</table></div>
+<h2 id="其他说明">其他说明</h2>
+<p>产品存在于接口列表，不表示当前商户或通道全部开通；能力不足时会拒绝。本站没有 <code>wxplugin</code> 小程序插件支付产品。</p>
 {{end}}

@@ -1,3 +1,4 @@
+import { logoutConsole } from "./live-console";
 import { readLocalSandboxEnv } from "./local-sandbox-env";
 import { test, expect } from "@playwright/test";
 import { localRedBackgroundPNG } from "./local-test-images";
@@ -46,7 +47,7 @@ test("live aggregate collection link renders a public bound payment form and rev
   const style = await (await styleResponse).json();
   expect(style.code).toBe(0);
   const styleID = String(style.data.id);
-  await page.getByRole("button", { name: "退出登录" }).click();
+  await logoutConsole(page);
   await page.goto("/merchant/dashboard");
   await page.getByLabel("用户名", { exact: true }).fill("merchant");
   await page.getByLabel("密码", { exact: true }).fill(password);
@@ -106,7 +107,7 @@ test("live aggregate collection link renders a public bound payment form and rev
   expect(revoked.status()).toBeGreaterThanOrEqual(400);
   await row.getByRole("button", { name: "删除", exact: true }).click();
   await dialog.getByRole("button", { name: "确认删除", exact: true }).click();
-  await page.getByRole("button", { name: "退出登录" }).click();
+  await logoutConsole(page);
   await page.goto("/admin/dashboard");
   await page.getByLabel("用户名", { exact: true }).fill("admin");
   await page.getByLabel("密码", { exact: true }).fill(password);

@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import { ApiClient, displayValue } from "../api";
+import { orderOperationMemory212 } from "../order-operation-memory212";
+import { fundsDefinitiveRefusal212 } from "../funds-intent212";
 const props = defineProps<{
   client: ApiClient;
   tradeNo: string;
@@ -11,6 +13,7 @@ const props = defineProps<{
   canAdopt?: boolean;
   hasPendingRefund?: boolean;
   disabled?: boolean;
+  refreshFailed?: boolean;
   initialAction?: "freeze" | "unfreeze";
 }>();
 const emit = defineEmits<{ updated: []; busy: [value: boolean] }>();
@@ -21,18 +24,44 @@ const sourceLabels: Record<string, string> = {
 };
 const sourceLabel = (value: unknown) =>
   sourceLabels[String(value)] || "来源尚未核实";
+interface PendingIncome212 {
+  error: string;
+  freezeID: string;
+  unfreezeID: string;
+  adoptID: string;
+  adoptHoldID: string;
+  freezeSent: boolean;
+  unfreezeSent: boolean;
+  adoptSent: boolean;
+  uncertainAction: "freeze" | "unfreeze" | "adopt";
+  unfreezeSnapshot: Record<string, unknown>;
+}
+const memory212 = orderOperationMemory212<PendingIncome212>(
+    props.client,
+    "income",
+    props.tradeNo,
+  ),
+  retained212 = memory212.read();
 const confirmation = ref<"freeze" | "unfreeze" | "adopt" | null>(null),
   busy = ref(false),
-  error = ref(""),
+  error = ref(retained212?.error || ""),
   notice = ref(""),
-  freezeID = ref(""),
+  freezeID = ref(retained212?.freezeID || ""),
   freezeDone = ref(false),
-  unfreezeID = ref(""),
+  unfreezeID = ref(retained212?.unfreezeID || ""),
   unfreezeDone = ref(false),
-  adoptID = ref(""),
-  adoptHoldID = ref(""),
+  adoptID = ref(retained212?.adoptID || ""),
+  adoptHoldID = ref(retained212?.adoptHoldID || ""),
   adoptDone = ref(false),
-  unfreezeSnapshot = ref<Record<string, unknown>>({});
+  freezeSent = ref(retained212?.freezeSent || false),
+  unfreezeSent = ref(retained212?.unfreezeSent || false),
+  adoptSent = ref(retained212?.adoptSent || false),
+  uncertainAction = ref<"freeze" | "unfreeze" | "adopt" | null>(
+    retained212?.uncertainAction || null,
+  ),
+  unfreezeSnapshot = ref<Record<string, unknown>>(
+    retained212?.unfreezeSnapshot || {},
+  );
 const admin = computed(() => props.client.area === "admin"),
   freezeAllowed = computed(() => admin.value && props.canFreeze === true),
   refundPending = computed(
@@ -66,15 +95,53 @@ watch(
       hold?.source_mode === "legacy_adopt"
     )
       adoptDone.value = true;
+    if (
+      uncertainAction.value === "freeze" &&
+      hold?.external_no === freezeID.value &&
+      ["held", "released"].includes(String(hold?.state))
+    ) {
+      error.value = "";
+      notice.value =
+        hold.state === "held"
+          ? "原冻结请求已核对：平台订单收入已冻结，未重复发起。"
+          : "原冻结请求已核对：该批次已解冻，未重新冻结。";
+      uncertainAction.value = null;
+    } else if (
+      uncertainAction.value === "unfreeze" &&
+      String(hold?.id) === unfreezeID.value &&
+      hold?.state === "released"
+    ) {
+      error.value = "";
+      notice.value = "原解冻请求已核对：指定平台收入冻结批次已解冻。";
+      uncertainAction.value = null;
+    } else if (
+      uncertainAction.value === "adopt" &&
+      String(hold?.id) === adoptHoldID.value &&
+      hold?.source_mode === "legacy_adopt"
+    ) {
+      error.value = "";
+      notice.value = "指定冻结批次已核对：历史冻结款已迁入该订单专用来源。";
+      uncertainAction.value = null;
+    }
   },
+  { immediate: true },
 );
+function newRequestBlocked(action: "freeze" | "unfreeze" | "adopt") {
+  if (!props.refreshFailed) return false;
+  return action === "freeze"
+    ? !freezeSent.value || freezeDone.value
+    : action === "adopt"
+      ? !adoptSent.value || adoptDone.value
+      : !unfreezeSent.value || unfreezeDone.value;
+}
 function prepare(action: "freeze" | "unfreeze" | "adopt") {
-  if (busy.value || props.disabled) return;
+  if (busy.value || props.disabled || newRequestBlocked(action)) return;
   if (action === "freeze") {
     if (!freezeAllowed.value) return;
     if (!freezeID.value || freezeDone.value) {
       freezeID.value = crypto.randomUUID();
       freezeDone.value = false;
+      freezeSent.value = false;
     }
   } else if (action === "adopt") {
     if (!adoptAllowed.value) return;
@@ -82,6 +149,7 @@ function prepare(action: "freeze" | "unfreeze" | "adopt") {
       adoptID.value = crypto.randomUUID();
       adoptHoldID.value = String(props.hold!.id);
       adoptDone.value = false;
+      adoptSent.value = false;
     }
   } else {
     if (!unfreezeAllowed.value) return;
@@ -89,6 +157,7 @@ function prepare(action: "freeze" | "unfreeze" | "adopt") {
       unfreezeID.value = String(props.hold!.id);
       unfreezeSnapshot.value = { ...props.hold };
       unfreezeDone.value = false;
+      unfreezeSent.value = false;
     }
   }
   error.value = "";
@@ -96,11 +165,38 @@ function prepare(action: "freeze" | "unfreeze" | "adopt") {
   confirmation.value = action;
 }
 onMounted(() => {
-  if (props.initialAction) prepare(props.initialAction);
+  if (props.initialAction && !retained212) prepare(props.initialAction);
+});
+onBeforeUnmount(() => {
+  if (!uncertainAction.value) {
+    memory212.clear();
+    return;
+  }
+  memory212.save({
+    error: error.value,
+    freezeID: freezeID.value,
+    unfreezeID: unfreezeID.value,
+    adoptID: adoptID.value,
+    adoptHoldID: adoptHoldID.value,
+    freezeSent: freezeSent.value,
+    unfreezeSent: unfreezeSent.value,
+    adoptSent: adoptSent.value,
+    uncertainAction: uncertainAction.value,
+    unfreezeSnapshot: { ...unfreezeSnapshot.value },
+  });
 });
 async function execute() {
   const action = confirmation.value;
-  if (!action || busy.value || props.disabled || !admin.value) return;
+  const retryingUnknown = uncertainAction.value === action;
+  let dispatched = false;
+  if (
+    !action ||
+    busy.value ||
+    props.disabled ||
+    !admin.value ||
+    newRequestBlocked(action)
+  )
+    return;
   if (
     (action === "freeze" && !freezeAllowed.value) ||
     (action === "unfreeze" && !unfreezeAllowed.value) ||
@@ -112,11 +208,18 @@ async function execute() {
   confirmation.value = null;
   error.value = "";
   notice.value = "";
+  uncertainAction.value = null;
   try {
     const hold = await props.client.request<Record<string, unknown>>(
       `/orders/${encodeURIComponent(props.tradeNo)}/${action === "freeze" ? "freeze-income" : action === "adopt" ? "adopt-income-hold" : "unfreeze-income"}`,
       {
         method: "POST",
+        beforeDispatch: () => {
+          dispatched = true;
+          if (action === "freeze") freezeSent.value = true;
+          else if (action === "adopt") adoptSent.value = true;
+          else unfreezeSent.value = true;
+        },
         body:
           action === "freeze"
             ? { external_no: freezeID.value }
@@ -145,12 +248,19 @@ async function execute() {
           : "解冻结果尚未核实，请核对原冻结批次。";
     }
   } catch (e) {
-    error.value =
-      action === "freeze"
-        ? `冻结结果尚未核实，请保留原冻结请求号 ${freezeID.value} 后重试原请求。${e instanceof Error ? e.message : "请求失败"}`
-        : action === "adopt"
-          ? `迁移结果尚未核实，请保留原请求号 ${adoptID.value} 和冻结批次 ${adoptHoldID.value}，重试原请求。${e instanceof Error ? e.message : "请求失败"}`
-          : `解冻结果尚未核实，请保留原冻结批次 ${unfreezeID.value}，不能自动切换到新批次。${e instanceof Error ? e.message : "请求失败"}`;
+    const notSent = !retryingUnknown && !dispatched;
+    const refused =
+      notSent || (!retryingUnknown && fundsDefinitiveRefusal212(e));
+    uncertainAction.value = refused ? null : action;
+    error.value = notSent
+      ? `本次操作尚未发送，请核对原因后重试。${e instanceof Error ? e.message : "请求未发送"}`
+      : refused
+        ? `本次操作已明确拒绝，请核对原因后再重试。${e instanceof Error ? e.message : "请求被拒绝"}`
+        : action === "freeze"
+          ? `冻结结果尚未核实，请保留原冻结请求号 ${freezeID.value} 后重试原请求。${e instanceof Error ? e.message : "请求失败"}`
+          : action === "adopt"
+            ? `迁移结果尚未核实，请保留原请求号 ${adoptID.value} 和冻结批次 ${adoptHoldID.value}，重试原请求。${e instanceof Error ? e.message : "请求失败"}`
+            : `解冻结果尚未核实，请保留原冻结批次 ${unfreezeID.value}，不能自动切换到新批次。${e instanceof Error ? e.message : "请求失败"}`;
   } finally {
     busy.value = false;
     emit("updated");
@@ -208,7 +318,7 @@ async function execute() {
     <div class="toolbar-actions">
       <button
         v-if="adoptAllowed"
-        :disabled="busy || disabled"
+        :disabled="busy || disabled || newRequestBlocked('adopt')"
         @click="prepare('adopt')"
       >
         {{
@@ -217,7 +327,7 @@ async function execute() {
       </button>
       <button
         v-if="freezeAllowed"
-        :disabled="busy || disabled"
+        :disabled="busy || disabled || newRequestBlocked('freeze')"
         @click="prepare('freeze')"
       >
         {{
@@ -225,7 +335,7 @@ async function execute() {
         }}</button
       ><button
         v-if="unfreezeAllowed"
-        :disabled="busy || disabled"
+        :disabled="busy || disabled || newRequestBlocked('unfreeze')"
         @click="prepare('unfreeze')"
       >
         {{ unfreezeID && !unfreezeDone ? "重试原解冻请求" : "解冻订单收入" }}
@@ -286,6 +396,7 @@ async function execute() {
           :disabled="
             busy ||
             disabled ||
+            newRequestBlocked(confirmation) ||
             (confirmation === 'unfreeze' && !unfreezeAllowed) ||
             (confirmation === 'adopt' && !adoptAllowed)
           "

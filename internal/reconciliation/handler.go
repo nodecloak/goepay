@@ -134,9 +134,9 @@ func (h Handler) Handle(ctx context.Context, j jobs.Job) error {
 		if status == "succeeded" || status == "failed" {
 			return nil
 		}
-		// QueryRefund requires a matching durable provider operation. Reservations
-		// claimed before its creation retry safely; no write is ever inferred.
-		r, e := h.Flow.QueryRefund(ctx, merchant, number)
+		// Resume only an existing durable provider operation. Each combined
+		// share needs its own persisted send claim before any provider write.
+		r, e := h.Flow.ResumeRefund(ctx, merchant, number)
 		if e != nil {
 			return e
 		}

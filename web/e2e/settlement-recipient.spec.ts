@@ -67,12 +67,38 @@ test("settlement recipient edit clears fee confirmation and binds new snapshot v
     }
     if (p.endsWith("/settlements") && method === "POST") {
       posts++;
-      expect(route.request().postDataJSON()).toMatchObject({
+      const body = route.request().postDataJSON();
+      expect(body).toMatchObject({
         recipient_config_id: "43",
         expected_fee_cents: "3",
         expected_net_cents: "120",
       });
-      return route.fulfill({ ...ok({}), status: 201 });
+      return route.fulfill({
+        ...ok({
+          id: "212",
+          kind: "settlements",
+          merchant_id: "1",
+          external_no: body.external_no,
+          status: "pending",
+          amount: "1.23",
+          amount_cents: "123",
+          external_payout: false,
+          created_at: "2026-10-30T00:00:00Z",
+          settlement: {
+            gross_amount: "123",
+            fee_amount: "3",
+            net_amount: "120",
+          },
+          settlement_recipient: { ...recipient("43"), state: "recorded" },
+          settlement_funding: {
+            state: "reserved",
+            account_id: "7",
+            gross_amount: "123",
+            reserved_amount: "123",
+          },
+        }),
+        status: 201,
+      });
     }
     return route.fulfill(
       ok({

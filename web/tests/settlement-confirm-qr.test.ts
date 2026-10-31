@@ -6,6 +6,7 @@ import { ApiClient } from "../src/api";
 import {
   paidSettlementListFixture,
   settlementListFixture,
+  waitingReceiptSettlementListFixture,
 } from "./fixtures/settlement-list";
 
 // 确认收款 QR is fetched per row from the single-record payout GET
@@ -26,7 +27,9 @@ describe("settlement row 确认收款 QR", () => {
     } as unknown as never);
     const w = mount(SettlementListTable, {
       props: {
-        items: [paidSettlementListFixture() as Record<string, unknown>],
+        items: [
+          waitingReceiptSettlementListFixture() as Record<string, unknown>,
+        ],
         area,
         checked: [],
         busy: false,
@@ -36,7 +39,7 @@ describe("settlement row 确认收款 QR", () => {
     return { w, client, request };
   }
 
-  it("renders a 确认收款 button on a completed settlement row for both areas", () => {
+  it("renders a 确认收款 button only on a waiting WeChat settlement with explicit capability for both areas", () => {
     for (const area of ["admin", "merchant"] as const) {
       const { w } = mountTable(area);
       const confirm = w
@@ -77,7 +80,9 @@ describe("settlement row 确认收款 QR", () => {
     } as unknown as never);
     const w = mount(SettlementListTable, {
       props: {
-        items: [paidSettlementListFixture() as Record<string, unknown>],
+        items: [
+          waitingReceiptSettlementListFixture() as Record<string, unknown>,
+        ],
         area: "merchant",
         checked: [],
         busy: false,
@@ -95,8 +100,7 @@ describe("settlement row 确认收款 QR", () => {
   });
 
   it("does not offer 确认收款 on a non-completable (pending) settlement row", () => {
-    // settlementListFixture() is approved-but-unpaid with no payout → canInspectPayout
-    // is false, so no 确认收款 affordance appears. The preview seed has only such rows.
+    // Approval or request existence does not imply a payee confirmation package.
     const pending = settlementListFixture() as Record<string, unknown>;
     pending.status = "pending";
     pending.payout = null;

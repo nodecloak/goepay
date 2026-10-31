@@ -65,7 +65,10 @@ it("retries historical adoption with the same hold and request after a lost resp
   const client = new ApiClient("admin");
   const request = vi
     .spyOn(client, "request")
-    .mockRejectedValue(new Error("response lost"));
+    .mockImplementation(async (_path, options) => {
+      await options?.beforeDispatch?.();
+      throw new Error("response lost");
+    });
   const wrapper = mount(OrderIncomePanel, {
     props: {
       client,
@@ -97,9 +100,17 @@ it("retries historical adoption with the same hold and request after a lost resp
     hold_id: "9",
     external_no: expect.any(String),
   });
+  expect(wrapper.text()).toContain("迁移结果尚未核实");
   await click("重试原迁移请求");
   await click("确认迁移指定冻结款");
-  expect(request.mock.calls[1]).toEqual(first);
+  const second = request.mock.calls[1];
+  expect(second[0]).toEqual(first[0]);
+  expect(second[1]?.body).toEqual(first[1]?.body);
+  expect(second[1]).toMatchObject({
+    method: "POST",
+    body: first[1]?.body,
+    beforeDispatch: expect.any(Function),
+  });
   wrapper.unmount();
 });
 

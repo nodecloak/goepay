@@ -186,6 +186,12 @@ export function readSettlementListRow(value: unknown) {
     completedAt: paid ? recordedTime(sourcePayout?.transfer?.pay_date) : "—",
     canReview: r.status === "pending" && !p,
     canInspectPayout: r.status === "approved",
+    canConfirmReceipt:
+      raw.can_confirm_receipt === true &&
+      !paid &&
+      r.recipient?.type === "wxpay" &&
+      !!p &&
+      ["pending", "unknown"].includes(p.transfer.status),
     funding: payoutFundingLabel(r.funding),
     payout: p ? payoutStateLabel(p.state) : "尚未出款",
     requestStatus: (

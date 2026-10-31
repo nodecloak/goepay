@@ -48,6 +48,9 @@ func (s *Service) ServeWorkflows(w http.ResponseWriter, r *http.Request, p Princ
 		return
 	}
 	kind := parts[0]
+	if s.serveWorkflowIntent212(w, r, p, parts) {
+		return
+	}
 	// internal_transfer is a default-ON merchant feature; when the administrator
 	// turns it off the merchant's 站内转账 endpoints are refused with the feature
 	// message (the menu entry is hidden via the session feature flags). Admin
@@ -140,6 +143,9 @@ func (s *Service) ServeWorkflows(w http.ResponseWriter, r *http.Request, p Princ
 		}
 		out, e := s.store.RequestFundsWithSettlementRecipient(r.Context(), kind, merchantID, recipientID, externalNo, amount, actor, expected, configID)
 		if e != nil {
+			if s.writeWorkflowRefusal212(w, r, kind, merchantID, externalNo, e) {
+				return
+			}
 			writeError(w, e)
 			return
 		}

@@ -15,22 +15,23 @@ func consoleSessionUser(user identity.User) any {
 	// menu-key set. The web hides any admin menu whose key is not granted; a
 	// null value (absent field) means no narrowing. The server remains the
 	// authority — this only drives navigation visibility.
-	var permissions []string
+	var permissions *[]string
 	if user.Role == "admin" && user.AdminClass != "super" {
 		if granted, restricted := parsePermissions(user.Permissions); restricted {
-			permissions = []string{}
+			keys := []string{}
 			for k := range granted {
-				permissions = append(permissions, k)
+				keys = append(keys, k)
 			}
-			sortStrings(permissions)
+			sortStrings(keys)
+			permissions = &keys
 		}
 	}
 	return struct {
-		ID          string   `json:"id"`
-		Name        string   `json:"name"`
-		Role        string   `json:"role"`
-		AdminClass  string   `json:"admin_class,omitempty"`
-		Permissions []string `json:"permissions,omitempty"`
+		ID          string    `json:"id"`
+		Name        string    `json:"name"`
+		Role        string    `json:"role"`
+		AdminClass  string    `json:"admin_class,omitempty"`
+		Permissions *[]string `json:"permissions,omitempty"`
 	}{strconv.FormatInt(user.ID, 10), user.Name, user.Role, user.AdminClass, permissions}
 }
 

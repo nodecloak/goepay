@@ -74,6 +74,7 @@ test("order detail queries only after a click and unknown close remains unverifi
 test("a 202 refund is described as unknown even when its snapshot has a terminal label", async ({
   page,
 }) => {
+  let refunds = 0;
   await page.route("**/console/v1/**", (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith("/session"))
@@ -83,9 +84,27 @@ test("a 202 refund is described as unknown even when its snapshot has a terminal
           csrf_token: "test",
         }),
       );
-    if (path.endsWith("/refund"))
-      return route.fulfill(ok({ refund_no: "R-1", status: "succeeded" }, 202));
+    if (path.endsWith("/refund")) {
+      refunds++;
+      return route.fulfill(
+        ok(
+          {
+            id: "77",
+            merchant_id: "1000",
+            order_id: "91",
+            refund_no: route.request().postDataJSON().external_no,
+            amount: "1",
+            merchant_amount: "1",
+            fee_amount: "0",
+            status: "succeeded",
+          },
+          202,
+        ),
+      );
+    }
     const order = {
+      id: "91",
+      merchant_id: "1000",
       trade_no: "ORDER-1",
       status: "paid",
       amount: "100",
@@ -97,6 +116,8 @@ test("a 202 refund is described as unknown even when its snapshot has a terminal
         path.endsWith("/orders/ORDER-1")
           ? {
               order: {
+                id: order.id,
+                merchant_id: order.merchant_id,
                 trade_no: order.trade_no,
                 status: order.status,
                 amount: order.amount,
@@ -115,8 +136,16 @@ test("a 202 refund is described as unknown even when its snapshot has a terminal
   await page.getByRole("menuitem", { name: "退款", exact: true }).click();
   await page.getByLabel("退款金额（元）").fill("0.01");
   await page.getByRole("button", { name: "确认申请退款", exact: true }).click();
-  await expect(page.locator(".alert.success")).toContainText("结果尚未核实");
-  await expect(page.locator(".alert.success")).not.toContainText("退款成功");
+  const refund = page.getByRole("dialog", { name: "申请退款", exact: true });
+  await expect(refund.getByRole("status")).toContainText("结果尚待核对");
+  await expect(refund.getByRole("status")).not.toContainText("退款成功");
+  await expect(
+    refund.getByRole("button", { name: "已核对，结束本次退款", exact: true }),
+  ).toHaveCount(0);
+  await refund.getByRole("button", { name: "取消", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("结果尚未核实");
+  await expect(page.getByRole("status")).not.toContainText("退款成功");
+  expect(refunds).toBe(1);
 });
 test("merchant console credentials are optional and existing login names are immutable during password reset", async ({
   page,

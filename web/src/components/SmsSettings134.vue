@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, toRaw, watch } from "vue";
-import { ApiClient } from "../api";
+import { ApiClient, ApiError } from "../api";
+import { useSettingsDraft212 } from "../settings-drafts212";
 import {
   readSmsGateway134,
   smsProviderTitles,
@@ -38,6 +39,27 @@ const draft = ref({
   sign: "",
   enabled: false,
 });
+const draftProvider = ref(""),
+  unresolvedDraft = ref(false);
+const baseline = ref({ ...draft.value });
+const draftDirty = computed(
+  () =>
+    unresolvedDraft.value ||
+    (!!draftProvider.value &&
+      Object.keys(draft.value).some(
+        (key) =>
+          draft.value[key as keyof typeof draft.value] !==
+          baseline.value[key as keyof typeof baseline.value],
+      )),
+);
+const { confirmDiscard: confirmDraftDiscard } = useSettingsDraft212(
+  "短信网关与测试短信",
+  () =>
+    draftDirty.value ||
+    testBusy.value ||
+    (testOpen.value && !!testPhone.value) ||
+    testResult.value === "发送结果无法确认",
+);
 const allowed = computed(
   () =>
     props.client.area === "admin" &&
@@ -46,24 +68,61 @@ const allowed = computed(
 );
 let epoch = 0,
   alive = true,
-  ac: AbortController | undefined;
+  ac: AbortController | undefined,
+  readyClient: ApiClient | undefined,
+  readyCSRF = "";
 function reset() {
   epoch++;
   ac?.abort();
   state.value = null;
   editing.value = "";
   testOpen.value = false;
+  testPhone.value = "";
   testResult.value = "";
+  testBusy.value = false;
   busy.value = false;
   loading.value = false;
+  draftProvider.value = "";
+  unresolvedDraft.value = false;
+  readyClient = undefined;
+  readyCSRF = "";
+  draft.value = {
+    access_key_id: "",
+    access_key_secret: "",
+    appid: "",
+    appkey: "",
+    user: "",
+    pass: "",
+    template: "",
+    sign: "",
+    enabled: false,
+  };
 }
 async function load() {
-  if (!allowed.value || busy.value) return;
+  if (!allowed.value || busy.value || testBusy.value || loading.value) return;
+  const discardEpoch = epoch,
+    discardClient = toRaw(props.client),
+    discardCSRF = discardClient.csrfToken;
+  if (
+    !(await confirmDraftDiscard()) ||
+    !alive ||
+    discardEpoch !== epoch ||
+    !allowed.value ||
+    busy.value ||
+    testBusy.value ||
+    loading.value ||
+    discardClient !== toRaw(props.client) ||
+    discardCSRF !== toRaw(props.client).csrfToken
+  )
+    return;
+  const wasUnresolved = unresolvedDraft.value;
   reset();
+  unresolvedDraft.value = wasUnresolved;
   error.value = "";
   notice.value = "";
   const run = epoch,
     client = toRaw(props.client),
+    csrf = client.csrfToken,
     control = new AbortController();
   ac = control;
   loading.value = true;
@@ -73,20 +132,72 @@ async function load() {
         signal: control.signal,
       }),
     );
-    if (!alive || run !== epoch) return;
+    if (!current(run, client, csrf)) return;
     state.value = v;
+    unresolvedDraft.value = false;
+    readyClient = client;
+    readyCSRF = csrf;
   } catch {
-    if (alive && run === epoch)
+    if (current(run, client, csrf))
       error.value = "短信网关状态无法确认，请重新读取";
   } finally {
-    if (alive && run === epoch) loading.value = false;
+    if (current(run, client, csrf)) loading.value = false;
   }
+}
+function current(run: number, client: ApiClient, csrf: string) {
+  if (!alive || run !== epoch) return false;
+  if (
+    !allowed.value ||
+    client !== toRaw(props.client) ||
+    csrf !== toRaw(props.client).csrfToken
+  ) {
+    reset();
+    error.value = "会话已变化，请重新读取短信网关";
+    return false;
+  }
+  return true;
+}
+function ready() {
+  if (
+    readyClient &&
+    readyClient === toRaw(props.client) &&
+    readyCSRF === toRaw(props.client).csrfToken
+  )
+    return true;
+  reset();
+  error.value = "会话已变化，请重新读取短信网关";
+  return false;
 }
 function title(p: string) {
   return smsProviderTitles[p] ?? p;
 }
-function openProvider(p: SmsProviderView["provider"]) {
-  if (busy.value || !state.value) return;
+async function openProvider(p: SmsProviderView["provider"]) {
+  if (
+    !allowed.value ||
+    busy.value ||
+    testBusy.value ||
+    !state.value ||
+    !ready()
+  )
+    return;
+  if (draftProvider.value === p && draftDirty.value) {
+    editing.value = p;
+    return;
+  }
+  const discardEpoch = epoch,
+    discardClient = toRaw(props.client),
+    discardCSRF = discardClient.csrfToken;
+  if (
+    !(await confirmDraftDiscard()) ||
+    !alive ||
+    discardEpoch !== epoch ||
+    !allowed.value ||
+    busy.value ||
+    !state.value ||
+    discardClient !== toRaw(props.client) ||
+    discardCSRF !== toRaw(props.client).csrfToken
+  )
+    return;
   const row = state.value.providers.find((x) => x.provider === p);
   draft.value = {
     access_key_id: "",
@@ -100,6 +211,9 @@ function openProvider(p: SmsProviderView["provider"]) {
     enabled: state.value.status === 1 && state.value.active === p,
   };
   editing.value = p;
+  draftProvider.value = p;
+  baseline.value = { ...draft.value };
+  unresolvedDraft.value = false;
   error.value = "";
   notice.value = "";
 }
@@ -117,9 +231,24 @@ function closeProvider() {
     sign: "",
     enabled: false,
   };
+  draftProvider.value = "";
+  unresolvedDraft.value = false;
+}
+function suspendProvider() {
+  if (!busy.value) editing.value = "";
 }
 async function saveProvider() {
   if (!allowed.value || busy.value || !state.value || !editing.value) return;
+  if (!ready()) return;
+  if (
+    testBusy.value ||
+    (testOpen.value && !!testPhone.value) ||
+    testResult.value === "发送结果无法确认"
+  ) {
+    error.value =
+      "请先核对测试短信发送结果，或取消未提交的测试短信，再修改短信网关。";
+    return;
+  }
   const p = editing.value,
     before = state.value;
   const credentials: Record<string, string> = {
@@ -155,6 +284,7 @@ async function saveProvider() {
   };
   const run = ++epoch,
     client = toRaw(props.client),
+    csrf = client.csrfToken,
     control = new AbortController();
   ac?.abort();
   ac = control;
@@ -169,22 +299,60 @@ async function saveProvider() {
         signal: control.signal,
       }),
     );
-    if (!alive || run !== epoch) return;
+    if (!current(run, client, csrf)) return;
     state.value = v;
-    editing.value = "";
+    closeProviderAfterSave();
     notice.value = "保存成功";
-  } catch {
-    if (alive && run === epoch) {
-      state.value = null;
-      editing.value = "";
-      error.value = "保存结果无法确认，请重新读取后核对";
+  } catch (e) {
+    if (current(run, client, csrf)) {
+      unresolvedDraft.value = true;
+      if (
+        e instanceof ApiError &&
+        e.responseDecoded &&
+        e.status >= 400 &&
+        e.status < 500 &&
+        e.status !== 409
+      )
+        error.value = "保存未完成，请核对草稿后重试。" + e.message;
+      else {
+        state.value = null;
+        editing.value = "";
+        error.value = "保存结果无法确认，当前草稿仍保留；请重新读取后核对";
+      }
     }
   } finally {
-    if (alive && run === epoch) busy.value = false;
+    if (current(run, client, csrf)) busy.value = false;
   }
 }
+function closeProviderAfterSave() {
+  editing.value = "";
+  draftProvider.value = "";
+  unresolvedDraft.value = false;
+  draft.value = {
+    access_key_id: "",
+    access_key_secret: "",
+    appid: "",
+    appkey: "",
+    user: "",
+    pass: "",
+    template: "",
+    sign: "",
+    enabled: false,
+  };
+}
 function openTest() {
-  if (!state.value || state.value.status !== 1) return;
+  if (
+    !allowed.value ||
+    busy.value ||
+    !state.value ||
+    state.value.status !== 1 ||
+    !ready()
+  )
+    return;
+  if (testResult.value === "发送结果无法确认") {
+    testOpen.value = true;
+    return;
+  }
   testPhone.value = "";
   testResult.value = "";
   testOpen.value = true;
@@ -192,12 +360,14 @@ function openTest() {
 }
 async function sendTest() {
   if (!allowed.value || testBusy.value || !state.value) return;
+  if (!ready() || testResult.value === "发送结果无法确认") return;
   if (!/^\d{5,20}$/.test(testPhone.value)) {
     error.value = "请输入有效的测试手机号";
     return;
   }
   const run = epoch,
     client = toRaw(props.client),
+    csrf = client.csrfToken,
     control = new AbortController();
   testBusy.value = true;
   testResult.value = "";
@@ -213,19 +383,27 @@ async function sendTest() {
         signal: control.signal,
       },
     );
-    if (!alive || run !== epoch) return;
+    if (!current(run, client, csrf)) return;
     testResult.value =
       v.status === "accepted"
         ? "服务商已接受测试短信"
-        : "发送未成功" + (v.reason ? "：" + v.reason : "");
+        : v.status === "unknown"
+          ? "发送结果无法确认"
+          : "发送未成功" + (v.reason ? "：" + v.reason : "");
+    if (v.status !== "unknown") testPhone.value = "";
   } catch {
-    if (alive && run === epoch) testResult.value = "发送结果无法确认";
+    if (current(run, client, csrf)) testResult.value = "发送结果无法确认";
   } finally {
-    if (alive && run === epoch) testBusy.value = false;
+    if (current(run, client, csrf)) testBusy.value = false;
   }
 }
 watch(
-  () => [props.client, props.adminClass, props.ownSession],
+  () => [
+    props.client,
+    props.client.csrfToken,
+    props.adminClass,
+    props.ownSession,
+  ],
   () => {
     reset();
     void load();
@@ -247,7 +425,7 @@ onBeforeUnmount(() => {
   <section aria-label="短信配置">
     <p v-if="!allowed" class="muted">短信网关设置需要超级管理员本人会话。</p>
     <template v-else>
-      <button :disabled="loading || busy" @click="load">
+      <button :disabled="loading || busy || testBusy" @click="load">
         重新读取短信网关
       </button>
       <p v-if="loading" role="status">正在读取短信网关…</p>
@@ -289,7 +467,11 @@ onBeforeUnmount(() => {
                     :disabled="busy || editing !== ''"
                     @click="openProvider(p.provider)"
                   >
-                    服务商设置
+                    {{
+                      draftProvider === p.provider && draftDirty
+                        ? "继续编辑草稿"
+                        : "服务商设置"
+                    }}
                   </button>
                 </td>
               </tr>
@@ -322,6 +504,9 @@ onBeforeUnmount(() => {
       @close="closeProvider"
       @submit="saveProvider"
     >
+      <button type="button" :disabled="busy" @click="suspendProvider">
+        收起并保留草稿
+      </button>
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
       <template v-if="editing === 'aliyun'">
         <KitField label="AccessKeyId" required
@@ -376,6 +561,7 @@ onBeforeUnmount(() => {
       v-if="testOpen"
       title="短信网关测试发送"
       :loading="testBusy"
+      :submit-disabled="testResult === '发送结果无法确认'"
       :submit-text="testBusy ? '发送中…' : '发送'"
       @close="testOpen = false"
       @submit="sendTest"
@@ -389,6 +575,9 @@ onBeforeUnmount(() => {
           :disabled="testBusy"
       /></KitField>
       <p v-if="testResult" role="status" class="alert">{{ testResult }}</p>
+      <p v-if="testResult === '发送结果无法确认'" class="muted">
+        请先在服务商核对这次发送结果，勿重复发送；关闭后重新读取网关时会再次确认。
+      </p>
     </KitModal>
   </section>
 </template>

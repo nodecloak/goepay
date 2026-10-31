@@ -148,14 +148,25 @@ test("live local wallet transfer follows capability, confirmation and readonly q
     await batch
       .getByRole("button", { name: "确认仅执行未发送项目", exact: true })
       .click();
-    await expect(batch.locator('[data-state="succeeded"]')).toHaveCount(2);
+    await expect(
+      batch
+        .getByRole("row")
+        .filter({ has: page.getByRole("cell", { name: "成功", exact: true }) }),
+    ).toHaveCount(1);
+    await expect(
+      batch.getByRole("cell", { name: "成功", exact: true }),
+    ).toHaveCount(2);
     await batch
       .getByRole("button", { name: "取消尚未发送项目", exact: true })
       .click();
     await batch
       .getByRole("button", { name: "确认取消未发送项目", exact: true })
       .click();
-    await expect(batch.locator('[data-state="cancelled"]')).toHaveCount(2);
+    await expect(
+      batch.getByRole("row").filter({
+        has: page.getByRole("cell", { name: "已取消", exact: true }),
+      }),
+    ).toHaveCount(1);
     await expect(
       batch.getByRole("button", { name: "执行尚未发送项目", exact: true }),
     ).toHaveCount(0);

@@ -61,3 +61,30 @@ export function paidSettlementListFixture() {
   };
   return r;
 }
+
+export function waitingReceiptSettlementListFixture() {
+  const row = paidSettlementListFixture();
+  row.settlement_recipient = {
+    ...row.settlement_recipient,
+    type: "wxpay",
+    app_id: "configured-wechat-app",
+  };
+  row.settlement_funding = {
+    ...row.settlement_funding,
+    state: "reserved",
+    reserved_amount: row.amount_cents,
+  };
+  row.payout = {
+    ...row.payout,
+    state: "pending",
+    funding: { ...row.settlement_funding },
+    recipient: { ...row.settlement_recipient },
+    transfer: {
+      ...(row.payout!.transfer as object),
+      type: "wxpay",
+      status: "pending",
+      pay_date: "",
+    },
+  };
+  return { ...row, can_confirm_receipt: true };
+}

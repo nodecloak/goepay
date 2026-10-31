@@ -114,7 +114,46 @@ test("merchant settlement reads and displays T1 available versus ledger snapshot
       );
     if (r.method() === "POST") {
       writes++;
-      return route.fulfill(ok({ id: "1" }));
+      const body = r.postDataJSON();
+      expect(body).toMatchObject({
+        amount: "0.01",
+        recipient_config_id: "42",
+        expected_fee_cents: "0",
+        expected_net_cents: "1",
+      });
+      return route.fulfill(
+        ok({
+          id: "1",
+          kind: "settlements",
+          merchant_id: "1000",
+          external_no: body.external_no,
+          status: "pending",
+          amount: "0.01",
+          amount_cents: "1",
+          external_payout: false,
+          created_at: "2026-10-30T00:00:00Z",
+          settlement: {
+            gross_amount: "1",
+            fee_amount: "0",
+            net_amount: "1",
+            retained_cents: "0",
+          },
+          settlement_recipient: {
+            state: "recorded",
+            config_id: "42",
+            type: "alipay",
+            app_id: "",
+            account_masked: "***1234",
+            name_masked: "***",
+          },
+          settlement_funding: {
+            state: "reserved",
+            account_id: "7",
+            gross_amount: "1",
+            reserved_amount: "1",
+          },
+        }),
+      );
     }
     return route.fulfill(ok({ items: [], total: 0 }));
   });
@@ -189,8 +228,26 @@ test("admin explicitly queries source merchant funds and late tenant response ca
     }
     if (r.method() === "POST") {
       writes++;
-      expect(r.postDataJSON().merchant_id).toBe("1001");
-      return route.fulfill(ok({ id: "1" }));
+      const body = r.postDataJSON();
+      expect(body).toMatchObject({
+        merchant_id: "1001",
+        recipient_id: "1002",
+        amount: "0.01",
+      });
+      return route.fulfill(
+        ok({
+          id: "1",
+          kind: "internal-transfers",
+          merchant_id: "1001",
+          recipient_id: "1002",
+          external_no: body.external_no,
+          status: "pending",
+          amount: "0.01",
+          amount_cents: "1",
+          external_payout: false,
+          created_at: "2026-10-30T00:00:00Z",
+        }),
+      );
     }
     return route.fulfill(ok({ items: [], total: 0 }));
   });
