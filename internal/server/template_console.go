@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"crypto/subtle"
 	"encoding/json"
@@ -54,10 +53,10 @@ func previewQRSVG(text string) string {
 
 func templateFail(w http.ResponseWriter, e error) {
 	status, message := 500, "template service unavailable"
-	var refused *pagetemplate.CustomError
+	var refused *pagetemplate.UploadError
 	switch {
 	case errors.As(e, &refused):
-		// A refused custom page names its reason for the administrator.
+		// A refused package or operation names its reason for the administrator.
 		status, message = 422, refused.Reason
 	case errors.Is(e, pagetemplate.ErrForbidden):
 		status, message = 403, "own super administrator required"
@@ -108,7 +107,7 @@ func (s *Server) templateConsole(w http.ResponseWriter, r *http.Request, role st
 		if e != nil {
 			templateFail(w, e)
 		} else {
-			response(w, 200, 0, "built-in templates only", out)
+			response(w, 200, 0, "built-in and uploaded templates", out)
 		}
 		return true
 	}
@@ -198,8 +197,7 @@ func (s *Server) templateConsole(w http.ResponseWriter, r *http.Request, role st
 		}
 		return true
 	}
-	if len(parts) >= 5 && parts[2] == "home" && parts[3] == "custom" && (parts[4] == "html" || parts[4] == "sample" || parts[4] == "versions") {
-		s.templateCustom(ctx, w, r, store, actor, parts[4:])
+	if s.templateUploads(ctx, w, r, store, actor, parts) {
 		return true
 	}
 	if len(parts) == 5 && (parts[4] == "config" || parts[4] == "preview") {
@@ -208,43 +206,7 @@ func (s *Server) templateConsole(w http.ResponseWriter, r *http.Request, role st
 				response(w, 405, -1, "GET required", nil)
 				return true
 			}
-			v, e := store.Config(ctx, parts[2], parts[3], actor)
-			if e != nil {
-				templateFail(w, e)
-				return true
-			}
-			raw, _ := json.Marshal(v.Config)
-			cfg, e := pagetemplate.ParseConfig(v.Type, v.Name, raw)
-			if e != nil {
-				templateFail(w, e)
-				return true
-			}
-			if v.Type == "home" {
-				var custom *pagetemplate.CustomContent
-				if v.Name == "custom" {
-					if custom, e = store.CustomPreview(ctx, 0, actor); e != nil {
-						templateFail(w, e)
-						return true
-					}
-				}
-				writeHomePreview(w, pagetemplate.Resolved{Type: v.Type, Name: v.Name, Revision: v.Revision, Config: cfg, Custom: custom})
-				return true
-			}
-			var b bytes.Buffer
-			page := pagetemplate.Page{Title: "支付收银台", TradeNo: "PREVIEW-ONLY", Amount: "1.00", OrderName: "模板演示订单", Preview: true}
-			if v.Type == "qrpay" {
-				page = pagetemplate.Page{Title: "向商户付款", MerchantName: "示例商户", Preview: true}
-			}
-			if e = pagetemplate.Open(&b, pagetemplate.Resolved{Type: v.Type, Name: v.Name, Revision: v.Revision, Config: cfg}, page); e != nil {
-				templateFail(w, e)
-				return true
-			}
-			io.WriteString(&b, templatePreviewBody(v.Type))
-			pagetemplate.Close(&b)
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Header().Set("Cache-Control", "no-store")
-			w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; script-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'; sandbox allow-same-origin")
-			w.Write(b.Bytes())
+			s.templatePreview(ctx, w, r, store, actor, parts[2], parts[3], 0)
 			return true
 		}
 		switch r.Method {

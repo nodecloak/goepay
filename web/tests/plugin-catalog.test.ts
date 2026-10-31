@@ -67,7 +67,6 @@ it("adds GOEPAY's own templates to the market and orders templates by kind", () 
     "home:manga",
     "home:mecha",
     "home:candy",
-    "home:custom",
     "pay:default",
     "pay:compact",
     "pay:anime",

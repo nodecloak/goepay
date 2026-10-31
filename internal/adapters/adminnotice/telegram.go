@@ -3,12 +3,12 @@ package adminnotice
 import (
 	"context"
 	"encoding/json"
+	"goepay/internal/templatechange"
 	"html"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
-	"time"
 )
 
 type Telegram struct {
@@ -57,7 +57,7 @@ func (t *Telegram) SendChannelStopped(ctx context.Context, to string, channel, e
 	return nil
 }
 
-func (t *Telegram) SendPageTemplateChanged(ctx context.Context, to string, version, restoredFrom int64, actor string, at time.Time) error {
+func (t *Telegram) SendPageTemplateNotice(ctx context.Context, to string, n templatechange.Notice) error {
 	if t == nil || ctx == nil || ctx.Err() != nil {
 		return ErrDelivery
 	}
@@ -67,9 +67,9 @@ func (t *Telegram) SendPageTemplateChanged(ctx context.Context, to string, versi
 			return ErrDelivery
 		}
 	}
-	title, text, e := pageTemplateChangedMessage(version, restoredFrom, actor, at)
+	title, text, e := n.Message()
 	if e != nil {
-		return e
+		return ErrDelivery
 	}
 	form := url.Values{"chat_id": {to}, "text": {"<strong>" + html.EscapeString(title) + "</strong>\n" + html.EscapeString(text)}, "parse_mode": {"HTML"}, "disable_web_page_preview": {"true"}}
 	response, e := requestJSON(ctx, t.client, t.endpoint, []byte(form.Encode()), "application/x-www-form-urlencoded", "")

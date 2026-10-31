@@ -48,13 +48,11 @@ func TestAnimePayPageKeepsTheCheckoutAndAddsItsMascot(t *testing.T) {
 		var b bytes.Buffer
 		cfg := DefaultConfig("pay", name)
 		cfg.BrandName = `<script>alert(1)</script>`
-		if err := Open(&b, Resolved{Type: "pay", Name: name, Config: cfg}, Page{Title: "支付收银台", TradeNo: "LOCAL1", Amount: "1.00", OrderName: "<img src=x onerror=1>"}); err != nil {
+		tail, err := Open(&b, Resolved{Type: "pay", Name: name, Config: cfg}, Page{Title: "支付收银台", TradeNo: "LOCAL1", Amount: "1.00", OrderName: "<img src=x onerror=1>"})
+		if err != nil {
 			t.Fatal(name, err)
 		}
-		b.WriteString(`<p>请扫码</p><img alt="支付二维码" src="/qr.png"><a href="/pay">打开支付</a>`)
-		if err := Close(&b); err != nil {
-			t.Fatal(err)
-		}
+		b.WriteString(`<p>请扫码</p><img alt="支付二维码" src="/qr.png"><a href="/pay">打开支付</a>` + tail)
 		return b.String()
 	}
 	out := render("anime")

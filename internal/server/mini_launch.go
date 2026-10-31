@@ -225,7 +225,8 @@ func (s *Server) miniLaunchCheckout(w http.ResponseWriter, r *http.Request, o pa
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'")
-	if !s.pageTemplateOpen(w, r, "pay", pagetemplate.Page{Title: "小程序支付", TradeNo: o.TradeNo, Amount: ledger.Format(charge104), OrderName: o.Name, Sandbox: s.Sandbox}, nil) {
+	tail, ok := s.pageTemplateOpen(w, r, "pay", pagetemplate.Page{Title: "小程序支付", TradeNo: o.TradeNo, Amount: ledger.Format(charge104), OrderName: o.Name, Sandbox: s.Sandbox}, nil)
+	if !ok {
 		return true
 	}
 	if material.MaterialType == "urlscheme" && o.Type == "alipay" {
@@ -233,6 +234,6 @@ func (s *Server) miniLaunchCheckout(w http.ResponseWriter, r *http.Request, o pa
 	} else {
 		fmt.Fprintf(w, "<p>请由商户客户端使用以下参数打开可信微信小程序：</p><pre>%s</pre>", html.EscapeString(material.Material))
 	}
-	io.WriteString(w, "<p>启动材料不代表付款成功；请在小程序完成身份授权和支付，结果以查单或可信异步通知为准。</p></main></html>")
+	io.WriteString(w, "<p>启动材料不代表付款成功；请在小程序完成身份授权和支付，结果以查单或可信异步通知为准。</p>"+tail)
 	return true
 }

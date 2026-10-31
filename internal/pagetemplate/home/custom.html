@@ -1,7 +1,0 @@
-{{/* The custom (自定义 HTML) home page. .CustomHTML is the sanitized markup of
-the newest saved version; .CustomCSS was checked by CheckCustomCSS and comes
-after the system styles. With .CustomFrame the system navigation, notice and
-footer stay around it; otherwise the custom HTML is the whole page body. */}}
-{{define "custom-doc"}}<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">{{if .Keywords}}<meta name="keywords" content="{{.Keywords}}">{{end}}{{if .Description}}<meta name="description" content="{{.Description}}">{{end}}<title>{{.Title}}</title><link rel="icon" href="/static/favicon.svg?v=5d88b80d23bc" type="image/svg+xml"><link rel="icon" href="/static/favicon.ico?v=95fc6270769c" sizes="any"><link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=c66b93d729f4"><style>{{.CSS}}</style><style>{{.CustomCSS}}</style></head>
-<body data-home-style="custom" data-density="{{.Density}}" data-custom-version="{{.CustomVersion}}"><a class="skip-link" href="#main-content">跳到主要内容</a><div class="home home-custom{{if not .CustomFrame}} home-custom-full{{end}}">{{if .Sandbox}}<p class="sandbox-bar">本地模拟环境，不涉及真实资金。</p>{{end}}{{if .Preview}}<p class="preview-bar">模板预览 · 跨页入口仅作展示，实际网站按已开通配置提供服务。</p>{{end}}{{if .CustomFrame}}{{template "navigation" .}}{{end}}<main class="home-main custom-main" id="main-content" tabindex="-1">{{if .CustomFrame}}{{template "notice" .}}{{end}}{{.CustomHTML}}</main>{{if .CustomFrame}}{{template "footer" .}}{{end}}</div></body></html>{{end}}

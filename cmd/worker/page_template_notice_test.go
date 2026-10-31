@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// The worker's admin.page-template-changed branch type-asserts the resolved
+// The worker's admin.page-template-notice branch type-asserts the resolved
 // payment.ChannelNoticeSender to templatenotice.ChangeNoticeSender. Every
 // concrete transport the notice runtime can resolve must satisfy it, or the
 // dispatch would silently fall through to a configuration error.
@@ -22,7 +22,7 @@ var (
 
 func TestResolvedNoticeSendersImplementChangeNoticeSender(t *testing.T) {
 	// The managed SMTP sender is a *mailaccount195.BoundSMTP, which embeds
-	// *mailer.SMTP and so inherits SendPageTemplateChanged by promotion. The
+	// *mailer.SMTP and so inherits SendPageTemplateNotice by promotion. The
 	// var block above fails to compile if any transport loses the method.
 	m := noticeEnvironment76()
 	sender, _, e := configuredChannelNotices(func(k string) string { return m[k] })

@@ -5,6 +5,36 @@ const ok = (data: unknown, status = 200) => ({
   contentType: "application/json",
   body: JSON.stringify({ code: 0, data }),
 });
+const err = (message: string, status = 422) => ({
+  status,
+  contentType: "application/json",
+  body: JSON.stringify({ code: 1, message }),
+});
+const homeNames = [
+  "default",
+  "index1",
+  "index2",
+  "index3",
+  "index4",
+  "index5",
+  "index6",
+  "index7",
+  "index8",
+  "index9",
+  "index10",
+  "minimal",
+  "sakura",
+  "starry",
+  "manga",
+  "mecha",
+  "candy",
+];
+const builtin = (name: string, title: string, description: string) => ({
+  name,
+  title,
+  description,
+  source: "builtin",
+});
 const fields = [
   {
     name: "brand_name",
@@ -64,49 +94,14 @@ test("typed templates require explicit confirmation and kind-wide CAS, private i
       const kind = url.searchParams.get("type");
       const items =
         kind === "home"
-          ? [
-              "default",
-              "index1",
-              "index2",
-              "index3",
-              "index4",
-              "index5",
-              "index6",
-              "index7",
-              "index8",
-              "index9",
-              "index10",
-              "minimal",
-              "sakura",
-              "starry",
-              "manga",
-              "mecha",
-              "candy",
-              "custom",
-            ].map((name) => ({
-              name,
-              title: name === "default" ? "标准模板" : name,
-              description: "本地布局",
-            }))
+          ? homeNames.map((name) =>
+              builtin(name, name === "default" ? "标准模板" : name, "本地布局"),
+            )
           : [
-              {
-                name: "default",
-                title: "标准模板",
-                description: "本地标准布局",
-              },
-              {
-                name: "compact",
-                title: "紧凑模板",
-                description: "本地紧凑布局",
-              },
+              builtin("default", "标准模板", "本地标准布局"),
+              builtin("compact", "紧凑模板", "本地紧凑布局"),
               ...(kind === "pay"
-                ? [
-                    {
-                      name: "anime",
-                      title: "二次元模板",
-                      description: "本地二次元布局",
-                    },
-                  ]
+                ? [builtin("anime", "二次元模板", "本地二次元布局")]
                 : []),
             ];
       return r.fulfill(ok({ type: kind, revision, selected, items }));
@@ -225,26 +220,7 @@ test("template unknown response blocks repeated mutation until explicit reload a
           type: "home",
           revision: "0",
           selected: "default",
-          items: [
-            "default",
-            "index1",
-            "index2",
-            "index3",
-            "index4",
-            "index5",
-            "index6",
-            "index7",
-            "index8",
-            "index9",
-            "index10",
-            "minimal",
-            "sakura",
-            "starry",
-            "manga",
-            "mecha",
-            "candy",
-            "custom",
-          ].map((name) => ({ name, title: name, description: "本地" })),
+          items: homeNames.map((name) => builtin(name, name, "本地")),
         }),
       );
     }
@@ -305,32 +281,11 @@ test("three template kinds keep typed fields and image upload stays a draft unti
       const kind = url.searchParams.get("type");
       const items =
         kind === "home"
-          ? [
-              "default",
-              "index1",
-              "index2",
-              "index3",
-              "index4",
-              "index5",
-              "index6",
-              "index7",
-              "index8",
-              "index9",
-              "index10",
-              "minimal",
-              "sakura",
-              "starry",
-              "manga",
-              "mecha",
-              "candy",
-              "custom",
-            ].map((name) => ({ name, title: name, description: "本地" }))
+          ? homeNames.map((name) => builtin(name, name, "本地"))
           : [
-              { name: "default", title: "标准", description: "本地" },
-              { name: "compact", title: "紧凑", description: "本地" },
-              ...(kind === "pay"
-                ? [{ name: "anime", title: "二次元", description: "本地" }]
-                : []),
+              builtin("default", "标准", "本地"),
+              builtin("compact", "紧凑", "本地"),
+              ...(kind === "pay" ? [builtin("anime", "二次元", "本地")] : []),
             ];
       return r.fulfill(
         ok({ type: kind, revision: "0", selected: "default", items }),
@@ -413,46 +368,39 @@ test("three template kinds keep typed fields and image upload stays a draft unti
   ).not.toContain(assetID);
 });
 
-const homeItems = [
-  "default",
-  "index1",
-  "index2",
-  "index3",
-  "index4",
-  "index5",
-  "index6",
-  "index7",
-  "index8",
-  "index9",
-  "index10",
-  "minimal",
-  "sakura",
-  "starry",
-  "manga",
-  "mecha",
-  "candy",
-  "custom",
-].map((name) => ({ name, title: name, description: "本地" }));
-
-test("custom HTML home template saves a new version, reports removals and previews a version", async ({
+const fileKey = "0123456789abcdef0123456789abcdef";
+test("uploading a home template package confirms, lists versions, and restores with CAS", async ({
   page,
 }) => {
   let revision = "5",
-    customRevision = "12",
-    customVersion = 3;
-  const puts: any[] = [];
-  const versions = [
-    {
-      version: 3,
+    uploaded = false,
+    uploadVersion = 2;
+  const uploadItem = () => ({
+    name: "my-style",
+    title: "我的模板",
+    description: "",
+    source: "upload",
+    picture_url: `/template-files/${fileKey}/preview.png`,
+    upload_version: uploadVersion,
+    updated_at: "2026-10-31T10:20:05Z",
+    updated_by: "admin",
+    files: 7,
+    size: 2048,
+  });
+  const versions = () =>
+    Array.from({ length: uploadVersion }, (_, i) => ({
+      version: uploadVersion - i,
+      operation: uploadVersion - i === uploadVersion ? "upload" : "upload",
+      restored_from: 0,
+      title: "我的模板",
+      package_version: "1.0",
+      author: "me",
+      files: 7,
+      size: 2048,
       created_at: "2026-10-31T10:20:05Z",
       actor: "admin",
-      html_bytes: 8,
-      css_bytes: 0,
-      frame: true,
-      restored_from: 0,
-      notice: "accepted",
-    },
-  ];
+      notice: uploadVersion - i === uploadVersion ? "pending" : "accepted",
+    }));
   await page.route("**/console/v1/**", (r) => {
     const request = r.request(),
       url = new URL(request.url()),
@@ -464,59 +412,71 @@ test("custom HTML home template saves a new version, reports removals and previe
           csrf_token: "c",
         }),
       );
-    if (p.endsWith("/home/custom/html")) {
-      if (request.method() === "PUT") {
-        const body = request.postDataJSON();
-        puts.push(body);
-        customVersion += 1;
-        customRevision = String(Number(customRevision) + 1);
-        versions.unshift({
-          version: customVersion,
-          created_at: "2026-10-31T11:00:00Z",
-          actor: "admin",
-          html_bytes: 20,
-          css_bytes: 0,
-          frame: true,
-          restored_from: 0,
-          notice: "pending",
-        });
-        return r.fulfill(
-          ok({
-            version: customVersion,
-            revision: customRevision,
-            removed: { "<script>": 1, onclick: 2 },
-          }),
-        );
-      }
+    if (p.endsWith("/uploads/check"))
       return r.fulfill(
         ok({
-          version: customVersion,
-          revision: customRevision,
-          html: "<p>hi</p>",
-          css: "",
-          frame: true,
-          created_at: "2026-10-31T10:20:05Z",
-          actor: "admin",
-          restored_from: 0,
+          type: "home",
+          name: "my-style",
+          title: "我的模板",
+          exists: false,
+          selected: false,
+          next_version: 1,
+          identical: false,
+          files: 7,
+          size: 2048,
+          warnings: ["未知占位符 {{x}}"],
+          removed: {},
+          ignored: ["README.md"],
         }),
       );
+    if (p.endsWith("/uploads")) {
+      uploaded = true;
+      uploadVersion = 2;
+      revision = String(Number(revision) + 1);
+      return r.fulfill(
+        ok(
+          {
+            type: "home",
+            name: "my-style",
+            title: "我的模板",
+            version: 2,
+            revision,
+            created: true,
+            selected: false,
+            files: 7,
+            size: 2048,
+            warnings: [],
+            removed: {},
+            ignored: [],
+          },
+          201,
+        ),
+      );
     }
-    if (p.endsWith("/home/custom/versions"))
-      return r.fulfill(ok({ items: versions }));
+    if (p.endsWith("/my-style/versions"))
+      return r.fulfill(ok({ items: versions() }));
+    if (p.includes("/my-style/versions/") && p.endsWith("/restore")) {
+      revision = String(Number(revision) + 1);
+      uploadVersion += 1;
+      return r.fulfill(ok({ version: uploadVersion, revision }));
+    }
     if (p.endsWith("/preview"))
       return r.fulfill({ contentType: "text/html", body: "<p>PREVIEW</p>" });
     if (p.endsWith("/templates")) {
       const kind = url.searchParams.get("type");
+      const base = homeNames.map((name) => builtin(name, name, "本地"));
+      const items =
+        kind === "home" && uploaded ? [...base, uploadItem()] : base;
       return r.fulfill(
         ok({
           type: kind,
           revision,
           selected: "default",
-          items: kind === "home" ? homeItems : homeItems.slice(0, 2),
+          items: kind === "home" ? items : items.slice(0, 2),
         }),
       );
     }
-    const m = p.match(/\/templates\/(home|pay|qrpay)\/([a-z0-9]+)\/config$/);
+    const m = p.match(/\/templates\/(home|pay|qrpay)\/([a-z0-9-]+)\/config$/);
     if (m) {
       const config: any = { ...cfg };
       delete config.show_order_name;
@@ -533,49 +493,107 @@ test("custom HTML home template saves a new version, reports removals and previe
     return r.fulfill(ok({}));
   });
   await page.goto("/admin/app/template");
-  await page
-    .getByRole("button", {
-      name: /自定义 HTML 首页模板|custom.*标识：custom|标识：custom/,
-    })
-    .first()
-    .click();
   await expect(
-    page.getByRole("heading", { name: "首页 / custom" }),
+    page.getByRole("button", { name: "检查并保存模板设置" }),
   ).toBeVisible();
-  // The custom editor panel appears under the typed config form.
-  await expect(
-    page.getByRole("heading", { name: "自定义 HTML" }),
-  ).toBeVisible();
-  await page.getByLabel("HTML").fill("<p>hello</p>");
-  await page.getByRole("button", { name: "检查并保存为新版本" }).click();
-  await expect(page.getByText(/保存后会生成第 4 版/)).toBeVisible();
-  await page.getByRole("button", { name: "确认保存", exact: true }).click();
-  await expect(page.getByText("已保存第 4 版")).toBeVisible();
-  await expect(page.getByText(/已移除：<script> ×1，onclick ×2/)).toBeVisible();
-  expect(puts[0]).toEqual({
-    expected_revision: "12",
-    html: "<p>hello</p>",
-    css: "",
-    frame: true,
+  // Upload a package: the hidden picker fires the check, then the dialog.
+  await page.setInputFiles("input.template-package-input", {
+    name: "pkg.zip",
+    mimeType: "application/zip",
+    buffer: Buffer.from([1, 2, 3]),
   });
-  // Previewing a version opens the sandboxed full preview pane.
-  await page
-    .getByRole("row", { name: /第 4 版/ })
-    .getByRole("button", { name: "预览" })
-    .click();
+  await expect(page.getByText("我的模板（my-style）")).toBeVisible();
+  await expect(page.getByText("新模板，第 1 版")).toBeVisible();
+  await expect(page.getByText("未知占位符 {{x}}")).toBeVisible();
+  await expect(page.getByText("README.md")).toBeVisible();
+  await page.getByRole("button", { name: "确认上传", exact: true }).click();
+  await expect(page.getByText(/已上传模板「我的模板」/)).toBeVisible();
+  // The uploaded card is shown with the 上传 tag.
+  await expect(
+    page.getByRole("button", { name: /我的模板.*标识：my-style/ }),
+  ).toBeVisible();
+  // Open the versions dialog from the uploaded card.
+  await page.getByRole("button", { name: "版本", exact: true }).click();
+  await expect(page.getByText("等待发送")).toBeVisible();
+  await expect(page.getByText("已提交")).toBeVisible();
+  // The newest version offers no 恢复; restore an older one with the CAS body.
+  const restore = page
+    .getByRole("row", { name: /第 1 版/ })
+    .getByRole("button", { name: "恢复" });
+  await restore.click();
+  await page.getByRole("button", { name: "确认恢复", exact: true }).click();
+  await expect(page.getByText(/恢复为第 1 版/)).toBeVisible();
+  // Preview the uploaded home template: it runs scripts, never same-origin.
+  await page.getByRole("button", { name: "预览 我的模板" }).click();
   const pane = page.locator(".template-fullpreview");
-  await expect(pane.locator("iframe")).toHaveAttribute(
-    "src",
-    "/console/v1/admin/templates/home/custom/versions/4/preview",
-  );
-  await expect(pane.locator("iframe")).toHaveAttribute(
-    "sandbox",
-    "allow-same-origin",
-  );
+  const sandbox = await pane.locator("iframe").getAttribute("sandbox");
+  expect(sandbox).toContain("allow-scripts");
+  expect(sandbox).not.toContain("allow-same-origin");
   await page.setViewportSize({ width: 375, height: 812 });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+
+test("an upload the server rejects shows its 422 message verbatim", async ({
+  page,
+}) => {
+  await page.route("**/console/v1/**", (r) => {
+    const request = r.request(),
+      url = new URL(request.url()),
+      p = url.pathname;
+    if (p.endsWith("/session"))
+      return r.fulfill(
+        ok({
+          user: { id: "1", name: "Admin", role: "admin", admin_class: "super" },
+          csrf_token: "c",
+        }),
+      );
+    if (p.endsWith("/uploads/check"))
+      return r.fulfill(err("支付页和收款页不运行脚本"));
+    if (p.endsWith("/templates")) {
+      const kind = url.searchParams.get("type");
+      const items =
+        kind === "home"
+          ? homeNames.map((name) => builtin(name, name, "本地"))
+          : [
+              builtin("default", "标准", "本地"),
+              builtin("compact", "紧凑", "本地"),
+            ];
+      return r.fulfill(
+        ok({ type: kind, revision: "0", selected: "default", items }),
+      );
+    }
+    if (p.endsWith("/config")) {
+      const config: any = { ...cfg };
+      delete config.show_order_name;
+      return r.fulfill(
+        ok({
+          type: "qrpay",
+          name: "default",
+          revision: "0",
+          config,
+          fields: fields.filter((f) => f.name !== "show_order_name"),
+        }),
+      );
+    }
+    return r.fulfill(ok({}));
+  });
+  await page.goto("/admin/app/template");
+  await page
+    .getByRole("button", { name: "聚合收款页模板", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "聚合收款页 / default" }),
+  ).toBeVisible();
+  await page.setInputFiles("input.template-package-input", {
+    name: "pkg.zip",
+    mimeType: "application/zip",
+    buffer: Buffer.from([1, 2, 3]),
+  });
+  await expect(page.getByRole("alert")).toContainText(
+    "支付页和收款页不运行脚本",
+  );
 });
