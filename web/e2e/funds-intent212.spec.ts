@@ -705,10 +705,7 @@ test("refund212 an administrator can recover after lost response and changed cha
     "实际支付金额无法核对",
   );
   await expect(blocked.getByLabel("退款金额（元）")).toHaveCount(0);
-  await blocked
-    .getByRole("button", { name: "关闭", exact: true })
-    .first()
-    .click();
+  await blocked.getByRole("button", { name: "关闭", exact: true }).click();
   await page
     .getByRole("button", { name: "订单操作 REFUND212", exact: true })
     .click();

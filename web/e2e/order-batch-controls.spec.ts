@@ -178,10 +178,7 @@ test("auto refresh pauses for batch confirmation and hidden tabs, then explicit 
   await dialog.waitFor();
   await page.clock.runFor(9000);
   expect(f.reads()).toBe(initial);
-  await dialog
-    .getByRole("button", { name: "关闭", exact: true })
-    .first()
-    .click();
+  await dialog.getByRole("button", { name: "关闭", exact: true }).click();
   await page.evaluate(() => {
     Object.defineProperty(document, "visibilityState", {
       value: "hidden",
