@@ -2055,13 +2055,11 @@ onBeforeUnmount(resetContext);
   place-items: stretch end;
   padding: 0;
 }
-/* The drawer scrim is clamped to the viewport width and clips its own
-   overflow, so a list page that overflows horizontally cannot widen it and
-   push the right-pinned drawer off-screen. */
+/* The scrim's single grid track cannot grow with wide drawer content, so the
+   right-pinned drawer stays inside the window. (100vw would include a classic
+   Windows scrollbar and put the drawer's right edge under it.) */
 .modal-backdrop.drawer-backdrop {
-  width: 100vw;
-  max-width: 100vw;
-  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr);
 }
 .modal-backdrop.drawer-backdrop > .modal.resource-modal.modal-drawer {
   width: min(100%, var(--drawer-w, 560px));
