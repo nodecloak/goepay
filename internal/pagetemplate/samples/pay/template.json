@@ -1,0 +1,8 @@
+{
+  "type": "pay",
+  "name": "sample-pay",
+  "title": "示例支付页模板",
+  "version": "1.0.0",
+  "author": "GOEPAY",
+  "description": "一个轻量的收银台外壳：品牌页眉、帮助提示与页脚，中间留出 {{content}} 由系统写入收银内容。"
+}

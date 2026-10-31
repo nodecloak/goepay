@@ -13,6 +13,7 @@ import (
 	"goepay/internal/pagetemplate"
 	"goepay/internal/payment"
 	"html"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -271,7 +272,8 @@ func (s *Server) collect(w http.ResponseWriter, r *http.Request) {
 	if c.ForegroundOverride {
 		colors.Foreground = c.Foreground
 	}
-	if !s.pageTemplateOpen(w, r, "qrpay", pagetemplate.Page{Title: c.Title, MerchantName: c.Merchant, Sandbox: s.Sandbox}, colors) {
+	tail, ok := s.pageTemplateOpen(w, r, "qrpay", pagetemplate.Page{Title: c.Title, MerchantName: c.Merchant, Sandbox: s.Sandbox}, colors)
+	if !ok {
 		return
 	}
 	fmt.Fprintf(w, "<p>收款说明：%s</p>", html.EscapeString(c.Title))
@@ -287,5 +289,6 @@ func (s *Server) collect(w http.ResponseWriter, r *http.Request) {
 		}
 		paymentOptions = `<option value="` + childRoute.kind + `">` + label + `</option>`
 	}
-	fmt.Fprintf(w, `<form method="post" action="%s"><input type="hidden" name="external_no" value="%s"><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required%s></label><label>支付方式<select name="type">%s</select></label><button type="submit">前往支付</button></form></main></html>`, html.EscapeString(r.URL.RequestURI()), base64.RawURLEncoding.EncodeToString(nonce), fixed, paymentOptions)
+	fmt.Fprintf(w, `<form method="post" action="%s"><input type="hidden" name="external_no" value="%s"><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required%s></label><label>支付方式<select name="type">%s</select></label><button type="submit">前往支付</button></form>`, html.EscapeString(r.URL.RequestURI()), base64.RawURLEncoding.EncodeToString(nonce), fixed, paymentOptions)
+	io.WriteString(w, tail)
 }

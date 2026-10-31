@@ -114,6 +114,9 @@ func (s *Server) Handler() http.Handler {
 		if r.Method == "POST" && r.URL.Path == "/console/v1/admin/collection-style-images" {
 			bodyLimit += 8192
 		}
+		if r.Method == "POST" && templateUploadPath.MatchString(r.URL.Path) {
+			bodyLimit = templateUploadBodyLimit
+		}
 		r.Body = http.MaxBytesReader(w, r.Body, bodyLimit)
 		peerIP, _, peerError := net.SplitHostPort(r.RemoteAddr)
 		if peerError != nil {

@@ -1,0 +1,8 @@
+{
+  "type": "qrpay",
+  "name": "sample-qrpay",
+  "title": "示例聚合收款页模板",
+  "version": "1.0.0",
+  "author": "GOEPAY",
+  "description": "一个聚合扫码收款页外壳：居中品牌页眉、扫码提示与页脚，中间留出 {{content}} 由系统写入二维码与金额。"
+}
