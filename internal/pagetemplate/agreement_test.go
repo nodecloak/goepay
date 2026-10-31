@@ -115,7 +115,7 @@ func TestHomeFooterLinksTheAgreement(t *testing.T) {
 // Every style draws its own backdrop, from CSS gradients only: the public
 // page allows images from its own origin only, and previews are sandboxed.
 func TestEveryHomeStyleHasItsOwnBackground(t *testing.T) {
-	css := homeBaseCSS + homeThemeCSS + homeAnimeCSS
+	css := homeBaseCSS + homeThemeCSS + homeAnimeCSS + homeCustomCSS
 	for _, style := range homeStyleList {
 		rule := regexp.MustCompile(regexp.QuoteMeta(".home-"+style.Name) + `( \.hero)?(::before|::after)?\{[^}]*background`)
 		if !rule.MatchString(css) {

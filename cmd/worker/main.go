@@ -20,6 +20,7 @@ import (
 	"goepay/internal/platform/jobs"
 	"goepay/internal/proxyconfig"
 	"goepay/internal/reconciliation"
+	"goepay/internal/templatenotice"
 )
 
 func main() {
@@ -84,7 +85,7 @@ func main() {
 		os.Exit(1)
 	}
 	if noticeRuntime != nil {
-		kinds = append(kinds, "admin.channel-stopped")
+		kinds = append(kinds, "admin.channel-stopped", "admin.page-template-changed")
 	}
 	merchantNotices, e := newMerchantNoticeRuntime(pool, os.Getenv)
 	if e != nil {
@@ -164,6 +165,14 @@ func main() {
 			} else {
 				e = store.DeliverChannelStopNotice(jobCtx, j.ID, j.Token, noticeTo, noticeSender)
 			}
+		} else if j.Kind == "admin.page-template-changed" {
+			noticeSender, noticeTo, noticeError := noticeRuntime.Resolve(jobCtx)
+			changeSender, ok := noticeSender.(templatenotice.ChangeNoticeSender)
+			if noticeError != nil || noticeSender == nil || !ok {
+				e = errChannelNoticeConfiguration
+			} else {
+				e = templatenotice.New(pool).Deliver(jobCtx, j.ID, j.Token, noticeTo, changeSender)
+			}
 		} else if j.Kind == "merchant.notice" {
 			e = merchantNotices.Handle(jobCtx, j.ID, j.Token)
 		} else if j.Kind == "merchant.payment-disabled-notice" {
@@ -213,6 +222,8 @@ func main() {
 			reason := "notification delivery failed"
 			if j.Kind == "admin.channel-stopped" {
 				reason = "administrator notice requires original claim review"
+			} else if j.Kind == "admin.page-template-changed" {
+				reason = "administrator template notice requires original claim review"
 			} else if j.Kind == "merchant.notice" || j.Kind == "merchant.payment-disabled-notice" {
 				reason = "merchant notice requires original configuration or claim review"
 			} else if j.Kind == "admin.business-notice" {

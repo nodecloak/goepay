@@ -54,7 +54,11 @@ func previewQRSVG(text string) string {
 
 func templateFail(w http.ResponseWriter, e error) {
 	status, message := 500, "template service unavailable"
+	var refused *pagetemplate.CustomError
 	switch {
+	case errors.As(e, &refused):
+		// A refused custom page names its reason for the administrator.
+		status, message = 422, refused.Reason
 	case errors.Is(e, pagetemplate.ErrForbidden):
 		status, message = 403, "own super administrator required"
 	case errors.Is(e, pagetemplate.ErrInvalid):
@@ -194,6 +198,10 @@ func (s *Server) templateConsole(w http.ResponseWriter, r *http.Request, role st
 		}
 		return true
 	}
+	if len(parts) >= 5 && parts[2] == "home" && parts[3] == "custom" && (parts[4] == "html" || parts[4] == "sample" || parts[4] == "versions") {
+		s.templateCustom(ctx, w, r, store, actor, parts[4:])
+		return true
+	}
 	if len(parts) == 5 && (parts[4] == "config" || parts[4] == "preview") {
 		if parts[4] == "preview" {
 			if r.Method != "GET" {
@@ -212,16 +220,14 @@ func (s *Server) templateConsole(w http.ResponseWriter, r *http.Request, role st
 				return true
 			}
 			if v.Type == "home" {
-				var hb bytes.Buffer
-				demo := pagetemplate.HomeData{SiteName: "预览站点名称", Title: "首页模板预览", Org: "示例科技有限公司", Email: "support@example.com", QQ: "10001", TestOpen: true, RegistrationOpen: true, Preview: true}
-				if e = pagetemplate.RenderHome(&hb, pagetemplate.Resolved{Type: v.Type, Name: v.Name, Revision: v.Revision, Config: cfg}, demo); e != nil {
-					templateFail(w, e)
-					return true
+				var custom *pagetemplate.CustomContent
+				if v.Name == "custom" {
+					if custom, e = store.CustomPreview(ctx, 0, actor); e != nil {
+						templateFail(w, e)
+						return true
+					}
 				}
-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				w.Header().Set("Cache-Control", "no-store")
-				w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; script-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'; sandbox allow-same-origin")
-				w.Write(hb.Bytes())
+				writeHomePreview(w, pagetemplate.Resolved{Type: v.Type, Name: v.Name, Revision: v.Revision, Config: cfg, Custom: custom})
 				return true
 			}
 			var b bytes.Buffer

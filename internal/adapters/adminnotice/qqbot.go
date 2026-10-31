@@ -76,6 +76,38 @@ func (q *QQBot) SendChannelStopped(ctx context.Context, to string, channel, even
 	return nil
 }
 
+func (q *QQBot) SendPageTemplateChanged(ctx context.Context, to string, version, restoredFrom int64, actor string, at time.Time) error {
+	if q == nil || ctx == nil || ctx.Err() != nil || !qqIdentity.MatchString(to) {
+		return ErrDelivery
+	}
+	title, text, e := pageTemplateChangedMessage(version, restoredFrom, actor, at)
+	if e != nil {
+		return e
+	}
+	work, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	token, e := q.accessToken(work)
+	if e != nil {
+		return ErrDelivery
+	}
+	body, e := json.Marshal(map[string]any{"msg_type": 2, "markdown": map[string]string{"content": "# " + title + "\n\n" + text}})
+	if e != nil {
+		return ErrDelivery
+	}
+	result, e := requestJSON(work, q.client, "https://api.bot.qq.com/v2/users/"+to+"/messages", body, "application/json", "QQBot "+token)
+	if e != nil {
+		return ErrDelivery
+	}
+	var id string
+	if code, ok := result["code"]; ok && string(code) != "0" {
+		return ErrDelivery
+	}
+	if json.Unmarshal(result["id"], &id) != nil || !validCredential(id, 512) {
+		return ErrDelivery
+	}
+	return nil
+}
+
 func (q *QQBot) accessToken(ctx context.Context) (string, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()

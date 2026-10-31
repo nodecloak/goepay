@@ -184,6 +184,11 @@ func (s *Store) Select(ctx context.Context, kind, name string, expected int64, a
 			}
 		}
 	}
+	if kind == "home" && name == "custom" {
+		if _, reason := resolveCustom(ctx, tx); reason != "" {
+			return v, &CustomError{"请先保存可用的自定义 HTML，再设为当前模板"}
+		}
+	}
 	next := revision + 1
 	if next <= revision {
 		return v, ErrInvalid
@@ -231,7 +236,15 @@ func (s *Store) Resolve(ctx context.Context, kind string) (Resolved, error) {
 			return fallback(kind, "asset_unavailable", revision), nil
 		}
 	}
-	return Resolved{Type: kind, Name: name, Revision: revision, Config: cfg}, nil
+	out := Resolved{Type: kind, Name: name, Revision: revision, Config: cfg}
+	if kind == "home" && name == "custom" {
+		custom, reason := resolveCustom(ctx, s.pool)
+		if reason != "" {
+			return fallback(kind, reason, revision), nil
+		}
+		out.Custom = custom
+	}
+	return out, nil
 }
 func readAsset(ctx context.Context, q reader, id string) (Asset, error) {
 	var a Asset
@@ -299,6 +312,14 @@ func (s *Store) PublishedAsset(ctx context.Context, id string) (Asset, error) {
 		}
 		if r.Fallback == "" && r.Config.LogoAssetID == id {
 			return readAsset(ctx, s.pool, id)
+		}
+		// Images shown by the selected custom home page are public too.
+		if r.Fallback == "" && r.Custom != nil {
+			for _, used := range r.Custom.Assets {
+				if used == id {
+					return readAsset(ctx, s.pool, id)
+				}
+			}
 		}
 	}
 	return Asset{}, ErrNotFound

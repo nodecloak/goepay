@@ -1,0 +1,22 @@
+.cx-wrap{width:min(1120px,calc(100% - 40px));margin:0 auto}
+.cx-hero{padding:88px 0 72px;text-align:center}
+.cx-eyebrow{margin:0 0 12px;color:var(--link);font-weight:700;letter-spacing:.08em}
+.cx-hero h1{margin:0;font-size:clamp(32px,5vw,56px);line-height:1.15}
+.cx-lead{max-width:640px;margin:18px auto 0;font-size:18px;opacity:.85}
+.cx-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:28px 0 0}
+.cx-btn{display:inline-flex;align-items:center;min-height:44px;padding:0 22px;border:1px solid var(--line);border-radius:999px;color:var(--fg);font-weight:600;text-decoration:none}
+.cx-btn-primary{border-color:transparent;background:var(--accent);color:var(--on-accent)}
+.cx-section{padding:64px 0}
+.cx-section h2{margin:0 0 24px;font-size:28px}
+.cx-soft{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.cx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.cx-card{padding:22px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--bg) 85%,#fff)}
+.cx-card h3{margin:0 0 8px;font-size:18px}
+.cx-card p{margin:0;opacity:.8}
+.cx-steps{display:grid;gap:12px;margin:0;padding-left:22px}
+.cx-steps strong{display:block}
+.cx-steps span{opacity:.8}
+.cx-links{display:flex;flex-wrap:wrap;gap:12px;margin:0;padding:0;list-style:none}
+.cx-links a{display:inline-block;padding:10px 16px;border:1px solid var(--line);border-radius:12px;color:var(--link);text-decoration:none}
+.cx-section details{max-width:760px;padding:14px 0;border-bottom:1px solid var(--line)}
+.cx-section summary{cursor:pointer;font-weight:600}
