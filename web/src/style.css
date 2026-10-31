@@ -3023,8 +3023,10 @@ button.badge.state-toggle:hover:not(:disabled) {
     opacity: 0;
   }
 }
+/* KitModal's `width` sets --modal-w; min() keeps a wide dialog inside a phone
+   screen (an inline width of 480px or 600px spilled past a 390px window). */
 .pa-modal {
-  width: min(100%, 480px);
+  width: min(100%, var(--modal-w, 480px));
   max-height: calc(100dvh - 48px);
   background: var(--bg-card);
   border: 1px solid var(--line);

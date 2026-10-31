@@ -70,7 +70,11 @@ onBeforeUnmount(() => {
         aria-modal="true"
         :aria-label="title"
         :style="
-          width ? (drawer ? { '--drawer-w': width } : { width }) : undefined
+          width
+            ? drawer
+              ? { '--drawer-w': width }
+              : { '--modal-w': width }
+            : undefined
         "
       >
         <header class="pa-modal-head">
