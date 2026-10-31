@@ -938,6 +938,10 @@ onBeforeUnmount(() => controller?.abort());
   --drawer-w: 500px;
 }
 .order-detail-body {
+  /* No .pa-modal-content inside: the body itself is the scrolling part, so
+     the foot never covers its last buttons. */
+  overflow: auto;
+  flex: 1 1 auto;
   padding: var(--space-4) var(--space-5);
 }
 .order-detail-foot {

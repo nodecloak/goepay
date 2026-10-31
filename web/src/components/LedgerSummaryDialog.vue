@@ -118,7 +118,7 @@ onBeforeUnmount(() => {
           ref="closeButton"
           type="button"
           class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
-          aria-label="关闭"
+          aria-label="关闭窗口"
           @click="emit('close')"
         >
           ×
