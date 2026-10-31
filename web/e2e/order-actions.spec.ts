@@ -130,7 +130,10 @@ for (const width of [375, 1280]) {
     await dialog.getByLabel("操作原因").fill("人工标记待核实");
     await dialog.getByRole("button", { name: "确认修改状态" }).click();
     await expect(dialog).toContainText("后台状态标记已更新");
-    await dialog.getByRole("button", { name: "关闭", exact: true }).click();
+    await dialog
+      .getByRole("button", { name: "关闭", exact: true })
+      .first()
+      .click();
     await page
       .getByRole("button", { name: "订单操作 TUX-001", exact: true })
       .click();
@@ -162,7 +165,10 @@ test("logical delete can be reviewed and restored without a financial call", asy
   await dialog.getByLabel("操作原因").fill("隐藏测试订单");
   expect(posts).toHaveLength(0);
   await dialog.getByRole("button", { name: "确认删除订单" }).click();
-  await dialog.getByRole("button", { name: "关闭", exact: true }).click();
+  await dialog
+    .getByRole("button", { name: "关闭", exact: true })
+    .first()
+    .click();
   await expect(
     page.getByRole("button", { name: "订单操作 TUX-001" }),
   ).toHaveCount(0);

@@ -208,7 +208,18 @@ onBeforeUnmount(() => {
       :aria-label="title[action]"
       @keydown="trap"
     >
-      <h2>{{ title[action] }}</h2>
+      <div class="toolbar">
+        <h2>{{ title[action] }}</h2>
+        <button
+          type="button"
+          class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+          aria-label="关闭"
+          :disabled="busy"
+          @click="close"
+        >
+          ×
+        </button>
+      </div>
       <p class="original-order-number">
         原订单：<span class="pa-order-no">{{ tradeNo }}</span>
       </p>
