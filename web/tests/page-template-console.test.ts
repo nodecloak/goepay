@@ -11,6 +11,7 @@ it("loads the typed template API for own super only and never generic template C
       items: [
         { name: "default", title: "标准", description: "本地" },
         { name: "compact", title: "紧凑", description: "本地" },
+        { name: "anime", title: "二次元", description: "本地" },
       ],
     }),
   );
@@ -61,6 +62,7 @@ it("preserves per-kind fields and rejects directory/config revision races before
             items: [
               { name: "default", title: "标准", description: "本地" },
               { name: "compact", title: "紧凑", description: "本地" },
+              { name: "anime", title: "二次元", description: "本地" },
             ],
           }
         : { type: kind, name: "default", revision: "5", config, fields: [] },
@@ -107,6 +109,7 @@ it("does not continue configuration reads after unmount or revive a stale page",
     items: [
       { name: "default", title: "标准", description: "本地" },
       { name: "compact", title: "紧凑", description: "本地" },
+      { name: "anime", title: "二次元", description: "本地" },
     ],
   });
   await flushPromises();
@@ -124,6 +127,7 @@ it("shows each template's preview picture on its card", async () => {
           items: [
             { name: "default", title: "默认支付页模板", description: "本地" },
             { name: "compact", title: "紧凑支付页模板", description: "本地" },
+            { name: "anime", title: "二次元支付页模板", description: "本地" },
           ],
         }
       : {
@@ -161,6 +165,7 @@ it("shows each template's preview picture on its card", async () => {
   ).toEqual([
     "/static/template-previews/pay-default.jpg",
     "/static/template-previews/pay-compact.jpg",
+    "/static/template-previews/pay-anime.jpg",
   ]);
   // The card's 预览 button opens the template over the main content area.
   await w.get('button[aria-label="预览 紧凑支付页模板"]').trigger("click");
@@ -184,7 +189,16 @@ it("shows each template's preview picture on its card", async () => {
 
 
 it("opens on the 首页模板 tab", async () => {
-  const names = ["default", ...Array.from({ length: 10 }, (_, n) => `index${n + 1}`), "minimal"];
+  const names = [
+    "default",
+    ...Array.from({ length: 10 }, (_, n) => `index${n + 1}`),
+    "minimal",
+    "sakura",
+    "starry",
+    "manga",
+    "mecha",
+    "candy",
+  ];
   const request = vi.fn(async (path: string) =>
     path.includes("?")
       ? {
@@ -218,6 +232,6 @@ it("opens on the 首页模板 tab", async () => {
   await flushPromises();
   const pressed = w.find('nav.template-tabs button[aria-pressed="true"]');
   expect(pressed.text()).toBe("首页模板");
-  expect(w.findAll("img.template-thumb").length).toBe(12);
+  expect(w.findAll("img.template-thumb").length).toBe(17);
   w.unmount();
 });

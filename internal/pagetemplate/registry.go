@@ -71,7 +71,11 @@ func Templates(kind string) ([]Template, error) {
 		return HomeTemplates(), nil
 	}
 	title := map[string]string{"pay": "支付页", "qrpay": "聚合收款页"}[kind]
-	return []Template{{Type: kind, Name: "default", Title: "默认" + title + "模板", Author: "GOEPAY", Version: "1", Description: "本地内置标准布局", PreviewURL: "/console/v1/admin/templates/" + kind + "/default/preview", HasConfig: true}, {Type: kind, Name: "compact", Title: "紧凑" + title + "模板", Author: "GOEPAY", Version: "1", Description: "本地内置紧凑布局", PreviewURL: "/console/v1/admin/templates/" + kind + "/compact/preview", HasConfig: true}}, nil
+	out := []Template{{Type: kind, Name: "default", Title: "默认" + title + "模板", Author: "GOEPAY", Version: "1", Description: "本地内置标准布局", PreviewURL: "/console/v1/admin/templates/" + kind + "/default/preview", HasConfig: true}, {Type: kind, Name: "compact", Title: "紧凑" + title + "模板", Author: "GOEPAY", Version: "1", Description: "本地内置紧凑布局", PreviewURL: "/console/v1/admin/templates/" + kind + "/compact/preview", HasConfig: true}}
+	if kind == "pay" {
+		out = append(out, Template{Type: kind, Name: "anime", Title: "二次元" + title + "模板", Author: "GOEPAY", Version: "1", Description: "本地内置二次元布局：猫咪看板娘与云朵色带", PreviewURL: "/console/v1/admin/templates/" + kind + "/anime/preview", HasConfig: true})
+	}
+	return out, nil
 }
 func Lookup(kind, name string) (Template, bool) {
 	list, e := Templates(kind)
@@ -89,6 +93,9 @@ func DefaultConfig(kind, name string) Config {
 	c := Config{BrandName: "GOEPAY", AccentColor: "#007c91", BackgroundColor: "#f4f8fa", Density: "comfortable", ShowOrderName: kind == "pay"}
 	if p, ok := homePalettes[name]; ok && kind == "home" {
 		c.AccentColor, c.BackgroundColor = p[0], p[1]
+	}
+	if kind == "pay" && name == "anime" {
+		c.AccentColor, c.BackgroundColor = "#be185d", "#fff1f7"
 	}
 	return c
 }

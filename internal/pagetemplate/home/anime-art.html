@@ -1,0 +1,125 @@
+{{/* Illustrations of the five anime (二次元) home styles. Each is inline SVG,
+original artwork drawn from shapes: decorative only (aria-hidden), no images,
+no script. .mk-acc and .mk-line follow the operator's accent and link colours;
+.mk-* animations run only when the visitor allows motion (anime.css). */}}
+{{define "art-sakura"}}<svg class="anime-art art-sakura" viewBox="0 0 360 400" aria-hidden="true" focusable="false">
+<defs>
+<radialGradient id="sk-sky" cx="50%" cy="36%" r="66%"><stop offset="0" stop-color="#fff8fb"/><stop offset="1" stop-color="#ffd3e5"/></radialGradient>
+<linearGradient id="sk-hair" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f9b9d2"/><stop offset="1" stop-color="#e984ad"/></linearGradient>
+<linearGradient id="sk-iris" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3c2156"/><stop offset=".55" stop-color="#7a3fa6"/><stop offset="1" stop-color="#c387e6"/></linearGradient>
+<clipPath id="sk-win"><circle cx="180" cy="200" r="174"/></clipPath>
+<path id="sk-pt" d="M0-15C8-15 11-6 4 0C2 1-2 1-4 0C-11-6-8-15 0-15Z"/>
+<g id="sk-fl"><use href="#sk-pt"/><use href="#sk-pt" transform="rotate(72)"/><use href="#sk-pt" transform="rotate(144)"/><use href="#sk-pt" transform="rotate(216)"/><use href="#sk-pt" transform="rotate(288)"/><circle r="4.5" fill="#ff8fb5"/></g>
+</defs>
+<circle cx="180" cy="200" r="174" fill="url(#sk-sky)"/>
+<g clip-path="url(#sk-win)">
+<path d="M368 30C320 58 292 72 250 112M304 62C298 40 310 24 324 16M272 92C258 82 244 84 232 94" fill="none" stroke="#9a6650" stroke-width="7" stroke-linecap="round"/>
+<g fill="#ffe1ec" stroke="#f39bbd" stroke-width="1.6"><use href="#sk-fl" transform="translate(326 18)"/><use href="#sk-fl" transform="translate(286 70) scale(.85)"/><use href="#sk-fl" transform="translate(236 100) scale(.7)"/><use href="#sk-fl" transform="translate(338 70) scale(.6)"/></g>
+<path d="M84 200C68 94 292 94 276 200L294 372C232 404 128 404 66 372Z" fill="url(#sk-hair)"/>
+<ellipse cx="60" cy="270" rx="34" ry="94" transform="rotate(9 60 270)" fill="url(#sk-hair)"/>
+<ellipse cx="300" cy="270" rx="34" ry="94" transform="rotate(-9 300 270)" fill="url(#sk-hair)"/>
+<circle cx="86" cy="184" r="9" fill="#ffd166"/><circle cx="274" cy="184" r="9" fill="#ffd166"/>
+<path d="M102 404C106 326 140 296 180 294C220 296 254 326 258 404Z" fill="#fff"/>
+<path class="mk-acc" d="M132 302L180 348L228 302C206 313 154 313 132 302Z"/>
+<path d="M180 342L152 327L155 360ZM180 342L208 327L205 360Z" fill="#ff7aa8"/><circle cx="180" cy="342" r="8.5" fill="#ff5c93"/>
+<path d="M164 266H196V296Q180 306 164 296Z" fill="#ffd9c8"/>
+<ellipse cx="180" cy="202" rx="85" ry="79" fill="#ffeadf"/>
+<path d="M95 200C92 112 268 112 265 200C254 162 240 160 232 186C226 150 204 144 194 178C186 142 162 142 154 176C144 146 120 152 114 186C110 170 102 174 95 200Z" fill="url(#sk-hair)"/>
+<path d="M128 197Q149 182 170 197M190 197Q211 182 232 197" fill="none" stroke="#3a2140" stroke-width="4.5" stroke-linecap="round"/>
+<ellipse cx="149" cy="214" rx="15" ry="20" fill="url(#sk-iris)"/><ellipse cx="211" cy="214" rx="15" ry="20" fill="url(#sk-iris)"/>
+<circle cx="143" cy="206" r="5.5" fill="#fff"/><circle cx="205" cy="206" r="5.5" fill="#fff"/><circle cx="154" cy="222" r="2.6" fill="#fff"/><circle cx="216" cy="222" r="2.6" fill="#fff"/>
+<ellipse cx="124" cy="240" rx="13" ry="6.5" fill="#ff8db2" opacity=".55"/><ellipse cx="236" cy="240" rx="13" ry="6.5" fill="#ff8db2" opacity=".55"/>
+<path d="M170 242Q180 252 190 242" fill="none" stroke="#c23c6d" stroke-width="3.5" stroke-linecap="round"/>
+<g fill="#fff3f8" stroke="#f08db4" stroke-width="1.6"><use href="#sk-fl" transform="translate(240 140) scale(.9)"/></g>
+<g transform="rotate(-9 232 342)"><rect x="204" y="300" width="62" height="92" rx="12" fill="#2b2140"/><rect x="211" y="309" width="48" height="70" rx="6" fill="#fff"/><g fill="#2b2140"><path d="M216 314h13v13h-13zM241 314h13v13h-13zM216 340h13v13h-13z"/><path fill="#fff" d="M219 317h7v7h-7zM244 317h7v7h-7zM219 343h7v7h-7z"/><path d="M233 316h4v4h-4zM233 324h4v4h-4zM241 332h4v4h-4zM249 332h4v4h-4zM233 340h4v4h-4zM241 344h4v4h-4zM249 348h4v4h-4zM233 352h4v4h-4zM216 358h4v4h-4zM224 358h4v4h-4zM241 360h4v4h-4zM249 366h4v4h-4z"/></g></g>
+<circle cx="208" cy="346" r="13" fill="#ffe3d5"/>
+</g>
+<g fill="#ffd166"><path class="mk-twinkle" d="M34 92l4 10 10 4-10 4-4 10-4-10-10-4 10-4z"/><path class="mk-twinkle" d="M326 286l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/><path class="mk-twinkle" d="M58 330l3 6 6 3-6 3-3 6-3-6-6-3 6-3z"/></g>
+<g fill="#ffc6da" stroke="#f39bbd" stroke-width="1"><g transform="translate(60 40)"><use class="mk-petal" href="#sk-pt"/></g><g transform="translate(150 10) scale(.8)"><use class="mk-petal" href="#sk-pt"/></g><g transform="translate(320 150) scale(.7)"><use class="mk-petal" href="#sk-pt"/></g><g transform="translate(24 210) scale(.75)"><use class="mk-petal" href="#sk-pt"/></g></g>
+</svg>{{end}}
+
+{{define "art-starry"}}<svg class="anime-art art-starry" viewBox="0 0 360 380" aria-hidden="true" focusable="false">
+<defs>
+<radialGradient id="st-glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#c4b5fd" stop-opacity=".5"/><stop offset="1" stop-color="#c4b5fd" stop-opacity="0"/></radialGradient>
+<linearGradient id="st-cape" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#312e81"/></linearGradient>
+<mask id="st-moon"><rect width="360" height="380" fill="#fff"/><circle cx="300" cy="58" r="36" fill="#000"/></mask>
+<path id="st-sp" d="M0-9L2.5-2.5 9 0 2.5 2.5 0 9-2.5 2.5-9 0-2.5-2.5Z"/>
+</defs>
+<circle cx="180" cy="206" r="176" fill="url(#st-glow)"/>
+<g class="mk-spin" fill="none" stroke-width="1.6"><circle class="mk-line" cx="180" cy="214" r="150" opacity=".55"/><circle class="mk-line" cx="180" cy="214" r="132" stroke-dasharray="3 9" opacity=".7"/><path class="mk-line" d="M180 82L294 280H66ZM180 346L66 148H294Z" opacity=".45"/><circle class="mk-line" cx="180" cy="214" r="66" opacity=".4"/></g>
+<circle cx="276" cy="70" r="40" fill="#fde68a" mask="url(#st-moon)"/>
+<ellipse cx="148" cy="120" rx="19" ry="60" transform="rotate(-16 148 120)" fill="#fff"/><ellipse cx="148" cy="124" rx="8" ry="42" transform="rotate(-16 148 124)" fill="#f9a8d4"/>
+<path d="M206 150C206 104 222 74 244 70C262 68 262 92 246 112C236 126 222 138 214 158Z" fill="#fff"/><path d="M216 146C218 112 230 90 242 86C250 86 248 100 238 112C230 122 224 132 220 146Z" fill="#f9a8d4"/>
+<path d="M118 300C118 254 146 236 180 236C214 236 242 254 242 300L250 350H110Z" fill="url(#st-cape)"/>
+<ellipse cx="180" cy="300" rx="50" ry="46" fill="#fff"/>
+<ellipse cx="180" cy="206" rx="70" ry="60" fill="#fff"/>
+<ellipse cx="152" cy="208" rx="11" ry="15" fill="#2e1065"/><ellipse cx="208" cy="208" rx="11" ry="15" fill="#2e1065"/>
+<circle cx="148" cy="202" r="4.5" fill="#fff"/><circle cx="204" cy="202" r="4.5" fill="#fff"/><circle cx="156" cy="214" r="2" fill="#fff"/><circle cx="212" cy="214" r="2" fill="#fff"/>
+<ellipse cx="132" cy="230" rx="11" ry="6" fill="#f9a8d4" opacity=".7"/><ellipse cx="228" cy="230" rx="11" ry="6" fill="#f9a8d4" opacity=".7"/>
+<path d="M170 230Q175 237 180 230Q185 237 190 230" fill="none" stroke="#6d28d9" stroke-width="3" stroke-linecap="round"/>
+<path d="M180 166l2.6 6.4 6.4 2.6-6.4 2.6-2.6 6.4-2.6-6.4-6.4-2.6 6.4-2.6z" fill="#fbbf24"/>
+<path d="M226 286L292 176" stroke="#fbbf24" stroke-width="6" stroke-linecap="round"/>
+<path d="M296 150l7 16 17 2-13 11 4 17-15-9-15 9 4-17-13-11 17-2z" fill="#fde047" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
+<ellipse cx="224" cy="290" rx="13" ry="11" fill="#fff"/><ellipse cx="136" cy="290" rx="13" ry="11" fill="#fff"/>
+<g fill="#fff"><g transform="translate(40 70)"><use class="mk-twinkle" href="#st-sp"/></g><g transform="translate(98 32) scale(.7)"><use class="mk-twinkle" href="#st-sp"/></g><g transform="translate(330 150) scale(.8)"><use class="mk-twinkle" href="#st-sp"/></g><g transform="translate(34 300) scale(.6)"><use class="mk-twinkle" href="#st-sp"/></g><g transform="translate(320 330) scale(.9)"><use class="mk-twinkle" href="#st-sp"/></g></g>
+<g fill="#fde68a"><g transform="translate(262 122) scale(.5)"><use class="mk-twinkle" href="#st-sp"/></g><g transform="translate(316 210) scale(.45)"><use class="mk-twinkle" href="#st-sp"/></g><g transform="translate(276 196) scale(.35)"><use class="mk-twinkle" href="#st-sp"/></g></g>
+</svg>{{end}}
+
+{{define "art-manga"}}<svg class="anime-art art-manga" viewBox="0 0 380 360" aria-hidden="true" focusable="false">
+<defs><pattern id="mg-dots" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="4.5" cy="4.5" r="2" fill="#111" opacity=".2"/></pattern></defs>
+<g transform="rotate(-3 96 78)"><rect x="12" y="16" width="168" height="124" fill="#fff" stroke="#111" stroke-width="4"/><rect x="12" y="16" width="168" height="124" fill="url(#mg-dots)"/><path d="M58 64h10l12 40h48l10-30H76" fill="none" stroke="#111" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="88" cy="118" r="6" fill="#111"/><circle cx="124" cy="118" r="6" fill="#111"/><rect x="12" y="16" width="64" height="26" fill="#111"/><text x="44" y="35" fill="#fff" font-size="15" font-weight="800" text-anchor="middle">①下单</text></g>
+<g transform="rotate(2.5 284 78)"><rect x="196" y="12" width="172" height="128" fill="#fff" stroke="#111" stroke-width="4"/><path d="M282 46c-18 0-28 14-28 32v18l-10 12h76l-10-12V78c0-18-10-32-28-32z" class="mk-acc" stroke="#111" stroke-width="4" stroke-linejoin="round"/><circle cx="282" cy="118" r="7" fill="#111"/><path d="M226 54l12 8M224 84h14M338 54l-12 8M340 84h-14" stroke="#111" stroke-width="4" stroke-linecap="round"/><rect x="196" y="12" width="64" height="26" fill="#111"/><text x="228" y="31" fill="#fff" font-size="15" font-weight="800" text-anchor="middle">②通知</text></g>
+<rect x="14" y="156" width="352" height="194" fill="#fff" stroke="#111" stroke-width="4"/>
+<g stroke="#111" stroke-width="2.4" opacity=".45" stroke-linecap="round"><path d="M28 170L120 222M28 252H112M28 334L118 286M190 166V206M352 172L262 222M352 252H268M352 336L262 288M110 344L150 304M270 344L230 304"/></g>
+<path d="M126 226L136 172 168 206ZM254 226L244 172 212 206Z" fill="#f59e0b" stroke="#111" stroke-width="4" stroke-linejoin="round"/>
+<path d="M118 262C118 218 150 196 190 196S262 218 262 262C262 306 230 330 190 330S118 306 118 262Z" fill="#f59e0b" stroke="#111" stroke-width="4"/>
+<path d="M140 268C150 248 170 244 190 256C210 244 230 248 240 268C240 300 218 318 190 318S140 300 140 268Z" fill="#fff"/>
+<path d="M150 246q12-14 24 0M206 246q12-14 24 0" fill="none" stroke="#111" stroke-width="5" stroke-linecap="round"/>
+<ellipse cx="190" cy="268" rx="11" ry="8" fill="#111"/><path d="M176 286q7 9 14 0q7 9 14 0" fill="none" stroke="#111" stroke-width="3.5" stroke-linecap="round"/>
+<ellipse cx="146" cy="276" rx="10" ry="6" fill="#fb7185" opacity=".75"/><ellipse cx="234" cy="276" rx="10" ry="6" fill="#fb7185" opacity=".75"/>
+<path d="M262 170h88q14 0 14 14v34q0 14-14 14h-46l-22 18 6-18h-26q-14 0-14-14v-34q0-14 14-14z" fill="#fff" stroke="#111" stroke-width="4" stroke-linejoin="round"/>
+<text x="306" y="208" fill="#111" font-size="20" font-weight="900" text-anchor="middle">核对完成！</text>
+<rect x="14" y="156" width="64" height="26" fill="#111"/><text x="46" y="175" fill="#fff" font-size="15" font-weight="800" text-anchor="middle">③核对</text>
+</svg>{{end}}
+
+{{define "art-mecha"}}<svg class="anime-art art-mecha" viewBox="0 0 360 380" aria-hidden="true" focusable="false">
+<defs>
+<linearGradient id="mc-visor" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#a855f7"/></linearGradient>
+<filter id="mc-glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<g class="mk-spin" fill="none" stroke-width="2"><circle class="mk-line" cx="180" cy="196" r="160" stroke-dasharray="70 18 8 18" opacity=".55"/></g>
+<g class="mk-spin-rev" fill="none" stroke-width="1.5"><circle class="mk-line" cx="180" cy="196" r="138" stroke-dasharray="4 8" opacity=".6"/></g>
+<g fill="none" stroke="#f472b6" stroke-width="3" opacity=".85"><path d="M18 42V18h24M318 18h24v24M342 350v24h-24M42 374H18v-24"/></g>
+<path d="M180 64v30" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/><circle class="mk-blink" cx="180" cy="58" r="9" fill="#f472b6" filter="url(#mc-glow)"/>
+<rect x="76" y="132" width="26" height="64" rx="10" fill="#334155" stroke="#22d3ee" stroke-width="2.5"/><rect x="258" y="132" width="26" height="64" rx="10" fill="#334155" stroke="#22d3ee" stroke-width="2.5"/>
+<rect x="96" y="94" width="168" height="136" rx="46" fill="#1e293b" stroke="#22d3ee" stroke-width="3"/>
+<rect x="116" y="124" width="128" height="66" rx="30" fill="#0b1226" stroke="url(#mc-visor)" stroke-width="3"/>
+<g filter="url(#mc-glow)" fill="none" stroke="#22d3ee" stroke-width="6" stroke-linecap="round"><path d="M140 164q13-18 26 0M194 164q13-18 26 0"/></g>
+<circle cx="126" cy="206" r="6" fill="#f472b6" opacity=".8"/><circle cx="234" cy="206" r="6" fill="#f472b6" opacity=".8"/>
+<path d="M164 208q16 10 32 0" fill="none" stroke="#22d3ee" stroke-width="3" stroke-linecap="round"/>
+<rect x="128" y="244" width="104" height="82" rx="26" fill="#1e293b" stroke="#22d3ee" stroke-width="3"/>
+<rect x="152" y="262" width="56" height="40" rx="10" fill="#0b1226" stroke="url(#mc-visor)" stroke-width="2"/>
+<path d="M166 282l9 9 19-19" fill="none" stroke="#22d3ee" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" filter="url(#mc-glow)"/>
+<rect x="88" y="252" width="34" height="66" rx="14" fill="#334155" stroke="#22d3ee" stroke-width="2.5" transform="rotate(14 105 285)"/>
+<g transform="rotate(-38 262 252)"><rect x="240" y="196" width="34" height="70" rx="14" fill="#334155" stroke="#22d3ee" stroke-width="2.5"/><circle cx="257" cy="192" r="15" fill="#334155" stroke="#22d3ee" stroke-width="2.5"/></g>
+<g font-family="SFMono-Regular,Consolas,monospace" font-size="12" font-weight="700" fill="#22d3ee" opacity=".9"><text x="30" y="318">SIGN</text><text x="30" y="334">NOTIFY</text><text x="30" y="350">QUERY</text></g>
+<g fill="#22d3ee" opacity=".7"><rect x="290" y="50" width="46" height="5" rx="2"/><rect x="304" y="62" width="32" height="5" rx="2"/><rect x="296" y="74" width="40" height="5" rx="2"/></g>
+</svg>{{end}}
+
+{{define "art-candy"}}<svg class="anime-art art-candy" viewBox="0 0 360 380" aria-hidden="true" focusable="false">
+<defs><path id="cd-heart" d="M0 8C-14-2-18-12-11-17-6-21 0-17 0-12 0-17 6-21 11-17 18-12 14-2 0 8Z"/><path id="cd-star" d="M0-14l4 9 10 1-7.5 7 2 10L0 8l-8.5 5 2-10L-14-4l10-1z"/></defs>
+<circle cx="86" cy="96" r="56" fill="#fbcfe8" opacity=".85"/><circle cx="292" cy="120" r="46" fill="#bae6fd" opacity=".85"/><circle cx="290" cy="306" r="52" fill="#fde68a" opacity=".8"/><circle cx="64" cy="300" r="40" fill="#ddd6fe" opacity=".85"/>
+<circle cx="116" cy="104" r="34" fill="#f8c6a1" stroke="#6b3d2e" stroke-width="4"/><circle cx="244" cy="104" r="34" fill="#f8c6a1" stroke="#6b3d2e" stroke-width="4"/><circle cx="116" cy="104" r="17" fill="#fda4af"/><circle cx="244" cy="104" r="17" fill="#fda4af"/>
+<path d="M238 70c-10-14-28-10-26 4 2 10 16 12 26 2 10 10 24 8 26-2 2-14-16-18-26-4z" class="mk-acc" stroke="#fff" stroke-width="3"/>
+<ellipse cx="180" cy="300" rx="74" ry="62" fill="#f8c6a1" stroke="#6b3d2e" stroke-width="4"/><ellipse cx="180" cy="310" rx="42" ry="36" fill="#fff4ea"/>
+<circle cx="180" cy="176" r="88" fill="#f8c6a1" stroke="#6b3d2e" stroke-width="4"/>
+<ellipse cx="180" cy="206" rx="40" ry="30" fill="#fff4ea"/>
+<ellipse cx="180" cy="194" rx="12" ry="9" fill="#5b3427"/><path d="M166 212q7 9 14 0q7 9 14 0" fill="none" stroke="#5b3427" stroke-width="3.5" stroke-linecap="round"/>
+<circle cx="146" cy="168" r="11" fill="#3b2418"/><circle cx="214" cy="168" r="11" fill="#3b2418"/><circle cx="142" cy="164" r="4.2" fill="#fff"/><circle cx="210" cy="164" r="4.2" fill="#fff"/><circle cx="150" cy="173" r="1.8" fill="#fff"/><circle cx="218" cy="173" r="1.8" fill="#fff"/>
+<ellipse cx="128" cy="198" rx="14" ry="8" fill="#fb7185" opacity=".55"/><ellipse cx="232" cy="198" rx="14" ry="8" fill="#fb7185" opacity=".55"/>
+<path d="M266 330L276 214" stroke="#fff" stroke-width="9" stroke-linecap="round"/><path d="M266 330L276 214" stroke="#e9d5ff" stroke-width="4" stroke-linecap="round"/>
+<circle cx="280" cy="190" r="40" fill="#fff" stroke="#6b3d2e" stroke-width="4"/>
+<path d="M280 190m-30 0a30 30 0 1 1 30 30a22 22 0 1 1 -22 -22a14 14 0 1 1 14 14a7 7 0 1 1 -7 -7" fill="none" stroke="#f472b6" stroke-width="7" stroke-linecap="round"/>
+<ellipse cx="258" cy="292" rx="18" ry="15" fill="#f8c6a1" stroke="#6b3d2e" stroke-width="4"/>
+<g stroke="#fff" stroke-width="4" stroke-linejoin="round"><g transform="translate(56 196) scale(1.3)"><use class="mk-float" href="#cd-heart" fill="#fb7185"/></g><g transform="translate(320 60) scale(1.2)"><use class="mk-float" href="#cd-star" fill="#facc15"/></g><g transform="translate(326 250)"><use class="mk-float" href="#cd-heart" fill="#f472b6"/></g><g transform="translate(40 360) scale(.9)"><use class="mk-float" href="#cd-star" fill="#a78bfa"/></g><g transform="translate(150 36) scale(.8)"><use class="mk-float" href="#cd-star" fill="#38bdf8"/></g></g>
+</svg>{{end}}

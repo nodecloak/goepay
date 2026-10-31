@@ -28,7 +28,16 @@ var homeStyleList = []HomeStyleInfo{
 	{"index9", "简洁大气风首页模板", "大字主张 + 清晰步骤 + 文档阅读路径", "开始使用"},
 	{"index10", "动效展示风首页模板", "轻动态主视觉 + 完整接入流程 + 开发资源", "立即注册"},
 	{"minimal", "单卡极简首页模板", "紧凑编辑式布局，保留能力、指引、文档与问答", "注册商户"},
+	{"sakura", "樱花物语二次元首页模板", "樱花看板娘主视觉 + 飘落花瓣 + 完整接入指引", "注册商户"},
+	{"starry", "星空魔法二次元首页模板", "星空魔法兔主视觉 + 闪烁星光 + 开发者资源", "立即注册"},
+	{"manga", "热血漫画二次元首页模板", "三格漫画讲解接入流程 + 网点纸背景 + 原生问答", "马上加入"},
+	{"mecha", "机甲未来二次元首页模板", "机甲 HUD 主视觉 + 全息网格 + 支付链路说明", "启动接入"},
+	{"candy", "糖果萌系二次元首页模板", "糖果小熊主视觉 + 波点背景 + 清晰接入步骤", "注册使用"},
 }
+
+// Anime (二次元) styles draw an original inline-SVG mascot in the hero and
+// add home/anime.css; the page content stays the same as in other styles.
+var homeAnimeStyles = map[string]bool{"sakura": true, "starry": true, "manga": true, "mecha": true, "candy": true}
 
 // Existing style palettes and saved operator colours remain authoritative.
 var homePalettes = map[string][2]string{
@@ -37,6 +46,9 @@ var homePalettes = map[string][2]string{
 	"index6": {"#7c3aed", "#f7f4ff"}, "index7": {"#38bdf8", "#0b1220"},
 	"index8": {"#1f3a5f", "#f6f7f9"}, "index9": {"#006bb8", "#f7fbff"},
 	"index10": {"#c2410c", "#fff8f3"},
+	"sakura":  {"#be185d", "#fff7fb"}, "starry": {"#a78bfa", "#0f0b2e"},
+	"manga": {"#b91c1c", "#fffdf5"}, "mecha": {"#22d3ee", "#070b1a"},
+	"candy": {"#c2185b", "#fff6fb"},
 }
 
 func homeStyleNames() []string {
@@ -117,6 +129,8 @@ type homeFrame struct {
 	// links (#features, #faq): "" on the home page, "/" on other pages.
 	Agreement bool
 	Anchor    string
+	// Anime marks the 二次元 styles, which share home/anime.css.
+	Anime bool
 }
 
 //go:embed home/page.html
@@ -125,15 +139,21 @@ var homeTemplateText string
 //go:embed home/agreement.html
 var homeAgreementText string
 
+//go:embed home/anime-art.html
+var homeAnimeArtText string
+
 //go:embed home/base.css
 var homeBaseCSS string
 
 //go:embed home/themes.css
 var homeThemeCSS string
 
-var homeTmpl = template.Must(template.Must(template.New("home").Funcs(template.FuncMap{
+//go:embed home/anime.css
+var homeAnimeCSS string
+
+var homeTmpl = template.Must(template.Must(template.Must(template.New("home").Funcs(template.FuncMap{
 	"icon": homeIcon, "inc": func(i int) int { return i + 1 },
-}).Parse(homeTemplateText)).Parse(homeAgreementText))
+}).Parse(homeTemplateText)).Parse(homeAgreementText)).Parse(homeAnimeArtText))
 
 func RenderHome(w io.Writer, r Resolved, d HomeData) error {
 	frame, err := buildHomeFrame(r, d)
@@ -191,7 +211,12 @@ func buildHomeFrame(r Resolved, d HomeData) (homeFrame, error) {
 	if contrast(link, background) < 4.5 {
 		link = foreground
 	}
-	css := strings.NewReplacer("$ONACCENT", onAccent, "$ACCENT", accent, "$LINK", link, "$BG", background, "$FG", foreground).Replace(homeBaseCSS + homeThemeCSS)
+	styleCSS := homeBaseCSS + homeThemeCSS
+	anime := homeAnimeStyles[style.Name]
+	if anime {
+		styleCSS += homeAnimeCSS
+	}
+	css := strings.NewReplacer("$ONACCENT", onAccent, "$ACCENT", accent, "$LINK", link, "$BG", background, "$FG", foreground).Replace(styleCSS)
 	if d.Notice == "" {
 		d.Notice = r.Config.Notice
 	}
@@ -210,5 +235,5 @@ func buildHomeFrame(r Resolved, d HomeData) (homeFrame, error) {
 	if contrast("#ffffff", background) > contrast("#0A0F1F", background) {
 		defaultLogo = "/static/goepay-wordmark-ondark.svg?v=306905c49705"
 	}
-	return homeFrame{HomeData: d, Year: time.Now().Year(), CTA: style.CTA, Density: density, DefaultLogoURL: defaultLogo, CSS: template.CSS(css), Features: homeFeatures, Scenarios: homeScenarios, Steps: homeSteps, FAQ: homeFAQ, Resources: homeResources}, nil
+	return homeFrame{HomeData: d, Year: time.Now().Year(), CTA: style.CTA, Density: density, DefaultLogoURL: defaultLogo, CSS: template.CSS(css), Features: homeFeatures, Scenarios: homeScenarios, Steps: homeSteps, FAQ: homeFAQ, Resources: homeResources, Anime: anime}, nil
 }

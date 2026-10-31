@@ -31,9 +31,10 @@ export interface TemplateAsset {
   height: number;
 }
 const kinds = ["home", "pay", "qrpay"],
-  // The home kind ships the original template names (default, index1-10)
-  // plus GOEPAY's single-card style; pay/qrpay ship the two checkout card
-  // layouts. The console only ever selects a built-in name.
+  // The home kind ships the original template names (default, index1-10),
+  // GOEPAY's single-card style and five anime (二次元) styles; pay/qrpay ship
+  // the two checkout card layouts, and pay also an anime one. The console
+  // only ever selects a built-in name.
   homeNames = [
     "default",
     "index1",
@@ -47,11 +48,17 @@ const kinds = ["home", "pay", "qrpay"],
     "index9",
     "index10",
     "minimal",
+    "sakura",
+    "starry",
+    "manga",
+    "mecha",
+    "candy",
   ],
   cardNames = ["default", "compact"],
+  payNames = [...cardNames, "anime"],
   assetID = /^[0-9a-f]{64}$/;
 function namesFor(kind: string): string[] {
-  return kind === "home" ? homeNames : cardNames;
+  return kind === "home" ? homeNames : kind === "pay" ? payNames : cardNames;
 }
 /**
  * The preview picture of a built-in template, generated into

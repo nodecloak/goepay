@@ -84,6 +84,41 @@
     "description": "紧凑编辑式布局，保留能力、指引、文档与问答"
   },
   {
+    "type": "home",
+    "name": "sakura",
+    "title": "樱花物语二次元首页模板",
+    "version": "3",
+    "description": "樱花看板娘主视觉 + 飘落花瓣 + 完整接入指引"
+  },
+  {
+    "type": "home",
+    "name": "starry",
+    "title": "星空魔法二次元首页模板",
+    "version": "3",
+    "description": "星空魔法兔主视觉 + 闪烁星光 + 开发者资源"
+  },
+  {
+    "type": "home",
+    "name": "manga",
+    "title": "热血漫画二次元首页模板",
+    "version": "3",
+    "description": "三格漫画讲解接入流程 + 网点纸背景 + 原生问答"
+  },
+  {
+    "type": "home",
+    "name": "mecha",
+    "title": "机甲未来二次元首页模板",
+    "version": "3",
+    "description": "机甲 HUD 主视觉 + 全息网格 + 支付链路说明"
+  },
+  {
+    "type": "home",
+    "name": "candy",
+    "title": "糖果萌系二次元首页模板",
+    "version": "3",
+    "description": "糖果小熊主视觉 + 波点背景 + 清晰接入步骤"
+  },
+  {
     "type": "pay",
     "name": "default",
     "title": "默认支付页模板",
@@ -96,6 +131,13 @@
     "title": "紧凑支付页模板",
     "version": "1",
     "description": "本地内置紧凑布局"
+  },
+  {
+    "type": "pay",
+    "name": "anime",
+    "title": "二次元支付页模板",
+    "version": "1",
+    "description": "本地内置二次元布局：猫咪看板娘与云朵色带"
   },
   {
     "type": "qrpay",
