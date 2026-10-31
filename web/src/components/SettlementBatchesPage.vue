@@ -497,32 +497,30 @@ onBeforeUnmount(reset);
       aria-label="生成结算批次"
     >
       <h2>生成结算批次</h2>
-      <p>输入待结算或已核准申请的编号。生成后可在批次内核对每笔原出款。</p>
       <form @submit.prevent="create()">
-        <label
-          >生成请求号<input
-            v-model="external"
-            :disabled="busy || uncertain"
-            required
-            maxlength="128" /></label
-        ><label
-          >原结算申请编号<textarea
-            v-model="ids"
-            :disabled="busy || uncertain"
-            required
-            placeholder="多个编号以逗号或换行分隔，最多 100 条"
-          />
-        </label>
+        <p>输入待结算或已核准申请的编号。生成后可在批次内核对每笔原出款。</p>
+        <div class="form-rows">
+          <label
+            ><span class="field-label field-label--req">生成请求号</span
+            ><input
+              v-model="external"
+              :disabled="busy || uncertain"
+              required
+              maxlength="128" /></label
+          ><label
+            ><span class="field-label field-label--req">原结算申请编号</span
+            ><textarea
+              v-model="ids"
+              :disabled="busy || uncertain"
+              required
+              placeholder="多个编号以逗号或换行分隔，最多 100 条"
+            />
+          </label>
+        </div>
         <p v-if="error" role="alert" class="alert error">{{ error }}</p>
         <div class="toolbar-actions">
-          <button :disabled="busy || uncertain" class="primary">生成批次</button
-          ><button
-            v-if="uncertain"
-            type="button"
-            :disabled="busy"
-            @click="create(true)"
-          >
-            按原请求重试</button
+          <button type="button" :disabled="busy" @click="creating = false">
+            关闭</button
           ><button
             v-if="uncertain"
             type="button"
@@ -534,8 +532,15 @@ onBeforeUnmount(reset);
             "
           >
             查询原请求</button
-          ><button type="button" :disabled="busy" @click="creating = false">
-            关闭
+          ><button
+            v-if="uncertain"
+            type="button"
+            :disabled="busy"
+            @click="create(true)"
+          >
+            按原请求重试</button
+          ><button :disabled="busy || uncertain" class="primary">
+            生成批次
           </button>
         </div>
       </form>
@@ -557,8 +562,8 @@ onBeforeUnmount(reset);
         }}
       </p>
       <div class="toolbar-actions">
-        <button :disabled="busy" class="primary" @click="action">确认</button
-        ><button :disabled="busy" @click="confirmation = null">取消</button>
+        <button :disabled="busy" @click="confirmation = null">取消</button
+        ><button :disabled="busy" class="primary" @click="action">确认</button>
       </div>
     </section>
   </div>
@@ -604,14 +609,21 @@ onBeforeUnmount(reset);
   white-space: nowrap;
   overflow-wrap: normal;
 }
-.settlement-batches input,
-.modal textarea {
+.settlement-batches input {
   max-width: 100%;
   box-sizing: border-box;
 }
-.modal textarea {
+.modal .form-rows textarea {
   min-height: 110px;
-  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+}
+/* The sticky foot bleeds to the dialog edge with negative side margins; let
+   the form carry that bleed on its own padding so it does not overflow. */
+.modal > form {
+  margin: 0 calc(-1 * var(--space-5));
+  padding: 0 var(--space-5);
 }
 .batch-detail p {
   overflow-wrap: anywhere;
