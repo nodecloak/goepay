@@ -229,7 +229,7 @@ for (const width of [1440, 375])
       .poll(() => writes.filter((v) => v.path.endsWith("/print-jobs")).length)
       .toBe(1);
     await expect(
-      dialog.getByRole("button", { name: "关闭", exact: true }),
+      dialog.getByRole("button", { name: "关闭", exact: true }).first(),
     ).toBeDisabled();
     await page.keyboard.press("Escape");
     await expect(dialog).toBeVisible();
@@ -242,12 +242,20 @@ for (const width of [1440, 375])
     dialog = page.getByRole("dialog", { name: "申请退款", exact: true });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel("退款金额（元）")).toBeFocused();
+    // The head × (aria-label 关闭) is the dialog's first focusable; Shift+Tab
+    // from it wraps to the last button, keeping the trap inside the dialog.
+    await dialog
+      .getByRole("button", { name: "关闭", exact: true })
+      .first()
+      .focus();
     await page.keyboard.press("Shift+Tab");
     await expect(
       dialog.getByRole("button", { name: "确认申请退款", exact: true }),
     ).toBeFocused();
     await page.keyboard.press("Tab");
-    await expect(dialog.getByLabel("退款金额（元）")).toBeFocused();
+    await expect(
+      dialog.getByRole("button", { name: "关闭", exact: true }).first(),
+    ).toBeFocused();
     await dialog.getByRole("button", { name: "取消", exact: true }).click();
     await expect(trigger(paid)).toBeFocused();
     expect(writes.filter((v) => v.path.endsWith("/refund"))).toHaveLength(0);

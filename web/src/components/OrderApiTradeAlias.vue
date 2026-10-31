@@ -322,7 +322,18 @@ onBeforeUnmount(() => {
         tabindex="-1"
         @keydown="keydown"
       >
-        <h3>编辑接口订单号</h3>
+        <div class="toolbar">
+          <h3>编辑接口订单号</h3>
+          <button
+            type="button"
+            class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+            aria-label="关闭"
+            :disabled="writing"
+            @click="dismiss"
+          >
+            ×
+          </button>
+        </div>
         <p>仅修改显示别名；清空会移除别名。已验证的上游交易回执保持不变。</p>
         <dl>
           <dt>系统订单号</dt>
@@ -335,19 +346,24 @@ onBeforeUnmount(() => {
         <p v-if="state && !state.can_update" class="muted">
           当前记录只读，不能修改显示别名。
         </p>
-        <form @submit.prevent="save">
-          <label :for="`${id}-value`">接口订单号（显示别名）</label>
-          <input
-            :id="`${id}-value`"
-            ref="input"
-            v-model="draft"
-            name="api_trade_no_alias"
-            placeholder="请输入接口订单号"
-            autocomplete="off"
-            :disabled="
-              loading || writing || needsRead || !state?.can_update || disabled
-            "
-          />
+        <form class="form-rows" @submit.prevent="save">
+          <label :for="`${id}-value`"
+            ><span class="field-label">接口订单号（显示别名）</span>
+            <input
+              :id="`${id}-value`"
+              ref="input"
+              v-model="draft"
+              name="api_trade_no_alias"
+              placeholder="请输入接口订单号"
+              autocomplete="off"
+              :disabled="
+                loading ||
+                writing ||
+                needsRead ||
+                !state?.can_update ||
+                disabled
+              "
+          /></label>
           <div class="modal-actions">
             <button type="button" :disabled="writing" @click="dismiss">
               取消
@@ -397,6 +413,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   overflow: auto;
   overflow-wrap: anywhere;
+  --form-label-w: 150px;
 }
 .alias-modal dl {
   display: grid;

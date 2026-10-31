@@ -87,7 +87,8 @@ async function submit() {
   <KitModal
     title="添加黑名单"
     submit-text="添加"
-    width="520px"
+    drawer
+    width="560px"
     :loading="busy"
     :submit-disabled="daysInvalid"
     @close="emit('close')"

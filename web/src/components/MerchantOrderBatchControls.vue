@@ -171,7 +171,18 @@ onBeforeUnmount(() => {
         aria-modal="true"
         aria-label="批量订单操作确认"
       >
-        <h2>批量订单操作确认</h2>
+        <div class="toolbar">
+          <h2>批量订单操作确认</h2>
+          <button
+            type="button"
+            class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+            aria-label="关闭"
+            :disabled="busy"
+            @click="close"
+          >
+            ×
+          </button>
+        </div>
         <p>
           {{ actions.find((a) => a.id === action)?.label }}：{{
             eligible(action).length

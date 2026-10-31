@@ -310,72 +310,92 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <div class="modal-backdrop" @keydown.esc="close">
+  <div class="modal-backdrop drawer-backdrop" @keydown.esc="close">
     <section
       ref="dialogElement"
       tabindex="-1"
       @keydown="trapFocus"
-      class="modal panel"
+      class="modal panel modal-drawer funds-auth-drawer"
       role="dialog"
       aria-modal="true"
       aria-label="管理员资金二次授权"
     >
-      <h2>管理员资金二次授权</h2>
-      <p>
-        仅授权当前核对的原业务；付款金额、收款对象、通道和请求号改变后必须重新预览。授权不表示已付款，也不会开放通道写权限。
-      </p>
-      <p v-if="busy" role="status">正在核对资金操作…</p>
-      <div v-if="error" role="alert" class="alert error">{{ error }}</div>
-      <p v-if="notice" role="status" class="alert">{{ notice }}</p>
-      <template v-if="summary">
-        <h3>服务端操作摘要</h3>
-        <dl v-if="!Array.isArray(summary)" class="record-detail">
-          <template
-            v-for="(value, key) in summary as Record<string, unknown>"
-            :key="key"
-            ><dt>{{ summaryLabels[key] || key }}</dt>
-            <dd>{{ displayValue(value) }}</dd></template
-          >
-        </dl>
-        <p v-else>{{ displayValue(summary) }}</p>
-        <p v-if="deadline" class="muted">
-          本次确认有效至
-          {{ new Date(deadline).toLocaleString() }}，过期后需重新预览。
-        </p>
-      </template>
-      <button
-        v-if="phase === 'summary'"
-        data-action="confirm-summary"
-        :disabled="busy"
-        @click="confirmSummary"
-      >
-        已核对摘要，验证资金密码
-      </button>
-      <form v-if="phase === 'password'" @submit.prevent="authorize">
-        <label
-          >本人管理员资金密码<input
-            v-model="password"
-            name="payment_password"
-            type="password"
-            autocomplete="off"
-            :disabled="busy"
-            required
-            autofocus
-        /></label>
-        <button class="primary" :disabled="busy">确认资金密码</button>
-      </form>
-      <div v-if="phase === 'ready'" class="alert">
-        <p>
-          资金密码已验证。尚未提交原业务，请再次确认后执行。令牌只用于原请求，不会显示或保存。
-        </p>
+      <div class="toolbar">
+        <h2>管理员资金二次授权</h2>
         <button
-          data-action="execute"
-          class="danger-button"
+          type="button"
+          class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+          aria-label="关闭"
           :disabled="busy"
-          @click="execute"
+          @click="close"
         >
-          执行已核对的原操作
+          ×
         </button>
+      </div>
+      <div class="funds-auth-body">
+        <p>
+          仅授权当前核对的原业务；付款金额、收款对象、通道和请求号改变后必须重新预览。授权不表示已付款，也不会开放通道写权限。
+        </p>
+        <p v-if="busy" role="status">正在核对资金操作…</p>
+        <div v-if="error" role="alert" class="alert error">{{ error }}</div>
+        <p v-if="notice" role="status" class="alert">{{ notice }}</p>
+        <template v-if="summary">
+          <h3>服务端操作摘要</h3>
+          <dl v-if="!Array.isArray(summary)" class="record-detail">
+            <template
+              v-for="(value, key) in summary as Record<string, unknown>"
+              :key="key"
+              ><dt>{{ summaryLabels[key] || key }}</dt>
+              <dd>{{ displayValue(value) }}</dd></template
+            >
+          </dl>
+          <p v-else>{{ displayValue(summary) }}</p>
+          <p v-if="deadline" class="muted">
+            本次确认有效至
+            {{ new Date(deadline).toLocaleString() }}，过期后需重新预览。
+          </p>
+        </template>
+        <button
+          v-if="phase === 'summary'"
+          data-action="confirm-summary"
+          :disabled="busy"
+          @click="confirmSummary"
+        >
+          已核对摘要，验证资金密码
+        </button>
+        <form
+          v-if="phase === 'password'"
+          class="form-rows"
+          @submit.prevent="authorize"
+        >
+          <label
+            ><span class="field-label field-label--req">本人管理员资金密码</span
+            ><input
+              v-model="password"
+              name="payment_password"
+              type="password"
+              autocomplete="off"
+              :disabled="busy"
+              required
+              autofocus
+          /></label>
+          <div class="modal-actions">
+            <button class="primary" :disabled="busy">确认资金密码</button>
+          </div>
+        </form>
+        <div v-if="phase === 'ready'" class="alert">
+          <p>
+            资金密码已验证。尚未提交原业务，请再次确认后执行。令牌只用于原请求，不会显示或保存。
+          </p>
+          <button
+            data-action="execute"
+            class="danger-button"
+            :disabled="busy"
+            @click="execute"
+          >
+            执行已核对的原操作
+          </button>
+        </div>
       </div>
       <div class="modal-actions">
         <button :disabled="busy" @click="close">关闭资金授权</button
@@ -386,3 +406,33 @@ onBeforeUnmount(() => {
     </section>
   </div>
 </template>
+<style scoped>
+.funds-auth-drawer {
+  --drawer-w: 560px;
+}
+/* The summary table, status blocks and the password step scroll; the head
+   and the dialog actions stay in view. */
+.funds-auth-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.funds-auth-body > :is(p, h3, dl, form, div) {
+  margin: 0;
+}
+/* The password step's confirm button sits with the step, right-aligned, and
+   is not the drawer's sticky bottom bar. */
+.funds-auth-body .modal-actions {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  position: static;
+  background: none;
+}
+.funds-auth-body .record-detail {
+  overflow-wrap: anywhere;
+}
+</style>
