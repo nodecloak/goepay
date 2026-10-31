@@ -33,13 +33,13 @@ onMounted(() => void nextTick(() => closeButton.value?.focus()));
 </script>
 <template>
   <Teleport to="body">
-    <div class="modal-backdrop" @click.self="emit('close')">
+    <div class="modal-backdrop drawer-backdrop" @click.self="emit('close')">
       <section
         ref="dialog"
         role="dialog"
         aria-modal="true"
         :aria-labelledby="id + '-title'"
-        class="modal panel settlement-record-detail"
+        class="modal panel settlement-record-detail modal-drawer"
         @keydown="keydown"
       >
         <div class="toolbar">
@@ -101,7 +101,7 @@ onMounted(() => void nextTick(() => closeButton.value?.focus()));
 </template>
 <style scoped>
 .settlement-record-detail {
-  width: min(100%, 660px);
+  --drawer-w: 560px;
 }
 .settlement-record-detail .toolbar {
   gap: 12px;
