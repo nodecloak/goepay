@@ -25,7 +25,7 @@ func configJSON(t *testing.T, kind string, edit func(map[string]any)) json.RawMe
 func TestBuiltInRegistryAndTypedConfig(t *testing.T) {
 	cases := map[string][]string{
 		"home":  homeStyleNames(),
-		"pay":   {"default", "compact"},
+		"pay":   {"default", "compact", "anime"},
 		"qrpay": {"default", "compact"},
 	}
 	for kind, want := range cases {
@@ -42,8 +42,11 @@ func TestBuiltInRegistryAndTypedConfig(t *testing.T) {
 			}
 		}
 	}
-	if len(cases["home"]) != 12 {
-		t.Fatal("home must ship default, index1-index10 and minimal", len(cases["home"]))
+	if len(cases["home"]) != 17 {
+		t.Fatal("home must ship default, index1-index10, minimal and the five anime styles", len(cases["home"]))
+	}
+	if _, ok := Lookup("qrpay", "anime"); ok {
+		t.Fatal("the anime template is a pay page only")
 	}
 	for _, kind := range []string{"../pay", "PAY", "plugin"} {
 		if _, e := Templates(kind); e == nil {
