@@ -2095,6 +2095,12 @@ legend {
   line-height: 22px;
   font-weight: 600;
   color: var(--ink);
+  /* A long dialog scrolls under its title and above its actions, so both
+     stay in view (the 保存 button was below the fold). */
+  position: sticky;
+  top: calc(-1 * var(--space-5));
+  z-index: 3;
+  background: var(--bg-card);
 }
 .modal > .toolbar:first-child {
   display: flex;
@@ -2120,6 +2126,38 @@ legend {
   margin: var(--space-5) calc(-1 * var(--space-5)) calc(-1 * var(--space-5));
   padding: var(--space-3) var(--space-5);
   border-top: 1px solid var(--line);
+  position: sticky;
+  bottom: calc(-1 * var(--space-5));
+  z-index: 3;
+  background: var(--bg-card);
+}
+/* Older dialogs (.modal) as a right drawer: put .drawer-backdrop on the
+   backdrop and .modal-drawer on the dialog. */
+.modal-backdrop.drawer-backdrop > .modal.modal-drawer {
+  width: min(100%, var(--drawer-w, 560px));
+  height: 100dvh;
+  max-height: none;
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+  animation: pa-drawer-in 0.18s ease-out;
+}
+/* In a drawer the actions sit on the bottom edge even when the form is
+   short. */
+.modal.modal-drawer {
+  display: flex;
+  flex-direction: column;
+}
+.modal.modal-drawer > :is(.modal-actions, .toolbar-actions):last-child,
+.modal.modal-drawer > .toolbar:not(:first-child):last-child {
+  margin-top: auto;
+}
+.modal.modal-drawer > form:last-child {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+.modal.modal-drawer > form > :is(.modal-actions, .toolbar-actions):last-child {
+  margin-top: auto;
 }
 .modal > .toolbar:not(:first-child):last-child > * {
   margin-left: 0;
@@ -2944,7 +2982,10 @@ button.badge.state-toggle:hover:not(:disabled) {
   stroke-width: 1;
 }
 
-/* Modal */
+/* Modal. Every .pa-scrim is the fixed overlay: a dialog that had only
+   .pa-scrim (without .pa-modal-scrim) rendered in the page flow, under the
+   table, instead of over it. */
+.pa-scrim,
 .pa-modal-scrim {
   position: fixed;
   inset: 0;
@@ -2953,6 +2994,34 @@ button.badge.state-toggle:hover:not(:disabled) {
   display: grid;
   place-items: center;
   padding: var(--space-6) var(--space-4);
+}
+/* Right drawer: long forms, detail views and tables. It fills the window's
+   height at the right edge; the head and foot stay put and only the body
+   scrolls. --drawer-w sets the width (560px by default). */
+.pa-drawer-scrim {
+  place-items: stretch end;
+  padding: 0;
+}
+.pa-modal.pa-drawer {
+  width: min(100%, var(--drawer-w, 560px));
+  height: 100dvh;
+  max-height: none;
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+  animation: pa-drawer-in 0.18s ease-out;
+}
+.pa-drawer > .pa-modal-body,
+.pa-drawer > .pa-modal-body > .pa-modal-content {
+  flex: 1;
+}
+.pa-drawer > .pa-modal-content {
+  flex: 1;
+}
+@keyframes pa-drawer-in {
+  from {
+    transform: translateX(32px);
+    opacity: 0;
+  }
 }
 .pa-modal {
   width: min(100%, 480px);
@@ -2995,6 +3064,12 @@ button.badge.state-toggle:hover:not(:disabled) {
   gap: var(--space-4);
   padding: var(--space-5);
   overflow: auto;
+  min-height: 0;
+}
+/* Paragraphs, lists and alerts in a dialog body take the body's 16px gap,
+   not their own margins on top of it. */
+.pa-modal-content > :is(p, ul, ol, .alert, .pa-alert) {
+  margin: 0;
 }
 .pa-modal-foot {
   display: flex;
@@ -3025,6 +3100,8 @@ button.badge.state-toggle:hover:not(:disabled) {
   grid-template-columns: var(--form-label-w) minmax(0, 1fr);
   align-items: center;
   column-gap: var(--space-3);
+  /* Help text sits 6px under its control (the kit .pa-field gap was 12px). */
+  row-gap: 6px;
   /* The global label rule adds 18px above and below every <label>. */
   margin: 0;
 }
