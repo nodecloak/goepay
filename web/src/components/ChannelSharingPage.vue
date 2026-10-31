@@ -1286,15 +1286,49 @@ onMounted(() => {
     </template>
     <div
       v-if="confirmation"
-      role="dialog"
-      aria-modal="true"
-      aria-label="确认渠道分账操作"
-      class="sharing-confirm"
+      class="pa-scrim pa-modal-scrim"
+      @pointerdown.self="!busy && (confirmation = undefined)"
     >
-      <p>{{ confirmText }}</p>
-      <button class="primary" :disabled="busy" @click="executeConfirmed">
-        确认操作</button
-      ><button :disabled="busy" @click="confirmation = undefined">取消</button>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label="确认渠道分账操作"
+        class="pa-modal sharing-confirm"
+        @keydown.esc.prevent="!busy && (confirmation = undefined)"
+      >
+        <header class="pa-modal-head">
+          <h2 class="pa-modal-title">确认渠道分账操作</h2>
+          <button
+            type="button"
+            class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+            aria-label="关闭"
+            :disabled="busy"
+            @click="confirmation = undefined"
+          >
+            ×
+          </button>
+        </header>
+        <div class="pa-modal-content">
+          <p>{{ confirmText }}</p>
+        </div>
+        <footer class="pa-modal-foot">
+          <button
+            type="button"
+            class="pa-btn"
+            :disabled="busy"
+            @click="confirmation = undefined"
+          >
+            取消</button
+          ><button
+            type="button"
+            class="pa-btn pa-btn--primary primary"
+            :disabled="busy"
+            @click="executeConfirmed"
+          >
+            确认操作
+          </button>
+        </footer>
+      </section>
     </div>
   </section>
 </template>
@@ -1401,19 +1435,7 @@ small {
   flex-wrap: wrap;
 }
 .sharing-confirm {
-  position: fixed;
-  inset: auto 18px 24px;
-  max-width: 620px;
-  margin: auto;
-  padding: 20px;
-  background: var(--bg-card);
-  box-shadow: var(--shadow-modal);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  z-index: 30;
-}
-.sharing-confirm button + button {
-  margin-left: 10px;
+  width: min(100%, 480px);
 }
 .sharing-page :focus-visible {
   outline: 2px solid var(--focus);

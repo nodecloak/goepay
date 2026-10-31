@@ -218,7 +218,7 @@ const stateName = (state: string) =>
   })[state] || "待核实";
 </script>
 <template>
-  <div class="modal-backdrop">
+  <div class="modal-backdrop" @pointerdown.self="close">
     <section
       ref="modal"
       role="dialog"
@@ -232,7 +232,15 @@ const stateName = (state: string) =>
     >
       <div class="toolbar">
         <h3>测试支付</h3>
-        <button :disabled="busy || unknown" @click="close">关闭</button>
+        <button
+          type="button"
+          class="pa-icon-btn pa-icon-btn--ghost"
+          aria-label="关闭"
+          :disabled="busy || unknown"
+          @click="close"
+        >
+          ×
+        </button>
       </div>
       <p class="muted">通道 #{{ channelID }} · 使用已配置的测试收款商户</p>
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
@@ -252,12 +260,18 @@ const stateName = (state: string) =>
             :disabled="busy || unknown || !!result"
             required
         /></label>
-        <div class="toolbar">
-          <button type="button" :disabled="busy || unknown" @click="close">
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="pa-btn"
+            :disabled="busy || unknown"
+            @click="close"
+          >
             取消</button
           ><button
             data-parent-test-submit
             type="submit"
+            class="pa-btn pa-btn--primary"
             :disabled="busy || unknown || !!result"
           >
             {{ busy ? "正在核实…" : "确定" }}
@@ -293,11 +307,9 @@ const stateName = (state: string) =>
 </template>
 <style scoped>
 .parent-payment-test {
-  width: min(400px, calc(100vw - 24px));
-  max-height: calc(100dvh - 32px);
-  overflow: auto;
+  width: min(100%, 480px);
 }
-.toolbar {
+.parent-payment-test .toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -306,7 +318,7 @@ const stateName = (state: string) =>
 .parent-payment-test label {
   display: grid;
   gap: 6px;
-  margin: 16px 0;
+  margin: 0 0 16px;
 }
 .parent-payment-test input {
   width: 100%;
