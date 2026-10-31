@@ -91,8 +91,10 @@ export interface BuiltinTemplate {
 
 export const builtinTemplates = builtinTemplateData as BuiltinTemplate[];
 
+// Only default and index1-index10 redo an original epay_pro template; minimal
+// and the anime (二次元) styles are GOEPAY's own.
 function templateNote(t: BuiltinTemplate): string {
-  return t.type === "home" && t.name !== "minimal"
+  return t.type === "home" && /^(default|index\d+)$/.test(t.name)
     ? "Go 版按原模板的内容结构重做，随服务内置、默认已安装，在“模板配置 › 首页”中选用。"
     : "Go 版内置模板，随服务内置、默认已安装，在“模板配置”中选用。";
 }
@@ -175,16 +177,22 @@ const templateKindOrder: Readonly<Record<string, number>> = {
   pay: 1,
   qrpay: 2,
 };
-function templateRank(name: string): number {
+function templateRank(kind: string, name: string): number {
   if (name === "default") return 0;
   const m = /^index(\d+)$/.exec(name);
-  return m ? Number(m[1]) : 100;
+  if (m) return Number(m[1]);
+  // GOEPAY's own templates keep the service's order (minimal, then the anime
+  // styles); a market template the service lacks comes last.
+  const i = builtinTemplates.findIndex(
+    (t) => t.type === kind && t.name === name,
+  );
+  return i < 0 ? 10000 : 100 + i;
 }
 
 /**
  * The market list plus the built-in templates the original market does not
  * have (GOEPAY's own styles). Templates are grouped by kind, then default,
- * index1 … index10, then the rest.
+ * index1 … index10, then the rest in the service's order.
  */
 export function withBuiltinTemplates(
   items: readonly CatalogEntry[],
@@ -222,7 +230,7 @@ export function withBuiltinTemplates(
     (a, b) =>
       (templateKindOrder[a.sub ?? ""] ?? 9) -
         (templateKindOrder[b.sub ?? ""] ?? 9) ||
-      templateRank(a.name) - templateRank(b.name) ||
+      templateRank(a.sub ?? "", a.name) - templateRank(b.sub ?? "", b.name) ||
       a.name.localeCompare(b.name),
   );
   return [...items.filter((item) => item.type !== "template"), ...templates];

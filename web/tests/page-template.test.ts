@@ -74,6 +74,11 @@ it("accepts the built-in home styles and rejects wrong counts, names and kinds",
     "index9",
     "index10",
     "minimal",
+    "sakura",
+    "starry",
+    "manga",
+    "mecha",
+    "candy",
   ];
   const items = homeNames.map((name) => ({ name, title: name, description: "本地内置" }));
   const list = readTemplateList({
@@ -99,13 +104,39 @@ it("accepts the built-in home styles and rejects wrong counts, names and kinds",
       type: "home",
       revision: "3",
       selected: "default",
-      items: [...items.slice(0, 11), { name: "evil", title: "x", description: "x" }],
+      items: [...items.slice(0, -1), { name: "evil", title: "x", description: "x" }],
     }),
   ).toThrow();
-  // pay/qrpay still require exactly the two card layouts.
+  // pay ships the two card layouts and the anime one; qrpay only the two.
   expect(() =>
     readTemplateList({ type: "pay", revision: "0", selected: "default", items }),
   ).toThrow();
+  const card = (names: string[]) =>
+    names.map((name) => ({ name, title: name, description: "本地内置" }));
+  expect(
+    readTemplateList({
+      type: "pay",
+      revision: "0",
+      selected: "anime",
+      items: card(["default", "compact", "anime"]),
+    }).items.map((i) => i.name),
+  ).toEqual(["default", "compact", "anime"]);
+  expect(() =>
+    readTemplateList({
+      type: "qrpay",
+      revision: "0",
+      selected: "default",
+      items: card(["default", "compact", "anime"]),
+    }),
+  ).toThrow();
+  expect(
+    readTemplateList({
+      type: "qrpay",
+      revision: "0",
+      selected: "default",
+      items: card(["default", "compact"]),
+    }).items,
+  ).toHaveLength(2);
   // A home style name is a valid config/body name, the card names stay rejected for the wrong kind.
   expect(
     readTemplateConfig({

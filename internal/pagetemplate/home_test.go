@@ -122,7 +122,7 @@ func TestHomeLinksBannerLogoAndDensityFollowSettings(t *testing.T) {
 }
 
 func TestHomeStylesKeepOriginalNamesAndReadableColours(t *testing.T) {
-	want := "default,index1,index2,index3,index4,index5,index6,index7,index8,index9,index10,minimal"
+	want := "default,index1,index2,index3,index4,index5,index6,index7,index8,index9,index10,minimal,sakura,starry,manga,mecha,candy"
 	if got := strings.Join(homeStyleNames(), ","); got != want {
 		t.Fatalf("home styles %s, want %s", got, want)
 	}

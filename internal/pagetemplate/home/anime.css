@@ -1,0 +1,88 @@
+/* Anime (二次元) home styles: sakura, starry, manga, mecha, candy. Added only
+   to those pages. Backgrounds are CSS gradients from the operator's colours
+   plus fixed pastel hues; the hero art is inline SVG. Motion runs only when
+   the visitor allows it. */
+.home-anime .hero{overflow:hidden}
+.hero-anime-grid{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr);align-items:center;gap:clamp(24px,5vw,64px)}
+.anime-stage{position:relative;justify-self:center;width:100%;max-width:440px;min-width:0}
+.anime-art{display:block;width:100%;height:auto;overflow:visible;pointer-events:none}
+.anime-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.anime-tags span{font-size:12px;line-height:1.8;padding:3px 12px;border-radius:999px;border:1px solid var(--line);background:color-mix(in srgb,var(--bg) 70%,transparent)}
+.mk-acc{fill:var(--accent)}
+.mk-line{stroke:var(--link)}
+.home-anime .site-header{background:transparent}
+.home-anime .btn{border-radius:999px}
+.home-anime .feature-icon,.home-anime .resource-icon{padding:6px;border-radius:12px;background:var(--soft-accent)}
+.home-anime h1 em{color:var(--link)}
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+.home-sakura h1 em,.home-starry h1 em,.home-candy h1 em{background:linear-gradient(100deg,var(--link) 10%,var(--anime-pair,var(--link)) 90%);-webkit-background-clip:text;background-clip:text;color:transparent}}
+@media(prefers-reduced-motion:no-preference){
+.mk-spin{animation:mk-spin 70s linear infinite;transform-box:fill-box;transform-origin:center}
+.mk-spin-rev{animation:mk-spin 46s linear infinite reverse;transform-box:fill-box;transform-origin:center}
+.mk-twinkle{animation:mk-twinkle 3.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+g:nth-child(2n)>.mk-twinkle{animation-delay:-1.2s}g:nth-child(3n)>.mk-twinkle{animation-delay:-2.3s}
+.mk-float{animation:mk-float 5.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+g:nth-child(2n)>.mk-float{animation-delay:-2.6s}
+.mk-petal{animation:mk-fall 12s linear infinite;transform-box:fill-box;transform-origin:center}
+g:nth-child(2)>.mk-petal{animation-duration:14s;animation-delay:-5s}g:nth-child(3)>.mk-petal{animation-duration:11s;animation-delay:-8s}g:nth-child(4)>.mk-petal{animation-duration:15s;animation-delay:-2s}
+.mk-blink{animation:mk-blink 2.6s steps(2,jump-none) infinite}
+.anime-stage{animation:mk-bob 6.5s ease-in-out infinite}
+}
+@keyframes mk-spin{to{transform:rotate(360deg)}}
+@keyframes mk-twinkle{0%,100%{opacity:.35;transform:scale(.7)}50%{opacity:1;transform:scale(1.05)}}
+@keyframes mk-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes mk-fall{0%{transform:translate(0,-40px) rotate(0)}100%{transform:translate(-70px,430px) rotate(320deg)}}
+@keyframes mk-blink{50%{opacity:.25}}
+@keyframes mk-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+/* sakura: pink sky, drifting petals and soft petal-shaped cards. */
+.home-sakura{--anime-pair:color-mix(in srgb,var(--link) 40%,#7e22ce);background:radial-gradient(900px 520px at 88% -140px,color-mix(in srgb,#f9a8d4 48%,transparent),transparent 70%),radial-gradient(700px 440px at -8% 4%,color-mix(in srgb,#fbcfe8 55%,transparent),transparent 72%),linear-gradient(180deg,color-mix(in srgb,#ffe4ef 65%,var(--bg)),var(--bg) 980px);background-repeat:no-repeat}
+.home-sakura .hero::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background-image:radial-gradient(7px 4px at 22px 30px,color-mix(in srgb,#f9a8d4 70%,transparent) 96%,transparent),radial-gradient(5px 3px at 96px 84px,color-mix(in srgb,#f472b6 45%,transparent) 96%,transparent),radial-gradient(6px 4px at 140px 22px,color-mix(in srgb,#fbcfe8 90%,transparent) 96%,transparent);background-size:170px 130px;opacity:.85;-webkit-mask-image:linear-gradient(180deg,#000,transparent 92%);mask-image:linear-gradient(180deg,#000,transparent 92%)}
+.home-sakura .eyebrow::before{content:"";display:inline-block;width:12px;height:12px;margin-right:8px;vertical-align:-1px;border-radius:12px 0;background:linear-gradient(135deg,#f9a8d4,var(--accent));transform:rotate(-20deg)}
+.home-sakura .feature-card,.home-sakura .resource-card,.home-sakura .flow-panel{border-radius:28px 10px 28px 10px;border-color:color-mix(in srgb,var(--accent) 22%,transparent);background:color-mix(in srgb,#fff 70%,var(--bg));box-shadow:0 18px 40px -32px color-mix(in srgb,var(--accent) 80%,transparent)}
+.home-sakura .btn.primary{background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 78%,#7e22ce));border-color:transparent}
+.home-sakura .scenarios-section,.home-sakura .faq-section{background:color-mix(in srgb,#ffe4ef 45%,transparent)}
+
+/* starry: night sky with twinkling stars, a magic circle and glassy cards. */
+.home-starry{--anime-pair:color-mix(in srgb,var(--link) 35%,#f0abfc);background-image:radial-gradient(1.4px 1.4px at 12% 18%,#fff 90%,transparent),radial-gradient(1px 1px at 38% 62%,#fff 90%,transparent),radial-gradient(1.6px 1.6px at 66% 28%,#fde68a 90%,transparent),radial-gradient(1px 1px at 84% 74%,#fff 90%,transparent),radial-gradient(1.2px 1.2px at 52% 8%,#c4b5fd 90%,transparent),radial-gradient(1px 1px at 22% 86%,#fff 90%,transparent),radial-gradient(900px 560px at 82% -8%,color-mix(in srgb,#7c3aed 34%,transparent),transparent 70%),radial-gradient(800px 520px at -6% 40%,color-mix(in srgb,#2563eb 22%,transparent),transparent 72%);background-size:260px 260px,260px 260px,260px 260px,260px 260px,260px 260px,260px 260px,auto,auto;background-repeat:repeat,repeat,repeat,repeat,repeat,repeat,no-repeat,no-repeat}
+.home-starry::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:radial-gradient(2px 2px at 30% 40%,#fff 90%,transparent),radial-gradient(2px 2px at 78% 18%,#fde68a 90%,transparent),radial-gradient(1.6px 1.6px at 58% 82%,#fff 90%,transparent);background-size:420px 380px;opacity:.7}
+@media(prefers-reduced-motion:no-preference){.home-starry::before{animation:mk-sky 5s ease-in-out infinite alternate}}
+@keyframes mk-sky{from{opacity:.25}to{opacity:.85}}
+.home-starry .feature-card,.home-starry .resource-card,.home-starry .flow-panel,.home-starry .help-panel{background:color-mix(in srgb,var(--bg) 72%,transparent);border-color:color-mix(in srgb,var(--link) 30%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 0 0 1px color-mix(in srgb,var(--link) 8%,transparent),0 24px 50px -36px color-mix(in srgb,var(--link) 60%,transparent)}
+.home-starry .btn.primary{box-shadow:0 0 22px -6px var(--accent)}
+.home-starry .site-header,.home-starry .capability-band,.home-starry .scenarios-section{border-color:color-mix(in srgb,var(--link) 18%,transparent)}
+
+/* manga: halftone paper, speed lines and comic panels with ink outlines. */
+.home-manga{background-image:radial-gradient(circle,color-mix(in srgb,var(--fg) 15%,transparent) 1.3px,transparent 1.8px),radial-gradient(circle,color-mix(in srgb,var(--fg) 13%,transparent) 1.3px,transparent 1.8px);background-size:12px 12px,12px 12px;background-position:0 0,6px 6px}
+.home-manga .home-main,.home-manga .home-footer,.home-manga .site-header{background:var(--bg)}
+.home-manga .home-main{border-inline:4px solid var(--fg);max-width:1280px;margin-inline:auto;width:calc(100% - 32px)}
+.home-manga .site-header{border-bottom:4px solid var(--fg)}
+.home-manga .hero::before{content:"";position:absolute;inset:-30%;z-index:-1;pointer-events:none;background:repeating-conic-gradient(from 0deg at 70% 50%,color-mix(in srgb,var(--fg) 11%,transparent) 0 1.6deg,transparent 1.6deg 7deg);-webkit-mask-image:radial-gradient(circle at 70% 50%,transparent 14%,#000 58%);mask-image:radial-gradient(circle at 70% 50%,transparent 14%,#000 58%)}
+.home-manga h1 em{color:var(--accent);text-shadow:3px 3px 0 color-mix(in srgb,var(--fg) 22%,transparent)}
+.home-manga .manga-ep{display:inline-block;margin-right:10px;padding:1px 10px;background:var(--fg);color:var(--bg);transform:skewX(-10deg)}
+.home-manga .btn,.home-manga .feature-card,.home-manga .resource-card,.home-manga .flow-panel{border:3px solid var(--fg);border-radius:6px;box-shadow:5px 5px 0 var(--fg)}
+.home-manga .btn:hover,.home-manga .resource-card:hover{transform:translate(-2px,-2px);box-shadow:7px 7px 0 var(--fg)}
+.home-manga .feature-card:nth-child(3n+2){transform:rotate(-.6deg)}.home-manga .feature-card:nth-child(3n){transform:rotate(.5deg)}
+.home-manga .step-number{display:inline-grid;place-items:center;width:44px;height:44px;border:3px solid var(--fg);border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:18px;font-weight:800}
+
+/* mecha: holographic grid, scanlines and HUD-cornered panels. */
+.home-mecha{background-image:linear-gradient(color-mix(in srgb,var(--link) 9%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--link) 9%,transparent) 1px,transparent 1px),radial-gradient(900px 560px at 84% -10%,color-mix(in srgb,#a855f7 26%,transparent),transparent 70%),radial-gradient(700px 480px at 0% 30%,color-mix(in srgb,var(--link) 14%,transparent),transparent 72%);background-size:48px 48px,48px 48px,auto,auto;background-repeat:repeat,repeat,no-repeat,no-repeat}
+.home-mecha::after{content:"";position:fixed;inset:0;z-index:50;pointer-events:none;background:repeating-linear-gradient(0deg,rgb(255 255 255/.022) 0 1px,transparent 1px 4px)}
+.home-mecha .eyebrow{font-family:var(--utility);letter-spacing:.12em}
+.home-mecha .mecha-code{display:inline-block;margin-right:10px;padding:0 8px;border:1px solid var(--link);color:var(--link)}
+.home-mecha h1 em{text-shadow:0 0 22px color-mix(in srgb,var(--link) 55%,transparent)}
+.home-mecha .feature-card,.home-mecha .resource-card,.home-mecha .flow-panel{position:relative;border-radius:4px;border-color:color-mix(in srgb,var(--link) 34%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--link) 8%,var(--bg)),var(--bg))}
+.home-mecha .feature-card::after,.home-mecha .resource-card::after,.home-mecha .flow-panel::after{content:"";position:absolute;inset:-1px;pointer-events:none;background:linear-gradient(var(--link),var(--link)) 0 0/16px 2px,linear-gradient(var(--link),var(--link)) 0 0/2px 16px,linear-gradient(var(--link),var(--link)) 100% 100%/16px 2px,linear-gradient(var(--link),var(--link)) 100% 100%/2px 16px;background-repeat:no-repeat}
+.home-mecha .btn{border-radius:4px}
+.home-mecha .btn.primary{box-shadow:0 0 24px -8px var(--accent)}
+.home-mecha .hero-tags span{font-family:var(--utility);letter-spacing:.08em;border-color:color-mix(in srgb,var(--link) 50%,transparent);color:var(--link)}
+
+/* candy: pastel bubbles, polka dots, stickers and bouncy pill buttons. */
+.home-candy{--anime-pair:color-mix(in srgb,var(--link) 40%,#db2777);background-image:radial-gradient(520px 420px at 8% 6%,color-mix(in srgb,#fbcfe8 72%,transparent),transparent 70%),radial-gradient(520px 420px at 94% 16%,color-mix(in srgb,#bae6fd 72%,transparent),transparent 70%),radial-gradient(640px 480px at 62% 96%,color-mix(in srgb,#fef08a 55%,transparent),transparent 70%),radial-gradient(circle,color-mix(in srgb,var(--accent) 13%,transparent) 2.2px,transparent 2.8px);background-size:auto,auto,auto,28px 28px;background-repeat:no-repeat,no-repeat,no-repeat,repeat}
+.home-candy .btn{box-shadow:inset 0 -3px 0 rgb(0 0 0/.12),0 10px 20px -12px var(--accent)}
+.home-candy .feature-card,.home-candy .resource-card,.home-candy .flow-panel,.home-candy .help-panel{border-radius:26px;border:2px solid #fff;background:color-mix(in srgb,#fff 74%,var(--bg));box-shadow:0 16px 36px -26px color-mix(in srgb,var(--accent) 75%,transparent)}
+.home-candy .feature-card:nth-child(4n+1){border-top:6px solid #f9a8d4}.home-candy .feature-card:nth-child(4n+2){border-top:6px solid #7dd3fc}.home-candy .feature-card:nth-child(4n+3){border-top:6px solid #fde047}.home-candy .feature-card:nth-child(4n){border-top:6px solid #c4b5fd}
+.home-candy .step-number{display:inline-grid;place-items:center;width:42px;height:42px;border-radius:50%;background:color-mix(in srgb,var(--accent) 14%,#fff);font-size:17px}
+
+@media(max-width:820px){.hero-anime-grid{grid-template-columns:minmax(0,1fr)}.anime-stage{max-width:360px}.home-manga .home-main{width:calc(100% - 16px);border-inline-width:3px}}
+@media(max-width:600px){.anime-stage{max-width:300px;margin-top:4px}.home-manga .feature-card:nth-child(n){transform:none}.home-manga .btn,.home-manga .feature-card,.home-manga .resource-card,.home-manga .flow-panel{box-shadow:4px 4px 0 var(--fg)}}

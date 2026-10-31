@@ -62,8 +62,14 @@ it("adds GOEPAY's own templates to the market and orders templates by kind", () 
     "home:default",
     ...Array.from({ length: 10 }, (_, n) => `home:index${n + 1}`),
     "home:minimal",
+    "home:sakura",
+    "home:starry",
+    "home:manga",
+    "home:mecha",
+    "home:candy",
     "pay:default",
     "pay:compact",
+    "pay:anime",
     "qrpay:default",
     "qrpay:compact",
   ]);
@@ -71,6 +77,16 @@ it("adds GOEPAY's own templates to the market and orders templates by kind", () 
   const minimal = templates.find((i) => i.name === "minimal")!;
   expect(minimal.author).toBe("GOEPAY");
   expect(minimal.title).toBe("单卡极简首页模板");
+  // GOEPAY's own styles are not described as redone original templates.
+  for (const name of ["minimal", "sakura", "candy"])
+    expect(
+      builtinPlugin({ type: "template", sub: "home", name })!.note,
+    ).not.toContain("按原模板");
+  expect(
+    builtinPlugin({ type: "template", sub: "home", name: "index3" })!.note,
+  ).toContain("按原模板");
+  const anime = templates.find((i) => i.sub === "pay" && i.name === "anime")!;
+  expect(anime.title).toBe("二次元支付页模板");
   // Every generated template is in the market exactly once.
   expect(templates.length).toBe(builtinTemplates.length);
   // Other categories keep the original order and size.
@@ -133,20 +149,47 @@ it("the market pages long lists and shows every template as installed", async ()
   const first = w.get("tbody tr").text();
   await w.get('button[aria-label="下一页"]').trigger("click");
   expect(w.get("tbody tr").text()).not.toBe(first);
-  // Switching tabs starts again at page 1.
+  // Switching tabs starts again at page 1; the templates fill more than one
+  // page, so walk every page.
   const tpl = w.findAll('[role="tab"]').find((t) => t.text() === "模板")!;
   await tpl.trigger("click");
-  const rows = w.findAll("tbody tr");
+  expect(w.findAll("tbody tr").length).toBe(
+    Math.min(20, builtinTemplates.length),
+  );
+  expect(w.get(".pa-pager").text()).toContain(
+    `共 ${builtinTemplates.length} 条`,
+  );
+  const rows: string[] = [],
+    shots: (string | undefined)[] = [];
+  for (let n = 0; n < 10; n++) {
+    rows.push(...w.findAll("tbody tr").map((r) => r.text()));
+    // Every template row carries its preview picture.
+    shots.push(...w.findAll("img.plugin-shot").map((i) => i.attributes("src")));
+    const next = w.get('button[aria-label="下一页"]');
+    if (next.attributes("disabled") !== undefined) break;
+    await next.trigger("click");
+  }
   expect(rows.length).toBe(builtinTemplates.length);
-  expect(rows.every((r) => r.text().includes("已内置"))).toBe(true);
-  expect(w.get("tbody").text()).toContain("深色科技风首页模板");
-  expect(w.get("tbody").text()).toContain("单卡极简首页模板");
-  expect(w.get("tbody").text()).not.toContain("暂不支持");
-  // Every template row carries its preview picture, and the drawer shows it large.
-  const shots = w.findAll("img.plugin-shot").map((i) => i.attributes("src"));
+  expect(rows.every((r) => r.includes("已内置"))).toBe(true);
+  const all = rows.join("\n");
+  expect(all).toContain("深色科技风首页模板");
+  expect(all).toContain("单卡极简首页模板");
+  expect(all).toContain("樱花物语二次元首页模板");
+  expect(all).toContain("二次元支付页模板");
+  expect(all).not.toContain("暂不支持");
   expect(shots.length).toBe(builtinTemplates.length);
   expect(shots).toContain("/static/template-previews/home-index7.jpg?v=3");
+  expect(shots).toContain("/static/template-previews/home-sakura.jpg?v=3");
+  expect(shots).toContain("/static/template-previews/pay-anime.jpg");
   expect(shots).toContain("/static/template-previews/qrpay-compact.jpg");
+  // Back on page 1, the drawer shows the picture large.
+  for (
+    let n = 0;
+    n < 10 &&
+    w.get('button[aria-label="上一页"]').attributes("disabled") === undefined;
+    n++
+  )
+    await w.get('button[aria-label="上一页"]').trigger("click");
   await w
     .get('button[aria-label="应用详情 深色科技风首页模板"]')
     .trigger("click");

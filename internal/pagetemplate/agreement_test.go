@@ -23,9 +23,13 @@ func TestAgreementRendersInEveryHomeStyle(t *testing.T) {
 	for _, style := range homeStyleList {
 		t.Run(style.Name, func(t *testing.T) {
 			out := renderAgreement(t, style.Name, HomeData{SiteName: "示例支付"})
+			class := "home home-" + style.Name
+			if homeAnimeStyles[style.Name] {
+				class += " home-anime"
+			}
 			for _, want := range []string{
 				`data-home-style="` + style.Name + `"`,
-				`class="home home-` + style.Name + `"`,
+				`class="` + class + `"`,
 				"<title>示例支付服务协议</title>",
 				"<h1>示例支付服务协议</h1>",
 				"本协议由示例支付系统和你共同签订",
@@ -111,7 +115,7 @@ func TestHomeFooterLinksTheAgreement(t *testing.T) {
 // Every style draws its own backdrop, from CSS gradients only: the public
 // page allows images from its own origin only, and previews are sandboxed.
 func TestEveryHomeStyleHasItsOwnBackground(t *testing.T) {
-	css := homeBaseCSS + homeThemeCSS
+	css := homeBaseCSS + homeThemeCSS + homeAnimeCSS
 	for _, style := range homeStyleList {
 		rule := regexp.MustCompile(regexp.QuoteMeta(".home-"+style.Name) + `( \.hero)?(::before|::after)?\{[^}]*background`)
 		if !rule.MatchString(css) {

@@ -19,6 +19,11 @@ const names = [
   "index9",
   "index10",
   "minimal",
+  "sakura",
+  "starry",
+  "manga",
+  "mecha",
+  "candy",
 ];
 type RegistryTemplate = {
   type: string;
@@ -104,7 +109,7 @@ it("overlays only the known home description/version while preserving original m
 
 it("uses serialized registry versions for added templates and remains idempotent", () => {
   const generated = withBuiltinTemplates([]);
-  expect(generated).toHaveLength(16);
+  expect(generated).toHaveLength(22);
   for (const row of generated) {
     expect(row.version).toBe(row.sub === "home" ? "3" : "1");
     const source = registry.find(
