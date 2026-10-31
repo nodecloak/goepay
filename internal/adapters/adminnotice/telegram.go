@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 type Telegram struct {
@@ -41,6 +42,32 @@ func (t *Telegram) SendChannelStopped(ctx context.Context, to string, channel, e
 		}
 	}
 	title, text, e := channelStoppedMessage(channel, event, code)
+	if e != nil {
+		return e
+	}
+	form := url.Values{"chat_id": {to}, "text": {"<strong>" + html.EscapeString(title) + "</strong>\n" + html.EscapeString(text)}, "parse_mode": {"HTML"}, "disable_web_page_preview": {"true"}}
+	response, e := requestJSON(ctx, t.client, t.endpoint, []byte(form.Encode()), "application/x-www-form-urlencoded", "")
+	if e != nil {
+		return ErrDelivery
+	}
+	var accepted bool
+	if json.Unmarshal(response["ok"], &accepted) != nil || !accepted {
+		return ErrDelivery
+	}
+	return nil
+}
+
+func (t *Telegram) SendPageTemplateChanged(ctx context.Context, to string, version, restoredFrom int64, actor string, at time.Time) error {
+	if t == nil || ctx == nil || ctx.Err() != nil {
+		return ErrDelivery
+	}
+	id, e := strconv.ParseInt(to, 10, 64)
+	if e != nil || id == 0 || strconv.FormatInt(id, 10) != to {
+		if !telegramRecipientName.MatchString(to) {
+			return ErrDelivery
+		}
+	}
+	title, text, e := pageTemplateChangedMessage(version, restoredFrom, actor, at)
 	if e != nil {
 		return e
 	}

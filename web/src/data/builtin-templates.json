@@ -119,6 +119,13 @@
     "description": "糖果小熊主视觉 + 波点背景 + 清晰接入步骤"
   },
   {
+    "type": "home",
+    "name": "custom",
+    "title": "自定义 HTML 首页模板",
+    "version": "3",
+    "description": "粘贴自己的 HTML 和 CSS；不运行脚本，图片需先在这里上传"
+  },
+  {
     "type": "pay",
     "name": "default",
     "title": "默认支付页模板",
