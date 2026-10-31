@@ -356,6 +356,8 @@ onBeforeUnmount(() => {
       (mode === 'create' ? '新增' : '编辑') + (schema?.title || '支付方式')
     "
     :loading="busy"
+    drawer
+    width="560px"
     @close="mode = null"
     @submit="save"
   >
