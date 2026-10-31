@@ -443,12 +443,6 @@ onBeforeUnmount(() => {
 <template>
   <section aria-label="商户邮箱服务">
     <h2>{{ register ? "注册商户" : "找回商户密码" }}</h2>
-    <RichContent
-      v-if="register && registrationAnnouncement"
-      :content="registrationAnnouncement"
-      format="html"
-      class="registration-announcement"
-    />
     <p class="muted">
       {{
         register
@@ -456,24 +450,40 @@ onBeforeUnmount(() => {
           : "仅支持已可信验证绑定的邮箱；资料页填写的历史邮箱不自动取得恢复权限。"
       }}
     </p>
-    <p v-if="loading" role="status">正在读取服务能力…</p>
+    <RichContent
+      v-if="register && registrationAnnouncement"
+      :content="registrationAnnouncement"
+      format="html"
+      class="registration-announcement"
+    />
+    <p v-if="loading" class="muted" role="status">正在读取服务能力…</p>
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <div v-if="notice" class="alert" role="status">{{ notice }}</div>
+    <div
+      v-if="notice"
+      class="alert"
+      :class="completed ? 'success' : 'info'"
+      role="status"
+    >
+      {{ notice }}
+    </div>
     <template v-if="!completed">
       <p
         v-if="capabilities && showEmailField && !capabilities.email_enabled"
-        class="alert"
+        class="alert warning"
       >
         邮件发送尚未配置，当前不能发送验证码。
       </p>
       <p
         v-if="capabilities && register && !capabilities.registration_open"
-        class="alert"
+        class="alert warning"
       >
         当前未开放商户注册。
       </p>
-      <p v-if="phoneRestrictedUnavailable" class="alert">
+      <p v-if="phoneRestrictedUnavailable" class="alert warning">
         当前仅支持手机验证注册，短信服务暂不可用，请联系管理员
+      </p>
+      <p v-if="register && capabilities?.review_required" class="alert info">
+        新注册商户的收款权限须经管理员审核；注册后可登录查看状态。
       </p>
       <button
         v-if="!loading && !capabilities"
@@ -482,37 +492,52 @@ onBeforeUnmount(() => {
       >
         重新读取服务能力
       </button>
-      <div
-        v-if="capabilities && showChannelTabs"
-        class="enrollment-channel"
-        role="group"
-        aria-label="验证方式"
-      >
-        <button
-          type="button"
-          class="enrollment-channel-tab"
-          :class="{ active: channel === 'email' }"
-          :aria-pressed="channel === 'email'"
-          :disabled="busy"
-          @click="channel = 'email'"
-        >
-          邮箱验证
-        </button>
-        <button
-          type="button"
-          class="enrollment-channel-tab"
-          :class="{ active: channel === 'phone' }"
-          :aria-pressed="channel === 'phone'"
-          :disabled="busy"
-          @click="channel = 'phone'"
-        >
-          手机验证
-        </button>
-      </div>
       <form class="enrollment-form" @submit.prevent="submit">
-        <p v-if="register && capabilities?.review_required" class="alert">
-          新注册商户的收款权限须经管理员审核；注册后可登录查看状态。
-        </p>
+        <template v-if="register">
+          <KitField label="用户名" required
+            ><KitInput
+              v-model="username"
+              autocomplete="username"
+              placeholder="用于登录，3–100 位字母、数字或 _.@-"
+              :maxlength="100"
+              :disabled="busy"
+              required
+          /></KitField>
+          <KitField label="商户名称" required
+            ><KitInput
+              v-model="name"
+              autocomplete="organization"
+              :disabled="busy"
+              required
+          /></KitField>
+        </template>
+        <div
+          v-if="capabilities && showChannelTabs"
+          class="enrollment-channel"
+          role="group"
+          aria-label="验证方式"
+        >
+          <button
+            type="button"
+            class="enrollment-channel-tab"
+            :class="{ active: channel === 'email' }"
+            :aria-pressed="channel === 'email'"
+            :disabled="busy"
+            @click="channel = 'email'"
+          >
+            邮箱验证
+          </button>
+          <button
+            type="button"
+            class="enrollment-channel-tab"
+            :class="{ active: channel === 'phone' }"
+            :aria-pressed="channel === 'phone'"
+            :disabled="busy"
+            @click="channel = 'phone'"
+          >
+            手机验证
+          </button>
+        </div>
         <KitField v-if="showPhoneField" label="手机号码" required
           ><KitInput
             v-model="phone"
@@ -533,75 +558,46 @@ onBeforeUnmount(() => {
             :disabled="busy"
             required
         /></KitField>
-        <button
-          type="button"
-          :disabled="loading || busy || !enabled || cooldown > 0"
-          @click="send"
-        >
-          {{ cooldown > 0 ? `${cooldown} 秒后可重新发送` : "发送验证码" }}
-        </button>
-        <p v-if="!byPhone && challenge" class="muted">
-          验证码有效至
-          {{
-            new Date(expiresAt).toLocaleString()
-          }}，请在同一网络来源完成。重发会使旧凭据失效。
-        </p>
-        <p v-if="!byPhone && challenge && !validChallenge" class="alert">
-          验证码已过期，请重新申请。
-        </p>
-        <p v-if="byPhone && phoneRequested" class="muted">
-          短信验证码已发送，请在 1 小时内输入；重发会使旧验证码失效。
-        </p>
-        <template v-if="register">
-          <KitField label="用户名" required
-            ><KitInput
-              v-model="username"
-              autocomplete="username"
-              :maxlength="100"
-              :disabled="busy"
-              required
-          /></KitField>
-          <KitField label="商户名称" required
-            ><KitInput
-              v-model="name"
-              autocomplete="organization"
-              :disabled="busy"
-              required
-          /></KitField>
-          <KitField label="邀请码" :required="capabilities?.invite_required"
-            ><KitInput
-              v-model="inviteCode"
-              ariaLabel="邀请码"
-              autocomplete="off"
-              :disabled="busy"
-              :required="capabilities?.invite_required"
-            /><small v-if="capabilities?.invite_required"
-              >当前注册必须提供邀请码。</small
-            ></KitField
+        <div class="enrollment-verify">
+          <!-- The send button sits beside the code input but outside its
+               label, so the input's accessible name stays the label text. -->
+          <div class="enrollment-code">
+            <KitField :label="byPhone ? '短信验证码' : '邮箱验证码'" required
+              ><KitInput
+                v-model="code"
+                inputmode="numeric"
+                :placeholder="byPhone ? '6 位数字' : '7 位数字'"
+                :pattern="byPhone ? '[0-9]{6}' : '[0-9]{7}'"
+                :maxlength="byPhone ? 6 : 7"
+                autocomplete="one-time-code"
+                :disabled="busy"
+                required
+            /></KitField>
+            <button
+              type="button"
+              class="enrollment-send"
+              :disabled="loading || busy || !enabled || cooldown > 0"
+              @click="send"
+            >
+              {{ cooldown > 0 ? `${cooldown} 秒后可重新发送` : "发送验证码" }}
+            </button>
+          </div>
+          <p v-if="!byPhone && challenge" class="muted">
+            验证码有效至
+            {{
+              new Date(expiresAt).toLocaleString()
+            }}，请在同一网络来源完成。重发会使旧凭据失效。
+          </p>
+          <p
+            v-if="!byPhone && challenge && !validChallenge"
+            class="alert warning"
           >
-          <KitField label="推广令牌"
-            ><KitInput
-              v-model="promotionToken"
-              ariaLabel="推广令牌"
-              type="password"
-              autocomplete="off"
-              :maxlength="46"
-              :disabled="busy"
-            /><small
-              >用于确认邀请关系，与注册准入邀请码独立。仅本次明确提交时使用，可清除或手动粘贴；不会自动注册。</small
-            ></KitField
-          >
-        </template>
-        <KitField :label="byPhone ? '短信验证码' : '邮箱验证码'" required
-          ><KitInput
-            v-model="code"
-            inputmode="numeric"
-            :pattern="byPhone ? '[0-9]{6}' : '[0-9]{7}'"
-            :maxlength="byPhone ? 6 : 7"
-            autocomplete="one-time-code"
-            :disabled="busy"
-            required
-        /></KitField>
+            验证码已过期，请重新申请。
+          </p>
+          <p v-if="byPhone && phoneRequested" class="muted">
+            短信验证码已发送，请在 1 小时内输入；重发会使旧验证码失效。
+          </p>
+        </div>
         <KitField label="新密码" required
           ><KitInput
             v-model="password"
@@ -622,51 +618,128 @@ onBeforeUnmount(() => {
             :disabled="busy"
             required
         /></KitField>
+        <template v-if="register">
+          <KitField
+            :label="capabilities?.invite_required ? '邀请码' : '邀请码（选填）'"
+            :required="capabilities?.invite_required"
+            ><KitInput
+              v-model="inviteCode"
+              ariaLabel="邀请码"
+              autocomplete="off"
+              :disabled="busy"
+              :required="capabilities?.invite_required"
+            /><small v-if="capabilities?.invite_required"
+              >当前注册必须提供邀请码。</small
+            ></KitField
+          >
+          <KitField label="推广令牌（选填）"
+            ><KitInput
+              v-model="promotionToken"
+              ariaLabel="推广令牌"
+              type="password"
+              autocomplete="off"
+              :maxlength="46"
+              :disabled="busy"
+            /><small
+              >用于记录邀请关系，与邀请码不同。推广链接会自动填入，可清除。</small
+            ></KitField
+          >
+        </template>
         <button
-          class="primary full"
+          class="primary full enrollment-submit"
           :disabled="loading || busy || !enabled || !readyToSubmit"
         >
           {{ busy ? "正在处理…" : register ? "完成注册" : "提交密码恢复" }}
         </button>
       </form>
     </template>
-    <button class="full" :disabled="busy" @click="emit('close')">
+    <button
+      class="full enrollment-back"
+      :disabled="busy"
+      @click="emit('close')"
+    >
       返回登录
     </button>
   </section>
 </template>
 <style scoped>
-.enrollment-channel {
-  display: flex;
-  gap: 8px;
-  margin: 12px 0;
+/* One column with each label above its control, as on the login form: every
+   input starts at the same left edge and has the same width, whatever the
+   length of its label. */
+.enrollment-form {
+  display: grid;
+  gap: 16px;
 }
-.enrollment-channel-tab {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid var(--line, var(--line-control));
-  border-radius: 6px;
-  background: var(--bg-raised, var(--surface-alt));
-  color: var(--ink, inherit);
-  cursor: pointer;
-}
-.enrollment-channel-tab.active {
-  border-color: var(--primary, var(--focus));
-  background: var(--primary-soft, var(--bg-raised));
-  color: var(--primary-text, var(--ink));
-  font-weight: 600;
-}
-.enrollment-channel-tab:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-/* A field's hint takes its own line under the field. In one row a long hint
-   (推广令牌's) squeezed the input beside it to 0px, so it could not be seen
-   or typed into. */
 .enrollment-form .pa-field {
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  margin: 0;
 }
 .enrollment-form .pa-field > small {
-  flex: 1 0 100%;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+/* The same 40px raised control as the login inputs. flex: none keeps the kit's
+   flex: 1 from sizing it by its content in this column. */
+.enrollment-form .pa-input {
+  flex: none;
+  height: 40px;
+  max-height: none;
+  border-radius: 8px;
+  background: var(--bg-raised);
+}
+.enrollment-verify {
+  display: grid;
+  gap: 8px;
+}
+.enrollment-verify > p {
+  margin: 0;
+}
+/* 发送验证码 sits on the code input's row, bottom-aligned with it. Its
+   minimum width fits "60 秒后可重新发送" so the countdown does not resize the
+   input. */
+.enrollment-code {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+.enrollment-send {
+  min-width: 148px;
+  height: 40px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.enrollment-channel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--bg-raised);
+}
+.enrollment-channel-tab {
+  min-height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-muted);
+}
+.enrollment-channel-tab:hover {
+  color: var(--ink);
+}
+.enrollment-channel-tab.active {
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--primary-text);
+}
+.enrollment-submit {
+  margin-top: 8px;
+}
+.enrollment-back {
+  margin-top: 12px;
 }
 </style>
