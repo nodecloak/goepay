@@ -383,53 +383,61 @@ onBeforeUnmount(() => {
         <form @submit.prevent="submit">
           <template v-if="stage === 'password'"
             ><p>请先确认当前登录密码，再绑定新邮箱。</p>
-            <label
-              >当前登录密码<input
-                v-model="password"
-                type="password"
-                autocomplete="current-password"
-                required
-                maxlength="1024"
-                :disabled="busy || uncertain" /></label
+            <div class="form-rows">
+              <label
+                ><span class="field-label field-label--req">当前登录密码</span
+                ><input
+                  v-model="password"
+                  type="password"
+                  autocomplete="current-password"
+                  required
+                  maxlength="1024"
+                  :disabled="busy || uncertain"
+              /></label></div
           ></template>
           <template v-else>
-            <label v-if="stage === 'old'"
-              >验证方式<input value="邮箱验证" readonly
-            /></label>
-            <label v-if="stage === 'old'"
-              >原绑定邮箱<input :value="flow?.original_email" readonly
-            /></label>
-            <label v-else
-              >新邮箱<input
-                v-model="email"
-                type="email"
-                autocomplete="email"
-                required
-                maxlength="254"
-                :readonly="Boolean(flow?.email)"
-                :disabled="busy || uncertain"
-            /></label>
-            <div class="email-binding197-verification">
-              <label for="email197-code">验证码</label
-              ><span class="email-binding197-code"
+            <div class="form-rows">
+              <label v-if="stage === 'old'"
+                ><span class="field-label">验证方式</span
+                ><input value="邮箱验证" readonly
+              /></label>
+              <label v-if="stage === 'old'"
+                ><span class="field-label">原绑定邮箱</span
+                ><input :value="flow?.original_email" readonly
+              /></label>
+              <label v-else
+                ><span class="field-label field-label--req">新邮箱</span
                 ><input
-                  id="email197-code"
-                  v-model="code"
-                  inputmode="numeric"
-                  autocomplete="one-time-code"
-                  pattern="[0-9]{7}"
-                  minlength="7"
-                  maxlength="7"
+                  v-model="email"
+                  type="email"
+                  autocomplete="email"
                   required
-                  :disabled="busy || uncertain || expired"
-                /><button
-                  type="button"
-                  data-email197="send"
-                  :disabled="!canSend || (stage === 'new' && !email.trim())"
-                  @click="send"
-                >
-                  {{ remaining ? `${remaining} 秒` : "获取验证码" }}
-                </button></span
+                  maxlength="254"
+                  :readonly="Boolean(flow?.email)"
+                  :disabled="busy || uncertain"
+              /></label>
+              <label for="email197-code" class="email-binding197-verification"
+                ><span class="field-label field-label--req">验证码</span
+                ><span class="email-binding197-code"
+                  ><input
+                    id="email197-code"
+                    v-model="code"
+                    inputmode="numeric"
+                    autocomplete="one-time-code"
+                    pattern="[0-9]{7}"
+                    minlength="7"
+                    maxlength="7"
+                    required
+                    :disabled="busy || uncertain || expired"
+                  /><button
+                    type="button"
+                    data-email197="send"
+                    :disabled="!canSend || (stage === 'new' && !email.trim())"
+                    @click="send"
+                  >
+                    {{ remaining ? `${remaining} 秒` : "获取验证码" }}
+                  </button></span
+                ></label
               >
             </div>
             <p class="muted">
@@ -489,22 +497,11 @@ onBeforeUnmount(() => {
 }
 .email-binding197-code button {
   white-space: nowrap;
-  min-height: 40px;
+  min-height: var(--control-h);
 }
 .email-binding197-dialog {
   max-width: 500px;
-  width: calc(100vw - 32px);
-}
-.email-binding197-dialog label {
-  display: grid;
-  gap: 8px;
-  margin: 16px 0;
-}
-.email-binding197-dialog .modal-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
+  width: min(100%, 500px);
 }
 @media (max-width: 480px) {
   .email-binding197-row {
