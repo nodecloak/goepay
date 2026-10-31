@@ -35,9 +35,17 @@ test("login errors, scope navigation, and mobile layout", async ({ page }) => {
   await page.getByLabel("密码", { exact: true }).fill("invalid");
   await page.getByRole("button", { name: "登录工作台" }).click();
   await expect(page.getByRole("alert")).toHaveText("用户名或密码错误");
-  await page.getByRole("link", { name: "商户后台", exact: true }).click();
+  // Each console has its own login address: neither login page links to the
+  // other one.
+  await expect(
+    page.getByRole("link", { name: "商户后台", exact: true }),
+  ).toHaveCount(0);
+  await page.goto("/merchant/dashboard");
   await expect(page).toHaveURL(/\/merchant\/login/);
   await expect(page.getByRole("heading", { name: "商户登录" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "管理后台", exact: true }),
+  ).toHaveCount(0);
   await expect
     .poll(() =>
       page

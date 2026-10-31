@@ -461,37 +461,6 @@ h3 {
   padding-inline: 0;
   color: var(--accent);
 }
-.area-switch {
-  display: flex;
-  border-bottom: 2px solid var(--line);
-  margin-bottom: 30px;
-  gap: 0;
-}
-.area-switch a {
-  flex: 1;
-  padding: 12px 0;
-  text-align: center;
-  color: var(--ink-muted);
-  position: relative;
-}
-.area-switch a:hover {
-  text-decoration: none;
-  color: var(--accent);
-}
-.area-switch .selected {
-  color: var(--accent);
-  font-weight: 600;
-}
-.area-switch .selected::after {
-  content: "";
-  position: absolute;
-  bottom: -2px;
-  left: 20%;
-  right: 20%;
-  height: 2px;
-  background: var(--accent);
-  border-radius: 1px;
-}
 body:has(.login-layout[data-area="merchant"]) {
   background: var(--bg-raised)
     radial-gradient(circle, var(--bg-raised), var(--bg-raised));
