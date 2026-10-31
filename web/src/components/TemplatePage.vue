@@ -14,6 +14,7 @@ import {
   type TemplateList,
 } from "../page-template";
 import KitStatusTag from "./KitStatusTag.vue";
+import CustomHtmlEditor from "./CustomHtmlEditor.vue";
 const props = defineProps<{
   client: ApiClient;
   adminClass?: string;
@@ -37,12 +38,34 @@ const loading = ref(false),
   confirmation = ref<"save" | "select" | null>(null),
   preview = ref(false);
 // The card 预览 button opens a template over the whole main content area.
-const fullPreview = ref<{ name: string; title: string } | null>(null),
+// A direct `src` lets the custom-HTML editor open a specific version preview.
+const fullPreview = ref<{
+    key: string;
+    title: string;
+    src: string;
+  } | null>(null),
   fullPreviewClose = ref<HTMLButtonElement | null>(null);
 let fullPreviewReturn: HTMLElement | null = null;
 function openFullPreview(item: { name: string; title: string }, ev: Event) {
   fullPreviewReturn = ev.currentTarget as HTMLElement;
-  fullPreview.value = { name: item.name, title: item.title };
+  fullPreview.value = {
+    key: `${kind.value}-${item.name}`,
+    title: item.title,
+    src: `/console/v1/admin/templates/${kind.value}/${encodeURIComponent(item.name)}/preview`,
+  };
+  void nextTick(() => fullPreviewClose.value?.focus());
+}
+// A custom HTML save or restore moved the kind-wide revision. Keep the typed
+// config form and the catalog on it without reloading, which would remount
+// the editor and drop its result message.
+function customSaved(revision: string) {
+  if (view.value) view.value = { ...view.value, revision };
+  if (catalog.value) catalog.value = { ...catalog.value, revision };
+}
+// The custom-HTML editor opens a version preview with a direct URL.
+function openCustomPreview(src: string, title: string) {
+  fullPreviewReturn = document.activeElement as HTMLElement;
+  fullPreview.value = { key: src, title, src };
   void nextTick(() => fullPreviewClose.value?.focus());
 }
 function closeFullPreview() {
@@ -169,8 +192,21 @@ async function commit() {
         : "模板已切换；后续页面使用新外观。";
   } catch (e) {
     if (active && token === epoch) {
-      uncertain.value = true;
-      error.value = `${e instanceof Error ? e.message : "保存响应未知"}。请重新读取原版本，禁止自动重发。`;
+      const status = (e as { status?: number })?.status;
+      // Selecting custom while no usable version exists is refused with 422
+      // and nothing changed: show the reason instead of asking for a reload.
+      if (
+        action === "select" &&
+        original.type === "home" &&
+        original.name === "custom" &&
+        status === 422
+      ) {
+        error.value =
+          e instanceof Error && e.message ? e.message : "请先保存自定义 HTML";
+      } else {
+        uncertain.value = true;
+        error.value = `${e instanceof Error ? e.message : "保存响应未知"}。请重新读取原版本，禁止自动重发。`;
+      }
     }
   } finally {
     if (active) busy.value = false;
@@ -303,8 +339,7 @@ onBeforeUnmount(() => {
         <header class="template-fullpreview-head">
           <strong>{{ fullPreview.title }}</strong>
           <span class="muted"
-            >{{ label[kind] }} · {{ fullPreview.name }} ·
-            已保存配置，演示数据，不发起支付</span
+            >{{ label[kind] }} · 已保存配置，演示数据，不发起支付</span
           >
           <button
             ref="fullPreviewClose"
@@ -317,9 +352,9 @@ onBeforeUnmount(() => {
           </button>
         </header>
         <iframe
-          :key="`${kind}-${fullPreview.name}`"
+          :key="fullPreview.key"
           :title="`${fullPreview.title} 预览`"
-          :src="`/console/v1/admin/templates/${kind}/${encodeURIComponent(fullPreview.name)}/preview`"
+          :src="fullPreview.src"
           sandbox="allow-same-origin"
           referrerpolicy="no-referrer"
         />
@@ -422,6 +457,12 @@ onBeforeUnmount(() => {
             </div>
           </fieldset>
         </form>
+        <CustomHtmlEditor
+          v-if="kind === 'home' && view.name === 'custom'"
+          :client="client"
+          @preview="openCustomPreview"
+          @saved="customSaved"
+        />
         <div
           v-if="confirmation"
           class="template-confirm"

@@ -42,8 +42,8 @@ func TestBuiltInRegistryAndTypedConfig(t *testing.T) {
 			}
 		}
 	}
-	if len(cases["home"]) != 17 {
-		t.Fatal("home must ship default, index1-index10, minimal and the five anime styles", len(cases["home"]))
+	if len(cases["home"]) != 18 {
+		t.Fatal("home must ship default, index1-index10, minimal, the five anime styles and custom", len(cases["home"]))
 	}
 	if _, ok := Lookup("qrpay", "anime"); ok {
 		t.Fatal("the anime template is a pay page only")

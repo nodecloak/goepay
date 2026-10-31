@@ -33,6 +33,8 @@ var homeStyleList = []HomeStyleInfo{
 	{"manga", "热血漫画二次元首页模板", "三格漫画讲解接入流程 + 网点纸背景 + 原生问答", "马上加入"},
 	{"mecha", "机甲未来二次元首页模板", "机甲 HUD 主视觉 + 全息网格 + 支付链路说明", "启动接入"},
 	{"candy", "糖果萌系二次元首页模板", "糖果小熊主视觉 + 波点背景 + 清晰接入步骤", "注册使用"},
+	// custom shows the super administrator's own HTML and CSS (custom.go).
+	{"custom", "自定义 HTML 首页模板", "粘贴自己的 HTML 和 CSS；不运行脚本，图片需先在这里上传", "注册商户"},
 }
 
 // Anime (二次元) styles draw an original inline-SVG mascot in the hero and
@@ -131,6 +133,13 @@ type homeFrame struct {
 	Anchor    string
 	// Anime marks the 二次元 styles, which share home/anime.css.
 	Anime bool
+	// The custom style (custom.go): sanitized HTML, checked CSS, whether the
+	// system navigation and footer stay, and the version shown.
+	CustomHTML    template.HTML
+	CustomCSS     template.CSS
+	CustomFrame   bool
+	CustomVersion int
+	replacer      *strings.Replacer
 }
 
 //go:embed home/page.html
@@ -151,14 +160,17 @@ var homeThemeCSS string
 //go:embed home/anime.css
 var homeAnimeCSS string
 
-var homeTmpl = template.Must(template.Must(template.Must(template.New("home").Funcs(template.FuncMap{
+var homeTmpl = template.Must(template.Must(template.Must(template.Must(template.New("home").Funcs(template.FuncMap{
 	"icon": homeIcon, "inc": func(i int) int { return i + 1 },
-}).Parse(homeTemplateText)).Parse(homeAgreementText)).Parse(homeAnimeArtText))
+}).Parse(homeTemplateText)).Parse(homeAgreementText)).Parse(homeAnimeArtText)).Parse(homeCustomText))
 
 func RenderHome(w io.Writer, r Resolved, d HomeData) error {
 	frame, err := buildHomeFrame(r, d)
 	if err != nil {
 		return err
+	}
+	if frame.Style == "custom" {
+		return renderCustomHome(w, frame, r.Custom, frame.replacer)
 	}
 	return homeTmpl.ExecuteTemplate(w, "doc", frame)
 }
@@ -216,7 +228,11 @@ func buildHomeFrame(r Resolved, d HomeData) (homeFrame, error) {
 	if anime {
 		styleCSS += homeAnimeCSS
 	}
-	css := strings.NewReplacer("$ONACCENT", onAccent, "$ACCENT", accent, "$LINK", link, "$BG", background, "$FG", foreground).Replace(styleCSS)
+	if style.Name == "custom" {
+		styleCSS += homeCustomCSS
+	}
+	replacer := strings.NewReplacer("$ONACCENT", onAccent, "$ACCENT", accent, "$LINK", link, "$BG", background, "$FG", foreground)
+	css := replacer.Replace(styleCSS)
 	if d.Notice == "" {
 		d.Notice = r.Config.Notice
 	}
@@ -235,5 +251,5 @@ func buildHomeFrame(r Resolved, d HomeData) (homeFrame, error) {
 	if contrast("#ffffff", background) > contrast("#0A0F1F", background) {
 		defaultLogo = "/static/goepay-wordmark-ondark.svg?v=306905c49705"
 	}
-	return homeFrame{HomeData: d, Year: time.Now().Year(), CTA: style.CTA, Density: density, DefaultLogoURL: defaultLogo, CSS: template.CSS(css), Features: homeFeatures, Scenarios: homeScenarios, Steps: homeSteps, FAQ: homeFAQ, Resources: homeResources, Anime: anime}, nil
+	return homeFrame{HomeData: d, Year: time.Now().Year(), CTA: style.CTA, Density: density, DefaultLogoURL: defaultLogo, CSS: template.CSS(css), Features: homeFeatures, Scenarios: homeScenarios, Steps: homeSteps, FAQ: homeFAQ, Resources: homeResources, Anime: anime, replacer: replacer}, nil
 }

@@ -198,6 +198,7 @@ it("opens on the 首页模板 tab", async () => {
     "manga",
     "mecha",
     "candy",
+    "custom",
   ];
   const request = vi.fn(async (path: string) =>
     path.includes("?")
@@ -232,6 +233,6 @@ it("opens on the 首页模板 tab", async () => {
   await flushPromises();
   const pressed = w.find('nav.template-tabs button[aria-pressed="true"]');
   expect(pressed.text()).toBe("首页模板");
-  expect(w.findAll("img.template-thumb").length).toBe(17);
+  expect(w.findAll("img.template-thumb").length).toBe(18);
   w.unmount();
 });
