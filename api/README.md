@@ -12,6 +12,8 @@
 
 管理员商户资源的原字段 `settle` 为字符串 `"1"` 开启、`"0"` 关闭，保存遵循资源 PATCH、角色权限与 CSRF；商户本人不可修改。目录 `dstatus=settle_1|settle_0` 与列表的“结算”状态使用同一规则。缺省兼容此前 Go 的开启行为；原 `settle` 优先于旧 `settle_status` 别名，明确无效值不能放行。兼容商户信息接口的 `settle_status` 返回实际商户权限，并不代表用户组或全局规则均已满足。只读 `settlement_permission_revision` 不接受请求赋值。
 
+管理员新增商户（原“添加商户”）可不传 `api_key`：服务端按重置MD5同一格式生成32位随机十六进制密钥（AEAD 密文保存，不在响应中返回，需要时由super重置MD5或商户本人重置后一次性查看），`signature_algorithm` 缺省 `MD5`；显式传入的密钥仍须至少24字节。同一请求可带仅新增可写、从不返回的字段：`fee_mode` 为 `"0"` 余额扣费（缺省，不写策略）或 `"1"` 订单加费（写入商户首个买家加费策略）；`settlement_type`（`alipay|wxpay|bank`，缺省 `alipay`）、`settlement_account`、`settlement_name` 及微信必填的 `settlement_app_id` 组成首个结算收款版本，账号与姓名同时留空表示不使用平台代收。收款按“结算收款资料”同一规则校验，受 `settle_*` 开关约束，需 super/operator，与商户、账户及审计同事务写入；任一项被拒则商户不会创建。这些字段不进入商户 profile，编辑时提交返回403；之后手续费模式由商户本人在“手续费承担设置”中修改，收款在“修改结算收款资料”中修改。
+
 关闭商户结算权限后，新提现、代付及未发送批次/结算出款均在事务内拒绝；原请求号重放和原结果查询仍可用，不会自动重发。关闭后重新开启不会恢复旧的未来生成/付款授权，须明确重新授权；历史原资金、费用、请求和证明保持原样。此字段不改变退款规则。
 
 新增管理员订单操作：`/console/v1/admin/orders/{trade}/admin-status|archive|restore|manual-complete|manual-refund`。前四项使用原请求号/原因/后台审计修订，状态标记不覆盖支付事实，删除保留财务记录。补单只核验原单，202不能当完成。手动退款与通道API退款独立，必须确认已线下退还；首次变更无论全局开关都需本人super的短时资金授权，资金与内部HMAC结果/审计同事务。详见OpenAPI；同支付方式API退款仍使用原`/refund`与未知结果保护。原UI职责和尚未对齐项见[全页面复核](../docs/verification/pro-ux-review-2026-10-25.md)。
