@@ -59,6 +59,18 @@ func TestPageTemplateActuallyRendersCheckoutCollectionAndHomeWithoutChangingPaym
 	if page.Code != 200 || !strings.Contains(page.Body.String(), `data-template="compact"`) || !strings.Contains(page.Body.String(), "max-width:440px") {
 		t.Fatal("selection not rendered", page.Code, page.Body.String())
 	}
+	// The anime (二次元) pay page frames the same checkout, then compact is
+	// selected again for the fallback check below.
+	if _, e := templates.Select(ctx, "pay", "anime", 2, admin); e != nil {
+		t.Fatal(e)
+	}
+	page = get(link)
+	if body := page.Body.String(); page.Code != 200 || !strings.Contains(body, `data-template="anime"`) || !strings.Contains(body, `<span class="template-mascot" aria-hidden="true">`) || !strings.Contains(page.Header().Get("Content-Security-Policy"), "script-src 'nonce-") {
+		t.Fatal("anime pay page not rendered", page.Code, body)
+	}
+	if _, e := templates.Select(ctx, "pay", "compact", 3, admin); e != nil {
+		t.Fatal(e)
+	}
 	if get("/checkout/"+trade).Code != 403 {
 		t.Fatal("styling bypassed checkout HMAC")
 	}

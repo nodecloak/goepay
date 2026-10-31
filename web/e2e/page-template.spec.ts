@@ -77,6 +77,11 @@ test("typed templates require explicit confirmation and kind-wide CAS, private i
               "index9",
               "index10",
               "minimal",
+              "sakura",
+              "starry",
+              "manga",
+              "mecha",
+              "candy",
             ].map((name) => ({
               name,
               title: name === "default" ? "标准模板" : name,
@@ -93,6 +98,15 @@ test("typed templates require explicit confirmation and kind-wide CAS, private i
                 title: "紧凑模板",
                 description: "本地紧凑布局",
               },
+              ...(kind === "pay"
+                ? [
+                    {
+                      name: "anime",
+                      title: "二次元模板",
+                      description: "本地二次元布局",
+                    },
+                  ]
+                : []),
             ];
       return r.fulfill(ok({ type: kind, revision, selected, items }));
     }
@@ -223,6 +237,11 @@ test("template unknown response blocks repeated mutation until explicit reload a
             "index9",
             "index10",
             "minimal",
+            "sakura",
+            "starry",
+            "manga",
+            "mecha",
+            "candy",
           ].map((name) => ({ name, title: name, description: "本地" })),
         }),
       );
@@ -297,10 +316,18 @@ test("three template kinds keep typed fields and image upload stays a draft unti
               "index9",
               "index10",
               "minimal",
+              "sakura",
+              "starry",
+              "manga",
+              "mecha",
+              "candy",
             ].map((name) => ({ name, title: name, description: "本地" }))
           : [
               { name: "default", title: "标准", description: "本地" },
               { name: "compact", title: "紧凑", description: "本地" },
+              ...(kind === "pay"
+                ? [{ name: "anime", title: "二次元", description: "本地" }]
+                : []),
             ];
       return r.fulfill(
         ok({ type: kind, revision: "0", selected: "default", items }),
