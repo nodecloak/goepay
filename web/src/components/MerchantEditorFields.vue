@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, useId, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  useId,
+  watch,
+} from "vue";
 import type { ResourceField } from "../resources";
 import { readonly } from "../resources";
 import { merchantRecipientLabel } from "../pro-console-fields";
@@ -39,13 +47,69 @@ const apiNames = new Set([
     "rsa_public_key",
     "keytype",
   ]),
-  statusNames = new Set(["enabled", "pay"]),
+  // 功能开关 as in Pro 添加商户: 手续费扣除模式 (create only) comes first.
+  statusOrder = ["fee_mode", "enabled", "pay"],
+  statusNames = new Set(statusOrder),
   payoutNames = new Set([
     "transfer_api_enabled",
     "transfer_rate",
     "settle",
     "remain_money",
+  ]),
+  // 结算信息: the optional first recipient, entered only when creating.
+  settlementNames = new Set([
+    "settlement_type",
+    "settlement_account",
+    "settlement_name",
+    "settlement_app_id",
   ]);
+// Settlement account types the platform allows (settle_* switches). Advisory:
+// the server refuses a switched-off type on save.
+const allowedSettlementTypes = ref<string[] | null>(null);
+let allowedController: AbortController | undefined;
+onMounted(async () => {
+  if (props.editing || !props.fields.some((f) => f.name === "settlement_type"))
+    return;
+  allowedController = new AbortController();
+  try {
+    const types = await props.client.request<{ settlement?: unknown }>(
+      "/workflows/settlement-recipient/allowed-types",
+      { signal: allowedController.signal },
+    );
+    if (allowedController.signal.aborted || !Array.isArray(types?.settlement))
+      return;
+    const allowed = types.settlement.map(String);
+    allowedSettlementTypes.value = allowed;
+    const current = String(props.values.settlement_type ?? "");
+    if (current && !allowed.includes(current))
+      emit(
+        "change",
+        "settlement_type",
+        ["alipay", "wxpay", "bank"].find((t) => allowed.includes(t)) ?? "",
+      );
+  } catch {
+    // Keep every type listed; the server still enforces the switches.
+  }
+});
+onBeforeUnmount(() => allowedController?.abort());
+const settlementFields = computed(() => {
+  const fields = props.fields.filter((f) => settlementNames.has(f.name)),
+    type = fields.find((f) => f.name === "settlement_type"),
+    allowed = allowedSettlementTypes.value,
+    options = type?.options?.filter(
+      (o) =>
+        !allowed ||
+        allowed.includes(String(typeof o === "string" ? o : o.value)),
+    );
+  if (type && !options?.length) return [];
+  return fields
+    .filter(
+      (f) =>
+        f.name !== "settlement_app_id" ||
+        props.values.settlement_type === "wxpay",
+    )
+    .map((f) => (f === type ? { ...f, options } : f));
+});
 const apiFields = computed(() =>
     props.fields.filter(
       (f) =>
@@ -72,9 +136,11 @@ const groups = computed(() =>
         (f) =>
           !apiNames.has(f.name) &&
           !statusNames.has(f.name) &&
-          !payoutNames.has(f.name),
+          !payoutNames.has(f.name) &&
+          !settlementNames.has(f.name),
       ),
     },
+    { name: "settlement", label: "结算信息", fields: settlementFields.value },
     {
       name: "payout",
       label: "结算与代付",
@@ -82,8 +148,10 @@ const groups = computed(() =>
     },
     {
       name: "status",
-      label: "状态设置",
-      fields: props.fields.filter((f) => statusNames.has(f.name)),
+      label: "功能开关",
+      fields: statusOrder.flatMap((name) =>
+        props.fields.filter((f) => f.name === name),
+      ),
     },
   ].filter((g) => g.fields.some((f) => !readonly(f, props.editing))),
 );
@@ -141,6 +209,7 @@ function keydown(event: KeyboardEvent) {
 <template>
   <div ref="root" class="merchant-editor">
     <div
+      v-if="tabs.length > 1"
       role="tablist"
       aria-label="商户信息分类"
       class="merchant-editor-tabs"
@@ -165,11 +234,15 @@ function keydown(event: KeyboardEvent) {
       <div
         v-show="tab === 'basic'"
         :id="id + '-basic-panel'"
-        role="tabpanel"
-        :aria-labelledby="id + '-basic-tab'"
+        :role="tabs.length > 1 ? 'tabpanel' : undefined"
+        :aria-labelledby="tabs.length > 1 ? id + '-basic-tab' : undefined"
       >
         <p class="muted merchant-editor-hint">
-          手机、邮箱和网站是联系资料。登录账号及已审核支付域名分别管理。
+          手机、邮箱和网站是联系资料。登录账号及已审核支付域名分别管理。<template
+            v-if="!editing"
+            >保存后系统自动生成 MD5 API
+            密钥，之后可在编辑商户的“密钥信息”中修改或重置。</template
+          >
         </p>
 
         <section
