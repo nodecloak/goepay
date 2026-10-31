@@ -145,7 +145,7 @@ it("the market pages long lists and shows every template as installed", async ()
   // Every template row carries its preview picture, and the drawer shows it large.
   const shots = w.findAll("img.plugin-shot").map((i) => i.attributes("src"));
   expect(shots.length).toBe(builtinTemplates.length);
-  expect(shots).toContain("/static/template-previews/home-index7.jpg?v=2");
+  expect(shots).toContain("/static/template-previews/home-index7.jpg?v=3");
   expect(shots).toContain("/static/template-previews/qrpay-compact.jpg");
   await w
     .get('button[aria-label="应用详情 深色科技风首页模板"]')
@@ -154,7 +154,7 @@ it("the market pages long lists and shows every template as installed", async ()
     '[role="dialog"][aria-label="应用详情"] img.plugin-preview',
   );
   expect(big.attributes("src")).toBe(
-    "/static/template-previews/home-index7.jpg?v=2",
+    "/static/template-previews/home-index7.jpg?v=3",
   );
   expect(big.attributes("alt")).toBe("深色科技风首页模板 预览截图");
   w.unmount();

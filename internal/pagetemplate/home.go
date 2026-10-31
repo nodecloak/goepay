@@ -57,7 +57,9 @@ func homeStyle(name string) (HomeStyleInfo, bool) {
 func HomeTemplates() []Template {
 	out := make([]Template, 0, len(homeStyleList))
 	for _, style := range homeStyleList {
-		out = append(out, Template{Type: "home", Name: style.Name, Title: style.Title, Author: "GOEPAY", Version: "2", Description: style.Description, PreviewURL: "/console/v1/admin/templates/home/" + style.Name + "/preview", HasConfig: true})
+		// Version 3: every style has its own background and an agreement
+		// page; the console reloads the preview pictures by this version.
+		out = append(out, Template{Type: "home", Name: style.Name, Title: style.Title, Author: "GOEPAY", Version: "3", Description: style.Description, PreviewURL: "/console/v1/admin/templates/home/" + style.Name + "/preview", HasConfig: true})
 	}
 	return out
 }
@@ -110,10 +112,18 @@ type homeFrame struct {
 	Steps               []homeStep
 	FAQ                 []homeQA
 	Resources           []homeResource
+	// Agreement renders the service agreement (/agreement.html) inside the
+	// style's navigation and footer. Anchor prefixes the home-page section
+	// links (#features, #faq): "" on the home page, "/" on other pages.
+	Agreement bool
+	Anchor    string
 }
 
 //go:embed home/page.html
 var homeTemplateText string
+
+//go:embed home/agreement.html
+var homeAgreementText string
 
 //go:embed home/base.css
 var homeBaseCSS string
@@ -121,13 +131,34 @@ var homeBaseCSS string
 //go:embed home/themes.css
 var homeThemeCSS string
 
-var homeTmpl = template.Must(template.New("home").Funcs(template.FuncMap{
+var homeTmpl = template.Must(template.Must(template.New("home").Funcs(template.FuncMap{
 	"icon": homeIcon, "inc": func(i int) int { return i + 1 },
-}).Parse(homeTemplateText))
+}).Parse(homeTemplateText)).Parse(homeAgreementText))
 
 func RenderHome(w io.Writer, r Resolved, d HomeData) error {
+	frame, err := buildHomeFrame(r, d)
+	if err != nil {
+		return err
+	}
+	return homeTmpl.ExecuteTemplate(w, "doc", frame)
+}
+
+// RenderAgreement renders the service agreement page (/agreement.html) with
+// the selected home style, so it shares that style's navigation, background
+// and footer, including the contact details from the website settings.
+func RenderAgreement(w io.Writer, r Resolved, d HomeData) error {
+	frame, err := buildHomeFrame(r, d)
+	if err != nil {
+		return err
+	}
+	frame.Agreement, frame.Anchor = true, "/"
+	frame.Title = frame.SiteName + "服务协议"
+	return homeTmpl.ExecuteTemplate(w, "doc", frame)
+}
+
+func buildHomeFrame(r Resolved, d HomeData) (homeFrame, error) {
 	if r.Type != "home" {
-		return ErrInvalid
+		return homeFrame{}, ErrInvalid
 	}
 	style, ok := homeStyle(r.Name)
 	if !ok {
@@ -179,6 +210,5 @@ func RenderHome(w io.Writer, r Resolved, d HomeData) error {
 	if contrast("#ffffff", background) > contrast("#0A0F1F", background) {
 		defaultLogo = "/static/goepay-wordmark-ondark.svg?v=306905c49705"
 	}
-	frame := homeFrame{HomeData: d, Year: time.Now().Year(), CTA: style.CTA, Density: density, DefaultLogoURL: defaultLogo, CSS: template.CSS(css), Features: homeFeatures, Scenarios: homeScenarios, Steps: homeSteps, FAQ: homeFAQ, Resources: homeResources}
-	return homeTmpl.ExecuteTemplate(w, "doc", frame)
+	return homeFrame{HomeData: d, Year: time.Now().Year(), CTA: style.CTA, Density: density, DefaultLogoURL: defaultLogo, CSS: template.CSS(css), Features: homeFeatures, Scenarios: homeScenarios, Steps: homeSteps, FAQ: homeFAQ, Resources: homeResources}, nil
 }

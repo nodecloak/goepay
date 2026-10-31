@@ -63,7 +63,38 @@ func (s *Server) templatePublic(w http.ResponseWriter, r *http.Request) bool {
 	if siteHomepage191(w, r, cfg) {
 		return true
 	}
-	s.renderHome(w, r, cfg)
+	s.renderHome(w, r, cfg, false)
+	return true
+}
+
+// agreementPublic serves the service agreement at the original epay_pro
+// address /agreement.html (/agreement redirects there). It is rendered in the
+// selected home template, with the contact details from the website settings.
+// It is shown whatever the homepage mode, like the original page.
+func (s *Server) agreementPublic(w http.ResponseWriter, r *http.Request) bool {
+	if r.URL.Path != "/agreement.html" && r.URL.Path != "/agreement" {
+		return false
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return true
+	}
+	if r.URL.Path == "/agreement" {
+		http.Redirect(w, r, "/agreement.html", http.StatusFound)
+		return true
+	}
+	if s.Pool == nil {
+		http.Error(w, "page appearance unavailable", http.StatusServiceUnavailable)
+		return true
+	}
+	cfg, err := siteinfo.Load(r.Context(), s.Pool)
+	if err != nil {
+		http.Error(w, "website settings unavailable", 503)
+		return true
+	}
+	s.renderHome(w, r, cfg, true)
 	return true
 }
 
@@ -91,10 +122,11 @@ func (s *Server) homeFlags(ctx context.Context) (testOpen, registrationOpen bool
 	return
 }
 
-// renderHome serves the selected built-in home landing page. Operator text is
+// renderHome serves the selected built-in home landing page, or with agreement
+// set the service agreement page in the same template. Operator text is
 // escaped by the template, the page carries no script or form, and the
 // appearance colours come from the selected template's typed configuration.
-func (s *Server) renderHome(w http.ResponseWriter, r *http.Request, cfg siteinfo.Config) {
+func (s *Server) renderHome(w http.ResponseWriter, r *http.Request, cfg siteinfo.Config, agreement bool) {
 	appearance, e := pagetemplate.New(s.Pool).Resolve(r.Context(), "home")
 	if e != nil {
 		http.Error(w, "page appearance unavailable", 503)
@@ -125,7 +157,11 @@ func (s *Server) renderHome(w http.ResponseWriter, r *http.Request, cfg siteinfo
 		d.LogoURL = "/static/img/logo.png"
 	}
 	var b bytes.Buffer
-	if e = pagetemplate.RenderHome(&b, appearance, d); e != nil {
+	render := pagetemplate.RenderHome
+	if agreement {
+		render = pagetemplate.RenderAgreement
+	}
+	if e = render(&b, appearance, d); e != nil {
 		http.Error(w, "page appearance unavailable", 503)
 		return
 	}
