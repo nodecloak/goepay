@@ -219,12 +219,15 @@ export function formValues(
   schema: ResourceSchema,
   record: Record<string, unknown> = {},
 ): Record<string, unknown> {
+  const editing = Object.keys(record).length > 0;
   return Object.fromEntries(
     schema.fields
-      .filter((f) => !readonly(f, Object.keys(record).length > 0))
+      .filter((f) => !readonly(f, editing))
       .map((f) => {
+        // A stored write-only value is never shown; a new record starts from
+        // the field's default (for example 添加商户 手续费扣除模式).
         const value =
-          f.write_only || f.type === "password"
+          f.type === "password" || (f.write_only && editing)
             ? ""
             : (record[f.name] ??
               f.default ??

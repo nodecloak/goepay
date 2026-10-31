@@ -33,6 +33,10 @@ import {
   type ResourceSchema,
   type ResourceEntry,
 } from "../resources";
+import {
+  createRecipientErrors,
+  omitUnusedCreateRecipient,
+} from "../settlement-recipient";
 import ResourceFields from "./ResourceFields.vue";
 import KitPagination from "./KitPagination.vue";
 import KitEmpty from "./KitEmpty.vue";
@@ -792,24 +796,41 @@ const contactAnchor = computed(
       : schema.value?.fields
     )?.find((f) => ["phone", "qq"].includes(f.name))?.name,
 );
+// 添加商户 asks for no key: the server generates an MD5 key, which is then
+// managed under 密钥信息 when editing.
+const merchantCreateHidden = new Set([
+  "api_key",
+  "signature_algorithm",
+  "rsa_public_key",
+  "keytype",
+]);
 const formSchema = computed<ResourceSchema | null>(() =>
   schema.value
     ? {
         ...schema.value,
         fields: businessNoticeSettingsFields(
-          schema.value.fields.map((f) =>
-            mode.value === "edit" &&
-            ((props.resource === "merchants" &&
-              selected.value.login_username &&
-              f.name === "login_username") ||
-              (props.resource === "admin-users" && f.name === "username"))
-              ? { ...f, read_only: true }
-              : props.resource === "merchants" &&
+          schema.value.fields
+            .filter(
+              (f) =>
+                !(
+                  props.resource === "merchants" &&
                   mode.value === "create" &&
-                  f.name === "api_key"
-                ? { ...f, required: true }
-                : f,
-          ),
+                  merchantCreateHidden.has(f.name)
+                ),
+            )
+            .map((f) =>
+              mode.value === "edit" &&
+              ((props.resource === "merchants" &&
+                selected.value.login_username &&
+                f.name === "login_username") ||
+                (props.resource === "admin-users" && f.name === "username"))
+                ? { ...f, read_only: true }
+                : props.resource === "merchants" &&
+                    mode.value === "create" &&
+                    f.name === "fee_mode"
+                  ? { ...f, required: true }
+                  : f,
+            ),
           props.resource === "settings" ? values.value.key : null,
         ),
       }
@@ -1020,10 +1041,12 @@ async function save() {
       formSchema.value?.fields.some(
         (f) => f.name === "api_key" && !f.read_only && !f.readonly,
       ) &&
-      (mode.value === "create" || key) &&
+      key &&
       key.length < 24
     )
       fieldErrors.value.api_key = "API 密钥至少需要24个字符";
+    if (mode.value === "create")
+      Object.assign(fieldErrors.value, createRecipientErrors(values.value));
   }
   if (Object.keys(fieldErrors.value).length) return;
   busy.value = true;
@@ -1037,6 +1060,7 @@ async function save() {
     if (props.resource === "merchants") {
       if (!values.value.login_username) delete payload.login_username;
       if (!values.value.login_password) delete payload.login_password;
+      if (mode.value === "create") omitUnusedCreateRecipient(payload);
     }
     await props.client.request(
       endpoint.value +
@@ -1828,7 +1852,7 @@ onBeforeUnmount(resetContext);
           type="button"
           class="resource-modal-x"
           :disabled="editingBusy"
-          aria-label="关闭"
+          :aria-label="mode === 'detail' ? '关闭详情' : '关闭'"
           @click="mode = null"
         >
           ×
