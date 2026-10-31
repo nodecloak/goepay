@@ -74,6 +74,7 @@ for (const area of ["admin", "merchant"])
       expect(box!.x + box!.width).toBeLessThanOrEqual(width);
       await dialog
         .getByRole("button", { name: "关闭", exact: true })
+        .first()
         .press("Escape");
       await expect(dialog).toHaveCount(0);
       await expect(opener).toBeFocused();

@@ -2807,15 +2807,26 @@ onBeforeUnmount(() => {
           "
           @keydown="trapRefundFocus"
         >
-          <h2>
-            {{
-              refundRecoveryOnly212
-                ? "核对原退款"
-                : area === "admin"
-                  ? "API退款确认"
-                  : "申请退款"
-            }}
-          </h2>
+          <div class="toolbar">
+            <h2>
+              {{
+                refundRecoveryOnly212
+                  ? "核对原退款"
+                  : area === "admin"
+                    ? "API退款确认"
+                    : "申请退款"
+              }}
+            </h2>
+            <button
+              type="button"
+              class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+              aria-label="关闭"
+              :disabled="busy"
+              @click="closeRefundModal"
+            >
+              ×
+            </button>
+          </div>
           <div v-if="error" class="alert error" role="alert">{{ error }}</div>
           <form v-if="refundRow" @submit.prevent="submitRefund">
             <p v-if="refundRestoring212" role="status">
@@ -2865,8 +2876,10 @@ onBeforeUnmount(() => {
                 refundRow.trade_no ?? refundRow.id
               }}</span>
             </p>
+            <div class="form-rows">
             <label
-              >退款金额（元）<input
+              ><span class="field-label field-label--req">退款金额（元）</span
+              ><input
                 v-model="refundMoney"
                 :readonly="
                   !!refundIntent212 ||
@@ -2878,7 +2891,8 @@ onBeforeUnmount(() => {
                 required
                 autofocus /></label
             ><label
-              >退款请求号<input
+              ><span class="field-label field-label--req">退款请求号</span
+              ><input
                 v-model="refundExternal"
                 :readonly="
                   !!refundIntent212 ||
@@ -2889,6 +2903,7 @@ onBeforeUnmount(() => {
                 required
                 maxlength="128"
             /></label>
+            </div>
             <p class="muted">
               提交后请查看退款记录确认处理结果。重复提交请保留相同请求号。
             </p>
