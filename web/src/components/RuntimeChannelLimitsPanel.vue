@@ -293,10 +293,14 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <div v-if="allowed && client.area === 'admin'" class="modal-backdrop">
+  <div
+    v-if="allowed && client.area === 'admin'"
+    class="modal-backdrop drawer-backdrop"
+    @pointerdown.self="close"
+  >
     <section
       ref="modal"
-      class="modal panel channel-limits-modal"
+      class="modal modal-drawer panel channel-limits-modal"
       role="dialog"
       aria-modal="true"
       aria-label="父通道限额设置"
@@ -479,9 +483,7 @@ onBeforeUnmount(() => {
 </template>
 <style scoped>
 .channel-limits-modal {
-  width: min(680px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
-  overflow: auto;
+  --drawer-w: 600px;
   overscroll-behavior: contain;
   overflow-wrap: anywhere;
   min-width: 0;
@@ -533,7 +535,7 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   margin: 0;
 }
-.bottom {
+.channel-limits-modal > .toolbar-actions.bottom:not(:last-child) {
   margin-top: 16px;
 }
 .limits-confirm:focus {

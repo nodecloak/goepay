@@ -1135,10 +1135,15 @@ onBeforeUnmount(() => {
       />
     </section>
     <Teleport to="body"
-      ><div v-if="modal" class="modal-backdrop" @keydown="trap">
+      ><div
+        v-if="modal"
+        class="modal-backdrop drawer-backdrop"
+        @keydown="trap"
+        @pointerdown.self="close"
+      >
         <section
           ref="dialog"
-          class="modal panel subchannel-dialog"
+          class="modal modal-drawer panel subchannel-dialog"
           role="dialog"
           aria-modal="true"
           tabindex="-1"
@@ -1336,9 +1341,14 @@ onBeforeUnmount(() => {
                 :disabled="modal.busy"
                 @click="reconcileChange"
               >
-                读取最新列表核对
-              </button>
-              <button
+                读取最新列表核对</button
+              ><button type="button" :disabled="modal.busy" @click="close">
+                {{
+                  modal.mode === "test" && modal.executed
+                    ? "关闭并保留原订单"
+                    : "取消"
+                }}</button
+              ><button
                 v-if="modal.mode !== 'link' && !modal.executed"
                 class="primary"
                 type="submit"
@@ -1359,12 +1369,6 @@ onBeforeUnmount(() => {
                         : modal.mode === "status"
                           ? "确认变更"
                           : "确认保存"
-                }}</button
-              ><button type="button" :disabled="modal.busy" @click="close">
-                {{
-                  modal.mode === "test" && modal.executed
-                    ? "关闭并保留原订单"
-                    : "取消"
                 }}
               </button>
             </div>
@@ -1489,15 +1493,11 @@ onBeforeUnmount(() => {
   color: var(--ink-muted);
 }
 .subchannel-dialog {
-  max-width: 640px;
-  width: calc(100vw - 24px);
-  max-height: calc(100vh - 24px);
-  overflow-y: auto;
-  padding: 1rem;
+  --drawer-w: 640px;
+  overflow-wrap: anywhere;
 }
 .subchannel-dialog h2 {
   font-size: 1.1rem;
-  margin: 0 0 1rem;
 }
 .subchannel-dialog .subchannel-id {
   font-size: 0.8rem;
@@ -1505,11 +1505,11 @@ onBeforeUnmount(() => {
 }
 .subchannel-form {
   display: grid;
-  gap: 0.85rem;
+  gap: var(--space-4);
 }
 .subchannel-form label {
   display: grid;
-  gap: 0.35rem;
+  gap: 6px;
   font-size: 0.85rem;
 }
 .subchannel-form input,
@@ -1527,6 +1527,14 @@ onBeforeUnmount(() => {
   background: var(--bg-raised);
   border: 1px solid var(--line);
   border-radius: 5px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.subchannel-form textarea,
+.subchannel-form input,
+.subchannel-form select {
+  box-sizing: border-box;
+  max-width: 100%;
 }
 .subchannel-form a {
   overflow-wrap: anywhere;
@@ -1547,9 +1555,6 @@ onBeforeUnmount(() => {
   }
   .subchannel-filter-actions {
     width: 100%;
-  }
-  .subchannel-dialog {
-    padding: 0.9rem;
   }
   .subchannel-dialog .modal-actions {
     flex-wrap: wrap;

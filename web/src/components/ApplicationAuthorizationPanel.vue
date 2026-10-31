@@ -375,46 +375,70 @@ onBeforeUnmount(() => {
       <p v-if="error" role="alert">{{ error }}</p>
       <div
         v-if="confirmation && selectedProfile"
-        class="app-confirmation"
-        role="dialog"
-        aria-modal="false"
-        aria-label="确认创建应用授权"
+        class="pa-scrim pa-modal-scrim"
+        @pointerdown.self="!busy && (confirmation = false)"
       >
-        <h3>确认本次应用授权</h3>
-        <p>
-          商户{{ merchant }} · 档案#{{ selectedProfile.id }} · 版本{{
-            selectedProfile.revision
-          }}
-        </p>
-        <p>
-          ISV应用：<code>{{ selectedProfile.issuer_app_id }}</code
-          ><br />授权应用：<code>{{
-            selectedProfile.expected_auth_app_id
-          }}</code>
-        </p>
-        <p>
-          {{
-            selectedProfile.launch_kind === "basic"
-              ? "基础应用授权"
-              : "指定应用授权"
-          }}
-          ·
-          {{
-            launchKind === "wallet" ? "支付宝钱包授权" : "浏览器授权"
-          }}。创建后仍需本人在支付宝完成授权。
-        </p>
-        <div class="app-actions">
-          <button
-            class="primary"
-            data-action="app-confirm-create"
-            :disabled="busy"
-            @click="create"
-          >
-            确认创建应用授权</button
-          ><button :disabled="busy" @click="confirmation = false">
-            返回核对
-          </button>
-        </div>
+        <section
+          class="pa-modal app-confirmation"
+          role="dialog"
+          aria-modal="true"
+          aria-label="确认创建应用授权"
+          @keydown.esc.prevent="!busy && (confirmation = false)"
+        >
+          <header class="pa-modal-head">
+            <h2 class="pa-modal-title">确认本次应用授权</h2>
+            <button
+              type="button"
+              class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+              aria-label="关闭"
+              :disabled="busy"
+              @click="confirmation = false"
+            >
+              ×
+            </button>
+          </header>
+          <div class="pa-modal-content">
+            <p>
+              商户{{ merchant }} · 档案#{{ selectedProfile.id }} · 版本{{
+                selectedProfile.revision
+              }}
+            </p>
+            <p>
+              ISV应用：<code>{{ selectedProfile.issuer_app_id }}</code
+              ><br />授权应用：<code>{{
+                selectedProfile.expected_auth_app_id
+              }}</code>
+            </p>
+            <p>
+              {{
+                selectedProfile.launch_kind === "basic"
+                  ? "基础应用授权"
+                  : "指定应用授权"
+              }}
+              ·
+              {{
+                launchKind === "wallet" ? "支付宝钱包授权" : "浏览器授权"
+              }}。创建后仍需本人在支付宝完成授权。
+            </p>
+          </div>
+          <footer class="pa-modal-foot">
+            <button
+              type="button"
+              class="pa-btn"
+              :disabled="busy"
+              @click="confirmation = false"
+            >
+              返回核对</button
+            ><button
+              class="pa-btn pa-btn--primary primary"
+              data-action="app-confirm-create"
+              :disabled="busy"
+              @click="create"
+            >
+              确认创建应用授权
+            </button>
+          </footer>
+        </section>
       </div>
       <div v-if="current" class="app-request">
         <h3>本次授权请求</h3>
@@ -549,17 +573,13 @@ code {
   gap: 10px;
   margin: 16px 0;
 }
-.app-confirmation,
 .app-request {
   border-top: 1px solid var(--line);
   margin-top: 22px;
   padding-top: 20px;
 }
 .app-confirmation {
-  background: var(--bg-raised);
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  width: min(100%, 480px);
 }
 .app-result {
   border: 1px solid var(--line);

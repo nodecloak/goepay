@@ -363,16 +363,44 @@ async function prepareRetry(row: Finish) {
     </section>
     <div
       v-if="confirming"
-      role="dialog"
-      aria-modal="true"
-      aria-label="确认渠道完结"
-      class="finish-confirm"
+      class="pa-scrim pa-modal-scrim"
+      @pointerdown.self="confirming = false"
     >
-      <p>
-        确认按核对的原订单金额申请独立完结？首次受理后仅查询原请求，可信终态前不释放资金。
-      </p>
-      <button class="primary" @click="submit">确认申请完结</button
-      ><button @click="confirming = false">取消</button>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label="确认渠道完结"
+        class="pa-modal finish-confirm"
+        @keydown.esc.prevent="confirming = false"
+      >
+        <header class="pa-modal-head">
+          <h2 class="pa-modal-title">确认渠道完结</h2>
+          <button
+            type="button"
+            class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+            aria-label="关闭"
+            @click="confirming = false"
+          >
+            ×
+          </button>
+        </header>
+        <div class="pa-modal-content">
+          <p>
+            确认按核对的原订单金额申请独立完结？首次受理后仅查询原请求，可信终态前不释放资金。
+          </p>
+        </div>
+        <footer class="pa-modal-foot">
+          <button type="button" class="pa-btn" @click="confirming = false">
+            取消</button
+          ><button
+            type="button"
+            class="pa-btn pa-btn--primary primary"
+            @click="submit"
+          >
+            确认申请完结
+          </button>
+        </footer>
+      </section>
     </div>
   </section>
 </template>
@@ -422,18 +450,6 @@ async function prepareRetry(row: Finish) {
   align-items: center;
 }
 .finish-confirm {
-  position: fixed;
-  inset: auto 18px 24px;
-  max-width: 620px;
-  margin: auto;
-  padding: 20px;
-  background: var(--bg-card);
-  box-shadow: var(--shadow-modal);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  z-index: 30;
-}
-.finish-confirm button + button {
-  margin-left: 10px;
+  width: min(100%, 480px);
 }
 </style>
