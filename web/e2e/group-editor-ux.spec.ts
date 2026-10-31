@@ -123,8 +123,16 @@ for (const width of [1280, 375])
     await expect(dialog.getByRole("tab")).toHaveText(["基本信息", "其他配置"]);
     const box = await dialog.boundingBox();
     expect(box).not.toBeNull();
-    expect(box!.y).toBeCloseTo(40, 0);
-    if (width === 1280) expect(box!.width).toBe(1000);
+    // The group editor opens as a right drawer: it sits at the top, fills the
+    // window height and pins to the right edge, 900px wide on a desktop and the
+    // full width on a phone (a vertical scrollbar can shift the right edge by a
+    // few px).
+    const vh = page.viewportSize()!.height;
+    expect(box!.y).toBeCloseTo(0, 0);
+    expect(box!.height).toBeGreaterThanOrEqual(vh - 1);
+    expect(box!.x + box!.width).toBeGreaterThanOrEqual(width - 1);
+    if (width === 1280) expect(box!.width).toBeCloseTo(900, 0);
+    else expect(box!.width).toBeGreaterThanOrEqual(width - 20);
     await expect(
       dialog.getByRole("heading", { name: "通道费率", exact: true }),
     ).toBeVisible();

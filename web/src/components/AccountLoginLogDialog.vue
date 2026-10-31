@@ -154,14 +154,14 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <div class="modal-backdrop" @click.self="emit('close')">
+  <div class="modal-backdrop drawer-backdrop" @click.self="emit('close')">
     <section
       ref="dialogElement"
       tabindex="-1"
       role="dialog"
       aria-modal="true"
       :aria-labelledby="id + '-title'"
-      class="modal panel account-login-log"
+      class="modal panel modal-drawer account-login-log"
       @keydown="keydown"
     >
       <div class="toolbar">
@@ -219,7 +219,7 @@ onBeforeUnmount(() => {
 </template>
 <style scoped>
 .account-login-log {
-  width: min(100%, 900px);
+  --drawer-w: 640px;
 }
 .account-login-log .toolbar {
   flex-wrap: wrap;
