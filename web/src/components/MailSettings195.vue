@@ -421,60 +421,69 @@ onBeforeUnmount(() => {
       >
         <h2>SMTP发信账号设置</h2>
         <form @submit.prevent="save" autocomplete="off">
-          <label class="field"
-            >启用状态<input
-              type="checkbox"
-              aria-label="启用状态"
-              v-model="draft.enabled"
-              :disabled="busy"
-            />{{ draft.enabled ? "开启" : "关闭" }}</label
-          >
-          <label class="field" for="mail195-host"
-            >SMTP服务器<input
-              id="mail195-host"
-              aria-label="SMTP服务器"
-              name="host"
-              v-model="draft.host"
-              required
-              maxlength="253"
-              :disabled="busy"
-          /></label>
-          <label class="field"
-            >SMTP端口<input
-              aria-label="SMTP端口"
-              name="port"
-              v-model="draft.port"
-              inputmode="numeric"
-              pattern="[1-9][0-9]*"
-              required
-              maxlength="5"
-              :disabled="busy"
-          /></label>
-          <label class="field"
-            >邮箱账号<input
-              aria-label="邮箱账号"
-              name="username"
-              v-model="draft.username"
-              type="email"
-              required
-              maxlength="254"
-              :disabled="busy"
-          /></label>
-          <label class="field"
-            >邮箱密码<input
-              aria-label="邮箱密码"
-              name="password"
-              v-model="draft.password"
-              type="password"
-              autocomplete="new-password"
-              maxlength="1024"
-              :placeholder="
-                state?.password_set
-                  ? '已设置，留空保留原密码'
-                  : '填写邮箱密码或授权码'
-              "
-              :disabled="busy"
-          /></label>
+          <div class="form-rows">
+            <label
+              ><span class="field-label">启用状态</span
+              ><span class="mail195-switch"
+                ><input
+                  type="checkbox"
+                  aria-label="启用状态"
+                  v-model="draft.enabled"
+                  :disabled="busy"
+                />{{ draft.enabled ? "开启" : "关闭" }}</span
+              ></label
+            >
+            <label for="mail195-host"
+              ><span class="field-label field-label--req">SMTP服务器</span
+              ><input
+                id="mail195-host"
+                aria-label="SMTP服务器"
+                name="host"
+                v-model="draft.host"
+                required
+                maxlength="253"
+                :disabled="busy"
+            /></label>
+            <label
+              ><span class="field-label field-label--req">SMTP端口</span
+              ><input
+                aria-label="SMTP端口"
+                name="port"
+                v-model="draft.port"
+                inputmode="numeric"
+                pattern="[1-9][0-9]*"
+                required
+                maxlength="5"
+                :disabled="busy"
+            /></label>
+            <label
+              ><span class="field-label field-label--req">邮箱账号</span
+              ><input
+                aria-label="邮箱账号"
+                name="username"
+                v-model="draft.username"
+                type="email"
+                required
+                maxlength="254"
+                :disabled="busy"
+            /></label>
+            <label
+              ><span class="field-label">邮箱密码</span
+              ><input
+                aria-label="邮箱密码"
+                name="password"
+                v-model="draft.password"
+                type="password"
+                autocomplete="new-password"
+                maxlength="1024"
+                :placeholder="
+                  state?.password_set
+                    ? '已设置，留空保留原密码'
+                    : '填写邮箱密码或授权码'
+                "
+                :disabled="busy"
+            /></label>
+          </div>
           <p class="muted">常用端口465(SSL)或587(TLS)。QQ邮箱使用授权码。</p>
           <p v-if="error" role="alert" class="alert error">{{ error }}</p>
           <div class="modal-actions">
@@ -510,5 +519,12 @@ onBeforeUnmount(() => {
   color: var(--accent);
   border-bottom-color: var(--accent);
   border-radius: 0;
+}
+/* The enable toggle keeps its checkbox and its 开启/关闭 text on one line in
+   the control column. */
+.mail195-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 </style>
