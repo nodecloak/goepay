@@ -493,7 +493,12 @@ onBeforeUnmount(() => controller?.abort());
         <div v-if="error" class="alert error" role="alert">{{ error }}</div>
         <div class="modal-actions">
           <button :disabled="busy" @click="review = null">取消</button
-          ><button class="primary" :disabled="busy" @click="decide">
+          ><button
+            class="primary"
+            :class="{ 'pa-btn--danger': review.action === 'reject' }"
+            :disabled="busy"
+            @click="decide"
+          >
             {{
               busy
                 ? "正在处理…"

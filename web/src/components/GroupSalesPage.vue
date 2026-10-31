@@ -419,14 +419,18 @@ onBeforeUnmount(() => {
       aria-label="编辑用户组简介"
     >
       <h2>编辑简介</h2>
-      <label for="sale-description">用户组简介</label
-      ><textarea
-        id="sale-description"
-        v-model="drafts[editing]!.description"
-        maxlength="2000"
-        rows="8"
-        :disabled="!canWrite || busy || uncertain"
-      />
+      <div class="form-rows">
+        <label
+          ><span class="field-label">用户组简介</span
+          ><textarea
+            id="sale-description"
+            v-model="drafts[editing]!.description"
+            maxlength="2000"
+            rows="8"
+            :disabled="!canWrite || busy || uncertain"
+          />
+        </label>
+      </div>
       <p class="muted">以纯文本显示，最多2000字。</p>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <div class="modal-actions">
