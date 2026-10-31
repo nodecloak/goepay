@@ -726,6 +726,21 @@ const groupEditorTitle = computed(() =>
     ? "新增用户组"
     : "编辑用户组 GID:" + String(selected.value.id ?? ""),
 );
+// Create/edit/detail are long forms, record details and panels: they open as a
+// right drawer so the actions stay pinned and the body scrolls. The delete
+// confirmation is a short centered dialog.
+const asDrawer = computed(
+  () => !props.entry && mode.value !== null && mode.value !== "delete",
+);
+// Two-column forms (merchants) and the tabbed group editor need more width;
+// other resource forms are a single label column.
+const drawerWidth = computed(() =>
+  props.resource === "merchants"
+    ? "760px"
+    : isGroupEditor.value
+      ? "900px"
+      : "560px",
+);
 function trapGroupFocus(event: KeyboardEvent) {
   if (!isGroupEditor.value) return;
   const root = event.currentTarget as HTMLElement;
@@ -1755,7 +1770,9 @@ onBeforeUnmount(resetContext);
     :class="
       entry
         ? 'resource-entry'
-        : 'modal-backdrop' + (isGroupEditor ? ' group-edit-backdrop' : '')
+        : 'modal-backdrop' +
+          (asDrawer ? ' drawer-backdrop' : '') +
+          (isGroupEditor ? ' group-edit-backdrop' : '')
     "
     @keydown.esc="!entry && !editingBusy && (mode = null)"
     @keydown.tab="trapGroupFocus"
@@ -1765,9 +1782,11 @@ onBeforeUnmount(resetContext);
         entry
           ? 'panel resource-entry-form'
           : 'modal panel resource-modal' +
+            (asDrawer ? ' modal-drawer' : '') +
             (resource === 'merchants' ? ' merchant-edit-modal' : '') +
             (isGroupEditor ? ' group-edit-modal' : '')
       "
+      :style="asDrawer ? { '--drawer-w': drawerWidth } : undefined"
       :role="entry ? undefined : 'dialog'"
       :aria-modal="entry ? undefined : true"
       :aria-label="
@@ -1793,17 +1812,28 @@ onBeforeUnmount(resetContext);
           ×
         </button>
       </div>
-      <h2 v-else-if="!entry">
-        {{
-          mode === "create"
-            ? "新增"
-            : mode === "edit"
-              ? "编辑"
-              : mode === "delete"
-                ? "删除确认"
-                : ""
-        }}{{ schema.title }}{{ mode === "detail" ? "详情" : "" }}
-      </h2>
+      <div v-else-if="!entry" class="resource-modal-head">
+        <h2>
+          {{
+            mode === "create"
+              ? "新增"
+              : mode === "edit"
+                ? "编辑"
+                : mode === "delete"
+                  ? "删除确认"
+                  : ""
+          }}{{ schema.title }}{{ mode === "detail" ? "详情" : "" }}
+        </h2>
+        <button
+          type="button"
+          class="resource-modal-x"
+          :disabled="editingBusy"
+          aria-label="关闭"
+          @click="mode = null"
+        >
+          ×
+        </button>
+      </div>
       <p v-if="entry && schema.description" class="resource-description muted">
         {{ schema.description }}
       </p>
@@ -1846,7 +1876,9 @@ onBeforeUnmount(resetContext);
           :client="client"
           :id="String(selected.id)"
         />
-        <button @click="mode = null">关闭</button></template
+        <div class="modal-actions">
+          <button @click="mode = null">关闭</button>
+        </div></template
       ><template v-else-if="mode === 'delete'"
         ><p>确认删除编号 {{ selected.id }} 的记录？此操作会立即生效。</p>
         <div class="modal-actions">
@@ -1987,32 +2019,82 @@ onBeforeUnmount(resetContext);
   margin-top: 4px;
   white-space: nowrap;
 }
-.group-edit-backdrop {
+.group-edit-backdrop:not(.drawer-backdrop) {
   align-items: start;
   padding-top: 4dvh;
   padding-bottom: 4dvh;
 }
+/* Resource create/edit/detail open as a right drawer: the backdrop pins its
+   child to the top-right edge with no padding, and the dialog fills the
+   window height. Stated here so component order can't leave it centered. */
+.modal-backdrop.drawer-backdrop {
+  place-items: stretch end;
+  padding: 0;
+}
+/* The drawer scrim is clamped to the viewport width and clips its own
+   overflow, so a list page that overflows horizontally cannot widen it and
+   push the right-pinned drawer off-screen. */
+.modal-backdrop.drawer-backdrop {
+  width: 100vw;
+  max-width: 100vw;
+  overflow: hidden;
+}
+.modal-backdrop.drawer-backdrop > .modal.resource-modal.modal-drawer {
+  width: min(100%, var(--drawer-w, 560px));
+  max-width: 100%;
+  height: 100dvh;
+  max-height: none;
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+}
+/* Keep wide inner content (the group channel table, a two-column form) from
+   widening the drawer past --drawer-w; it scrolls inside the body instead. */
+.modal.resource-modal.modal-drawer > form {
+  min-width: 0;
+}
 /* .modal.resource-modal sets 480px in style.css, which loads after this
-   file, so the wide editors need the same classes to keep their width. */
-.modal.resource-modal.group-edit-modal {
+   file, so the wide editors need the same classes to keep their width. As a
+   drawer the width comes from --drawer-w instead, so only size the centered
+   fallback here. */
+.modal.resource-modal.group-edit-modal:not(.modal-drawer) {
   width: min(100%, 1000px);
   max-height: 92dvh;
 }
-.group-edit-header {
+.modal.resource-modal.merchant-edit-modal:not(.modal-drawer) {
+  width: min(100%, 900px);
+}
+/* Head of a drawer/dialog: title left, close × right, both sticky above the
+   scrolling body (the shared .modal > h2:first-child sticky rule needs a
+   single first child, so the head row carries it here). */
+.group-edit-header,
+.resource-modal-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
 }
-.group-edit-header h2 {
+.modal.resource-modal > .group-edit-header,
+.modal.resource-modal > .resource-modal-head {
+  position: sticky;
+  top: calc(-1 * var(--space-5));
+  z-index: 3;
+  background: var(--bg-card);
+}
+.group-edit-header h2,
+.resource-modal-head h2 {
   margin: 0;
 }
-.group-edit-header button {
+.group-edit-header > button,
+.resource-modal-x {
   font-size: 24px;
+  line-height: 1;
   padding: 4px 12px;
   border: 0;
+  background: transparent;
+  color: var(--ink-muted, inherit);
 }
-.modal.resource-modal.merchant-edit-modal {
-  width: min(100%, 900px);
+.group-edit-header > button:hover:not(:disabled),
+.resource-modal-x:hover:not(:disabled) {
+  background: var(--bg-hover);
 }
 </style>
