@@ -45,7 +45,7 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <div
-    class="modal-backdrop"
+    class="modal-backdrop drawer-backdrop"
     @keydown.esc.stop="emit('close')"
     @keydown.tab.prevent="closeButton?.focus()"
     @click.self="emit('close')"
@@ -54,7 +54,7 @@ onBeforeUnmount(() => {
       role="dialog"
       aria-modal="true"
       aria-labelledby="settlement-statistics-title"
-      class="modal panel settlement-statistics"
+      class="modal panel settlement-statistics modal-drawer"
     >
       <h2 id="settlement-statistics-title">结算统计</h2>
       <p class="muted">按已查询的筛选范围统计全部记录。</p>
@@ -90,10 +90,7 @@ onBeforeUnmount(() => {
 </template>
 <style scoped>
 .settlement-statistics {
-  width: min(500px, calc(100vw - 32px));
-  max-height: calc(100dvh - 40px);
-  overflow: auto;
-  box-sizing: border-box;
+  --drawer-w: 460px;
 }
 .stat-grid {
   display: grid;
@@ -127,8 +124,5 @@ onBeforeUnmount(() => {
 .stat-grid .settlement-stat-total {
   grid-column: 1/-1;
   background: var(--surface-soft, var(--bg-raised));
-}
-.modal-actions {
-  margin-top: 18px;
 }
 </style>

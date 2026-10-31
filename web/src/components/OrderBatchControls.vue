@@ -303,7 +303,18 @@ onBeforeUnmount(() => {
         aria-label="批量订单操作确认"
         @keydown="focusTrap"
       >
-        <h2>批量订单操作确认</h2>
+        <div class="toolbar">
+          <h2>批量订单操作确认</h2>
+          <button
+            type="button"
+            class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+            aria-label="关闭窗口"
+            :disabled="busy"
+            @click="close"
+          >
+            ×
+          </button>
+        </div>
         <p>
           {{ actions.find((a) => a.id === action)?.label }}：{{
             pending?.items.length || 0
@@ -329,13 +340,17 @@ onBeforeUnmount(() => {
             </li>
           </ul>
         </details>
-        <label
-          >操作原因<textarea
-            v-model="reason"
-            maxlength="240"
-            :disabled="busy || unknown || done || failed"
-          /></label
-        ><label class="batch-ack"
+        <div class="form-rows">
+          <label
+            ><span class="field-label">操作原因</span
+            ><textarea
+              v-model="reason"
+              maxlength="240"
+              :disabled="busy || unknown || done || failed"
+            />
+          </label>
+        </div>
+        <label class="batch-ack"
           ><input
             v-model="ack"
             type="checkbox"

@@ -504,9 +504,11 @@ onBeforeUnmount(() => {
       @close="closeProvider"
       @submit="saveProvider"
     >
-      <button type="button" :disabled="busy" @click="suspendProvider">
-        收起并保留草稿
-      </button>
+      <template #footer-extra>
+        <button type="button" :disabled="busy" @click="suspendProvider">
+          收起并保留草稿
+        </button>
+      </template>
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
       <template v-if="editing === 'aliyun'">
         <KitField label="AccessKeyId" required

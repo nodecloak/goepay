@@ -220,15 +220,18 @@ onBeforeUnmount(() => {
         aria-label="发送测试邮件"
         @submit.prevent="act(false)"
       >
-        <label class="field"
-          >收件邮箱地址<input
-            aria-label="收件邮箱地址"
-            v-model="to"
-            type="email"
-            maxlength="254"
-            required
-            :disabled="busy"
-        /></label>
+        <div class="form-rows">
+          <label
+            ><span class="field-label field-label--req">收件邮箱地址</span
+            ><input
+              aria-label="收件邮箱地址"
+              v-model="to"
+              type="email"
+              maxlength="254"
+              required
+              :disabled="busy"
+          /></label>
+        </div>
         <div class="modal-actions">
           <button type="button" @click="close" :disabled="busy">取消</button
           ><button class="primary" type="submit" :disabled="busy">发送</button>

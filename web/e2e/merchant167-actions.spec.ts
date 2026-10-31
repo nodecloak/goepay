@@ -242,12 +242,20 @@ for (const width of [1440, 375])
     dialog = page.getByRole("dialog", { name: "申请退款", exact: true });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel("退款金额（元）")).toBeFocused();
+    // The head × is the first stop: Shift+Tab reaches it, and from there the
+    // trap wraps to the last button and back.
+    const headClose = dialog.getByRole("button", {
+      name: "关闭窗口",
+      exact: true,
+    });
+    await page.keyboard.press("Shift+Tab");
+    await expect(headClose).toBeFocused();
     await page.keyboard.press("Shift+Tab");
     await expect(
       dialog.getByRole("button", { name: "确认申请退款", exact: true }),
     ).toBeFocused();
     await page.keyboard.press("Tab");
-    await expect(dialog.getByLabel("退款金额（元）")).toBeFocused();
+    await expect(headClose).toBeFocused();
     await dialog.getByRole("button", { name: "取消", exact: true }).click();
     await expect(trigger(paid)).toBeFocused();
     expect(writes.filter((v) => v.path.endsWith("/refund"))).toHaveLength(0);

@@ -460,10 +460,14 @@ onBeforeUnmount(() => {
       @close="closeLimits"
       @context-invalid="ensureSession"
     />
-    <div v-if="modalID" class="modal-backdrop">
+    <div
+      v-if="modalID"
+      class="modal-backdrop drawer-backdrop"
+      @pointerdown.self="close"
+    >
       <section
         ref="modal"
-        class="modal panel channel-policy-modal"
+        class="modal modal-drawer panel channel-policy-modal"
         role="dialog"
         aria-modal="true"
         aria-label="设置支付通道费率"
@@ -596,9 +600,8 @@ onBeforeUnmount(() => {
   margin-left: 8px;
 }
 .channel-policy-modal {
-  width: min(560px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
-  overflow: auto;
+  --drawer-w: 560px;
+  overflow-wrap: anywhere;
 }
 .channel-policy-modal input:not([type="checkbox"]),
 .channel-policy-modal select {
@@ -625,7 +628,7 @@ onBeforeUnmount(() => {
   outline: 2px solid var(--primary, var(--focus));
   outline-offset: 2px;
 }
-.channel-policy-modal > .toolbar-actions {
+.channel-policy-modal > .toolbar-actions:not(:last-child) {
   margin-top: 16px;
 }
 </style>

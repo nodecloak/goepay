@@ -53,6 +53,47 @@ async function fixture(page: Page) {
       type: "json",
       read_only: true,
     },
+    {
+      name: "fee_mode",
+      label: "手续费扣除模式",
+      type: "select",
+      options: [
+        { label: "余额扣费", value: "0" },
+        { label: "订单加费", value: "1" },
+      ],
+      default: "0",
+      create_only: true,
+      write_only: true,
+    },
+    {
+      name: "settlement_type",
+      label: "结算方式",
+      type: "select",
+      options: [
+        { label: "支付宝", value: "alipay" },
+        { label: "微信", value: "wxpay" },
+        { label: "银行卡", value: "bank" },
+      ],
+      default: "alipay",
+      create_only: true,
+      write_only: true,
+    },
+    {
+      name: "settlement_account",
+      label: "结算账号",
+      type: "string",
+      description: "不使用平台代收可留空",
+      create_only: true,
+      write_only: true,
+    },
+    {
+      name: "settlement_name",
+      label: "结算账号姓名",
+      type: "string",
+      description: "不使用平台代收可留空",
+      create_only: true,
+      write_only: true,
+    },
   ];
   await page.route("**/console/v1/**", (route) => {
     const req = route.request(),
@@ -165,7 +206,7 @@ for (const width of [1280, 375]) {
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
     expect(f.writes).toHaveLength(1);
   });
-  test(`merchant create reveals missing API field before submitting at ${width}px`, async ({
+  test(`merchant create asks for settlement and fee mode but no key at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 1000 });
@@ -175,21 +216,36 @@ for (const width of [1280, 375]) {
       name: "新增商户管理",
       exact: true,
     });
+    await expect(dialog.getByRole("tab")).toHaveCount(0);
+    await expect(dialog.getByLabel("API 密钥", { exact: false })).toHaveCount(
+      0,
+    );
+    await expect(dialog.locator("#field-fee_mode")).toHaveValue("0");
+    await expect(dialog.locator("#field-settlement_type")).toHaveValue(
+      "alipay",
+    );
     await dialog.getByLabel("商户 ID", { exact: false }).fill("11902");
     await dialog.getByLabel("名称", { exact: false }).fill("本地新增商户");
-    await dialog.getByRole("button", { name: "保存", exact: true }).click();
-    await expect(
-      dialog.getByRole("tab", { name: "密钥信息", exact: true }),
-    ).toHaveAttribute("aria-selected", "true");
-    await expect(dialog.getByLabel("API 密钥", { exact: false })).toBeFocused();
-    expect(f.writes).toHaveLength(0);
     await dialog
-      .getByLabel("API 密钥", { exact: false })
-      .fill("synthetic-created-merchant-key-11902");
+      .locator("#field-settlement_account")
+      .fill("local11902@example.invalid");
+    await dialog.getByRole("button", { name: "保存", exact: true }).click();
+    await expect(dialog.getByText("请填写结算账号姓名")).toBeVisible();
+    await expect(dialog.locator("#field-settlement_name")).toBeFocused();
+    expect(f.writes).toHaveLength(0);
+    await dialog.locator("#field-settlement_name").fill("本地收款人");
+    await dialog.locator("#field-fee_mode").selectOption("1");
     await dialog.getByRole("button", { name: "保存", exact: true }).click();
     await expect(page.getByText("新增已保存", { exact: true })).toBeVisible();
     expect(f.writes).toHaveLength(1);
-    expect(f.writes[0]!.body.id).toBe("11902");
+    expect(f.writes[0]!.body).toMatchObject({
+      id: "11902",
+      fee_mode: "1",
+      settlement_type: "alipay",
+      settlement_account: "local11902@example.invalid",
+      settlement_name: "本地收款人",
+    });
+    expect(f.writes[0]!.body).not.toHaveProperty("api_key");
   });
   test(`merchant settlement edit uses its original owner and separate version at ${width}px`, async ({
     page,

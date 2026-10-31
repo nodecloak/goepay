@@ -694,6 +694,7 @@ onBeforeUnmount(() => {
   <KitModal
     v-if="creating && confirming"
     title="核对付款"
+    drawer
     width="600px"
     :loading="busy"
     submit-text="确认提交付款"
@@ -759,6 +760,7 @@ onBeforeUnmount(() => {
   <KitModal
     v-else-if="creating"
     title="转账付款"
+    drawer
     width="600px"
     :loading="busy"
     :submit-disabled="!canSubmit"
@@ -939,12 +941,12 @@ onBeforeUnmount(() => {
   </KitModal>
   <div
     v-if="selected && !creating"
-    class="modal-backdrop"
+    class="modal-backdrop drawer-backdrop"
     @click.self="closeDetails"
   >
     <section
       ref="detailDialog"
-      class="modal panel resource-modal"
+      class="modal panel resource-modal modal-drawer transfer-detail-drawer"
       role="dialog"
       aria-modal="true"
       aria-label="付款详情"
@@ -1068,6 +1070,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* 付款详情 opens as a right drawer (long detail view). */
+.transfer-detail-drawer {
+  --drawer-w: 640px;
+}
 /* 转账付款 dialog, laid out like the original console: type tabs, then a
    form with a 100px right-aligned label column. */
 .transfer-tabs {

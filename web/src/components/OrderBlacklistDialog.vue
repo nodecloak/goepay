@@ -209,7 +209,18 @@ onBeforeUnmount(() => {
       :aria-label="'添加黑名单 - ' + label"
       @keydown="trap"
     >
-      <h2>添加黑名单 - {{ label }}</h2>
+      <div class="toolbar">
+        <h2>添加黑名单 - {{ label }}</h2>
+        <button
+          type="button"
+          class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+          aria-label="关闭窗口"
+          :disabled="busy"
+          @click="emit('close')"
+        >
+          ×
+        </button>
+      </div>
       <p class="muted">
         系统订单号：<span class="pa-order-no">{{ tradeNo }}</span
         >。将本订单的{{
@@ -219,22 +230,27 @@ onBeforeUnmount(() => {
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
       <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
       <p v-if="loading" role="status">正在核对原支付来源…</p>
-      <label
-        >{{ label }}<input :value="value" readonly autocomplete="off" /></label
-      ><label
-        >有效期（天）<input
-          v-model="days"
-          inputmode="numeric"
-          maxlength="5"
-          :disabled="loading || busy || unknown || done || invalid" /></label
-      ><label
-        >备注<textarea
-          v-model="reason"
-          maxlength="1000"
-          placeholder="选填"
-          :disabled="loading || busy || unknown || done || invalid"
-        />
-      </label>
+      <div class="form-rows">
+        <label
+          ><span class="field-label">{{ label }}</span
+          ><input :value="value" readonly autocomplete="off" /></label
+        ><label
+          ><span class="field-label">有效期（天）</span
+          ><input
+            v-model="days"
+            inputmode="numeric"
+            maxlength="5"
+            :disabled="loading || busy || unknown || done || invalid" /></label
+        ><label
+          ><span class="field-label">备注</span
+          ><textarea
+            v-model="reason"
+            maxlength="1000"
+            placeholder="选填"
+            :disabled="loading || busy || unknown || done || invalid"
+          />
+        </label>
+      </div>
       <div class="modal-actions">
         <button type="button" :disabled="busy" @click="emit('close')">
           {{ unknown ? "关闭并保留原请求" : "关闭" }}</button
@@ -257,15 +273,6 @@ onBeforeUnmount(() => {
   max-height: calc(100dvh - 32px);
   overflow: auto;
   overflow-wrap: anywhere;
-}
-.blacklist-dialog label {
-  display: grid;
-  gap: 8px;
-}
-.blacklist-dialog input,
-.blacklist-dialog textarea {
-  width: 100%;
-  min-width: 0;
 }
 .blacklist-dialog textarea {
   min-height: 72px;

@@ -351,25 +351,34 @@ onBeforeUnmount(() => {
                   : "插入表格"
           }}
         </h2>
-        <label v-if="mode === 'html'"
-          >HTML 内容<textarea
-            v-model="source"
-            maxlength="20000"
-            rows="12"
-            spellcheck="false"
-          ></textarea>
-        </label>
-        <template v-else-if="mode === 'link' || mode === 'image'"
-          ><label
-            >{{ mode === "link" ? "链接地址" : "图片地址"
-            }}<input
+        <div v-if="mode === 'html'" class="form-rows">
+          <label
+            ><span class="field-label">HTML 内容</span
+            ><textarea
+              v-model="source"
+              aria-label="HTML 内容"
+              maxlength="20000"
+              rows="12"
+              spellcheck="false"
+            ></textarea>
+          </label>
+        </div>
+        <div v-else-if="mode === 'link' || mode === 'image'" class="form-rows">
+          <label
+            ><span class="field-label">{{
+              mode === "link" ? "链接地址" : "图片地址"
+            }}</span
+            ><input
               v-model="url"
               :aria-label="mode === 'link' ? '链接地址' : '图片地址'"
               maxlength="16000" /></label
           ><label
-            >{{ mode === "link" ? "链接文字" : "图片说明"
-            }}<input v-model="linkText" maxlength="200" /></label
-        ></template>
+            ><span class="field-label">{{
+              mode === "link" ? "链接文字" : "图片说明"
+            }}</span
+            ><input v-model="linkText" maxlength="200"
+          /></label>
+        </div>
         <p v-else>插入两列两行表格，可继续编辑标题和内容。</p>
         <p v-if="error" class="error" role="alert">{{ error }}</p>
         <div class="toolbar-actions">
@@ -442,11 +451,6 @@ onBeforeUnmount(() => {
   font-family: monospace;
   width: 100%;
   box-sizing: border-box;
-}
-.rich-source label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 .rich-source-backdrop {
   z-index: 2200;

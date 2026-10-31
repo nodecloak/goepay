@@ -716,7 +716,8 @@ function onReset() {
         v-if="dialogOpen"
         :title="dialogMode === 'add' ? '新增分账规则' : '修改分账规则'"
         :loading="saving"
-        width="640px"
+        drawer
+        width="720px"
         @close="dialogOpen = false"
         @submit="save"
       >

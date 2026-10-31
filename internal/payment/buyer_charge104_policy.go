@@ -287,3 +287,27 @@ func (s *Store) UpdateMerchantBuyerFeeSettings104(ctx context.Context, a Merchan
 	}
 	return state, nil
 }
+
+// SetInitialMerchantBuyerFeeModeTx records the 手续费扣除模式 an administrator
+// chose while creating a merchant (添加商户), inside the caller's creation
+// transaction. Mode 0 (余额扣费) is what a merchant without a policy already
+// uses, so it writes nothing. Mode 1 (订单加费) writes the merchant's first
+// policy without a merchant-specific buyer rate; an existing policy is a
+// conflict, and later changes go through UpdateMerchantBuyerFeeSettings104.
+func (s *Store) SetInitialMerchantBuyerFeeModeTx(ctx context.Context, tx pgx.Tx, mid int64, mode int, actor identity.User) error {
+	if tx == nil || mid <= 0 || mode != 0 && mode != 1 || actor.Role != "admin" || actor.ID <= 0 {
+		return ErrInvalid
+	}
+	if mode == 0 {
+		return nil
+	}
+	record, e := s.buyerPolicyTx104(ctx, tx, "merchant", mid, true)
+	if e != nil {
+		return e
+	}
+	if record.Configured {
+		return ErrConflict
+	}
+	_, e = s.writeBuyerPolicy104(ctx, tx, record, buyerPolicyFacts104{Kind: "merchant", OwnerID: mid, MerchantMode: 1}, MerchantRSAActor{User: actor})
+	return e
+}

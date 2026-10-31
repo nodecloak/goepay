@@ -40,16 +40,16 @@ onMounted(async () => {
 </script>
 <template>
   <Teleport to="body"
-    ><div class="modal-backdrop" @click.self="close">
+    ><div class="modal-backdrop drawer-backdrop" @click.self="close">
       <section
         ref="dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="merchant-manual-withdrawal-title"
-        class="modal panel merchant-manual-withdrawal"
+        class="modal panel merchant-manual-withdrawal modal-drawer"
         @keydown="keydown"
       >
-        <div class="toolbar manual-withdrawal-header">
+        <div class="toolbar">
           <h2 id="merchant-manual-withdrawal-title">手动提现</h2>
           <button
             ref="closeButton"
@@ -77,21 +77,7 @@ onMounted(async () => {
 </template>
 <style scoped>
 .merchant-manual-withdrawal {
-  width: min(720px, calc(100vw - 32px));
-  max-height: calc(100dvh - 40px);
-  box-sizing: border-box;
-}
-.manual-withdrawal-header {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--panel, var(--bg-card));
-  padding-block: 8px;
-  margin-top: -8px;
-  border-bottom: 1px solid var(--line, var(--line));
-}
-.manual-withdrawal-header h2 {
-  margin: 0;
+  --drawer-w: 720px;
 }
 .merchant-manual-withdrawal :deep(.workflow-application-form) {
   border: 0;

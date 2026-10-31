@@ -11,6 +11,9 @@ const props = defineProps<{
   submitDisabled?: boolean;
   /** Leave out the 取消 button; × and Esc still close the dialog. */
   hideCancel?: boolean;
+  /** Open as a right drawer (long forms, details, tables). `width` then sets
+   *  the drawer's width (560px by default). */
+  drawer?: boolean;
 }>();
 const emit = defineEmits<{ close: []; submit: [] }>();
 const panel = ref<HTMLElement>();
@@ -54,14 +57,25 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <Teleport to="body">
-    <div class="pa-scrim pa-modal-scrim" @pointerdown.self="emit('close')">
+    <div
+      class="pa-scrim pa-modal-scrim"
+      :class="{ 'pa-drawer-scrim': drawer }"
+      @pointerdown.self="emit('close')"
+    >
       <div
         ref="panel"
         class="pa-modal"
+        :class="{ 'pa-drawer': drawer }"
         role="dialog"
         aria-modal="true"
         :aria-label="title"
-        :style="width ? { width } : undefined"
+        :style="
+          width
+            ? drawer
+              ? { '--drawer-w': width }
+              : { '--modal-w': width }
+            : undefined
+        "
       >
         <header class="pa-modal-head">
           <h2 class="pa-modal-title">{{ title }}</h2>

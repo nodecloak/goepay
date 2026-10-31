@@ -470,17 +470,20 @@ onBeforeUnmount(() => {
         <h2>{{ title }}</h2>
         <p v-if="error" class="alert error" role="alert">{{ error }}</p>
         <form v-if="mode === 'generate'" @submit.prevent="generate">
-          <label for="invitation-count">生成个数</label
-          ><input
-            id="invitation-count"
-            v-model="count"
-            type="number"
-            min="1"
-            max="1000"
-            step="1"
-            required
-            :disabled="busy || unknown"
-          />
+          <div class="form-rows">
+            <label
+              ><span class="field-label">生成个数</span
+              ><input
+                id="invitation-count"
+                v-model="count"
+                type="number"
+                min="1"
+                max="1000"
+                step="1"
+                required
+                :disabled="busy || unknown"
+            /></label>
+          </div>
           <p class="muted">一次最多生成1000个，每个新邀请码可使用一次。</p>
           <div class="modal-actions">
             <button type="button" :disabled="busy" @click="close">
@@ -605,9 +608,16 @@ onBeforeUnmount(() => {
   overflow: auto;
   outline: none;
 }
-.invitation-dialog input {
+.invitation-dialog .form-rows input {
   width: 100%;
-  margin-top: 8px;
+  box-sizing: border-box;
+}
+/* The generate form holds the sticky foot, which bleeds to the dialog edge
+   with negative side margins; let the form carry that bleed on its padding
+   so it does not overflow horizontally. */
+.invitation-dialog > form {
+  margin: 0 calc(-1 * var(--space-5));
+  padding: 0 var(--space-5);
 }
 .invitation-results {
   max-height: 300px;

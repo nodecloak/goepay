@@ -64,6 +64,55 @@ export function recipientFieldErrors(
       "银行代码应为平台管理员提供的1至32位数字，仅用于银行卡收款";
   return errors;
 }
+// 添加商户 结算信息 is an optional first recipient checked with the rules above.
+// A blank account and name mean the merchant does not use platform settlement.
+const createRecipientFields = {
+  type: "settlement_type",
+  account: "settlement_account",
+  name: "settlement_name",
+  app_id: "settlement_app_id",
+} as const;
+const createRecipientMissing = {
+  type: "请选择结算方式",
+  account: "请填写结算账号",
+  name: "请填写结算账号姓名",
+  app_id: "微信结算请填写收款 OpenID 所属应用的 AppID",
+};
+const unusedCreateRecipient = (v: Record<string, unknown>) =>
+  !String(v.settlement_account ?? "").trim() &&
+  !String(v.settlement_name ?? "").trim();
+export function createRecipientErrors(
+  values: Record<string, unknown>,
+): Record<string, string> {
+  if (unusedCreateRecipient(values)) return {};
+  const draft: RecipientDraft = {
+    type: String(values.settlement_type ?? ""),
+    account: String(values.settlement_account ?? ""),
+    name: String(values.settlement_name ?? ""),
+    bank_code: "",
+    app_id:
+      values.settlement_type === "wxpay"
+        ? String(values.settlement_app_id ?? "")
+        : "",
+  };
+  const found = recipientFieldErrors(draft),
+    errors: Record<string, string> = {};
+  for (const key of ["type", "account", "name", "app_id"] as const)
+    if (found[key])
+      errors[createRecipientFields[key]] = draft[key].trim()
+        ? found[key]
+        : createRecipientMissing[key];
+  return errors;
+}
+// The create request carries the recipient only when it is used, and an AppID
+// only for 微信, matching what the server records.
+export function omitUnusedCreateRecipient(payload: Record<string, unknown>) {
+  if (unusedCreateRecipient(payload))
+    for (const name of Object.values(createRecipientFields))
+      delete payload[name];
+  else if (payload.settlement_type !== "wxpay")
+    delete payload.settlement_app_id;
+}
 export class RecipientValidationError extends Error {
   constructor(public readonly fieldErrors: RecipientFieldErrors) {
     super(Object.values(fieldErrors)[0] || "请核对收款资料");

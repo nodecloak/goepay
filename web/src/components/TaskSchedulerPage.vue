@@ -869,28 +869,41 @@ onBeforeUnmount(() => {
   color: var(--success-text);
   overflow-wrap: anywhere;
 }
+/* The scheduler dialog is a long form (switch + frequency + interval + time +
+   parameters, plus confirm/history views), so it opens as a right drawer: a
+   fixed overlay with the panel pinned full-height to the right edge, its head
+   and foot staying in view while the content scrolls. */
 .task-backdrop {
   position: fixed;
   inset: 0;
   background: var(--scrim);
   z-index: 1300;
   display: grid;
-  place-items: center;
-  padding: 1rem;
+  place-items: stretch end;
+  padding: 0;
 }
 .task-dialog {
-  width: min(46rem, 100%);
-  max-height: 88vh;
+  width: min(100%, 560px);
+  height: 100dvh;
+  max-height: none;
   overflow: auto;
   background: var(--bg-card);
-  border-radius: 0.55rem;
+  border-left: 1px solid var(--line);
   padding: 1.2rem;
   box-shadow: var(--shadow-modal);
   overflow-wrap: anywhere;
+  animation: pa-drawer-in 0.18s ease-out;
 }
 .task-dialog header {
   justify-content: space-between;
   align-items: flex-start;
+  position: sticky;
+  top: -1.2rem;
+  z-index: 3;
+  margin: -1.2rem -1.2rem 0;
+  padding: 1.2rem 1.2rem 0.85rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--line);
 }
 .task-dialog header h3 {
   margin: 0.2rem 0;
@@ -898,9 +911,13 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 .task-dialog footer {
+  position: sticky;
+  bottom: -1.2rem;
+  z-index: 3;
+  margin: 1rem -1.2rem -1.2rem;
+  padding: 0.85rem 1.2rem;
+  background: var(--bg-card);
   border-top: 1px solid var(--line);
-  padding-top: 1rem;
-  margin-top: 1rem;
   justify-content: flex-end;
 }
 .task-fields {
@@ -979,11 +996,18 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
   .task-dialog {
+    width: 100%;
     padding: 0.9rem;
-    max-height: 90vh;
   }
-  .task-backdrop {
-    padding: 0.5rem;
+  .task-dialog header {
+    top: -0.9rem;
+    margin: -0.9rem -0.9rem 0;
+    padding: 0.9rem 0.9rem 0.7rem;
+  }
+  .task-dialog footer {
+    bottom: -0.9rem;
+    margin: 1rem -0.9rem -0.9rem;
+    padding: 0.7rem 0.9rem;
   }
   .task-history dl {
     grid-template-columns: 1fr;
