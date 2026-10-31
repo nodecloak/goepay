@@ -53,6 +53,7 @@ const kinds = ["home", "pay", "qrpay"],
     "manga",
     "mecha",
     "candy",
+    "custom",
   ],
   cardNames = ["default", "compact"],
   payNames = [...cardNames, "anime"],
@@ -269,4 +270,182 @@ export async function uploadTemplateImage(
   )
     throw new Error("图片响应未通过校验");
   return a as unknown as TemplateAsset;
+}
+
+// --- Custom HTML home template -------------------------------------------
+//
+// The super administrator pastes raw HTML + CSS for the 自定义 HTML 首页模板
+// ("custom" home name). Every save/restore appends an immutable version and
+// notifies the administrator out of band. The server sanitizes the HTML at
+// render time; the console only enforces the source byte limits and reads the
+// typed responses strictly, rejecting any unexpected shape.
+export const customHtmlLimit = 65536,
+  customCssLimit = 32768;
+export type CustomNoticeState = "pending" | "accepted" | "unknown";
+export interface CustomHtmlVersion {
+  version: number;
+  revision: string;
+  html: string;
+  css: string;
+  frame: boolean;
+  created_at: string;
+  actor: string;
+  restored_from: number;
+}
+export interface CustomHtmlSample {
+  html: string;
+  css: string;
+  frame: boolean;
+}
+export interface CustomVersionRow {
+  version: number;
+  created_at: string;
+  actor: string;
+  html_bytes: number;
+  css_bytes: number;
+  frame: boolean;
+  restored_from: number;
+  notice: CustomNoticeState;
+}
+export interface CustomSaveResult {
+  version: number;
+  revision: string;
+  removed: Record<string, number>;
+}
+const utf8Bytes = (value: string): number =>
+  typeof TextEncoder !== "undefined"
+    ? new TextEncoder().encode(value).length
+    : // Fallback for environments without TextEncoder (unused in the app).
+      unescape(encodeURIComponent(value)).length;
+export function customHtmlByteLength(value: string): number {
+  return utf8Bytes(value);
+}
+function text(value: unknown, field: string): string {
+  if (typeof value !== "string") throw new Error(`${field}格式无效`);
+  return value;
+}
+function count(value: unknown): number {
+  if (!Number.isSafeInteger(value) || Number(value) < 0)
+    throw new Error("自定义模板响应格式无效，请重新读取");
+  return value as number;
+}
+function version(value: unknown): number {
+  if (!Number.isSafeInteger(value) || Number(value) < 0)
+    throw new Error("自定义模板版本号无效，请重新读取");
+  return value as number;
+}
+function frame(value: unknown): boolean {
+  if (typeof value !== "boolean")
+    throw new Error("“保留系统导航和页脚”必须为开关值");
+  return value;
+}
+function noticeState(value: unknown): CustomNoticeState {
+  if (value !== "pending" && value !== "accepted" && value !== "unknown")
+    throw new Error("自定义模板通知状态无效，请重新读取");
+  return value;
+}
+/** GET /home/custom/html and GET /home/custom/versions/<n>. */
+export function readCustomHtml(raw: unknown): CustomHtmlVersion {
+  const v = object(raw);
+  const n = version(v.version);
+  if (n === 0)
+    return {
+      version: 0,
+      revision: revision(v.revision) ? (v.revision as string) : "0",
+      html: typeof v.html === "string" ? v.html : "",
+      css: typeof v.css === "string" ? v.css : "",
+      frame: v.frame === undefined ? true : frame(v.frame),
+      created_at: typeof v.created_at === "string" ? v.created_at : "",
+      actor: typeof v.actor === "string" ? v.actor : "",
+      restored_from: 0,
+    };
+  if (!revision(v.revision)) throw new Error("自定义模板修订号无效，请重新读取");
+  const restored = count(v.restored_from ?? 0);
+  if (restored >= n)
+    throw new Error("自定义模板来源版本无效，请重新读取");
+  return {
+    version: n,
+    revision: v.revision as string,
+    html: text(v.html, "HTML"),
+    css: text(v.css, "CSS"),
+    frame: frame(v.frame),
+    created_at: text(v.created_at, "时间"),
+    actor: text(v.actor, "操作人"),
+    restored_from: restored,
+  };
+}
+/** GET /home/custom/sample. */
+export function readCustomSample(raw: unknown): CustomHtmlSample {
+  const v = object(raw);
+  return {
+    html: text(v.html, "HTML"),
+    css: text(v.css, "CSS"),
+    frame: frame(v.frame),
+  };
+}
+/** GET /home/custom/versions (newest first, at most 50). */
+export function readCustomVersions(raw: unknown): CustomVersionRow[] {
+  const v = object(raw);
+  if (!Array.isArray(v.items)) throw new Error("自定义模板版本列表读取失败");
+  if (v.items.length > 50) throw new Error("自定义模板版本列表读取失败");
+  const seen = new Set<number>();
+  return v.items.map((raw) => {
+    const item = object(raw);
+    const n = version(item.version);
+    if (n < 1 || seen.has(n)) throw new Error("自定义模板版本列表包含无效项");
+    seen.add(n);
+    const restored = count(item.restored_from ?? 0);
+    if (restored >= n) throw new Error("自定义模板版本列表包含无效项");
+    return {
+      version: n,
+      created_at: text(item.created_at, "时间"),
+      actor: text(item.actor, "操作人"),
+      html_bytes: count(item.html_bytes),
+      css_bytes: count(item.css_bytes),
+      frame: frame(item.frame),
+      restored_from: restored,
+      notice: noticeState(item.notice),
+    };
+  });
+}
+/** PUT /home/custom/html and POST /home/custom/versions/<n>/restore. */
+export function readCustomSaveResult(raw: unknown): CustomSaveResult {
+  const v = object(raw);
+  const n = version(v.version);
+  if (n < 1 || !revision(v.revision))
+    throw new Error("自定义模板保存结果无效，请重新读取");
+  const removedRaw = v.removed === undefined ? {} : object(v.removed);
+  const removed: Record<string, number> = {};
+  for (const [key, value] of Object.entries(removedRaw)) {
+    if (typeof key !== "string" || !key)
+      throw new Error("自定义模板移除报告无效，请重新读取");
+    removed[key] = count(value);
+  }
+  return { version: n, revision: v.revision as string, removed };
+}
+/**
+ * PUT /home/custom/html body. Enforces the UTF-8 byte limits (the server also
+ * enforces them, with a Chinese reason, but the editor catches them first).
+ */
+export function customHtmlBody(
+  revisionValue: string,
+  html: string,
+  css: string,
+  frameValue: boolean,
+): { expected_revision: string; html: string; css: string; frame: boolean } {
+  if (!revision(revisionValue)) throw new Error("请重新读取自定义模板版本");
+  if (typeof html !== "string" || typeof css !== "string")
+    throw new Error("HTML 和 CSS 必须为文本");
+  if (typeof frameValue !== "boolean")
+    throw new Error("“保留系统导航和页脚”必须为开关值");
+  if (customHtmlByteLength(html) > customHtmlLimit)
+    throw new Error("HTML 超过 64 KiB");
+  if (customHtmlByteLength(css) > customCssLimit)
+    throw new Error("CSS 超过 32 KiB");
+  return {
+    expected_revision: revisionValue,
+    html,
+    css,
+    frame: frameValue,
+  };
 }

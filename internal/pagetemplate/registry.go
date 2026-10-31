@@ -53,6 +53,8 @@ type Resolved struct {
 	Revision   int64
 	Config     Config
 	Fallback   string
+	// Custom is the newest saved version when the home template is custom.
+	Custom *CustomContent
 }
 type Page struct {
 	SiteLogo                                        bool

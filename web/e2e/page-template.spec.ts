@@ -82,6 +82,7 @@ test("typed templates require explicit confirmation and kind-wide CAS, private i
               "manga",
               "mecha",
               "candy",
+              "custom",
             ].map((name) => ({
               name,
               title: name === "default" ? "标准模板" : name,
@@ -242,6 +243,7 @@ test("template unknown response blocks repeated mutation until explicit reload a
             "manga",
             "mecha",
             "candy",
+            "custom",
           ].map((name) => ({ name, title: name, description: "本地" })),
         }),
       );
@@ -321,6 +323,7 @@ test("three template kinds keep typed fields and image upload stays a draft unti
               "manga",
               "mecha",
               "candy",
+              "custom",
             ].map((name) => ({ name, title: name, description: "本地" }))
           : [
               { name: "default", title: "标准", description: "本地" },
@@ -408,4 +411,171 @@ test("three template kinds keep typed fields and image upload stays a draft unti
       JSON.stringify({ ...localStorage, ...sessionStorage }),
     ),
   ).not.toContain(assetID);
+});
+
+const homeItems = [
+  "default",
+  "index1",
+  "index2",
+  "index3",
+  "index4",
+  "index5",
+  "index6",
+  "index7",
+  "index8",
+  "index9",
+  "index10",
+  "minimal",
+  "sakura",
+  "starry",
+  "manga",
+  "mecha",
+  "candy",
+  "custom",
+].map((name) => ({ name, title: name, description: "本地" }));
+
+test("custom HTML home template saves a new version, reports removals and previews a version", async ({
+  page,
+}) => {
+  let revision = "5",
+    customRevision = "12",
+    customVersion = 3;
+  const puts: any[] = [];
+  const versions = [
+    {
+      version: 3,
+      created_at: "2026-10-31T10:20:05Z",
+      actor: "admin",
+      html_bytes: 8,
+      css_bytes: 0,
+      frame: true,
+      restored_from: 0,
+      notice: "accepted",
+    },
+  ];
+  await page.route("**/console/v1/**", (r) => {
+    const request = r.request(),
+      url = new URL(request.url()),
+      p = url.pathname;
+    if (p.endsWith("/session"))
+      return r.fulfill(
+        ok({
+          user: { id: "1", name: "Admin", role: "admin", admin_class: "super" },
+          csrf_token: "c",
+        }),
+      );
+    if (p.endsWith("/home/custom/html")) {
+      if (request.method() === "PUT") {
+        const body = request.postDataJSON();
+        puts.push(body);
+        customVersion += 1;
+        customRevision = String(Number(customRevision) + 1);
+        versions.unshift({
+          version: customVersion,
+          created_at: "2026-10-31T11:00:00Z",
+          actor: "admin",
+          html_bytes: 20,
+          css_bytes: 0,
+          frame: true,
+          restored_from: 0,
+          notice: "pending",
+        });
+        return r.fulfill(
+          ok({
+            version: customVersion,
+            revision: customRevision,
+            removed: { "<script>": 1, onclick: 2 },
+          }),
+        );
+      }
+      return r.fulfill(
+        ok({
+          version: customVersion,
+          revision: customRevision,
+          html: "<p>hi</p>",
+          css: "",
+          frame: true,
+          created_at: "2026-10-31T10:20:05Z",
+          actor: "admin",
+          restored_from: 0,
+        }),
+      );
+    }
+    if (p.endsWith("/home/custom/versions"))
+      return r.fulfill(ok({ items: versions }));
+    if (p.endsWith("/preview"))
+      return r.fulfill({ contentType: "text/html", body: "<p>PREVIEW</p>" });
+    if (p.endsWith("/templates")) {
+      const kind = url.searchParams.get("type");
+      return r.fulfill(
+        ok({
+          type: kind,
+          revision,
+          selected: "default",
+          items: kind === "home" ? homeItems : homeItems.slice(0, 2),
+        }),
+      );
+    }
+    const m = p.match(/\/templates\/(home|pay|qrpay)\/([a-z0-9]+)\/config$/);
+    if (m) {
+      const config: any = { ...cfg };
+      delete config.show_order_name;
+      return r.fulfill(
+        ok({
+          type: m[1],
+          name: m[2],
+          revision,
+          config,
+          fields: fields.filter((f) => f.name !== "show_order_name"),
+        }),
+      );
+    }
+    return r.fulfill(ok({}));
+  });
+  await page.goto("/admin/app/template");
+  await page
+    .getByRole("button", {
+      name: /自定义 HTML 首页模板|custom.*标识：custom|标识：custom/,
+    })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "首页 / custom" }),
+  ).toBeVisible();
+  // The custom editor panel appears under the typed config form.
+  await expect(
+    page.getByRole("heading", { name: "自定义 HTML" }),
+  ).toBeVisible();
+  await page.getByLabel("HTML").fill("<p>hello</p>");
+  await page.getByRole("button", { name: "检查并保存为新版本" }).click();
+  await expect(page.getByText(/保存后会生成第 4 版/)).toBeVisible();
+  await page.getByRole("button", { name: "确认保存", exact: true }).click();
+  await expect(page.getByText("已保存第 4 版")).toBeVisible();
+  await expect(page.getByText(/已移除：<script> ×1，onclick ×2/)).toBeVisible();
+  expect(puts[0]).toEqual({
+    expected_revision: "12",
+    html: "<p>hello</p>",
+    css: "",
+    frame: true,
+  });
+  // Previewing a version opens the sandboxed full preview pane.
+  await page
+    .getByRole("row", { name: /第 4 版/ })
+    .getByRole("button", { name: "预览" })
+    .click();
+  const pane = page.locator(".template-fullpreview");
+  await expect(pane.locator("iframe")).toHaveAttribute(
+    "src",
+    "/console/v1/admin/templates/home/custom/versions/4/preview",
+  );
+  await expect(pane.locator("iframe")).toHaveAttribute(
+    "sandbox",
+    "allow-same-origin",
+  );
+  await page.setViewportSize({ width: 375, height: 812 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
 });

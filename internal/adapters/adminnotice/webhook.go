@@ -8,6 +8,7 @@ import (
 	"goepay/internal/merchantnotice"
 	"net/http"
 	"strings"
+	"time"
 )
 
 var ErrDelivery = errors.New("administrator notice submission unavailable")
@@ -47,6 +48,37 @@ func (w *Webhook) SendChannelStopped(ctx context.Context, to string, channel, ev
 		payload = map[string]any{"msgtype": "markdown", "markdown": map[string]string{"content": "## " + title + "\n" + text}}
 	default:
 		payload = map[string]any{"msg_type": "text", "content": map[string]string{"text": text}}
+	}
+	raw, e := postJSON(ctx, w.client, w.endpoint, payload)
+	if e != nil {
+		return ErrDelivery
+	}
+	field := "code"
+	if w.kind == "ding" || w.kind == "work" {
+		field = "errcode"
+	}
+	if string(raw[field]) != "0" {
+		return ErrDelivery
+	}
+	return nil
+}
+
+func (w *Webhook) SendPageTemplateChanged(ctx context.Context, to string, version, restoredFrom int64, actor string, at time.Time) error {
+	if w == nil || ctx == nil || ctx.Err() != nil || to != w.target {
+		return ErrDelivery
+	}
+	title, text, e := pageTemplateChangedMessage(version, restoredFrom, actor, at)
+	if e != nil {
+		return e
+	}
+	var payload any
+	switch w.kind {
+	case "ding":
+		payload = map[string]any{"msgtype": "markdown", "markdown": map[string]string{"title": title, "text": "### " + title + "  \n " + strings.ReplaceAll(text, "\n", "  \n ")}}
+	case "work":
+		payload = map[string]any{"msgtype": "markdown", "markdown": map[string]string{"content": "## " + title + "\n" + text}}
+	default:
+		payload = map[string]any{"msg_type": "text", "content": map[string]string{"text": title + "\n" + text}}
 	}
 	raw, e := postJSON(ctx, w.client, w.endpoint, payload)
 	if e != nil {
