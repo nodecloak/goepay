@@ -17,7 +17,7 @@ func merchantProfile(fields map[string]any) map[string]any {
 				break
 			}
 		}
-		if derived {
+		if derived || merchantCreateSetupFields[k] {
 			continue
 		}
 		switch k {

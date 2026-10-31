@@ -215,8 +215,46 @@ func (s *Store) SetSettlementRecipient(ctx context.Context, mid int64, input Set
 	if old.ID > 0 && hmac.Equal(old.Hash, digest) {
 		return recipientView("configured", old.ID, in), tx.Commit(ctx)
 	}
+	view, e := s.recordSettlementRecipientTx(ctx, tx, mid, in, digest, actor)
+	if e != nil {
+		return SettlementRecipientView{}, e
+	}
+	return view, tx.Commit(ctx)
+}
+
+// SetInitialSettlementRecipientTx records the first settlement recipient of a
+// merchant an administrator is creating (添加商户 结算信息), inside the
+// caller's creation transaction. It never replaces a recipient: a merchant that
+// already has one is a conflict, and changes go through SetSettlementRecipient.
+func (s *Store) SetInitialSettlementRecipientTx(ctx context.Context, tx pgx.Tx, mid int64, input SettlementRecipientInput, actor SettlementRecipientActor) (SettlementRecipientView, error) {
+	if tx == nil || actor.Role != "admin" || !actor.valid(mid) {
+		return SettlementRecipientView{}, ErrInvalid
+	}
+	in, e := normalizeSettlementRecipient(input)
+	if e != nil {
+		return SettlementRecipientView{}, e
+	}
+	digest, e := s.settlementRecipientHash(in)
+	if e != nil {
+		return SettlementRecipientView{}, e
+	}
+	var found bool
+	if e = tx.QueryRow(ctx, "SELECT true FROM merchants WHERE id=$1 FOR NO KEY UPDATE", mid).Scan(&found); e != nil {
+		return SettlementRecipientView{}, e
+	}
+	if _, _, e = s.readSettlementConfig(ctx, tx, mid); e == nil {
+		return SettlementRecipientView{}, ErrConflict
+	} else if !errors.Is(e, ErrNotFound) {
+		return SettlementRecipientView{}, e
+	}
+	return s.recordSettlementRecipientTx(ctx, tx, mid, in, digest, actor)
+}
+
+// recordSettlementRecipientTx stores a normalized recipient as a new encrypted
+// version and makes it current, with its private search index and audit row.
+func (s *Store) recordSettlementRecipientTx(ctx context.Context, tx pgx.Tx, mid int64, in SettlementRecipientInput, digest []byte, actor SettlementRecipientActor) (SettlementRecipientView, error) {
 	var id int64
-	if e = tx.QueryRow(ctx, "SELECT nextval(pg_get_serial_sequence('settlement_recipient_configs','id'))").Scan(&id); e != nil {
+	if e := tx.QueryRow(ctx, "SELECT nextval(pg_get_serial_sequence('settlement_recipient_configs','id'))").Scan(&id); e != nil {
 		return SettlementRecipientView{}, e
 	}
 	cipher, e := s.encryptSettlementRecipient("config", id, in)
@@ -236,7 +274,7 @@ func (s *Store) SetSettlementRecipient(ctx context.Context, mid int64, input Set
 	if _, e = tx.Exec(ctx, "INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES($1,$2,$3,'settlement-recipient',$4,'configure',$5)", actor.Role, actor.ID, actor.Name, mid, raw); e != nil {
 		return SettlementRecipientView{}, e
 	}
-	return recipientView("configured", id, in), tx.Commit(ctx)
+	return recipientView("configured", id, in), nil
 }
 func (s *Store) snapshotSettlementRecipient(ctx context.Context, tx pgx.Tx, v LedgerRequest, expectedID *int64) error {
 	c, in, e := s.readSettlementConfig(ctx, tx, v.MerchantID)

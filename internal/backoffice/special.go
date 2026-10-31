@@ -29,8 +29,17 @@ func (s *Service) createMerchant(ctx context.Context, p Principal, d definition,
 		return Item{}, ErrInvalid
 	}
 	key, _ := v["api_key"].(string)
+	if key == "" {
+		if key, e = generatedMerchantAPIKey(); e != nil {
+			return Item{}, e
+		}
+	}
 	if len(key) < 24 {
 		return Item{}, fmt.Errorf("%w: API key minimum 24 bytes", ErrInvalid)
+	}
+	setup, e := s.readMerchantCreateSetup(ctx, p, v)
+	if e != nil {
+		return Item{}, e
 	}
 	algorithm, _ := v["signature_algorithm"].(string)
 	public, _ := v["rsa_public_key"].(string)
@@ -61,6 +70,9 @@ func (s *Service) createMerchant(ctx context.Context, p Principal, d definition,
 			return e
 		}
 		if e := syncMerchantLogin(ctx, tx, id, v, false); e != nil {
+			return e
+		}
+		if e := setup.apply(ctx, tx, s.store, p, id); e != nil {
 			return e
 		}
 		return audit(ctx, tx, p, "merchants", id, "create", changes)
