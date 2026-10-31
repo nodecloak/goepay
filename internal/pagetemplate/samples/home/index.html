@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{title}} - {{site_name}}</title>
+  <meta name="description" content="{{description}}">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site-header" id="top">
+    <div class="wrap header-inner">
+      <a class="brand" href="{{home_url}}">
+        <img class="brand-logo" src="images/logo.svg" alt="{{brand_name}}" width="32" height="32">
+        <span class="brand-name">{{site_name}}</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="打开菜单" aria-expanded="false" aria-controls="site-nav">
+        <span class="nav-toggle-bar"></span>
+        <span class="nav-toggle-bar"></span>
+        <span class="nav-toggle-bar"></span>
+      </button>
+      <nav class="site-nav" id="site-nav">
+        <a href="#features">功能</a>
+        <a href="#stats">数据</a>
+        <a href="#start">接入</a>
+        <a href="{{doc_url}}">开发文档</a>
+        <a class="nav-cta" href="{{login_url}}">商户登录</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap hero-inner">
+        <div class="hero-copy reveal">
+          <p class="eyebrow">{{brand_name}}</p>
+          <h1 class="hero-title">{{title}}</h1>
+          <p class="hero-desc">{{description}}</p>
+          <p class="notice" role="status">{{notice}}</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="{{register_url}}">免费注册</a>
+            <a class="btn btn-ghost" href="{{test_url}}">在线体验</a>
+          </div>
+        </div>
+        <div class="hero-art reveal" aria-hidden="true">
+          <img src="images/hero.svg" alt="" width="420" height="320">
+        </div>
+      </div>
+    </section>
+
+    <section class="features" id="features">
+      <div class="wrap">
+        <h2 class="section-title reveal">为什么选择我们</h2>
+        <div class="feature-grid">
+          <article class="feature-card reveal">
+            <img class="feature-icon" src="images/icon-shield.svg" alt="" width="40" height="40">
+            <h3>安全稳定</h3>
+            <p>多重风控与加密保障，7×24 小时监控，交易稳定可靠。</p>
+          </article>
+          <article class="feature-card reveal">
+            <img class="feature-icon" src="images/icon-bolt.svg" alt="" width="40" height="40">
+            <h3>极速到账</h3>
+            <p>高性能清结算通道，订单实时处理，资金快速结算。</p>
+          </article>
+          <article class="feature-card reveal">
+            <img class="feature-icon" src="images/icon-plug.svg" alt="" width="40" height="40">
+            <h3>轻松接入</h3>
+            <p>标准化 API 与详尽文档，几行代码即可完成对接。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats" id="stats">
+      <div class="wrap stats-grid">
+        <div class="stat reveal">
+          <span class="stat-num" data-count="99" data-suffix=".9%">0</span>
+          <span class="stat-label">服务可用率</span>
+        </div>
+        <div class="stat reveal">
+          <span class="stat-num" data-count="120" data-suffix="+">0</span>
+          <span class="stat-label">支持支付方式</span>
+        </div>
+        <div class="stat reveal">
+          <span class="stat-num" data-count="50" data-suffix="ms">0</span>
+          <span class="stat-label">平均响应</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta" id="start">
+      <div class="wrap cta-inner reveal">
+        <h2>准备好开始了吗？</h2>
+        <p>注册账号，几分钟内完成接入。</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="{{register_url}}">立即注册</a>
+          <a class="btn btn-ghost" href="{{doc_url}}">阅读文档</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <div class="footer-links">
+        <a href="{{doc_url}}">开发文档</a>
+        <a href="{{test_url}}">在线体验</a>
+        <a href="{{agreement_url}}">服务协议</a>
+        <a href="{{login_url}}">商户登录</a>
+      </div>
+      <div class="footer-meta">
+        <p>联系邮箱：{{email}}　QQ：{{qq}}</p>
+        <p>© {{year}} {{brand_name}}. 保留所有权利。</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

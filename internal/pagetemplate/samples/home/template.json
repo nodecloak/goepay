@@ -1,0 +1,8 @@
+{
+  "type": "home",
+  "name": "sample-home",
+  "title": "示例首页模板",
+  "version": "1.0.0",
+  "author": "GOEPAY",
+  "description": "一个响应式支付服务首页示例，含移动端菜单、平滑滚动与尊重减弱动态偏好的揭示动画。"
+}

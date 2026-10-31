@@ -3,18 +3,33 @@ import { computed, nextTick, onMounted, onBeforeUnmount, ref } from "vue";
 import type { ApiClient } from "../api";
 import ShellIcon from "./ShellIcon.vue";
 import {
+  checkTemplatePackage,
+  readRemoveResult,
+  readRestoreResult,
   readTemplateConfig,
   readTemplateList,
+  readTemplateVersions,
   templateConfigBody,
   templatePreviewImage,
+  templateRevisionBody,
+  templateSampleURL,
+  templateVersionPackageURL,
+  templateVersionPreviewURL,
   uploadTemplateImage,
+  uploadPackageLimit,
+  uploadTemplatePackage,
+  TemplateUploadError,
   type TemplateKind,
   type TemplateName,
   type TemplateConfigView,
   type TemplateList,
+  type TemplateListItem,
+  type TemplateUploadCheck,
+  type TemplateVersionRow,
+  type TemplateNoticeState,
 } from "../page-template";
+import { beijingTimestamp } from "../console-datetime";
 import KitStatusTag from "./KitStatusTag.vue";
-import CustomHtmlEditor from "./CustomHtmlEditor.vue";
 const props = defineProps<{
   client: ApiClient;
   adminClass?: string;
@@ -38,34 +53,46 @@ const loading = ref(false),
   confirmation = ref<"save" | "select" | null>(null),
   preview = ref(false);
 // The card 预览 button opens a template over the whole main content area.
-// A direct `src` lets the custom-HTML editor open a specific version preview.
+// `home` indicates an uploaded home template (scripts allowed, no same-origin).
 const fullPreview = ref<{
     key: string;
     title: string;
     src: string;
+    home: boolean;
   } | null>(null),
   fullPreviewClose = ref<HTMLButtonElement | null>(null);
 let fullPreviewReturn: HTMLElement | null = null;
-function openFullPreview(item: { name: string; title: string }, ev: Event) {
+// An uploaded home template runs scripts in the preview iframe; a built-in or
+// an uploaded pay/qrpay template is same-origin and runs none (spec §4, §9).
+const previewIsHomeUpload = computed(
+  () =>
+    kind.value === "home" &&
+    catalog.value?.items.some(
+      (item) => item.name === currentName.value && item.source === "upload",
+    ) === true,
+);
+function openFullPreview(item: TemplateListItem, ev: Event) {
   fullPreviewReturn = ev.currentTarget as HTMLElement;
+  const isHomeUpload = kind.value === "home" && item.source === "upload";
   fullPreview.value = {
     key: `${kind.value}-${item.name}`,
     title: item.title,
     src: `/console/v1/admin/templates/${kind.value}/${encodeURIComponent(item.name)}/preview`,
+    home: isHomeUpload,
   };
   void nextTick(() => fullPreviewClose.value?.focus());
 }
-// A custom HTML save or restore moved the kind-wide revision. Keep the typed
-// config form and the catalog on it without reloading, which would remount
-// the editor and drop its result message.
-function customSaved(revision: string) {
-  if (view.value) view.value = { ...view.value, revision };
-  if (catalog.value) catalog.value = { ...catalog.value, revision };
-}
-// The custom-HTML editor opens a version preview with a direct URL.
-function openCustomPreview(src: string, title: string) {
+// The versions dialog opens a specific version preview with a direct URL.
+function openVersionPreview(row: TemplateVersionRow) {
+  if (!versionsFor.value) return;
   fullPreviewReturn = document.activeElement as HTMLElement;
-  fullPreview.value = { key: src, title, src };
+  const isHomeUpload = kind.value === "home";
+  fullPreview.value = {
+    key: `${kind.value}-${versionsFor.value}-${row.version}`,
+    title: `${versionsTitle.value} 第 ${row.version} 版`,
+    src: templateVersionPreviewURL(kind.value, versionsFor.value, row.version),
+    home: isHomeUpload,
+  };
   void nextTick(() => fullPreviewClose.value?.focus());
 }
 function closeFullPreview() {
@@ -75,6 +102,7 @@ function closeFullPreview() {
 let epoch = 0,
   active = true,
   controller: AbortController | undefined;
+const currentName = computed(() => view.value?.name ?? "");
 const locked = computed(
   () =>
     !allowed.value ||
@@ -96,10 +124,17 @@ const tabLabel: Record<TemplateKind, string> = {
   pay: "支付页模板",
   qrpay: "聚合收款页模板",
 };
+const selectedItem = computed(() =>
+  catalog.value?.items.find((item) => item.name === catalog.value?.selected),
+);
 const selectedTitle = computed(
-  () =>
-    catalog.value?.items.find((item) => item.name === catalog.value?.selected)
-      ?.title ?? catalog.value?.selected,
+  () => selectedItem.value?.title ?? catalog.value?.selected,
+);
+// The selected name may not be in the list (a removed upload): the public
+// page then falls back to the default template.
+const selectionMissing = computed(() => !!catalog.value && !selectedItem.value);
+const uploadItems = computed(
+  () => catalog.value?.items.filter((item) => item.source === "upload") ?? [],
 );
 const endpoint = computed(() =>
   view.value ? `/templates/${view.value.type}/${view.value.name}` : "",
@@ -193,16 +228,14 @@ async function commit() {
   } catch (e) {
     if (active && token === epoch) {
       const status = (e as { status?: number })?.status;
-      // Selecting custom while no usable version exists is refused with 422
-      // and nothing changed: show the reason instead of asking for a reload.
-      if (
-        action === "select" &&
-        original.type === "home" &&
-        original.name === "custom" &&
-        status === 422
-      ) {
+      // Selecting an upload with no usable version is refused with 422 and
+      // nothing changed: show the reason instead of asking for a reload.
+      if (action === "select" && status === 422) {
         error.value =
-          e instanceof Error && e.message ? e.message : "请先保存自定义 HTML";
+          e instanceof Error && e.message ? e.message : "无法切换到该模板";
+      } else if (status === 409) {
+        uncertain.value = true;
+        error.value = "模板版本已变化，请重新读取后再操作，禁止自动重发。";
       } else {
         uncertain.value = true;
         error.value = `${e instanceof Error ? e.message : "保存响应未知"}。请重新读取原版本，禁止自动重发。`;
@@ -238,6 +271,251 @@ async function upload(event: Event) {
     if (active && token === epoch) busy.value = false;
   }
 }
+// --- Template package upload --------------------------------------------
+const packageInput = ref<HTMLInputElement | null>(null);
+const uploadConfirm = ref<{ check: TemplateUploadCheck; file: File } | null>(
+  null,
+);
+function pickPackage() {
+  if (locked.value) return;
+  packageInput.value?.click();
+}
+async function onPackageChosen(event: Event) {
+  const input = event.target as HTMLInputElement,
+    file = input.files?.[0];
+  input.value = "";
+  if (!file || locked.value) return;
+  if (file.size < 1 || file.size > uploadPackageLimit) {
+    error.value = "模板包大小须为1字节至10MiB";
+    return;
+  }
+  const token = epoch;
+  busy.value = true;
+  error.value = "";
+  notice.value = "";
+  try {
+    const result = await checkTemplatePackage(
+      props.client,
+      kind.value,
+      file,
+      controller?.signal,
+    );
+    if (!active || token !== epoch) return;
+    uploadConfirm.value = { check: result, file };
+  } catch (e) {
+    if (active && token === epoch) error.value = uploadError(e);
+  } finally {
+    if (active && token === epoch) busy.value = false;
+  }
+}
+function uploadError(e: unknown): string {
+  // A server 422 carries a Chinese reason shown verbatim.
+  if (e instanceof TemplateUploadError) return e.message;
+  return e instanceof Error ? e.message : "模板包处理失败";
+}
+async function commitUpload() {
+  if (!uploadConfirm.value || !catalog.value || locked.value) return;
+  const { file } = uploadConfirm.value,
+    rev = catalog.value.revision,
+    kindValue = kind.value,
+    token = epoch;
+  uploadConfirm.value = null;
+  busy.value = true;
+  error.value = "";
+  try {
+    const result = await uploadTemplatePackage(
+      props.client,
+      kindValue,
+      rev,
+      file,
+      controller?.signal,
+    );
+    if (!active || token !== epoch) return;
+    // Reload the list and open the uploaded template.
+    await load(kindValue, result.name);
+    if (!active) return;
+    notice.value = result.created
+      ? `已上传模板「${result.title}」（${result.name}）第 ${result.version} 版。`
+      : `已为「${result.title}」（${result.name}）生成第 ${result.version} 版。`;
+  } catch (e) {
+    if (active && token === epoch) {
+      if (e instanceof TemplateUploadError && e.status === 409) {
+        uncertain.value = true;
+        error.value = "模板列表版本已变化，请点击“重新读取模板”后重试。";
+      } else {
+        error.value = uploadError(e);
+      }
+    }
+  } finally {
+    if (active) busy.value = false;
+  }
+}
+// --- Uploaded template actions ------------------------------------------
+async function selectUpload(item: TemplateListItem) {
+  // 设为当前 on an uploaded card: load its config, then run the usual select.
+  if (locked.value) return;
+  await load(kind.value, item.name);
+  if (!active || !view.value || locked.value) return;
+  check("select");
+}
+async function removeUpload(item: TemplateListItem) {
+  if (!catalog.value) return;
+  removeConfirm.value = item;
+}
+const removeConfirm = ref<TemplateListItem | null>(null);
+async function commitRemove() {
+  if (!removeConfirm.value || !catalog.value || locked.value) return;
+  const item = removeConfirm.value,
+    rev = catalog.value.revision,
+    kindValue = kind.value,
+    token = epoch;
+  removeConfirm.value = null;
+  busy.value = true;
+  error.value = "";
+  try {
+    const result = readRemoveResult(
+      await props.client.request(
+        `/templates/${kindValue}/${item.name}/remove`,
+        {
+          method: "POST",
+          body: templateRevisionBody(rev),
+          signal: controller?.signal,
+        },
+      ),
+    );
+    if (!active) return;
+    void result;
+    await load(kindValue);
+    if (!active) return;
+    notice.value = `已删除模板「${item.title}」（${item.name}）。`;
+  } catch (e) {
+    if (active && token === epoch) {
+      const status = (e as { status?: number })?.status;
+      if (status === 409) {
+        uncertain.value = true;
+        error.value = "模板列表版本已变化，请点击“重新读取模板”后重试。";
+      } else {
+        error.value = e instanceof Error ? e.message : "删除失败";
+      }
+    }
+  } finally {
+    if (active) busy.value = false;
+  }
+}
+// --- Versions dialog -----------------------------------------------------
+const versionsFor = ref<string | null>(null),
+  versionsTitle = ref(""),
+  versions = ref<TemplateVersionRow[]>([]),
+  versionsLoading = ref(false),
+  restoreConfirm = ref<TemplateVersionRow | null>(null);
+const noticeLabel: Record<
+  TemplateNoticeState,
+  { tone: "info" | "success" | "warning"; text: string }
+> = {
+  pending: { tone: "warning", text: "等待发送" },
+  accepted: { tone: "success", text: "已提交" },
+  unknown: { tone: "info", text: "结果未知" },
+};
+function operationLabel(row: TemplateVersionRow): string {
+  if (row.operation === "restore" && row.restored_from > 0)
+    return `恢复自第 ${row.restored_from} 版`;
+  return {
+    upload: "上传",
+    restore: "恢复",
+    remove: "删除",
+    select: "切换",
+  }[row.operation];
+}
+function kib(bytes: number): string {
+  return `${(bytes / 1024).toFixed(1)} KiB`;
+}
+async function openVersions(item: TemplateListItem) {
+  if (locked.value) return;
+  versionsFor.value = item.name;
+  versionsTitle.value = item.title;
+  versions.value = [];
+  restoreConfirm.value = null;
+  versionsLoading.value = true;
+  const token = epoch;
+  error.value = "";
+  try {
+    const list = readTemplateVersions(
+      await props.client.request(
+        `/templates/${kind.value}/${item.name}/versions`,
+        { signal: controller?.signal },
+      ),
+    );
+    if (!active || token !== epoch) return;
+    if (versionsFor.value === item.name) versions.value = list;
+  } catch (e) {
+    if (active && token === epoch) {
+      error.value = e instanceof Error ? e.message : "版本读取失败";
+      versionsFor.value = null;
+    }
+  } finally {
+    if (active && token === epoch) versionsLoading.value = false;
+  }
+}
+function closeVersions() {
+  versionsFor.value = null;
+  restoreConfirm.value = null;
+}
+function downloadVersion(row: TemplateVersionRow) {
+  if (!versionsFor.value) return;
+  window.open(
+    templateVersionPackageURL(kind.value, versionsFor.value, row.version),
+    "_blank",
+    "noopener",
+  );
+}
+async function commitRestore() {
+  if (
+    !restoreConfirm.value ||
+    !versionsFor.value ||
+    !catalog.value ||
+    locked.value
+  )
+    return;
+  const row = restoreConfirm.value,
+    name = versionsFor.value,
+    rev = catalog.value.revision,
+    kindValue = kind.value,
+    token = epoch;
+  restoreConfirm.value = null;
+  busy.value = true;
+  error.value = "";
+  try {
+    const result = readRestoreResult(
+      await props.client.request(
+        `/templates/${kindValue}/${name}/versions/${row.version}/restore`,
+        {
+          method: "POST",
+          body: templateRevisionBody(rev),
+          signal: controller?.signal,
+        },
+      ),
+    );
+    if (!active) return;
+    versionsFor.value = null;
+    await load(kindValue, name);
+    if (!active) return;
+    notice.value = `已把「${versionsTitle.value}」（${name}）恢复为第 ${row.version} 版（新版本第 ${result.version} 版）。`;
+  } catch (e) {
+    if (active && token === epoch) {
+      const status = (e as { status?: number })?.status;
+      if (status === 409) {
+        uncertain.value = true;
+        error.value = "模板列表版本已变化，请点击“重新读取模板”后重试。";
+      } else {
+        error.value = e instanceof Error ? e.message : "恢复失败";
+      }
+    }
+  } finally {
+    if (active) busy.value = false;
+  }
+}
+// The sample package download link for the current kind.
+const sampleHref = computed(() => templateSampleURL(kind.value));
 onMounted(() => load());
 onBeforeUnmount(() => {
   active = false;
@@ -248,7 +526,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="panel template-page">
     <p class="muted template-intro">
-      内置首页、支付收银台和聚合收款页模板。修改仅影响外观，订单身份、金额和支付确认规则由原支付流程校验。
+      内置首页、支付收银台和聚合收款页模板，也可上传模板包。修改仅影响外观，订单身份、金额和支付确认规则由原支付流程校验。
     </p>
     <p v-if="!allowed" role="alert" class="alert">
       仅本人超级管理员会话可配置模板。
@@ -284,38 +562,92 @@ onBeforeUnmount(() => {
           <ShellIcon name="refresh" />重新读取模板
         </button>
       </div>
+      <div v-if="catalog" class="template-toolbar">
+        <button
+          type="button"
+          class="primary"
+          :disabled="locked"
+          @click="pickPackage"
+        >
+          <ShellIcon name="plus" />上传模板
+        </button>
+        <a
+          class="template-sample"
+          :href="sampleHref"
+          target="_blank"
+          rel="noopener"
+        >
+          <ShellIcon name="export" />下载示例模板包
+        </a>
+        <span class="muted template-toolbar-hint"
+          >上传 .zip 模板包，最大 10 MiB。</span
+        >
+        <input
+          ref="packageInput"
+          type="file"
+          accept=".zip,application/zip"
+          class="template-package-input"
+          aria-hidden="true"
+          tabindex="-1"
+          @change="onPackageChosen"
+        />
+      </div>
       <p v-if="loading" role="status" class="muted">正在读取模板…</p>
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
       <p v-if="notice" role="status" class="alert success">{{ notice }}</p>
+      <p v-if="selectionMissing" role="alert" class="alert">
+        当前选中的模板「{{
+          catalog?.selected
+        }}」不在列表中（可能已删除），公开页面已回退到默认模板，请切换到其他模板。
+      </p>
       <div v-if="catalog" class="template-cards">
         <div
           v-for="item in catalog.items"
           :key="item.name"
           class="template-card"
-          :class="{ 'is-current': view?.name === item.name }"
+          :class="{ 'is-current': currentName === item.name }"
         >
           <button
             type="button"
             class="template-card-pick"
-            :aria-pressed="view?.name === item.name"
+            :aria-pressed="currentName === item.name"
             :disabled="busy || loading"
             @click="load(kind, item.name)"
           >
             <img
+              v-if="item.source === 'builtin'"
               class="template-thumb"
               :src="templatePreviewImage(kind, item.name)"
               alt=""
               loading="lazy"
             />
+            <img
+              v-else-if="item.picture_url"
+              class="template-thumb"
+              :src="item.picture_url"
+              alt=""
+              loading="lazy"
+            />
+            <span v-else class="template-thumb template-thumb-placeholder"
+              >上传模板</span
+            >
             <span class="template-card-body">
               <strong
                 >{{ item.title
                 }}<KitStatusTag
+                  v-if="item.source === 'upload'"
+                  tone="info"
+                  text="上传" /><KitStatusTag
                   v-if="catalog.selected === item.name"
                   tone="success"
                   text="当前使用"
               /></strong>
-              <small>标识：{{ item.name }} · {{ item.description }}</small>
+              <small
+                >标识：{{ item.name }} ·
+                <template v-if="item.source === 'upload'"
+                  >第 {{ item.upload_version }} 版</template
+                ><template v-else>{{ item.description }}</template></small
+              >
             </span>
           </button>
           <button
@@ -326,6 +658,41 @@ onBeforeUnmount(() => {
           >
             <ShellIcon name="fullscreen" />预览
           </button>
+          <div v-if="item.source === 'upload'" class="template-card-actions">
+            <button
+              type="button"
+              :disabled="locked || catalog.selected === item.name"
+              @click="selectUpload(item)"
+            >
+              设为当前
+            </button>
+            <button
+              type="button"
+              :disabled="busy || loading"
+              @click="load(kind, item.name)"
+            >
+              配置
+            </button>
+            <button
+              type="button"
+              :disabled="locked"
+              @click="openVersions(item)"
+            >
+              版本
+            </button>
+            <button
+              type="button"
+              :disabled="catalog.selected === item.name"
+              :title="
+                catalog.selected === item.name
+                  ? '这个模板正在使用，请先切换到其他模板再删除'
+                  : undefined
+              "
+              @click="removeUpload(item)"
+            >
+              删除
+            </button>
+          </div>
         </div>
       </div>
       <div
@@ -355,9 +722,208 @@ onBeforeUnmount(() => {
           :key="fullPreview.key"
           :title="`${fullPreview.title} 预览`"
           :src="fullPreview.src"
-          sandbox="allow-same-origin"
+          :sandbox="
+            fullPreview.home
+              ? 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals'
+              : 'allow-same-origin'
+          "
           referrerpolicy="no-referrer"
         />
+      </div>
+      <div
+        v-if="uploadConfirm"
+        class="template-confirm template-upload-confirm"
+        role="dialog"
+        aria-label="确认上传模板"
+      >
+        <h3 class="template-confirm-title">确认上传模板</h3>
+        <dl class="template-upload-facts">
+          <div>
+            <dt>名称</dt>
+            <dd>
+              {{ uploadConfirm.check.title }}（{{ uploadConfirm.check.name }}）
+            </dd>
+          </div>
+          <div>
+            <dt>版本</dt>
+            <dd>
+              {{
+                uploadConfirm.check.exists
+                  ? `第 ${uploadConfirm.check.next_version} 版`
+                  : "新模板，第 1 版"
+              }}
+            </dd>
+          </div>
+          <div>
+            <dt>内容</dt>
+            <dd>
+              {{ uploadConfirm.check.files }} 个文件 ·
+              {{ kib(uploadConfirm.check.size) }}
+            </dd>
+          </div>
+        </dl>
+        <p v-if="uploadConfirm.check.selected" role="alert" class="alert">
+          该模板正在使用，上传后立即生效。
+        </p>
+        <p v-if="uploadConfirm.check.identical" role="alert" class="alert">
+          与当前最新版本完全相同，不会生成新版本，无法上传。
+        </p>
+        <div
+          v-if="uploadConfirm.check.warnings.length"
+          class="template-upload-list"
+        >
+          <strong>警告</strong>
+          <ul>
+            <li v-for="(w, i) in uploadConfirm.check.warnings" :key="`w${i}`">
+              {{ w }}
+            </li>
+          </ul>
+        </div>
+        <div
+          v-if="Object.keys(uploadConfirm.check.removed).length"
+          class="template-upload-list"
+        >
+          <strong>已移除元素</strong>
+          <ul>
+            <li
+              v-for="(n, key) in uploadConfirm.check.removed"
+              :key="`r${key}`"
+            >
+              {{ key }} ×{{ n }}
+            </li>
+          </ul>
+        </div>
+        <div
+          v-if="uploadConfirm.check.ignored.length"
+          class="template-upload-list"
+        >
+          <strong>已忽略文件</strong>
+          <ul>
+            <li v-for="(f, i) in uploadConfirm.check.ignored" :key="`i${i}`">
+              {{ f }}
+            </li>
+          </ul>
+        </div>
+        <div class="template-confirm-actions">
+          <button
+            class="primary"
+            :disabled="locked || uploadConfirm.check.identical"
+            @click="commitUpload"
+          >
+            确认上传</button
+          ><button @click="uploadConfirm = null">取消</button>
+        </div>
+      </div>
+      <div
+        v-if="removeConfirm"
+        class="template-confirm"
+        role="dialog"
+        aria-label="确认删除模板"
+      >
+        <p>
+          确认删除上传模板「{{ removeConfirm.title }}」（{{
+            removeConfirm.name
+          }}）？删除后该模板不再出现在列表中，历史版本仍保留。
+        </p>
+        <div class="template-confirm-actions">
+          <button class="primary" :disabled="locked" @click="commitRemove">
+            确认删除</button
+          ><button @click="removeConfirm = null">取消</button>
+        </div>
+      </div>
+      <div
+        v-if="versionsFor"
+        class="template-fullpreview template-versions-pane"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="`${versionsTitle} 版本`"
+        @keydown.esc="closeVersions"
+      >
+        <header class="template-fullpreview-head">
+          <strong>{{ versionsTitle }} · 版本</strong>
+          <button
+            ref="fullPreviewClose"
+            type="button"
+            class="template-fullpreview-close"
+            aria-label="关闭版本"
+            @click="closeVersions"
+          >
+            <ShellIcon name="close" />关闭
+          </button>
+        </header>
+        <div class="template-versions-body">
+          <p v-if="versionsLoading" role="status" class="muted">
+            正在读取版本…
+          </p>
+          <div class="table-scroll">
+            <table class="pa-table template-versions">
+              <thead>
+                <tr>
+                  <th>版本</th>
+                  <th>时间</th>
+                  <th>操作人</th>
+                  <th>来源</th>
+                  <th>内容</th>
+                  <th>通知</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="!versionsLoading && !versions.length">
+                  <td colspan="7" class="muted template-versions-empty">
+                    暂无版本
+                  </td>
+                </tr>
+                <tr v-for="(row, index) in versions" :key="row.version">
+                  <td>第 {{ row.version }} 版</td>
+                  <td>{{ beijingTimestamp(row.created_at) }}</td>
+                  <td>{{ row.actor }}</td>
+                  <td>{{ operationLabel(row) }}</td>
+                  <td>{{ row.files }} 文件 · {{ kib(row.size) }}</td>
+                  <td>
+                    <KitStatusTag
+                      :tone="noticeLabel[row.notice].tone"
+                      :text="noticeLabel[row.notice].text"
+                    />
+                  </td>
+                  <td class="template-versions-actions">
+                    <button type="button" @click="openVersionPreview(row)">
+                      预览</button
+                    ><button type="button" @click="downloadVersion(row)">
+                      下载</button
+                    ><button
+                      v-if="index !== 0"
+                      type="button"
+                      :disabled="locked"
+                      @click="restoreConfirm = row"
+                    >
+                      恢复
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div
+            v-if="restoreConfirm"
+            class="template-confirm"
+            role="dialog"
+            aria-label="确认恢复版本"
+          >
+            <p>
+              确认把「{{ versionsTitle }}」恢复为第
+              {{
+                restoreConfirm.version
+              }}
+              版？这会生成一个新版本；如果该模板正在使用，网站立即显示，并通知管理员。
+            </p>
+            <div class="template-confirm-actions">
+              <button class="primary" :disabled="locked" @click="commitRestore">
+                确认恢复</button
+              ><button @click="restoreConfirm = null">取消</button>
+            </div>
+          </div>
+        </div>
       </div>
       <template v-if="view">
         <h3 class="template-config-title">
@@ -457,12 +1023,6 @@ onBeforeUnmount(() => {
             </div>
           </fieldset>
         </form>
-        <CustomHtmlEditor
-          v-if="kind === 'home' && view.name === 'custom'"
-          :client="client"
-          @preview="openCustomPreview"
-          @saved="customSaved"
-        />
         <div
           v-if="confirmation"
           class="template-confirm"
@@ -497,7 +1057,11 @@ onBeforeUnmount(() => {
           :key="`${endpoint}-${view.revision}`"
           title="内置模板预览"
           :src="`/console/v1/admin${endpoint}/preview`"
-          sandbox="allow-same-origin"
+          :sandbox="
+            previewIsHomeUpload
+              ? 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals'
+              : 'allow-same-origin'
+          "
           referrerpolicy="no-referrer"
         />
       </template>
@@ -561,6 +1125,54 @@ onBeforeUnmount(() => {
   margin-left: auto;
   min-height: var(--control-h-sm);
   font-size: 12px;
+}
+.template-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+.template-toolbar .primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.template-toolbar .primary .shell-icon,
+.template-sample .shell-icon {
+  width: 16px;
+  height: 16px;
+}
+.template-sample {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--control-h);
+  padding: 0 14px;
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--ink);
+  font-size: 13px;
+  text-decoration: none;
+}
+.template-sample:hover {
+  border-color: var(--primary-text);
+  color: var(--primary-text);
+}
+.template-toolbar-hint {
+  font-size: 12px;
+}
+.template-package-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 /* Template cards: preview area, then name, current tag and details. */
 .template-cards {
@@ -631,6 +1243,17 @@ onBeforeUnmount(() => {
   width: 14px;
   height: 14px;
 }
+.template-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+.template-card-actions button {
+  min-height: var(--control-h-sm);
+  padding: 0 10px;
+  font-size: 12px;
+}
 /* Card 预览: the template over the whole main content area, right of the sidebar. */
 .template-fullpreview {
   position: fixed;
@@ -672,6 +1295,27 @@ onBeforeUnmount(() => {
   border-radius: 0;
   background: #fff;
 }
+.template-versions-pane {
+  background: var(--bg-page, var(--bg-card));
+}
+.template-versions-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 20px;
+}
+.template-versions {
+  width: 100%;
+}
+.template-versions-empty {
+  text-align: center;
+  padding: 16px 0;
+}
+.template-versions-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 @media (max-width: 768px) {
   .template-fullpreview {
     left: 0;
@@ -685,6 +1329,13 @@ onBeforeUnmount(() => {
   object-position: top;
   background: var(--bg-raised);
   border-bottom: 1px solid var(--line);
+}
+.template-thumb-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-muted);
+  font-size: 13px;
 }
 .template-card-body {
   display: flex;
@@ -807,12 +1458,53 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-md);
   background: var(--warning-soft);
 }
+.template-confirm-title {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
 .template-confirm p {
   margin: 0 0 10px;
 }
 .template-confirm-actions {
   display: flex;
   gap: 8px;
+}
+.template-upload-confirm {
+  max-width: 560px;
+}
+.template-upload-facts {
+  margin: 0 0 10px;
+  display: grid;
+  gap: 4px;
+}
+.template-upload-facts div {
+  display: flex;
+  gap: 8px;
+}
+.template-upload-facts dt {
+  flex: none;
+  width: 56px;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+.template-upload-facts dd {
+  margin: 0;
+  font-size: 13px;
+}
+.template-upload-list {
+  margin: 0 0 10px;
+  font-size: 12px;
+}
+.template-upload-list strong {
+  display: block;
+  margin-bottom: 4px;
+}
+.template-upload-list ul {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 120px;
+  overflow: auto;
+  line-height: 1.6;
 }
 .template-preview {
   display: flex;
@@ -835,6 +1527,10 @@ iframe {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: #ffffff;
+}
+.template-fullpreview iframe {
+  margin-top: 0;
+  border: 0;
 }
 @media (max-width: 768px) {
   .template-field {

@@ -3,7 +3,9 @@ package mailer
 import (
 	"context"
 	"encoding/base64"
+	"goepay/internal/templatechange"
 	"io"
+	"mime"
 	"net/mail"
 	"strings"
 	"testing"
@@ -11,6 +13,14 @@ import (
 )
 
 var pageNoticeAt = time.Date(2026, 10, 31, 10, 20, 5, 0, time.UTC)
+
+func uploadNotice() templatechange.Notice {
+	return templatechange.Notice{Kind: "home", Name: "aurora", Title: "极光", Operation: "upload", Version: 4, Actor: "admin", At: pageNoticeAt}
+}
+
+func restoreNotice() templatechange.Notice {
+	return templatechange.Notice{Kind: "home", Name: "aurora", Title: "极光", Operation: "restore", Version: 5, RestoredFrom: 2, Actor: "admin", At: pageNoticeAt}
+}
 
 func TestPageTemplateNoticeUsesVerifiedTLSAndBoundedNonPIIMessage(t *testing.T) {
 	for _, security := range []string{"implicit", "starttls"} {
@@ -20,7 +30,7 @@ func TestPageTemplateNoticeUsesVerifiedTLSAndBoundedNonPIIMessage(t *testing.T) 
 			if e != nil {
 				t.Fatal(e)
 			}
-			if e = sender.SendPageTemplateChanged(context.Background(), "admin@example.test", 5, 2, "admin", pageNoticeAt); e != nil {
+			if e = sender.SendPageTemplateNotice(context.Background(), "admin@example.test", restoreNotice()); e != nil {
 				t.Fatal(e)
 			}
 			f.mu.Lock()
@@ -52,26 +62,35 @@ func TestPageTemplateNoticeUsesVerifiedTLSAndBoundedNonPIIMessage(t *testing.T) 
 	}
 }
 
-func TestPageTemplateNoticeSaveWordingAndActorFallback(t *testing.T) {
+func TestPageTemplateNoticeSubjectAndActorFallback(t *testing.T) {
 	f := localSMTP(t, "implicit", "")
 	sender, e := NewSMTP(f.config)
 	if e != nil {
 		t.Fatal(e)
 	}
-	if e = sender.SendPageTemplateChanged(context.Background(), "admin@example.test", 4, 0, "bad name", pageNoticeAt); e != nil {
+	n := templatechange.Notice{Kind: "home", Name: "aurora", Title: "极光", Operation: "upload", Version: 4, Actor: "bad name", At: pageNoticeAt}
+	if e = sender.SendPageTemplateNotice(context.Background(), "admin@example.test", n); e != nil {
 		t.Fatal(e)
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	body, e := io.ReadAll(base64.NewDecoder(base64.StdEncoding, mustBody(t, f.messages[0])))
+	msg, e := mail.ReadMessage(strings.NewReader(f.messages[0]))
 	if e != nil {
 		t.Fatal(e)
 	}
-	if !strings.Contains(string(body), "保存了首页自定义 HTML 第 4 版") || !strings.Contains(string(body), "管理员 （未知） 于") {
-		t.Fatal("wrong save wording or actor fallback", string(body))
+	// Subject is the MIME B-encoded notice title.
+	if msg.Header.Get("Subject") != mimeTitle() {
+		t.Fatal("wrong subject", msg.Header.Get("Subject"))
+	}
+	body, e := io.ReadAll(base64.NewDecoder(base64.StdEncoding, msg.Body))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if !strings.Contains(string(body), "上传了首页模板「极光」（aurora）第 4 版") || !strings.Contains(string(body), "管理员 （未知） 于") {
+		t.Fatal("wrong upload wording or actor fallback", string(body))
 	}
 	if strings.Contains(string(body), "恢复为第") {
-		t.Fatal("save message mentions restore")
+		t.Fatal("upload message mentions restore")
 	}
 }
 
@@ -82,18 +101,17 @@ func TestPageTemplateNoticeRejectsInvalidInputsWithoutIO(t *testing.T) {
 		t.Fatal(e)
 	}
 	cases := []struct {
-		to                    string
-		version, restoredFrom int64
-		at                    time.Time
+		to string
+		n  templatechange.Notice
 	}{
-		{"admin@example.test", 0, 0, pageNoticeAt},                         // version must be > 0
-		{"admin@example.test", 4, 4, pageNoticeAt},                         // restoredFrom >= version
-		{"admin@example.test", 4, 0, time.Time{}},                          // zero time
-		{"admin@example.test\r\nBcc:bad@example.test", 4, 0, pageNoticeAt}, // header injection
-		{"", 4, 0, pageNoticeAt},                                           // empty recipient
+		{"admin@example.test", templatechange.Notice{Kind: "home", Name: "aurora", Title: "极光", Operation: "upload", Version: 0, Actor: "admin", At: pageNoticeAt}},                         // version must be > 0
+		{"admin@example.test", templatechange.Notice{Kind: "home", Name: "aurora", Title: "极光", Operation: "restore", Version: 4, RestoredFrom: 4, Actor: "admin", At: pageNoticeAt}},       // restored_from >= version
+		{"admin@example.test", templatechange.Notice{Kind: "home", Name: "aurora", Title: "极光", Operation: "upload", Version: 4, Actor: "admin"}},                                           // zero time
+		{"admin@example.test\r\nBcc:bad@example.test", templatechange.Notice{Kind: "home", Name: "aurora", Title: "极光", Operation: "upload", Version: 4, Actor: "admin", At: pageNoticeAt}}, // header injection
+		{"", templatechange.Notice{Kind: "home", Name: "aurora", Title: "极光", Operation: "upload", Version: 4, Actor: "admin", At: pageNoticeAt}},                                           // empty recipient
 	}
 	for _, c := range cases {
-		if e = sender.SendPageTemplateChanged(context.Background(), c.to, c.version, c.restoredFrom, "admin", c.at); e != ErrSMTP {
+		if e = sender.SendPageTemplateNotice(context.Background(), c.to, c.n); e != ErrSMTP {
 			t.Fatal("invalid notice accepted", c)
 		}
 	}
@@ -110,7 +128,7 @@ func TestPageTemplateNoticeNeverRetriesUnknownSubmission(t *testing.T) {
 			if e != nil {
 				t.Fatal(e)
 			}
-			if e = sender.SendPageTemplateChanged(context.Background(), "admin@example.test", 4, 0, "admin", pageNoticeAt); e != ErrSMTP {
+			if e = sender.SendPageTemplateNotice(context.Background(), "admin@example.test", uploadNotice()); e != ErrSMTP {
 				t.Fatal("unsafe SMTP accepted", e)
 			}
 			if f.connections.Load() != 1 || f.dataAttempts.Load() > 1 {
@@ -120,11 +138,9 @@ func TestPageTemplateNoticeNeverRetriesUnknownSubmission(t *testing.T) {
 	}
 }
 
-func mustBody(t *testing.T, raw string) io.Reader {
-	t.Helper()
-	msg, e := mail.ReadMessage(strings.NewReader(raw))
-	if e != nil {
-		t.Fatal(e)
-	}
-	return msg.Body
+// mimeTitle returns the subject header the sender writes for the fixed notice
+// title: the MIME B-encoded 页面模板已修改.
+func mimeTitle() string {
+	title, _, _ := uploadNotice().Message()
+	return mime.BEncoding.Encode("UTF-8", title)
 }

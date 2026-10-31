@@ -1,5 +1,0 @@
-/* custom (自定义 HTML): a soft backdrop for the system navigation, footer
-   and the agreement page. The administrator's own CSS comes after this. */
-.home-custom{background:radial-gradient(900px 480px at 86% -120px,color-mix(in srgb,var(--accent) 12%,transparent),transparent 70%),linear-gradient(180deg,color-mix(in srgb,var(--accent) 5%,var(--bg)),var(--bg) 640px);background-repeat:no-repeat}
-.custom-main{display:block;min-width:0}
-.custom-main img{max-width:100%;height:auto}

@@ -3,6 +3,7 @@ package adminnotice
 import (
 	"context"
 	"encoding/json"
+	"goepay/internal/templatechange"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -11,6 +12,16 @@ import (
 )
 
 var pageNoticeAt = time.Date(2026, 10, 31, 10, 20, 5, 0, time.UTC)
+
+// uploadNotice is a well-formed upload of "aurora" version 4.
+func uploadNotice() templatechange.Notice {
+	return templatechange.Notice{Kind: "home", Name: "aurora", Title: "极光", Operation: "upload", Version: 4, Actor: "admin", At: pageNoticeAt}
+}
+
+// restoreNotice is a well-formed restore of version 2 into version 5.
+func restoreNotice() templatechange.Notice {
+	return templatechange.Notice{Kind: "home", Name: "aurora", Title: "极光", Operation: "restore", Version: 5, RestoredFrom: 2, Actor: "admin", At: pageNoticeAt}
+}
 
 func TestPageTemplateTelegramOriginalFormAndAcceptedResult(t *testing.T) {
 	const token = "770001:synthetic-telegram-secret77"
@@ -25,7 +36,7 @@ func TestPageTemplateTelegramOriginalFormAndAcceptedResult(t *testing.T) {
 			return
 		}
 		text := r.PostForm.Get("text")
-		if r.PostForm.Get("chat_id") != "77" || r.PostForm.Get("parse_mode") != "HTML" || !strings.Contains(text, "<strong>首页自定义 HTML 已修改</strong>") || !strings.Contains(text, "第 4 版") {
+		if r.PostForm.Get("chat_id") != "77" || r.PostForm.Get("parse_mode") != "HTML" || !strings.Contains(text, "<strong>页面模板已修改</strong>") || !strings.Contains(text, "第 4 版") {
 			t.Error("wrong original form", r.PostForm)
 		}
 		w.Write([]byte(`{"ok":true}`))
@@ -34,7 +45,7 @@ func TestPageTemplateTelegramOriginalFormAndAcceptedResult(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if e = sender.SendPageTemplateChanged(context.Background(), "77", 4, 0, "admin", pageNoticeAt); e != nil {
+	if e = sender.SendPageTemplateNotice(context.Background(), "77", uploadNotice()); e != nil {
 		t.Fatal(e)
 	}
 	if calls.Load() != 1 {
@@ -53,18 +64,19 @@ func TestPageTemplateTelegramRejectsUnsafeDestinationAndUncertainReply(t *testin
 		t.Fatal(e)
 	}
 	for _, to := range []string{"", "0", "@bad name", "1\r\n"} {
-		if e = sender.SendPageTemplateChanged(context.Background(), to, 4, 0, "admin", pageNoticeAt); e != ErrDelivery {
+		if e = sender.SendPageTemplateNotice(context.Background(), to, uploadNotice()); e != ErrDelivery {
 			t.Fatal("unsafe Telegram destination accepted", to)
 		}
 	}
-	// Invalid builder input (restoredFrom >= version) never touches the network.
-	if e = sender.SendPageTemplateChanged(context.Background(), "77", 4, 4, "admin", pageNoticeAt); e != ErrDelivery {
-		t.Fatal("invalid version accepted")
+	// Invalid builder input (restore with restored_from >= version) never touches the network.
+	bad := templatechange.Notice{Kind: "home", Name: "aurora", Title: "极光", Operation: "restore", Version: 4, RestoredFrom: 4, Actor: "admin", At: pageNoticeAt}
+	if e = sender.SendPageTemplateNotice(context.Background(), "77", bad); e != ErrDelivery {
+		t.Fatal("invalid notice accepted")
 	}
 	if dials.Load() != 0 {
 		t.Fatal("invalid destination/input caused IO", dials.Load())
 	}
-	if e = sender.SendPageTemplateChanged(context.Background(), "77", 4, 0, "admin", pageNoticeAt); e != ErrDelivery || calls.Load() != 1 || strings.Contains(e.Error(), "private-synthetic-error77") {
+	if e = sender.SendPageTemplateNotice(context.Background(), "77", uploadNotice()); e != ErrDelivery || calls.Load() != 1 || strings.Contains(e.Error(), "private-synthetic-error77") {
 		t.Fatal("uncertain Telegram result accepted, retried or leaked", e, calls.Load())
 	}
 }
@@ -88,7 +100,7 @@ func TestPageTemplateWebhookOriginalPayloadAndAcceptedReply(t *testing.T) {
 					return
 				}
 				raw, _ := json.Marshal(payload)
-				if !strings.Contains(string(raw), "首页自定义 HTML 已修改") || !strings.Contains(string(raw), "第 5 版") || !strings.Contains(string(raw), "恢复为第 2 版") || strings.Contains(string(raw), "synthetic-token77") {
+				if !strings.Contains(string(raw), "页面模板已修改") || !strings.Contains(string(raw), "第 5 版") || !strings.Contains(string(raw), "恢复为第 2 版") || strings.Contains(string(raw), "synthetic-token77") {
 					t.Error("wrong original notice or token leaked", string(raw))
 				}
 				if tc.kind == "ding" || tc.kind == "work" {
@@ -104,14 +116,14 @@ func TestPageTemplateWebhookOriginalPayloadAndAcceptedReply(t *testing.T) {
 			if dials.Load() != 0 {
 				t.Fatal("constructor contacted upstream")
 			}
-			if e = transport.SendPageTemplateChanged(context.Background(), tc.endpoint, 5, 2, "admin", pageNoticeAt); e != nil {
+			if e = transport.SendPageTemplateNotice(context.Background(), tc.endpoint, restoreNotice()); e != nil {
 				t.Fatal(e)
 			}
 			if calls.Load() != 1 {
 				t.Fatal("wrong send count", calls.Load())
 			}
 			// A notice to any other target never leaves.
-			if e = transport.SendPageTemplateChanged(context.Background(), "https://other.example/hook", 5, 2, "admin", pageNoticeAt); e != ErrDelivery {
+			if e = transport.SendPageTemplateNotice(context.Background(), "https://other.example/hook", restoreNotice()); e != ErrDelivery {
 				t.Fatal("wrong target accepted")
 			}
 		})
@@ -136,7 +148,7 @@ func TestPageTemplateQQBotTokenThenOriginalMarkdown(t *testing.T) {
 				t.Error("QQ message missing token or wrong type")
 			}
 			markdown := payload["markdown"].(map[string]any)["content"].(string)
-			if !strings.HasPrefix(markdown, "# 首页自定义 HTML 已修改\n\n") || !strings.Contains(markdown, "第 4 版") {
+			if !strings.HasPrefix(markdown, "# 页面模板已修改\n\n") || !strings.Contains(markdown, "第 4 版") {
 				t.Error("wrong QQ markdown", markdown)
 			}
 			w.Write([]byte(`{"id":"local-message77"}`))
@@ -151,14 +163,14 @@ func TestPageTemplateQQBotTokenThenOriginalMarkdown(t *testing.T) {
 	if dials.Load() != 0 {
 		t.Fatal("constructor fetched credentials")
 	}
-	if e = sender.SendPageTemplateChanged(context.Background(), "local-openid77", 4, 0, "admin", pageNoticeAt); e != nil {
+	if e = sender.SendPageTemplateNotice(context.Background(), "local-openid77", uploadNotice()); e != nil {
 		t.Fatal(e)
 	}
 	if tokens.Load() != 1 || messages.Load() != 1 {
 		t.Fatal("QQ notice retried", tokens.Load(), messages.Load())
 	}
 	for _, to := range []string{"", "openid/../../other", "openid\r\n"} {
-		if e = sender.SendPageTemplateChanged(context.Background(), to, 4, 0, "admin", pageNoticeAt); e != ErrDelivery {
+		if e = sender.SendPageTemplateNotice(context.Background(), to, uploadNotice()); e != ErrDelivery {
 			t.Fatal("unsafe QQ destination accepted", to)
 		}
 	}

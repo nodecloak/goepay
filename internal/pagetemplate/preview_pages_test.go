@@ -40,14 +40,14 @@ func TestWriteTemplatePreviewPages(t *testing.T) {
 			case "home":
 				e = RenderHome(&b, r, HomeData{SiteName: "GOEPAY", Title: v.Title, Org: "示例科技有限公司", Email: "support@example.com", QQ: "10001", TestOpen: true, RegistrationOpen: true})
 			case "pay":
-				if e = Open(&b, r, Page{Title: "支付收银台", TradeNo: "2026102912345678", Amount: "100.00", OrderName: "示例商品"}); e == nil {
-					io.WriteString(&b, `<p>请使用支付宝扫描支付二维码。</p><img width="320" height="320" alt="支付二维码" src="demo-qr.png"><p>请在有效期内完成付款，付款结果以平台确认为准。</p>`)
-					e = Close(&b)
+				var tail string
+				if tail, e = Open(&b, r, Page{Title: "支付收银台", TradeNo: "2026102912345678", Amount: "100.00", OrderName: "示例商品"}); e == nil {
+					io.WriteString(&b, `<p>请使用支付宝扫描支付二维码。</p><img width="320" height="320" alt="支付二维码" src="demo-qr.png"><p>请在有效期内完成付款，付款结果以平台确认为准。</p>`+tail)
 				}
 			default:
-				if e = Open(&b, r, Page{Title: "向示例商户付款", MerchantName: "示例商户"}); e == nil {
-					io.WriteString(&b, `<p>收款说明：向示例商户付款</p><form method="post" action="#"><label>金额（元）<input name="amount" type="number" value="100.00"></label><label>支付方式<select name="type"><option>微信支付</option><option>支付宝</option></select></label><button type="submit">前往支付</button></form>`)
-					e = Close(&b)
+				var tail string
+				if tail, e = Open(&b, r, Page{Title: "向示例商户付款", MerchantName: "示例商户"}); e == nil {
+					io.WriteString(&b, `<p>收款说明：向示例商户付款</p><form method="post" action="#"><label>金额（元）<input name="amount" type="number" value="100.00"></label><label>支付方式<select name="type"><option>微信支付</option><option>支付宝</option></select></label><button type="submit">前往支付</button></form>`+tail)
 				}
 			}
 			if e != nil {

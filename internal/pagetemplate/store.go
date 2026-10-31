@@ -52,24 +52,56 @@ func (s *Store) List(ctx context.Context, kind string, a Actor) (ListView, error
 	if e != nil {
 		return v, e
 	}
+	for i := range list {
+		list[i].Source = "builtin"
+	}
 	v.Items = list
 	if s.pool == nil {
 		return v, ErrNotFound
 	}
-	e = s.pool.QueryRow(ctx, "SELECT revision,selected_name FROM page_template_heads WHERE kind=$1", kind).Scan(&v.Revision, &v.Selected)
-	return v, e
+	if e = s.pool.QueryRow(ctx, "SELECT revision,selected_name FROM page_template_heads WHERE kind=$1", kind).Scan(&v.Revision, &v.Selected); e != nil {
+		return v, e
+	}
+	uploads, e := listUploads(ctx, s.pool, kind)
+	if e != nil {
+		return v, e
+	}
+	v.Items = append(v.Items, uploads...)
+	return v, nil
+}
+
+// known checks that name is a built-in template of kind or an uploaded one
+// that is not removed.
+func known(ctx context.Context, q reader, kind, name string) error {
+	if _, ok := Lookup(kind, name); ok {
+		return nil
+	}
+	if !validKind(kind) || !ValidUploadName(name) {
+		return ErrInvalid
+	}
+	active, e := uploadActive(ctx, q, kind, name)
+	if e != nil {
+		return e
+	}
+	if !active {
+		return ErrNotFound
+	}
+	return nil
 }
 func (s *Store) Config(ctx context.Context, kind, name string, a Actor) (ConfigView, error) {
 	v := ConfigView{Type: kind, Name: name, Fields: Fields(kind)}
 	if !allowed(a) {
 		return v, ErrForbidden
 	}
-	if _, ok := Lookup(kind, name); !ok {
+	if _, ok := Lookup(kind, name); !ok && !(validKind(kind) && ValidUploadName(name)) {
 		return v, ErrInvalid
 	}
 	var raw []byte
 	if s.pool == nil {
 		return v, ErrNotFound
+	}
+	if e := known(ctx, s.pool, kind, name); e != nil {
+		return v, e
 	}
 	if e := s.pool.QueryRow(ctx, `SELECT h.revision,c.config FROM page_template_heads h LEFT JOIN page_template_configs c ON c.kind=h.kind AND c.name=$2 WHERE h.kind=$1`, kind, name).Scan(&v.Revision, &raw); e != nil {
 		return v, e
@@ -116,6 +148,9 @@ func (s *Store) SaveConfig(ctx context.Context, kind, name string, expected int6
 	if revision != expected {
 		return v, ErrConflict
 	}
+	if e = known(ctx, tx, kind, name); e != nil {
+		return v, e
+	}
 	if cfg.LogoAssetID != "" {
 		if _, e = readAsset(ctx, tx, cfg.LogoAssetID); e != nil {
 			return v, ErrInvalid
@@ -150,8 +185,12 @@ func (s *Store) Select(ctx context.Context, kind, name string, expected int64, a
 	if e != nil || expected < 0 {
 		return v, ErrInvalid
 	}
-	if _, ok := Lookup(kind, name); !ok {
+	_, builtin := Lookup(kind, name)
+	if !builtin && !ValidUploadName(name) {
 		return v, ErrInvalid
+	}
+	for i := range list {
+		list[i].Source = "builtin"
 	}
 	if s.pool == nil {
 		return v, ErrNotFound
@@ -184,9 +223,16 @@ func (s *Store) Select(ctx context.Context, kind, name string, expected int64, a
 			}
 		}
 	}
-	if kind == "home" && name == "custom" {
-		if _, reason := resolveCustom(ctx, tx); reason != "" {
-			return v, &CustomError{"请先保存可用的自定义 HTML，再设为当前模板"}
+	var upload uploadStatus
+	if !builtin {
+		if upload, e = uploadState(ctx, tx, kind, name); e != nil {
+			return v, e
+		}
+		if !upload.active {
+			return v, ErrNotFound
+		}
+		if _, reason := resolveUpload(ctx, tx, kind, name); reason != "" {
+			return v, refuse("这个模板现在无法显示（%s），请重新上传后再设为当前模板", reason)
 		}
 	}
 	next := revision + 1
@@ -199,10 +245,20 @@ func (s *Store) Select(ctx context.Context, kind, name string, expected int64, a
 	if e = audit(ctx, tx, a, kind, name, "select", next, ""); e != nil {
 		return v, e
 	}
+	if !builtin {
+		// Making uploaded markup the live page is worth a notice.
+		if e = uploadEvent(ctx, tx, upload.id, "select", upload.newest, 0, a); e != nil {
+			return v, e
+		}
+	}
+	uploads, e := listUploads(ctx, tx, kind)
+	if e != nil {
+		return v, e
+	}
 	if e = tx.Commit(ctx); e != nil {
 		return v, e
 	}
-	return ListView{Type: kind, Revision: next, Selected: name, Items: list}, nil
+	return ListView{Type: kind, Revision: next, Selected: name, Items: append(list, uploads...)}, nil
 }
 func fallback(kind, reason string, revision int64) Resolved {
 	return Resolved{Type: kind, Name: "default", Revision: revision, Config: DefaultConfig(kind, "default"), Fallback: reason}
@@ -221,7 +277,8 @@ func (s *Store) Resolve(ctx context.Context, kind string) (Resolved, error) {
 	if e != nil {
 		return fallback(kind, "store_unavailable", 0), nil
 	}
-	if _, ok := Lookup(kind, name); !ok {
+	_, builtin := Lookup(kind, name)
+	if !builtin && !ValidUploadName(name) {
 		return fallback(kind, "unknown_template", revision), nil
 	}
 	cfg := DefaultConfig(kind, name)
@@ -237,12 +294,12 @@ func (s *Store) Resolve(ctx context.Context, kind string) (Resolved, error) {
 		}
 	}
 	out := Resolved{Type: kind, Name: name, Revision: revision, Config: cfg}
-	if kind == "home" && name == "custom" {
-		custom, reason := resolveCustom(ctx, s.pool)
+	if !builtin {
+		upload, reason := resolveUpload(ctx, s.pool, kind, name)
 		if reason != "" {
 			return fallback(kind, reason, revision), nil
 		}
-		out.Custom = custom
+		out.Upload = upload
 	}
 	return out, nil
 }
@@ -312,14 +369,6 @@ func (s *Store) PublishedAsset(ctx context.Context, id string) (Asset, error) {
 		}
 		if r.Fallback == "" && r.Config.LogoAssetID == id {
 			return readAsset(ctx, s.pool, id)
-		}
-		// Images shown by the selected custom home page are public too.
-		if r.Fallback == "" && r.Custom != nil {
-			for _, used := range r.Custom.Assets {
-				if used == id {
-					return readAsset(ctx, s.pool, id)
-				}
-			}
 		}
 	}
 	return Asset{}, ErrNotFound

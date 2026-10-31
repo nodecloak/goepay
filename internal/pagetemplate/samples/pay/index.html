@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{title}} - {{brand_name}}</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="pay-page">
+  <div class="pay-shell">
+    <header class="pay-header">
+      <img class="pay-logo" src="images/logo.svg" alt="{{brand_name}}" width="36" height="36">
+      <span class="pay-brand">{{brand_name}}</span>
+    </header>
+
+    <p class="pay-help">请在页面有效期内完成支付，付款结果以平台确认为准。</p>
+
+    <div class="pay-body">
+      {{content}}
+    </div>
+
+    <footer class="pay-footer">
+      <p>订单由 {{brand_name}} 安全处理</p>
+      <p>© {{year}} {{brand_name}}</p>
+    </footer>
+  </div>
+</body>
+</html>
