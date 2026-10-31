@@ -215,7 +215,6 @@ onMounted(load);
   <KitModal
     v-if="creating"
     title="创建红包"
-    width="480px"
     :loading="busy"
     submit-text="确认创建"
     @close="creating = false"
