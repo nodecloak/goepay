@@ -108,6 +108,7 @@ func response(w http.ResponseWriter, status int, code int, msg string, data any)
 }
 func (s *Server) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w = submitBrowserResponse(w, r)
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		bodyLimit := int64(1 << 20)
@@ -815,6 +816,7 @@ func (s *Server) fail(w http.ResponseWriter, e error) {
 	response(w, status, -1, msg, nil)
 }
 func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
+	w = submitBrowserResponse(w, r)
 	route := r.URL.Path
 	legacy := route == "/submit.php" || route == "/mapi.php" || route == "/api.php"
 	if route == "/submit.php" {

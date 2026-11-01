@@ -5,6 +5,7 @@
 <p><code class="doc-url">{{.API}}api/pay/submit</code></p>
 <h2 id="请求方式">请求方式</h2>
 <p><code>GET 或 POST</code>，UTF-8，<code>application/x-www-form-urlencoded</code>。除页面跳转接口外，V2 不接受 GET。</p>
+<p class="doc-note">浏览器导航或接受 HTML 的请求在支付失败时展示中文错误页，不自动重试下单；成功时继续原收银台或通道跳转。服务端需要读取签名 JSON 错误时，请显式使用 <code>Accept: application/json</code>，或使用 API 下单接口。</p>
 <h2 id="请求参数说明">请求参数说明</h2>
 <div class="doc-table"><table>
 <thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
