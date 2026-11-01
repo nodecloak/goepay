@@ -89,6 +89,12 @@ const props = defineProps<{
   merchantQuery?: Record<string, unknown>;
 }>();
 const delegation = ref<Record<string, unknown> | null>(null);
+function configureDelegatedMerchantLogin() {
+  const row = delegation.value;
+  if (!row || props.resource !== "merchants" || !schema.value?.permissions.update) return;
+  delegation.value = null;
+  void open("edit", row);
+}
 const editMerchantRecipient = ref(false);
 const merchantLogID = ref<string>();
 const merchantStatisticsID = ref<string>();
@@ -1784,7 +1790,9 @@ onBeforeUnmount(resetContext);
     :client="client"
     :merchant-id="String(delegation.id)"
     :name="String(delegation.name || delegation.id)"
+    :can-configure-login="resource === 'merchants' && schema?.permissions.update === true"
     @close="delegation = null"
+    @configure-login="configureDelegatedMerchantLogin"
   />
   <div v-if="entry" class="toolbar">
     <a :href="entry.returnPath">返回进件资料列表</a>
