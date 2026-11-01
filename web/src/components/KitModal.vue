@@ -18,23 +18,89 @@ const props = defineProps<{
 const emit = defineEmits<{ close: []; submit: [] }>();
 const panel = ref<HTMLElement>();
 let lastFocused: HTMLElement | null = null;
+function available(element: HTMLElement) {
+  for (
+    let current: HTMLElement | null = element;
+    current;
+    current = current.parentElement
+  ) {
+    const style = getComputedStyle(current);
+    if (
+      current.hidden ||
+      current.hasAttribute("inert") ||
+      current.getAttribute("aria-hidden") === "true" ||
+      style.display === "none" ||
+      style.visibility === "hidden"
+    )
+      return false;
+  }
+  return !element.matches(":disabled") && element.tabIndex >= 0;
+}
+function topDialogElement() {
+  const dialogs = [
+    ...document.querySelectorAll<HTMLElement>(
+      '[role="dialog"][aria-modal="true"]',
+    ),
+  ].filter((element) => {
+    for (
+      let current: HTMLElement | null = element;
+      current;
+      current = current.parentElement
+    ) {
+      if (
+        current.hidden ||
+        current.hasAttribute("inert") ||
+        getComputedStyle(current).display === "none"
+      )
+        return false;
+    }
+    return true;
+  });
+  return dialogs.at(-1);
+}
+function topDialog() {
+  return topDialogElement() === panel.value;
+}
+function focusableElements() {
+  return [
+    ...(panel.value?.querySelectorAll<HTMLElement>(
+      'a[href],button,input:not([type="hidden"]),select,textarea,summary,[contenteditable="true"],[tabindex]',
+    ) || []),
+  ].filter(available);
+}
+function close() {
+  if (!props.loading && topDialog()) emit("close");
+}
 function onKeydown(event: KeyboardEvent) {
+  if (event.defaultPrevented || !topDialog()) return;
   if (event.key === "Escape") {
     event.preventDefault();
-    emit("close");
+    close();
     return;
   }
   if (event.key !== "Tab") return;
-  const focusable = panel.value?.querySelectorAll<HTMLElement>(
-    '.pa-modal-body a[href],.pa-modal-body button:not([disabled]),.pa-modal-body input:not([disabled]),.pa-modal-body select:not([disabled]),.pa-modal-body textarea:not([disabled]),.pa-modal-body [tabindex]:not([tabindex="-1"])',
-  );
-  if (!focusable || !focusable.length) return;
+  const focusable = focusableElements();
+  if (!focusable.length) {
+    event.preventDefault();
+    panel.value?.focus({ preventScroll: true });
+    return;
+  }
   const first = focusable[0]!;
   const last = focusable[focusable.length - 1]!;
-  if (event.shiftKey && document.activeElement === first) {
+  if (
+    event.shiftKey &&
+    (document.activeElement === first ||
+      document.activeElement === panel.value ||
+      !panel.value?.contains(document.activeElement))
+  ) {
     event.preventDefault();
     last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
+  } else if (
+    !event.shiftKey &&
+    (document.activeElement === last ||
+      document.activeElement === panel.value ||
+      !panel.value?.contains(document.activeElement))
+  ) {
     event.preventDefault();
     first.focus();
   }
@@ -43,16 +109,28 @@ onMounted(() => {
   lastFocused = document.activeElement as HTMLElement;
   document.addEventListener("keydown", onKeydown);
   void nextTick(() => {
-    panel.value
-      ?.querySelector<HTMLElement>(
-        '.pa-modal-body input:not([disabled]),.pa-modal-body select:not([disabled]),.pa-modal-body textarea:not([disabled]),.pa-modal-body button:not([disabled]),.pa-modal-body a[href],.pa-modal-body [tabindex]:not([tabindex="-1"])',
-      )
-      ?.focus();
+    if (!topDialog()) return;
+    const fields = focusableElements();
+    const initial =
+      fields.find((element) =>
+        element.matches(
+          ".pa-modal-body input,.pa-modal-body select,.pa-modal-body textarea",
+        ),
+      ) ||
+      fields[0] ||
+      panel.value;
+    initial?.focus({ preventScroll: true });
   });
 });
 onBeforeUnmount(() => {
   document.removeEventListener("keydown", onKeydown);
-  lastFocused?.focus();
+  const top = topDialogElement();
+  if (
+    lastFocused?.isConnected &&
+    (top === panel.value ||
+      (!panel.value?.isConnected && (!top || top.contains(lastFocused))))
+  )
+    lastFocused.focus({ preventScroll: true });
 });
 </script>
 <template>
@@ -60,7 +138,7 @@ onBeforeUnmount(() => {
     <div
       class="pa-scrim pa-modal-scrim"
       :class="{ 'pa-drawer-scrim': drawer }"
-      @pointerdown.self="emit('close')"
+      @pointerdown.self="close"
     >
       <div
         ref="panel"
@@ -68,6 +146,7 @@ onBeforeUnmount(() => {
         :class="{ 'pa-drawer': drawer }"
         role="dialog"
         aria-modal="true"
+        tabindex="-1"
         :aria-label="title"
         :style="
           width
@@ -83,7 +162,8 @@ onBeforeUnmount(() => {
             type="button"
             class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
             aria-label="关闭"
-            @click="emit('close')"
+            :disabled="loading"
+            @click="close"
           >
             ×
           </button>
@@ -98,7 +178,8 @@ onBeforeUnmount(() => {
               v-if="!hideCancel"
               type="button"
               class="pa-btn"
-              @click="emit('close')"
+              :disabled="loading"
+              @click="close"
             >
               {{ cancelText || "取消" }}
             </button>

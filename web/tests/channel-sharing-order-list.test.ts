@@ -1,4 +1,7 @@
-import { expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { computed } from "vue";
+import { webcrypto } from "node:crypto";
+import { fundsPrincipal212 } from "../src/funds-intent212";
 import { flushPromises, mount } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import ChannelSharingOrderList from "../src/components/ChannelSharingOrderList.vue";
@@ -12,6 +15,8 @@ import { ApiClient } from "../src/api";
 
 const orderRow = {
   id: "101",
+  merchant_id: "1000",
+  subchannel_id: "0",
   external_no: "sharing_aaa",
   out_no: "up_aaa",
   state: "succeeded",
@@ -31,6 +36,23 @@ const statsBody = {
   success_count: "1",
   fail_count: "0",
 };
+beforeEach(() => {
+  vi.stubGlobal("crypto", webcrypto);
+  Object.defineProperty(navigator, "locks", {
+    configurable: true,
+    value: {
+      request: async (
+        _key: string,
+        _opts: unknown,
+        fn: (lock: object) => unknown,
+      ) => fn({}),
+    },
+  });
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+  localStorage.clear();
+});
 
 function makeRouter(initial = "/profitsharing/order") {
   const router = createRouter({
@@ -50,14 +72,28 @@ const render = (
   area: "admin" | "merchant" = "admin",
   extra?: Record<string, any>,
   router = makeRouter(),
-) =>
-  mount(ChannelSharingOrderList, {
+) => {
+  const client = Object.assign(new ApiClient(area), { request, ...extra });
+  client.csrfToken = "synthetic";
+  return mount(ChannelSharingOrderList, {
     props: {
-      client: Object.assign(new ApiClient(area), { request, ...extra }),
+      client,
       area,
     },
-    global: { stubs: { Teleport: true }, plugins: [router] },
+    global: {
+      stubs: { Teleport: true },
+      plugins: [router],
+      provide: {
+        [fundsPrincipal212 as symbol]: computed(() => ({
+          area,
+          id: area === "admin" ? "1" : "1000",
+          issuer: "synthetic",
+          csrf: client.csrfToken,
+        })),
+      },
+    },
   });
+};
 
 function listRequest(extra?: (...args: any[]) => any) {
   return vi.fn(async (path: string, options?: any) => {
@@ -65,7 +101,24 @@ function listRequest(extra?: (...args: any[]) => any) {
       const r = await extra(path, options);
       if (r !== undefined) return r;
     }
-    if (path.includes("/orders/statistics")) return statsBody;
+    if (
+      path.includes("/orders/statistics") ||
+      path.includes("/order-overview/statistics")
+    )
+      return statsBody;
+    if (path.includes("/order-overview")) {
+      const q = new URL(path, "https://local.invalid").searchParams;
+      return {
+        ...listBody,
+        items: [
+          {
+            ...orderRow,
+            merchant_id: q.get("merchant_id") || "1000",
+            rule_id: q.get("rule_id") || orderRow.rule_id,
+          },
+        ],
+      };
+    }
     if (path.includes("/orders")) return listBody;
     return {};
   });
@@ -105,9 +158,11 @@ it("renders Pro filters, toolbar, columns and joined fields from the server list
   const headers = w.findAll("thead th").map((h) => h.text());
   expect(headers).toEqual([
     "",
+    "用户ID",
     "系统订单号",
     "分账规则",
-    "支付方式",
+    "支付方式(通道ID)",
+    "子通道ID",
     "订单金额",
     "分账金额",
     "时间",
@@ -120,6 +175,7 @@ it("renders Pro filters, toolbar, columns and joined fields from the server list
   expect(body).toContain("¥100.00");
   expect(body).toContain("¥5.00");
   expect(body).toContain("分账成功");
+  expect(w.get('[title="支付通道ID：7"]').text()).toBe("(7)");
   // 修改金额 disabled (immutable).
   expect(
     w.get('[data-action="editmoney"]').attributes("disabled"),
@@ -141,7 +197,10 @@ it("sends server filter params including 分账规则ID and offset paging", asyn
   await w.get("form.pa-filter").trigger("submit");
   await flushPromises();
   const listCall = seen.find(
-    (p) => p.includes("/orders") && !p.includes("statistics"),
+    (p) =>
+      p.includes("/order-overview") &&
+      p.includes("merchant_id=1000") &&
+      !p.includes("statistics"),
   )!;
   expect(listCall).toContain("merchant_id=1000");
   expect(listCall).toContain("status=unsent");
@@ -173,7 +232,7 @@ it("导出 calls downloadCSV with the filter + format=csv", async () => {
   const path = String(
     (downloadCSV.mock.calls as unknown as string[][])[0]?.[0] ?? "",
   );
-  expect(path).toContain("/channel-sharing/orders?");
+  expect(path).toContain("/channel-sharing/order-overview?");
   expect(path).toContain("format=csv");
   w.unmount();
 });
@@ -188,6 +247,8 @@ it("merchant scope loads on mount without a merchant-id field", async () => {
 
 it("分账回退 row action opens a per-receiver modal and posts to /returns", async () => {
   const detail = {
+    id: "101",
+    merchant_id: "1000",
     external_no: "sharing_aaa",
     out_no: "up_aaa",
     state: "succeeded",
@@ -201,7 +262,16 @@ it("分账回退 row action opens a per-receiver modal and posts to /returns", a
     listRequest((path: string, options?: any) => {
       if (options?.method === "POST" && path === "/channel-sharing/returns") {
         returnBody = options.body;
-        return { id: "1", state: "pending" };
+        options.beforeDispatch?.();
+        return {
+          id: "1",
+          sharing_id: "101",
+          merchant_id: "1000",
+          receiver_id: returnBody.receiver_id,
+          external_no: returnBody.external_no,
+          amount: returnBody.amount,
+          state: "pending",
+        };
       }
       // detail fetch for the opened record
       if (/\/orders\/sharing_aaa(\?|$)/.test(path)) return detail;
@@ -257,5 +327,135 @@ it("prefills 分账规则ID from the rule_id route query (记录 deep-link)", as
   // Prefilled from the route query and carried into the server list call.
   expect((w.vm as any).ruleId).toBe("5");
   expect(seen.some((p) => p.includes("rule_id=5"))).toBe(true);
+  w.unmount();
+});
+
+it("prefills the admin merchant and rule from a record link without rounding either id", async () => {
+  const merchantID = "9007199254740995",
+    ruleID = "9007199254740993";
+  const router = makeRouter(
+    `/admin/profitsharing/order?merchant_id=${merchantID}&rule_id=${ruleID}`,
+  );
+  await router.isReady();
+  const request = listRequest(),
+    w = render(request, "admin", undefined, router);
+  await flushPromises();
+  expect(
+    (w.get('[aria-label="商户ID"]').element as HTMLInputElement).value,
+  ).toBe(merchantID);
+  expect((w.vm as any).ruleId).toBe(ruleID);
+  const qs = new URL(request.mock.calls[0]![0], "https://example.invalid")
+    .searchParams;
+  expect(qs.get("merchant_id")).toBe(merchantID);
+  expect(qs.get("rule_id")).toBe(ruleID);
+  expect(
+    request.mock.calls.every(
+      ([, options]) => !options?.method || options.method === "GET",
+    ),
+  ).toBe(true);
+  w.unmount();
+});
+
+it("never sends a merchant query owner supplied to a merchant record link", async () => {
+  const router = makeRouter(
+    "/merchant/profitsharing/order?merchant_id=9007199254740995&rule_id=5",
+  );
+  await router.isReady();
+  const request = listRequest(),
+    w = render(request, "merchant", undefined, router);
+  await flushPromises();
+  expect(request.mock.calls.length).toBeGreaterThan(0);
+  for (const [path] of request.mock.calls)
+    expect(
+      new URL(path, "https://example.invalid").searchParams.has("merchant_id"),
+    ).toBe(false);
+  expect(w.find('[aria-label="商户ID"]').exists()).toBe(false);
+  expect((w.vm as any).ruleId).toBe("5");
+  w.unmount();
+});
+
+it("switches both admin deep-link filters on the same component and clears them on reset", async () => {
+  const router = makeRouter(
+    "/admin/profitsharing/order?merchant_id=1000&rule_id=5",
+  );
+  await router.isReady();
+  const request = listRequest(),
+    w = render(request, "admin", undefined, router);
+  await flushPromises();
+  await router.push("/admin/profitsharing/order?merchant_id=2000&rule_id=6");
+  await flushPromises();
+  expect(
+    (w.get('[aria-label="商户ID"]').element as HTMLInputElement).value,
+  ).toBe("2000");
+  expect((w.vm as any).ruleId).toBe("6");
+  const path = request.mock.calls.at(-1)![0];
+  expect(path).toContain("merchant_id=2000");
+  expect(path).toContain("rule_id=6");
+  const before = request.mock.calls.length;
+  await w.get("form.pa-filter").trigger("reset");
+  await flushPromises();
+  expect(router.currentRoute.value.query.merchant_id).toBeUndefined();
+  expect(router.currentRoute.value.query.rule_id).toBeUndefined();
+  expect(
+    (w.get('[aria-label="商户ID"]').element as HTMLInputElement).value,
+  ).toBe("");
+  expect((w.vm as any).ruleId).toBe("");
+  expect(request.mock.calls.length).toBe(before + 1);
+  w.unmount();
+});
+
+it.each([
+  "merchant_id=9223372036854775808&rule_id=5",
+  "merchant_id=1&merchant_id=2&rule_id=5",
+  "merchant_id=1000&rule_id=1.5",
+  "channel_id=0",
+  "subchannel_id=1&subchannel_id=2",
+])("does not broaden invalid admin link filters: %s", async (query) => {
+  const router = makeRouter("/admin/profitsharing/order?" + query);
+  await router.isReady();
+  const request = listRequest(),
+    w = render(request, "admin", undefined, router);
+  await flushPromises();
+  expect(request).not.toHaveBeenCalled();
+  expect(w.find('[role="alert"]').exists()).toBe(true);
+  await w.get('[data-action="refresh"]').trigger("click");
+  await flushPromises();
+  expect(request).not.toHaveBeenCalled();
+  w.unmount();
+});
+
+it("does not let an earlier merchant read overwrite a newly selected record scope", async () => {
+  let finish!: (value: unknown) => void;
+  const oldResult = new Promise((done) => {
+    finish = done;
+  });
+  const router = makeRouter(
+    "/admin/profitsharing/order?merchant_id=1000&rule_id=5",
+  );
+  await router.isReady();
+  const request = vi.fn(async (path: string) =>
+    path.includes("merchant_id=1000")
+      ? oldResult
+      : {
+          ...listBody,
+          items: [
+            {
+              ...orderRow,
+              merchant_id: "2000",
+              rule_id: "6",
+              external_no: "new_scope",
+            },
+          ],
+        },
+  );
+  const w = render(request, "admin", undefined, router);
+  await flushPromises();
+  await router.push("/admin/profitsharing/order?merchant_id=2000&rule_id=6");
+  await flushPromises();
+  expect(w.text()).toContain("new_scope");
+  finish({ ...listBody, items: [{ ...orderRow, external_no: "old_scope" }] });
+  await flushPromises();
+  expect(w.text()).toContain("new_scope");
+  expect(w.text()).not.toContain("old_scope");
   w.unmount();
 });

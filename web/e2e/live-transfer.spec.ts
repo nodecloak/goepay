@@ -104,6 +104,40 @@ test("live local wallet transfer follows capability, confirmation and readonly q
     const detail = page.getByRole("dialog", { name: "付款详情" });
     await expect(detail).toContainText("通道已确认付款成功");
     await expect(detail).toContainText("local-simulation@example.test");
+    await page.goto("/merchant/transfer");
+    const statisticsResponse = page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname ===
+          "/console/v1/merchant/transfers/statistics" &&
+        r.request().method() === "GET",
+    );
+    await page.getByRole("button", { name: "统计", exact: true }).click();
+    const response = await statisticsResponse;
+    expect(response.status()).toBe(200);
+    const summary = (await response.json()).data;
+    expect(BigInt(summary.count)).toBeGreaterThanOrEqual(1n);
+    expect(BigInt(summary.cost_amount)).toBe(
+      BigInt(summary.amount) + BigInt(summary.fee_amount),
+    );
+    const summaryPanel = page.getByRole("region", {
+      name: "付款统计",
+      exact: true,
+    });
+    await expect(summaryPanel).toContainText(summary.count);
+    const foreign = await page.request.get(
+      "/console/v1/merchant/transfers/statistics?merchant_id=751",
+    );
+    expect(foreign.status()).toBe(403);
+    const platform = await api("/transfers/statistics");
+    expect(BigInt(platform.count)).toBeGreaterThanOrEqual(
+      BigInt(summary.count),
+    );
+    await summaryPanel
+      .getByRole("button", { name: "关闭统计", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "统计", exact: true }),
+    ).toBeFocused();
     // Same seeded local simulation and existing sessions: prepare is visibly
     // separate from execute, and cancellation releases only the remaining item.
     await page.goto("/merchant/transfer/batches");

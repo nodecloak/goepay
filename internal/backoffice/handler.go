@@ -151,6 +151,10 @@ func (s *Service) Serve(w http.ResponseWriter, r *http.Request, p Principal, par
 				// the bounded CSV export for an exportable resource.
 				if d, e := definitionFor(p, resource, false); e == nil {
 					for _, fs := range d.filters {
+						if values, exists := r.URL.Query()[fs.Param]; exists && (len(values) != 1 || fs.AdminOnly && p.Role != "admin") {
+							write(w, 400, nil, "invalid or unsupported resource filter")
+							return
+						}
 						if v := r.URL.Query().Get(fs.Param); v != "" {
 							if query.Filter == nil {
 								query.Filter = map[string]string{}

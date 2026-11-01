@@ -192,9 +192,14 @@ for (const width of [375, 1440]) {
       current = dialog.getByLabel("当前密码", { exact: true });
     await expect(current).toBeFocused();
     await page.keyboard.press("Shift+Tab");
+    const close = dialog.getByRole("button", { name: "关闭", exact: true });
+    await expect(close).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
     await expect(
       dialog.getByRole("button", { name: "修改密码", exact: true }),
     ).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(close).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(current).toBeFocused();
     await current.fill("local-current-secret199");

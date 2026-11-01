@@ -103,12 +103,12 @@ test.describe("isolated real backend node workflows", () => {
     page,
   }) => {
     await page.goto("/admin/trade/blacklist");
-    await page.getByRole("button", { name: /新增黑名单/ }).click();
+    await page.getByRole("button", { name: "添加", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("button", { name: "添加", exact: true }).click();
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "拉黑类型", exact: true }).click();
-    await page.getByRole("option", { name: "domain", exact: true }).click();
+    await page.getByRole("option", { name: /^(域名|domain)$/ }).click();
     await dialog
       .getByLabel("拉黑内容", { exact: true })
       .fill(tag + ".example.test");
@@ -178,7 +178,7 @@ test.describe("isolated real backend node workflows", () => {
       .locator('.rich-input[contenteditable="true"]')
       .fill(tag + "-edited-notice");
     await page
-      .getByRole("dialog")
+      .getByRole("region", { name: "编辑公告", exact: true })
       .getByRole("button", { name: /保存|修改/ })
       .click();
     const edited = page

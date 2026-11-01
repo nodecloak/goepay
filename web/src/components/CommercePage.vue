@@ -120,6 +120,7 @@ const columns = computed(() => {
     status: "状态",
     created_at: "创建时间",
     amount: "金额（元）",
+    amount_money: "金额（元）",
     amount_cents: "金额（分）",
     price: "购买金额（元）",
     price_cents: "会员价格（分）",
@@ -132,6 +133,7 @@ const columns = computed(() => {
     period_months: "每份有效期（月）",
     membership_period: "有效期",
     action: "操作类型",
+    action_label: "操作类型",
     trade_no: "充值订单号",
     type: "支付类型",
     paid_at: "支付时间",
@@ -148,7 +150,17 @@ const columns = computed(() => {
           "expires_at",
           "external_no",
         ]
-      : [...new Set(items.value.flatMap(Object.keys))];
+      : props.kind === "deposits"
+        ? [
+            "id",
+            ...(props.area === "admin" ? ["merchant_id"] : []),
+            "action_label",
+            "amount_money",
+            "external_no",
+            "status",
+            "created_at",
+          ]
+        : ["id", "trade_no", "amount_money", "status", "created_at"];
   return keys.map((key) => ({
     key,
     label: known[key] || key,
@@ -182,7 +194,22 @@ async function load() {
                     : `${row.duration_days}天`,
               expires_at: row.permanent === true ? "永久" : row.expires_at,
             }))
-          : data.items;
+          : data.items.map((row) => ({
+              ...row,
+              // Commerce APIs already return exact decimal yuan strings.
+              // Keep the raw action for approval; localize only its label.
+              amount_money:
+                typeof row.amount === "string" &&
+                /^\d+\.\d{2}$/.test(row.amount)
+                  ? row.amount
+                  : "—",
+              action_label:
+                row.action === "hold"
+                  ? "转入保证金"
+                  : row.action === "release"
+                    ? "申请释放保证金"
+                    : displayValue(row.action),
+            }));
       total.value = data.total;
       balances.value = data;
     }

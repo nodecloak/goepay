@@ -600,8 +600,9 @@ try {
   expect(count("merchant", initPath)).toBe(initsBeforeKey);
   await page.waitForURL((url) => url.pathname === "/merchant/dashboard");
   expect(documentCount("merchant", "/merchant/dashboard")).toBe(2);
+  await page.getByRole("button", { name: keySnapshot.envelope.data.user.name, exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "退出登录", exact: true }),
+    page.getByRole("menuitem", { name: "退出登录", exact: true }),
   ).toBeVisible();
   state = await assertNoEffects(baseline);
   expect(state.merchant_sessions).toBe(baseline.merchant_sessions + 1);
@@ -609,7 +610,7 @@ try {
   const loggedOut = page.waitForResponse(
     isResponse("/console/v1/merchant/logout", "POST"),
   );
-  await page.getByRole("button", { name: "退出登录", exact: true }).click();
+  await page.getByRole("menuitem", { name: "退出登录", exact: true }).click();
   const logoutResponse = await loggedOut;
   expect(logoutResponse.status()).toBe(200);
   expect(captured(logoutResponse).requestHeaders["x-csrf-token"]).toBe(
@@ -703,9 +704,11 @@ try {
   expect(restored.user).toEqual(acceptedSnapshot.envelope.data.user);
   await page.waitForURL((url) => url.pathname === "/merchant/dashboard");
   expect(documentCount("merchant", "/merchant/dashboard")).toBe(3);
+  await page.getByRole("button", { name: restored.user.name, exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "退出登录", exact: true }),
+    page.getByRole("menuitem", { name: "退出登录", exact: true }),
   ).toBeVisible();
+  await page.keyboard.press("Escape");
   expect(count("merchant", loginPath)).toBe(postsAtUnknown);
   expect(count("merchant", initPath)).toBe(initsAtUnknown);
   expect(
@@ -749,9 +752,12 @@ try {
     role: "admin",
     admin_class: "super",
   });
+  await admin.page.waitForURL((url) => url.pathname === "/admin/dashboard");
+  await admin.page.getByRole("button", { name: adminSnapshot.envelope.data.user.name, exact: true }).click();
   await expect(
-    admin.page.getByRole("button", { name: "退出登录", exact: true }),
+    admin.page.getByRole("menuitem", { name: "退出登录", exact: true }),
   ).toBeVisible();
+  await admin.page.keyboard.press("Escape");
   const adminRead = await json(admin.page, "/console/v1/admin/session");
   expect(adminRead.status).toBe(200);
   expect(adminRead.body.data.csrf_token).toBe(

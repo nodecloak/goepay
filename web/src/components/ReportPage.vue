@@ -25,9 +25,15 @@ import ShellIcon from "./ShellIcon.vue";
 import MerchantMatrixReport from "./MerchantMatrixReport.vue";
 import BuyerStatisticsReport from "./BuyerStatisticsReport.vue";
 import OriginalOrderStatistics from "./OriginalOrderStatistics.vue";
-const ProvinceStatisticsReport = defineAsyncComponent(
-  () => import("./ProvinceStatisticsReport.vue"),
-);
+import ProvinceReportLoading from "./ProvinceReportLoading.vue";
+import ProvinceReportLoadError from "./ProvinceReportLoadError.vue";
+const ProvinceStatisticsReport = defineAsyncComponent({
+  loader: () => import("./ProvinceStatisticsReport.vue"),
+  loadingComponent: ProvinceReportLoading,
+  errorComponent: ProvinceReportLoadError,
+  delay: 0,
+  timeout: 20000,
+});
 const props = defineProps<{
   client: ApiClient;
   report: string;

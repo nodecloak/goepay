@@ -62,6 +62,7 @@ export interface ResourceField {
 export interface ResourceFilterSpec {
   param: string;
   label: string;
+  type?: "positive_id";
   options: { label: string; value: string }[];
 }
 export interface ResourceSchema {

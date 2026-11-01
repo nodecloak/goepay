@@ -51,12 +51,142 @@ const rule = {
   ],
 };
 
+it("does not bind or publish after leaving an in-flight receiver draft creation", async () => {
+  let finish!: (value: unknown) => void;
+  const pending = new Promise((resolve) => {
+    finish = resolve;
+  });
+  const writes: string[] = [];
+  const request = listRequest(async (path: string, options?: any) => {
+    if (options?.method === "POST") {
+      writes.push(path);
+      if (path === "/channel-sharing/receivers") return pending;
+      if (path.endsWith("/bind"))
+        return { ...boundReceiver, id: "11", state: "bound" };
+      return { ...rule, revision: "4" };
+    }
+    return undefined;
+  });
+  const view = render(request);
+  await open(view);
+  await view.get('[data-action="create"]').trigger("click");
+  await view.get('[aria-label="接收方账号"]').setValue("synthetic-receiver");
+  await view.get('[aria-label="接收方姓名"]').setValue("Synthetic");
+  await view.get('[aria-label="分账比例"]').setValue("20");
+  await view.get("form.pa-modal-body").trigger("submit");
+  await flushPromises();
+  view.unmount();
+  finish({ ...boundReceiver, id: "11", state: "draft" });
+  await flushPromises();
+  expect(writes).toEqual(["/channel-sharing/receivers"]);
+});
+
+it("requires fresh rule data after a direct CSRF session change before toggling", async () => {
+  const request = listRequest();
+  const view = render(request);
+  await open(view);
+  (view.props("client") as ApiClient).csrfToken = "new-session";
+  await view.get('[data-action="toggle"]').trigger("click");
+  await flushPromises();
+  expect(
+    request.mock.calls.filter(([, o]) => o?.method === "POST"),
+  ).toHaveLength(0);
+  expect(view.text()).toContain("会话");
+  view.unmount();
+});
+
+it("uses a supported personal OpenID receiver type instead of always creating a merchant-number receiver", async () => {
+  let createdBody: any;
+  const request = listRequest((path: string, options?: any) => {
+    if (options?.method === "POST") {
+      if (path.endsWith("/receivers")) {
+        createdBody = options.body;
+        return {
+          ...boundReceiver,
+          id: "11",
+          type: "PERSONAL_OPENID",
+          state: "draft",
+        };
+      }
+      if (path.endsWith("/bind"))
+        return {
+          ...boundReceiver,
+          id: "11",
+          type: "PERSONAL_OPENID",
+          state: "bound",
+        };
+      return { ...rule, revision: "4" };
+    }
+    return undefined;
+  });
+  const view = render(request);
+  try {
+    await open(view);
+    await view.get('[data-action="create"]').trigger("click");
+    (view.vm as any).form.receivers[0].type = "PERSONAL_OPENID";
+    await view.get('[aria-label="接收方账号"]').setValue("synthetic-openid");
+    await view.get('[aria-label="分账比例"]').setValue("20");
+    await view.get("form.pa-modal-body").trigger("submit");
+    await flushPromises();
+    expect(createdBody.type).toBe("PERSONAL_OPENID");
+  } finally {
+    view.unmount();
+  }
+});
+
+it("preserves fixed-amount receiver mode when editing instead of dropping it as an empty percentage", async () => {
+  let published: any;
+  const fixed = {
+    ...rule,
+    items: [
+      { receiver_id: "9", mode: "fixed", rate_bps: "0", fixed_amount: "1234" },
+    ],
+  };
+  const request = listRequest((path: string, options?: any) => {
+    if (path.includes("/rules/7")) {
+      if (options?.method === "POST") {
+        published = options.body;
+        return { ...fixed, ...options.body, id: "6", revision: "4" };
+      }
+      return fixed;
+    }
+    return undefined;
+  });
+  const view = render(request);
+  try {
+    await open(view);
+    await view.get('[data-action="edit"]').trigger("click");
+    await flushPromises();
+    expect(
+      (view.get('[aria-label="分账金额（元）"]').element as HTMLInputElement)
+        .value,
+    ).toBe("12.34");
+    await view.get('[aria-label="分账金额（元）"]').setValue("12.35");
+    await view.get("form.pa-modal-body").trigger("submit");
+    await flushPromises();
+    expect(published.items).toEqual([
+      { receiver_id: "9", mode: "fixed", rate_bps: "0", fixed_amount: "1235" },
+    ]);
+    expect(
+      request.mock.calls.filter(
+        ([p, o]) => p.includes("/receivers") && o?.method === "POST",
+      ),
+    ).toHaveLength(0);
+  } finally {
+    view.unmount();
+  }
+});
+
 function makeRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
       { path: "/", component: { template: "<div/>" } },
-      { path: "/profitsharing/order", component: { template: "<div/>" } },
+      { path: "/admin/profitsharing/order", component: { template: "<div/>" } },
+      {
+        path: "/merchant/profitsharing/order",
+        component: { template: "<div/>" },
+      },
       { path: "/:pathMatch(.*)*", component: { template: "<div/>" } },
     ],
   });
@@ -72,8 +202,8 @@ const render = (
     global: { stubs: { Teleport: true }, plugins: [router] },
   });
 
-async function open(w: ReturnType<typeof render>) {
-  await w.get('[aria-label="商户ID"]').setValue("1000");
+async function open(w: ReturnType<typeof render>, merchantID = "1000") {
+  await w.get('[aria-label="商户ID"]').setValue(merchantID);
   await w.get("form.pa-filter").trigger("submit");
   await flushPromises();
 }
@@ -210,18 +340,38 @@ it("toggles a rule off through the disable endpoint", async () => {
   w.unmount();
 });
 
-it("记录 row link navigates to 分账记录 filtered by the rule id", async () => {
-  const router = makeRouter();
-  const w = render(listRequest(), "admin", router);
-  await open(w);
-  const record = w.get('[data-action="record"]');
-  expect(record.text()).toBe("记录");
-  await record.trigger("click");
-  await flushPromises();
-  expect(router.currentRoute.value.path).toBe("/profitsharing/order");
-  expect(router.currentRoute.value.query.rule_id).toBe("5");
-  w.unmount();
-});
+it.each(["admin", "merchant"] as const)(
+  "%s 记录 row link keeps the console area and exact rule id",
+  async (area) => {
+    const router = makeRouter();
+    const merchantID = "9007199254740995";
+    const request = listRequest(async (path: string) =>
+      path.includes("/channels")
+        ? { ...caps, merchant_id: merchantID }
+        : path.includes("/rules/7")
+          ? { ...rule, id: "9007199254740993" }
+          : undefined,
+    );
+    const w = render(request, area, router);
+    if (area === "admin") await open(w, merchantID);
+    else await flushPromises();
+    const record = w.get('[data-action="record"]');
+    expect(record.text()).toBe("记录");
+    await record.trigger("click");
+    await flushPromises();
+    expect(router.currentRoute.value.path).toBe(`/${area}/profitsharing/order`);
+    expect(router.currentRoute.value.query.rule_id).toBe("9007199254740993");
+    expect(router.currentRoute.value.query.merchant_id).toBe(
+      area === "admin" ? merchantID : undefined,
+    );
+    expect(
+      request.mock.calls.every(
+        ([, options]) => !options?.method || options.method === "GET",
+      ),
+    ).toBe(true);
+    w.unmount();
+  },
+);
 
 it("the grey 新增 says why: query first, then the server's no-channel reason", async () => {
   const none = {

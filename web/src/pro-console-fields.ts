@@ -298,6 +298,40 @@ export function resourceListFields(
         .map((f) => ({ ...f, label: labels[name]! })),
     );
   }
+  // Channel form definitions belong in the editor/detail, not in each list row.
+  if (resource === "onboarding-channels")
+    return visible.filter((f) => f.name !== "form_schema");
+  if (
+    resource === "admin-users" &&
+    ["created_at", "last_login_at", "totp_enabled"].every((name) =>
+      visible.some((f) => f.name === name),
+    )
+  ) {
+    const labels: Record<string, string> = {
+      username: "用户名",
+      admin_class: "权限",
+      enabled: "状态",
+    };
+    return [
+      "username",
+      "admin_class",
+      "created_at",
+      "last_login_at",
+      "totp_enabled",
+      "enabled",
+    ].flatMap((name) =>
+      visible
+        .filter((f) => f.name === name)
+        .map((f) => ({ ...f, label: labels[name] || f.label })),
+    );
+  }
+  if (
+    resource === "risk-records" &&
+    visible.some((f) => f.name === "created_at")
+  )
+    return ["merchant_id", "decision", "reason", "url", "created_at"].flatMap(
+      (name) => visible.filter((f) => f.name === name),
+    );
   if (resource !== "merchants") return visible;
   const hasEffectiveGroup = visible.some((f) =>
     ["effective_group_id", "effective_group_name"].includes(f.name),

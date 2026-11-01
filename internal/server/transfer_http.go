@@ -24,6 +24,23 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 	if len(parts) == 2 && r.Method == "GET" {
 		return false
 	} // common paginated list
+	if len(parts) == 3 && parts[2] == "statistics" {
+		if r.Method != "GET" {
+			w.Header().Set("Allow", "GET")
+			response(w, 405, -1, "transfer statistics are read-only", nil)
+			return true
+		}
+		if s.Store == nil || s.Pool == nil {
+			response(w, 503, -1, "database unavailable", nil)
+			return true
+		}
+		mid := session.User.ID
+		if role == "admin" {
+			mid = 0
+		}
+		s.listMode(w, r, role, mid, "transfers", session, true)
+		return true
+	}
 	if s.Store == nil || s.Pool == nil {
 		response(w, 503, -1, "database unavailable", nil)
 		return true

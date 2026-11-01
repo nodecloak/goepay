@@ -252,8 +252,8 @@ for (const width of [1440, 375])
       page.getByRole("heading", { name: "编辑公告", exact: true }),
     ).toBeVisible();
     await page
-      .getByRole("dialog", { name: "编辑公告", exact: true })
-      .getByRole("button", { name: "取消", exact: true })
+      .getByRole("region", { name: "编辑公告", exact: true })
+      .getByRole("button", { name: "取消编辑", exact: true })
       .click();
     await first.getByRole("button", { name: "删除", exact: true }).click();
     await page
@@ -275,14 +275,14 @@ for (const width of [1440, 375])
     await page.evaluate(() =>
       window.scrollTo({ top: 0, left: 0, behavior: "instant" }),
     );
-    // The add/edit editor is now an on-demand dialog (epay_pro parity). Open it
+    // The inline editor remains alongside the list. Focus it
     // again and confirm it renders fully inside the viewport with no horizontal
     // overflow, and that the console layout keeps its sidebar offset.
     await page
       .getByRole("button", { name: "添加公告", exact: true })
       .first()
       .click();
-    const editorDialog = page.getByRole("dialog", {
+    const editorDialog = page.getByRole("region", {
       name: "添加公告",
       exact: true,
     });
@@ -386,7 +386,7 @@ test("a failed create is not blindly repeated and needs explicit refresh", async
   expect(f.writes).toHaveLength(1);
   await expect(input).toHaveText("未知结果173");
   await page
-    .getByRole("dialog", { name: "添加公告", exact: true })
+    .getByRole("region", { name: "添加公告", exact: true })
     .getByRole("button", { name: "刷新核对公告", exact: true })
     .click();
   await expect(

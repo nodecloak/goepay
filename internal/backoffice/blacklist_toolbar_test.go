@@ -123,12 +123,12 @@ func TestDomainsStatusAndEnabledFilter(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if len(sc.Filters) != 2 || sc.Filters[0].Param != "approved" || sc.Filters[1].Param != "enabled" {
+	if len(sc.Filters) != 3 || sc.Filters[0].Param != "merchant_id" || sc.Filters[1].Param != "approved" || sc.Filters[2].Param != "enabled" {
 		t.Fatalf("domains filters wrong: %+v", sc.Filters)
 	}
 	// No invented 拒绝 state: 状态 options are only 全部/待审核/已通过.
 	labels := []string{}
-	for _, o := range sc.Filters[0].Options {
+	for _, o := range sc.Filters[1].Options {
 		labels = append(labels, o.Label)
 	}
 	if strings.Join(labels, ",") != "全部状态,待审核,已通过" {

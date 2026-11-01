@@ -117,9 +117,9 @@ func routeMenuKey(parts []string) string {
 		return "TransferList"
 	case "channel-sharing":
 		switch sub {
-		case "channels", "rules", "receivers":
+		case "channels", "rules", "receivers", "rule-overview":
 			return "PsReceiver"
-		case "orders", "returns", "finishes", "finish-preview", "payment":
+		case "orders", "returns", "finishes", "finish-preview", "payment", "order-overview":
 			return "PsOrder"
 		}
 		return ""

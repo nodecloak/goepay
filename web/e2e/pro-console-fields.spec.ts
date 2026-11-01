@@ -299,9 +299,19 @@ for (const area of ["admin", "merchant"] as const)
     ).toBeVisible();
     await expect(
       page.getByRole("cell", { name: entry.account_id, exact: true }),
+    ).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "查看资金明细 11", exact: true })
+      .click();
+    const ledgerDetail = page.getByRole("dialog", {
+      name: "资金明细详情",
+      exact: true,
+    });
+    await expect(
+      ledgerDetail.getByText(entry.account_id, { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("cell", { name: "可用余额", exact: true }),
+      ledgerDetail.getByText("可用余额", { exact: true }),
     ).toBeVisible();
     if (area === "merchant")
       await expect(

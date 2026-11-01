@@ -255,6 +255,23 @@ it("subchannel168b clears an old admin secret form on raw same-client CSRF chang
     },
   });
   await flushPromises();
+  expect(wrapper.findAll("thead th").map((h) => h.text())).toEqual([
+    "ID",
+    "支付方式",
+    "子通道备注",
+    "用户ID",
+    "支付通道",
+    "费率",
+    "今日收款",
+    "昨日收款",
+    "今日成功率",
+    "状态",
+    "权重",
+    "操作",
+  ]);
+  expect(
+    wrapper.findAll(".subchannel-filter-fields label").map((l) => l.text()),
+  ).toContain("用户ID");
   await click("新增子通道");
   const secret = document.querySelector(
     'textarea[aria-label="secret"]',

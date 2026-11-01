@@ -421,6 +421,7 @@ onBeforeUnmount(() => {
                 ><span class="email-binding197-code"
                   ><input
                     id="email197-code"
+                    aria-label="验证码"
                     v-model="code"
                     inputmode="numeric"
                     autocomplete="one-time-code"

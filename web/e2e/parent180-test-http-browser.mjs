@@ -67,6 +67,7 @@ try {
       .getByRole("row")
       .filter({ has: page.getByRole("cell", { name: channel, exact: true }) });
     await page.screenshot({path:path.join(artifacts,"parent-channels-"+width+".png"),fullPage:true});
+    await page.getByRole('button',{name:'显示列设置',exact:true}).click();
     await page.getByRole('checkbox',{name:'成本费率（估算）',exact:true}).check();
     await page.getByRole('checkbox',{name:'日限额、笔数及开放时间',exact:true}).check();
     await expect(page.getByRole('columnheader',{name:'每日限额',exact:true})).toBeVisible();

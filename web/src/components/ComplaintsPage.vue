@@ -355,6 +355,43 @@ async function loadCharts() {
 
 // ---- 同步任务 (task, read-only state) ----
 const tasks = ref<ComplaintTaskRow[]>([]);
+const taskDraft = ref({ channelId: "", enabled: "" });
+const taskApplied = ref({ channelId: "", enabled: "" });
+const taskStatusOptions = [
+  { value: "", label: "全部状态" },
+  { value: "enabled", label: "已启用" },
+  { value: "disabled", label: "已禁用" },
+];
+const visibleTasks = computed(() =>
+  tasks.value.filter(
+    (t) =>
+      (!taskApplied.value.channelId ||
+        t.channel_id === taskApplied.value.channelId) &&
+      (!taskApplied.value.enabled ||
+        t.enabled === (taskApplied.value.enabled === "enabled")),
+  ),
+);
+function queryTasks() {
+  if (loading.value || taskBusy.value) return;
+  const id = taskDraft.value.channelId.trim();
+  if (
+    id &&
+    (!/^[1-9]\d{0,18}$/.test(id) || BigInt(id) > 9223372036854775807n)
+  ) {
+    error.value = "请输入有效通道ID";
+    return;
+  }
+  taskApplied.value = { channelId: id, enabled: taskDraft.value.enabled };
+  selectedTasks.value = new Set();
+  void loadTasks();
+}
+function resetTaskFilters() {
+  if (loading.value || taskBusy.value) return;
+  taskDraft.value = { channelId: "", enabled: "" };
+  taskApplied.value = { ...taskDraft.value };
+  selectedTasks.value = new Set();
+  void loadTasks();
+}
 async function loadTasks() {
   if (view.value !== "task") return;
   loading.value = true;
@@ -376,7 +413,8 @@ const taskBusy = ref(false);
 const selectedTasks = ref<Set<string>>(new Set());
 const allTasksSelected = computed(
   () =>
-    tasks.value.length > 0 && selectedTasks.value.size === tasks.value.length,
+    visibleTasks.value.length > 0 &&
+    visibleTasks.value.every((t) => selectedTasks.value.has(t.channel_id)),
 );
 function toggleTaskSelection(channelId: string) {
   const next = new Set(selectedTasks.value);
@@ -386,7 +424,8 @@ function toggleTaskSelection(channelId: string) {
 }
 function toggleAllTasks() {
   if (allTasksSelected.value) selectedTasks.value = new Set();
-  else selectedTasks.value = new Set(tasks.value.map((t) => t.channel_id));
+  else
+    selectedTasks.value = new Set(visibleTasks.value.map((t) => t.channel_id));
 }
 
 // Edit dialog (获取条件 days / 获取频率 frequency / 每次同步获取数量 num).
@@ -833,6 +872,28 @@ onMounted(reload);
 
     <!-- 同步任务 -->
     <template v-else>
+      <KitFilterBar
+        :loading="loading"
+        :blocked="taskBusy"
+        @query="queryTasks"
+        @reset="resetTaskFilters"
+      >
+        <KitField label="通道ID"
+          ><KitInput
+            v-model="taskDraft.channelId"
+            aria-label="通道ID"
+            placeholder="请输入通道ID"
+            inputmode="numeric"
+            :disabled="loading || taskBusy"
+        /></KitField>
+        <KitField label="状态"
+          ><KitSelect
+            v-model="taskDraft.enabled"
+            aria-label="状态"
+            :options="taskStatusOptions"
+            :disabled="loading || taskBusy"
+        /></KitField>
+      </KitFilterBar>
       <p class="alert info" role="note">
         在投诉记录页面选中某个支付通道后开启自动获取即可创建同步任务；在此可编辑每个通道的获取条件/频率/数量、启停或删除任务。另需在计划任务页面启动投诉同步任务。
       </p>
@@ -883,7 +944,7 @@ onMounted(reload);
               </tr>
             </thead>
             <tbody>
-              <tr v-for="t in tasks" :key="t.channel_id">
+              <tr v-for="t in visibleTasks" :key="t.channel_id">
                 <td class="pa-c-sel">
                   <input
                     type="checkbox"
@@ -952,7 +1013,7 @@ onMounted(reload);
                   </button>
                 </td>
               </tr>
-              <tr v-if="loaded && !tasks.length">
+              <tr v-if="loaded && !visibleTasks.length">
                 <td colspan="10"><KitEmpty text="暂无数据" /></td>
               </tr>
             </tbody>

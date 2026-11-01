@@ -58,6 +58,7 @@ const loginCaptchaRef205 = ref<InstanceType<typeof LoginCaptcha205> | null>(
 import { usePublicSite191 } from "./site191";
 const { site: publicSite191, reload: reloadPublicSite191 } = usePublicSite191();
 import DataTable from "./components/DataTable.vue";
+import LedgerRecordsTable from "./components/LedgerRecordsTable.vue";
 import { proListColumns } from "./pro-console-fields";
 import ResourcePage from "./components/ResourcePage.vue";
 import AnnouncementsPage from "./components/AnnouncementsPage.vue";
@@ -132,6 +133,7 @@ import SettlementRecipientPage from "./components/SettlementRecipientPage.vue";
 import IdentityLookupPage from "./components/IdentityLookupPage.vue";
 import ChannelSharingPage from "./components/ChannelSharingPage.vue";
 import ChannelSharingRuleList from "./components/ChannelSharingRuleList.vue";
+import AdminChannelSharingRules from "./components/AdminChannelSharingRules.vue";
 import ChannelSharingOrderList from "./components/ChannelSharingOrderList.vue";
 import ReferralPage from "./components/ReferralPage.vue";
 import ReferralPolicyPage from "./components/ReferralPolicyPage.vue";
@@ -141,7 +143,7 @@ import MerchantNoticeSettings from "./components/MerchantNoticeSettings.vue";
 import LegacyRefundHistoryPanel from "./components/LegacyRefundHistoryPanel.vue";
 import TemplatePage from "./components/TemplatePage.vue";
 import AppStorePage from "./components/AppStorePage.vue";
-import LocalPluginsPage from "./components/LocalPluginsPage.vue";
+import LocalPluginManagement from "./components/LocalPluginManagement.vue";
 import SettlementSchedulePage from "./components/SettlementSchedulePage.vue";
 import ComplaintsPage from "./components/ComplaintsPage.vue";
 import { consumePromotionPrefill } from "./referral";
@@ -230,10 +232,7 @@ function enrollmentFromEntry216(allowPromotion = false): "register" | null {
 async function closeEnrollment216() {
   enrollmentPurpose.value = null;
   promotionPrefill.value = "";
-  if (
-    route.path !== "/merchant/login" ||
-    !Object.hasOwn(route.query, "enroll")
-  )
+  if (route.path !== "/merchant/login" || !Object.hasOwn(route.query, "enroll"))
     return;
   const query = { ...route.query };
   delete query.enroll;
@@ -397,10 +396,28 @@ const path = computed(
 const page = computed(() => resolvePage(area.value, path.value));
 const kind = computed(() => viewKind(area.value, path.value));
 const sharingFlowOpen = ref(false);
-// 本地插件: the 本地扩展资料 block shows once the plugin list above it has
-// loaded, so it does not sit near the top and then drop down the page.
-const pluginListLoaded = ref(false);
-watch(path, () => (pluginListLoaded.value = false));
+const sharingFlowBusy = ref(false);
+const sharingFlowContext = ref({ merchant_id: "", sharing_external_no: "" });
+let sharingFlowTrigger: HTMLElement | null = null;
+function openSharingFlow(context: {
+  merchant_id: string;
+  sharing_external_no: string;
+}) {
+  if (sharingFlowBusy.value) return;
+  sharingFlowTrigger = document.activeElement as HTMLElement;
+  sharingFlowContext.value = context;
+  sharingFlowOpen.value = true;
+}
+function closeSharingFlow() {
+  if (sharingFlowBusy.value) return;
+  sharingFlowOpen.value = false;
+  if (sharingFlowTrigger?.isConnected) sharingFlowTrigger.focus();
+}
+watch([area, path], () => {
+  sharingFlowOpen.value = false;
+  sharingFlowBusy.value = false;
+  sharingFlowContext.value = { merchant_id: "", sharing_external_no: "" };
+});
 const searchFieldOptions = computed(() => [
   { value: "", label: "综合搜索" },
   ...(kind.value === "refunds" ? refundSearchFields : orderSearchFields).map(
@@ -2183,6 +2200,15 @@ onBeforeUnmount(() => {
         :client="client"
         :own-session="!!session && !session.delegated_by"
       />
+      <AdminChannelSharingRules
+        v-else-if="
+          kind === 'channel-sharing' &&
+          path === '/profitsharing/receiver' &&
+          area === 'admin'
+        "
+        :key="area + path"
+        :client="client"
+      />
       <ChannelSharingRuleList
         v-else-if="
           kind === 'channel-sharing' && path === '/profitsharing/receiver'
@@ -2196,14 +2222,37 @@ onBeforeUnmount(() => {
           :key="area + path"
           :client="client"
           :area="area"
-          @open-flow="sharingFlowOpen = true"
+          @open-flow="openSharingFlow"
         />
+        <div v-if="sharingFlowOpen" class="panel table-tools">
+          <span>分账操作台</span>
+          <button
+            type="button"
+            class="pa-btn"
+            :disabled="sharingFlowBusy"
+            @click="closeSharingFlow"
+          >
+            关闭操作台
+          </button>
+        </div>
         <ChannelSharingPage
           v-if="sharingFlowOpen"
-          :key="area + path + '-flow'"
+          :key="
+            area +
+            path +
+            '-flow-' +
+            sharingFlowContext.merchant_id +
+            '-' +
+            sharingFlowContext.sharing_external_no
+          "
           :client="client"
           :area="area"
           :page="'order'"
+          :initial-merchant-id="
+            area === 'admin' ? sharingFlowContext.merchant_id : undefined
+          "
+          :initial-external-no="sharingFlowContext.sharing_external_no"
+          @busy="sharingFlowBusy = $event"
         />
       </template>
       <ReferralPage
@@ -2411,15 +2460,10 @@ onBeforeUnmount(() => {
             :own-session="!session.delegated_by"
             :admin-class="session.user.admin_class"
           />
-          <template v-if="path === '/app/plugin-list'"
-            ><LocalPluginsPage @loaded="pluginListLoaded = true" />
-            <template v-if="pluginListLoaded"
-              ><h2 class="operation-heading">本地扩展资料</h2>
-              <ResourcePage
-                :key="path + 'config'"
-                :client="client"
-                resource="plugin-configs" /></template
-          ></template>
+          <LocalPluginManagement
+            v-if="path === '/app/plugin-list'"
+            :client="client"
+          />
           <OperationsPage
             v-if="path !== '/system/update' && path !== '/app/plugin-list'"
             :key="path"
@@ -2516,7 +2560,9 @@ onBeforeUnmount(() => {
             </KitField>
             <KitField
               :label="
-                ['orders', 'refunds'].includes(kind) ? '搜索内容' : '搜索记录'
+                ['orders', 'refunds', 'ledger'].includes(kind)
+                  ? '搜索内容'
+                  : '搜索记录'
               "
             >
               <KitInput
@@ -2527,7 +2573,10 @@ onBeforeUnmount(() => {
               />
             </KitField>
             <KitField
-              v-if="area === 'admin' && ['orders', 'refunds'].includes(kind)"
+              v-if="
+                area === 'admin' &&
+                ['orders', 'refunds', 'ledger'].includes(kind)
+              "
               label="商户号"
             >
               <KitInput
@@ -2654,13 +2703,18 @@ onBeforeUnmount(() => {
           <div v-if="loading" class="loading-row" role="status">
             正在加载记录…
           </div>
+          <LedgerRecordsTable
+            v-if="!loading && !error && kind === 'ledger'"
+            :key="area + path"
+            :area="area"
+            :items="items"
+          />
           <DataTable
-            v-if="!loading && !error"
+            v-else-if="!loading && !error"
             :items="items"
             :columns="columns"
             :orders="kind === 'orders'"
             :refunds="kind === 'refunds'"
-            :ledger="kind === 'ledger'"
             :admin-orders="kind === 'orders' && area === 'admin'"
             :merchant-orders="kind === 'orders' && area === 'merchant'"
             :selectable="kind === 'orders'"
@@ -2877,32 +2931,32 @@ onBeforeUnmount(() => {
               }}</span>
             </p>
             <div class="form-rows">
-            <label
-              ><span class="field-label field-label--req">退款金额（元）</span
-              ><input
-                v-model="refundMoney"
-                :readonly="
-                  !!refundIntent212 ||
-                  busy ||
-                  refundRestoring212 ||
-                  refundRecoveryOnly212
-                "
-                inputmode="decimal"
-                required
-                autofocus /></label
-            ><label
-              ><span class="field-label field-label--req">退款请求号</span
-              ><input
-                v-model="refundExternal"
-                :readonly="
-                  !!refundIntent212 ||
-                  busy ||
-                  refundRestoring212 ||
-                  refundRecoveryOnly212
-                "
-                required
-                maxlength="128"
-            /></label>
+              <label
+                ><span class="field-label field-label--req">退款金额（元）</span
+                ><input
+                  v-model="refundMoney"
+                  :readonly="
+                    !!refundIntent212 ||
+                    busy ||
+                    refundRestoring212 ||
+                    refundRecoveryOnly212
+                  "
+                  inputmode="decimal"
+                  required
+                  autofocus /></label
+              ><label
+                ><span class="field-label field-label--req">退款请求号</span
+                ><input
+                  v-model="refundExternal"
+                  :readonly="
+                    !!refundIntent212 ||
+                    busy ||
+                    refundRestoring212 ||
+                    refundRecoveryOnly212
+                  "
+                  required
+                  maxlength="128"
+              /></label>
             </div>
             <p class="muted">
               提交后请查看退款记录确认处理结果。重复提交请保留相同请求号。

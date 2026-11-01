@@ -80,6 +80,8 @@ for (const area of ["admin", "merchant"] as const)
               totp_required: false,
             }),
           );
+        if (path.endsWith("/rule-overview"))
+          return route.fulfill(ok({ items: [], total: "0", limit: 20 }));
         if (path.endsWith("/channels")) return route.fulfill(ok(caps));
         if (path.endsWith("/rules/7") && request.method() === "GET") {
           if (published)
@@ -152,14 +154,19 @@ for (const area of ["admin", "merchant"] as const)
         return route.fulfill(ok({ items: [], next_cursor: "0" }));
       });
       await page.goto(`/${area}/profitsharing/receiver`);
-      const panel = page.getByRole("region", { name: "分账规则" });
+      const panel = page.getByRole("region", { name: "分账规则", exact: true });
       if (area === "admin") {
-        await page.getByLabel("商户ID").fill("1000");
-        await page.getByRole("button", { name: "查询" }).click();
+        await page
+          .getByRole("region", { name: "分账规则总览" })
+          .getByRole("button", { name: "新增", exact: true })
+          .click();
+        const owner = page.getByRole("dialog", { name: "选择配置商户" });
+        await owner.getByLabel("配置商户ID").fill("1000");
+        await owner.getByRole("button", { name: "继续配置" }).click();
+      } else {
+        await expect(panel.getByRole("button", { name: "新增" })).toBeEnabled();
+        await panel.getByRole("button", { name: "新增" }).click();
       }
-      // Wait for the channel row to load so 新增 is enabled.
-      await expect(panel.getByRole("button", { name: "新增" })).toBeEnabled();
-      await panel.getByRole("button", { name: "新增" }).click();
       const dialog = page.getByRole("dialog", { name: "新增分账规则" });
       await expect(dialog).toBeVisible();
       await dialog.getByLabel("接收方账号").fill("local_receiver79");
@@ -215,6 +222,8 @@ for (const area of ["admin", "merchant"] as const)
           }),
         );
       if (r.method() !== "GET") writes++;
+      if (path.endsWith("/rule-overview"))
+        return route.fulfill(ok({ items: [], total: "0", limit: 20 }));
       if (path.endsWith("/channels"))
         return route.fulfill(
           ok({
@@ -227,10 +236,15 @@ for (const area of ["admin", "merchant"] as const)
       return route.fulfill(ok({ items: [], next_cursor: "0" }));
     });
     await page.goto(`/${area}/profitsharing/receiver`);
-    const panel = page.getByRole("region", { name: "分账规则" });
+    const panel = page.getByRole("region", { name: "分账规则", exact: true });
     if (area === "admin") {
-      await page.getByLabel("商户ID").fill("1000");
-      await page.getByRole("button", { name: "查询" }).click();
+      await page
+        .getByRole("region", { name: "分账规则总览" })
+        .getByRole("button", { name: "新增", exact: true })
+        .click();
+      const owner = page.getByRole("dialog", { name: "选择配置商户" });
+      await owner.getByLabel("配置商户ID").fill("1000");
+      await owner.getByRole("button", { name: "继续配置" }).click();
     }
     await expect(panel).toContainText("模拟通道未配置渠道分账");
     // No capable channel → the create action stays disabled: fail closed.
@@ -275,6 +289,8 @@ test("admin rule dialog masks private input and binds receiver before versioned 
           totp_required: false,
         }),
       );
+    if (p.endsWith("/rule-overview"))
+      return route.fulfill(ok({ items: [], total: "0", limit: 20 }));
     if (p.endsWith("/channels")) return route.fulfill(ok(caps));
     if (p.endsWith("/rules/7") && r.method() === "GET") {
       if (published)
@@ -331,11 +347,14 @@ test("admin rule dialog masks private input and binds receiver before versioned 
     return route.fulfill(ok({ items: [], next_cursor: "0" }));
   });
   await page.goto("/admin/profitsharing/receiver");
-  const panel = page.getByRole("region", { name: "分账规则" });
-  await page.getByLabel("商户ID").fill("1000");
-  await page.getByRole("button", { name: "查询" }).click();
-  await expect(panel.getByRole("button", { name: "新增" })).toBeEnabled();
-  await panel.getByRole("button", { name: "新增" }).click();
+  const panel = page.getByRole("region", { name: "分账规则", exact: true });
+  await page
+    .getByRole("region", { name: "分账规则总览" })
+    .getByRole("button", { name: "新增", exact: true })
+    .click();
+  const owner = page.getByRole("dialog", { name: "选择配置商户" });
+  await owner.getByLabel("配置商户ID").fill("1000");
+  await owner.getByRole("button", { name: "继续配置" }).click();
   const dialog = page.getByRole("dialog", { name: "新增分账规则" });
   await dialog.getByLabel("接收方账号").fill("synthetic-private-account");
   await dialog.getByLabel("接收方姓名").fill("测试姓名");

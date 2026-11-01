@@ -536,6 +536,15 @@ func (s *Service) Create(ctx context.Context, p Principal, r string, in map[stri
 	}
 	return Item{ID: id, Fields: v}, nil
 }
+func recordBodyProjection(resource string) string {
+	switch resource {
+	case "announcements", "blacklist", "domains", "risk-records":
+		return "body || jsonb_build_object('created_at',created_at)"
+	default:
+		return "body"
+	}
+}
+
 func (s *Service) Get(ctx context.Context, p Principal, r string, id int64) (Item, error) {
 	if _, e := definitionFor(p, r, false); e != nil {
 		return Item{}, e
@@ -544,7 +553,7 @@ func (s *Service) Get(ctx context.Context, p Principal, r string, id int64) (Ite
 		return s.getSpecial(ctx, p, r, id)
 	}
 	var raw []byte
-	e := s.pool.QueryRow(ctx, "SELECT body FROM backoffice_records WHERE resource=$1 AND id=$2 AND ($3::text='admin' OR owner_id=$4 OR $1='groups')", r, id, p.Role, p.SubjectID).Scan(&raw)
+	e := s.pool.QueryRow(ctx, "SELECT "+recordBodyProjection(r)+" FROM backoffice_records WHERE resource=$1 AND id=$2 AND ($3::text='admin' OR owner_id=$4 OR $1='groups')", r, id, p.Role, p.SubjectID).Scan(&raw)
 	if e != nil {
 		return Item{}, businessError(e)
 	}
@@ -605,7 +614,12 @@ func (s *Service) List(ctx context.Context, p Principal, r string, q Query) (Pag
 		}
 		known := false
 		for _, fs := range d.filters {
-			if fs.Param == param {
+			if fs.Param == param && (!fs.AdminOnly || p.Role == "admin") {
+				if fs.Type == "positive_id" {
+					id, err := strconv.ParseInt(value, 10, 64)
+					known = err == nil && id > 0 && strconv.FormatInt(id, 10) == value
+					break
+				}
 				for _, o := range fs.Options {
 					if o.Value == value {
 						known = true
@@ -624,23 +638,12 @@ func (s *Service) List(ctx context.Context, p Principal, r string, q Query) (Pag
 		return page, e
 	}
 	order := "id DESC"
-	projection := "id,body"
+	projection := "id," + recordBodyProjection(r)
 	if r == "groups" {
 		order = "CASE WHEN id=0 THEN 0 ELSE 1 END,id DESC"
 	}
 	if r == "announcements" {
 		order = "CASE WHEN body->>'sort'~'^[1-9][0-9]{0,9}$' THEN (body->>'sort')::numeric ELSE 50 END ASC,id DESC"
-		projection = "id,body || jsonb_build_object('created_at',created_at)"
-	}
-	if r == "blacklist" {
-		// Pro shows 添加时间; surface the record's created_at into the body so the
-		// readonly schema field renders it (does not change stored data).
-		projection = "id,body || jsonb_build_object('created_at',created_at)"
-	}
-	if r == "domains" {
-		// Pro's 授权域名 list shows 添加时间; surface created_at (read-only) the same
-		// way. 审核时间 is not separately tracked in GOEPAY, so it is not fabricated.
-		projection = "id,body || jsonb_build_object('created_at',created_at)"
 	}
 	limitPos := strconv.Itoa(len(args) + 1)
 	offsetPos := strconv.Itoa(len(args) + 2)

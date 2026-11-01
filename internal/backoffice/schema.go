@@ -12,9 +12,11 @@ type Option struct {
 // Value is the exact text compared against body->>Param (booleans stored in the
 // record render as 'true'/'false', so a boolean field filters on those).
 type FilterSpec struct {
-	Param   string   `json:"param"`
-	Label   string   `json:"label"`
-	Options []Option `json:"options"`
+	Param     string   `json:"param"`
+	Label     string   `json:"label"`
+	Options   []Option `json:"options"`
+	Type      string   `json:"type,omitempty"`
+	AdminOnly bool     `json:"-"`
 }
 type Field struct {
 	CreateOnly  bool     `json:"create_only,omitempty"`
@@ -82,13 +84,14 @@ func administrator(f Field) Field { f.AdminOnly = true; return f }
 func createOnly(f Field) Field    { f.CreateOnly = true; return f }
 func adminClassField() Field {
 	f := selectField("admin_class", "权限等级", "operator", "super")
+	f.Options = []Option{{Value: "operator", Label: "普通管理员"}, {Value: "super", Label: "超级管理员"}}
 	f.Default = "operator"
 	return f
 }
 
 var definitions = map[string]definition{
 	"groups":              {title: "用户组设置", description: "保存用户组及费率配置；会员购买另走资金用例。", fields: []Field{text("name", "名称", true, 100), text("description", "说明", false, 1000), integer("rate_bps", "费率（万分比）", 0, 10000), integer("price_cents", "会员价格（分）", 0, 100000000000), integer("duration_days", "会员天数", 1, 3660), flag("enabled", "启用", true)}, merchantRead: true},
-	"domains":             {title: "授权域名", tenant: true, filters: []FilterSpec{{Param: "approved", Label: "状态", Options: []Option{{Label: "全部状态", Value: ""}, {Label: "待审核", Value: "false"}, {Label: "已通过", Value: "true"}}}, {Param: "enabled", Label: "启用", Options: []Option{{Label: "全部", Value: ""}, {Label: "是", Value: "true"}, {Label: "否", Value: "false"}}}}, fields: []Field{administrator(text("merchant_id", "商户 ID", false, 19)), authorizationDomainField(), administrator(flag("approved", "审核通过", false)), flag("enabled", "启用", true), {Name: "created_at", Label: "添加时间", Type: "string", ReadOnly: true}}},
+	"domains":             {title: "授权域名", tenant: true, filters: []FilterSpec{{Param: "merchant_id", Label: "商户号", Type: "positive_id", Options: []Option{}, AdminOnly: true}, {Param: "approved", Label: "状态", Options: []Option{{Label: "全部状态", Value: ""}, {Label: "待审核", Value: "false"}, {Label: "已通过", Value: "true"}}}, {Param: "enabled", Label: "启用", Options: []Option{{Label: "全部", Value: ""}, {Label: "是", Value: "true"}, {Label: "否", Value: "false"}}}}, fields: []Field{administrator(text("merchant_id", "商户 ID", false, 19)), authorizationDomainField(), administrator(flag("approved", "审核通过", false)), flag("enabled", "启用", true), {Name: "created_at", Label: "添加时间", Type: "string", ReadOnly: true}}},
 	"invitation-codes":    {title: "邀请码管理", fields: []Field{createOnly(text("code", "邀请码", true, 64)), integer("max_uses", "可使用次数", 1, 1000000), flag("enabled", "启用", true)}},
 	"announcements":       {title: "公告配置", description: "按原内容、排序和颜色编辑；富文本仅由受控展示组件处理，禁止执行原始HTML。旧纯文本公告保持原语义。", fields: originalAnnouncementFields()},
 	"settings":            {title: "系统设置", description: "只保存明确允许的业务设置。payment_fee_enabled=true 才按用户组费率扣费；refund_fee_payer=platform 退还手续费，merchant 保留手续费并由商户承担；这些支付费率只影响新订单快照。settlement_minimum_cents 为非负整数分，未配置时为0，适用于商户及管理员新建结算申请，历史请求不变。结算审批不代表外部出款。", fields: []Field{selectField("key", "设置项", "site_name", "support_email", "registration_open", "settlement_minimum_cents", "enforce_domains", "payment_fee_enabled", "refund_fee_payer"), text("value", "设置值", true, 1000)}},
@@ -97,7 +100,7 @@ var definitions = map[string]definition{
 	"collection-styles":   {title: "聚合收款码样式", fields: collectionStyleFields()},
 	"profitsharing-rules": {title: "站内分账规则", tenant: true, description: "规则只用于经过审批的站内账本分配；渠道分账不由本资源执行。支持多接收方：receivers 为 [{recipient_id, rate_bps}] 列表（最多 10，合计比例不超过 100%）；仅填单个 收款商户 ID + 分账比例 时按单接收方处理。", fields: []Field{administrator(text("merchant_id", "付款商户 ID", false, 19)), text("name", "名称", true, 100), text("recipient_id", "收款商户 ID", false, 19), integer("rate_bps", "分账比例（万分比）", 0, 10000), {Name: "receivers", Label: "分账接收方列表", Type: "json", MaxLength: 4096, Description: "多接收方：[{\"recipient_id\":\"102\",\"rate_bps\":\"3000\"}, ...]，最多 10，合计 ≤ 100%。"}, flag("enabled", "启用", true)}},
 	"merchants":           {title: "商户管理", noDelete: true, fields: []Field{{Name: "id", Label: "商户 ID", Type: "string", Required: true, CreateOnly: true}, text("name", "名称", true, 100), {Name: "api_key", Label: "API 密钥", Type: "password", WriteOnly: true, MaxLength: 256}, selectField("signature_algorithm", "签名算法", "MD5", "RSA"), {Name: "rsa_public_key", Label: "商户 RSA 公钥", Type: "text", MaxLength: 8192, WriteOnly: true}, text("login_username", "后台登录账号（可选）", false, 100), {Name: "login_password", Label: "后台登录密码（首次设置或重置）", Type: "password", WriteOnly: true, MaxLength: 1024}, flag("enabled", "启用", true), {Name: "email", Label: "电子邮箱", Type: "email", MaxLength: 254}, text("group_id", "基础用户组 ID（管理员指定）", false, 19), {Name: "base_group_id", Label: "基础组账务快照", Type: "string", ReadOnly: true}, {Name: "group_baseline_unresolved", Label: "旧会员基础组待确认", Type: "boolean", ReadOnly: true}}},
-	"admin-users":         {title: "管理员列表", noDelete: true, fields: []Field{createOnly(text("username", "账号", true, 100)), text("display_name", "名称", true, 100), {Name: "password", Label: "密码", Type: "password", WriteOnly: true, MaxLength: 1024}, adminClassField(), {Name: "permissions", Label: "菜单权限", Type: "permission_tree", Description: "仅当权限等级为 operator 时生效：留空表示全部业务菜单，勾选则仅限所选菜单。super 忽略此项。"}, flag("enabled", "启用", true)}},
+	"admin-users":         {title: "管理员列表", noDelete: true, fields: administratorResourceFields()},
 }
 
 func (s *Service) Schema(p Principal, resource string) (Schema, error) {
@@ -137,7 +140,13 @@ func (s *Service) Schema(p Principal, resource string) (Schema, error) {
 	case "profitsharing-rules":
 		actions = []string{"execute"}
 	}
-	return Schema{Title: d.title, Description: d.description, Fields: fields, Permissions: Permissions{Create: write, Update: write, Delete: write && !d.noDelete || resource == "admin-users" && p.Role == "admin" && p.AdminClass == "super"}, Actions: actions, Filters: d.filters, Exportable: d.exportable, BatchDelete: write && !d.noDelete, BatchStatus: resource == "domains" && p.Role == "admin"}, nil
+	filters := []FilterSpec{}
+	for _, f := range d.filters {
+		if !f.AdminOnly || p.Role == "admin" {
+			filters = append(filters, f)
+		}
+	}
+	return Schema{Title: d.title, Description: d.description, Fields: fields, Permissions: Permissions{Create: write, Update: write, Delete: write && !d.noDelete || resource == "admin-users" && p.Role == "admin" && p.AdminClass == "super"}, Actions: actions, Filters: filters, Exportable: d.exportable, BatchDelete: write && !d.noDelete, BatchStatus: resource == "domains" && p.Role == "admin"}, nil
 }
 func decodeFields(raw []byte) map[string]any {
 	v := map[string]any{}

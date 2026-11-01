@@ -92,7 +92,7 @@ describe("ResourcePage first load", () => {
         .findAll("button")
         .map((b) => b.text());
     const loaded = labels();
-    expect(loaded.some((t) => t.includes("新增"))).toBe(true);
+    expect(loaded).toContain("添加");
     expect(loaded.some((t) => t.includes("刷新"))).toBe(true);
     expect(w.find(".csv-export").exists()).toBe(true);
     expect(w.find(filter).exists()).toBe(true);

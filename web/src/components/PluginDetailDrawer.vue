@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import ShellIcon from "./ShellIcon.vue";
 import KitStatusTag from "./KitStatusTag.vue";
 import {
@@ -13,6 +13,83 @@ import { templatePreviewImage } from "../page-template";
 const props = defineProps<{ entry: CatalogEntry; title: string }>();
 const emit = defineEmits<{ close: [] }>();
 const drawer = ref<HTMLElement | null>(null);
+let lastFocused: HTMLElement | null = null;
+function topDialogElement() {
+  const dialogs = [
+    ...document.querySelectorAll<HTMLElement>(
+      '[role="dialog"][aria-modal="true"]',
+    ),
+  ].filter((element) => {
+    for (
+      let current: HTMLElement | null = element;
+      current;
+      current = current.parentElement
+    ) {
+      if (
+        current.hidden ||
+        current.hasAttribute("inert") ||
+        getComputedStyle(current).display === "none"
+      )
+        return false;
+    }
+    return true;
+  });
+  return dialogs.at(-1);
+}
+function topDialog() {
+  return topDialogElement() === drawer.value;
+}
+function close() {
+  if (topDialog()) emit("close");
+}
+function onKeydown(event: KeyboardEvent) {
+  if (event.defaultPrevented || !topDialog()) return;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    close();
+    return;
+  }
+  if (event.key !== "Tab") return;
+  const focusable = [
+    ...(drawer.value?.querySelectorAll<HTMLElement>(
+      'a[href],button,input:not([type="hidden"]),select,textarea,summary,[contenteditable="true"],[tabindex]',
+    ) || []),
+  ].filter((element) => {
+    if (element.matches(":disabled") || element.tabIndex < 0) return false;
+    for (
+      let current: HTMLElement | null = element;
+      current;
+      current = current.parentElement
+    ) {
+      const style = getComputedStyle(current);
+      if (
+        current.hidden ||
+        current.hasAttribute("inert") ||
+        current.getAttribute("aria-hidden") === "true" ||
+        style.display === "none" ||
+        style.visibility === "hidden"
+      )
+        return false;
+    }
+    return true;
+  });
+  const first = focusable[0],
+    last = focusable.at(-1);
+  if (!first || !last) {
+    event.preventDefault();
+    drawer.value?.focus({ preventScroll: true });
+    return;
+  }
+  if (
+    document.activeElement === drawer.value ||
+    !drawer.value?.contains(document.activeElement) ||
+    (event.shiftKey && document.activeElement === first) ||
+    (!event.shiftKey && document.activeElement === last)
+  ) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus({ preventScroll: true });
+  }
+}
 const builtin = computed(() => builtinPlugin(props.entry));
 const typeLabel = computed(
   () =>
@@ -22,14 +99,27 @@ const typeLabel = computed(
     pluginTypes.find((t) => t[0] === props.entry.type)?.[1] ||
     props.entry.type,
 );
-onMounted(() => drawer.value?.focus());
+onMounted(() => {
+  lastFocused =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+  document.addEventListener("keydown", onKeydown);
+  if (topDialog()) drawer.value?.focus({ preventScroll: true });
+});
+onBeforeUnmount(() => {
+  document.removeEventListener("keydown", onKeydown);
+  const top = topDialogElement();
+  if (
+    lastFocused?.isConnected &&
+    (top === drawer.value ||
+      (!drawer.value?.isConnected && (!top || top.contains(lastFocused))))
+  )
+    lastFocused.focus({ preventScroll: true });
+});
 </script>
 <template>
-  <div
-    class="modal-backdrop drawer-backdrop"
-    @keydown.esc="emit('close')"
-    @click.self="emit('close')"
-  >
+  <div class="modal-backdrop drawer-backdrop" @click.self="close">
     <section
       ref="drawer"
       class="drawer plugin-drawer"
@@ -45,7 +135,7 @@ onMounted(() => drawer.value?.focus());
           class="icon-button"
           :aria-label="'关闭' + title"
           title="关闭"
-          @click="emit('close')"
+          @click="close"
         >
           <ShellIcon name="close" />
         </button>
@@ -105,16 +195,12 @@ onMounted(() => drawer.value?.focus());
           </template>
           <dt>Go 版状态</dt>
           <dd>
-            {{
-              builtin
-                ? builtin.note
-                : "该插件尚未实现，暂不可使用。"
-            }}
+            {{ builtin ? builtin.note : "该插件尚未实现，暂不可使用。" }}
           </dd>
         </dl>
       </div>
       <div class="modal-actions drawer-foot">
-        <button type="button" @click="emit('close')">关闭</button>
+        <button type="button" @click="close">关闭</button>
       </div>
     </section>
   </div>

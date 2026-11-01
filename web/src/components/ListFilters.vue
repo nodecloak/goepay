@@ -110,13 +110,6 @@ const ledgerOptions = [
             aria-label="订单收入状态"
           />
         </KitField>
-        <KitField v-if="area === 'admin' && kind === 'ledger'" label="商户 ID">
-          <KitInput
-            v-model="filters.merchant_id"
-            inputmode="numeric"
-            aria-label="商户 ID 筛选"
-          />
-        </KitField>
         <KitField
           v-if="kind === 'orders' || kind === 'refunds'"
           label="通道 ID"

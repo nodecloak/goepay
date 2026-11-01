@@ -3,13 +3,19 @@ package contract_test
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/compat"
 	"goepay/internal/payment"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -56,8 +62,52 @@ func TestV2WebPreservesHTMLAndQRMaterialWhileJumpStaysProtected(t *testing.T) {
 				if kind == "wxpay" {
 					want = "qrcode"
 				}
-				if out["pay_type"] != want || out["pay_info"] != a.Material {
+				if out["pay_type"] != want {
 					t.Fatalf("%s web material replaced with wrapper: type=%v", kind, out["pay_type"])
+				}
+				if kind == "wxpay" {
+					if out["pay_info"] != a.Material {
+						t.Fatal("native QR material changed")
+					}
+				} else {
+					material, ok := out["pay_info"].(string)
+					verified, err := ali.PrepareCheckoutHTML(material, a.TradeNo)
+					if !ok || err != nil || verified != material {
+						t.Fatal("returned HTML is not the original adapter's signed order form", err)
+					}
+					inputs := regexp.MustCompile(`<input type="hidden" name="([^"]+)" value="([^"]*)">`)
+					fields := func(form string) map[string]string {
+						values := map[string]string{}
+						for _, match := range inputs.FindAllStringSubmatch(form, -1) {
+							values[html.UnescapeString(match[1])] = html.UnescapeString(match[2])
+						}
+						return values
+					}
+					before, after := fields(a.Material), fields(material)
+					fieldCount := len(before)
+					if _, exists := before["return_url"]; !exists {
+						fieldCount++ // Optional merchant return was absent in the saved form.
+					}
+					returned, err := url.Parse(after["return_url"])
+					if err != nil || fieldCount != len(after) || returned.Scheme != "https" || returned.Host != "pay.example.invalid" || returned.Path != "/checkout/"+a.TradeNo+"/return" || returned.User != nil || returned.Fragment != "" {
+						t.Fatal("returned form changed its fields or original-order return URL")
+					}
+					query := returned.Query()
+					expires, err := strconv.ParseInt(query.Get("expires"), 10, 64)
+					mac := hmac.New(sha256.New, s.CheckoutKey)
+					fmt.Fprintf(mac, "goepay-checkout-v1\n%s\nreturn\n%s", a.TradeNo, query.Get("expires"))
+					if err != nil || len(query) != 2 || len(query["token"]) != 1 || len(query["expires"]) != 1 || expires <= time.Now().Unix() || expires > time.Now().Add(2*time.Hour).Unix() || query.Get("token") != base64.RawURLEncoding.EncodeToString(mac.Sum(nil)) {
+						t.Fatal("returned form did not use an authenticated original-order return token")
+					}
+					for field, value := range before {
+						if field != "timestamp" && field != "return_url" && field != "sign" && after[field] != value {
+							t.Fatal("returned form changed a protected signed field", field)
+						}
+					}
+					saved, err := s.Store.ProviderAttempt(context.Background(), a.TradeNo)
+					if err != nil || saved.Material != a.Material {
+						t.Fatal("refresh modified immutable saved payment material", err)
+					}
 				}
 			} else {
 				raw, _ := out["pay_info"].(string)

@@ -7,7 +7,7 @@ const row={id:'9007199254740993',name:'微信收款',pay_type:'wxpay',plugin:'wx
 function client(){const c=new ApiClient('admin');c.csrfToken='first';vi.spyOn(c,'request').mockImplementation(async path=>path.includes('/templates')?{items:[],total:0}:path.includes('?')?{items:[row],total:1,page:1,size:20}:row);return c}
 it('renders original parent columns, filters and versioned secret edits without exposing secrets',async()=>{
  const c=client(),w=mount(ParentChannelPage,{props:{client:c,allowed:true}});await flushPromises();
- expect(w.text()).toContain('分成比例');expect(w.text()).toContain('参数');expect(w.find('input[aria-label="ID或名称"]').exists()).toBe(true);
+ expect(w.text()).toContain('分成比例');expect(w.text()).toContain('配置密钥');expect(w.find('input[aria-label="ID或名称"]').exists()).toBe(true);
  await w.get('button[data-parent-parameters]').trigger('click');await flushPromises();
  expect((w.get('select[aria-label="appkey 操作"]').element as HTMLSelectElement).value).toBe('keep');
  await w.get('select[aria-label="appkey 操作"]').setValue('replace');await w.get('input[aria-label="appkey 内容"]').setValue('draft-secret');

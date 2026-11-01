@@ -73,122 +73,122 @@ const data = computed(() => {
 </script>
 <template>
   <p v-if="data.error" class="alert error" role="alert">{{ data.error }}</p>
-  <div v-else class="table-scroll original-transfer-list">
-    <table :class="area">
-      <thead>
-        <tr>
-          <th v-for="column in columns" :key="column.key" scope="col">
-            <span class="transfer-th-main">{{ column.label }}</span>
-            <span v-if="column.sub" class="transfer-th-sub muted">{{
-              column.sub
-            }}</span>
-          </th>
-          <th scope="col" class="transfer-actions">操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="row in data.rows" :key="row.id" :data-transfer-id="row.id">
-          <td
-            v-for="column in columns"
-            :key="column.key"
-            :class="{
-              'transfer-number': column.key === 'number',
-              'transfer-method': column.key === 'method',
-            }"
-          >
-            <template v-if="column.key === 'number'"
-              ><span>{{ row.number }}</span
-              ><small class="transfer-secondary muted"
-                >商户交易号：{{ row.externalNo }}</small
-              ><small v-if="row.providerNo" class="transfer-secondary muted"
-                >接口交易号：{{ row.providerNo }}</small
-              ></template
+  <template v-else>
+    <div class="table-scroll original-transfer-list">
+      <table :class="area">
+        <thead>
+          <tr>
+            <th v-for="column in columns" :key="column.key" scope="col">
+              <span class="transfer-th-main">{{ column.label }}</span>
+              <span v-if="column.sub" class="transfer-th-sub muted">{{
+                column.sub
+              }}</span>
+            </th>
+            <th scope="col" class="transfer-actions">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in data.rows" :key="row.id" :data-transfer-id="row.id">
+            <td
+              v-for="column in columns"
+              :key="column.key"
+              :class="{
+                'transfer-number': column.key === 'number',
+                'transfer-method': column.key === 'method',
+              }"
             >
-            <template v-else-if="column.key === 'method'"
-              ><KitPayMethod
-                v-if="
-                  ['alipay', 'wxpay', 'bank'].includes(String(row.raw.type))
-                "
-                :type="String(row.raw.type)"
-              /><span v-else>{{ row.method }}</span
-              ><small class="transfer-secondary muted transfer-remark">{{
-                row.remark || "-"
-              }}</small></template
-            >
-            <template v-else-if="column.key === 'fee'">¥{{ row.fee }}</template>
-            <template v-else-if="column.key === 'account'"
-              >{{ row.account
-              }}<small class="transfer-secondary">{{
-                row.name
-              }}</small></template
-            >
-            <template v-else-if="column.key === 'amount'"
-              ><strong>¥{{ row.amount }}</strong
-              ><small class="transfer-secondary muted"
-                >花费金额：¥{{ row.cost }}</small
-              ></template
-            >
-            <template v-else-if="column.key === 'createdAt'"
-              >{{ row.createdAt
-              }}<small class="transfer-secondary muted"
-                >付款时间：{{ row.payDate }}</small
-              ></template
-            >
-            <template v-else-if="column.key === 'status'"
-              ><KitStatusTag
-                :text="row.status"
-                :tone="statusTone(row.tone)"
-              /><button
-                v-if="row.confirmURL"
-                type="button"
-                class="link-button transfer-secondary transfer-confirm"
-                :disabled="busy"
-                @click="showConfirm(row.confirmURL)"
+              <template v-if="column.key === 'number'"
+                ><span>{{ row.number }}</span
+                ><small class="transfer-secondary muted"
+                  >商户交易号：{{ row.externalNo }}</small
+                ><small v-if="row.providerNo" class="transfer-secondary muted"
+                  >接口交易号：{{ row.providerNo }}</small
+                ></template
               >
-                确认收款
-              </button></template
-            >
-            <template v-else>{{
-              row[column.key as keyof typeof row]
-            }}</template>
-          </td>
-          <td class="transfer-actions">
-            <button
-              type="button"
-              class="link-button"
-              :disabled="busy"
-              @click="emit('details', row.raw)"
-            >
-              付款详情
-            </button>
-            <button
-              v-if="transferReadActions(row.raw).query"
-              type="button"
-              class="link-button"
-              :disabled="busy"
-              @click="emit('query', row.raw)"
-            >
-              查询状态
-            </button>
-            <button
-              type="button"
-              class="link-button"
-              :disabled="busy || !proofState(row.raw).enabled"
-              :title="proofState(row.raw).reason || undefined"
-              @click="emit('proof', row.raw)"
-            >
-              获取凭证
-            </button>
-          </td>
-        </tr>
-        <tr v-if="!data.rows.length">
-          <td class="empty" :colspan="columns.length + 1">
-            <KitEmpty text="暂无数据" />
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+              <template v-else-if="column.key === 'method'"
+                ><KitPayMethod
+                  v-if="
+                    ['alipay', 'wxpay', 'bank'].includes(String(row.raw.type))
+                  "
+                  :type="String(row.raw.type)"
+                /><span v-else>{{ row.method }}</span
+                ><small class="transfer-secondary muted transfer-remark">{{
+                  row.remark || "-"
+                }}</small></template
+              >
+              <template v-else-if="column.key === 'fee'"
+                >¥{{ row.fee }}</template
+              >
+              <template v-else-if="column.key === 'account'"
+                >{{ row.account
+                }}<small class="transfer-secondary">{{
+                  row.name
+                }}</small></template
+              >
+              <template v-else-if="column.key === 'amount'"
+                ><strong>¥{{ row.amount }}</strong
+                ><small class="transfer-secondary muted"
+                  >花费金额：¥{{ row.cost }}</small
+                ></template
+              >
+              <template v-else-if="column.key === 'createdAt'"
+                >{{ row.createdAt
+                }}<small class="transfer-secondary muted"
+                  >付款时间：{{ row.payDate }}</small
+                ></template
+              >
+              <template v-else-if="column.key === 'status'"
+                ><KitStatusTag
+                  :text="row.status"
+                  :tone="statusTone(row.tone)"
+                /><button
+                  v-if="row.confirmURL"
+                  type="button"
+                  class="link-button transfer-secondary transfer-confirm"
+                  :disabled="busy"
+                  @click="showConfirm(row.confirmURL)"
+                >
+                  确认收款
+                </button></template
+              >
+              <template v-else>{{
+                row[column.key as keyof typeof row]
+              }}</template>
+            </td>
+            <td class="transfer-actions">
+              <button
+                type="button"
+                class="link-button"
+                :disabled="busy"
+                @click="emit('details', row.raw)"
+              >
+                付款详情
+              </button>
+              <button
+                v-if="transferReadActions(row.raw).query"
+                type="button"
+                class="link-button"
+                :disabled="busy"
+                @click="emit('query', row.raw)"
+              >
+                查询状态
+              </button>
+              <button
+                type="button"
+                class="link-button"
+                :disabled="busy || !proofState(row.raw).enabled"
+                :title="proofState(row.raw).reason || undefined"
+                @click="emit('proof', row.raw)"
+              >
+                获取凭证
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <KitEmpty v-if="!data.rows.length" text="暂无数据" />
+  </template>
   <div v-if="confirm" class="modal-backdrop" @click.self="confirm = null">
     <section
       ref="dialog"

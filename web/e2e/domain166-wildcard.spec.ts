@@ -81,10 +81,16 @@ for (const area of ["admin", "merchant"] as const)
       await expect(page.locator("table")).toContainText("*.example.com");
       await expect(page.locator("table")).toContainText("9007199254740993");
       await expect(
-        page.getByRole("columnheader", { name: "商户 ID", exact: true }),
+        page.getByRole("columnheader", {
+          name: area === "admin" ? "商户号" : "商户 ID",
+          exact: true,
+        }),
       ).toBeVisible();
       await expect(
-        page.getByRole("columnheader", { name: "审核通过", exact: true }),
+        page.getByRole("columnheader", {
+          name: area === "admin" ? "状态" : "审核通过",
+          exact: true,
+        }),
       ).toBeVisible();
       const firstRow = page.locator("table tbody tr").first();
       await expect(firstRow.locator("td").nth(1)).toHaveText("1");

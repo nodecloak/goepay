@@ -133,12 +133,17 @@ test("administrator receiver return requires exact funds authorization and unkno
       return route.fulfill(ok(returned));
     }
     // The 分账记录 list (offset paging) is what /profitsharing/order shows first.
-    if (p.endsWith("/orders") && new URL(r.url()).searchParams.has("offset"))
+    if (
+      p.endsWith("/order-overview") &&
+      new URL(r.url()).searchParams.has("offset")
+    )
       return route.fulfill(
         ok({
           items: [
             {
               id: "10",
+              merchant_id: "1000",
+              subchannel_id: "0",
               external_no: "local-original-ps",
               out_no: order.out_no,
               state: "succeeded",
@@ -166,8 +171,8 @@ test("administrator receiver return requires exact funds authorization and unkno
   await page.getByRole("button", { name: "查询", exact: true }).click();
   await page.getByRole("button", { name: "操作台", exact: true }).click();
   const panel = page.getByRole("region", { name: "渠道分账记录" });
-  await panel.getByLabel("商户 ID").fill("1000");
-  await panel.getByRole("button", { name: "读取分账数据" }).click();
+  await expect(panel.getByLabel("商户 ID")).toHaveValue("1000");
+  await expect(panel.getByLabel("商户 ID")).toBeDisabled();
   await panel.getByRole("button", { name: "申请原接收方回退" }).click();
   await panel.getByLabel("回退金额（元）").fill("0.10");
   await panel.getByLabel("回退业务请求号").fill("local-stable-return");

@@ -185,6 +185,10 @@ func (s *Service) getSpecial(ctx context.Context, p Principal, r string, id int6
 		if e = s.attachMerchantRecipients(ctx, []Item{item}); e != nil {
 			return Item{}, e
 		}
+	} else if r == "admin-users" {
+		if e = s.attachAdministratorMetadata(ctx, []Item{item}); e != nil {
+			return Item{}, e
+		}
 	}
 	return item, nil
 }
@@ -199,6 +203,9 @@ func (s *Service) listSpecial(ctx context.Context, p Principal, r string, q Quer
 		idColumn = "console_users.id"
 	}
 	where := " WHERE " + condition + " AND ($1::text='' OR strpos(lower((" + projection + ")::text),lower($1))>0)"
+	if r == "admin-users" {
+		where = " WHERE " + condition + " AND ($1::text='' OR console_users.id::text=$1 OR strpos(lower((" + projection + ")::text),lower($1))>0)"
+	}
 	order := idColumn + " DESC"
 	args := []any{q.Search}
 	if r == "merchants" {
@@ -234,6 +241,8 @@ func (s *Service) listSpecial(ctx context.Context, p Principal, r string, q Quer
 	rows.Close()
 	if r == "merchants" {
 		e = s.attachMerchantRecipients(ctx, page.Items)
+	} else if r == "admin-users" {
+		e = s.attachAdministratorMetadata(ctx, page.Items)
 	}
 	return page, e
 }

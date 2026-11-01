@@ -116,7 +116,7 @@ try {
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole("alert")).toContainText("当前登录密码不正确");
     await expect(
-      page.getByRole("heading", { name: "商户登录", exact: true }),
+      page.getByRole("button", { name: "登录工作台", exact: true }),
     ).toHaveCount(0);
   }
   if (existing) {
@@ -184,7 +184,7 @@ try {
     page.getByText("请重新登录以继续操作", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "商户登录", exact: true }),
+    page.getByRole("button", { name: "登录工作台", exact: true }),
   ).toBeVisible();
   expect(errors).toEqual([]);
   expect(external).toBe(0);

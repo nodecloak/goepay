@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import { ApiError, type ApiClient } from "../api";
 import type { Area } from "../menu";
 import ChannelSharingFinishPanel from "./ChannelSharingFinishPanel.vue";
@@ -7,7 +14,11 @@ const props = defineProps<{
   client: ApiClient;
   area: Area;
   page: "receiver" | "order";
+  initialMerchantId?: string;
+  initialExternalNo?: string;
 }>();
+const emit = defineEmits<{ busy: [value: boolean] }>();
+const panel = ref<HTMLElement>();
 type Channel = {
   channel_id: string;
   provider: string;
@@ -85,6 +96,7 @@ const account = ref(""),
   receiverType = ref("MERCHANT_ID"),
   relation = ref("PARTNER"),
   customRelation = ref("");
+watch(busy, (value) => emit("busy", value), { flush: "sync" });
 const rule = ref<Rule>(),
   methods = ref<string[]>([]),
   minimum = ref("0"),
@@ -869,13 +881,25 @@ async function queryReturn(row: ShareReturn) {
       returns.value = returns.value.map((i) => (i.id === row.id ? result : i));
   });
 }
-onMounted(() => {
-  if (props.area === "merchant") void load();
+onMounted(async () => {
+  if (props.area === "admin" && positive(props.initialMerchantId)) {
+    merchant.value = props.initialMerchantId;
+    await nextTick();
+  }
+  if (props.area === "merchant" || positive(props.initialMerchantId))
+    await load();
+  if (props.initialExternalNo)
+    await nextTick(() => {
+      panel.value?.focus({ preventScroll: true });
+      panel.value?.scrollIntoView?.({ block: "start" });
+    });
 });
 </script>
 
 <template>
   <section
+    ref="panel"
+    tabindex="-1"
     class="panel sharing-page"
     :aria-label="page === 'receiver' ? '渠道分账规则' : '渠道分账记录'"
   >
@@ -885,11 +909,15 @@ onMounted(() => {
         规则与接收方绑定到原收款通道。支付后保留原声明，所有金额单位为人民币元。
       </p>
     </header>
+    <p v-if="initialExternalNo" class="table-note">
+      原分账请求：<span class="pa-order-no">{{ initialExternalNo }}</span>
+    </p>
     <form class="sharing-toolbar" @submit.prevent="load">
       <label v-if="area === 'admin'"
         >商户 ID<input
           v-model="merchant"
           aria-label="商户 ID"
+          :disabled="!!initialMerchantId"
           inputmode="numeric"
           autocomplete="off"
       /></label>

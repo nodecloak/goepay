@@ -20,17 +20,19 @@ import (
 // ChannelSharingOrderListView is one Pro 分账记录 row. It extends the base order
 // summary with the joined columns the flat cursor list could not show.
 type ChannelSharingOrderListView struct {
-	ID          int64     `json:"id,string"`
-	ExternalNo  string    `json:"external_no"`
-	OutNo       string    `json:"out_no"`
-	State       string    `json:"state"`
-	ShareAmount int64     `json:"share_amount,string"` // SUM(order_items.amount) 分账金额
-	OrderAmount int64     `json:"order_amount,string"` // provider_attempt_sharing.gross_amount 订单金额
-	Provider    string    `json:"provider"`            // 支付方式 (provider key)
-	Method      string    `json:"method"`
-	RuleID      int64     `json:"rule_id,string"` // 分账规则 id ("0" when the payment declared none)
-	ChannelID   int64     `json:"channel_id,string"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           int64     `json:"id,string"`
+	MerchantID   int64     `json:"merchant_id,string"`
+	SubchannelID int64     `json:"subchannel_id,string"`
+	ExternalNo   string    `json:"external_no"`
+	OutNo        string    `json:"out_no"`
+	State        string    `json:"state"`
+	ShareAmount  int64     `json:"share_amount,string"` // SUM(order_items.amount) 分账金额
+	OrderAmount  int64     `json:"order_amount,string"` // provider_attempt_sharing.gross_amount 订单金额
+	Provider     string    `json:"provider"`            // 支付方式 (provider key)
+	Method       string    `json:"method"`
+	RuleID       int64     `json:"rule_id,string"` // 分账规则 id ("0" when the payment declared none)
+	ChannelID    int64     `json:"channel_id,string"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type ChannelSharingOrderListPage struct {
@@ -53,14 +55,16 @@ type ChannelSharingOrderStats struct {
 // share_amount (分账金额, an exact minor-unit value). States is the 分账状态
 // filter (a set; empty means all). From/To bound created_at (inclusive).
 type ChannelSharingOrderQuery struct {
-	MerchantID int64
-	Field      string
-	Keyword    string
-	States     []string
-	RuleID     int64 // 分账规则ID filter (0 = any)
-	From, To   time.Time
-	Offset     int
-	Limit      int
+	MerchantID   int64
+	ChannelID    int64
+	SubchannelID int64
+	Field        string
+	Keyword      string
+	States       []string
+	RuleID       int64 // 分账规则ID filter (0 = any)
+	From, To     time.Time
+	Offset       int
+	Limit        int
 }
 
 var sharingOrderStates = map[string]bool{
@@ -72,11 +76,18 @@ var sharingOrderStates = map[string]bool{
 // count, aggregate and CSV. The projection joins the base order to its payment
 // declaration (1:1 on order_id) and pre-aggregates the item sum.
 func (q ChannelSharingOrderQuery) where() (string, []any, bool) {
+	return q.whereScope(false)
+}
+
+func (q ChannelSharingOrderQuery) whereScope(overview bool) (string, []any, bool) {
 	// Validate every input before it reaches SQL; reject rather than coerce.
-	if q.MerchantID <= 0 {
+	if q.MerchantID < 0 || (!overview && q.MerchantID == 0) || q.ChannelID < 0 || q.SubchannelID < 0 || (!q.From.IsZero() && !q.To.IsZero() && q.From.After(q.To)) {
 		return "", nil, false
 	}
 	if q.Field != "" && q.Field != "external_no" && q.Field != "out_no" && q.Field != "share_amount" {
+		return "", nil, false
+	}
+	if q.Keyword != "" && q.Field == "" {
 		return "", nil, false
 	}
 	if len(q.Keyword) > 128 || !utf8.ValidString(q.Keyword) {
@@ -104,11 +115,20 @@ func (q ChannelSharingOrderQuery) where() (string, []any, bool) {
 		}
 		shareExact = v
 	}
-	args := []any{q.MerchantID}
-	conds := []string{"o.merchant_id=$1"}
+	args := []any{}
+	conds := []string{"TRUE"}
 	add := func(cond string, v any) {
 		args = append(args, v)
 		conds = append(conds, strings.ReplaceAll(cond, "?", "$"+strconv.Itoa(len(args))))
+	}
+	if q.MerchantID > 0 {
+		add("o.merchant_id=?", q.MerchantID)
+	}
+	if q.ChannelID > 0 {
+		add("d.channel_id=?", q.ChannelID)
+	}
+	if q.SubchannelID > 0 {
+		add("sr.subchannel_id=?", q.SubchannelID)
 	}
 	if q.Field == "external_no" && q.Keyword != "" {
 		add("o.external_no=?", q.Keyword)
@@ -131,6 +151,8 @@ func (q ChannelSharingOrderQuery) where() (string, []any, bool) {
 	}
 	from := ` FROM channel_sharing_orders o
 	 LEFT JOIN provider_attempt_sharing d ON d.order_id=o.order_id
+	 LEFT JOIN orders payment ON payment.id=o.order_id AND payment.merchant_id=o.merchant_id
+	 LEFT JOIN payment_subchannel_routes sr ON sr.merchant_id=o.merchant_id AND sr.out_trade_no=payment.out_trade_no AND sr.parent_id=d.channel_id
 	 LEFT JOIN (SELECT sharing_id, SUM(amount) AS share_amount FROM channel_sharing_order_items GROUP BY sharing_id) si ON si.sharing_id=o.id
 	 WHERE ` + strings.Join(conds, " AND ")
 	return from, args, true
@@ -143,14 +165,18 @@ const sharingOrderListSelect = `SELECT o.id, o.external_no, o.out_no, o.state,
 	 COALESCE(d.method,'') AS method,
 	 COALESCE(d.rule_id,0) AS rule_id,
 	 COALESCE(d.channel_id,0) AS channel_id,
-	 o.created_at`
+	 o.created_at,o.merchant_id,COALESCE(sr.subchannel_id,0)`
 
 func (s *Store) ListChannelSharingOrdersFiltered(ctx context.Context, q ChannelSharingOrderQuery, actor TransferBatchActor) (ChannelSharingOrderListPage, error) {
+	return s.listChannelSharingOrders(ctx, q, actor, false)
+}
+
+func (s *Store) listChannelSharingOrders(ctx context.Context, q ChannelSharingOrderQuery, actor TransferBatchActor, overview bool) (ChannelSharingOrderListPage, error) {
 	out := ChannelSharingOrderListPage{Items: []ChannelSharingOrderListView{}, Limit: q.Limit}
-	if !actor.valid(q.MerchantID) || q.Offset < 0 || q.Offset > 1_000_000 || q.Limit < 1 || q.Limit > 100 {
+	if (overview && !adminSharingOverviewActor(actor)) || (!overview && !actor.valid(q.MerchantID)) || q.Offset < 0 || q.Offset > 1_000_000 || q.Limit < 1 || q.Limit > 100 {
 		return out, ErrInvalid
 	}
-	where, args, ok := q.where()
+	where, args, ok := q.whereScope(overview)
 	if !ok {
 		return out, ErrInvalid
 	}
@@ -170,7 +196,7 @@ func (s *Store) ListChannelSharingOrdersFiltered(ctx context.Context, q ChannelS
 	defer rows.Close()
 	for rows.Next() {
 		var v ChannelSharingOrderListView
-		if e = rows.Scan(&v.ID, &v.ExternalNo, &v.OutNo, &v.State, &v.ShareAmount, &v.OrderAmount, &v.Provider, &v.Method, &v.RuleID, &v.ChannelID, &v.CreatedAt); e != nil {
+		if e = rows.Scan(&v.ID, &v.ExternalNo, &v.OutNo, &v.State, &v.ShareAmount, &v.OrderAmount, &v.Provider, &v.Method, &v.RuleID, &v.ChannelID, &v.CreatedAt, &v.MerchantID, &v.SubchannelID); e != nil {
 			return out, e
 		}
 		out.Items = append(out.Items, v)
@@ -183,13 +209,17 @@ func (s *Store) ListChannelSharingOrdersFiltered(ctx context.Context, q ChannelS
 }
 
 func (s *Store) ChannelSharingOrderStatistics(ctx context.Context, q ChannelSharingOrderQuery, actor TransferBatchActor) (ChannelSharingOrderStats, error) {
+	return s.channelSharingOrderStatistics(ctx, q, actor, false)
+}
+
+func (s *Store) channelSharingOrderStatistics(ctx context.Context, q ChannelSharingOrderQuery, actor TransferBatchActor, overview bool) (ChannelSharingOrderStats, error) {
 	var stats ChannelSharingOrderStats
-	if !actor.valid(q.MerchantID) {
+	if (overview && !adminSharingOverviewActor(actor)) || (!overview && !actor.valid(q.MerchantID)) {
 		return stats, ErrInvalid
 	}
 	// Paging does not affect the aggregate; normalize to a valid shape.
 	q.Offset, q.Limit = 0, 1
-	where, args, ok := q.where()
+	where, args, ok := q.whereScope(overview)
 	if !ok {
 		return stats, ErrInvalid
 	}
@@ -216,20 +246,28 @@ func (s *Store) ChannelSharingOrderStatistics(ctx context.Context, q ChannelShar
 // it with the bounded row limit, BOM and formula-injection guard). Columns are
 // Pro's 分账记录 headers.
 func (q ChannelSharingOrderQuery) ChannelSharingOrderCSVQuery(actor TransferBatchActor) (string, []any, bool) {
-	if !actor.valid(q.MerchantID) {
+	return q.channelSharingOrderCSVQuery(actor, false)
+}
+
+func (q ChannelSharingOrderQuery) channelSharingOrderCSVQuery(actor TransferBatchActor, overview bool) (string, []any, bool) {
+	if (overview && !adminSharingOverviewActor(actor)) || (!overview && !actor.valid(q.MerchantID)) {
 		return "", nil, false
 	}
 	q.Offset, q.Limit = 0, 1
-	where, args, ok := q.where()
+	where, args, ok := q.whereScope(overview)
 	if !ok {
 		return "", nil, false
 	}
-	query := `SELECT o.external_no AS "系统订单号", o.out_no AS "接口订单号",
+	ownerColumns := ""
+	if overview {
+		ownerColumns = `o.merchant_id AS "用户ID", COALESCE(sr.subchannel_id,0) AS "子通道ID", `
+	}
+	query := `SELECT ` + ownerColumns + `o.external_no AS "系统订单号", o.out_no AS "接口订单号",
 	 (COALESCE(si.share_amount,0)::numeric/100) AS "分账金额",
 	 (COALESCE(d.gross_amount,0)::numeric/100) AS "订单金额",
 	 COALESCE(d.provider,'') AS "支付方式",
 	 COALESCE(d.rule_id,0) AS "分账规则",
-	 to_char(o.created_at AT TIME ZONE 'UTC+08:00','YYYY-MM-DD HH24:MI:SS') AS "时间",
+	 to_char(o.created_at AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS') AS "时间",
 	 o.state AS "分账状态"` + where + " ORDER BY o.id DESC"
 	return query, args, true
 }

@@ -21,9 +21,16 @@ test("live Docker admin and merchant sessions, dashboard, lists, and logout", as
     await page.goto(`/${area}/dashboard`);
     await page.getByLabel("用户名").fill(area);
     await page.getByLabel("密码", { exact: true }).fill(password);
+    const result = page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname === `/console/v1/${area}/login` &&
+        r.request().method() === "POST",
+    );
     await page.getByRole("button", { name: "登录工作台" }).click();
+    await result;
     // A failed login must not leave the seed credential in failure snapshots.
     const passwordField = page.getByLabel("密码", { exact: true });
+    if (await passwordField.count()) await passwordField.fill("");
     await expect(page.locator(".stat")).toHaveCount(4);
     await expect(passwordField).toHaveCount(0);
     await expect(page.locator(".stat")).toHaveCount(4);

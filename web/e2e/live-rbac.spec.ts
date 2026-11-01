@@ -17,14 +17,14 @@ test("live operator navigation and direct API access enforce server administrato
   await page.getByRole("button", { name: "登录工作台" }).click();
   await expect(page.locator(".stat")).toHaveCount(4);
   await page.goto("/admin/system/admin-user");
-  await page.getByRole("button", { name: "新增管理员", exact: true }).click();
+  await page.getByRole("button", { name: "添加管理员", exact: true }).click();
   const dialog = page.getByRole("dialog");
   const username = "live-operator-" + Date.now(),
     password = "local-test-" + crypto.randomUUID();
   await dialog.getByRole("textbox", { name: /账号$/ }).fill(username);
   await dialog.getByLabel("名称", { exact: false }).fill("Local operator test");
   await dialog.getByLabel("密码", { exact: false }).fill(password);
-  await expect(dialog.getByLabel("权限等级", { exact: false })).toHaveValue(
+  await expect(dialog.getByRole("combobox", { name: /权限等级/ })).toHaveValue(
     "operator",
   );
   await dialog.getByRole("button", { name: "保存", exact: true }).click();

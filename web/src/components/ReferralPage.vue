@@ -256,7 +256,7 @@ onBeforeUnmount(() => {
       :merchant-i-d="token.merchant_id"
     />
     <dl v-if="summary" class="stat-grid referral-stats">
-      <section
+      <div
         v-for="(label, key) in summaryLabels"
         :key="key"
         class="panel stat"
@@ -269,7 +269,7 @@ onBeforeUnmount(() => {
               : referralAmount(summary[key]!)
           }}{{ key === "invited_count" ? " 位" : " 元" }}
         </dd>
-      </section>
+      </div>
     </dl>
     <section
       v-if="token"

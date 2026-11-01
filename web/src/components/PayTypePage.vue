@@ -303,7 +303,7 @@ onBeforeUnmount(() => {
         <tbody>
           <tr v-for="row in items" :key="row.type + ':' + row.id">
             <td class="pa-c-num">{{ row.type }}</td>
-            <td><KitPayMethod :type="row.type" /></td>
+            <td><KitPayMethod :type="row.type" :label="row.name" /></td>
             <td>{{ deviceLabel(row.device) }}</td>
             <td>
               <KitSwitch

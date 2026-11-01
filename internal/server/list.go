@@ -16,10 +16,28 @@ import (
 const transferEffectiveStatus = "CASE WHEN settlement_payout.send_state IN ('unsent','cancelled') THEN settlement_payout.send_state WHEN batch_item.state IN ('unsent','cancelled') THEN batch_item.state WHEN b.state IN ('reversed','reversal_pending') THEN b.state ELSE t.status END"
 
 func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid int64, kind string, session identity.Session) {
+	s.listMode(w, r, role, mid, kind, session, false)
+}
+
+// Statistics reuses the list's original owner, private-search and status filters.
+// The mode is chosen by a fixed route, never by an unvalidated query switch.
+func (s *Server) listMode(w http.ResponseWriter, r *http.Request, role string, mid int64, kind string, session identity.Session, statistics bool) {
 	query, queryErr := url.ParseQuery(r.URL.RawQuery)
 	if queryErr != nil {
 		response(w, 400, -1, "invalid query", nil)
 		return
+	}
+	if statistics && (kind != "transfers" || query.Has("page") || query.Has("limit") || query.Has("format")) {
+		response(w, 400, -1, "statistics do not accept pagination or export", nil)
+		return
+	}
+	if statistics {
+		for _, key := range []string{"merchant_id", "channel_id"} {
+			if query.Has(key) && query.Get(key) == "" {
+				response(w, 400, -1, "empty statistics scope", nil)
+				return
+			}
+		}
 	}
 	export, exportErr := csvRequested(r)
 	if exportErr != nil {
@@ -170,6 +188,16 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request, role string, mid i
 	}
 	if kind == "orders" && query.Get("include_archived") != "true" {
 		where += " AND COALESCE((console_control.changes->>'archived')='true',false)=false"
+	}
+	if statistics {
+		var count, amount, fee, cost, succeeded, failed, pending string
+		expression := "SELECT count(*)::text,COALESCE(sum(t.amount),0)::text,COALESCE(sum(t.fee_amount),0)::text,COALESCE(sum(t.cost_amount),0)::text,count(*) FILTER (WHERE " + transferEffectiveStatus + "='succeeded')::text,count(*) FILTER (WHERE " + transferEffectiveStatus + "='failed')::text,count(*) FILTER (WHERE " + transferEffectiveStatus + " IN ('pending','unknown','unsent'))::text FROM " + from + where
+		if e := s.Pool.QueryRow(r.Context(), expression, args...).Scan(&count, &amount, &fee, &cost, &succeeded, &failed, &pending); e != nil {
+			s.fail(w, e)
+			return
+		}
+		response(w, 200, 0, "", map[string]string{"count": count, "amount": amount, "fee_amount": fee, "cost_amount": cost, "succeeded_count": succeeded, "failed_count": failed, "pending_count": pending})
+		return
 	}
 	if export {
 		s.exportCSV(w, r, session, kind, "SELECT "+columns+" FROM "+from+where+" ORDER BY "+order, args)

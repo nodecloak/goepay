@@ -62,9 +62,19 @@ it("renders kit filter fields, a kit switch, Pro columns and kit pagination", as
   expect(w.find('button[aria-label="通道状态"]').exists()).toBe(true);
   // Pro columns unchanged.
   const headers = w.findAll("thead th").map((h) => h.text());
-  expect(headers).toContain("支付方式");
-  expect(headers).toContain("插件");
-  expect(headers).toContain("状态");
+  expect(headers).toEqual([
+    "选择",
+    "ID",
+    "显示名称",
+    "通道模式",
+    "分成比例",
+    "支付方式",
+    "支付插件",
+    "状态",
+    "操作",
+  ]);
+  expect(w.find('input[placeholder="通道ID/名称"]').exists()).toBe(true);
+  expect(w.find("[data-parent-parameters]").text()).toBe("配置密钥");
   // 状态 is a kit KitSwitch reflecting the enabled flag.
   const toggle = w.get('input[role="switch"][aria-label="已开启"]');
   expect((toggle.element as HTMLInputElement).checked).toBe(true);

@@ -7,6 +7,12 @@ import {
   transferFiltersQuery,
 } from "../transfer-filters";
 import TransferListFilters from "./TransferListFilters.vue";
+import { sharingRequestContext } from "../sharing-request-context";
+import {
+  readTransferStatistics,
+  transferStatisticsMoney,
+  type TransferStatistics,
+} from "../transfer-statistics";
 import {
   computed,
   ref,
@@ -104,6 +110,75 @@ const items = ref<Record<string, unknown>[]>([]),
   recipient = ref<Record<string, unknown>>({}),
   proof = ref<Record<string, unknown> | null>(null),
   proofConfirm = ref(false);
+const statistics = ref<TransferStatistics | null>(null),
+  statisticsShown = ref(false),
+  statisticsLoading = ref(false),
+  statisticsError = ref("");
+const statisticsTrigger = ref<HTMLButtonElement>();
+let statisticsEpoch = 0,
+  statisticsController: AbortController | undefined;
+function clearStatistics() {
+  ++statisticsEpoch;
+  statisticsController?.abort();
+  statistics.value = null;
+  statisticsShown.value = false;
+  statisticsError.value = "";
+  statisticsLoading.value = false;
+}
+function closeStatistics() {
+  clearStatistics();
+  void nextTick(() => {
+    if (active && !statisticsTrigger.value?.disabled)
+      statisticsTrigger.value?.focus();
+  });
+}
+const statisticsContext = sharingRequestContext(
+  () => ({
+    client: props.client,
+    csrf: props.client.csrfToken,
+    area: props.area,
+  }),
+  clearStatistics,
+);
+async function loadStatistics() {
+  if (
+    routeContext.error ||
+    busy.value ||
+    loading.value ||
+    statisticsLoading.value
+  )
+    return;
+  const context = statisticsContext.capture(),
+    epoch = ++statisticsEpoch;
+  const filters = JSON.stringify(appliedFilters.value);
+  statisticsController?.abort();
+  const controller = new AbortController();
+  statisticsController = controller;
+  statisticsShown.value = true;
+  statisticsLoading.value = true;
+  statisticsError.value = "";
+  statistics.value = null;
+  const current = () =>
+    active &&
+    epoch === statisticsEpoch &&
+    !controller.signal.aborted &&
+    statisticsContext.current(context) &&
+    filters === JSON.stringify(appliedFilters.value);
+  try {
+    const query = transferQuery();
+    query.delete("page");
+    query.delete("limit");
+    const data = await context.client.request(
+      "/transfers/statistics?" + query,
+      { signal: controller.signal },
+    );
+    if (current()) statistics.value = readTransferStatistics(data);
+  } catch (e) {
+    if (current()) statisticsError.value = message(e);
+  } finally {
+    if (current()) statisticsLoading.value = false;
+  }
+}
 const form = ref({
   merchant_id: "",
   channel_id: "",
@@ -364,6 +439,7 @@ function tabKeydown(event: KeyboardEvent) {
 const message = (e: unknown) =>
   e instanceof Error ? e.message : "请求失败，请重试";
 async function load() {
+  clearStatistics();
   if (routeContext.error) {
     error.value = routeContext.error;
     items.value = [];
@@ -608,6 +684,8 @@ onBeforeUnmount(() => {
   detailOpener = undefined;
   detailReturn = undefined;
   controller?.abort();
+  clearStatistics();
+  statisticsContext.dispose();
   capEpoch++;
 });
 </script>
@@ -646,6 +724,15 @@ onBeforeUnmount(() => {
       <a :href="`/${area}/transfer/batches`" class="button soft-button"
         >批量转账</a
       >
+      <button
+        type="button"
+        class="pa-btn"
+        :disabled="loading || busy || statisticsLoading || !!routeContext.error"
+        ref="statisticsTrigger"
+        @click="loadStatistics"
+      >
+        统计
+      </button>
       <div class="table-tools-end">
         <CsvExportButton
           :client="client"
@@ -665,6 +752,50 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </div>
+    <section
+      v-if="statisticsShown"
+      class="transfer-statistics"
+      aria-label="付款统计"
+    >
+      <div class="panel-heading">
+        <strong>已查询条件的付款统计</strong
+        ><button type="button" class="pa-btn" @click="closeStatistics">
+          关闭统计
+        </button>
+      </div>
+      <p class="muted">
+        统计整个已查询范围，不受当前页及尚未提交的筛选输入影响。金额为付款记录原始汇总，不代表净利润或银行退回后的净支出。
+      </p>
+      <p v-if="statisticsLoading" role="status">正在统计付款记录…</p>
+      <p v-if="statisticsError" class="error" role="alert">
+        {{ statisticsError }}
+      </p>
+      <dl v-if="statistics" class="stat-grid">
+        <div>
+          <dt>付款笔数</dt>
+          <dd>{{ statistics.count }}</dd>
+        </div>
+        <div>
+          <dt>付款金额</dt>
+          <dd>¥{{ transferStatisticsMoney(statistics.amount) }}</dd>
+        </div>
+        <div>
+          <dt>花费金额</dt>
+          <dd>¥{{ transferStatisticsMoney(statistics.cost_amount) }}</dd>
+        </div>
+        <div>
+          <dt>手续费</dt>
+          <dd>¥{{ transferStatisticsMoney(statistics.fee_amount) }}</dd>
+        </div>
+        <div>
+          <dt>成功 / 失败 / 待完成笔数</dt>
+          <dd>
+            {{ statistics.succeeded_count }} / {{ statistics.failed_count }} /
+            {{ statistics.pending_count }}
+          </dd>
+        </div>
+      </dl>
+    </section>
     <div v-if="loading" class="loading-row" role="status">
       正在读取付款记录…
     </div>
@@ -1070,6 +1201,27 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.transfer-statistics {
+  margin: 0 var(--space-5) var(--space-4);
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.transfer-statistics .stat-grid > div {
+  min-width: 0;
+}
+.transfer-statistics .stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 16px;
+}
+.transfer-statistics .panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 /* 付款详情 opens as a right drawer (long detail view). */
 .transfer-detail-drawer {
   --drawer-w: 640px;

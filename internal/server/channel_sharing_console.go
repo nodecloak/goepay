@@ -148,6 +148,8 @@ func sharingOrderQueryFromRequest(r *http.Request, mid int64) (payment.ChannelSh
 			"submitted": {"claimed", "pending"},
 			"succeeded": {"succeeded"},
 			"failed":    {"failed"},
+			"partial":   {"partial"},
+			"unknown":   {"unknown"},
 			"cancelled": {"cancelled"},
 		}
 		states, ok := groups[raw]
@@ -169,7 +171,7 @@ func sharingOrderQueryFromRequest(r *http.Request, mid int64) (payment.ChannelSh
 		if e != nil {
 			return q, false
 		}
-		q.To = t.Add(24*time.Hour - time.Second)
+		q.To = t.Add(24*time.Hour - time.Nanosecond)
 	}
 	return q, true
 }
@@ -187,6 +189,10 @@ func (s *Server) channelSharingConsole(w http.ResponseWriter, r *http.Request, r
 	}
 	if role != session.User.Role || parts[0] != role || session.User.ID <= 0 || role != "admin" && role != "merchant" || role == "admin" && !adminRequestAllowed(session.User, parts) {
 		response(w, 403, -1, "channel sharing permission required", nil)
+		return true
+	}
+	if parts[2] == "rule-overview" || parts[2] == "order-overview" {
+		s.channelSharingOverviewConsole(w, r, role, session, parts)
 		return true
 	}
 	if r.Method != "GET" && (session.CSRF == "" || subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")), []byte(session.CSRF)) != 1) {

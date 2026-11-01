@@ -54,15 +54,42 @@ export function reportColumns(
   report: string,
   columns: ReportColumn[],
 ): ReportColumn[] {
-  const order = [
-    "dimension",
-    "paid_money",
-    "net_money",
-    "fee_money",
-    "orders",
-    "paid_orders",
-  ];
-  const aligned = order.flatMap((key) => columns.filter((c) => c.key === key));
+  const order =
+    report === "transfer-accounts"
+      ? ["dimension", "name", "orders", "paid_money"]
+      : report === "transfer-channels"
+        ? ["dimension", "paid_money", "fee_money", "orders", "paid_orders"]
+        : [
+            "dimension",
+            "paid_money",
+            "net_money",
+            "fee_money",
+            "orders",
+            "paid_orders",
+          ];
+  const labels: Record<string, string> =
+    report === "transfer-accounts"
+      ? {
+          dimension: "付款账号",
+          name: "姓名",
+          orders: "付款笔数",
+          paid_money: "付款金额",
+        }
+      : report === "transfer-channels"
+        ? {
+            dimension: "付款通道",
+            paid_money: "付款金额",
+            orders: "付款总数",
+            paid_orders: "成功数量",
+          }
+        : {};
+  // Transfer channel fee_money is the platform fee, not profit after upstream
+  // costs. Preserve its server label instead of borrowing Pro's profit label.
+  const aligned = order.flatMap((key) =>
+    columns
+      .filter((c) => c.key === key)
+      .map((c) => ({ ...c, label: labels[c.key] || c.label })),
+  );
   const rest = columns.filter((c) => !order.includes(c.key));
   if (
     report !== "complaints" &&

@@ -400,12 +400,12 @@ describe("Pro console field presentation", () => {
     });
     await flushPromises();
     expect(wrapper.findAll("thead th").map((h) => h.text())).toEqual([
-      "通道ID",
-      "成功金额",
-      "成功出款扣款",
+      "付款通道",
+      "付款金额",
       "平台手续费",
-      "总笔数",
-      "成功笔数",
+      "付款总数",
+      "成功数量",
+      "成功出款扣款",
       "成功率",
     ]);
     expect(wrapper.text()).toContain("66.67%");

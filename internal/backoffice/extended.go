@@ -13,7 +13,7 @@ func init() {
 	definitions["merchant-risk"] = definition{title: "商户管控记录", tenant: true, merchantReadOnly: true, exportable: true, filters: []FilterSpec{{Param: "status", Label: "状态", Options: []Option{{Label: "全部状态", Value: ""}, {Label: "正常", Value: "normal"}, {Label: "受限", Value: "restricted"}, {Label: "已管控", Value: "blocked"}}}}, description: "本地管控资料，渠道管控状态需通过独立同步核实。", fields: []Field{administrator(text("merchant_id", "商户 ID", false, 19)), administrator(selectField("status", "状态", "normal", "restricted", "blocked")), text("reason", "原因", true, 2000), text("reference", "来源单号", false, 128)}}
 	definitions["complaints"] = definition{title: "交易投诉", tenant: true, description: "本地投诉工单及处理记录。退款和渠道回复分别执行，修改状态不会触发资金变更。", fields: []Field{administrator(text("merchant_id", "商户 ID", false, 19)), text("trade_no", "平台交易号", true, 64), text("subject", "主题", true, 200), {Name: "content", Label: "投诉内容", Type: "text", Required: true, MaxLength: 10000}, administrator(selectField("status", "处理状态", "open", "processing", "resolved", "closed")), selectField("pay_type", "支付方式", "alipay", "wxpay", "qqpay", "bank", "jdpay", "paypal", "douyinpay", "ecny", "sandbox"), integer("amount", "投诉金额（分）", 0, 100000000000), text("reply", "本地处理回复", false, 10000)}}
 	definitions["complaint-tasks"] = definition{title: "投诉同步任务配置", description: "只保存任务计划。未配置同步适配器时不会假报同步成功。", fields: []Field{text("name", "名称", true, 100), text("channel_id", "通道 ID", true, 19), integer("interval_seconds", "间隔（秒）", 60, 86400), flag("enabled", "启用计划资料", false)}}
-	definitions["risk-records"] = definition{title: "风控记录", exportable: true, filters: []FilterSpec{{Param: "decision", Label: "风控类型", Options: []Option{{Label: "全部类型", Value: ""}, {Label: "放行", Value: "allow"}, {Label: "审核", Value: "review"}, {Label: "拦截", Value: "deny"}}}}, description: "人工记录及核实的风控事件。", fields: []Field{administrator(text("merchant_id", "商户号", false, 19)), selectField("decision", "风控类型", "allow", "review", "deny"), text("reason", "风控内容", true, 2000), text("source", "来源", true, 100), administrator(text("trade_no", "订单号", false, 64))}}
+	definitions["risk-records"] = definition{title: "风控记录", exportable: true, filters: []FilterSpec{{Param: "decision", Label: "风控类型", Options: []Option{{Label: "全部类型", Value: ""}, {Label: "放行", Value: "allow"}, {Label: "审核", Value: "review"}, {Label: "拦截", Value: "deny"}}}}, description: "人工记录及核实的风控事件。", fields: []Field{administrator(text("merchant_id", "商户号", false, 19)), selectField("decision", "风控类型", "allow", "review", "deny"), text("reason", "风控内容", true, 2000), text("source", "来源", true, 100), administrator(text("trade_no", "订单号", false, 64)), {Name: "url", Label: "风控网址", Type: "url", MaxLength: 2048}, {Name: "created_at", Label: "时间", Type: "string", ReadOnly: true}}}
 	definitions["cron-tasks"] = definition{title: "旧计划任务资料", description: "历史资料仅供只读核查，不会被调度器消费；实际任务使用专用计划任务控制台。", fields: []Field{text("name", "名称", true, 100), selectField("kind", "任务类型", "payment.notify", "refund.reconcile", "transfer.reconcile"), integer("interval_seconds", "计划间隔（秒）", 60, 86400), flag("enabled", "旧资料启用标记（不执行）", false)}}
 	definitions["settlement-settings"] = definition{title: "结算设置", tenant: true, description: "收款资料仅供人工核对；审批不会自动向银行付款。", fields: []Field{administrator(text("merchant_id", "商户 ID", false, 19)), selectField("account_type", "收款类型", "bank", "alipay", "wxpay"), text("account_name", "收款姓名", true, 100), text("account_reference", "收款账户", true, 256), flag("enabled", "启用", true)}}
 	definitions["collection-codes"] = definition{title: "聚合收款", tenant: true, description: "收款码展示资料，不在此创建真实支付订单。", fields: []Field{administrator(text("merchant_id", "商户 ID", false, 19)), text("name", "名称", true, 100), text("style_id", "样式 ID", true, 19), text("title", "收款标题", true, 100), flag("enabled", "启用", true)}}
@@ -32,6 +32,25 @@ func init() {
 					d.fields[i].Default = "open"
 				case "merchant-risk":
 					d.fields[i].Default = "normal"
+				}
+			}
+		}
+		definitions[resource] = d
+	}
+	// The edit form and list use the same labels as the advertised enum filter.
+	// Values remain unchanged; no provider lifecycle state is invented here.
+	for resource, d := range definitions {
+		for _, filter := range d.filters {
+			for i := range d.fields {
+				if d.fields[i].Name != filter.Param || d.fields[i].Type != "select" {
+					continue
+				}
+				for j := range d.fields[i].Options {
+					for _, option := range filter.Options {
+						if option.Value == d.fields[i].Options[j].Value && option.Value != "" {
+							d.fields[i].Options[j].Label = option.Label
+						}
+					}
 				}
 			}
 		}

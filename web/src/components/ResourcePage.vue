@@ -9,6 +9,7 @@ import {
 } from "vue";
 import { ApiClient, displayValue } from "../api";
 import { isOrderNumberKey } from "../order-number";
+import { beijingTimestamp } from "../console-datetime";
 import { effectiveRiskDescription } from "../core-risk-status";
 import { RouterLink } from "vue-router";
 import { groupDirectoryRates, groupUsersHref } from "../group-directory";
@@ -32,6 +33,7 @@ import {
   formValues,
   type ResourceSchema,
   type ResourceEntry,
+  type ResourceField,
 } from "../resources";
 import {
   createRecipientErrors,
@@ -91,7 +93,12 @@ const props = defineProps<{
 const delegation = ref<Record<string, unknown> | null>(null);
 function configureDelegatedMerchantLogin() {
   const row = delegation.value;
-  if (!row || props.resource !== "merchants" || !schema.value?.permissions.update) return;
+  if (
+    !row ||
+    props.resource !== "merchants" ||
+    !schema.value?.permissions.update
+  )
+    return;
   delegation.value = null;
   void open("edit", row);
 }
@@ -355,10 +362,101 @@ const batchBusy = ref(false);
 // bulk/validity dialog instead of the generic single-record create, while the
 // generic editor is kept for 编辑. Only the admin blacklist resource uses it.
 const isBlacklist = computed(() => props.resource === "blacklist");
+const isAdminDomains = computed(
+  () => props.client.area === "admin" && props.resource === "domains",
+);
+const isAdminWeixin = computed(
+  () => props.client.area === "admin" && props.resource === "weixin-apps",
+);
+const isAdminDirectory = computed(
+  () => props.client.area === "admin" && props.resource === "admin-users",
+);
+const isOperationalResource = computed(
+  () =>
+    props.client.area === "admin" &&
+    [
+      "admin-users",
+      "risk-records",
+      "merchant-risk",
+      "onboarding-channels",
+      "onboarding-applications",
+    ].includes(props.resource),
+);
+const hasCompactFilters = computed(
+  () =>
+    isBlacklist.value ||
+    isAdminDomains.value ||
+    isAdminWeixin.value ||
+    isOperationalResource.value,
+);
+const listFilters = computed(() =>
+  (schema.value?.filters || []).filter(
+    (f) => !isAdminDomains.value || f.param !== "enabled",
+  ),
+);
+const searchLabel = computed(() =>
+  isAdminDomains.value
+    ? "域名"
+    : isOperationalResource.value
+      ? "搜索内容"
+      : hasCompactFilters.value
+        ? "搜索"
+        : props.resource === "merchants"
+          ? "搜索内容"
+          : "搜索记录",
+);
+const searchPlaceholder = computed(() =>
+  isAdminDomains.value
+    ? "要搜索的域名"
+    : isAdminWeixin.value
+      ? "名称/APPID"
+      : isBlacklist.value
+        ? "黑名单内容"
+        : isAdminDirectory.value
+          ? "UID/用户名/名称"
+          : searchLabel.value,
+);
 const blacklistAddOpen = ref(false);
 const blacklistKindField = computed(() =>
   schema.value?.fields.find((f) => f.name === "kind"),
 );
+function resetListFilters() {
+  if (!hasCompactFilters.value || loading.value || busy.value) return;
+  query.value = "";
+  fieldFilters.value = {};
+  page.value = 1;
+  selectedIds.value = [];
+  void load();
+}
+function listCellValue(field: ResourceField, row: Record<string, unknown>) {
+  if (
+    (isBlacklist.value ||
+      isAdminDomains.value ||
+      isOperationalResource.value) &&
+    ["created_at", "expires_at", "last_login_at"].includes(field.name)
+  )
+    return beijingTimestamp(row[field.name]);
+  if (isOriginalMerchantList.value && field.name === "available_minor")
+    return "¥" + merchantFieldValue(field.name, row[field.name]);
+  if (props.resource === "merchants")
+    return merchantFieldValue(field.name, row[field.name]);
+  if (field.name === "enabled")
+    return consoleValue(field.name, row[field.name]);
+  if (field.type === "boolean")
+    return row[field.name] === true
+      ? "是"
+      : row[field.name] === false
+        ? "否"
+        : "—";
+  if (field.type === "select") {
+    const option = field.options?.find(
+      (o) =>
+        String(typeof o === "string" ? o : o.value) === String(row[field.name]),
+    );
+    if (option) return typeof option === "string" ? option : option.label;
+  }
+  return displayValue(row[field.name]);
+}
 function openCreate() {
   if (isBlacklist.value) {
     if (busy.value || loading.value || mode.value !== null) return;
@@ -718,9 +816,36 @@ const fields = computed(
         !f.write_only && f.type !== "password" && !isCredentialField(f.name),
     ) || [],
 );
-const listFields = computed(() =>
-  resourceListFields(props.resource, schema.value?.fields || []),
-);
+const listFields = computed(() => {
+  const visible = resourceListFields(
+    props.resource,
+    schema.value?.fields || [],
+  );
+  if (isAdminDomains.value)
+    return visible
+      .filter((f) =>
+        ["merchant_id", "domain", "approved", "created_at"].includes(f.name),
+      )
+      .map((f) => ({
+        ...f,
+        label:
+          f.name === "merchant_id"
+            ? "商户号"
+            : f.name === "approved"
+              ? "状态"
+              : f.label,
+      }));
+  if (!isBlacklist.value) return visible;
+  // The list follows Pro's compact columns; the edit form retains its enabled
+  // control and original schema labels, independent from these list labels.
+  const names = ["kind", "value", "created_at", "expires_at", "reason"];
+  return names.flatMap((name) => {
+    const field = visible.find((f) => f.name === name);
+    return field
+      ? [{ ...field, label: name === "expires_at" ? "过期时间" : field.label }]
+      : [];
+  });
+});
 const isOriginalMerchantList = computed(
   () =>
     props.resource === "merchants" &&
@@ -1169,19 +1294,29 @@ onBeforeUnmount(resetContext);
             :disabled="loading || busy"
           />
         </KitField>
-        <KitField :label="resource === 'merchants' ? '搜索内容' : '搜索记录'">
+        <KitField :label="searchLabel">
           <KitInput
             v-model="query"
-            :placeholder="resource === 'merchants' ? '搜索内容' : '搜索记录'"
+            :placeholder="searchPlaceholder"
             :aria-label="'搜索' + (schema?.title || '')"
           />
         </KitField>
         <KitField
-          v-for="f in schema?.filters || []"
+          v-for="f in listFilters"
           :key="f.param"
-          :label="f.label"
+          :label="isBlacklist && f.param === 'kind' ? '类型' : f.label"
         >
+          <KitInput
+            v-if="f.type === 'positive_id'"
+            :model-value="fieldFilters[f.param] || ''"
+            @update:model-value="(v: string) => (fieldFilters[f.param] = v)"
+            :aria-label="f.label"
+            :placeholder="f.label"
+            inputmode="numeric"
+            :disabled="loading || busy"
+          />
           <KitSelect
+            v-else
             :model-value="fieldFilters[f.param] || ''"
             :options="f.options"
             :aria-label="f.label"
@@ -1197,6 +1332,15 @@ onBeforeUnmount(resetContext);
         @clear="clearMerchantFilters"
       />
       <div v-else class="pa-filter-actions resource-filter-actions">
+        <button
+          v-if="hasCompactFilters"
+          type="button"
+          class="pa-btn"
+          :disabled="loading || busy"
+          @click="resetListFilters"
+        >
+          重置
+        </button>
         <button
           type="submit"
           class="pa-btn pa-btn--primary"
@@ -1256,7 +1400,13 @@ onBeforeUnmount(resetContext);
           :disabled="busy"
           @click="openCreate"
         >
-          <ShellIcon name="plus" />新增{{ entityLabel }}
+          <ShellIcon name="plus" />{{
+            isBlacklist
+              ? "添加"
+              : isAdminDirectory
+                ? "添加管理员"
+                : "新增" + entityLabel
+          }}
         </button>
         <span v-if="summaryNoun" class="table-summary"
           >系统共有<strong>{{ total }}</strong
@@ -1339,7 +1489,11 @@ onBeforeUnmount(resetContext);
                       : "商户号"
                     : resource === "groups"
                       ? "GID"
-                      : "编号"
+                      : isAdminDirectory
+                        ? "UID"
+                        : hasCompactFilters || resource === "pay-rolls"
+                          ? "ID"
+                          : "编号"
                 }}
               </th>
               <th
@@ -1386,7 +1540,7 @@ onBeforeUnmount(resetContext);
                   "
                 />
               </td>
-              <td>
+              <td class="resource-record-id">
                 {{ row.id }}
                 <small
                   v-if="isOriginalMerchantList && typeof row.name === 'string'"
@@ -1477,6 +1631,17 @@ onBeforeUnmount(resetContext);
                   :text="row.approved === true ? '已审核' : '待审核'"
                 />
                 <KitStatusTag
+                  v-else-if="isAdminDirectory && field.name === 'totp_enabled'"
+                  :tone="row.totp_enabled === true ? 'success' : 'neutral'"
+                  :text="
+                    row.totp_enabled === true
+                      ? '已开启'
+                      : row.totp_enabled === false
+                        ? '未开启'
+                        : '—'
+                  "
+                />
+                <KitStatusTag
                   v-else-if="field.name === 'enabled'"
                   :tone="stateTone('enabled', row.enabled)"
                   :text="consoleValue('enabled', row.enabled)"
@@ -1498,19 +1663,7 @@ onBeforeUnmount(resetContext);
                       isOriginalMerchantList &&
                       field.name === 'available_minor',
                   }"
-                  >{{
-                    isOriginalMerchantList && field.name === "available_minor"
-                      ? "¥" + merchantFieldValue(field.name, row[field.name])
-                      : resource === "merchants"
-                        ? merchantFieldValue(field.name, row[field.name])
-                        : field.name === "enabled"
-                          ? consoleValue(field.name, row[field.name])
-                          : field.type === "boolean"
-                            ? row[field.name]
-                              ? "是"
-                              : "否"
-                            : displayValue(row[field.name])
-                  }}</span
+                  >{{ listCellValue(field, row) }}</span
                 >
                 <template
                   v-if="
@@ -1790,7 +1943,9 @@ onBeforeUnmount(resetContext);
     :client="client"
     :merchant-id="String(delegation.id)"
     :name="String(delegation.name || delegation.id)"
-    :can-configure-login="resource === 'merchants' && schema?.permissions.update === true"
+    :can-configure-login="
+      resource === 'merchants' && schema?.permissions.update === true
+    "
     @close="delegation = null"
     @configure-login="configureDelegatedMerchantLogin"
   />
@@ -2046,6 +2201,9 @@ onBeforeUnmount(resetContext);
   </div>
 </template>
 <style scoped>
+.resource-record-id {
+  white-space: nowrap;
+}
 .merchant-balance-detail {
   display: block;
   margin-top: 4px;

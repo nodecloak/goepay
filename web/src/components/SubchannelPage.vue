@@ -919,28 +919,32 @@ onBeforeUnmount(() => {
     >
       <div class="subchannel-filter-fields">
         <label
-          >子通道编号<input
+          >{{ admin ? "ID" : "子通道编号"
+          }}<input
             v-model="filters.id"
             inputmode="numeric"
             placeholder="精确编号" /></label
         ><label
-          >名称<input v-model="filters.name" placeholder="子通道名称" /></label
+          >{{ admin ? "子通道备注" : "名称"
+          }}<input
+            v-model="filters.name"
+            :placeholder="admin ? '子通道备注' : '子通道名称'" /></label
         ><label
           >支付方式<KitSelect
             v-model="filters.payType"
             :options="payTypeFilterOptions"
             aria-label="支付方式筛选" /></label
         ><label v-if="admin"
-          >商户编号<input
+          >用户ID<input
             v-model="filters.merchantId"
             inputmode="numeric" /></label
         ><label v-if="admin"
-          >父通道编号<input v-model="filters.parentId" inputmode="numeric"
+          >通道ID<input v-model="filters.parentId" inputmode="numeric"
         /></label>
       </div>
       <div class="subchannel-filter-actions">
         <button type="button" @click="reset" :disabled="loading">
-          清空筛选</button
+          {{ admin ? "重置" : "清空筛选" }}</button
         ><button type="submit" class="primary" :disabled="!allowed || loading">
           查询
         </button>
@@ -995,15 +999,15 @@ onBeforeUnmount(() => {
         <table class="subchannel-table">
           <thead>
             <tr>
-              <th>编号</th>
+              <th>{{ admin ? "ID" : "编号" }}</th>
               <th>支付方式</th>
-              <th>名称</th>
-              <th v-if="admin">所属商户</th>
-              <th v-if="admin">父通道</th>
+              <th>{{ admin ? "子通道备注" : "名称" }}</th>
+              <th v-if="admin">用户ID</th>
+              <th v-if="admin">支付通道</th>
               <th>费率</th>
-              <th>今日</th>
-              <th>昨日</th>
-              <th>成功率</th>
+              <th>{{ admin ? "今日收款" : "今日" }}</th>
+              <th>{{ admin ? "昨日收款" : "昨日" }}</th>
+              <th>{{ admin ? "今日成功率" : "成功率" }}</th>
               <th>状态</th>
               <th v-if="showWeight">权重</th>
               <th>操作</th>
