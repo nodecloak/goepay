@@ -30,13 +30,12 @@ func (s *Server) transferBatchConsole(w http.ResponseWriter, r *http.Request, ro
 	if len(parts) < 2 || parts[1] != "transfer-batches" {
 		return false
 	}
-	// user_transfer_batch (default ON) gates the merchant 批量付款 feature: when
-	// the administrator turns it off, the merchant menu entry is hidden and this
-	// endpoint refuses with the original merchant-facing wording. Administrator
-	// management of a merchant's batches is not gated. Checked before the
-	// provider-availability 503 so the refusal is deterministic.
-	if role == "merchant" && s.Pool != nil && s.Store != nil {
-		on, e := backoffice.New(s.Pool, s.Store).MerchantFeatureVisible(r.Context(), "user_transfer_batch")
+	// Closing the feature stops new preparation and execution. Original lists,
+	// details, query and proven-unsent cancellation remain owner/CSRF protected
+	// below so an unknown result can still be reconciled without another send.
+	newUse := r.Method == "POST" && (len(parts) == 2 || len(parts) == 4 && parts[3] == "execute")
+	if role == "merchant" && newUse && s.Pool != nil && s.Store != nil {
+		on, e := backoffice.New(s.Pool, s.Store).MerchantFeatureVisibleForMerchant(r.Context(), session.User.ID, "user_transfer_batch")
 		if e != nil {
 			response(w, 503, -1, "merchant feature unavailable", nil)
 			return true
@@ -46,7 +45,7 @@ func (s *Server) transferBatchConsole(w http.ResponseWriter, r *http.Request, ro
 			return true
 		}
 	}
-	if s.Store == nil || s.Pool == nil || s.ProviderFlow == nil {
+	if s.Store == nil || s.Pool == nil {
 		response(w, 503, -1, "transfer service unavailable", nil)
 		return true
 	}
@@ -101,6 +100,10 @@ func (s *Server) transferBatchConsole(w http.ResponseWriter, r *http.Request, ro
 		}
 		if r.Method != "POST" {
 			response(w, 405, -1, "method unavailable", nil)
+			return true
+		}
+		if s.ProviderFlow == nil {
+			response(w, 503, -1, "transfer service unavailable", nil)
 			return true
 		}
 		var in struct {
@@ -188,6 +191,10 @@ func (s *Server) transferBatchConsole(w http.ResponseWriter, r *http.Request, ro
 	var out payment.TransferBatch
 	switch parts[3] {
 	case "execute":
+		if s.ProviderFlow == nil {
+			response(w, 503, -1, "transfer service unavailable", nil)
+			return true
+		}
 		var in struct {
 			Limit int `json:"limit"`
 		}
@@ -207,11 +214,21 @@ func (s *Server) transferBatchConsole(w http.ResponseWriter, r *http.Request, ro
 			return true
 		}
 		if parts[3] == "query" {
+			if s.ProviderFlow == nil {
+				response(w, 503, -1, "transfer service unavailable", nil)
+				return true
+			}
 			ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 			defer cancel()
 			out, e = s.ProviderFlow.QueryTransferBatch(ctx, mid, id, actor)
 		} else {
-			out, e = s.ProviderFlow.CancelUnsentTransferBatch(r.Context(), mid, id, actor)
+			flow := s.ProviderFlow
+			if flow == nil {
+				// This exact recovery operation needs only the existing Store,
+				// unsent proof and funds guard. Never use it for a provider action.
+				flow = &payment.ProviderFlow{Store: s.Store}
+			}
+			out, e = flow.CancelUnsentTransferBatch(r.Context(), mid, id, actor)
 		}
 	default:
 		response(w, 404, -1, "batch operation unavailable", nil)

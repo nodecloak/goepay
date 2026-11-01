@@ -38,6 +38,14 @@ func (s *Server) identityProfilesUnavailable() string {
 	return ""
 }
 func (s *Server) identityProfileBinding(ctx context.Context, mid, pid int64) (channelconfig.IdentityProfile, payment.IdentityProfileBinding, bool) {
+	resolved, e := s.managedWeixinRuntimeIDs(ctx, []int64{pid}, false)
+	if e != nil {
+		return channelconfig.IdentityProfile{}, payment.IdentityProfileBinding{}, false
+	}
+	return resolved.identityProfileBindingFromCatalog(ctx, mid, pid)
+}
+
+func (s *Server) identityProfileBindingFromCatalog(ctx context.Context, mid, pid int64) (channelconfig.IdentityProfile, payment.IdentityProfileBinding, bool) {
 	var b payment.IdentityProfileBinding
 	p, ok := s.IdentityProfiles[pid]
 	if !ok || s.identityProfilesUnavailable() != "" || p.ID != pid || p.Revision <= 0 || !p.AllowsMerchant(mid) {
@@ -237,7 +245,12 @@ func (s *Server) profileCapabilities(w http.ResponseWriter, r *http.Request, rol
 		return
 	}
 	ids := []int64{}
-	for id := range s.IdentityProfiles {
+	resolved, resolveErr := s.managedWeixinRuntime(r.Context())
+	if resolveErr != nil {
+		response(w, 503, -1, "independent identity application catalog unavailable", nil)
+		return
+	}
+	for id := range resolved.IdentityProfiles {
 		ids = append(ids, id)
 	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
@@ -245,7 +258,7 @@ func (s *Server) profileCapabilities(w http.ResponseWriter, r *http.Request, rol
 	reason := s.identityProfilesUnavailable()
 	if reason == "" {
 		for _, id := range ids {
-			if p, _, ready := s.identityProfileBinding(r.Context(), mid, id); ready {
+			if p, _, ready := resolved.identityProfileBindingFromCatalog(r.Context(), mid, id); ready {
 				profiles = append(profiles, p)
 			}
 		}

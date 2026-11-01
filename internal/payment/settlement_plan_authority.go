@@ -26,6 +26,7 @@ type settlementScopeMerchant struct {
 	Unresolved                   bool                               `json:"group_unresolved"`
 	Threshold                    *settlementThresholdMerchantPolicy `json:"threshold,omitempty"`
 	SettlementPolicy             *SettlementPolicy                  `json:"settlement_policy,omitempty"`
+	SettleType                   *int                               `json:"settle_type,omitempty"`
 	SettlementPermissionRevision int64                              `json:"settlement_permission_revision,string,omitempty"`
 }
 
@@ -106,6 +107,14 @@ func (s *Store) settlementPlanStaticScope(ctx context.Context, q referralReader,
 			return out, ErrState
 		}
 		v.SettlementPermissionRevision = permission.Revision
+		cycle, e := readMerchantSettlementCycle(ctx, q, mid, false)
+		if e != nil {
+			return out, e
+		}
+		if cycle.Override {
+			mode := cycle.Mode
+			v.SettleType = &mode
+		}
 		pref, e := s.readSettlementPreference(ctx, q, mid)
 		if e != nil {
 			return out, e
@@ -216,12 +225,16 @@ func (s *Store) readSettlementPlanAuthorization(ctx context.Context, q fundsRead
 		if (r.Scope.Threshold != nil) != (m.Threshold != nil) {
 			return r, ErrConflict
 		}
+		if m.SettleType != nil && *m.SettleType != 0 && *m.SettleType != 1 {
+			return r, ErrConflict
+		}
 		if m.SettlementPolicy != nil {
 			if r.Scope.Threshold != nil || validateScheduledSettlementPolicy(*m.SettlementPolicy) != nil {
 				return r, ErrConflict
 			}
 			globalFields := *m.SettlementPolicy
 			globalFields.FeeRateBPS = r.Scope.Policy.FeeRateBPS
+			globalFields.MinimumAmount = r.Scope.Policy.MinimumAmount
 			if globalFields != r.Scope.Policy {
 				return r, ErrConflict
 			}

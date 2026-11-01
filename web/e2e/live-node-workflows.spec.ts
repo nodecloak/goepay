@@ -1,4 +1,9 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import {
+  test,
+  expect,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
 import { createHash, randomUUID } from "node:crypto";
 import { readLocalSandboxEnv, localSandboxBase } from "./local-sandbox-env";
 
@@ -97,6 +102,210 @@ test.describe("isolated real backend node workflows", () => {
     await row.getByRole("button", { name: "删除", exact: true }).click();
     await dialog.getByRole("button", { name: "确认删除", exact: true }).click();
     await expect(row).toHaveCount(0);
+  });
+
+  test("contact merchant creation opens its own persisted merchant session without payment intents", async ({
+    page,
+    browser,
+  }) => {
+    const email = `browser+${randomUUID()}@example.invalid`,
+      password = `synthetic-${randomUUID()}`;
+    await page.goto("/admin/merchant/merchant-list");
+    await page.getByRole("button", { name: "新增商户", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.locator("#field-id")).toHaveCount(0);
+    await expect(dialog.locator("#field-name")).toHaveCount(0);
+    await dialog.getByLabel("邮箱(登录账号)", { exact: true }).fill(email);
+    await dialog.getByLabel("登录密码", { exact: true }).fill(password);
+    const response = page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname === "/console/v1/admin/resources/merchants" &&
+        r.request().method() === "POST",
+    );
+    await dialog.getByRole("button", { name: "确定添加", exact: true }).click();
+    const created = await response,
+      body = await created.json();
+    expect(created.ok(), body.message).toBeTruthy();
+    expect(body.code, body.message).toBe(0);
+    expect(body.data.id).toMatch(/^[1-9]\d*$/);
+    expect(JSON.stringify(body)).not.toContain(password);
+    await expect(dialog).toHaveCount(0);
+
+    const merchant = await browser.newContext({ baseURL: localSandboxBase() });
+    let account: Page | undefined;
+    try {
+      await merchant.route("**/*", (route) =>
+        new URL(route.request().url()).origin === localSandboxBase()
+          ? route.continue()
+          : route.abort(),
+      );
+      const login = await merchant.request.post("/console/v1/merchant/login", {
+        data: { username: email, password },
+      });
+      expect(login.ok()).toBeTruthy();
+      expect((await login.json()).code).toBe(0);
+      const session = await (
+        await merchant.request.get("/console/v1/merchant/session")
+      ).json();
+      expect(session.data.user).toMatchObject({
+        id: body.data.id,
+        role: "merchant",
+      });
+      const profile = await (
+        await merchant.request.get("/console/v1/merchant/account/profile")
+      ).json();
+      expect(profile.code).toBe(0);
+      expect(profile.data).toMatchObject({
+        uid: body.data.id,
+        name: email,
+        email,
+      });
+      account = await merchant.newPage();
+      await account.goto("/merchant/account/settings");
+      await expect(
+        account.getByRole("heading", {
+          name: "联系方式与功能设置",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        account
+          .getByRole("region", { name: "账户资料与安全设置", exact: true })
+          .getByText(email, { exact: true }),
+      ).toBeVisible();
+      const orders = await (
+        await merchant.request.get("/console/v1/merchant/orders?limit=20")
+      ).json();
+      expect(orders.code).toBe(0);
+      expect(orders.data.total).toBe(0);
+    } finally {
+      if (account && !account.isClosed())
+        await account.screenshot({
+          path: test.info().outputPath("created-merchant-account.png"),
+          fullPage: true,
+        });
+      await merchant.close();
+    }
+  });
+
+  test("encrypted application drafts create, retain the original credential on edit and archive through the real API", async ({
+    page,
+  }) => {
+    const name = tag + "-weixin",
+      appID = "wx" + randomUUID().replaceAll("-", "").slice(0, 16),
+      secret = randomUUID().replaceAll("-", "");
+    const genericRequests: string[] = [];
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname.includes("/resources/weixin-apps"))
+        genericRequests.push(request.url());
+    });
+    await page.goto("/admin/payapi/pay-weixin");
+    await page.getByRole("button", { name: "新增应用", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "新增应用", exact: true });
+    await dialog.getByLabel("名称", { exact: true }).fill(name);
+    await dialog.getByLabel("APPID", { exact: true }).fill(appID);
+    await dialog.getByLabel("APPSECRET", { exact: true }).fill(secret);
+    await expect(
+      dialog.getByLabel("启用资料", { exact: true }),
+    ).not.toBeChecked();
+    const createResponse = page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname === "/console/v1/admin/weixin-applications" &&
+        r.request().method() === "POST",
+    );
+    await dialog.getByRole("button", { name: "保存应用", exact: true }).click();
+    const createResult = await createResponse,
+      created = await createResult.json();
+    expect(createResult.ok(), created.message).toBeTruthy();
+    expect(created.code).toBe(0);
+    expect(created.data).toMatchObject({
+      name,
+      app_id: appID,
+      source_channel_id: "0",
+      merchant_ids: [],
+      enabled: false,
+      draft: true,
+      execution_ready: false,
+      secret_configured: true,
+      origin: "managed",
+    });
+    expect(JSON.stringify(created)).not.toContain(secret);
+    await expect(dialog).toHaveCount(0);
+    const row = page.locator(
+      `tr[data-app-origin="managed"][data-app-id="${created.data.id}"]`,
+    );
+    await expect(row).toContainText("待关联草稿");
+    await expect(row).toContainText("已配置（不回显）");
+    await row.getByRole("button", { name: "编辑", exact: true }).click();
+    const edit = page.getByRole("dialog", { name: "编辑应用", exact: true });
+    await expect(edit.getByLabel("APPSECRET", { exact: true })).toHaveValue("");
+    await edit.getByLabel("名称", { exact: true }).fill(name + "-updated");
+    const patchResponse = page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname ===
+          `/console/v1/admin/weixin-applications/${created.data.id}` &&
+        r.request().method() === "PATCH",
+    );
+    await edit.getByRole("button", { name: "保存应用", exact: true }).click();
+    const patchResult = await patchResponse,
+      patched = await patchResult.json();
+    expect(patchResult.ok(), patched.message).toBeTruthy();
+    expect(patched.code).toBe(0);
+    expect(patched.data.revision).not.toBe(created.data.revision);
+    expect(patched.data).toMatchObject({
+      name: name + "-updated",
+      secret_configured: true,
+      source_channel_id: "0",
+      merchant_ids: [],
+      enabled: false,
+      draft: true,
+    });
+    expect(JSON.stringify(patched)).not.toContain(secret);
+    await expect(edit).toHaveCount(0);
+    await expect(row).toContainText(name + "-updated");
+    const listed = await call("/weixin-applications");
+    expect(
+      listed.items.find(
+        (item: { id: string; origin: string }) =>
+          item.id === created.data.id && item.origin === "managed",
+      ),
+    ).toMatchObject({
+      revision: patched.data.revision,
+      secret_configured: true,
+    });
+    expect(JSON.stringify(listed)).not.toContain(secret);
+    expect(
+      await page.evaluate(
+        (value) =>
+          [
+            ...Object.values(sessionStorage),
+            ...Object.values(localStorage),
+          ].some((stored) => stored.includes(value)),
+        secret,
+      ),
+    ).toBe(false);
+    await row.getByRole("button", { name: "归档", exact: true }).click();
+    const archive = page.getByRole("dialog", { name: "归档应用", exact: true });
+    const archiveResponse = page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname ===
+          `/console/v1/admin/weixin-applications/${created.data.id}/archive` &&
+        r.request().method() === "POST",
+    );
+    await archive
+      .getByRole("button", { name: "确认归档", exact: true })
+      .click();
+    const archiveResult = await archiveResponse,
+      archived = await archiveResult.json();
+    expect(archiveResult.ok(), archived.message).toBeTruthy();
+    expect(archived.data).toMatchObject({
+      archived: true,
+      enabled: false,
+      execution_ready: false,
+    });
+    await expect(archive).toHaveCount(0);
+    await expect(row).toContainText("已归档");
+    expect(genericRequests).toEqual([]);
   });
 
   test("blacklist validation, create, edit, persisted detail and delete", async ({

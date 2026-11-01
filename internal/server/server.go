@@ -59,13 +59,15 @@ type Server struct {
 	SystemUpdateBuild func(int64) systemupdate.Build
 	// Child execution identity is private and immutable for an intent. Runtime
 	// write gates are read from the original server again after authorization I/O.
-	subchannelPolicySource *Server
-	FundsActionResolver    func(context.Context, identity.FundsQuerier, string, json.RawMessage) (identity.FundsAction, map[string]string, error)
-	MFA                    *identity.MFA
-	ProviderFlow           *payment.ProviderFlow
-	OAuthProviders         map[int64]provider.WebOAuthProvider
-	MiniOAuthProviders     map[int64]provider.MiniOAuthProvider
-	IdentityProfiles       map[int64]channelconfig.IdentityProfile
+	subchannelPolicySource         *Server
+	FundsActionResolver            func(context.Context, identity.FundsQuerier, string, json.RawMessage) (identity.FundsAction, map[string]string, error)
+	MFA                            *identity.MFA
+	ProviderFlow                   *payment.ProviderFlow
+	OAuthProviders                 map[int64]provider.WebOAuthProvider
+	MiniOAuthProviders             map[int64]provider.MiniOAuthProvider
+	IdentityProfiles               map[int64]channelconfig.IdentityProfile
+	WeixinImportedProfileIDs       []int64
+	WeixinImportedApplicationViews []payment.WeixinApplicationView
 	// Configure before serving. Requests share the immutable profile catalogue;
 	// a future reload must publish an entire new Server snapshot.
 	ScanJSProfiles202                       map[int64]channelconfig.ScanJSProfile202
@@ -307,7 +309,7 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 			response(w, 401, -1, "account unavailable", nil)
 			return
 		}
-		if !adminRequestAllowed(session.User, parts) {
+		if !adminRequestAllowedHTTP(session.User, r.Method, parts) {
 			response(w, 403, -1, "super administrator required", nil)
 			return
 		}
@@ -352,6 +354,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.applicationAuthorizationConsole(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.weixinApplicationConsole(w, r, role, session, parts, c.Value) {
 		return
 	}
 	if s.IdentityProfileConsole(w, r, role, session, parts, c.Value) {
@@ -581,15 +586,13 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 			// recharge / onecode default ON (install.sql ships them enabled); the
 			// server still enforces the matching endpoints.
 			svc := backoffice.New(s.Pool, s.Store)
-			features := map[string]bool{}
-			for _, key := range backoffice.MerchantFeatureVisibleKeys {
-				on, e := svc.MerchantFeatureVisible(r.Context(), key)
-				if e != nil {
-					response(w, 503, -1, "merchant features unavailable", nil)
-					return
-				}
-				features[key] = on
+			features, err := svc.MerchantFeaturesForMerchant(r.Context(), session.User.ID)
+			if err != nil {
+				response(w, 503, -1, "merchant features unavailable", nil)
+				return
 			}
+			deposit, depositErr := svc.DepositSettingsForMerchant(r.Context(), session.User.ID)
+			features["user_deposit"] = depositErr == nil && deposit.Enabled
 			// complain_open / applyments_open / mchrisk_open default OFF: their
 			// merchant menu entries appear only when the administrator turns them
 			// on, matching the original where these are unset by default.
@@ -944,7 +947,7 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 			s.wire(w, legacy, nil, "merchant contact unavailable")
 			return
 		}
-		pc := backoffice.PaymentContext{MerchantID: id, ClientIP: clientIP, Buyer: p["sub_openid"], NotifyURL: p["notify_url"], ReturnURL: p["return_url"], Name: p["name"], MerchantQQ: merchantQQ}
+		pc := backoffice.PaymentContext{MerchantID: id, ClientIP: clientIP, Buyer: p["sub_openid"], NotifyURL: p["notify_url"], ReturnURL: p["return_url"], Name: p["name"], MerchantQQ: merchantQQ, OrderIntent: paymentPolicyRequestIntent(id, legacy, p)}
 		if e := policy.CheckPayment(r.Context(), pc); e != nil {
 			s.wire(w, legacy, nil, paymentPolicyMessage(e))
 			return

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"strconv"
 	"time"
 )
 
@@ -201,9 +200,6 @@ func (s *Store) Deposit(ctx context.Context, merchantID int64, action, externalN
 	if e = tx.QueryRow(ctx, "SELECT enabled FROM merchants WHERE id=$1 FOR UPDATE", merchantID).Scan(&enabled); e != nil {
 		return DepositAction{}, e
 	}
-	if !enabled {
-		return DepositAction{}, ErrState
-	}
 	old, e := scanDeposit(tx.QueryRow(ctx, "SELECT "+depositColumns+" FROM deposit_actions WHERE merchant_id=$1 AND external_no=$2", merchantID, externalNo))
 	if e == nil {
 		if old.Amount != amount || old.Action != action {
@@ -214,38 +210,27 @@ func (s *Store) Deposit(ctx context.Context, merchantID int64, action, externalN
 	if !errors.Is(e, ErrNotFound) {
 		return DepositAction{}, e
 	}
+	if !enabled {
+		return DepositAction{}, ErrState
+	}
+	policy, e := readMerchantDepositPolicy(ctx, tx, merchantID)
+	if e != nil {
+		return DepositAction{}, e
+	}
+	if !policy.Enabled {
+		return DepositAction{}, ErrDepositDisabled
+	}
+	if e = checkDepositReleaseWindow(ctx, tx, merchantID, action, policy.Days); e != nil {
+		return DepositAction{}, e
+	}
 	if e = requireFundsAction(ctx, tx, "deposit", fmt.Sprintf("%d:%s", merchantID, externalNo)); e != nil {
 		return DepositAction{}, e
 	}
-	// 提取保证金要求最近 N 天内无订单且无投诉记录 (epay_pro deposit_day). The rule
-	// is enforced here, not only displayed: a release (withdrawal) is refused
-	// when user_deposit_day>0 and the merchant has any order or complaint within
-	// the window. A missing/zero setting leaves withdrawals unconditional, as
-	// today. Uses the order (created_at) and complaint (first_seen_at) tables.
-	if action == "release" {
-		var days int
-		var raw *string
-		if e = tx.QueryRow(ctx, "SELECT body->>'value' FROM backoffice_records WHERE resource='settings' AND body->>'key'='user_deposit_day' ORDER BY id LIMIT 1").Scan(&raw); e != nil {
-			if !errors.Is(e, pgx.ErrNoRows) {
-				return DepositAction{}, e
-			}
-		} else if raw != nil {
-			if n, perr := strconv.Atoi(*raw); perr == nil && n > 0 {
-				days = n
-			}
-		}
-		if days > 0 {
-			var blocked bool
-			if e = tx.QueryRow(ctx,
-				`SELECT EXISTS(SELECT 1 FROM orders WHERE merchant_id=$1 AND created_at>clock_timestamp()-make_interval(days=>$2))
-				    OR EXISTS(SELECT 1 FROM complaints133 WHERE owner_id=$1 AND first_seen_at>clock_timestamp()-make_interval(days=>$2))`,
-				merchantID, days).Scan(&blocked); e != nil {
-				return DepositAction{}, e
-			}
-			if blocked {
-				return DepositAction{}, ErrState
-			}
-		}
+	if e = checkDepositPolicy(ctx, tx, merchantID, policy); e != nil {
+		return DepositAction{}, e
+	}
+	if e = checkDepositReleaseWindow(ctx, tx, merchantID, action, policy.Days); e != nil {
+		return DepositAction{}, e
 	}
 	if _, e = tx.Exec(ctx, "INSERT INTO accounts(owner_id,kind) VALUES($1,'deposit'),($1,'deposit_reserved') ON CONFLICT DO NOTHING", merchantID); e != nil {
 		return DepositAction{}, e
@@ -265,6 +250,12 @@ func (s *Store) Deposit(ctx context.Context, merchantID int64, action, externalN
 	}
 	if _, e = tx.Exec(ctx, "INSERT INTO deposit_action_events(action_id,status,actor) VALUES($1,$2,$3)", d.ID, status, actor); e != nil {
 		return d, e
+	}
+	if e = checkDepositPolicy(ctx, tx, merchantID, policy); e != nil {
+		return DepositAction{}, e
+	}
+	if e = checkDepositReleaseWindow(ctx, tx, merchantID, action, policy.Days); e != nil {
+		return DepositAction{}, e
 	}
 	return d, tx.Commit(ctx)
 }

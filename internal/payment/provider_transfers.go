@@ -132,6 +132,13 @@ func (s *Store) beginTransfer(ctx context.Context, merchantID, channelID int64, 
 }
 
 func (s *Store) beginTransferTx(ctx context.Context, tx pgx.Tx, merchantID, channelID int64, no string, r adapter.TransferRequest, validate func(adapter.TransferRequest) error, bankProduct, accountScope string, apiOrigin ...bool) (Transfer, bool, error) {
+	return s.beginTransferTxWithFeeSelection(ctx, tx, merchantID, channelID, no, r, validate, bankProduct, accountScope, nil, apiOrigin...)
+}
+
+// The parent-runtime path persists additional source and audit rows in the
+// same transaction. It must recheck this exact fee selection after those waits,
+// rather than selecting a different group once the original membership expires.
+func (s *Store) beginTransferTxWithFeeSelection(ctx context.Context, tx pgx.Tx, merchantID, channelID int64, no string, r adapter.TransferRequest, validate func(adapter.TransferRequest) error, bankProduct, accountScope string, captured **merchantTransferFeeSelection, apiOrigin ...bool) (Transfer, bool, error) {
 	var e error
 	var profile []byte
 	var enabled bool
@@ -226,9 +233,14 @@ func (s *Store) beginTransferTx(ctx context.Context, tx pgx.Tx, merchantID, chan
 	if e = s.enforceTransferPolicy(ctx, tx, merchantID, r, policy, recipientHash); e != nil {
 		return Transfer{}, false, e
 	}
-	var rawRate string
-	json.Unmarshal(cfg["transfer_rate"], &rawRate)
-	cost, fee, rate, e := transferCost(r.Amount, rawRate)
+	selectedFee, e := readMerchantTransferFeeSelection(ctx, tx, merchantID, true)
+	if e != nil {
+		return Transfer{}, false, e
+	}
+	if captured != nil {
+		*captured = &selectedFee
+	}
+	cost, fee, rate, e := transferCost(r.Amount, ledger.Format(selectedFee.RateBPS))
 	if e != nil {
 		return Transfer{}, false, e
 	}
@@ -238,6 +250,9 @@ func (s *Store) beginTransferTx(ctx context.Context, tx pgx.Tx, merchantID, chan
 	}
 	t, e := s.reserveTransferTx(ctx, tx, merchantID, no, r.Amount, cost, fee, rate, business)
 	if e != nil {
+		return t, false, e
+	}
+	if e = selectedFee.checkDeadline(ctx, tx); e != nil {
 		return t, false, e
 	}
 	r.TransferNo = fmt.Sprintf("TF%d", t.ID)
@@ -269,6 +284,9 @@ func (s *Store) beginTransferTx(ctx context.Context, tx pgx.Tx, merchantID, chan
 	}
 	t, e = s.scanTransfer(tx.QueryRow(ctx, "SELECT "+transferColumns+transferFrom+" WHERE t.id=$1", t.ID))
 	if e != nil {
+		return t, false, e
+	}
+	if e = selectedFee.checkDeadline(ctx, tx); e != nil {
 		return t, false, e
 	}
 	return t, true, nil

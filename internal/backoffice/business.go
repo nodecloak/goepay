@@ -2,6 +2,7 @@ package backoffice
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"goepay/internal/ledger"
 	"goepay/internal/payment"
@@ -58,28 +59,27 @@ func (s *Service) serveBusiness(w http.ResponseWriter, r *http.Request, p Princi
 		return false
 	}
 	kind := parts[0]
+	// Keep historical recharge records readable; the current group feature only
+	// refuses a new recharge intent. Administrator management is independent.
+	if kind == "recharges" && p.Role == "merchant" && r.Method == "POST" {
+		on, err := s.MerchantFeatureVisibleForMerchant(r.Context(), p.SubjectID, "recharge")
+		if err != nil {
+			writeError(w, err)
+			return true
+		}
+		if !on {
+			writeError(w, FeatureClosed("未开启余额充值功能"))
+			return true
+		}
+	}
 	// 后台加款/扣款 (epay_release changeUserMoney '后台加款'/'后台扣款') is an
 	// admin-only direct wallet credit/debit; merchants can never call it.
 	if kind == "balance-adjustments" && p.Role != "admin" {
 		writeError(w, ErrForbidden)
 		return true
 	}
-	// 商户保证金功能开关 (epay_pro user_deposit). When off, the merchant deposit
-	// page and its workflow endpoint are unavailable — mirroring the original
-	// menu-hidden + endpoint-refused behaviour. DEFAULT ON: a missing setting
-	// row leaves deposits available, so existing deployments keep today's
-	// behaviour. Admin review/listing paths are never gated by it.
-	if kind == "deposits" && p.Role == "merchant" {
-		cfg, e := s.DepositSettings(r.Context())
-		if e != nil {
-			writeError(w, e)
-			return true
-		}
-		if !cfg.Enabled {
-			writeError(w, FeatureClosed("未开启商户保证金功能"))
-			return true
-		}
-	}
+	// New deposit intents resolve their feature policy inside the ledger
+	// transaction, after original-number replay. History remains readable.
 	actor := fmt.Sprintf("%s:%d:%s", p.Role, p.SubjectID, p.Username)
 	if len(parts) == 1 && r.Method == "POST" {
 		in, ok := body(w, r)
@@ -147,6 +147,10 @@ func (s *Service) serveBusiness(w http.ResponseWriter, r *http.Request, p Princi
 			}
 			v, e := s.store.Deposit(r.Context(), mid, action, externalNo, amount, actor)
 			if e != nil {
+				if errors.Is(e, payment.ErrDepositDisabled) {
+					writeError(w, FeatureClosed("未开启商户保证金功能"))
+					return true
+				}
 				writeError(w, e)
 				return true
 			}
@@ -338,18 +342,23 @@ func (s *Service) listBusiness(w http.ResponseWriter, r *http.Request, p Princip
 		// epay_pro deposit/info: 最低保证金要求 (deposit_min) + shortfall prefill
 		// source, and the 提取保证金 无订单无投诉天数 (deposit_day) notice. Money is
 		// surfaced as yuan strings; the shortfall is deposit_min - held (>=0).
-		cfg, e := s.DepositSettings(r.Context())
+		cfg, e := s.DepositSettingsForMerchant(r.Context(), mid)
 		if e != nil {
-			writeError(w, e)
-			return
+			// The current policy cannot erase historical actions or balances.
+			// Omit numeric limits rather than presenting unknown limits as zero.
+			data["deposit_policy_available"] = false
+			data["deposit_enabled"] = false
+		} else {
+			data["deposit_policy_available"] = true
+			data["deposit_min_money"] = ledger.Format(cfg.MinCents)
+			shortfall := cfg.MinCents - held
+			if shortfall < 0 {
+				shortfall = 0
+			}
+			data["deposit_shortfall_money"] = ledger.Format(shortfall)
+			data["deposit_day"] = cfg.Days
+			data["deposit_enabled"] = cfg.Enabled
 		}
-		data["deposit_min_money"] = ledger.Format(cfg.MinCents)
-		shortfall := cfg.MinCents - held
-		if shortfall < 0 {
-			shortfall = 0
-		}
-		data["deposit_shortfall_money"] = ledger.Format(shortfall)
-		data["deposit_day"] = cfg.Days
 	}
 	write(w, 200, data, "")
 }

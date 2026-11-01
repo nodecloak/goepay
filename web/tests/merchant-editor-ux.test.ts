@@ -186,7 +186,10 @@ async function createSetupFixture(allowed?: string[]) {
         fields: [...schema.fields, ...createSetupFields],
       } as never;
     if (path.endsWith("/allowed-types"))
-      return { settlement: allowed ?? ["alipay", "wxpay", "bank"] } as never;
+      return {
+        settlement: allowed ?? ["alipay", "wxpay", "bank"],
+        can_write: true,
+      } as never;
     if (path.endsWith("/11901"))
       return {
         id: "11901",

@@ -115,8 +115,18 @@ func (s *Store) requestFundsTxSettlement(ctx context.Context, tx pgx.Tx, kind st
 	}
 	var terms *SettlementTerms
 	var selectedSettlementDeadline time.Time
+	var railGate *settlementTypeGate
 	required := amount
 	if kind == "settlements" {
+		_, recipient, recipientErr := s.readSettlementConfig(ctx, tx, merchantID)
+		if recipientErr != nil && !errors.Is(recipientErr, ErrNotFound) {
+			return LedgerRequest{}, recipientErr
+		}
+		gate, railErr := requireSettlementType(ctx, tx, merchantID, recipient.Type, false)
+		if railErr != nil {
+			return LedgerRequest{}, railErr
+		}
+		railGate = &gate
 		var policy SettlementPolicy
 		var err error
 		if threshold, ok := ctx.Value(settlementThresholdRequestKey{}).(*settlementThresholdRequest); ok {
@@ -152,11 +162,28 @@ func (s *Store) requestFundsTxSettlement(ctx context.Context, tx pgx.Tx, kind st
 			return LedgerRequest{}, ErrState
 		}
 	}
-	if e = s.requireOutgoingFunds(ctx, tx, merchantID, required); e != nil {
+	selectedCycle, e := s.requireOutgoingFundsCycle(ctx, tx, merchantID, required)
+	if e != nil {
 		return LedgerRequest{}, e
 	}
 	if e = requireFundsAction(ctx, tx, "funds-request", fmt.Sprintf("%s:%d:%s", kind, merchantID, externalNo)); e != nil {
 		return LedgerRequest{}, e
+	}
+	// A membership expiring during confirmation may revoke this request's
+	// settlement mode. Preserve that business refusal before generic stale
+	// cycle/price checks; the later access and captured-term checks remain.
+	if kind == "settlements" {
+		if e = requireNewSettlementAccess(ctx, tx, merchantID); e != nil {
+			return LedgerRequest{}, e
+		}
+	}
+	if e = selectedCycle.checkDeadline(ctx, tx); e != nil {
+		return LedgerRequest{}, e
+	}
+	if railGate != nil {
+		if e = railGate.recheck(ctx, tx); e != nil {
+			return LedgerRequest{}, e
+		}
 	}
 	var createdAt any
 	if terms != nil {
@@ -235,6 +262,11 @@ func (s *Store) requestFundsTxSettlement(ctx context.Context, tx pgx.Tx, kind st
 	}
 	if businessEventID > 0 {
 		s.recordAdminBusinessRequest(ctx, tx, businessEventID)
+	}
+	if railGate != nil {
+		if e = railGate.recheck(ctx, tx); e != nil {
+			return LedgerRequest{}, e
+		}
 	}
 	return v, nil
 }

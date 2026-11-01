@@ -98,6 +98,17 @@ func (s *Server) collectionLink(w http.ResponseWriter, r *http.Request, role str
 		response(w, 404, -1, "collection action not found", nil)
 		return true
 	}
+	if role == "merchant" {
+		on, err := backoffice.New(s.Pool, s.Store).MerchantFeatureVisibleForMerchant(r.Context(), session.User.ID, "onecode")
+		if err != nil {
+			response(w, 503, -1, "merchant feature unavailable", nil)
+			return true
+		}
+		if !on {
+			response(w, 403, -1, "未开启聚合收款码功能", nil)
+			return true
+		}
+	}
 	id, err := strconv.ParseInt(parts[2], 10, 64)
 	if err != nil || id < 1 {
 		response(w, 400, -1, "invalid collection ID", nil)
@@ -161,6 +172,15 @@ func (s *Server) collect(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action 'self'")
 	if r.Method == "POST" {
+		on, policyErr := backoffice.New(s.Pool, s.Store).MerchantFeatureVisibleForMerchant(r.Context(), c.Owner, "onecode")
+		if policyErr != nil {
+			http.Error(w, "收款配置暂时无法确认，请稍后重试", 503)
+			return
+		}
+		if !on {
+			http.Error(w, "当前商户未开启聚合收款码功能", 403)
+			return
+		}
 		if !s.ProviderFlow.AllowLive {
 			http.Error(w, "payment writes disabled", 503)
 			return

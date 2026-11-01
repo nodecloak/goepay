@@ -39,17 +39,79 @@ const values = ref<Record<string, unknown>>({});
 const fieldErrors = ref<Record<string, string>>({});
 const endpoint = "/resources/pay-types";
 let controller: AbortController | undefined;
-let epoch = 0;
+let epoch = 0,
+  contextEpoch = 0,
+  active = true;
+function context() {
+  return {
+    epoch: contextEpoch,
+    client: props.client,
+    csrf: props.client.csrfToken,
+    area: props.client.area,
+  };
+}
+type Context = ReturnType<typeof context>;
+function currentContext(source: Context) {
+  return (
+    active &&
+    source.epoch === contextEpoch &&
+    source.client === props.client &&
+    source.csrf === props.client.csrfToken &&
+    source.area === props.client.area
+  );
+}
+function resetContext() {
+  ++contextEpoch;
+  ++epoch;
+  controller?.abort();
+  controller = undefined;
+  schema.value = null;
+  items.value = [];
+  loading.value = false;
+  busy.value = false;
+  togglingType.value = "";
+  mode.value = null;
+  selected.value = null;
+  values.value = {};
+  fieldErrors.value = {};
+  error.value = "";
+  notice.value = "";
+}
+function readChangedContext(source: Context) {
+  if (active && source.epoch === contextEpoch && !currentContext(source)) {
+    resetContext();
+    void load();
+  }
+}
+function finishAction(source: Context) {
+  if (currentContext(source)) {
+    busy.value = false;
+    togglingType.value = "";
+  } else readChangedContext(source);
+}
 const canWrite = computed(() => schema.value?.permissions.update === true);
 const canCreate = computed(() => schema.value?.permissions.create === true);
 const canDelete = computed(() => schema.value?.permissions.delete === true);
-const editableFields = computed(
-  () => schema.value?.fields.filter((f) => f.type !== "password") ?? [],
-);
+const editableFields = computed(() => {
+  const order = ["type", "name", "device", "enabled"];
+  const labels: Record<string, string> = {
+    type: "调用值",
+    name: "显示名称",
+    enabled: "状态",
+  };
+  return (schema.value?.fields.filter((f) => f.type !== "password") ?? [])
+    .map((f) => ({ ...f, label: labels[f.name] || f.label }))
+    .sort((a, b) => {
+      const rank = (key: string) =>
+        order.includes(key) ? order.indexOf(key) : order.length;
+      return rank(a.name) - rank(b.name);
+    });
+});
 function message(e: unknown) {
   return e instanceof Error ? e.message : "支付方式操作失败，请重试";
 }
 async function load() {
+  const source = context();
   const current = ++epoch;
   controller?.abort();
   controller = new AbortController();
@@ -65,13 +127,15 @@ async function load() {
         endpoint + "/schema",
         { signal: c.signal },
       );
-      if (c.signal.aborted || current !== epoch) return;
+      if (c.signal.aborted || current !== epoch || !currentContext(source))
+        return;
       pendingSchema = loaded;
     }
     const data = await props.client.request<{ items: Row[] }>(endpoint, {
       signal: c.signal,
     });
-    if (c.signal.aborted || current !== epoch) return;
+    if (c.signal.aborted || current !== epoch || !currentContext(source))
+      return;
     items.value = (data.items || []).map((r) => ({
       id: String(r.id),
       type: String(r.type ?? ""),
@@ -80,19 +144,21 @@ async function load() {
       device: String(r.device ?? "0"),
     }));
   } catch (e) {
-    if (!c.signal.aborted && current === epoch) error.value = message(e);
+    if (!c.signal.aborted && current === epoch && currentContext(source))
+      error.value = message(e);
   } finally {
-    if (!c.signal.aborted && current === epoch) {
+    if (!c.signal.aborted && current === epoch && currentContext(source)) {
       if (pendingSchema) schema.value = pendingSchema;
       loading.value = false;
     }
+    readChangedContext(source);
   }
 }
 // The 状态 switch saves at once: a type with no record yet (id "0") POSTs a new
 // record, an existing record PATCHes only its enabled flag.
 async function toggle(row: Row, value: boolean) {
   if (!canWrite.value || busy.value || togglingType.value) return;
-  const current = epoch;
+  const current = context();
   busy.value = true;
   togglingType.value = row.type;
   error.value = "";
@@ -115,19 +181,16 @@ async function toggle(row: Row, value: boolean) {
         body: { enabled: value },
       });
     }
-    if (current !== epoch) return;
+    if (!currentContext(current)) return;
     notice.value = value ? "已开启" : "已关闭";
     await load();
   } catch (e) {
-    if (current === epoch) {
-      error.value = message(e);
+    if (currentContext(current)) {
       await load();
+      if (currentContext(current)) error.value = message(e);
     }
   } finally {
-    if (current === epoch) {
-      busy.value = false;
-      togglingType.value = "";
-    }
+    finishAction(current);
   }
 }
 function openCreate() {
@@ -156,19 +219,19 @@ async function openEdit(row: Row) {
     return;
   }
   busy.value = true;
-  const current = epoch;
+  const current = context();
   try {
     const record = await props.client.request<Record<string, unknown>>(
       endpoint + "/" + encodeURIComponent(row.id),
     );
-    if (current !== epoch) return;
+    if (!currentContext(current)) return;
     selected.value = { ...row };
     values.value = formValues(schema.value!, record);
     mode.value = "edit";
   } catch (e) {
-    if (current === epoch) error.value = message(e);
+    if (currentContext(current)) error.value = message(e);
   } finally {
-    if (current === epoch) busy.value = false;
+    finishAction(current);
   }
 }
 function openDelete(row: Row) {
@@ -178,14 +241,19 @@ function openDelete(row: Row) {
   mode.value = "delete";
 }
 async function save() {
-  if (busy.value || !schema.value) return;
+  if (
+    busy.value ||
+    !schema.value ||
+    !["create", "edit"].includes(mode.value || "")
+  )
+    return;
   fieldErrors.value = validateFields(
     schema.value,
     values.value,
     mode.value === "edit",
   );
   if (Object.keys(fieldErrors.value).length) return;
-  const current = epoch;
+  const current = context();
   busy.value = true;
   error.value = "";
   try {
@@ -201,19 +269,19 @@ async function save() {
           : ""),
       { method: mode.value === "edit" ? "PATCH" : "POST", body: payload },
     );
-    if (current !== epoch) return;
+    if (!currentContext(current)) return;
     notice.value = mode.value === "edit" ? "修改已保存" : "新增已保存";
     mode.value = null;
     await load();
   } catch (e) {
-    if (current === epoch) error.value = message(e);
+    if (currentContext(current)) error.value = message(e);
   } finally {
-    if (current === epoch) busy.value = false;
+    finishAction(current);
   }
 }
 async function remove() {
-  if (busy.value || !selected.value) return;
-  const current = epoch;
+  if (busy.value || !selected.value || mode.value !== "delete") return;
+  const current = context();
   busy.value = true;
   error.value = "";
   try {
@@ -221,14 +289,14 @@ async function remove() {
       endpoint + "/" + encodeURIComponent(selected.value.id),
       { method: "DELETE" },
     );
-    if (current !== epoch) return;
+    if (!currentContext(current)) return;
     mode.value = null;
     notice.value = "记录已删除";
     await load();
   } catch (e) {
-    if (current === epoch) error.value = message(e);
+    if (currentContext(current)) error.value = message(e);
   } finally {
-    if (current === epoch) busy.value = false;
+    finishAction(current);
   }
 }
 function orderHref(type: string) {
@@ -242,16 +310,15 @@ function deviceLabel(device: string) {
 watch(
   () => [props.client, props.client.csrfToken, props.client.area],
   () => {
-    schema.value = null;
-    mode.value = null;
+    resetContext();
     void load();
   },
   { flush: "sync" },
 );
 onMounted(load);
 onBeforeUnmount(() => {
-  epoch++;
-  controller?.abort();
+  active = false;
+  resetContext();
 });
 </script>
 <template>

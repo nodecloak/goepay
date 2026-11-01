@@ -6,6 +6,7 @@ const props = defineProps<{
   value: unknown;
   disabled: boolean;
   error?: string;
+  creating?: boolean;
 }>();
 const emit = defineEmits<{ change: [value: string] }>();
 type Group = { id: string; name: string; enabled?: boolean };
@@ -234,9 +235,11 @@ onBeforeUnmount(() => {
         {{ g.name }}（{{ g.id }}）{{ g.enabled === false ? " · 已停用" : "" }}
       </option>
     </select>
-    <small id="merchant-group-help" class="muted"
-      >指定基础用户组；有效会员组另按会员期限计算。未选择新值时保留原设置。</small
-    >
+    <small id="merchant-group-help" class="muted">{{
+      creating
+        ? "未指定时使用默认用户组。"
+        : "指定基础用户组；有效会员组另按会员期限计算。未选择新值时保留原设置。"
+    }}</small>
     <small
       v-if="error"
       id="merchant-group-error"

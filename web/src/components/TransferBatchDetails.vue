@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from "vue";
+import { ref, onMounted, onBeforeUnmount, computed, watch } from "vue";
 import { ApiClient, displayValue } from "../api";
 import {
   batchOutcome,
@@ -9,7 +9,14 @@ import {
 } from "../transfer-batches";
 import { readFundsAvailability } from "../funds-availability";
 import DataTable from "./DataTable.vue";
-const props = defineProps<{ client: ApiClient; batchId: string }>();
+const props = withDefaults(
+  defineProps<{
+    client: ApiClient;
+    batchId: string;
+    newUseAllowed?: boolean;
+  }>(),
+  { newUseAllowed: true },
+);
 const emit = defineEmits<{ close: []; updated: [] }>();
 const batch = ref<TransferBatch | null>(null),
   loading = ref(false),
@@ -21,7 +28,18 @@ const batch = ref<TransferBatch | null>(null),
   limit = ref(10);
 let controller: AbortController | undefined;
 const executeAllowed = computed(
-  () => !!batch.value && batchCanExecute(batch.value, writesEnabled.value),
+  () =>
+    props.newUseAllowed !== false &&
+    !!batch.value &&
+    batchCanExecute(batch.value, writesEnabled.value),
+);
+watch(
+  () => props.newUseAllowed,
+  (allowed) => {
+    if (allowed === false && confirmation.value === "execute")
+      confirmation.value = null;
+  },
+  { flush: "sync" },
 );
 async function load() {
   controller?.abort();
@@ -144,6 +162,9 @@ onBeforeUnmount(() => controller?.abort());
       </dl>
       <p class="muted">
         仅显示服务端保存的脱敏记录，不从详情猜测或还原收款账号。未知、已发送和待核实项目只查询原付款；取消仅释放可证明尚未发送的项目，停写后仍可查询或取消未发送项。
+      </p>
+      <p v-if="newUseAllowed === false" class="muted" role="note">
+        批量代付功能已关闭，仍可查询原批次和取消未发送项目。
       </p>
       <DataTable :columns="columns" :items="rows" />
       <div class="toolbar-actions">

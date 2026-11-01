@@ -2279,6 +2279,8 @@ onBeforeUnmount(() => {
         :key="area + path"
         :client="client"
         :area="area"
+        :merchant-id="String(session.user.id)"
+        :own-session="!session.delegated_by"
       />
       <SettingsPage
         v-else-if="kind === 'settings'"
@@ -2489,11 +2491,23 @@ onBeforeUnmount(() => {
         :client="client"
         :area="area"
         :kind="commerceFor(area, path)"
+        :new-use-allowed="
+          area !== 'merchant' ||
+          (commerceFor(area, path) === 'deposits'
+            ? session.merchant_features?.user_deposit !== false
+            : commerceFor(area, path) === 'recharges'
+              ? session.merchant_features?.recharge !== false
+              : true)
+        "
       />
       <TransferBatchPage
         v-else-if="kind === 'transfer-batches'"
         :key="area + path"
         :client="client"
+        :new-use-allowed="
+          area !== 'merchant' ||
+          session.merchant_features?.user_transfer_batch !== false
+        "
       />
       <RedpackPage
         v-else-if="kind === 'redpacks'"

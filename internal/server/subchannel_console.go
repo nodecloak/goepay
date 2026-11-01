@@ -112,7 +112,7 @@ func (s *Server) paymentSubchannelConsole(w http.ResponseWriter, r *http.Request
 	// when the administrator turns it off, a merchant may no longer read or act
 	// on subchannels. Administrator (super) management is not gated.
 	if role == "merchant" && s.Pool != nil {
-		on, e := backoffice.New(s.Pool, s.Store).MerchantFeatureVisible(r.Context(), "subchannel_open")
+		on, e := backoffice.New(s.Pool, s.Store).MerchantFeatureVisibleForMerchant(r.Context(), session.User.ID, "subchannel_open")
 		if e != nil {
 			response(w, 503, -1, "merchant feature unavailable", nil)
 			return true

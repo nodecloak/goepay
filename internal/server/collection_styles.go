@@ -20,7 +20,10 @@ func (s *Server) collectionStylesConsole(w http.ResponseWriter, r *http.Request,
 	svc := backoffice.New(s.Pool, s.Store)
 	p := backoffice.Principal{Role: role, SubjectID: session.User.ID, Username: session.User.Username, AdminClass: session.User.AdminClass}
 	fail := func(e error) {
+		var feature backoffice.FeatureClosedError
 		switch {
+		case errors.As(e, &feature):
+			response(w, 403, -1, feature.Message, nil)
 		case errors.Is(e, backoffice.ErrInvalid):
 			response(w, 422, -1, "invalid collection layout or revision", nil)
 		case errors.Is(e, backoffice.ErrConflict):

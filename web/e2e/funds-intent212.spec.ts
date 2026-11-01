@@ -120,9 +120,14 @@ async function fixture(
           today_blocked_money: "0.00",
         }),
       );
+    if (p.endsWith("/settlement-recipient/allowed-types"))
+      return route.fulfill(
+        ok({ settlement: ["alipay", "wxpay", "bank"], can_write: true }),
+      );
     if (p.endsWith("/settlement-recipient"))
       return route.fulfill(
         ok({
+          ...(req.method() === "GET" ? { can_write: true } : {}),
           state: "configured",
           config_id: state.recipientVersion,
           type: "alipay",

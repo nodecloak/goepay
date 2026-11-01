@@ -17,6 +17,12 @@ func (s *Server) parentChannelWeixinOptions(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	actor := payment.ParentChannelActor{User: session.User, Token: token, CSRF: session.CSRF, Delegated: session.Issuer != nil}
+	resolved, err := s.managedWeixinRuntime(r.Context())
+	if err != nil {
+		parentChannelError(w, err)
+		return
+	}
+	s = resolved
 	out, err := s.Store.ParentChannelBindingCatalog(r.Context(), actor, channel, s.ProviderFlow.ParentFactories)
 	if err != nil {
 		parentChannelError(w, err)
@@ -64,6 +70,12 @@ func (s *Server) batchParentWeixin(w http.ResponseWriter, r *http.Request, sessi
 		items = append(items, payment.ParentWeixinBatchItem{ID: channel, Expected: expected, ExpectedBindings: catalog})
 	}
 	actor := payment.ParentChannelActor{User: session.User, Token: token, CSRF: session.CSRF, Delegated: session.Issuer != nil}
+	resolved, e := s.managedWeixinRuntime(r.Context())
+	if e != nil {
+		parentChannelError(w, e)
+		return
+	}
+	s = resolved
 	out, err := s.Store.BatchBindParentWeixin(r.Context(), actor, kind, profileID, items, s.ProviderFlow.ParentFactories)
 	if err != nil {
 		parentChannelError(w, err)

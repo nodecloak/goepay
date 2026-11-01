@@ -260,6 +260,7 @@ const merchantFeatureMenu: Record<string, string> = {
   applyments_open: "ApplymentsManage",
   mchrisk_open: "MchRisk",
   user_transfer_batch: "MerchantTransferBatches",
+  user_deposit: "Deposit",
   subchannel_open: "SubChannel",
 };
 
@@ -313,7 +314,19 @@ export const pageAuthorizedFor = (
   if (!page) return false;
   const roleKey = menuRole(role, adminClass);
   if (page.roles.length && !page.roles.includes(roleKey)) return false;
-  if (featureHiddenNodeIds(area, features).has(page.id)) return false;
+  // A closed batch feature hides its create entry, while the original route
+  // still provides owner-bound history, query and proven-unsent cancellation.
+  if (
+    featureHiddenNodeIds(area, features).has(page.id) &&
+    !(
+      area === "merchant" &&
+      role === "merchant" &&
+      ["/transfer/batches", "/account/deposit", "/account/recharge"].includes(
+        path,
+      )
+    )
+  )
+    return false;
   if (!permissionRestricted(role, adminClass, permissions)) return true;
   const keys = permissions as string[];
   // Always-allowed self-service pages carry no grantable menu key.

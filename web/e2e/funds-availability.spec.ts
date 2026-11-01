@@ -61,9 +61,14 @@ test("merchant settlement reads and displays T1 available versus ledger snapshot
   await page.route("**/console/v1/**", (route) => {
     const r = route.request(),
       p = new URL(r.url()).pathname;
+    if (p.endsWith("/settlement-recipient/allowed-types"))
+      return route.fulfill(
+        ok({ settlement: ["alipay", "wxpay", "bank"], can_write: true }),
+      );
     if (p.endsWith("/settlement-recipient"))
       return route.fulfill(
         ok({
+          ...(r.method() === "GET" ? { can_write: true } : {}),
           state: "configured",
           config_id: "42",
           type: "alipay",

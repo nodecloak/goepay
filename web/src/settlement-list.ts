@@ -9,12 +9,8 @@ import {
 
 export function originalSettlementColumns(area: Area) {
   return [
-    ...(area === "admin"
-      ? [
-          { key: "id", label: "ID" },
-          { key: "merchantID", label: "商户号" },
-        ]
-      : []),
+    { key: "id", label: "ID" },
+    ...(area === "admin" ? [{ key: "merchantID", label: "商户号" }] : []),
     { key: "method", label: "结算方式" },
     { key: "account", label: area === "admin" ? "结算账号/姓名" : "结算账号" },
     { key: "money", label: "结算金额/实际到账" },

@@ -34,6 +34,23 @@ type Import struct {
 	ApplicationAuthorizationProfiles []ApplicationAuthorizationProfileSpec `json:"application_authorization_profiles,omitempty"`
 }
 
+// Managed origin markers are minted only by the runtime vault overlay. Plain
+// and encrypted external imports must never impersonate that namespace.
+func (imp *Import) UnmarshalJSON(raw []byte) error {
+	type plain Import
+	var value plain
+	if json.Unmarshal(raw, &value) != nil {
+		return ErrImport
+	}
+	for _, p := range value.IdentityProfiles {
+		if p.ManagedVaultFingerprint != "" {
+			return ErrImport
+		}
+	}
+	*imp = Import(value)
+	return nil
+}
+
 func Load(path string, master []byte) (Import, error) {
 	f, e := os.Open(path)
 	if e != nil {

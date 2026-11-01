@@ -61,6 +61,7 @@ func (s *Server) fundsSettlementPlan(ctx context.Context, q identity.FundsQuerie
 					Policy        payment.SettlementThresholdPolicy `json:"policy"`
 				} `json:"threshold"`
 				SettlementPolicy  *payment.SettlementPolicy       `json:"settlement_policy"`
+				SettleType        *int                            `json:"settle_type"`
 				MerchantID        string                          `json:"merchant_id"`
 				RecipientConfigID string                          `json:"recipient_config_id"`
 				Recipient         payment.SettlementRecipientView `json:"recipient"`
@@ -72,15 +73,33 @@ func (s *Server) fundsSettlementPlan(ctx context.Context, q identity.FundsQuerie
 	}
 	merchants := make([]string, 0, len(approved.Scope.Merchants))
 	recipients := make([]string, 0, len(approved.Scope.Merchants))
+	maturityRules := make([]string, 0, len(approved.Scope.Merchants))
+	commonMaturity, mixedMaturity := "", false
 	for _, merchant := range approved.Scope.Merchants {
 		merchants = append(merchants, merchant.MerchantID)
 		recipients = append(recipients, fmt.Sprintf("%s: %s %s (config %s)", merchant.MerchantID, merchant.Recipient.Type, merchant.Recipient.AccountMasked, merchant.RecipientConfigID))
+		mode := approved.Scope.SettleType
+		if merchant.SettleType != nil {
+			mode = strconv.Itoa(*merchant.SettleType)
+		}
+		if mode != "0" && mode != "1" {
+			return nil, payment.ErrConflict
+		}
+		maturityRules = append(maturityRules, fmt.Sprintf("商户%s：D+%s", merchant.MerchantID, mode))
+		if commonMaturity == "" {
+			commonMaturity = mode
+		} else if commonMaturity != mode {
+			mixedMaturity = true
+		}
 	}
 	summary["plan_name"] = approved.Plan.Name
 	summary["merchant_ids"], summary["recipients"] = strings.Join(merchants, ","), strings.Join(recipients, "; ")
-	summary["maturity"] = "T+0"
-	if approved.Scope.SettleType == "1" {
-		summary["maturity"] = "D1 (UTC+8 00:00)"
+	summary["group_maturity_rules"] = strings.Join(maturityRules, "; ")
+	summary["maturity"] = "D+0"
+	if mixedMaturity {
+		summary["maturity"] = "逐商户，见结算周期规则"
+	} else if commonMaturity == "1" {
+		summary["maturity"] = "D+1（UTC+8 00:00）"
 	}
 	policy := approved.Scope.Policy
 	summary["retained_money"] = ledger.Format(policy.RetainedCents)
@@ -92,27 +111,42 @@ func (s *Server) fundsSettlementPlan(ctx context.Context, q identity.FundsQuerie
 	summary["mode"] = "仅自动生成待审核申请及资金预留；不审批、不付款"
 	if approved.Plan.Mode == "generate_only" {
 		rules := make([]string, 0, len(approved.Scope.Merchants))
+		minimumRules := make([]string, 0, len(approved.Scope.Merchants))
 		var common *int64
-		mixed := false
+		var commonMinimum *int64
+		mixed, mixedMinimum := false, false
 		for _, merchant := range approved.Scope.Merchants {
 			current := approved.Scope.Policy
 			if merchant.SettlementPolicy != nil {
 				current = *merchant.SettlementPolicy
 			}
 			rules = append(rules, fmt.Sprintf("商户%s：%s%%", merchant.MerchantID, ledger.Format(current.FeeRateBPS)))
+			minimumRules = append(minimumRules, fmt.Sprintf("商户%s：%s元", merchant.MerchantID, ledger.Format(current.MinimumAmount)))
 			if common == nil {
 				rate := current.FeeRateBPS
 				common = &rate
 			} else if *common != current.FeeRateBPS {
 				mixed = true
 			}
+			if commonMinimum == nil {
+				minimum := current.MinimumAmount
+				commonMinimum = &minimum
+			} else if *commonMinimum != current.MinimumAmount {
+				mixedMinimum = true
+			}
 		}
 		summary["group_fee_rules"] = strings.Join(rules, "; ")
-		summary["fee_scope"] = "逐商户使用已授权有效组结算比例；保留原全局费用上下限、留存及每日限制"
+		summary["group_minimum_rules"] = strings.Join(minimumRules, "; ")
+		summary["fee_scope"] = "逐商户使用已授权有效组结算比例及最低毛额；保留原全局费用上下限、留存及每日限制"
 		if mixed {
 			summary["fee_rate_bps"] = "逐商户，见费率规则"
 		} else if common != nil {
 			summary["fee_rate_bps"] = strconv.FormatInt(*common, 10)
+		}
+		if mixedMinimum {
+			summary["minimum_money"] = "逐商户，见最低金额规则"
+		} else if commonMinimum != nil {
+			summary["minimum_money"] = ledger.Format(*commonMinimum)
 		}
 	}
 	if approved.Plan.Mode == "balance_threshold" {
@@ -121,6 +155,7 @@ func (s *Server) fundsSettlementPlan(ctx context.Context, q identity.FundsQuerie
 			return nil, payment.ErrConflict
 		}
 		summary["business_mode"] = "balance_threshold"
+		summary["minimum_money"] = "不适用（按余额阈值）"
 		summary["balance_threshold_money"] = ledger.Format(threshold.Policy.ThresholdCents)
 		summary["transfer_channel_id"] = threshold.ChannelID
 		summary["selection_rule"] = "UID倒序最多5个；关闭组不补位"

@@ -45,7 +45,7 @@ func truncateUTF8Bytes(s string, n int) string {
 }
 
 func (s *Server) providerCreate(w http.ResponseWriter, r *http.Request, legacy bool, merchantID int64, p compat.Params) {
-	resolved, resolveErr := s.withParentRuntime(r.Context(), merchantID, p["out_trade_no"])
+	resolved, resolveErr := s.withParentRuntime(r.Context(), merchantID, p["out_trade_no"], p["type"])
 	if resolveErr != nil {
 		s.wire(w, legacy, nil, "payment channel source could not be confirmed")
 		return

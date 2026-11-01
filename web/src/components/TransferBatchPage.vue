@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { ApiClient, displayValue } from "../api";
 import {
   buildBatchItems,
@@ -15,7 +15,10 @@ import KitFilterBar from "./KitFilterBar.vue";
 import KitField from "./KitField.vue";
 import KitInput from "./KitInput.vue";
 import KitEmpty from "./KitEmpty.vue";
-const props = defineProps<{ client: ApiClient }>();
+const props = withDefaults(
+  defineProps<{ client: ApiClient; newUseAllowed?: boolean }>(),
+  { newUseAllowed: true },
+);
 const merchant = ref(""),
   external = ref(""),
   items = ref<TransferBatch[]>([]),
@@ -33,9 +36,14 @@ const policy = ref<BatchPolicy | null>(null),
   error = ref(""),
   notice = ref("");
 const rows = ref<BatchDraftRow[]>([emptyBatchRow()]);
+const canPrepare = computed(
+  () => props.newUseAllowed !== false && writes.value,
+);
 // Why 新建批量付款 is unavailable, shown beside the grey button: the admin has
 // not loaded a 付款商户 yet, or the loaded merchant's payout capability is off.
 const writesHint = computed(() => {
+  if (props.newUseAllowed === false)
+    return "批量代付功能已关闭，仍可查询原批次和取消未发送项目";
   if (loading.value || creating.value || writes.value) return "";
   if (!policy.value)
     return props.client.area === "admin" ? "请先输入付款商户并查询" : "";
@@ -90,6 +98,7 @@ async function load() {
   }
 }
 function start() {
+  if (!canPrepare.value || busy.value || loading.value) return;
   rows.value = [emptyBatchRow()];
   external.value = crypto.randomUUID();
   creating.value = true;
@@ -101,7 +110,7 @@ function start() {
 }
 function review() {
   try {
-    if (!policy.value || !writes.value) throw new Error("付款能力未启用");
+    if (!policy.value || !canPrepare.value) throw new Error("付款能力未启用");
     frozen = {
       ...ownerQuery(),
       external_no: external.value,
@@ -114,7 +123,7 @@ function review() {
   }
 }
 async function prepare() {
-  if (busy.value || !frozen) return;
+  if (busy.value || !frozen || !canPrepare.value) return;
   busy.value = true;
   confirming.value = false;
   error.value = "";
@@ -146,6 +155,19 @@ function discard() {
   uncertain.value = false;
   confirming.value = false;
 }
+watch(
+  () => props.newUseAllowed,
+  (allowed) => {
+    if (allowed !== false) return;
+    // An already dispatched request retains its outcome/recovery flow. An
+    // unsubmitted draft must stop holding recipient data after access closes.
+    rows.value = [emptyBatchRow()];
+    frozen = undefined;
+    confirming.value = false;
+    if (!busy.value) creating.value = false;
+  },
+  { flush: "sync" },
+);
 onMounted(() => {
   if (props.client.area === "merchant") load();
 });
@@ -161,6 +183,7 @@ onBeforeUnmount(() => {
     :key="selected"
     :client="client"
     :batch-id="selected"
+    :new-use-allowed="newUseAllowed"
     @close="
       selected = '';
       load();
@@ -209,7 +232,7 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="pa-btn pa-btn--primary"
-          :disabled="busy || loading || !writes || creating"
+          :disabled="busy || loading || !canPrepare || creating"
           @click="start"
         >
           新建批量付款
@@ -231,7 +254,7 @@ onBeforeUnmount(() => {
           v-if="policy"
           :rows="rows"
           :policy="policy"
-          :disabled="busy || confirming"
+          :disabled="busy || confirming || !canPrepare"
           @change="rows = $event"
         />
         <TransferBatchImport
@@ -239,10 +262,10 @@ onBeforeUnmount(() => {
           :client="client"
           :policy="policy"
           :merchant-i-d="merchant"
-          :disabled="busy || confirming"
+          :disabled="busy || confirming || !canPrepare"
           @apply="rows = $event"
         />
-        <button :disabled="busy || confirming || !writes" @click="review">
+        <button :disabled="busy || confirming || !canPrepare" @click="review">
           核对并预留整批资金
         </button>
         <div v-if="confirming" class="alert">
@@ -259,7 +282,7 @@ onBeforeUnmount(() => {
             "
           >
             返回编辑</button
-          ><button :disabled="busy" @click="prepare">
+          ><button :disabled="busy || !canPrepare" @click="prepare">
             确认预留，不发送付款
           </button>
         </div>

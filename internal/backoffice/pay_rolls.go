@@ -227,6 +227,18 @@ func ParsePayRoll(v map[string]any) (PayRoll, error) {
 	if !ok || len(ids) > 1000 {
 		return r, ErrInvalid
 	}
+	// A named draft has no executable routing scope. Empty channels are valid
+	// only while both execution and default use are off and no limits/rules
+	// would be silently discarded. Activating a draft still requires channels.
+	if ids == "" {
+		limits, le := routeJSONObject(v["limits"])
+		rules, re := routeJSONObject(v["rules"])
+		if r.Enabled || r.DefaultRoute || le != nil || re != nil || len(limits) != 0 || len(rules) != 0 {
+			return r, ErrInvalid
+		}
+		r.Rules = map[int64]PayRollLimit{}
+		return r, nil
+	}
 	seen := map[int64]bool{}
 	var total int64
 	for _, entry := range strings.Split(ids, ",") {

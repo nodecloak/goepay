@@ -2,6 +2,7 @@ package payment
 
 import (
 	"context"
+	"errors"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -41,6 +42,15 @@ func (s *Store) SettlementQuote(ctx context.Context, mid, amount int64) (Settlem
 	if e != nil {
 		return out, e
 	}
+	rails, e := readSettlementTypeSelection(ctx, tx, mid, nil, false, false)
+	if e != nil {
+		return out, e
+	}
+	_, recipient, recipientErr := s.readSettlementConfig(ctx, tx, mid)
+	if recipientErr != nil && !errors.Is(recipientErr, ErrNotFound) {
+		return out, recipientErr
+	}
+	railAllowed := rails.permits(recipient.Type)
 	if e = tx.QueryRow(ctx, "WITH day AS MATERIALIZED (SELECT ((clock_timestamp() AT TIME ZONE 'Asia/Shanghai')::date::timestamp AT TIME ZONE 'Asia/Shanghai') AS start) SELECT count(*) FROM ledger_requests CROSS JOIN day WHERE kind='settlements' AND merchant_id=$1 AND created_at>=day.start AND created_at<day.start+interval '24 hours'", mid).Scan(&out.DailyUsed); e != nil {
 		return out, e
 	}
@@ -50,7 +60,7 @@ func (s *Store) SettlementQuote(ctx context.Context, mid, amount int64) (Settlem
 			return out, err
 		}
 		out.Terms = &terms
-		out.CanApply = enabled && out.Access.ManualAllowed && out.Funds.Available >= amount+out.Policy.RetainedCents && (out.Policy.DailyLimit == 0 || out.DailyUsed < out.Policy.DailyLimit)
+		out.CanApply = enabled && railAllowed && out.Access.ManualAllowed && out.Funds.Available >= amount+out.Policy.RetainedCents && (out.Policy.DailyLimit == 0 || out.DailyUsed < out.Policy.DailyLimit)
 	}
 	return out, tx.Commit(ctx)
 }

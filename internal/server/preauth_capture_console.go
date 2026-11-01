@@ -140,7 +140,7 @@ func (s *Server) preauthorizationCaptureConsole(w http.ResponseWriter, r *http.R
 		if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 			return e
 		}
-		return backoffice.New(s.Pool, s.Store).CheckPayment(ctx, backoffice.PaymentContext{MerchantID: o.MerchantID, ClientIP: ip, Buyer: a.BuyerID, NotifyURL: o.NotifyURL, ReturnURL: o.ReturnURL})
+		return backoffice.New(s.Pool, s.Store).CheckPayment(ctx, backoffice.PaymentContext{MerchantID: o.MerchantID, ClientIP: ip, Buyer: a.BuyerID, NotifyURL: o.NotifyURL, ReturnURL: o.ReturnURL, OrderIntent: paymentPolicyOriginalIntent(o)})
 	}
 	a, operationErr := s.ProviderFlow.CapturePreauthorizationChecked(r.Context(), o.MerchantID, o.TradeNo, guard)
 	state := "rejected"

@@ -14,11 +14,16 @@ import { ApiClient } from "../src/api";
 it("reads allowed settlement types and offers only enabled rails", async () => {
   const client = new ApiClient("merchant");
   const paths: string[] = [];
-  vi.spyOn(client, "request").mockImplementation(async (path) => {
+  vi.spyOn(client, "request").mockImplementation(async (path, init) => {
     paths.push(path);
     if (path.includes("/settlement-recipient/allowed-types"))
-      return { settlement: ["wxpay", "bank"], transfer: ["wxpay"] } as never;
+      return {
+        settlement: ["wxpay", "bank"],
+        transfer: ["wxpay"],
+        can_write: true,
+      } as never;
     return {
+      ...(!init?.method || init.method === "GET" ? { can_write: true } : {}),
       state: "missing",
       config_id: "0",
       type: "",

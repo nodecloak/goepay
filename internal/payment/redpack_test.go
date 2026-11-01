@@ -12,8 +12,15 @@ func redpackInput(no string, amount int64) RedpackInput {
 	return RedpackInput{MerchantID: 501, ChannelID: 7, ActorID: 501, OutBizNo: no, Type: "wxpay", Remark: "恭喜发财", Role: "merchant", Amount: amount}
 }
 
+func redpackEnabledFixture(t *testing.T) (*Store, ProviderFlow, *outgoingProvider) {
+	t.Helper()
+	s, flow, provider := transferFixture(t)
+	transferSetting(t, s, "user_transfer_red", "1")
+	return s, flow, provider
+}
+
 func TestRedpackCreateIsIdempotentChecksFundsAndReservesNothing(t *testing.T) {
-	s, _, _ := transferFixture(t)
+	s, _, _ := redpackEnabledFixture(t)
 	ctx := context.Background()
 	r, err := s.CreateRedpack(ctx, redpackInput("2026102800000000001", 100))
 	if err != nil || r.Status != "claimable" || r.ExpiresAt.Sub(r.CreatedAt) < RedpackLifetime-1e9 {
@@ -46,7 +53,7 @@ func TestRedpackCreateIsIdempotentChecksFundsAndReservesNothing(t *testing.T) {
 }
 
 func TestRedpackClaimPaysOnceToOneClaimer(t *testing.T) {
-	s, flow, p := transferFixture(t)
+	s, flow, p := redpackEnabledFixture(t)
 	ctx := context.Background()
 	r, err := s.CreateRedpack(ctx, redpackInput("2026102800000000011", 100))
 	if err != nil {
@@ -94,7 +101,7 @@ func TestRedpackClaimPaysOnceToOneClaimer(t *testing.T) {
 }
 
 func TestRedpackUnknownClaimNeverResends(t *testing.T) {
-	s, flow, p := transferFixture(t)
+	s, flow, p := redpackEnabledFixture(t)
 	ctx := context.Background()
 	p.unknown = true
 	r, err := s.CreateRedpack(ctx, redpackInput("2026102800000000021", 100))
@@ -117,7 +124,7 @@ func TestRedpackUnknownClaimNeverResends(t *testing.T) {
 }
 
 func TestRedpackExpiryStopsClaimsAndHoldsNoFunds(t *testing.T) {
-	s, flow, p := transferFixture(t)
+	s, flow, p := redpackEnabledFixture(t)
 	ctx := context.Background()
 	r, err := s.CreateRedpack(ctx, redpackInput("2026102800000000031", 100))
 	if err != nil {

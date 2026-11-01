@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { accountSettingsReadFixture } from "./fixtures/account-settings";
 const ok = (data: unknown) => ({
   status: 200,
   contentType: "application/json",
@@ -19,8 +20,15 @@ test("settlement recipient edit clears fee confirmation and binds new snapshot v
     posts = 0,
     quotes = 0,
     saves = 0;
+  const quoteReads: {
+    path: string;
+    method: string;
+    amount: string | null;
+    merchantID: string | null;
+  }[] = [];
   await page.route("**/console/v1/**", async (route) => {
-    const p = new URL(route.request().url()).pathname,
+    const url = new URL(route.request().url()),
+      p = url.pathname,
       method = route.request().method();
     if (p.endsWith("/session"))
       return route.fulfill(
@@ -28,6 +36,10 @@ test("settlement recipient edit clears fee confirmation and binds new snapshot v
           user: { id: "1", name: "Merchant", role: "merchant" },
           csrf_token: "csrf",
         }),
+      );
+    if (p.endsWith("/settlement-recipient/allowed-types"))
+      return route.fulfill(
+        ok({ settlement: ["alipay", "wxpay", "bank"], can_write: true }),
       );
     if (p.endsWith("/settlement-recipient")) {
       if (method === "POST") {
@@ -39,7 +51,12 @@ test("settlement recipient edit clears fee confirmation and binds new snapshot v
         });
         current = "43";
       }
-      return route.fulfill(ok(recipient(current)));
+      return route.fulfill(
+        ok({
+          ...recipient(current),
+          ...(method === "GET" ? { can_write: true } : {}),
+        }),
+      );
     }
     if (p.endsWith("/funds-availability"))
       return route.fulfill(
@@ -52,6 +69,12 @@ test("settlement recipient edit clears fee confirmation and binds new snapshot v
       );
     if (p.endsWith("/settlement-policy")) {
       quotes++;
+      quoteReads.push({
+        path: p,
+        method,
+        amount: url.searchParams.get("amount"),
+        merchantID: url.searchParams.get("merchant_id"),
+      });
       return route.fulfill(
         ok({
           can_apply: true,
@@ -128,10 +151,18 @@ test("settlement recipient edit clears fee confirmation and binds new snapshot v
     dialog.getByTestId("settlement-recipient-current"),
   ).toContainText("版本 42");
   await dialog.getByLabel("金额（元）").fill("1.23");
+  // Inline preview is a legitimate debounced GET. Let it finish before
+  // measuring the separate, explicit fee-confirmation action.
+  await expect(dialog.locator(".settle-live")).toContainText(
+    "实际到账：1.20 元",
+  );
+  const beforeOriginalConfirmation = quotes;
   await dialog.getByRole("button", { name: "确认提交", exact: true }).click();
   await expect(
     dialog.getByRole("button", { name: "按已核对费用提交", exact: true }),
   ).toBeVisible();
+  expect(quotes).toBe(beforeOriginalConfirmation + 1);
+  expect(posts).toBe(0);
   await dialog
     .getByRole("button", { name: "修改收款资料", exact: true })
     .click();
@@ -153,13 +184,28 @@ test("settlement recipient edit clears fee confirmation and binds new snapshot v
   ).toContainText("版本 43");
   expect(saves).toBe(1);
   expect(posts).toBe(0);
+  await expect(dialog.locator(".settle-live")).toContainText(
+    "实际到账：1.20 元",
+  );
+  const beforeUpdatedConfirmation = quotes;
   await dialog.getByRole("button", { name: "确认提交", exact: true }).click();
+  await expect(
+    dialog.getByRole("button", { name: "按已核对费用提交", exact: true }),
+  ).toBeVisible();
+  expect(quotes).toBe(beforeUpdatedConfirmation + 1);
   await dialog
     .getByRole("button", { name: "按已核对费用提交", exact: true })
     .click();
   await expect(dialog).toHaveCount(0);
   expect(posts).toBe(1);
-  expect(quotes).toBe(2);
+  expect(quotes).toBe(beforeUpdatedConfirmation + 1);
+  for (const quote of quoteReads)
+    expect(quote).toEqual({
+      path: "/console/v1/merchant/workflows/settlement-policy",
+      method: "GET",
+      amount: "1.23",
+      merchantID: null,
+    });
   const stored = await page.evaluate(() =>
     JSON.stringify({
       local: { ...localStorage },
@@ -193,6 +239,10 @@ test("missing recipient prevents new UI application and configuration conflict n
           settle_type: 0,
         }),
       );
+    if (p.endsWith("/settlement-recipient/allowed-types"))
+      return route.fulfill(
+        ok({ settlement: ["alipay", "wxpay", "bank"], can_write: true }),
+      );
     if (p.endsWith("/settlement-recipient")) {
       if (route.request().method() === "POST") {
         saves++;
@@ -206,8 +256,9 @@ test("missing recipient prevents new UI application and configuration conflict n
       return route.fulfill(
         ok(
           configured
-            ? recipient("44")
+            ? { ...recipient("44"), can_write: true }
             : {
+                can_write: true,
                 state: "missing",
                 config_id: "0",
                 type: "",
@@ -265,23 +316,31 @@ test("original settlement settings menu uses encrypted version API and never wri
           csrf_token: "csrf",
         }),
       );
+    if (p.endsWith("/settlement-recipient/allowed-types"))
+      return route.fulfill(
+        ok({ settlement: ["alipay", "wxpay", "bank"], can_write: true }),
+      );
     if (p.endsWith("/settlement-recipient")) {
       if (route.request().method() === "POST") {
         saves++;
         expect(route.request().postDataJSON().expected_config_id).toBe("42");
         return route.fulfill(ok(recipient("43")));
       }
-      return route.fulfill(ok(recipient("42")));
+      return route.fulfill(ok({ ...recipient("42"), can_write: true }));
     }
-    return route.fulfill(ok({ items: [], total: 0 }));
+    return route.fulfill(
+      ok(accountSettingsReadFixture(p, "1") ?? { items: [], total: 0 }),
+    );
   });
   await page.goto("/merchant/settle/settings");
   await expect(page.getByTestId("settlement-recipient-current")).toContainText(
     "***1234",
   );
   await page.getByRole("button", { name: "修改收款资料", exact: true }).click();
-  await expect(page.getByLabel("收款账号")).toHaveValue("");
-  await page.getByLabel("收款账号").fill("new-local-recipient");
+  await expect(page.getByLabel("收款账号", { exact: true })).toHaveValue("");
+  await page
+    .getByLabel("收款账号", { exact: true })
+    .fill("new-local-recipient");
   await page.getByLabel("真实姓名").fill("Local Name");
   await page.getByRole("button", { name: "保存收款版本" }).click();
   await expect(page.getByTestId("settlement-recipient-current")).toContainText(

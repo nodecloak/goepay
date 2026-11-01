@@ -78,6 +78,9 @@ func body(w http.ResponseWriter, r *http.Request) (map[string]json.RawMessage, b
 // Serve runs only after the application's authentication, account-enabled, and
 // CSRF middleware have validated Principal. parts begin with the resource ID.
 func (s *Service) Serve(w http.ResponseWriter, r *http.Request, p Principal, parts []string) {
+	if s.ServePayRollEditor(w, r, p, parts) {
+		return
+	}
 	if s.serveGroupRoutingCatalog(w, r, p, parts) {
 		return
 	}

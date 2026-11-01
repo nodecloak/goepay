@@ -312,10 +312,13 @@ test("refund201 subscription and existing message push keep their independent pa
   await expect(f.panel.getByRole("status")).toContainText("订阅设置已保存");
   expect(f.writes.map((write) => write.path)).toEqual([endpoint]);
   await page.goto("/merchant/account/settings");
+  await page
+    .getByRole("navigation", { name: "消息与打印设置", exact: true })
+    .getByRole("link", { name: "消息提醒设置", exact: true })
+    .click();
   const notice = page.locator(".notice-settings");
-  await expect(
-    notice.getByRole("heading", { name: "消息推送", exact: true }),
-  ).toBeVisible();
+  await expect(notice).toBeVisible();
+  await expect(notice).toHaveAttribute("aria-label", "消息提醒设置");
   await expect(
     notice.getByLabel("订单支付成功 关闭提醒", { exact: true }),
   ).toBeChecked();

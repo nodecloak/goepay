@@ -325,6 +325,22 @@ func verifySettlementPlanGlobalPolicy(ctx context.Context, q referralReader, sco
 	if policy != scope.Policy || mode != scope.SettleType {
 		return ErrConflict
 	}
+	for _, merchant := range scope.Merchants {
+		cycle, err := readMerchantSettlementCycle(ctx, q, merchant.MerchantID, false)
+		if err != nil {
+			return err
+		}
+		expected := 0
+		if scope.SettleType == "1" {
+			expected = 1
+		}
+		if merchant.SettleType != nil {
+			expected = *merchant.SettleType
+		}
+		if cycle.Mode != expected || cycle.Override != (merchant.SettleType != nil) {
+			return ErrConflict
+		}
+	}
 	return nil
 }
 

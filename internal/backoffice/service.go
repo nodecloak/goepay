@@ -56,6 +56,9 @@ type Page struct {
 	Page, Limit int
 }
 type Service struct {
+	// The HTTP host supplies the current persistent destination-write grant.
+	// This does not authorize a settlement application, transfer or payout.
+	SettlementRecipientWriteAllowed func(Principal) bool
 	// Supplied by the host from its actual configured providers, never the
 	// unrelated editable channel directory or a request-supplied identity.
 	GroupChannelAllowed   func(int64, string) bool
@@ -181,7 +184,7 @@ func validate(p Principal, d definition, raw map[string]json.RawMessage, current
 			if !ok || f.MaxLength > 0 && len(s) > f.MaxLength {
 				return nil, ErrInvalid
 			}
-			if f.Type != "password" {
+			if f.Type != "password" && !f.PreserveWhitespace {
 				s = strings.TrimSpace(s)
 			}
 			if f.Type == "select" {
@@ -229,7 +232,31 @@ func validateSpecific(resource string, v map[string]any) error {
 	case "announcements":
 		return validateAnnouncement(v)
 	case "groups":
+		if err := validateGroupFeatureSettings(v); err != nil {
+			return err
+		}
+		if err := validateGroupDepositSettings(v); err != nil {
+			return err
+		}
+		if err := validateGroupSettlementTypes(v); err != nil {
+			return err
+		}
+		if err := validateGroupTransferSettings(v); err != nil {
+			return err
+		}
+		if err := validateGroupPaymentSettings(v); err != nil {
+			return err
+		}
+		if err := validateGroupCombineSettings(v); err != nil {
+			return err
+		}
 		if err := validateGroupPaymentRates(v); err != nil {
+			return err
+		}
+		if err := validateGroupSettlementMinimum(v); err != nil {
+			return err
+		}
+		if err := validateGroupSettlementCycle(v); err != nil {
 			return err
 		}
 		if err := validateOriginalPaymentLimits(v); err != nil {
@@ -424,7 +451,7 @@ func owner(p Principal, d definition, v map[string]any) (int64, error) {
 func audit(ctx context.Context, tx pgx.Tx, p Principal, r string, id int64, operation string, changes map[string]any) error {
 	safe := map[string]any{}
 	for k, v := range changes {
-		if !strings.Contains(strings.ToLower(k), "password") && k != "api_key" && k != "rsa_public_key" && k != "account_reference" && k != "account_name" && k != "contact_phone" {
+		if !strings.Contains(strings.ToLower(k), "password") && k != "api_key" && k != "rsa_public_key" && k != "account_reference" && k != "account_name" && k != "contact_phone" && k != "settlement_account" && k != "settlement_name" && k != "settlement_app_id" {
 			safe[k] = v
 		} else {
 			safe[k] = "[changed]"
@@ -440,6 +467,9 @@ func audit(ctx context.Context, tx pgx.Tx, p Principal, r string, id int64, oper
 func (s *Service) Create(ctx context.Context, p Principal, r string, in map[string]json.RawMessage) (Item, error) {
 	d, e := definitionFor(p, r, true)
 	if e != nil {
+		return Item{}, e
+	}
+	if e = s.checkGroupResourceFeature(ctx, p, r); e != nil {
 		return Item{}, e
 	}
 	// pay_domain_open (default ON) gates a merchant ADDING a 授权域名. A missing
@@ -682,6 +712,9 @@ func (s *Service) update(ctx context.Context, p Principal, r string, id int64, i
 	if e != nil {
 		return Item{}, e
 	}
+	if e = s.checkGroupResourceFeature(ctx, p, r); e != nil {
+		return Item{}, e
+	}
 	if r == "merchants" {
 		return s.updateMerchant(ctx, p, d, id, in)
 	}
@@ -748,6 +781,16 @@ func (s *Service) update(ctx context.Context, p Principal, r string, id int64, i
 	currentFields, e := decodeResourceFields(r, raw)
 	if e != nil {
 		return Item{}, e
+	}
+	if r == "pay-rolls" {
+		if roll, err := ParsePayRoll(currentFields); err == nil && !roll.Enabled && !roll.DefaultRoute && len(roll.Channels) == 0 {
+			d.fields = append([]Field(nil), d.fields...)
+			for i := range d.fields {
+				if d.fields[i].Name == "channel_ids" {
+					d.fields[i].Required = false
+				}
+			}
+		}
 	}
 	v, e := validate(p, d, in, currentFields, false)
 	if e != nil {

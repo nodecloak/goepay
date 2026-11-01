@@ -12,9 +12,10 @@ test("merchant recipient form focuses specific invalid fields and offers configu
     const data = p.endsWith("/session")
       ? { user: { id: "1000", role: "merchant" }, csrf_token: "fields212" }
       : p.endsWith("/allowed-types")
-        ? { settlement: ["alipay", "wxpay", "bank"] }
+        ? { settlement: ["alipay", "wxpay", "bank"], can_write: true }
         : p.endsWith("/settlement-recipient")
           ? {
+              ...(req.method() === "GET" ? { can_write: true } : {}),
               state: "missing",
               config_id: "0",
               type: "",

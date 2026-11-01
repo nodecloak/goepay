@@ -19,6 +19,24 @@ func adminUser(class string, perms []string) identity.User {
 	return u
 }
 
+func TestWeixinApplicationsUsesDedicatedMenuGrant(t *testing.T) {
+	for _, sub := range []string{"", "capabilities", "requests", "7"} {
+		parts := []string{"admin", "weixin-applications"}
+		if sub != "" {
+			parts = append(parts, sub)
+		}
+		if routeMenuKey(parts) != "PayWeixin" {
+			t.Fatalf("application route is not bound to its own menu grant: %v", parts)
+		}
+		if !adminRequestAllowed(adminUser("operator", []string{"PayWeixin"}), parts) {
+			t.Fatal("application reader cannot enter its granted node")
+		}
+		if adminRequestAllowed(adminUser("operator", []string{"PayChannel", "UserList"}), parts) {
+			t.Fatal("unrelated menu grants allow application access")
+		}
+	}
+}
+
 func TestChannelSharingHTTPEnforcesPageGrantBeforeFinancialOperation(t *testing.T) {
 	s := &Server{} // An authorized request stops at the unavailable local store.
 	for _, tc := range []struct {

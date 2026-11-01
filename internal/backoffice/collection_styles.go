@@ -25,6 +25,15 @@ func (s *Service) CollectionStyles(ctx context.Context, p Principal) ([]Collecti
 	if p.SubjectID < 1 || (p.Role != "admin" && p.Role != "merchant") {
 		return nil, ErrForbidden
 	}
+	if p.Role == "merchant" {
+		on, err := s.MerchantFeatureVisibleForMerchant(ctx, p.SubjectID, "onecode")
+		if err != nil {
+			return nil, err
+		}
+		if !on {
+			return nil, FeatureClosed("未开启聚合收款码功能")
+		}
+	}
 	rows, e := s.pool.Query(ctx, `SELECT id,body FROM backoffice_records WHERE resource='collection-styles' AND ($1::text='admin' OR body->>'enabled'='true') ORDER BY COALESCE(CASE WHEN body->>'sort'~'^[0-9]{1,7}$' THEN (body->>'sort')::integer END,0),id`, p.Role)
 	if e != nil {
 		return nil, e

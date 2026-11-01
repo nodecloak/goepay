@@ -130,6 +130,10 @@ func (g ProviderFlow) claimBatchItem(ctx context.Context, mid, batchID int64, it
 	if state != "unsent" {
 		return t, false, nil
 	}
+	feature, e := requireBatchGroupFeature(ctx, tx, mid, actor)
+	if e != nil {
+		return t, false, e
+	}
 	if e = g.Store.checkTransferAccount(ctx, tx, t.ID, g.Providers[t.ChannelID]); e != nil {
 		return t, false, e
 	}
@@ -147,6 +151,9 @@ func (g ProviderFlow) claimBatchItem(ctx context.Context, mid, batchID int64, it
 	if e = execution.claim(ctx, tx, mid, batchID, t.ID, actor); e != nil {
 		return t, false, e
 	}
+	if e = feature.recheck(ctx, tx); e != nil {
+		return t, false, e
+	}
 	if _, e = tx.Exec(ctx, "UPDATE transfer_batch_items SET state='claimed',claimed_at=clock_timestamp() WHERE transfer_id=$1 AND state='unsent'", t.ID); e != nil {
 		return t, false, e
 	}
@@ -157,6 +164,9 @@ func (g ProviderFlow) claimBatchItem(ctx context.Context, mid, batchID int64, it
 		return t, false, e
 	}
 	if e = g.checkParentTransferWriteTx(ctx, tx, t); e != nil {
+		return t, false, e
+	}
+	if e = feature.recheck(ctx, tx); e != nil {
 		return t, false, e
 	}
 	if e = tx.Commit(ctx); e != nil {

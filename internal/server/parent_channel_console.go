@@ -119,6 +119,12 @@ func (s *Server) paymentParentChannels(w http.ResponseWriter, r *http.Request, r
 			return true
 		}
 	}
+	// A broken current app catalog does not hide recorded parent metadata or
+	// prevent the operator from disabling a channel. Binding selectors remain
+	// strict, while this read can describe its sealed account as non-current.
+	if resolved, err := s.managedWeixinRuntime(r.Context()); err == nil {
+		s = resolved
+	}
 	ids := make([]int64, 0, len(s.ProviderFlow.Providers))
 	for id, p := range s.ProviderFlow.Providers {
 		if id > 0 && p != nil && (p.ID() == "wxpay" || p.ID() == "alipay") {
@@ -255,6 +261,12 @@ func (s *Server) parentChannelTemplates(w http.ResponseWriter, r *http.Request, 
 		response(w, 400, -1, "invalid runtime template request", nil)
 		return
 	}
+	resolved, resolveErr := s.managedWeixinRuntime(r.Context())
+	if resolveErr != nil {
+		parentChannelError(w, resolveErr)
+		return
+	}
+	s = resolved
 	tx, e := s.Pool.Begin(r.Context())
 	if e != nil {
 		s.fail(w, e)

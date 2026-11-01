@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"goepay/internal/identity"
+	"goepay/internal/payment"
 )
 
 // B13 #9 + B15 #24: admin can configure user_deposit / user_deposit_min /
@@ -26,6 +28,15 @@ func TestMerchantDepositSettingsInfoAndWithdrawGate(t *testing.T) {
 		t.Fatal(e)
 	}
 
+	// Fund a real synthetic ledger before enabling the payment deposit minimum.
+	// History checks below must retain a genuine hold, not an empty fixture.
+	paid, e := s.Store.CreateOrder(ctx, payment.CreateOrderInput{MerchantID: 1, OutTradeNo: "deposit-history-income", Amount: 30000})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = s.Store.MarkPaid(ctx, paid.TradeNo, "deposit-history-paid"); e != nil {
+		t.Fatal(e)
+	}
 	// --- B13 #9: admin saves the three keys through the generic settings resource.
 	for _, kv := range [][2]string{{"user_deposit", "1"}, {"user_deposit_min", "100.00"}, {"user_deposit_day", "7"}} {
 		body := fmt.Sprintf(`{"key":"%s","value":"%s"}`, kv[0], kv[1])
@@ -63,27 +74,52 @@ func TestMerchantDepositSettingsInfoAndWithdrawGate(t *testing.T) {
 	// First fund the deposit so a release has something to draw on.
 	hold := `{"action":"hold","amount":"200.00","external_no":"dep-hold-1"}`
 	if w = lookupHTTP(t, s.Handler(), "POST", "/console/v1/merchant/workflows/deposits", hold, merchant, "merchant", mcsrf); w.Code != 201 {
-		// A merchant with no available balance cannot hold; tolerate a state
-		// refusal but then the release path below is still exercised for the gate.
-		if w.Code != 409 && w.Code != 422 {
-			t.Fatalf("deposit hold: %d %s", w.Code, w.Body.String())
-		}
+		t.Fatalf("funded deposit hold: %d %s", w.Code, w.Body.String())
 	}
+	heldID := lookupData(t, w)["id"]
 	release := `{"action":"release","amount":"10.00","external_no":"dep-release-blocked"}`
 	w = lookupHTTP(t, s.Handler(), "POST", "/console/v1/merchant/workflows/deposits", release, merchant, "merchant", mcsrf)
 	if w.Code == 201 {
 		t.Fatalf("withdrawal allowed despite a recent order within deposit_day window: %s", w.Body.String())
 	}
 
-	// --- B15 #24 feature gate: turning user_deposit off makes the page unavailable.
+	// Closing new deposits must retain genuine balances and existing actions.
 	if _, e = pool.Exec(ctx, `UPDATE backoffice_records SET body=jsonb_set(body,'{value}','"0"') WHERE resource='settings' AND body->>'key'='user_deposit'`); e != nil {
 		t.Fatal(e)
 	}
-	if w = lookupHTTP(t, s.Handler(), "GET", "/console/v1/merchant/workflows/deposits", "", merchant, "merchant", mcsrf); w.Code != 403 {
-		t.Fatalf("deposit feature off did not gate the merchant page: %d %s", w.Code, w.Body.String())
+	if w = lookupHTTP(t, s.Handler(), "GET", "/console/v1/merchant/workflows/deposits", "", merchant, "merchant", mcsrf); w.Code != 200 {
+		t.Fatalf("deposit feature off erased history: %d %s", w.Code, w.Body.String())
 	}
-	if w = lookupHTTP(t, s.Handler(), "POST", "/console/v1/merchant/workflows/deposits", hold, merchant, "merchant", mcsrf); w.Code != 403 {
+	data = lookupData(t, w)
+	items, ok := data["items"].([]any)
+	if data["deposit_enabled"] != false || data["deposit_money"] != "200.00" || data["pending_release_money"] != "0.00" || !ok || len(items) != 1 || items[0].(map[string]any)["id"] != heldID {
+		t.Fatal("disabled deposit lost its actual balance/history", data)
+	}
+	var before, after [3]int64
+	count := func(out *[3]int64) {
+		t.Helper()
+		if e := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM deposit_actions),(SELECT count(*) FROM deposit_action_events),(SELECT count(*) FROM journals)`).Scan(&out[0], &out[1], &out[2]); e != nil {
+			t.Fatal(e)
+		}
+	}
+	count(&before)
+	if w = lookupHTTP(t, s.Handler(), "POST", "/console/v1/merchant/workflows/deposits", hold, merchant, "merchant", mcsrf); w.Code != 201 || lookupData(t, w)["id"] != heldID {
+		t.Fatal("closed feature invalidated an original deposit replay", w.Code, w.Body.String())
+	}
+	newHold := strings.Replace(hold, "dep-hold-1", "dep-hold-after-disable", 1)
+	if w = lookupHTTP(t, s.Handler(), "POST", "/console/v1/merchant/workflows/deposits", newHold, merchant, "merchant", mcsrf); w.Code != 403 {
 		t.Fatalf("deposit feature off did not gate the merchant endpoint: %d", w.Code)
+	}
+	newRelease := strings.Replace(release, "dep-release-blocked", "dep-release-after-disable", 1)
+	if w = lookupHTTP(t, s.Handler(), "POST", "/console/v1/merchant/workflows/deposits", newRelease, merchant, "merchant", mcsrf); w.Code != 403 {
+		t.Fatalf("closed deposit admitted a new release: %d", w.Code)
+	}
+	count(&after)
+	if before != after {
+		t.Fatal("history/replay/refused new deposits created financial effects", before, after)
+	}
+	if held, pending, err := s.Store.DepositBalance(ctx, 1); err != nil || held != 20000 || pending != 0 {
+		t.Fatal("closed deposit history/replay changed real funds", held, pending, err)
 	}
 	// Admin review listing stays available regardless of the merchant toggle.
 	if w = lookupHTTP(t, s.Handler(), "GET", "/console/v1/admin/workflows/deposits", "", admin, "admin", acsrf); w.Code != 200 {

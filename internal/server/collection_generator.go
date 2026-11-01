@@ -56,6 +56,17 @@ func (s *Server) collectionGeneratorConsole(w http.ResponseWriter, r *http.Reque
 		response(w, 403, -1, "own merchant session required", nil)
 		return true
 	}
+	if s.Pool != nil && s.Store != nil {
+		on, err := backoffice.New(s.Pool, s.Store).MerchantFeatureVisibleForMerchant(r.Context(), session.User.ID, "onecode")
+		if err != nil {
+			response(w, 503, -1, "merchant feature unavailable", nil)
+			return true
+		}
+		if !on {
+			response(w, 403, -1, "未开启聚合收款码功能", nil)
+			return true
+		}
+	}
 	if len(parts) != 2 || r.URL.RawQuery != "" {
 		response(w, 400, -1, "invalid generator path or query", nil)
 		return true

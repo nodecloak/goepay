@@ -786,6 +786,16 @@ func (s *Server) ResolveFundsAction(ctx context.Context, q identity.FundsQuerier
 	}
 	// Policies contain no balances/day counters: those may legitimately change
 	// while the already-confirmed operation is waiting for its account lock.
+	if d.category == "transfer" || d.category == "batch-prepare" {
+		fee, err := s.Store.MerchantTransferFeeSnapshot(ctx, q, mid)
+		if err != nil {
+			return identity.FundsAction{}, nil, err
+		}
+		// Inherited fees retain the original signed snapshot shape.
+		if fee.GroupOverride {
+			snapshot["transfer_fee_policy"] = fee
+		}
+	}
 	policies, err := fundsRelevantPolicies(ctx, q, mids)
 	if err != nil {
 		return identity.FundsAction{}, nil, err

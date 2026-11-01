@@ -352,12 +352,18 @@ func (g ProviderFlow) beginRuntimeParentTransfer(ctx context.Context, mid, chann
 		}
 		return Transfer{}, false, e
 	}
-	t, owner, e := g.Store.beginTransferTx(ctx, tx, mid, channel, no, r, validate, product, scope, api)
+	var selectedFee *merchantTransferFeeSelection
+	t, owner, e := g.Store.beginTransferTxWithFeeSelection(ctx, tx, mid, channel, no, r, validate, product, scope, &selectedFee, api)
 	if e != nil {
 		return t, false, e
 	}
 	if owner {
 		if e = g.Store.sealParentTransferSource(ctx, tx, t, b, g.Providers[channel]); e != nil {
+			return t, false, e
+		}
+	}
+	if selectedFee != nil {
+		if e = selectedFee.checkDeadline(ctx, tx); e != nil {
 			return t, false, e
 		}
 	}

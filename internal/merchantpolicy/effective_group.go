@@ -24,6 +24,17 @@ type EffectiveGroup struct {
 // transaction and lock=true; read-only quotes use a coherent read transaction.
 // The default group is the real reserved row 0, separate from channel zero.
 func ReadEffectiveGroup(ctx context.Context, q Reader, mid int64, lock bool) (EffectiveGroup, error) {
+	return readEffectiveGroup(ctx, q, mid, lock, true)
+}
+
+// Initial administrator setup and read-only capability projections may describe
+// an inactive merchant. This is not a money authorization: new reservations use
+// ReadEffectiveGroup. Group validity and membership expiry stay unchanged.
+func ReadEffectiveGroupForSetup(ctx context.Context, q Reader, mid int64, lock bool) (EffectiveGroup, error) {
+	return readEffectiveGroup(ctx, q, mid, lock, false)
+}
+
+func readEffectiveGroup(ctx context.Context, q Reader, mid int64, lock, requireEnabled bool) (EffectiveGroup, error) {
 	var out EffectiveGroup
 	if q == nil || mid <= 0 {
 		return out, ErrGroupPolicy
@@ -37,7 +48,7 @@ func ReadEffectiveGroup(ctx context.Context, q Reader, mid int64, lock bool) (Ef
 	if e := q.QueryRow(ctx, `SELECT base_group_id,enabled,group_baseline_unresolved FROM merchants WHERE id=$1`+suffix, mid).Scan(&base, &enabled, &unresolved); e != nil {
 		return out, e
 	}
-	if !enabled || unresolved || base < 0 {
+	if requireEnabled && !enabled {
 		return out, ErrGroupPolicy
 	}
 	var expires time.Time
@@ -76,6 +87,11 @@ func ReadEffectiveGroup(ctx context.Context, q Reader, mid int64, lock bool) (Ef
 	if member > 0 && at.Before(expires) {
 		out.ID = member
 		out.ValidUntil = expires
+	} else if unresolved || base < 0 {
+		// A paid membership is independent of the administrator baseline.
+		// Only falling back requires a resolved baseline; an expired purchase
+		// must not turn an ambiguous legacy assignment into group zero.
+		return EffectiveGroup{}, ErrGroupPolicy
 	}
 	body, exists := bodies[out.ID]
 	if !exists {

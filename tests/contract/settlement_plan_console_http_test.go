@@ -103,8 +103,11 @@ func TestSettlementPlanConsoleMandatoryGrantEvenWhenGlobalOff(t *testing.T) {
 		t.Fatal("mandatory plan challenge", code)
 	}
 	summary := challenge["data"].(map[string]any)["summary"].(map[string]any)
-	if summary["merchant_ids"] != "1" || summary["retained_money"] != "0.00" || summary["maturity"] != "T+0" || !strings.Contains(fmt.Sprint(summary["recipients"]), "alipay") || strings.Contains(fmt.Sprint(summary), "local-plan-payee@example.test") {
+	if summary["merchant_ids"] != "1" || summary["retained_money"] != "0.00" || summary["maturity"] != "D+0" || !strings.Contains(fmt.Sprint(summary["recipients"]), "alipay") || strings.Contains(fmt.Sprint(summary), "local-plan-payee@example.test") {
 		t.Fatal("authorization lacks concrete masked scope and financial policy", summary)
+	}
+	if summary["group_maturity_rules"] != "商户1：D+0" || summary["group_fee_rules"] != "商户1：0.00%" || summary["fee_rate_bps"] != "0" || summary["group_minimum_rules"] != "商户1："+fmt.Sprint(summary["minimum_money"])+"元" || !strings.Contains(fmt.Sprint(summary["fee_scope"]), "逐商户") {
+		t.Fatal("authorization summary lost its per-merchant effective financial scope", summary)
 	}
 	confirm, _ := json.Marshal(map[string]any{"challenge_id": challenge["data"].(map[string]any)["challenge_id"], "payment_password": "local-plan-funds-password-456"})
 	code, grant := call("POST", "/security/funds-authorizations/confirm", "admin", string(confirm), "")

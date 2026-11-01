@@ -56,16 +56,33 @@ const definitions = [
   {
     name: "settlement",
     label: "结算配置",
-    keys: ["settle_open", "settle_rate"],
+    keys: [
+      "settle_open",
+      "settle_type",
+      "settle_minmoney",
+      "settle_rate",
+      "settle_alipay",
+      "settle_wxpay",
+      "settle_bank",
+    ],
   },
   {
     name: "membership",
     label: "会员配置",
     keys: ["price_cents", "duration_days"],
   },
-  { name: "transfer", label: "代付配置", keys: ["user_transfer"] },
+  {
+    name: "transfer",
+    label: "代付配置",
+    keys: ["user_transfer", "user_transfer_red", "transfer_rate"],
+  },
 ];
 const known = new Set(definitions.flatMap((group) => group.keys));
+const fieldLabels: Record<string, string> = {
+  name: "显示名称",
+  settle_open: "结算开关",
+  settle_rate: "结算手续费（%）",
+};
 const typeRates = computed(() => {
   try {
     return readGroupPaymentRates(props.values.info);
@@ -77,6 +94,13 @@ const routeOptions = ref<GroupRouteOption[]>([]),
   routesLoading = ref(false),
   routesError = ref(""),
   routesReady = ref(false);
+const visiblePaymentTypes = computed(() => {
+  const kinds = new Set(routeOptions.value.map((option) => option.type));
+  for (const kind of Object.keys(typeRates.value || {})) kinds.add(kind);
+  return groupPaymentTypes.filter(
+    (kind) => kind.key !== "sandbox" && kinds.has(kind.key),
+  );
+});
 let routesController: AbortController | undefined,
   active = true;
 async function loadRoutes() {
@@ -168,7 +192,9 @@ const sections = computed(() =>
   [
     ...definitions.map((group) => ({
       ...group,
-      fields: props.fields.filter((field) => group.keys.includes(field.name)),
+      fields: group.keys.flatMap((name) =>
+        props.fields.filter((field) => field.name === name),
+      ),
     })),
     {
       name: "other",
@@ -181,8 +207,8 @@ const sections = computed(() =>
       fields: group.fields
         .filter((field) => !readonly(field, props.editing))
         .map((field) =>
-          field.name === "name"
-            ? { ...field, label: "显示名称" }
+          fieldLabels[field.name]
+            ? { ...field, label: fieldLabels[field.name]! }
             : field.name === "user_transfer"
               ? {
                   ...field,
@@ -406,12 +432,10 @@ onBeforeUnmount(() => {
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="kind in groupPaymentTypes" :key="kind.key">
+                      <tr v-for="kind in visiblePaymentTypes" :key="kind.key">
                         <th scope="row">{{ kind.label }}</th>
                         <td>
-                          <span v-if="kind.key === 'sandbox'">本地默认通道</span
-                          ><select
-                            v-else
+                          <select
                             class="group-routing-select"
                             :aria-label="kind.label + '通道'"
                             :aria-invalid="!!errors.info"

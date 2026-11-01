@@ -289,7 +289,7 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	policy := backoffice.New(s.Pool, s.Store)
 	for _, ip := range []string{originalIP, actualIP} {
-		if e = policy.CheckPayment(r.Context(), backoffice.PaymentContext{MerchantID: b.MerchantID, ClientIP: ip, Buyer: identity.SubjectID, NotifyURL: order.NotifyURL, ReturnURL: order.ReturnURL}); e != nil {
+		if e = policy.CheckPayment(r.Context(), backoffice.PaymentContext{MerchantID: b.MerchantID, ClientIP: ip, Buyer: identity.SubjectID, NotifyURL: order.NotifyURL, ReturnURL: order.ReturnURL, OrderIntent: paymentPolicyOriginalIntent(order)}); e != nil {
 			reject(403)
 			return
 		}

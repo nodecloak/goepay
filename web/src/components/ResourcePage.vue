@@ -7,7 +7,7 @@ import {
   onBeforeUnmount,
   nextTick,
 } from "vue";
-import { ApiClient, displayValue } from "../api";
+import { ApiClient, ApiError, displayValue } from "../api";
 import { isOrderNumberKey } from "../order-number";
 import { beijingTimestamp } from "../console-datetime";
 import { effectiveRiskDescription } from "../core-risk-status";
@@ -49,6 +49,7 @@ import KitStatusTag from "./KitStatusTag.vue";
 import KitHelpPopover from "./KitHelpPopover.vue";
 import KitModal from "./KitModal.vue";
 import MerchantEditorFields from "./MerchantEditorFields.vue";
+import MerchantCreateFields from "./MerchantCreateFields.vue";
 import GroupEditorFields from "./GroupEditorFields.vue";
 import InternalSharingRuleFields from "./InternalSharingRuleFields.vue";
 import CoreRiskGroupPanel from "./CoreRiskGroupPanel.vue";
@@ -78,6 +79,10 @@ import ChannelStopPanel from "./ChannelStopPanel.vue";
 import RuntimeChannelPolicyPanel from "./RuntimeChannelPolicyPanel.vue";
 import ParentChannelPage from "./ParentChannelPage.vue";
 import PayTypePage from "./PayTypePage.vue";
+import PayRollCreateForm from "./PayRollCreateForm.vue";
+import PayRollChannelEditor from "./PayRollChannelEditor.vue";
+import { readPayRollRecord } from "../pay-roll";
+import WeixinAppsPage from "./WeixinAppsPage.vue";
 import MerchantDelegationPanel from "./MerchantDelegationPanel.vue";
 import BusinessNoticeEvents from "./BusinessNoticeEvents.vue";
 import BlacklistAddDialog from "./BlacklistAddDialog.vue";
@@ -258,9 +263,7 @@ const showListFilter = computed(
     !!schema.value?.filters?.length ||
     !noListFilterResources.has(props.resource),
 );
-// A per-resource PRIMARY row action that opens the existing editor (same save
-// path, no new endpoint). pay-rolls: 配置通道 opens the poll-group editor where
-// its channels are set; its generic 详情 is then redundant and hidden.
+// Poll-group channel configuration is separate from its advanced editor.
 const rowPrimaryActions: Record<string, string> = {
   "pay-rolls": "配置通道",
 };
@@ -620,19 +623,23 @@ function clearMerchantFilters() {
   page.value = 1;
   void load();
 }
-const mode = ref<"create" | "edit" | "detail" | "delete" | null>(null),
+const mode = ref<"create" | "edit" | "detail" | "delete" | "channels" | null>(
+    null,
+  ),
   selected = ref<Record<string, unknown>>({}),
   values = ref<Record<string, unknown>>({}),
   fieldErrors = ref<Record<string, string>>({});
 const groupRiskBusy = ref(false);
 const groupDefendBusy = ref(false);
+const payRollBusy = ref(false);
 const credentialsBusy = ref(false),
   editingBusy = computed(
     () =>
       busy.value ||
       credentialsBusy.value ||
       groupRiskBusy.value ||
-      groupDefendBusy.value,
+      groupDefendBusy.value ||
+      payRollBusy.value,
   );
 const canManageMerchantCredentials = computed(
   () =>
@@ -672,7 +679,44 @@ function discardLegacyAlgorithm(id: string, algorithm: "MD5" | "RSA") {
 let controller: AbortController | undefined,
   detailController: AbortController | undefined,
   contextEpoch = 0;
+const unknownMerchantCreation = ref<{ login: string } | null>(null);
+const merchantCreateSetupIssue = ref("");
+const resourcePanel = ref<HTMLElement>();
+let pendingFormFocus: HTMLElement | undefined;
+let pendingPayRollRowFocus: string | undefined;
+function restoreFormFocus() {
+  if (mode.value || loading.value || busy.value || payRollBusy.value) return;
+  if (resourcePanel.value?.querySelector(".loading-row")) return;
+  let target = pendingFormFocus?.isConnected ? pendingFormFocus : undefined;
+  if (!target && pendingPayRollRowFocus) {
+    target = Array.from(
+      resourcePanel.value?.querySelectorAll<HTMLElement>(
+        '[data-record-action="channels"]',
+      ) || [],
+    ).find((button) => button.dataset.recordId === pendingPayRollRowFocus);
+    if (
+      !target &&
+      items.value.some((row) => String(row.id) === pendingPayRollRowFocus)
+    )
+      return;
+    target ??=
+      resourcePanel.value?.querySelector<HTMLElement>(
+        "[data-resource-create]",
+      ) ||
+      resourcePanel.value?.querySelector<HTMLElement>(
+        "[data-resource-refresh]",
+      ) ||
+      undefined;
+  }
+  if (target?.matches(":disabled")) return;
+  target?.focus();
+  pendingFormFocus = undefined;
+  pendingPayRollRowFocus = undefined;
+}
 function resetContext() {
+  // Clear the existing object too: child components and pending callbacks may
+  // still hold it when a route/session replacement changes the resource prop.
+  for (const key of Object.keys(values.value)) delete values.value[key];
   contextEpoch++;
   controller?.abort();
   detailController?.abort();
@@ -687,6 +731,7 @@ function resetContext() {
   credentialsBusy.value = false;
   groupRiskBusy.value = false;
   groupDefendBusy.value = false;
+  payRollBusy.value = false;
   mode.value = null;
   selected.value = {};
   values.value = {};
@@ -704,8 +749,41 @@ function resetContext() {
   editMerchantRecipient.value = false;
   error.value = "";
   notice.value = "";
+  pendingFormFocus = undefined;
+  pendingPayRollRowFocus = undefined;
+  unknownMerchantCreation.value = null;
+  merchantCreateSetupIssue.value = "";
   applyMerchantQuery();
 }
+watch(
+  mode,
+  (next, previous) => {
+    if (
+      next === null &&
+      previous !== null &&
+      ["merchants", "pay-rolls"].includes(props.resource)
+    ) {
+      payRollBusy.value = false;
+      unknownMerchantCreation.value = null;
+      merchantCreateSetupIssue.value = "";
+      for (const key of Object.keys(values.value)) delete values.value[key];
+      values.value = {};
+      fieldErrors.value = {};
+      pendingFormFocus = groupReturnFocus.value;
+      pendingPayRollRowFocus =
+        props.resource === "pay-rolls" && previous === "channels"
+          ? String(selected.value.id)
+          : undefined;
+      void nextTick(restoreFormFocus);
+    }
+  },
+  { flush: "sync" },
+);
+// Successful creates/reconciliation reload the list while its opener is still
+// disabled. Restore only after both the read and write have released it.
+watch([loading, busy, payRollBusy], () => void nextTick(restoreFormFocus), {
+  flush: "post",
+});
 watch(
   () => [
     props.client,
@@ -856,6 +934,45 @@ const isGroupEditor = computed(
     props.resource === "groups" &&
     ["create", "edit"].includes(mode.value || ""),
 );
+const isMerchantCreationForm = computed(
+  () =>
+    props.resource === "merchants" &&
+    mode.value === "create" &&
+    schema.value?.fields.some((f) => f.name === "creation_mode"),
+);
+const isPayRollCustom = computed(
+  () =>
+    props.resource === "pay-rolls" &&
+    ["create", "channels"].includes(mode.value || ""),
+);
+const isPayRollDraftEditing = computed(() => {
+  if (props.resource !== "pay-rolls" || mode.value !== "edit") return false;
+  try {
+    const record = readPayRollRecord(selected.value);
+    return (
+      !record.enabled &&
+      record.default_route === false &&
+      record.channel_ids === ""
+    );
+  } catch {
+    return false;
+  }
+});
+const payRollTitle = computed(() =>
+  mode.value === "create" ? "新增轮询组" : "配置通道",
+);
+async function payRollSaved() {
+  if (!isPayRollCustom.value) return;
+  mode.value = null;
+  notice.value = "轮询组已保存，请核对当前配置。";
+  await load();
+}
+function payRollRecoveryRequired() {
+  if (!isPayRollCustom.value) return;
+  notice.value =
+    "轮询组创建结果尚未核实，请核对最新列表；当前表单不会再次创建。";
+  void load();
+}
 const groupEditorTitle = computed(() =>
   mode.value === "create"
     ? "新增用户组"
@@ -865,7 +982,13 @@ const groupEditorTitle = computed(() =>
 // right drawer so the actions stay pinned and the body scrolls. The delete
 // confirmation is a short centered dialog.
 const asDrawer = computed(
-  () => !props.entry && mode.value !== null && mode.value !== "delete",
+  () =>
+    !props.entry &&
+    mode.value !== null &&
+    mode.value !== "delete" &&
+    !isMerchantCreationForm.value &&
+    !isGroupEditor.value &&
+    !isPayRollCustom.value,
 );
 // Two-column forms (merchants) and the tabbed group editor need more width;
 // other resource forms are a single label column.
@@ -877,7 +1000,12 @@ const drawerWidth = computed(() =>
       : "560px",
 );
 function trapGroupFocus(event: KeyboardEvent) {
-  if (!isGroupEditor.value) return;
+  if (
+    !isGroupEditor.value &&
+    !isMerchantCreationForm.value &&
+    !isPayRollCustom.value
+  )
+    return;
   const root = event.currentTarget as HTMLElement;
   const nodes = Array.from(
     root.querySelectorAll<HTMLElement>(
@@ -947,20 +1075,42 @@ const formSchema = computed<ResourceSchema | null>(() =>
                   props.resource === "merchants" &&
                   mode.value === "create" &&
                   merchantCreateHidden.has(f.name)
+                ) &&
+                !(
+                  isMerchantCreationForm.value &&
+                  (values.value.creation_mode !== "api"
+                    ? [
+                        "id",
+                        "name",
+                        "login_username",
+                        "confirm_group_assignment",
+                      ].includes(f.name)
+                    : [
+                        "login_username",
+                        "login_password",
+                        "confirm_group_assignment",
+                      ].includes(f.name))
                 ),
             )
             .map((f) =>
-              mode.value === "edit" &&
-              ((props.resource === "merchants" &&
-                selected.value.login_username &&
-                f.name === "login_username") ||
-                (props.resource === "admin-users" && f.name === "username"))
-                ? { ...f, read_only: true }
-                : props.resource === "merchants" &&
-                    mode.value === "create" &&
-                    f.name === "fee_mode"
-                  ? { ...f, required: true }
-                  : f,
+              isMerchantCreationForm.value &&
+              values.value.creation_mode !== "api" &&
+              f.name === "login_password"
+                ? { ...f, required: true }
+                : isPayRollDraftEditing.value && f.name === "channel_ids"
+                  ? { ...f, required: false }
+                  : mode.value === "edit" &&
+                      ((props.resource === "merchants" &&
+                        selected.value.login_username &&
+                        f.name === "login_username") ||
+                        (props.resource === "admin-users" &&
+                          f.name === "username"))
+                    ? { ...f, read_only: true }
+                    : props.resource === "merchants" &&
+                        mode.value === "create" &&
+                        f.name === "fee_mode"
+                      ? { ...f, required: true }
+                      : f,
             ),
           props.resource === "settings" ? values.value.key : null,
         ),
@@ -988,6 +1138,7 @@ async function refreshCase() {
   }
 }
 async function load() {
+  if (props.resource === "weixin-apps" && props.client.area === "admin") return;
   if (
     props.resource === "channels" &&
     props.client.area === "admin" &&
@@ -1080,7 +1231,7 @@ async function load() {
   }
 }
 async function open(
-  action: "create" | "edit" | "detail" | "delete",
+  action: "create" | "edit" | "detail" | "delete" | "channels",
   row: Record<string, unknown> = {},
   section = "basic",
 ) {
@@ -1108,8 +1259,19 @@ async function open(
   mode.value = null;
   values.value = {};
   selected.value = row;
+  payRollBusy.value = false;
+  if (action === "channels") {
+    if (props.resource === "pay-rolls" && schema.value?.permissions.update)
+      mode.value = action;
+    return;
+  }
   if (action === "create") {
     values.value = formValues(schema.value!);
+    if (
+      props.resource === "merchants" &&
+      schema.value!.fields.some((f) => f.name === "creation_mode")
+    )
+      values.value.creation_mode = "account";
     if (
       props.resource === "groups" &&
       schema.value!.fields.some((field) => field.name === "info") &&
@@ -1140,10 +1302,18 @@ async function open(
   }
 }
 async function save() {
-  if (editingBusy.value) return;
+  if (
+    editingBusy.value ||
+    unknownMerchantCreation.value ||
+    isPayRollCustom.value
+  )
+    return;
   const current = contextEpoch;
   if (!schema.value) return;
-  if (props.resource === "merchants") {
+  if (
+    props.resource === "merchants" &&
+    !(isMerchantCreationForm.value && values.value.creation_mode === "account")
+  ) {
     const username = String(
       values.value.login_username || selected.value.login_username || "",
     );
@@ -1162,10 +1332,34 @@ async function save() {
     values.value,
     mode.value === "edit",
   );
+  if (
+    isMerchantCreationForm.value &&
+    values.value.creation_mode === "account"
+  ) {
+    if (
+      !String(values.value.phone || "").trim() &&
+      !String(values.value.email || "").trim()
+    )
+      fieldErrors.value.phone = "请填写手机号或邮箱";
+    if (
+      !String(values.value.phone || "").trim() &&
+      new TextEncoder().encode(String(values.value.email || "").trim()).length >
+        100
+    )
+      fieldErrors.value.email = "邮箱登录账号最多100字节";
+    const password = String(values.value.login_password || "");
+    if (
+      new TextEncoder().encode(password).length < 12 ||
+      new TextEncoder().encode(password).length > 1024
+    )
+      fieldErrors.value.login_password = "登录密码须为12至1024字节";
+  }
   if (props.resource === "groups") {
     const rateError = groupPaymentRatesError(values.value.info);
     if (rateError) fieldErrors.value.info = rateError;
   }
+  if (isMerchantCreationForm.value && merchantCreateSetupIssue.value)
+    fieldErrors.value.settlement_type = merchantCreateSetupIssue.value;
   if (props.resource === "merchants") {
     const key = String(values.value.api_key || "");
     if (
@@ -1208,7 +1402,69 @@ async function save() {
     mode.value = null;
     if (!props.entry) await load();
   } catch (e) {
-    if (current === contextEpoch) error.value = message(e);
+    if (current === contextEpoch) {
+      if (
+        isMerchantCreationForm.value &&
+        values.value.creation_mode === "account" &&
+        (!(e instanceof ApiError) || !e.responseDecoded || e.status >= 500)
+      ) {
+        unknownMerchantCreation.value = {
+          login: String(values.value.phone || values.value.email || "").trim(),
+        };
+        delete values.value.login_password;
+        delete values.value.settlement_account;
+        delete values.value.settlement_name;
+        error.value = "添加结果尚未确认，请核对商户账号；不会自动重复添加。";
+      } else error.value = message(e);
+    }
+  } finally {
+    if (current === contextEpoch) busy.value = false;
+  }
+}
+async function reconcileMerchantCreation() {
+  const pending = unknownMerchantCreation.value;
+  if (!pending || editingBusy.value) return;
+  const current = contextEpoch;
+  busy.value = true;
+  error.value = "";
+  try {
+    const q = new URLSearchParams({
+      column: "login_username",
+      q: pending.login,
+      page: "1",
+      limit: "100",
+    });
+    const result = await props.client.request<{
+      items: Record<string, unknown>[];
+    }>(endpoint.value + "?" + q);
+    if (current !== contextEpoch || unknownMerchantCreation.value !== pending)
+      return;
+    const matches = Array.isArray(result.items)
+      ? result.items.filter(
+          (row) =>
+            row.login_username === pending.login &&
+            /^[1-9]\d{0,18}$/.test(String(row.id)),
+        )
+      : [];
+    if (matches.length !== 1) {
+      error.value =
+        "尚未核对到唯一的商户账号，请稍后再次核对或关闭后在商户列表查询。不会重复添加。";
+      return;
+    }
+    const merchantID = String(matches[0]!.id);
+    merchantFilters.value = {
+      ...newMerchantDirectory(),
+      column: "login_username",
+    };
+    query.value = pending.login;
+    page.value = 1;
+    mode.value = null;
+    notice.value =
+      "已找到登录账号对应的商户 #" + merchantID + "，请核对商户资料。";
+    await load();
+  } catch {
+    if (current === contextEpoch)
+      error.value = "商户账号暂时无法核对，请稍后重新核对；不会重复添加。";
   } finally {
     if (current === contextEpoch) busy.value = false;
   }
@@ -1252,6 +1508,9 @@ onBeforeUnmount(resetContext);
       :allowed="ownSession === true && adminClass === 'super'"
     />
     <ChannelStopPanel :client="client" />
+  </template>
+  <template v-else-if="resource === 'weixin-apps' && client.area === 'admin'">
+    <WeixinAppsPage :client="client" />
   </template>
   <template v-else-if="resource === 'pay-types' && client.area === 'admin'">
     <PayTypePage :client="client" />
@@ -1377,6 +1636,7 @@ onBeforeUnmount(resetContext);
     </template>
     <section
       v-else-if="!entry || schema?.description || showBusinessNotices"
+      ref="resourcePanel"
       class="panel records"
     >
       <div v-if="!entry && (schema || !loading)" class="table-tools">
@@ -1397,6 +1657,7 @@ onBeforeUnmount(resetContext);
           "
           type="button"
           class="primary"
+          data-resource-create
           :disabled="busy"
           @click="openCreate"
         >
@@ -1454,7 +1715,12 @@ onBeforeUnmount(resetContext);
             :filename="`${resource}.csv`"
             :disabled="loading || busy"
           />
-          <button type="button" :disabled="loading || busy" @click="load">
+          <button
+            type="button"
+            data-resource-refresh
+            :disabled="loading || busy"
+            @click="load"
+          >
             <ShellIcon name="refresh" />刷新
           </button>
           <KitHelpPopover
@@ -1755,8 +2021,14 @@ onBeforeUnmount(resetContext);
                     v-if="rowPrimaryLabel"
                     type="button"
                     class="pa-btn pa-btn--primary"
-                    :disabled="busy"
-                    @click="open('edit', row)"
+                    :data-record-action="
+                      resource === 'pay-rolls' ? 'channels' : undefined
+                    "
+                    :data-record-id="String(row.id)"
+                    :disabled="busy || loading || !schema.permissions.update"
+                    @click="
+                      open(resource === 'pay-rolls' ? 'channels' : 'edit', row)
+                    "
                   >
                     {{ rowPrimaryLabel }}</button
                   ><button
@@ -1971,21 +2243,31 @@ onBeforeUnmount(resetContext);
           : 'modal panel resource-modal' +
             (asDrawer ? ' modal-drawer' : '') +
             (resource === 'merchants' ? ' merchant-edit-modal' : '') +
+            (isMerchantCreationForm ? ' merchant-create-modal' : '') +
+            (isPayRollCustom ? ' pay-roll-modal' : '') +
             (isGroupEditor ? ' group-edit-modal' : '')
       "
       :style="asDrawer ? { '--drawer-w': drawerWidth } : undefined"
       :role="entry ? undefined : 'dialog'"
       :aria-modal="entry ? undefined : true"
       :aria-label="
-        isGroupEditor
-          ? groupEditorTitle
-          : mode === 'create'
-            ? '新增' + schema.title
-            : mode === 'edit'
-              ? '编辑' + schema.title
-              : mode === 'delete'
-                ? '删除确认'
-                : schema.title + '详情'
+        isPayRollCustom
+          ? payRollTitle
+          : isMerchantCreationForm
+            ? '添加商户'
+            : resource === 'admin-users' && ['create', 'edit'].includes(mode)
+              ? mode === 'create'
+                ? '添加管理员'
+                : '编辑管理员'
+              : isGroupEditor
+                ? groupEditorTitle
+                : mode === 'create'
+                  ? '新增' + schema.title
+                  : mode === 'edit'
+                    ? '编辑' + schema.title
+                    : mode === 'delete'
+                      ? '删除确认'
+                      : schema.title + '详情'
       "
     >
       <div v-if="isGroupEditor" class="group-edit-header">
@@ -2001,15 +2283,24 @@ onBeforeUnmount(resetContext);
       </div>
       <div v-else-if="!entry" class="resource-modal-head">
         <h2>
-          {{
-            mode === "create"
-              ? "新增"
-              : mode === "edit"
-                ? "编辑"
-                : mode === "delete"
-                  ? "删除确认"
-                  : ""
-          }}{{ schema.title }}{{ mode === "detail" ? "详情" : "" }}
+          <template v-if="isPayRollCustom">{{ payRollTitle }}</template
+          ><template v-else-if="isMerchantCreationForm">添加商户</template
+          ><template
+            v-else-if="
+              resource === 'admin-users' && ['create', 'edit'].includes(mode)
+            "
+            >{{ mode === "create" ? "添加管理员" : "编辑管理员" }}</template
+          ><template v-else
+            >{{
+              mode === "create"
+                ? "新增"
+                : mode === "edit"
+                  ? "编辑"
+                  : mode === "delete"
+                    ? "删除确认"
+                    : ""
+            }}{{ schema.title }}{{ mode === "detail" ? "详情" : "" }}</template
+          >
         </h2>
         <button
           type="button"
@@ -2075,8 +2366,31 @@ onBeforeUnmount(resetContext);
           </button>
         </div></template
       >
+      <template v-else-if="isPayRollCustom">
+        <PayRollCreateForm
+          v-if="mode === 'create'"
+          :client="client"
+          :disabled="busy || loading"
+          @busy="payRollBusy = $event"
+          @saved="payRollSaved"
+          @recovery-required="payRollRecoveryRequired"
+        />
+        <PayRollChannelEditor
+          v-else
+          :client="client"
+          :roll-i-d="String(selected.id)"
+          :disabled="busy || loading"
+          @busy="payRollBusy = $event"
+          @saved="payRollSaved"
+        />
+        <div class="modal-actions">
+          <button type="button" :disabled="editingBusy" @click="mode = null">
+            关闭
+          </button>
+        </div>
+      </template>
       <form v-else @submit.prevent="save">
-        <template v-if="resource === 'merchants'"
+        <template v-if="resource === 'merchants' && !isMerchantCreationForm"
           ><p class="muted">
             后台登录账号和密码可同时留空，仅使用
             API。填写登录密码会设置或重置后台登录凭据；已有账号不支持改名。
@@ -2090,8 +2404,18 @@ onBeforeUnmount(resetContext);
         <p v-if="resource === 'admin-users' && mode === 'edit'" class="muted">
           管理员账号：{{ selected.username }}。账号创建后不可更名。
         </p>
+        <MerchantCreateFields
+          v-if="isMerchantCreationForm"
+          :client="client"
+          :fields="formSchema!.fields"
+          :values="values"
+          :errors="fieldErrors"
+          :disabled="editingBusy || !!unknownMerchantCreation"
+          @change="(name, value) => (values[name] = value)"
+          @settlement-validity="merchantCreateSetupIssue = $event"
+        />
         <MerchantEditorFields
-          v-if="resource === 'merchants'"
+          v-else-if="resource === 'merchants'"
           :key="mode + ':' + String(selected.id || 'new')"
           :client="client"
           :fields="formSchema!.fields"
@@ -2176,9 +2500,31 @@ onBeforeUnmount(resetContext);
             :disabled="editingBusy"
             @click="mode = null"
           >
-            取消</button
-          ><button class="primary" :disabled="editingBusy">
-            {{ credentialsBusy ? "正在处理…" : busy ? "正在保存…" : "保存" }}
+            {{ isMerchantCreationForm ? "关闭" : "取消" }}</button
+          ><button
+            v-if="unknownMerchantCreation"
+            type="button"
+            :disabled="editingBusy"
+            @click="reconcileMerchantCreation"
+          >
+            核对商户账号</button
+          ><button
+            class="primary"
+            :disabled="
+              editingBusy ||
+              !!unknownMerchantCreation ||
+              !!merchantCreateSetupIssue
+            "
+          >
+            {{
+              credentialsBusy
+                ? "正在处理…"
+                : busy
+                  ? "正在保存…"
+                  : isMerchantCreationForm
+                    ? "确定添加"
+                    : "保存"
+            }}
           </button>
         </div>
       </form>
@@ -2201,6 +2547,18 @@ onBeforeUnmount(resetContext);
   </div>
 </template>
 <style scoped>
+.modal.resource-modal.pay-roll-modal:not(.modal-drawer) {
+  width: min(860px, 100%);
+  max-height: 92dvh;
+  padding: 20px;
+  overflow: auto;
+}
+.modal.resource-modal.merchant-edit-modal.merchant-create-modal:not(
+    .modal-drawer
+  ) {
+  width: min(680px, 100%);
+  max-height: 92dvh;
+}
 .resource-record-id {
   white-space: nowrap;
 }

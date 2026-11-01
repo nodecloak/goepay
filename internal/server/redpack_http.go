@@ -70,10 +70,9 @@ func (s *Server) redpackView(r payment.Redpack) redpackView {
 	return redpackView{Redpack: r, Money: ledger.Format(r.Amount), ClaimURL: s.redpackClaimURL(r)}
 }
 
-func (s *Server) redpackSettingOpen(ctx context.Context) bool {
-	var v string
-	err := s.Pool.QueryRow(ctx, `SELECT COALESCE((SELECT body->>'value' FROM backoffice_records WHERE resource='settings' AND body->>'key'='user_transfer_red' LIMIT 1),'0')`).Scan(&v)
-	return err == nil && v == "1"
+func (s *Server) redpackSettingOpen(ctx context.Context, mid int64) bool {
+	on, err := s.Store.MerchantRedpackFeature(ctx, mid)
+	return err == nil && on
 }
 
 // redpackConsole: /console/v1/{admin|merchant}/redpacks[/{id}[/query]].
@@ -110,7 +109,7 @@ func (s *Server) redpackConsole(w http.ResponseWriter, r *http.Request, role str
 		for _, p := range list {
 			out = append(out, s.redpackView(p))
 		}
-		response(w, 200, 0, "", map[string]any{"items": out, "open": role == "admin" || s.redpackSettingOpen(r.Context())})
+		response(w, 200, 0, "", map[string]any{"items": out, "open": role == "admin" || s.redpackSettingOpen(r.Context(), mid)})
 		return true
 	case len(parts) == 2 && r.Method == http.MethodPost:
 		var in struct {
@@ -137,7 +136,7 @@ func (s *Server) redpackConsole(w http.ResponseWriter, r *http.Request, role str
 				response(w, 403, -1, "merchant ownership required", nil)
 				return true
 			}
-			if !s.redpackSettingOpen(r.Context()) {
+			if !s.redpackSettingOpen(r.Context(), mid) {
 				response(w, 403, -1, "未开启创建红包功能", nil)
 				return true
 			}

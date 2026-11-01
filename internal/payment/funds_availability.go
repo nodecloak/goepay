@@ -46,9 +46,12 @@ func (s *Store) readFundsAvailability(ctx context.Context, q fundsReader, mercha
 		}
 		return v, tx.Commit(ctx)
 	}
-	var mode string
+	cycle, e := readMerchantSettlementCycle(ctx, tx, merchantID, false)
+	if e != nil {
+		return v, e
+	}
 	var start time.Time
-	e := tx.QueryRow(ctx, `SELECT a.balance,COALESCE((SELECT COALESCE(body->>'value','') FROM backoffice_records WHERE resource='settings' AND body->>'key'='settle_type'),'0'),((COALESCE($2::timestamptz,statement_timestamp()) AT TIME ZONE 'Asia/Shanghai')::date::timestamp AT TIME ZONE 'Asia/Shanghai') FROM accounts a WHERE a.owner_id=$1 AND a.kind='available'`, merchantID, at).Scan(&v.LedgerAvailable, &mode, &start)
+	e = tx.QueryRow(ctx, `SELECT a.balance,((COALESCE($2::timestamptz,statement_timestamp()) AT TIME ZONE 'Asia/Shanghai')::date::timestamp AT TIME ZONE 'Asia/Shanghai') FROM accounts a WHERE a.owner_id=$1 AND a.kind='available'`, merchantID, at).Scan(&v.LedgerAvailable, &start)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return v, ErrNotFound
 	}
@@ -56,13 +59,10 @@ func (s *Store) readFundsAvailability(ctx context.Context, q fundsReader, mercha
 		return v, e
 	}
 	v.Available = v.LedgerAvailable
-	if mode == "0" {
+	v.SettleType = cycle.Mode
+	if cycle.Mode == 0 {
 		return v, nil
 	}
-	if mode != "1" {
-		return v, ErrInvalid
-	}
-	v.SettleType = 1
 	rows, e := tx.Query(ctx, `SELECT o.id,order_income_channel_sharing_outflow(o.id),COALESCE((SELECT sum(r.amount) FROM refunds r WHERE r.order_id=o.id AND r.status='succeeded'),0)::bigint FROM orders o WHERE o.merchant_id=$1 AND o.status='paid' AND o.paid_at>=$2
  AND NOT EXISTS(SELECT 1 FROM order_income_holds h WHERE h.order_id=o.id AND h.state='held')
  AND NOT EXISTS(SELECT 1 FROM channel_sharing_fundings f WHERE f.order_id=o.id AND NOT EXISTS(SELECT 1 FROM channel_sharing_fund_releases c WHERE c.order_id=f.order_id))
@@ -129,9 +129,18 @@ func (s *Store) readFundsAvailability(ctx context.Context, q fundsReader, mercha
 // otherwise retain an older snapshot for its order/refund aggregate. Do not lock
 // order rows here: payment/refund completion already locks order then accounts.
 func (s *Store) requireOutgoingFunds(ctx context.Context, tx pgx.Tx, merchantID, amount int64) error {
+	_, err := s.requireOutgoingFundsCycle(ctx, tx, merchantID, amount)
+	return err
+}
+
+func (s *Store) requireOutgoingFundsCycle(ctx context.Context, tx pgx.Tx, merchantID, amount int64) (merchantSettlementCycle, error) {
+	cycle, e := readMerchantSettlementCycle(ctx, tx, merchantID, true)
+	if e != nil {
+		return cycle, e
+	}
 	rows, e := tx.Query(ctx, "SELECT id FROM accounts WHERE owner_id=$1 AND kind IN ('available','reserved') ORDER BY id FOR UPDATE", merchantID)
 	if e != nil {
-		return e
+		return cycle, e
 	}
 	count := 0
 	for rows.Next() {
@@ -140,17 +149,20 @@ func (s *Store) requireOutgoingFunds(ctx context.Context, tx pgx.Tx, merchantID,
 	e = rows.Err()
 	rows.Close()
 	if e != nil {
-		return e
+		return cycle, e
 	}
 	if count != 2 {
-		return ErrNotFound
+		return cycle, ErrNotFound
+	}
+	if e = cycle.checkDeadline(ctx, tx); e != nil {
+		return cycle, e
 	}
 	v, e := s.readFundsAvailability(ctx, tx, merchantID, nil)
 	if e != nil {
-		return e
+		return cycle, e
 	}
 	if amount > v.Available {
-		return ErrInsufficient
+		return cycle, ErrInsufficient
 	}
-	return nil
+	return cycle, nil
 }

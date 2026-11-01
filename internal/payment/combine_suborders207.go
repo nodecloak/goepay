@@ -248,17 +248,12 @@ func (g ProviderFlow) createMaybeCombined207(ctx context.Context, p provider.Pro
 	if !ok {
 		return p.Create(ctx, request)
 	}
-	cfg, err := g.Store.Combine207Config(ctx)
+	subs, err := g.Store.prepareCombineSubOrders207(ctx, o, request.Amount)
 	if err != nil {
 		return provider.CreateResult{}, &provider.ProviderError{Code: "INVALID_REQUEST"} // local: nothing was sent
 	}
-	amounts, split := SplitCombine207(cfg, request.Amount)
-	if !split {
+	if len(subs) == 0 {
 		return p.Create(ctx, request)
-	}
-	subs, err := g.Store.CreateCombineSubOrders(ctx, o.ID, o.TradeNo, amounts)
-	if err != nil {
-		return provider.CreateResult{}, &provider.ProviderError{Code: "INVALID_REQUEST"} // local: nothing was sent
 	}
 	shares := make([]provider.CombineSub, 0, len(subs))
 	for _, sub := range subs {

@@ -4,7 +4,7 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import App from "../src/App.vue";
 
-it("the original merchant settings includes existing notice, printing and own-login-log entry", async () => {
+it("merchant settings links to independent notice and printing pages and retains the own-login-log entry", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
@@ -15,7 +15,12 @@ it("the original merchant settings includes existing notice, printing and own-lo
             csrf_token: "settings121-csrf",
           }
         : p.endsWith("/account/profile")
-          ? { name: "本地商户", email: "local121@example.invalid", pay: "1" }
+          ? {
+              name: "本地商户",
+              email: "local121@example.invalid",
+              phone: "+65123456789012345678",
+              pay: "1",
+            }
           : p.endsWith("/mfa/status")
             ? { enabled: false }
             : { items: [], total: 0 };
@@ -38,8 +43,27 @@ it("the original merchant settings includes existing notice, printing and own-lo
     },
   });
   await flushPromises();
-  expect(w.text()).toContain("消息推送");
-  expect(w.text()).toContain("小票打印设置");
+  expect(w.get(".account-profile-facts").text()).toContain("联系邮箱");
+  expect(w.get(".account-profile-facts").text()).toContain(
+    "local121@example.invalid",
+  );
+  const phone = w.get('input[autocomplete="tel"]');
+  expect(phone.attributes("maxlength")).toBe("21");
+  expect((phone.element as HTMLInputElement).value).toBe(
+    "+65123456789012345678",
+  );
+  expect(w.get('a[href="/merchant/account/notice"]').text()).toContain(
+    "消息提醒设置",
+  );
+  expect(w.get('a[href="/merchant/account/printing"]').text()).toContain(
+    "订单打印设置",
+  );
+  expect(w.findComponent({ name: "MerchantNoticeSettings" }).exists()).toBe(
+    false,
+  );
+  expect(w.findComponent({ name: "PrintingSettingsPage" }).exists()).toBe(
+    false,
+  );
   expect(w.findAll("button").some((b) => b.text() === "登录日志")).toBe(true);
   w.unmount();
 });

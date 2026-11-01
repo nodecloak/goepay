@@ -6,12 +6,13 @@ import (
 	"errors"
 	"time"
 
+	"goepay/internal/grouppolicy"
 	"goepay/internal/ledger"
 	"goepay/internal/merchantpolicy"
 )
 
-// The original nonempty group settle_rate overrides the global rate, including
-// explicit zero. Keep all existing caps, quotas and the sole quote algorithm.
+// Group minimum and fee overrides preserve explicit zero. All other caps,
+// quotas and the sole quote algorithm remain the global settlement policy.
 type merchantSettlementSelection struct {
 	Policy     SettlementPolicy
 	ValidUntil time.Time
@@ -35,6 +36,17 @@ func readMerchantSettlementSelection(ctx context.Context, q referralReader, mid 
 	var fields map[string]json.RawMessage
 	if json.Unmarshal(g.Body, &fields) != nil {
 		return out, ErrState
+	}
+	minimum, e := thresholdGroupScalar(fields["settle_minmoney"])
+	if e != nil {
+		return out, ErrInvalid
+	}
+	selected, e := grouppolicy.ParseSettlementMinimum(minimum)
+	if e != nil {
+		return out, ErrInvalid
+	}
+	if selected.Override {
+		out.Policy.MinimumAmount = selected.Cents
 	}
 	rate, e := thresholdGroupScalar(fields["settle_rate"])
 	if e != nil {

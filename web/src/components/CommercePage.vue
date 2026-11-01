@@ -15,11 +15,15 @@ import KitField from "./KitField.vue";
 import KitInput from "./KitInput.vue";
 import KitSelect from "./KitSelect.vue";
 import { centsMoney } from "../settlement-terms";
-const props = defineProps<{
-  client: ApiClient;
-  kind: CommerceKind;
-  area: Area;
-}>();
+const props = withDefaults(
+  defineProps<{
+    client: ApiClient;
+    kind: CommerceKind;
+    area: Area;
+    newUseAllowed?: boolean;
+  }>(),
+  { newUseAllowed: true },
+);
 const items = ref<Record<string, unknown>[]>([]),
   groups = ref<Record<string, unknown>[]>([]),
   total = ref(0),
@@ -32,6 +36,35 @@ const items = ref<Record<string, unknown>[]>([]),
   notice = ref(""),
   receipt = ref<Record<string, unknown> | null>(null),
   balances = ref<Record<string, unknown>>({});
+const recordsReady = ref(false);
+const newUseAvailable = computed(
+  () =>
+    recordsReady.value &&
+    !loading.value &&
+    (props.area === "admin" ||
+      (props.newUseAllowed !== false &&
+        (props.kind !== "deposits" ||
+          (balances.value.deposit_enabled !== false &&
+            balances.value.deposit_policy_available !== false)))),
+);
+const availabilityNote = computed(() => {
+  if (props.area === "admin") return "";
+  if (
+    props.kind === "deposits" &&
+    balances.value.deposit_policy_available === false
+  )
+    return "保证金规则暂不可用，仍可查看原有记录；请刷新后核对。";
+  if (
+    props.newUseAllowed === false ||
+    (props.kind === "deposits" && balances.value.deposit_enabled === false)
+  )
+    return (
+      "平台或当前用户组已关闭新的" +
+      (props.kind === "deposits" ? "保证金操作" : "余额充值") +
+      "，仍可查看原有记录。"
+    );
+  return "";
+});
 const current = ref<Record<string, unknown> | null>(null);
 const review = ref<{
   row: Record<string, unknown>;
@@ -171,6 +204,7 @@ async function load() {
   controller = new AbortController();
   const c = controller;
   loading.value = true;
+  recordsReady.value = false;
   error.value = "";
   try {
     const data = await props.client.request<{
@@ -212,6 +246,7 @@ async function load() {
             }));
       total.value = data.total;
       balances.value = data;
+      recordsReady.value = true;
     }
     if (props.kind === "memberships") {
       const data = await props.client.request<{
@@ -231,6 +266,7 @@ async function load() {
   }
 }
 function open() {
+  if (!newUseAvailable.value) return;
   form.value = {
     merchant_id: "",
     group_id: "",
@@ -254,6 +290,7 @@ function open() {
   receipt.value = null;
 }
 function renew() {
+  if (!newUseAvailable.value) return;
   // 续期：reuse the purchase flow with the current group preselected, exactly
   // as epay_pro's 续期 button reopens the buy dialog for pe.my_gid.
   open();
@@ -261,6 +298,10 @@ function renew() {
 }
 async function submit() {
   if (busy.value) return;
+  if (!newUseAvailable.value) {
+    error.value = availabilityNote.value || "请先重新读取当前业务状态";
+    return;
+  }
   if (
     props.kind === "memberships" &&
     (!selectedGroup.value ||
@@ -325,6 +366,9 @@ onBeforeUnmount(() => controller?.abort());
   <div>
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
+    <p v-if="availabilityNote" class="alert" role="status">
+      {{ availabilityNote }}
+    </p>
     <section
       v-if="
         kind === 'deposits' &&
@@ -451,7 +495,11 @@ onBeforeUnmount(() => controller?.abort());
         <button
           type="button"
           class="primary"
-          :disabled="busy || (kind === 'memberships' && !groups.length)"
+          :disabled="
+            busy ||
+            !newUseAvailable ||
+            (kind === 'memberships' && !groups.length)
+          "
           @click="open"
         >
           <ShellIcon name="plus" />{{ title }}
@@ -539,6 +587,7 @@ onBeforeUnmount(() => controller?.abort());
       v-if="dialog"
       :title="title"
       :loading="busy"
+      :submit-disabled="!newUseAvailable"
       :submit-text="'确认' + title"
       @close="dialog = false"
       @submit="submit"

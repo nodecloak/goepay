@@ -260,7 +260,21 @@ func (g ProviderFlow) PrepareTransferBatchChecked(ctx context.Context, mid int64
 	if !errors.Is(e, pgx.ErrNoRows) {
 		return TransferBatch{}, e
 	}
+	feature, e := requireBatchGroupFeature(ctx, tx, mid, actor)
+	if e != nil {
+		return TransferBatch{}, e
+	}
+	selectedFee, e := readMerchantTransferFeeSelection(ctx, tx, mid, true)
+	if e != nil {
+		return TransferBatch{}, e
+	}
 	if e = requireFundsAction(ctx, tx, "batch-prepare", fmt.Sprintf("%d:%s", mid, no)); e != nil {
+		return TransferBatch{}, e
+	}
+	if e = feature.recheck(ctx, tx); e != nil {
+		return TransferBatch{}, e
+	}
+	if e = selectedFee.checkDeadline(ctx, tx); e != nil {
 		return TransferBatch{}, e
 	}
 	// The whole immutable batch is authorized once, in this same transaction.
@@ -313,6 +327,12 @@ func (g ProviderFlow) PrepareTransferBatchChecked(ctx context.Context, mid int64
 		if e = g.Store.checkParentExecutionCurrent(ctx, tx, g.parentBindings[channel], mid); e != nil {
 			return TransferBatch{}, e
 		}
+	}
+	if e = feature.recheck(ctx, tx); e != nil {
+		return TransferBatch{}, e
+	}
+	if e = selectedFee.checkDeadline(ctx, tx); e != nil {
+		return TransferBatch{}, e
 	}
 	if e = tx.Commit(ctx); e != nil {
 		return TransferBatch{}, e

@@ -25,6 +25,7 @@ it("original settlement columns preserve the administrator and merchant layouts"
   expect(
     api.originalSettlementColumns("merchant").map((c: any) => c.label),
   ).toEqual([
+    "ID",
     "结算方式",
     "结算账号",
     "结算金额/实际到账",

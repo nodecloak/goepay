@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"goepay/internal/merchantpolicy"
 	"goepay/internal/payment"
 )
 
@@ -29,7 +30,7 @@ func (r *Resolver) Resolve(ctx context.Context, o payment.Order, channelID int64
 	defer tx.Rollback(ctx)
 	var name, trade, out string
 	var mid, amount int64
-	e = tx.QueryRow(ctx, "SELECT name,trade_no,out_trade_no,merchant_id,amount FROM orders WHERE id=$1 FOR UPDATE", o.ID).Scan(&name, &trade, &out, &mid, &amount)
+	e = tx.QueryRow(ctx, "SELECT name,trade_no,out_trade_no,merchant_id,amount FROM orders WHERE id=$1", o.ID).Scan(&name, &trade, &out, &mid, &amount)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return "", payment.ErrNotFound
 	}
@@ -39,24 +40,32 @@ func (r *Resolver) Resolve(ctx context.Context, o payment.Order, channelID int64
 	if trade != o.TradeNo || mid != o.MerchantID {
 		return "", payment.ErrConflict
 	}
-	var subject string
-	var captured int64
-	e = tx.QueryRow(ctx, "SELECT subject,channel_id FROM provider_subject_snapshots WHERE order_id=$1", o.ID).Scan(&subject, &captured)
+	if subject, found, err := readHistoricalSubject(ctx, tx, o.ID, channelID, name); err != nil || found {
+		return subject, err
+	}
+	// New snapshots follow the same merchant -> membership/group -> order lock
+	// order as order creation. Historical subjects never depend on current group
+	// availability, including a group disabled after an original provider send.
+	group, e := merchantpolicy.ReadEffectiveGroup(ctx, tx, mid, true)
+	groupTemplate := ""
 	if e == nil {
-		if captured != channelID {
-			return "", payment.ErrConflict
+		groupTemplate, e = GroupTemplate(group.Body)
+	}
+	if e != nil {
+		if subject, found, err := readHistoricalSubject(ctx, tx, o.ID, channelID, name); err != nil || found {
+			return subject, err
 		}
-		return subject, nil
+		return "", errors.Join(payment.ErrInvalid, e)
 	}
-	if !errors.Is(e, pgx.ErrNoRows) {
+	e = tx.QueryRow(ctx, "SELECT name,trade_no,out_trade_no,merchant_id,amount FROM orders WHERE id=$1 FOR UPDATE", o.ID).Scan(&name, &trade, &out, &mid, &amount)
+	if e != nil {
 		return "", e
 	}
-	var exists bool
-	if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM provider_attempts WHERE order_id=$1)", o.ID).Scan(&exists); e != nil {
-		return "", e
+	if trade != o.TradeNo || mid != o.MerchantID {
+		return "", payment.ErrConflict
 	}
-	if exists {
-		return name, nil
+	if subject, found, err := readHistoricalSubject(ctx, tx, o.ID, channelID, name); err != nil || found {
+		return subject, err
 	}
 	rows, e := tx.Query(ctx, `SELECT id,body FROM backoffice_records WHERE resource='order-subject-policies' AND body->'enabled'='true'::jsonb AND
  ((body->>'scope'='global' AND body->>'scope_id'='0') OR (body->>'scope'='merchant' AND body->>'scope_id'=$1) OR (body->>'scope'='channel' AND body->>'scope_id'=$2))
@@ -67,6 +76,18 @@ func (r *Resolver) Resolve(ctx context.Context, o payment.Order, channelID int64
 	template, rulesText := "", ""
 	snapshot := map[string]any{}
 	var templateID, rulesID int64
+	groupApplied := false
+	applyGroup := func() {
+		if groupApplied {
+			return
+		}
+		groupApplied = true
+		if groupTemplate != "" {
+			template, templateID = groupTemplate, 0
+			snapshot["group_id"] = strconv.FormatInt(group.ID, 10)
+			snapshot["group_template"] = groupTemplate
+		}
+	}
 	for rows.Next() {
 		var id int64
 		var raw []byte
@@ -88,6 +109,9 @@ func (r *Resolver) Resolve(ctx context.Context, o payment.Order, channelID int64
 			e = payment.ErrInvalid
 			break
 		}
+		if p.Scope != "global" {
+			applyGroup()
+		}
 		if p.Template != "" {
 			template = p.Template
 			templateID = id
@@ -104,6 +128,7 @@ func (r *Resolver) Resolve(ctx context.Context, o payment.Order, channelID int64
 	if e = rows.Err(); e != nil {
 		return "", e
 	}
+	applyGroup()
 	snapshot["template_policy_id"] = templateID
 	snapshot["rules_policy_id"] = rulesID
 	snapshot["template"] = template
@@ -122,7 +147,7 @@ func (r *Resolver) Resolve(ctx context.Context, o payment.Order, channelID int64
 			}
 		}
 	}
-	subject = name
+	subject := name
 	var now time.Time
 	if e = tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); e != nil {
 		return "", e
@@ -150,8 +175,37 @@ func (r *Resolver) Resolve(ctx context.Context, o payment.Order, channelID int64
 	if _, e = tx.Exec(ctx, "INSERT INTO provider_subject_snapshots(order_id,channel_id,subject,configured,policy_snapshot,created_at) VALUES($1,$2,$3,$4,$5::jsonb,$6)", o.ID, channelID, subject, configured, string(raw), now); e != nil {
 		return "", e
 	}
+	if !group.ValidUntil.IsZero() {
+		var at time.Time
+		if e = tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&at); e != nil {
+			return "", e
+		}
+		if !at.Before(group.ValidUntil) {
+			return "", payment.ErrState
+		}
+	}
 	if e = tx.Commit(ctx); e != nil {
 		return "", e
 	}
 	return subject, nil
+}
+
+func readHistoricalSubject(ctx context.Context, tx pgx.Tx, orderID, channelID int64, name string) (string, bool, error) {
+	var subject string
+	var captured int64
+	err := tx.QueryRow(ctx, `SELECT subject,channel_id FROM provider_subject_snapshots WHERE order_id=$1`, orderID).Scan(&subject, &captured)
+	if err == nil {
+		if captured != channelID {
+			return "", false, payment.ErrConflict
+		}
+		return subject, true, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return "", false, err
+	}
+	var exists bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM provider_attempts WHERE order_id=$1)`, orderID).Scan(&exists); err != nil {
+		return "", false, err
+	}
+	return name, exists, nil
 }

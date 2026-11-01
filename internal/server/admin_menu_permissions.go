@@ -131,6 +131,8 @@ func routeMenuKey(parts []string) string {
 		return "SettleList"
 	case "payment-channels":
 		return "PayChannel"
+	case "weixin-applications":
+		return "PayWeixin"
 	case "payment-subchannels":
 		return "SubChannelManage"
 	case "ledger":
@@ -169,6 +171,10 @@ func routeMenuKey(parts []string) string {
 	// Workflows.
 	case "workflows":
 		switch sub {
+		case "settlement-recipient":
+			if len(parts) == 3 || len(parts) == 4 && parts[3] == "allowed-types" {
+				return "MerchantList"
+			}
 		case "settlements":
 			return "SettleList"
 		case "internal-transfers":

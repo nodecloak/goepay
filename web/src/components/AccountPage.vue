@@ -6,6 +6,7 @@ import MerchantSignaturePolicy from "./MerchantSignaturePolicy.vue";
 import MerchantRefundEvents201 from "./MerchantRefundEvents201.vue";
 import MerchantEmailBinding197 from "./MerchantEmailBinding197.vue";
 import MerchantBindings134 from "./MerchantBindings134.vue";
+import MerchantConnectionInfo from "./MerchantConnectionInfo.vue";
 import KitField from "./KitField.vue";
 import KitInput from "./KitInput.vue";
 import KitModal from "./KitModal.vue";
@@ -458,6 +459,10 @@ onBeforeUnmount(() => {
             <dd>{{ profileFacts.uid || "—" }}</dd>
           </div>
           <div>
+            <dt>联系邮箱</dt>
+            <dd>{{ profile.email || "未填写" }}</dd>
+          </div>
+          <div>
             <dt>注册时间</dt>
             <dd>
               {{
@@ -527,10 +532,10 @@ onBeforeUnmount(() => {
           <KitField label="联系手机"
             ><KitInput
               v-model="profile.phone"
-              :maxlength="20"
+              :maxlength="21"
               inputmode="tel"
               autocomplete="tel"
-              placeholder="选填，5 至 20 位数字"
+              placeholder="选填，5 至 20 位数字，支持前缀 +"
           /></KitField>
           <div class="account-kit-actions">
             <button
@@ -592,10 +597,10 @@ onBeforeUnmount(() => {
     ><template v-else
       ><section class="panel account-section">
         <h2>商户接入信息</h2>
+        <MerchantConnectionInfo :merchant-id="info.pid" />
         <dl class="record-detail">
           <template
             v-for="(label, key) in {
-              pid: '商户 ID',
               algorithm: '签名算法',
               api_key_masked: 'API 密钥（已隐藏）',
               merchant_public_key: '商户公钥',

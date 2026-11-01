@@ -151,6 +151,11 @@ it("opens a kit dialog for 新增 with the schema fields", async () => {
   const dialog = document.body.querySelector('[role="dialog"]');
   expect(dialog).not.toBeNull();
   expect(dialog!.textContent).toContain("新增支付方式");
-  expect(dialog!.textContent).toContain("展示名称");
+  const labels = Array.from(dialog!.querySelectorAll("label")).map((e) =>
+    e.textContent?.trim(),
+  );
+  expect(labels[0]).toContain("调用值");
+  expect(labels[1]).toContain("显示名称");
+  expect(dialog!.textContent).toContain("支持设备");
   w.unmount();
 });

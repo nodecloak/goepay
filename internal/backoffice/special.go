@@ -14,6 +14,10 @@ import (
 )
 
 func (s *Service) createMerchant(ctx context.Context, p Principal, d definition, in map[string]json.RawMessage) (Item, error) {
+	d, account, e := merchantCreationDefinition(d, in)
+	if e != nil {
+		return Item{}, e
+	}
 	v, e := validate(p, d, in, nil, true)
 	if e != nil {
 		return Item{}, e
@@ -23,6 +27,11 @@ func (s *Service) createMerchant(ctx context.Context, p Principal, d definition,
 	}
 	if e = validateMerchantContacts(v, in); e != nil {
 		return Item{}, e
+	}
+	if account {
+		if e = s.prepareAccountMerchant(ctx, v); e != nil {
+			return Item{}, e
+		}
 	}
 	id, e := strconv.ParseInt(fmt.Sprint(v["id"]), 10, 64)
 	if e != nil || id <= 0 {

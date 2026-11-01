@@ -8,6 +8,7 @@ import (
 )
 
 type ParentBuildOptions struct {
+	managedProfiles bool
 	BuildOptions
 	OAuthEnabled     bool
 	WebOAuthAllowed  func() bool

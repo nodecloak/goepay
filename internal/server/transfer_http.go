@@ -62,6 +62,11 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 			response(w, 404, -1, "merchant not found", nil)
 			return true
 		}
+		policy, access, e := s.Store.ManualTransferPolicy(r.Context(), mid)
+		if e != nil {
+			s.fail(w, e)
+			return true
+		}
 		channels := []map[string]any{}
 		if s.ProviderFlow != nil {
 			// transfer_wxpay / transfer_qqpay / transfer_bank hide a rail from the offered types.
@@ -102,18 +107,38 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 				}
 			}
 		}
+		data := map[string]any{"merchant_id": fmt.Sprint(mid), "writes_enabled": false, "platform_enabled": access.PlatformEnabled, "effective_enabled": access.Enabled, "permission_source": access.Source, "effective_group_id": fmt.Sprint(access.GroupID), "merchant_enabled": merchantEnabled && enabled, "channels": channels, "minimum_money": ledger.Format(policy.MinimumAmount), "maximum_money": ledger.Format(policy.MaximumAmount), "daily_recipient_limit": policy.DailyRecipientLimit, "default_remark": policy.DefaultRemark, "default_title": policy.DefaultTitle}
+		if access.Source == "group_disabled" {
+			// Historical balances and business permission remain readable, but
+			// a disabled group cannot supply an executable fee/maturity quote.
+			// Do not substitute a profile rate, D+0 or a guessed zero balance.
+			b, err := s.Store.Balance(r.Context(), mid)
+			if err != nil {
+				s.fail(w, err)
+				return true
+			}
+			data["fee_policy_available"], data["funds_policy_available"] = false, false
+			data["ledger_available_money"], data["reserved_money"] = ledger.Format(b.Available), ledger.Format(b.Reserved)
+			response(w, 200, 0, "", data)
+			return true
+		}
+		feePolicy, e := s.Store.MerchantTransferFee(r.Context(), mid)
+		if e != nil {
+			s.fail(w, e)
+			return true
+		}
+		rate = feePolicy.Rate
 		b, e := s.Store.FundsAvailability(r.Context(), mid)
 		if e != nil {
 			s.fail(w, e)
 			return true
 		}
-		policy, access, e := s.Store.ManualTransferPolicy(r.Context(), mid)
-		if e != nil {
-			s.fail(w, e)
-			return true
-		}
 		writes := s.ProviderFlow != nil && s.ProviderFlow.AllowLive && enabled && merchantEnabled && access.Enabled && len(channels) > 0
-		response(w, 200, 0, "", map[string]any{"merchant_id": fmt.Sprint(mid), "writes_enabled": writes, "platform_enabled": access.PlatformEnabled, "effective_enabled": access.Enabled, "permission_source": access.Source, "effective_group_id": fmt.Sprint(access.GroupID), "merchant_enabled": merchantEnabled && enabled, "transfer_rate": rate, "channels": channels, "available_money": ledger.Format(b.Available), "ledger_available_money": ledger.Format(b.LedgerAvailable), "today_blocked_money": ledger.Format(b.Blocked), "settle_type": b.SettleType, "minimum_money": ledger.Format(policy.MinimumAmount), "maximum_money": ledger.Format(policy.MaximumAmount), "daily_recipient_limit": policy.DailyRecipientLimit, "default_remark": policy.DefaultRemark, "default_title": policy.DefaultTitle})
+		data["fee_policy_available"], data["funds_policy_available"] = true, true
+		data["writes_enabled"], data["transfer_rate"] = writes, rate
+		data["available_money"], data["ledger_available_money"] = ledger.Format(b.Available), ledger.Format(b.LedgerAvailable)
+		data["today_blocked_money"], data["settle_type"] = ledger.Format(b.Blocked), b.SettleType
+		response(w, 200, 0, "", data)
 		return true
 	}
 	if len(parts) == 2 && r.Method == "POST" {

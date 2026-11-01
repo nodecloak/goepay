@@ -24,6 +24,8 @@ func configureProviders(app *server.Server, mode string, master []byte, origin s
 			app.ProviderFlow.ScanRecoveryEnabled = false
 		}
 		app.IdentityProfiles = nil
+		app.WeixinImportedProfileIDs = nil
+		app.WeixinImportedApplicationViews = nil
 		app.ScanJSProfiles202 = nil
 		app.ScanJSSiteOrigin202 = ""
 		app.IdentityProfileEnabled = false
@@ -107,6 +109,16 @@ func configureProviders(app *server.Server, mode string, master []byte, origin s
 	app.IdentityProfiles, e = channelconfig.BuildIdentityProfiles(startup.IdentityImport, app.IdentityProfileEnabled)
 	if e != nil {
 		return errConfiguredProviders
+	}
+	for _, spec := range startup.IdentityImport.IdentityProfiles {
+		app.WeixinImportedProfileIDs = append(app.WeixinImportedProfileIDs, spec.ID)
+		if spec.Provider == "wxpay" {
+			kind := "official_account"
+			if spec.Kind == "mini" {
+				kind = "mini_program"
+			}
+			app.WeixinImportedApplicationViews = append(app.WeixinImportedApplicationViews, payment.WeixinApplicationView{ID: spec.ID, Revision: spec.Revision, Name: spec.AppID, Kind: kind, AppID: spec.AppID, Enabled: spec.Enabled, SourceChannelID: spec.ChannelID, Path: spec.Path, SecretConfigured: spec.Config["appsecret"] != "", Origin: "imported", ReadOnly: true, MerchantIDs: []string{}})
+		}
 	}
 	if oauthEnabled == "true" {
 		app.OAuthProviders, e = channelconfig.BuildOAuth(imp)

@@ -343,10 +343,14 @@ func (s *Store) reserveTransferTx(ctx context.Context, tx pgx.Tx, merchantID int
 	if !errors.Is(e, ErrNotFound) {
 		return Transfer{}, e
 	}
-	if e = s.requireOutgoingFunds(ctx, tx, merchantID, cost); e != nil {
+	selectedCycle, e := s.requireOutgoingFundsCycle(ctx, tx, merchantID, cost)
+	if e != nil {
 		return Transfer{}, e
 	}
 	if e = requireFundsAction(ctx, tx, "transfer", fmt.Sprintf("%d:%s", merchantID, no)); e != nil {
+		return Transfer{}, e
+	}
+	if e = selectedCycle.checkDeadline(ctx, tx); e != nil {
 		return Transfer{}, e
 	}
 	var id int64

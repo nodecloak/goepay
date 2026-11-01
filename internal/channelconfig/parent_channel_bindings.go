@@ -86,7 +86,7 @@ func (f *ParentChannelFactory) installWXBindingCatalog(specs []IdentityProfileSp
 	if len(selected) > 1000 {
 		return ErrImport
 	}
-	_, err := BuildIdentityProfiles(Import{Version: 1, Channels: []Channel{f.origin}, IdentityProfiles: selected}, true)
+	_, err := buildIdentityProfiles(Import{Version: 1, Channels: []Channel{f.origin}, IdentityProfiles: selected}, true, f.options.managedProfiles)
 	return err
 }
 func (f *ParentChannelFactory) ParentWeixinCatalog() adapter.ParentWeixinCatalog {
@@ -216,7 +216,7 @@ func (f *ParentChannelFactory) withWXBindings(base adapter.ParentChannelExecutio
 		if spec.ChannelID != f.origin.ID || spec.Provider != "wxpay" || !spec.Enabled || spec.Kind != kind {
 			return adapter.ParentChannelExecution{}, ErrImport
 		}
-		profiles, err := BuildIdentityProfiles(Import{Version: 1, Channels: []Channel{f.origin}, IdentityProfiles: []IdentityProfileSpec{*spec}}, true)
+		profiles, err := buildIdentityProfiles(Import{Version: 1, Channels: []Channel{f.origin}, IdentityProfiles: []IdentityProfileSpec{*spec}}, true, true)
 		if err != nil {
 			return adapter.ParentChannelExecution{}, err
 		}
@@ -276,6 +276,18 @@ func (f *ParentChannelFactory) withWXBindings(base adapter.ParentChannelExecutio
 	}
 	base.PaymentAllowed = func(variant string, mid int64) bool {
 		if variant == "" {
+			// Native uses the parent SDK, but an account explicitly bound to a
+			// managed application cannot bypass that application's revocation or
+			// borrow a same-ID imported namespace through the empty variant.
+			for _, sealed := range specs {
+				if sealed == nil || sealed.ManagedVaultFingerprint == "" {
+					continue
+				}
+				current, ok := f.profileCatalog[sealed.ID]
+				if !ok || !current.Enabled || current.ManagedVaultFingerprint == "" || current.Kind != sealed.Kind {
+					return false
+				}
+			}
 			return true
 		}
 		sealed := specs[variant]
@@ -283,10 +295,18 @@ func (f *ParentChannelFactory) withWXBindings(base adapter.ParentChannelExecutio
 			return false
 		}
 		current, ok := f.profileCatalog[sealed.ID]
-		return ok && current.Enabled && current.Kind == variant && profileAllows(&current, mid)
+		return ok && (current.ManagedVaultFingerprint != "") == (sealed.ManagedVaultFingerprint != "") && current.Enabled && current.Kind == variant && profileAllows(&current, mid)
 	}
 	base.PaymentFreshAllowed = func(variant string) bool {
-		return variant == "" || f.currentWXProfile(specs[variant])
+		if variant == "" {
+			for _, spec := range specs {
+				if spec != nil && spec.ManagedVaultFingerprint != "" && !f.currentWXProfile(spec) {
+					return false
+				}
+			}
+			return true
+		}
+		return f.currentWXProfile(specs[variant])
 	}
 	return base, nil
 }

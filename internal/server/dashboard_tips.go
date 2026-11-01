@@ -124,7 +124,7 @@ func (s *Server) collectMerchantDashboardTips(r *http.Request, mid int64) ([]mer
 			st.SMSReady = true
 		}
 	}
-	deposit, e := backoffice.New(s.Pool, s.Store).DepositSettings(ctx)
+	deposit, e := backoffice.New(s.Pool, s.Store).DepositSettingsForMerchant(ctx, mid)
 	if e != nil {
 		return nil, e
 	}

@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"goepay/internal/collectionstyle"
-	"net/url"
+	"goepay/internal/merchantpolicy"
+	"goepay/internal/payment"
 	"strconv"
 	"strings"
 	"time"
@@ -129,6 +130,9 @@ type PaymentContext struct {
 	// empty name never matches a non-empty keyword; forceqq needs forceqq=1 AND
 	// an empty QQ, and an unset QQ only blocks when forceqq is actually on).
 	Name, MerchantQQ string
+	// Internal authenticated evidence only. Domain admission is a new-intent
+	// rule; all immutable order fields must match before it can be skipped.
+	OrderIntent *payment.CreateOrderInput
 }
 
 // PaymentRefusedError carries the original merchant-facing refusal message
@@ -142,7 +146,8 @@ func (e PaymentRefusedError) Error() string { return e.Message }
 func (e PaymentRefusedError) Unwrap() error { return ErrForbidden }
 
 // CheckPayment applies only persisted, explicitly enabled restrictions. Domain
-// allowlisting is opt-in via the enforce_domains=true system setting. The
+// allowlisting uses the effective group's pay_domain_forbid over the global
+// enforce_domains setting, only for new payment intents. The
 // 商品屏蔽(blockname/blockalert), 未填QQ禁止收款(forceqq) and黑名单提示(blackmsg)
 // settings are applied here too, matching the original Pay.php create gate
 // (Pay.php:81 forceqq, :103 blockname, :124 blackmsg). Each defaults off/empty
@@ -151,12 +156,11 @@ func (s *Service) CheckPayment(ctx context.Context, p PaymentContext) error {
 	if p.MerchantID <= 0 {
 		return ErrInvalid
 	}
-	rows, e := s.pool.Query(ctx, "SELECT resource,body FROM backoffice_records WHERE (resource='blacklist' AND body->>'enabled'='true') OR (resource='merchant-risk' AND owner_id=$1 AND body->>'status' IN ('blocked','restricted')) OR (resource='settings' AND body->>'key' IN ('enforce_domains','blackmsg','blockname','blockalert','forceqq'))", p.MerchantID)
+	rows, e := s.pool.Query(ctx, "SELECT resource,body FROM backoffice_records WHERE (resource='blacklist' AND body->>'enabled'='true') OR (resource='merchant-risk' AND owner_id=$1 AND body->>'status' IN ('blocked','restricted')) OR (resource='settings' AND body->>'key' IN ('blackmsg','blockname','blockalert','forceqq'))", p.MerchantID)
 	if e != nil {
 		return e
 	}
 	defer rows.Close()
-	enforceDomains := false
 	denied := ""
 	message := ""
 	blacklisted := false
@@ -171,9 +175,6 @@ func (s *Service) CheckPayment(ctx context.Context, p PaymentContext) error {
 		if resource == "settings" {
 			key := fmt.Sprint(v["key"])
 			settings[key] = fmt.Sprint(v["value"])
-			if key == "enforce_domains" {
-				enforceDomains = v["value"] == "true"
-			}
 			continue
 		}
 		if resource == "merchant-risk" {
@@ -208,43 +209,11 @@ func (s *Service) CheckPayment(ctx context.Context, p PaymentContext) error {
 			message = alert
 		}
 	}
-	if denied == "" && enforceDomains {
-		for _, rawURL := range []string{p.NotifyURL, p.ReturnURL} {
-			if rawURL == "" {
-				continue
-			}
-			u, e := url.Parse(rawURL)
-			if e != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil {
-				return ErrInvalid
-			}
-			var domains []string
-			rs, e := s.pool.Query(ctx, "SELECT body->>'domain' FROM backoffice_records WHERE resource='domains' AND owner_id=$1 AND body->>'approved'='true' AND body->>'enabled'='true'", p.MerchantID)
-			if e != nil {
-				return e
-			}
-			for rs.Next() {
-				var domain string
-				if e = rs.Scan(&domain); e != nil {
-					rs.Close()
-					return e
-				}
-				domains = append(domains, domain)
-			}
-			e = rs.Err()
-			rs.Close()
-			if e != nil {
-				return e
-			}
-			match := false
-			for _, domain := range domains {
-				if authorizationDomainMatches(u.Hostname(), domain) {
-					match = true
-					break
-				}
-			}
-			if !match {
-				denied = "callback domain is not authorized"
-			}
+	if denied == "" {
+		if e := s.checkPaymentDomains(ctx, p); errors.Is(e, merchantpolicy.ErrPaymentDomain) {
+			denied = "callback domain is not authorized"
+		} else if e != nil {
+			return e
 		}
 	}
 	if denied != "" {
@@ -255,6 +224,31 @@ func (s *Service) CheckPayment(ctx context.Context, p PaymentContext) error {
 		return ErrForbidden
 	}
 	return nil
+}
+
+func (s *Service) checkPaymentDomains(ctx context.Context, p PaymentContext) error {
+	if p.NotifyURL == "" && p.ReturnURL == "" {
+		return nil
+	}
+	if in := p.OrderIntent; in != nil && in.MerchantID == p.MerchantID && in.NotifyURL == p.NotifyURL && in.ReturnURL == p.ReturnURL {
+		matched, err := s.store.MatchesOrderIntent(ctx, *in)
+		if err == nil && matched {
+			return nil
+		}
+		if err != nil && !errors.Is(err, payment.ErrConflict) && !errors.Is(err, payment.ErrInvalid) {
+			return err
+		}
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	policy, err := merchantpolicy.ReadPaymentDomainPolicy(ctx, tx, p.MerchantID, false)
+	if err != nil {
+		return err
+	}
+	return policy.CheckURLs(ctx, tx, p.MerchantID, false, p.NotifyURL, p.ReturnURL)
 }
 func domainMatches(host, domain string) bool {
 	host = strings.TrimSuffix(strings.ToLower(host), ".")

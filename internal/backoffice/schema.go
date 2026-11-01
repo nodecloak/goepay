@@ -19,21 +19,22 @@ type FilterSpec struct {
 	AdminOnly bool     `json:"-"`
 }
 type Field struct {
-	CreateOnly  bool     `json:"create_only,omitempty"`
-	Name        string   `json:"name"`
-	Label       string   `json:"label"`
-	Description string   `json:"description,omitempty"`
-	Type        string   `json:"type"`
-	Required    bool     `json:"required"`
-	ReadOnly    bool     `json:"read_only,omitempty"`
-	WriteOnly   bool     `json:"write_only,omitempty"`
-	MaxLength   int      `json:"max_length,omitempty"`
-	Pattern     string   `json:"pattern,omitempty"`
-	Min         *int64   `json:"min,omitempty"`
-	Max         *int64   `json:"max,omitempty"`
-	Options     []Option `json:"options,omitempty"`
-	Default     any      `json:"default,omitempty"`
-	AdminOnly   bool     `json:"-"`
+	PreserveWhitespace bool     `json:"-"`
+	CreateOnly         bool     `json:"create_only,omitempty"`
+	Name               string   `json:"name"`
+	Label              string   `json:"label"`
+	Description        string   `json:"description,omitempty"`
+	Type               string   `json:"type"`
+	Required           bool     `json:"required"`
+	ReadOnly           bool     `json:"read_only,omitempty"`
+	WriteOnly          bool     `json:"write_only,omitempty"`
+	MaxLength          int      `json:"max_length,omitempty"`
+	Pattern            string   `json:"pattern,omitempty"`
+	Min                *int64   `json:"min,omitempty"`
+	Max                *int64   `json:"max,omitempty"`
+	Options            []Option `json:"options,omitempty"`
+	Default            any      `json:"default,omitempty"`
+	AdminOnly          bool     `json:"-"`
 }
 type Permissions struct {
 	Create bool `json:"create"`

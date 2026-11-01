@@ -144,6 +144,12 @@ func parentChannelError(w http.ResponseWriter, e error) {
 	}
 }
 func (s *Server) createParentChannel(w http.ResponseWriter, r *http.Request, session identity.Session, token string) {
+	resolved, resolveErr := s.managedWeixinRuntime(r.Context())
+	if resolveErr != nil {
+		parentChannelError(w, resolveErr)
+		return
+	}
+	s = resolved
 	if r.URL.RawQuery != "" || r.URL.ForceQuery || strings.Split(r.Header.Get("Content-Type"), ";")[0] != "application/json" {
 		response(w, 400, -1, "invalid parent configuration request", nil)
 		return
@@ -269,6 +275,12 @@ func (s *Server) updateParentChannel(w http.ResponseWriter, r *http.Request, ses
 		}
 	}
 	actor := payment.ParentChannelActor{User: session.User, Token: token, CSRF: session.CSRF, Delegated: session.Issuer != nil}
+	if resolved, err := s.managedWeixinRuntime(r.Context()); err == nil {
+		s = resolved
+	} else if in.Account != nil && (in.Account.AppWXMP != nil || in.Account.AppWXA != nil) {
+		parentChannelError(w, err)
+		return
+	}
 	out, e := s.Store.UpdateParentChannel(r.Context(), actor, id, in, s.ProviderFlow.ParentFactories)
 	if e != nil {
 		parentChannelError(w, e)

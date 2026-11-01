@@ -238,13 +238,12 @@ func (s *Server) transferRead(w http.ResponseWriter, r *http.Request, id int64, 
 			s.wire(w, false, nil, "balance unavailable")
 			return
 		}
-		var rate string
-		e = s.Pool.QueryRow(r.Context(), "SELECT COALESCE(profile->>'transfer_rate','0') FROM merchants WHERE id=$1", id).Scan(&rate)
+		fee, e := s.Store.MerchantTransferFee(r.Context(), id)
 		if e != nil {
 			s.wire(w, false, nil, "transfer configuration unavailable")
 			return
 		}
-		s.wire(w, false, map[string]any{"available_money": ledger.Format(balance.Available), "ledger_available_money": ledger.Format(balance.LedgerAvailable), "today_blocked_money": ledger.Format(balance.Blocked), "settle_type": balance.SettleType, "transfer_rate": rate}, "")
+		s.wire(w, false, map[string]any{"available_money": ledger.Format(balance.Available), "ledger_available_money": ledger.Format(balance.LedgerAvailable), "today_blocked_money": ledger.Format(balance.Blocked), "settle_type": balance.SettleType, "transfer_rate": fee.Rate}, "")
 		return
 	}
 	number := p["out_biz_no"]

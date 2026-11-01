@@ -54,34 +54,15 @@ import {
 } from "../transfers";
 import TransferPolicySummary from "./TransferPolicySummary.vue";
 import {
-  readFundsAvailability,
-  type FundsAvailability,
-} from "../funds-availability";
+  readTransferCapabilities,
+  type TransferCapabilities,
+} from "../transfer-capabilities";
 const props = defineProps<{
   client: ApiClient;
   area: Area;
   initialQuery?: Record<string, unknown>;
   selfID?: string;
 }>();
-interface Capabilities extends FundsAvailability {
-  writes_enabled: boolean;
-  platform_enabled: boolean;
-  effective_enabled?: boolean;
-  merchant_enabled: boolean;
-  transfer_rate: string;
-  channels: {
-    id: string;
-    types: string[];
-    bank_product?: string;
-    bank_code_required?: boolean;
-  }[];
-  available_money: string;
-  minimum_money?: string;
-  maximum_money?: string;
-  daily_recipient_limit?: number;
-  default_remark?: string;
-  default_title?: string;
-}
 const routeContext = readTransferRoute(
   props.initialQuery || {},
   props.area,
@@ -103,7 +84,7 @@ const items = ref<Record<string, unknown>[]>([]),
   notice = ref(""),
   creating = ref(false),
   confirming = ref(false),
-  capabilities = ref<Capabilities | null>(null),
+  capabilities = ref<TransferCapabilities | null>(null),
   capLoading = ref(false),
   capMerchant = ref(""),
   selected = ref<Record<string, unknown> | null>(null),
@@ -371,7 +352,8 @@ watch(
 );
 const canSubmit = computed(
   () =>
-    !!capabilities.value?.writes_enabled &&
+    capabilities.value?.policy_available === true &&
+    capabilities.value.writes_enabled === true &&
     channels.value.some((c) => c.id === form.value.channel_id) &&
     (props.area === "merchant" || capMerchant.value === form.value.merchant_id),
 );
@@ -391,9 +373,12 @@ const remarkPlaceholder = computed(() => {
   if (fallback) return `可留空，默认为：${fallback}`;
   return remarkRequired.value ? "微信付款必须填写" : "可留空";
 });
+const quotedCapabilities = computed(() =>
+  capabilities.value?.policy_available === true ? capabilities.value : null,
+);
 const cost = computed(() =>
-  capabilities.value
-    ? transferCost(form.value.amount, capabilities.value.transfer_rate)
+  quotedCapabilities.value
+    ? transferCost(form.value.amount, quotedCapabilities.value.transfer_rate)
     : undefined,
 );
 // One short line of the policy under 转账金额; the full policy is shown again
@@ -401,13 +386,19 @@ const cost = computed(() =>
 const policyHint = computed(() => {
   const c = capabilities.value;
   if (!c) return "";
-  const parts = [`可出账 ${c.available_money} 元`];
+  const parts = c.policy_available
+    ? [`可出账 ${c.available_money} 元`]
+    : [
+        `账本可用余额 ${c.ledger_available_money} 元`,
+        `预占余额 ${c.reserved_money} 元`,
+        "手续费和可出账金额暂不可用",
+      ];
   const min = c.minimum_money && cents(c.minimum_money) ? c.minimum_money : "",
     max = c.maximum_money && cents(c.maximum_money) ? c.maximum_money : "";
   if (min && max) parts.push(`单笔 ${min}–${max} 元`);
   else if (min) parts.push(`单笔最低 ${min} 元`);
   else if (max) parts.push(`单笔最高 ${max} 元`);
-  if (c.transfer_rate !== undefined) parts.push(`手续费率 ${c.transfer_rate}%`);
+  if (c.policy_available) parts.push(`手续费率 ${c.transfer_rate}%`);
   if (c.settle_type === 1) parts.push("T+1：当日收款暂不可出账");
   return parts.join(" · ");
 });
@@ -479,14 +470,14 @@ async function loadCapabilities() {
   error.value = "";
   capabilities.value = null;
   try {
-    const data = await props.client.request<Capabilities>(
+    const data = await props.client.request<unknown>(
       "/transfers/capabilities" +
         (props.area === "admin"
           ? "?merchant_id=" + encodeURIComponent(merchant)
           : ""),
     );
     if (epoch === capEpoch) {
-      capabilities.value = { ...data, ...readFundsAvailability(data) };
+      capabilities.value = readTransferCapabilities(data);
       capMerchant.value = merchant;
       form.value.type = availableTypes.value.includes(form.value.type)
         ? form.value.type
@@ -829,6 +820,7 @@ onBeforeUnmount(() => {
     width="600px"
     :loading="busy"
     submit-text="确认提交付款"
+    :submit-disabled="!canSubmit"
     danger
     @close="confirming = false"
     @submit="submit"
@@ -873,7 +865,10 @@ onBeforeUnmount(() => {
     <p v-if="selectedBankProduct === 'alipay_bankcard'" class="muted">
       支付宝银行卡仅对私账户，需核对真实姓名，无需微信银行编号。
     </p>
-    <TransferPolicySummary v-if="capabilities" :policy="capabilities" />
+    <TransferPolicySummary
+      v-if="quotedCapabilities"
+      :policy="quotedCapabilities"
+    />
     <p class="muted">
       确认后向通道提交付款，并预占本金及配置手续费。结果未知时保留预占，只能查询核实，不应创建新的付款重试。
     </p>

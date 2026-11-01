@@ -69,6 +69,20 @@ func adminRequestAllowed(user identity.User, parts []string) bool {
 	return granted[key]
 }
 
+// Settlement management may select an existing masked recipient without
+// acquiring permission to change a merchant's destination. The ordinary menu
+// check remains the conservative write/capability decision.
+func adminRequestAllowedHTTP(user identity.User, method string, parts []string) bool {
+	if adminRequestAllowed(user, parts) {
+		return true
+	}
+	if method != "GET" || len(parts) < 3 || parts[1] != "workflows" || parts[2] != "settlement-recipient" || routeMenuKey(parts) != "MerchantList" || !adminOperationAllowed(user.AdminClass, parts) {
+		return false
+	}
+	granted, restricted := parsePermissions(user.Permissions)
+	return restricted && granted["SettleList"]
+}
+
 // alwaysAllowedAdminFamily lists route families every signed-in administrator
 // may use regardless of menu grants: own session, own account/password/MFA, and
 // logout. Denying these would lock a restricted operator out of changing their

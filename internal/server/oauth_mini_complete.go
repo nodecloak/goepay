@@ -139,7 +139,7 @@ func (s *Server) handleMiniOAuthComplete(w http.ResponseWriter, r *http.Request)
 	}
 	policy := backoffice.New(s.Pool, s.Store)
 	for _, ip := range []string{originalIP, actualIP} {
-		if e = policy.CheckPayment(r.Context(), backoffice.PaymentContext{MerchantID: b.MerchantID, ClientIP: ip, Buyer: identity.SubjectID, NotifyURL: o.NotifyURL, ReturnURL: o.ReturnURL}); e != nil {
+		if e = policy.CheckPayment(r.Context(), backoffice.PaymentContext{MerchantID: b.MerchantID, ClientIP: ip, Buyer: identity.SubjectID, NotifyURL: o.NotifyURL, ReturnURL: o.ReturnURL, OrderIntent: paymentPolicyOriginalIntent(o)}); e != nil {
 			reject(403)
 			return
 		}

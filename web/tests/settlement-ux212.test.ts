@@ -22,10 +22,17 @@ const missing = {
 };
 function recipientClient(current = missing) {
   const client = new ApiClient("merchant");
-  vi.spyOn(client, "request").mockImplementation(async (path) => {
+  vi.spyOn(client, "request").mockImplementation(async (path, init) => {
     if (path.endsWith("/allowed-types"))
-      return { settlement: ["alipay", "wxpay", "bank"] } as never;
-    if (path === "/workflows/settlement-recipient") return current as never;
+      return {
+        settlement: ["alipay", "wxpay", "bank"],
+        can_write: true,
+      } as never;
+    if (path === "/workflows/settlement-recipient")
+      return {
+        ...current,
+        ...(!init?.method || init.method === "GET" ? { can_write: true } : {}),
+      } as never;
     throw Error("Unexpected endpoint " + path);
   });
   return client;

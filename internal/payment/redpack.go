@@ -3,6 +3,7 @@ package payment
 import (
 	"context"
 	"crypto/hmac"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	adapter "goepay/internal/adapters/payment"
+	"goepay/internal/ledger"
 )
 
 // Redpack is one 扫码红包: a deferred transfer to whoever claims it.
@@ -80,8 +82,8 @@ func (s *Store) CreateRedpack(ctx context.Context, in RedpackInput) (Redpack, er
 	}
 	defer tx.Rollback(ctx)
 	var enabled bool
-	var rate string
-	err = tx.QueryRow(ctx, `SELECT enabled,COALESCE(profile->>'transfer_rate','0') FROM merchants WHERE id=$1 FOR NO KEY UPDATE`, in.MerchantID).Scan(&enabled, &rate)
+	var profile []byte
+	err = tx.QueryRow(ctx, `SELECT enabled,profile FROM merchants WHERE id=$1 FOR NO KEY UPDATE`, in.MerchantID).Scan(&enabled, &profile)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Redpack{}, ErrNotFound
 	}
@@ -101,6 +103,26 @@ func (s *Store) CreateRedpack(ctx context.Context, in RedpackInput) (Redpack, er
 	if !errors.Is(err, ErrNotFound) {
 		return Redpack{}, err
 	}
+	var feature merchantRedpackFeature
+	if in.Role == "merchant" {
+		feature, err = readMerchantRedpackFeature(ctx, tx, in.MerchantID, true)
+		if err != nil {
+			return Redpack{}, err
+		}
+		var merchant struct {
+			TransferEnabled bool `json:"transfer_api_enabled"`
+		}
+		if !feature.Enabled || json.Unmarshal(profile, &merchant) != nil || !merchant.TransferEnabled {
+			return Redpack{}, ErrState
+		}
+		ordinary, err := readManualTransferPolicy(ctx, tx, in.MerchantID)
+		if err != nil {
+			return Redpack{}, err
+		}
+		if !ordinary.Enabled {
+			return Redpack{}, ErrState
+		}
+	}
 	policy, err := readTransferPolicyMode(ctx, tx, false)
 	if err != nil {
 		return Redpack{}, err
@@ -108,7 +130,11 @@ func (s *Store) CreateRedpack(ctx context.Context, in RedpackInput) (Redpack, er
 	if policy.MinimumAmount > 0 && in.Amount < policy.MinimumAmount || policy.MaximumAmount > 0 && in.Amount > policy.MaximumAmount {
 		return Redpack{}, ErrInvalid
 	}
-	cost, _, _, err := transferCost(in.Amount, rate)
+	selectedFee, err := readMerchantTransferFeeSelection(ctx, tx, in.MerchantID, true)
+	if err != nil {
+		return Redpack{}, err
+	}
+	cost, _, _, err := transferCost(in.Amount, ledger.Format(selectedFee.RateBPS))
 	if err != nil {
 		return Redpack{}, err
 	}
@@ -119,10 +145,22 @@ func (s *Store) CreateRedpack(ctx context.Context, in RedpackInput) (Redpack, er
 	if funds.Available < cost {
 		return Redpack{}, ErrInsufficient
 	}
+	if err = selectedFee.checkDeadline(ctx, tx); err != nil {
+		return Redpack{}, err
+	}
+	if err = checkGroupTransferDeadline(ctx, tx, feature.ValidUntil); err != nil {
+		return Redpack{}, err
+	}
 	out, err := scanRedpack(tx.QueryRow(ctx, `INSERT INTO redpacks(merchant_id,out_biz_no,channel_id,type,amount,remark,created_by,actor_id,expires_at)
  VALUES($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp()+make_interval(secs=>$9)) RETURNING `+redpackColumns,
 		in.MerchantID, in.OutBizNo, in.ChannelID, in.Type, in.Amount, in.Remark, in.Role, in.ActorID, RedpackLifetime.Seconds()))
 	if err != nil {
+		return Redpack{}, err
+	}
+	if err = selectedFee.checkDeadline(ctx, tx); err != nil {
+		return Redpack{}, err
+	}
+	if err = checkGroupTransferDeadline(ctx, tx, feature.ValidUntil); err != nil {
 		return Redpack{}, err
 	}
 	return out, tx.Commit(ctx)

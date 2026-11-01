@@ -148,3 +148,29 @@ it("shows risk URL/time while retaining source and trade number in local details
   expect(view.get('[role="dialog"]').text()).toContain("manual");
   expect(view.get('[role="dialog"]').text()).toContain("T1");
 });
+it("names administrator create and edit dialogs after the action instead of the list", async () => {
+  const { view } = setup("admin-users");
+  await flushPromises();
+  await view
+    .findAll("button")
+    .find((b) => b.text() === "添加管理员")!
+    .trigger("click");
+  await flushPromises();
+  expect(view.get('[role="dialog"]').attributes("aria-label")).toBe(
+    "添加管理员",
+  );
+  expect(view.get('[role="dialog"] h2').text()).toBe("添加管理员");
+  await view
+    .findAll('[role="dialog"] button')
+    .find((b) => b.text() === "取消")!
+    .trigger("click");
+  await view
+    .findAll("tbody button")
+    .find((b) => b.text() === "编辑")!
+    .trigger("click");
+  await flushPromises();
+  expect(view.get('[role="dialog"]').attributes("aria-label")).toBe(
+    "编辑管理员",
+  );
+  expect(view.get('[role="dialog"] h2').text()).toBe("编辑管理员");
+});

@@ -123,16 +123,20 @@ for (const width of [1280, 375])
     await expect(dialog.getByRole("tab")).toHaveText(["基本信息", "其他配置"]);
     const box = await dialog.boundingBox();
     expect(box).not.toBeNull();
-    // The group editor opens as a right drawer: it sits at the top, fills the
-    // window height and pins to the right edge, 900px wide on a desktop and the
-    // full width on a phone (a vertical scrollbar can shift the right edge by a
-    // few px).
+    // Match the reference's centered tabbed dialog, with its own bounded scroll
+    // area. The backdrop retains space around the dialog on a phone too.
     const vh = page.viewportSize()!.height;
-    expect(box!.y).toBeCloseTo(0, 0);
-    expect(box!.height).toBeGreaterThanOrEqual(vh - 1);
-    expect(box!.x + box!.width).toBeGreaterThanOrEqual(width - 1);
-    if (width === 1280) expect(box!.width).toBeCloseTo(900, 0);
-    else expect(box!.width).toBeGreaterThanOrEqual(width - 20);
+    expect(box!.y).toBeGreaterThanOrEqual(vh * 0.03);
+    expect(box!.height).toBeLessThanOrEqual(vh * 0.92 + 1);
+    expect(
+      Math.abs(box!.x - (width - box!.x - box!.width)),
+    ).toBeLessThanOrEqual(20);
+    if (width === 1280) expect(box!.width).toBeCloseTo(1000, 0);
+    else {
+      expect(box!.width).toBeGreaterThanOrEqual(width - 40);
+      expect(box!.x).toBeGreaterThanOrEqual(19);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width - 19);
+    }
     await expect(
       dialog.getByRole("heading", { name: "通道费率", exact: true }),
     ).toBeVisible();

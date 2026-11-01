@@ -215,8 +215,15 @@ func (s *Store) SetSettlementRecipient(ctx context.Context, mid int64, input Set
 	if old.ID > 0 && hmac.Equal(old.Hash, digest) {
 		return recipientView("configured", old.ID, in), tx.Commit(ctx)
 	}
+	gate, e := requireSettlementType(ctx, tx, mid, in.Type, false)
+	if e != nil {
+		return SettlementRecipientView{}, e
+	}
 	view, e := s.recordSettlementRecipientTx(ctx, tx, mid, in, digest, actor)
 	if e != nil {
+		return SettlementRecipientView{}, e
+	}
+	if e = gate.recheck(ctx, tx); e != nil {
 		return SettlementRecipientView{}, e
 	}
 	return view, tx.Commit(ctx)
@@ -247,7 +254,18 @@ func (s *Store) SetInitialSettlementRecipientTx(ctx context.Context, tx pgx.Tx, 
 	} else if !errors.Is(e, ErrNotFound) {
 		return SettlementRecipientView{}, e
 	}
-	return s.recordSettlementRecipientTx(ctx, tx, mid, in, digest, actor)
+	gate, e := requireSettlementType(ctx, tx, mid, in.Type, true)
+	if e != nil {
+		return SettlementRecipientView{}, e
+	}
+	view, e := s.recordSettlementRecipientTx(ctx, tx, mid, in, digest, actor)
+	if e != nil {
+		return SettlementRecipientView{}, e
+	}
+	if e = gate.recheck(ctx, tx); e != nil {
+		return SettlementRecipientView{}, e
+	}
+	return view, nil
 }
 
 // recordSettlementRecipientTx stores a normalized recipient as a new encrypted

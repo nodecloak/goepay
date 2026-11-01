@@ -36,9 +36,13 @@ for (const width of [1280, 375])
           credential_epoch: 0,
           totp_required: false,
         };
-      else if (p.endsWith("/workflows/settlement-recipient")) {
+      else if (p.endsWith("/workflows/settlement-recipient/allowed-types")) {
+        expect(u.searchParams.get("merchant_id")).toBe(id);
+        data = { settlement: ["alipay", "wxpay", "bank"], can_write: true };
+      } else if (p.endsWith("/workflows/settlement-recipient")) {
         expect(u.searchParams.get("merchant_id")).toBe(id);
         data = {
+          ...(req.method() === "GET" ? { can_write: true } : {}),
           state: "configured",
           config_id: "159",
           type: "alipay",
@@ -230,6 +234,7 @@ test("cancelling manual withdrawal clears target amount and never submits or rea
       expect(ids).toContain(mid);
       recipientReads.push(mid);
       data = {
+        ...(r.method() === "GET" ? { can_write: true } : {}),
         state: "configured",
         config_id: mid,
         type: "alipay",

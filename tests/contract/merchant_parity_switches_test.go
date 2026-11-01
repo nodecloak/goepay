@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"goepay/internal/identity"
 	"net/http"
 	"net/http/httptest"
@@ -23,6 +24,9 @@ func TestMerchantParitySwitchesGateMenuAndEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	batch, provider := seedMerchantHistoryBatch(t, s, pool, "parity-switch-history", false)
+	// The existing batch must be readable even when no upstream runtime loads.
+	s.ProviderFlow = nil
 	s.MerchantChannels = map[int64][]int64{1: {7}}
 
 	merchant := func() (string, string) {
@@ -75,9 +79,9 @@ func TestMerchantParitySwitchesGateMenuAndEndpoints(t *testing.T) {
 		}
 	}
 	token, csrf := merchant()
-	// transfer-batches list reaches the handler (not a 403 feature refusal).
-	if code, out := call(token, csrf, "GET", "/console/v1/merchant/transfer-batches", ""); code == 403 && msg(out) == "未开启批量代付功能" {
-		t.Fatal("transfer-batches feature-refused while user_transfer_batch default ON")
+	// Actual history is available, not merely an endpoint returning a non-403.
+	if code, out := call(token, csrf, "GET", "/console/v1/merchant/transfer-batches", ""); code != 200 || len(out["data"].(map[string]any)["items"].([]any)) != 1 {
+		t.Fatal("transfer-batches actual default history unavailable", code, out)
 	}
 	// subchannel list reaches the handler (other 403s, e.g. actor checks, are
 	// unrelated to the feature gate; only the feature message must be absent).
@@ -89,7 +93,7 @@ func TestMerchantParitySwitchesGateMenuAndEndpoints(t *testing.T) {
 		t.Fatal("totp prepare feature-refused while user_totp_open default ON")
 	}
 
-	// Turn each off: the session drops the feature and the endpoint refuses 403.
+	// Turn each off: new uses refuse; financial history remains readable.
 	setSwitch("user_transfer_batch", "0")
 	setSwitch("subchannel_open", "0")
 	setSwitch("user_profitsharing", "0")
@@ -101,8 +105,19 @@ func TestMerchantParitySwitchesGateMenuAndEndpoints(t *testing.T) {
 		}
 	}
 	token, csrf = merchant()
-	if code, out := call(token, csrf, "GET", "/console/v1/merchant/transfer-batches", ""); code != 403 || msg(out) != "未开启批量代付功能" {
-		t.Fatalf("transfer-batches not feature-refused when off: %d %v", code, out)
+	if code, out := call(token, csrf, "GET", "/console/v1/merchant/transfer-batches", ""); code != 200 || len(out["data"].(map[string]any)["items"].([]any)) != 1 {
+		t.Fatalf("disabled batch feature erased actual history: %d %v", code, out)
+	}
+	if code, out := call(token, csrf, "GET", "/console/v1/merchant/transfer-batches/"+fmt.Sprint(batch.ID), ""); code != 200 || out["data"].(map[string]any)["external_no"] != batch.ExternalNo {
+		t.Fatal("disabled batch feature erased original detail", code, out)
+	}
+	for _, path := range []string{"/console/v1/merchant/transfer-batches", "/console/v1/merchant/transfer-batches/" + fmt.Sprint(batch.ID) + "/execute"} {
+		if code, out := call(token, csrf, "POST", path, `{}`); code != 403 || msg(out) != "未开启批量代付功能" {
+			t.Fatalf("disabled batch feature admitted new use: %s %d %v", path, code, out)
+		}
+	}
+	if provider.writes.Load() != 0 || provider.queries.Load() != 0 {
+		t.Fatal("history feature checks invoked a provider")
 	}
 	if code, out := call(token, csrf, "GET", "/console/v1/merchant/payment-subchannels", ""); code != 403 || msg(out) != "未开启子商户支付通道功能" {
 		t.Fatalf("payment-subchannels not feature-refused when off: %d %v", code, out)

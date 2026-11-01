@@ -343,6 +343,13 @@ test("Pro settlement recipient edit remains local until explicit save and fits m
 }) => {
   const observed = await mockConsole(page, baseURL, "merchant");
   await page.route(
+    "**/console/v1/merchant/workflows/settlement-recipient/allowed-types",
+    (route) =>
+      route.fulfill(
+        ok({ settlement: ["alipay", "wxpay", "bank"], can_write: true }),
+      ),
+  );
+  await page.route(
     "**/console/v1/merchant/workflows/settlement-recipient",
     (route) => {
       if (route.request().method() !== "GET") {
@@ -351,6 +358,7 @@ test("Pro settlement recipient edit remains local until explicit save and fits m
       }
       return route.fulfill(
         ok({
+          can_write: true,
           state: "configured",
           config_id: "42",
           type: "alipay",

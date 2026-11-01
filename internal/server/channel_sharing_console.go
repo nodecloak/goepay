@@ -268,7 +268,7 @@ func (s *Server) channelSharingConsole(w http.ResponseWriter, r *http.Request, r
 	// on, so a default install is unchanged.
 	profitsharingOn := true
 	if role == "merchant" {
-		on, fe := backoffice.New(s.Pool, s.Store).MerchantFeatureVisible(r.Context(), "user_profitsharing")
+		on, fe := backoffice.New(s.Pool, s.Store).MerchantFeatureVisibleForMerchant(r.Context(), mid, "user_profitsharing")
 		if fe != nil {
 			response(w, 503, -1, "merchant feature unavailable", nil)
 			return true

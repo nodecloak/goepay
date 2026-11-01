@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"goepay/internal/grouppolicy"
+	"goepay/internal/merchantpolicy"
 	"strconv"
 	"time"
 )
@@ -164,11 +165,6 @@ func (s *Store) createOrderWithPrintOrigin(ctx context.Context, in CreateOrderIn
 	if !enabled || payStatus != 1 {
 		return Order{}, ErrState
 	}
-	if purpose == "payment" {
-		if e = depositMinimumGateTx(ctx, tx, in.MerchantID); e != nil {
-			return Order{}, e
-		}
-	}
 	if collectionID > 0 {
 		var owner int64
 		if e = tx.QueryRow(ctx, "SELECT owner_id FROM backoffice_records WHERE id=$1 AND resource='collection-codes' AND body->>'enabled'='true' FOR SHARE", collectionID).Scan(&owner); e != nil {
@@ -202,6 +198,18 @@ func (s *Store) createOrderWithPrintOrigin(ctx context.Context, in CreateOrderIn
 	}
 	// The merchant lock serializes purchases and administrator assignments with
 	// this new-order snapshot. Expiration never changes an existing order.
+	domainPolicy, e := paymentDomainAdmissionTx(ctx, tx, in)
+	if e != nil {
+		return Order{}, e
+	}
+	var depositPolicy *merchantpolicy.DepositPolicy
+	if purpose == "payment" {
+		policy, err := depositMinimumGateTx(ctx, tx, in.MerchantID)
+		if err != nil {
+			return Order{}, err
+		}
+		depositPolicy = &policy
+	}
 	var groupDeadline time.Time
 	quote, routed, e := s.readRouteFeeQuote(ctx, tx, in.MerchantID, in.OutTradeNo)
 	if e != nil {
@@ -318,6 +326,16 @@ func (s *Store) createOrderWithPrintOrigin(ctx context.Context, in CreateOrderIn
 		}
 		if e = quote.deadline(ctx, tx); e != nil {
 			return Order{}, e
+		}
+	}
+	if depositPolicy != nil {
+		if e = checkDepositPolicy(ctx, tx, in.MerchantID, *depositPolicy); e != nil {
+			return Order{}, e
+		}
+	}
+	if domainPolicy != nil {
+		if e = domainPolicy.Recheck(ctx, tx, in.MerchantID); e != nil {
+			return Order{}, paymentDomainError(e)
 		}
 	}
 	return o, tx.Commit(ctx)

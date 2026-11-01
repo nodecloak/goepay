@@ -5,7 +5,7 @@ import SettlementListFilters from "../src/components/SettlementListFilters.vue";
 import { freshSettlementFilters } from "../src/settlement-filters";
 
 // The settle list filter must match epay_pro settle/list: 搜索内容 + 结算方式
-// (admin also 商户号) as primary fields, status/date behind 展开, with 重置/查询.
+// (admin also 商户号); merchant status is primary, dates remain behind 展开.
 describe("settle list filter (kit, Pro model)", () => {
   function mountBar(area: "admin" | "merchant") {
     return mount(SettlementListFilters, {
@@ -29,6 +29,11 @@ describe("settle list filter (kit, Pro model)", () => {
   it("hides 商户号 for the merchant area", () => {
     const w = mountBar("merchant");
     expect(w.findAll(".pa-label").map((l) => l.text())).not.toContain("商户号");
+  });
+
+  it("keeps the merchant status filter visible alongside settlement method", () => {
+    const w = mountBar("merchant");
+    expect(w.findAll(".pa-label").map((l) => l.text())).toContain("状态");
   });
 
   it("reveals status and date fields only after 展开", async () => {

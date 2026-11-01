@@ -15,18 +15,19 @@ import (
 // IdentityProfileSpec is accepted only inside the explicitly encrypted import.
 // Enabled defaults false. Missing account mode never means direct merchant.
 type IdentityProfileSpec struct {
-	ID           int64               `json:"id,string"`
-	Revision     int64               `json:"revision,string"`
-	ChannelID    int64               `json:"channel_id,string"`
-	Enabled      bool                `json:"enabled"`
-	Provider     string              `json:"provider"`
-	Kind         string              `json:"kind"`
-	AppID        string              `json:"app_id"`
-	AccountMode  string              `json:"account_mode"`
-	Path         string              `json:"path"`
-	MerchantIDs  IdentityMerchantIDs `json:"merchant_ids"`
-	Config       map[string]string   `json:"config"`
-	Certificates map[string]string   `json:"certificates,omitempty"`
+	ManagedVaultFingerprint string              `json:"managed_vault_fingerprint,omitempty"`
+	ID                      int64               `json:"id,string"`
+	Revision                int64               `json:"revision,string"`
+	ChannelID               int64               `json:"channel_id,string"`
+	Enabled                 bool                `json:"enabled"`
+	Provider                string              `json:"provider"`
+	Kind                    string              `json:"kind"`
+	AppID                   string              `json:"app_id"`
+	AccountMode             string              `json:"account_mode"`
+	Path                    string              `json:"path"`
+	MerchantIDs             IdentityMerchantIDs `json:"merchant_ids"`
+	Config                  map[string]string   `json:"config"`
+	Certificates            map[string]string   `json:"certificates,omitempty"`
 	// Omission preserves existing serialized profile/fingerprint bytes. This
 	// flag authorizes only a standalone WeChat mini identity link attempt.
 	EnableURLLink bool `json:"enable_url_link,omitempty"`
@@ -75,6 +76,15 @@ func directIdentityChannel(c Channel) bool {
 // BuildIdentityProfiles performs no I/O. It has an independent default-off gate
 // and does not require payment products, mini payment launch, or financial writes.
 func BuildIdentityProfiles(imp Import, enabled bool) (map[int64]IdentityProfile, error) {
+	for _, spec := range imp.IdentityProfiles {
+		if spec.ManagedVaultFingerprint != "" {
+			return nil, ErrImport
+		}
+	}
+	return buildIdentityProfiles(imp, enabled, false)
+}
+
+func buildIdentityProfiles(imp Import, enabled, managed bool) (map[int64]IdentityProfile, error) {
 	out := map[int64]IdentityProfile{}
 	if !enabled {
 		return out, nil
@@ -91,6 +101,9 @@ func BuildIdentityProfiles(imp Import, enabled bool) (map[int64]IdentityProfile,
 	}
 	seen := map[int64]bool{}
 	for _, spec := range imp.IdentityProfiles {
+		if spec.ManagedVaultFingerprint != "" && (!managed || !provider.ValidManagedWeixinVaultFingerprint(spec.ManagedVaultFingerprint)) {
+			return nil, ErrImport
+		}
 		if spec.ID <= 0 || seen[spec.ID] {
 			return nil, ErrImport
 		}
@@ -236,7 +249,7 @@ func (p *IdentityProfileSpec) UnmarshalJSON(raw []byte) error {
 		// Field names are exact; encoding/json's case folding must not turn a
 		// differently named flag (or identifier alias) into trusted config.
 		switch name {
-		case "id", "revision", "channel_id", "enabled", "provider", "kind", "app_id", "account_mode", "path", "merchant_ids", "config", "certificates", "enable_url_link":
+		case "id", "revision", "channel_id", "enabled", "provider", "kind", "app_id", "account_mode", "path", "merchant_ids", "config", "certificates", "enable_url_link", "managed_vault_fingerprint":
 		default:
 			return ErrImport
 		}
@@ -272,6 +285,9 @@ func (p *IdentityProfileSpec) UnmarshalJSON(raw []byte) error {
 		return ErrImport
 	}
 	*p = IdentityProfileSpec(value)
+	if p.ManagedVaultFingerprint != "" && !provider.ValidManagedWeixinVaultFingerprint(p.ManagedVaultFingerprint) {
+		return ErrImport
+	}
 	return nil
 }
 

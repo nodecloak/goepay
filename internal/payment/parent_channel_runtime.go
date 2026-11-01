@@ -26,6 +26,9 @@ type parentExecutionBinding struct {
 	execution          adapter.ParentChannelExecution
 	paymentVariant     string
 	variantFrozen      bool
+	// Set only by the verified pre103 child permission-anchor constructor.
+	// This is not serialized and grants no parent execution authority.
+	legacyChildAuthority bool
 }
 
 func (g ProviderFlow) paymentWritesEnabled() bool {
@@ -359,23 +362,43 @@ func (g ProviderFlow) parentPaymentIntentTx(ctx context.Context, q fundsReader, 
 // physical parent was adopted later, read only the current permission anchor;
 // restoration of the real SDK still belongs exclusively to the sealed child.
 func (g ProviderFlow) withLegacyChildParentAuthority(ctx context.Context, q fundsReader, mid int64, no string) (ProviderFlow, error) {
-	if len(g.ParentFactories) == 0 { return g, nil }
+	if len(g.ParentFactories) == 0 {
+		return g, nil
+	}
 	ready, err := g.Store.parentPaymentSchema(ctx, q)
-	if err != nil || !ready { return g, err }
+	if err != nil || !ready {
+		return g, err
+	}
 	child, err := g.Store.readChildRoute(ctx, q, mid, no)
-	if err != nil || child == nil { return g, err }
+	if err != nil || child == nil {
+		return g, err
+	}
 	head, err := g.Store.readParentHead(ctx, q, child.parent)
-	if errors.Is(err, ErrNotFound) { return g, nil }
-	if err != nil { return g, err }
+	if errors.Is(err, ErrNotFound) {
+		return g, nil
+	}
+	if err != nil {
+		return g, err
+	}
 	quote, found, err := g.Store.readRouteFeeQuote(ctx, q, mid, no)
-	if err != nil || !found || !childCommitmentEqual(quote.facts.Child, child.commitment()) || !hmac.Equal(head.fee.identity, quote.facts.ParentIdentity) { return g, ErrConflict }
-	binding := &parentExecutionBinding{fee:head.fee, account:parentChannelAccount{id:head.id, version:head.version, source:head.source, kind:head.kind}, merchant:mid, live:g.parentLive}
-	if g.parentOperator != nil { binding.authorized = func() bool { return g.parentOperator(mid, head.source) } }
+	if err != nil || !found || !childCommitmentEqual(quote.facts.Child, child.commitment()) || !hmac.Equal(head.fee.identity, quote.facts.ParentIdentity) {
+		return g, ErrConflict
+	}
+	binding := legacyChildAuthorityBinding(head, mid, g.parentLive)
+	if g.parentOperator != nil {
+		binding.authorized = func() bool { return g.parentOperator(mid, head.source) }
+	}
 	out := g
 	out.parentBindings = make(map[int64]*parentExecutionBinding, len(g.parentBindings)+1)
-	for id, old := range g.parentBindings { out.parentBindings[id] = old }
+	for id, old := range g.parentBindings {
+		out.parentBindings[id] = old
+	}
 	out.parentBindings[head.id] = binding
 	return out, nil
+}
+
+func legacyChildAuthorityBinding(head parentChannelHead, mid int64, live func() bool) *parentExecutionBinding {
+	return &parentExecutionBinding{fee: head.fee, account: parentChannelAccount{id: head.id, version: head.version, source: head.source, kind: head.kind}, merchant: mid, live: live, legacyChildAuthority: true}
 }
 
 func (g ProviderFlow) parentPaymentTrade(ctx context.Context, trade string) (ProviderFlow, error) {

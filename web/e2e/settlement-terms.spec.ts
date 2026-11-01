@@ -37,9 +37,14 @@ for (const scenario of [
             csrf_token: "csrf",
           }),
         );
+      if (p.endsWith("/settlement-recipient/allowed-types"))
+        return route.fulfill(
+          ok({ settlement: ["alipay", "wxpay", "bank"], can_write: true }),
+        );
       if (p.endsWith("/settlement-recipient"))
         return route.fulfill(
           ok({
+            ...(route.request().method() === "GET" ? { can_write: true } : {}),
             state: "configured",
             config_id: "42",
             type: "alipay",
@@ -88,12 +93,23 @@ test("settlement fee confirmation binds amount and never treats approval as payo
 }) => {
   let posts = 0,
     quotes = 0;
+  const quoteReads: {
+    path: string;
+    method: string;
+    amount: string | null;
+    merchantID: string | null;
+  }[] = [];
   await page.route("**/console/v1/**", (route) => {
     const url = new URL(route.request().url()),
       p = url.pathname;
+    if (p.endsWith("/settlement-recipient/allowed-types"))
+      return route.fulfill(
+        ok({ settlement: ["alipay", "wxpay", "bank"], can_write: true }),
+      );
     if (p.endsWith("/settlement-recipient"))
       return route.fulfill(
         ok({
+          ...(route.request().method() === "GET" ? { can_write: true } : {}),
           state: "configured",
           config_id: "42",
           type: "alipay",
@@ -120,6 +136,12 @@ test("settlement fee confirmation binds amount and never treats approval as payo
       );
     if (p.endsWith("/settlement-policy")) {
       quotes++;
+      quoteReads.push({
+        path: p,
+        method: route.request().method(),
+        amount: url.searchParams.get("amount"),
+        merchantID: url.searchParams.get("merchant_id"),
+      });
       return route.fulfill(
         ok({
           can_apply: true,
@@ -178,18 +200,38 @@ test("settlement fee confirmation binds amount and never treats approval as payo
   });
   await page.goto("/merchant/settle/apply");
   await page.getByLabel("金额（元）", { exact: true }).fill("1.23");
+  await expect(page.locator(".settle-live")).toContainText("实际到账：1.20 元");
+  const beforeFirstConfirmation = quotes;
   await page.getByRole("button", { name: "确认提交", exact: true }).click();
   await expect(
     page.getByText("预计手续费：0.03 元", { exact: true }),
   ).toBeVisible();
   expect(posts).toBe(0);
-  expect(quotes).toBe(1);
+  expect(quotes).toBe(beforeFirstConfirmation + 1);
+  expect(quoteReads.at(-1)).toEqual({
+    path: "/console/v1/merchant/workflows/settlement-policy",
+    method: "GET",
+    amount: "1.23",
+    merchantID: null,
+  });
   await page.getByLabel("金额（元）", { exact: true }).fill("1.24");
   await expect(
     page.getByRole("button", { name: "按已核对费用提交", exact: true }),
   ).toHaveCount(0);
   await page.getByLabel("金额（元）", { exact: true }).fill("1.23");
+  await expect(page.locator(".settle-live")).toContainText("实际到账：1.20 元");
+  const beforeUpdatedConfirmation = quotes;
   await page.getByRole("button", { name: "确认提交", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "按已核对费用提交", exact: true }),
+  ).toBeVisible();
+  expect(quotes).toBe(beforeUpdatedConfirmation + 1);
+  expect(quoteReads.at(-1)).toEqual({
+    path: "/console/v1/merchant/workflows/settlement-policy",
+    method: "GET",
+    amount: "1.23",
+    merchantID: null,
+  });
   await page
     .getByRole("button", { name: "按已核对费用提交", exact: true })
     .click();
@@ -197,6 +239,7 @@ test("settlement fee confirmation binds amount and never treats approval as payo
   await expect(notice).toContainText("已提交并登记");
   await expect(notice).toContainText("根据原记录状态核实处理结果");
   expect(posts).toBe(1);
+  expect(quotes).toBe(beforeUpdatedConfirmation + 1);
 });
 
 test("failed or refused settlement quote never submits and fee conflict requires another confirmation", async ({
@@ -206,9 +249,14 @@ test("failed or refused settlement quote never submits and fee conflict requires
     posts = 0;
   await page.route("**/console/v1/**", (route) => {
     const p = new URL(route.request().url()).pathname;
+    if (p.endsWith("/settlement-recipient/allowed-types"))
+      return route.fulfill(
+        ok({ settlement: ["alipay", "wxpay", "bank"], can_write: true }),
+      );
     if (p.endsWith("/settlement-recipient"))
       return route.fulfill(
         ok({
+          ...(route.request().method() === "GET" ? { can_write: true } : {}),
           state: "configured",
           config_id: "42",
           type: "alipay",

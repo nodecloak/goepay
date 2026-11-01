@@ -56,6 +56,7 @@ for (const width of [1280, 375])
               "操作",
             ]
           : [
+              "ID",
               "结算方式",
               "结算账号",
               "结算金额/实际到账",
@@ -74,10 +75,10 @@ for (const width of [1280, 375])
       await expect(success).toContainText("已完成");
       await expect(success).toContainText("90071992547409.90");
       await expect(
-        success.getByRole("cell").nth(role === "admin" ? 7 : 4),
+        success.getByRole("cell").nth(role === "admin" ? 7 : 5),
       ).toHaveText("2026-10-25 23:35:00");
       await expect(
-        first.getByRole("cell").nth(role === "admin" ? 7 : 4),
+        first.getByRole("cell").nth(role === "admin" ? 7 : 5),
       ).toHaveText("—");
       if (role === "admin") {
         await page

@@ -7,11 +7,18 @@ import {
   personalSettingsBody,
   type PersonalSettings,
 } from "../merchant-personal-settings";
-const props = defineProps<{
-  client: ApiClient;
-  merchantId: string;
-  ownSession: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    client: ApiClient;
+    merchantId: string;
+    ownSession: boolean;
+    section?: "all" | "contact" | "settlement";
+  }>(),
+  { section: "all" },
+);
+const title = computed(() =>
+  props.section === "settlement" ? "预留余额设置" : "个人功能设置",
+);
 const state = ref<PersonalSettings | null>(null),
   draft = reactive({
     qq: "",
@@ -34,7 +41,8 @@ let epoch = 0,
   trackedClient = props.client,
   trackedCSRF = props.client.csrfToken,
   trackedID = props.merchantId,
-  trackedOwn = props.ownSession;
+  trackedOwn = props.ownSession,
+  trackedSection = props.section;
 function setDraft(value?: {
   qq: string;
   pay_minmoney: string;
@@ -51,7 +59,8 @@ function sameContext() {
     trackedClient === props.client &&
     trackedCSRF === props.client.csrfToken &&
     trackedID === props.merchantId &&
-    trackedOwn === props.ownSession
+    trackedOwn === props.ownSession &&
+    trackedSection === props.section
   );
 }
 function clear(message = "") {
@@ -68,6 +77,7 @@ function clear(message = "") {
   trackedCSRF = props.client.csrfToken;
   trackedID = props.merchantId;
   trackedOwn = props.ownSession;
+  trackedSection = props.section;
 }
 function ensureContext() {
   if (!sameContext()) {
@@ -118,7 +128,19 @@ async function save() {
   const previous = state.value;
   let body: ReturnType<typeof personalSettingsBody>;
   try {
-    body = personalSettingsBody(previous, draft);
+    body = personalSettingsBody(
+      previous,
+      props.section === "contact"
+        ? { ...draft, remain_money: previous.remain_money }
+        : props.section === "settlement"
+          ? {
+              qq: previous.qq,
+              pay_minmoney: previous.pay_minmoney,
+              pay_maxmoney: previous.pay_maxmoney,
+              remain_money: draft.remain_money,
+            }
+          : draft,
+    );
   } catch (e) {
     error.value = e instanceof Error ? e.message : "请核对个人设置";
     return;
@@ -171,6 +193,7 @@ watch(
     props.client.csrfToken,
     props.merchantId,
     props.ownSession,
+    props.section,
   ],
   () => {
     clear();
@@ -181,9 +204,9 @@ watch(
 onBeforeUnmount(() => clear());
 </script>
 <template>
-  <section class="panel personal-settings" aria-label="个人功能设置">
+  <section class="panel personal-settings" :aria-label="title">
     <div class="personal-heading">
-      <h2>个人功能设置</h2>
+      <h2>{{ title }}</h2>
       <button
         v-if="allowed"
         type="button"
@@ -201,7 +224,7 @@ onBeforeUnmount(() => clear());
       <p v-if="notice" role="status" class="notice">{{ notice }}</p>
       <form v-if="state" @submit.prevent="save">
         <div class="personal-fields">
-          <label
+          <label v-if="section !== 'settlement'"
             >联系QQ<input
               v-model="draft.qq"
               name="qq"
@@ -210,7 +233,7 @@ onBeforeUnmount(() => clear());
               autocomplete="off"
               :disabled="busy"
           /></label>
-          <label
+          <label v-if="section !== 'settlement'"
             >最大支付金额限制
             <div class="money-field">
               <input
@@ -223,7 +246,7 @@ onBeforeUnmount(() => clear());
               /><span>元</span>
             </div></label
           >
-          <label
+          <label v-if="section !== 'settlement'"
             >最小支付金额限制
             <div class="money-field">
               <input
@@ -236,8 +259,8 @@ onBeforeUnmount(() => clear());
               /><span>元</span>
             </div></label
           >
-          <label
-            >结算留存
+          <label v-if="section !== 'contact'"
+            >{{ section === "settlement" ? "预留余额" : "结算留存" }}
             <input
               v-model="draft.remain_money"
               name="remain_money"
@@ -249,15 +272,20 @@ onBeforeUnmount(() => clear());
             />
           </label>
         </div>
-        <p class="muted">
+        <p v-if="section !== 'settlement'" class="muted">
           留空或0不额外限制；平台、用户组和通道限制仍然生效。限制用于新订单，历史订单金额保持原记录。
         </p>
-        <p class="muted">
-          结算留存：每次自动结算前从可结算余额中保留的部分，可填百分比(如
+        <p v-if="section !== 'contact'" class="muted">
+          {{
+            section === "settlement" ? "预留余额" : "结算留存"
+          }}：每次自动结算前从可结算余额中保留的部分，可填百分比(如
           10%)或固定金额(如 50.00)。
         </p>
         <p v-if="!state.bounds_valid" role="alert" class="error">
           当前个人上下限不一致，请修正后保存。
+          <a v-if="section === 'settlement'" href="/merchant/account/settings"
+            >前往账户设置修正支付金额限制</a
+          >
         </p>
         <div class="personal-actions">
           <button type="submit" class="primary" :disabled="busy || loading">

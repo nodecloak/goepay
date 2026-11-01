@@ -124,11 +124,36 @@ for (const width of [375, 1280])
       "/console/v1/admin/settlement-batches",
       "/console/v1/admin/settlement-batches",
     ]);
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth > innerWidth,
-      ),
-    ).toBe(false);
+    const overflow = await page.evaluate(() => ({
+      viewport: innerWidth,
+      width: document.documentElement.scrollWidth,
+      boxes: Array.from(document.querySelectorAll("main *"))
+        .map((e) => {
+          const rect = e.getBoundingClientRect();
+          return {
+            tag: e.tagName,
+            class: e.className,
+            left: rect.left,
+            right: rect.right,
+            width: rect.width,
+          };
+        })
+        .filter((r) => r.right > innerWidth + 1 && r.width > 0)
+        .slice(0, 30),
+    }));
+    if (overflow.width > overflow.viewport) {
+      await testInfo.attach("overflow-geometry", {
+        body: JSON.stringify(overflow, null, 2),
+        contentType: "application/json",
+      });
+      await page.screenshot({
+        path: testInfo.outputPath("overflow.png"),
+        fullPage: true,
+      });
+    }
+    expect(overflow.width, JSON.stringify(overflow)).toBeLessThanOrEqual(
+      overflow.viewport,
+    );
     await page.screenshot({
       path: testInfo.outputPath("batch-" + width + ".png"),
       fullPage: true,

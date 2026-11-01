@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"goepay/internal/identity"
+	"net/mail"
 )
 
 func merchantProfile(fields map[string]any) map[string]any {
@@ -34,7 +35,7 @@ func syncMerchantLogin(ctx context.Context, tx pgx.Tx, id int64, fields map[stri
 	if username == "" && password != "" {
 		return ErrInvalid
 	}
-	if username != "" && !usernamePattern.MatchString(username) {
+	if username != "" && !validMerchantLoginUsername(username) {
 		return ErrInvalid
 	}
 	if revoke {
@@ -69,4 +70,15 @@ func syncMerchantLogin(ctx context.Context, tx pgx.Tx, id int64, fields map[stri
 		_, err = tx.Exec(ctx, "UPDATE console_users SET password_hash=$3 WHERE username=$1 AND role='merchant' AND subject_id=$2", username, id, hash)
 	}
 	return businessError(err)
+}
+
+func validMerchantLoginUsername(value string) bool {
+	if len(value) < 3 || len(value) > 100 {
+		return false
+	}
+	if usernamePattern.MatchString(value) || merchantPhonePattern.MatchString(value) {
+		return true
+	}
+	address, err := mail.ParseAddress(value)
+	return err == nil && address.Address == value
 }

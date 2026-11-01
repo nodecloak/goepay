@@ -120,6 +120,8 @@ async function fixture(page: Page) {
         permissions: { create: true, update: true, delete: false },
         fields,
       };
+    else if (p.endsWith("/settlement-recipient/allowed-types"))
+      data = { settlement: ["alipay", "wxpay", "bank"], can_write: true };
     else if (p.endsWith("/settlement-recipient")) {
       if (req.method() === "GET") reads.push(u);
       else
@@ -128,7 +130,10 @@ async function fixture(page: Page) {
           config_id: "43",
           account_masked: "***4321",
         };
-      data = record.settlement_recipient;
+      data =
+        req.method() === "GET"
+          ? { ...record.settlement_recipient, can_write: true }
+          : record.settlement_recipient;
     } else if (p.endsWith("/merchants/11901")) {
       if (req.method() === "PATCH") Object.assign(record, req.postDataJSON());
       data = record;

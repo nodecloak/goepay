@@ -13,7 +13,7 @@ import (
 	"goepay/internal/payment"
 )
 
-var fundsFinancialSettingKeys = []string{"admin_funds_authorization_enabled", "settle_type", "settle_open", "settlement_minimum_cents", "settlement_maximum_cents", "settlement_fee_rate_bps", "settlement_fee_minimum_cents", "settlement_fee_maximum_cents", "settlement_retained_cents", "settlement_daily_limit", "auto_settle_money", "transfer_alipay", "transfer_enabled", "user_transfer", "transfer_minmoney", "transfer_maxmoney", "transfer_maxlimit", "transfer_desc", "transfer_name", "payment_fee_enabled", "refund_fee_payer", "enforce_domains"}
+var fundsFinancialSettingKeys = []string{"admin_funds_authorization_enabled", "settle_type", "settle_open", "settle_alipay", "settle_wxpay", "settle_bank", "settlement_minimum_cents", "settlement_maximum_cents", "settlement_fee_rate_bps", "settlement_fee_minimum_cents", "settlement_fee_maximum_cents", "settlement_retained_cents", "settlement_daily_limit", "auto_settle_money", "transfer_alipay", "transfer_enabled", "user_transfer", "user_transfer_batch", "user_transfer_red", "user_deposit", "user_deposit_min", "user_deposit_day", "transfer_minmoney", "transfer_maxmoney", "transfer_maxlimit", "transfer_desc", "transfer_name", "payment_fee_enabled", "refund_fee_payer", "enforce_domains"}
 
 // All settings are selected by exact financial keys; target groups/rules are
 // bound separately. Other merchants' history can never push a policy outside a
@@ -27,7 +27,13 @@ func fundsRelevantPolicies(ctx context.Context, q identity.FundsQuerier, mids ma
 	rows, e := q.Query(ctx, `SELECT jsonb_build_object('id',b.id,'resource',b.resource,'body',
  CASE WHEN b.resource='groups' THEN jsonb_strip_nulls(jsonb_build_object(
  'enabled',b.body->'enabled','settle_open',b.body->'settle_open',
- 'settle_rate',b.body->'settle_rate','user_transfer',b.body->'user_transfer')) ELSE b.body END)
+ 'settle_rate',b.body->'settle_rate','settle_type',b.body->'settle_type',
+ 'settle_alipay',b.body->'settle_alipay','settle_wxpay',b.body->'settle_wxpay','settle_bank',b.body->'settle_bank',
+ 'settle_minmoney',b.body->'settle_minmoney','user_transfer',b.body->'user_transfer',
+ 'user_transfer_batch',b.body->'user_transfer_batch','user_deposit',b.body->'user_deposit',
+ 'user_deposit_min',b.body->'user_deposit_min','user_deposit_day',b.body->'user_deposit_day',
+ 'transfer_rate',CASE WHEN COALESCE(b.body->>'transfer_rate','') IN ('','_') THEN NULL ELSE b.body->'transfer_rate' END,
+ 'user_transfer_red',CASE WHEN COALESCE(b.body->>'user_transfer_red','') IN ('','_') THEN NULL ELSE b.body->'user_transfer_red' END)) ELSE b.body END)
  FROM backoffice_records b WHERE
  (b.resource='settings' AND b.body->>'key'=ANY($1::text[])) OR
  (b.resource IN ('merchant-risk','settlement-settings') AND b.owner_id=ANY($2::bigint[])) OR
@@ -132,14 +138,21 @@ func fundsActionSummary(summary map[string]string, d fundsTargetDefinition, fiel
 		if json.Unmarshal(merchants[fundsText(fields, "merchant_id")], &merchant) != nil {
 			return payment.ErrInvalid
 		}
-		rateText := ""
-		if raw := merchant.Profile["transfer_rate"]; raw != nil {
-			json.Unmarshal(raw, &rateText)
-		}
 		rate := int64(0)
 		var e error
-		if rateText != "" {
-			rate, e = ledger.Parse(rateText)
+		if selected, ok := snapshot["transfer_fee_policy"].(payment.MerchantTransferFeePolicy); ok {
+			rate = selected.RateBPS
+			if !selected.GroupOverride || rate < 0 || rate > 10000 {
+				return payment.ErrInvalid
+			}
+		} else {
+			rateText := ""
+			if raw := merchant.Profile["transfer_rate"]; raw != nil {
+				json.Unmarshal(raw, &rateText)
+			}
+			if rateText != "" {
+				rate, e = ledger.Parse(rateText)
+			}
 			if e != nil || rate < 0 || rate > 10000 {
 				return payment.ErrInvalid
 			}

@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"goepay/internal/ledger"
+	"goepay/internal/merchantpolicy"
 )
 
 // ErrDepositBelowMinimum refuses a payment order while the merchant holds less
@@ -19,41 +19,22 @@ var ErrDepositBelowMinimum = fmt.Errorf("%w: 保证金低于平台最低要求�
 // switched off (user_deposit "0"), a payment order is refused until the
 // merchant's held deposit reaches the minimum. Recharge orders are not gated,
 // so a merchant can always top up and then move funds into the deposit. An
-// unset, empty or malformed minimum leaves payments unconditional, which is
-// today's behaviour. The first settings row by id wins, as for user_deposit_day.
-func depositMinimumGateTx(ctx context.Context, tx pgx.Tx, merchantID int64) error {
-	rows, e := tx.Query(ctx, `SELECT body->>'key',COALESCE(body->>'value','') FROM backoffice_records WHERE resource='settings' AND body->>'key' IN ('user_deposit','user_deposit_min') ORDER BY id`)
+// unset, empty or malformed global minimum keeps its legacy default. Effective
+// group overrides are strict, and the returned deadline is checked at commit.
+func depositMinimumGateTx(ctx context.Context, tx pgx.Tx, merchantID int64) (merchantpolicy.DepositPolicy, error) {
+	policy, e := readMerchantDepositPolicy(ctx, tx, merchantID)
 	if e != nil {
-		return e
+		return policy, e
 	}
-	values := map[string]string{}
-	for rows.Next() {
-		var key, value string
-		if e = rows.Scan(&key, &value); e != nil {
-			rows.Close()
-			return e
-		}
-		if _, seen := values[key]; !seen {
-			values[key] = value
-		}
-	}
-	rows.Close()
-	if e = rows.Err(); e != nil {
-		return e
-	}
-	if values["user_deposit"] == "0" || values["user_deposit_min"] == "" {
-		return nil
-	}
-	minimum, e := ledger.Parse(values["user_deposit_min"])
-	if e != nil || minimum <= 0 {
-		return nil
+	if !policy.Enabled || policy.MinCents <= 0 {
+		return policy, nil
 	}
 	var held int64
 	if e = tx.QueryRow(ctx, "SELECT COALESCE(sum(balance),0) FROM accounts WHERE owner_id=$1 AND kind='deposit'", merchantID).Scan(&held); e != nil {
-		return e
+		return policy, e
 	}
-	if held < minimum {
-		return ErrDepositBelowMinimum
+	if held < policy.MinCents {
+		return policy, ErrDepositBelowMinimum
 	}
-	return nil
+	return policy, nil
 }

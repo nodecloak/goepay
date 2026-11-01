@@ -35,18 +35,35 @@ func (s *Server) backoffice(w http.ResponseWriter, r *http.Request, role string,
 		return false
 	}
 	service := backoffice.New(s.Pool, s.Store)
+	service.SettlementRecipientWriteAllowed = func(p backoffice.Principal) bool {
+		if p.Role != role || p.SubjectID != session.User.ID {
+			return false
+		}
+		return role == "merchant" || role == "admin" && adminRequestAllowed(session.User, []string{"admin", "workflows", "settlement-recipient"})
+	}
 	service.SettlementConfirmURLs = s.transferConfirmURLs
 	service.GroupRoutingChannels = s.groupPaymentChannels
 	service.GroupChannelAllowed = func(id int64, kind string) bool {
 		return s.ProviderFlow != nil && s.ProviderFlow.Providers[id] != nil && s.ProviderFlow.Providers[id].ID() == kind && len(s.ProviderFlow.Providers[id].Capabilities().Methods) > 0
 	}
+	rechargeAllowed := func(ctx context.Context, mid int64) error {
+		on, e := service.MerchantFeatureVisible(ctx, "recharge")
+		if role == "merchant" {
+			on, e = service.MerchantFeatureVisibleForMerchant(ctx, mid, "recharge")
+		}
+		if e != nil {
+			return e
+		}
+		if !on {
+			return errRechargeClosed
+		}
+		return nil
+	}
 
 	if s.ProviderFlow != nil && s.ProviderFlow.AllowLive && len(s.CheckoutKey) >= 32 {
 		service.RechargeValidate = func(ctx context.Context, mid int64, params map[string]string) error {
-			if on, e := service.MerchantFeatureVisible(ctx, "recharge"); e != nil {
+			if e := rechargeAllowed(ctx, mid); e != nil {
 				return e
-			} else if !on {
-				return errRechargeClosed
 			}
 			p := compat.Params{}
 			for k, v := range params {
@@ -84,10 +101,8 @@ func (s *Server) backoffice(w http.ResponseWriter, r *http.Request, role string,
 			return nil
 		}
 		service.RechargeStart = func(ctx context.Context, mid int64, trade string, params map[string]string) (string, error) {
-			if on, e := service.MerchantFeatureVisible(ctx, "recharge"); e != nil {
+			if e := rechargeAllowed(ctx, mid); e != nil {
 				return "", e
-			} else if !on {
-				return "", errRechargeClosed
 			}
 			p := compat.Params{}
 			for k, v := range params {

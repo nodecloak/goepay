@@ -114,8 +114,46 @@ function setup(resource: string, area: Area = "admin") {
     strategy: "round_robin",
     channel_ids: ["1"],
   };
-  vi.spyOn(client, "request").mockImplementation(async (path) => {
+  const weixinItems = Array.from({ length: 60 }, (_, index) => ({
+    id: String(BigInt(item.id) + BigInt(index)),
+    revision: "2",
+    name:
+      index === 0
+        ? "公开应用"
+        : `${index < 30 ? "公开应用" : "小程序"} ${index + 1}`,
+    kind: index < 30 ? "official_account" : "mini_program",
+    app_id:
+      index < 30
+        ? `wx-public-${String(index + 1).padStart(3, "0")}`
+        : `wx-mini-${index + 1}`,
+    enabled: true,
+    archived: false,
+    source_channel_id: "0",
+    merchant_ids: [],
+    path: "",
+    fingerprint: "a".repeat(64),
+    secret_configured: true,
+    draft: true,
+    execution_ready: false,
+    origin: "managed",
+    read_only: false,
+  }));
+  vi.spyOn(client, "request").mockImplementation(async (path, options) => {
     calls.push(path);
+    if (weixin) {
+      if (options?.method && options.method !== "GET")
+        throw Error("local editor unexpectedly dispatched a mutation");
+      if (path === "/weixin-applications/capabilities")
+        return { can_write: true, sources: [] } as never;
+      if (path === "/weixin-applications")
+        return {
+          items: weixinItems,
+          total: weixinItems.length,
+          can_write: true,
+          configuration_errors: [],
+        } as never;
+      throw Error("unexpected generic Weixin read: " + path);
+    }
     if (path.endsWith("/schema"))
       return {
         title: weixin ? "公众号小程序" : roll ? "支付通道轮询" : "授权域名",
@@ -127,67 +165,104 @@ function setup(resource: string, area: Area = "admin") {
     if (path.endsWith("/" + item.id)) return item as never;
     return { items: [item], total: 60 } as never;
   });
-  const view = mount(ResourcePage, { props: { client, resource } });
+  const view = mount(ResourcePage, {
+    props: { client, resource },
+    attachTo: weixin ? document.body : undefined,
+  });
   views.push(view);
   return { view, calls };
 }
 
-it("matches the Weixin search and ID header while keeping enabled editable", async () => {
-  const { view } = setup("weixin-apps");
+it("matches the typed Weixin ID/category/name/APPID/actions header while keeping enabled managed records locally editable", async () => {
+  const { view, calls } = setup("weixin-apps");
   await flushPromises();
   expect(
-    view.findAll(".resource-filter .pa-label").map((x) => x.text()),
-  ).toEqual(["搜索", "类别"]);
-  expect(view.find('input[placeholder="名称/APPID"]').exists()).toBe(true);
-  expect(view.findAll("thead th").map((x) => x.text())).toEqual([
-    "",
-    "ID",
-    "类别",
-    "名称",
-    "APPID",
-    "操作",
-  ]);
+    view.get('input[aria-label="搜索应用"]').attributes("placeholder"),
+  ).toBe("ID、名称或APPID");
+  expect(
+    view
+      .get('select[aria-label="筛选类别"]')
+      .findAll("option")
+      .map((o) => o.text()),
+  ).toEqual(["全部类别", "微信公众号", "微信小程序"]);
+  expect(
+    view
+      .findAll("thead th")
+      .slice(0, 5)
+      .map((x) => x.text()),
+  ).toEqual(["ID", "类别", "名称", "APPID", "操作"]);
   await view
     .findAll("tbody button")
     .find((x) => x.text() === "编辑")!
     .trigger("click");
   await flushPromises();
-  expect(view.find("#field-enabled").exists()).toBe(true);
+  const enabled = view.get<HTMLInputElement>('input[aria-label="启用资料"]');
+  expect(enabled.element.checked).toBe(true);
+  await enabled.setValue(false);
+  expect(enabled.element.checked).toBe(false);
   expect(view.text()).toContain("启用资料");
+  expect(
+    view.get('[role="dialog"] input[aria-label="APPSECRET"]').element,
+  ).toHaveProperty("value", "");
+  expect(calls).toEqual([
+    "/weixin-applications",
+    "/weixin-applications/capabilities",
+  ]);
 });
 
-it("resets Weixin query/category/page/selection with one fresh list query", async () => {
+it("applies and resets Weixin search/category/page locally and uses explicit archive without permanent batch deletion", async () => {
   const { view, calls } = setup("weixin-apps");
   await flushPromises();
-  await view.get('input[aria-label="搜索公众号小程序"]').setValue("wx-public");
-  await view.get('.pa-select-trigger[aria-label="类别"]').trigger("click");
+  const before = calls.length;
+  await view.get('input[aria-label="搜索应用"]').setValue("wx-public");
+  await view.get('select[aria-label="筛选类别"]').setValue("official_account");
   await view
-    .findAll('[role="option"]')
-    .find((x) => x.text() === "公众号")!
+    .findAll(".weixin-filters button")
+    .find((b) => b.text() === "查询")!
     .trigger("click");
   await flushPromises();
+  expect(view.find(".pa-pager").text()).toContain("共 30 条");
   await view
     .findAll(".pa-pager button")
     .find((x) => x.text() === "2")!
     .trigger("click");
   await flushPromises();
-  await view.get('tbody input[type="checkbox"]').setValue(true);
-  const before = calls.length;
+  expect(view.findAll("tbody tr")).toHaveLength(10);
+  expect(view.findAll("tbody td")[0]!.text()).toBe("9007199254741013");
   const reset = view
-    .findAll(".resource-filter button")
+    .findAll(".weixin-filters button")
     .find((x) => x.text() === "重置");
   expect(reset).toBeDefined();
   await reset!.trigger("click");
   await flushPromises();
-  expect(calls.length).toBe(before + 1);
-  const u = new URL(calls.at(-1)!, "https://local.example");
-  expect(u.searchParams.get("q")).toBe("");
-  expect(u.searchParams.get("page")).toBe("1");
-  expect(u.searchParams.has("kind")).toBe(false);
+  expect(calls.length).toBe(before);
+  expect(view.get('input[aria-label="搜索应用"]').element).toHaveProperty(
+    "value",
+    "",
+  );
+  expect(view.get('select[aria-label="筛选类别"]').element).toHaveProperty(
+    "value",
+    "",
+  );
+  expect(view.get('.pa-pager [aria-current="page"]').text()).toBe("1");
+  expect(view.findAll("tbody tr")).toHaveLength(20);
+  expect(view.findAll("tbody td")[0]!.text()).toBe("9007199254740993");
+  expect(view.find('tbody input[type="checkbox"]').exists()).toBe(false);
   expect(
-    (view.get('tbody input[type="checkbox"]').element as HTMLInputElement)
-      .checked,
+    view.findAll("button").some((b) => b.text().includes("批量删除")),
   ).toBe(false);
+  await view
+    .findAll("tbody button")
+    .find((b) => b.text() === "归档")!
+    .trigger("click");
+  await flushPromises();
+  expect(view.get('[role="dialog"]').text()).toContain("历史记录继续保留");
+  await view
+    .findAll('[role="dialog"] button')
+    .find((b) => b.text() === "取消")!
+    .trigger("click");
+  await flushPromises();
+  expect(calls.length).toBe(before);
 });
 
 it("matches domain list labels without fabricating review time and advertises exact merchant filtering", async () => {

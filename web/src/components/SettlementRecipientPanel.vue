@@ -31,7 +31,11 @@ const current = ref<SettlementRecipient | null>(null),
   notice = ref("");
 // Settlement account types the platform allows now (settle_* switches). Types
 // turned off are hidden from the 收款方式 picker; the server still refuses them.
-const allowedTypes = ref<string[]>(["alipay", "wxpay", "bank"]);
+const allowedTypes = ref<string[]>([]),
+  typesState = ref<"loading" | "ready" | "unavailable">("loading"),
+  recipientWritePermission = ref<boolean | null>(null),
+  typesWritePermission = ref<boolean | null>(null),
+  unknownSave = ref(false);
 const settlementTypeLabel: Record<string, string> = {
   alipay: "支付宝",
   wxpay: "微信",
@@ -53,56 +57,133 @@ const empty = (): RecipientDraft => ({
 });
 const draft = ref(empty());
 let epoch = 0,
-  controller: AbortController | undefined;
-function clear() {
+  controller: AbortController | undefined,
+  writeController: AbortController | undefined,
+  active = true;
+const context = () => ({
+  client: props.client,
+  csrf: props.client.csrfToken,
+  area: props.client.area,
+  admin: props.admin,
+  merchantID: props.merchantID,
+});
+type Context = ReturnType<typeof context>;
+function sameContext(scope: Context) {
+  return (
+    scope.client === props.client &&
+    scope.csrf === props.client.csrfToken &&
+    scope.area === props.client.area &&
+    scope.admin === props.admin &&
+    scope.merchantID === props.merchantID
+  );
+}
+function currentContext(generation: number, scope: Context) {
+  return active && generation === epoch && sameContext(scope);
+}
+const canEdit = computed(
+  () =>
+    !!current.value &&
+    recipientWritePermission.value === true &&
+    typesWritePermission.value === true &&
+    typesState.value === "ready" &&
+    typeOptions.value.length > 0 &&
+    !unknownSave.value &&
+    !loading.value &&
+    !saving.value &&
+    !props.disabled,
+);
+function clear(resetCurrent = true) {
   epoch++;
   controller?.abort();
-  current.value = null;
+  writeController?.abort();
+  if (resetCurrent) {
+    current.value = null;
+    unknownSave.value = false;
+  }
   draft.value = empty();
   fieldErrors.value = {};
   manualBankCode.value = false;
   editing.value = false;
   loading.value = false;
+  saving.value = false;
+  allowedTypes.value = [];
+  recipientWritePermission.value = null;
+  typesWritePermission.value = null;
+  typesState.value = "loading";
   error.value = "";
   notice.value = "";
   emit("change", null);
 }
-async function load() {
-  clear();
-  if (props.admin && !/^[1-9]\d*$/.test(props.merchantID || "")) return;
+async function load(resetCurrent = false, explicitReadback = false) {
+  clear(resetCurrent);
+  const scope = context();
+  if (
+    scope.admin &&
+    (!/^[1-9]\d{0,18}$/.test(scope.merchantID || "") ||
+      BigInt(scope.merchantID!) > 9223372036854775807n)
+  )
+    return null;
   const generation = epoch;
   loading.value = true;
   controller = new AbortController();
   try {
-    const q = props.admin
-      ? "?merchant_id=" + encodeURIComponent(props.merchantID!)
+    const q = scope.admin
+      ? "?merchant_id=" + encodeURIComponent(scope.merchantID!)
       : "";
-    const raw = await props.client.request(
+    const raw = await scope.client.request<Record<string, unknown>>(
       "/workflows/settlement-recipient" + q,
       { signal: controller.signal },
     );
-    if (generation !== epoch) return;
-    try {
-      const types = await props.client.request<{ settlement?: string[] }>(
-        "/workflows/settlement-recipient/allowed-types",
-        { signal: controller.signal },
-      );
-      if (generation !== epoch) return;
-      if (Array.isArray(types?.settlement) && types.settlement.length)
-        allowedTypes.value = types.settlement;
-    } catch {
-      // Allowed-types is advisory for the form; the server still enforces on save.
-    }
+    if (!currentContext(generation, scope)) return null;
     current.value = readSettlementRecipient(raw);
-    emit("change", current.value);
+    recipientWritePermission.value =
+      typeof raw.can_write === "boolean" ? raw.can_write : null;
+    if (explicitReadback) unknownSave.value = false;
+    try {
+      const types = await scope.client.request<{
+        settlement?: unknown;
+        can_write?: unknown;
+      }>("/workflows/settlement-recipient/allowed-types" + q, {
+        signal: controller.signal,
+      });
+      if (!currentContext(generation, scope)) return null;
+      typesWritePermission.value =
+        typeof types?.can_write === "boolean" ? types.can_write : null;
+      const values = types?.settlement;
+      if (
+        !Array.isArray(values) ||
+        values.length > 3 ||
+        values.some(
+          (type) =>
+            typeof type !== "string" ||
+            !["alipay", "wxpay", "bank"].includes(type),
+        ) ||
+        new Set(values).size !== values.length
+      )
+        throw new Error("收款方式未核实");
+      allowedTypes.value = values;
+      typesState.value = "ready";
+    } catch {
+      if (!currentContext(generation, scope)) return null;
+      allowedTypes.value = [];
+      typesState.value = "unavailable";
+    }
+    if (!unknownSave.value && typesState.value === "ready")
+      emit("change", current.value);
+    return generation;
   } catch (e) {
-    if (generation === epoch)
+    if (currentContext(generation, scope)) {
       error.value = e instanceof Error ? e.message : "收款配置读取失败";
+      typesState.value = "unavailable";
+    }
+    return null;
   } finally {
-    if (generation === epoch) loading.value = false;
+    if (currentContext(generation, scope)) loading.value = false;
   }
 }
+const refresh = () => load(false, true);
 function edit() {
+  if (!canEdit.value) return;
   draft.value = empty();
   if (current.value?.type && allowedTypes.value.includes(current.value.type)) {
     draft.value.type = current.value.type;
@@ -123,18 +204,23 @@ function edit() {
   emit("change", null);
 }
 function cancel() {
+  if (saving.value) return;
   draft.value = empty();
   editing.value = false;
   fieldErrors.value = {};
-  emit("change", current.value);
+  if (!unknownSave.value && typesState.value === "ready")
+    emit("change", current.value);
 }
 async function save() {
-  if (saving.value || !current.value) return;
+  if (!editing.value || !canEdit.value || !current.value) return;
+  const generation = epoch,
+    scope = context();
   error.value = "";
   fieldErrors.value = recipientFieldErrors(draft.value);
   if (Object.keys(fieldErrors.value).length) {
     error.value = "请核对标记的收款资料";
     await nextTick();
+    if (!currentContext(generation, scope)) return;
     const field = ["type", "account", "name", "app_id", "bank_code"].find(
       (key) => fieldErrors.value[key as keyof RecipientFieldErrors],
     );
@@ -145,37 +231,68 @@ async function save() {
       ?.focus();
     return;
   }
-  const generation = epoch;
+  if (!allowedTypes.value.includes(draft.value.type)) return;
   try {
     const body = recipientConfigurationBody(
       draft.value,
       current.value,
-      props.admin ? props.merchantID : undefined,
+      scope.admin ? scope.merchantID : undefined,
     );
     saving.value = true;
-    const raw = await props.client.request("/workflows/settlement-recipient", {
+    writeController = new AbortController();
+    const raw = await scope.client.request("/workflows/settlement-recipient", {
       method: "POST",
       body,
+      signal: writeController.signal,
     });
-    if (generation !== epoch) return;
+    if (!currentContext(generation, scope)) return;
     current.value = readSettlementRecipient(raw);
     draft.value = empty();
     editing.value = false;
     notice.value = "已记录新收款版本；旧申请的收款快照不变";
     emit("change", current.value);
   } catch (e) {
-    if (generation !== epoch) return;
+    if (!currentContext(generation, scope)) return;
     error.value =
       e instanceof Error ? e.message : "收款资料保存结果未确认，请刷新核对";
-    if (e instanceof ApiError && e.status === 409) {
-      await load();
-      error.value = "收款版本已变化，请核对当前版本后重新编辑";
+    if (e instanceof ApiError && e.responseDecoded && e.status === 422) return;
+    draft.value = empty();
+    editing.value = false;
+    fieldErrors.value = {};
+    manualBankCode.value = false;
+    emit("change", null);
+    if (e instanceof ApiError && e.responseDecoded && e.status === 409) {
+      const readback = await load(false, true);
+      if (readback !== null && currentContext(readback, scope))
+        error.value = "收款版本已变化，请核对当前版本后重新编辑";
+    } else if (!(
+      e instanceof ApiError &&
+      e.responseDecoded &&
+      e.status >= 400 &&
+      e.status < 500
+    )) {
+      unknownSave.value = true;
+      error.value = "";
+    } else {
+      recipientWritePermission.value = null;
+      typesWritePermission.value = null;
+      typesState.value = "unavailable";
     }
   } finally {
-    saving.value = false;
+    if (currentContext(generation, scope)) saving.value = false;
   }
 }
-watch(() => [props.admin, props.merchantID], load, { immediate: true });
+watch(
+  () => [
+    props.client,
+    props.client.csrfToken,
+    props.client.area,
+    props.admin,
+    props.merchantID,
+  ],
+  () => load(true),
+  { immediate: true },
+);
 watch(
   () => draft.value.type,
   (type) => {
@@ -188,7 +305,10 @@ watch(
     manualBankCode.value = false;
   },
 );
-onBeforeUnmount(clear);
+onBeforeUnmount(() => {
+  active = false;
+  clear();
+});
 </script>
 <template>
   <fieldset
@@ -200,6 +320,38 @@ onBeforeUnmount(clear);
     <p v-if="loading" role="status">正在读取收款配置…</p>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="notice" class="muted" role="status">{{ notice }}</p>
+    <p
+      v-if="
+        current &&
+        typesState === 'ready' &&
+        (recipientWritePermission !== true || typesWritePermission !== true)
+      "
+      class="alert"
+      role="status"
+    >
+      {{
+        recipientWritePermission === false || typesWritePermission === false
+          ? "当前仅可查看收款资料；修改需商户管理权限。"
+          : "收款资料修改权限尚未核实；当前仅可查看，请刷新收款版本重试。"
+      }}
+    </p>
+    <p v-if="unknownSave" class="alert error" role="alert">
+      保存结果尚未确认，已清除新收款资料；请刷新收款版本核对后再编辑。
+    </p>
+    <p
+      v-if="current && typesState === 'unavailable'"
+      class="alert"
+      role="status"
+    >
+      暂无法核实该商户可用的收款方式；原收款资料仍可查看，暂不可编辑。请刷新收款版本重试。
+    </p>
+    <p
+      v-else-if="current && typesState === 'ready' && !typeOptions.length"
+      class="alert"
+      role="status"
+    >
+      当前没有可用的结算收款方式；原资料仍可查看，暂不可新增或修改。
+    </p>
     <template v-if="current">
       <p
         v-if="current.state === 'configured'"
@@ -216,14 +368,18 @@ onBeforeUnmount(clear);
         }}<span v-if="current.app_id"> · AppID {{ current.app_id }}</span>
       </p>
       <p v-else class="alert" role="status">
-        尚未配置收款资料；请先配置。历史缺失快照的申请不能出款。
+        尚未配置收款资料；{{
+          canEdit ? "请先配置。" : "请联系有商户管理权限的管理员配置。"
+        }}历史缺失快照的申请不能出款。
       </p>
       <div v-if="!editing" class="row-actions">
-        <button type="button" @click="edit">
+        <button type="button" :disabled="!canEdit" @click="edit">
           {{
             current.state === "missing" ? "配置收款资料" : "修改收款资料"
           }}</button
-        ><button type="button" @click="load">刷新收款版本</button>
+        ><button type="button" :disabled="loading" @click="refresh">
+          刷新收款版本
+        </button>
       </div>
       <template v-else>
         <p class="muted">
@@ -339,7 +495,12 @@ onBeforeUnmount(clear);
         <div class="row-actions">
           <button type="button" class="pa-btn" @click="cancel">
             取消修改收款资料</button
-          ><button type="button" class="pa-btn pa-btn--primary" @click="save">
+          ><button
+            type="button"
+            class="pa-btn pa-btn--primary"
+            :disabled="!canEdit"
+            @click="save"
+          >
             {{ saving ? "正在保存…" : "保存收款版本" }}
           </button>
         </div>
@@ -348,7 +509,7 @@ onBeforeUnmount(clear);
     <button
       v-else-if="!loading && (!admin || merchantID)"
       type="button"
-      @click="load"
+      @click="refresh"
     >
       重试读取收款配置
     </button>
