@@ -1,55 +1,154 @@
-# GOEPAY
+<p align="center">
+  <a href="https://goepay.cc/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="web/public/static/goepay-wordmark-ondark.svg">
+      <img src="web/public/static/goepay-wordmark-onlight.svg" width="240" alt="GOEPAY">
+    </picture>
+  </a>
+</p>
 
-Go + PostgreSQL 支付平台，包含 API、Worker、迁移 CLI 与 Vue 3 管理员/商户后台。工作目录为 `E:\GOEPAY`。当前实施与限制见 [实施状态](docs/implementation-status.md)，实际验证见 [测试报告](docs/test-results.md)。
+<h1 align="center">GOEPAY</h1>
 
-最新独立模拟预览为**151/schema89（8187/API8186）**，旧8185固定98保留。恢复付款原列、原脱敏收款快照、原单查证，以及编号/金额/商户/通道/日期/状态搜索，列表和CSV保持相同范围。462单元/346浏览器通过，9项显式环境用例未执行；双平台各299根受影响后端/全部HTTP/投影测试及全仓vet/build、12项PHP正例通过，不宣称151全仓通过。实机36视图/102只读请求、82页与33零账务核对通过。见[151验证边界](docs/verification/local-preview-ux151-2026-10-26.md)。全部原条件功能与UX仍继续整改。
+<p align="center">兼容易支付 API，为高并发支付而构建。</p>
+<p align="center">Go + PostgreSQL 支付引擎 · 管理员与商户后台 · 自主部署</p>
 
-本轮按用户要求仅接入微信、支付宝，其他业务插件暂缓。已实现支付、可信回调、查询、关单、退款及钱包转账的主要流程，并使用本地假上游验证。**尚未达到原版全部功能和所有支付产品完全兼容的验收条件**；同一插件中未实现的产品与规则也明确列在 [方法映射](docs/design/two-plugin-methods.md) 和 [转账边界](docs/design/provider-transfers.md)。
+<p align="center">
+  <a href="https://goepay.cc/">官网</a> ·
+  <a href="https://goepay.cc/doc/">开发文档</a> ·
+  <a href="https://goepay.cc/doc/pay_create.html">在线沙箱</a> ·
+  <a href="https://goepay.cc/doc/sdk.html">Go SDK</a> ·
+  <a href="https://goepay.cc/pricing/">商业授权</a>
+</p>
 
-## 本地运行
+## 为每一笔支付，构建更强的底座
 
-当前复核预览为 [管理员后台](http://127.0.0.1:8187/admin/dashboard) 和 [商户后台](http://127.0.0.1:8187/merchant/dashboard)，API为 `http://127.0.0.1:8186`。版本、源码及实际镜像见 `.tools/preview-current-path.txt` 指向目录的 `CURRENT.json`；本地账号admin/merchant，密码只从该目录合成配置 `GOEPAY_SEED_PASSWORD` 读取。旧8185/API8184保留为固定98比较基线，当前界面请使用8187。
+GOEPAY 是使用 Go 构建的支付网关，采用 PostgreSQL 存储订单与账务数据，并提供 Vue 3 管理员后台和商户后台。沿用易支付接口路径、商户参数、签名及回调格式，帮助已有业务平滑接入，让运营方自主掌握部署、配置与数据。
 
-以下是另外新建默认Compose环境的通用方式，与本轮独立验收项目的端口分别记录：
+### 兼容易支付 API
 
-需要 Docker Compose。复制 `.env.example` 为 `.env`，替换为随机本地数据库密码、32 字节主密钥（64 位十六进制）、种子密码和 API key。现有 `.env` 是本机测试配置，不提交、不用于生产。
+支持支付下单、订单查询、退款、商户查询和签名通知等流程；提供 V2 RSA / SHA-256 签名与时间戳校验，以及 V1 MD5 协议适配。可对接支付宝、微信支付，具体产品、参数和通道配置以接口文档及实际部署能力为准。
 
-```powershell
-Set-Location -LiteralPath 'E:\GOEPAY'
+### 更安全，更可靠
+
+通过商户独立密钥、严格验签、权限隔离与幂等处理保护支付流程。后台提供持久会话、CSRF 防护、Argon2id 密码哈希与 TOTP；回调校验订单身份和金额，敏感操作保留审计记录。
+
+账务采用整数分金额模型和不可变复式账本，结合数据库事务、费用快照、退款与转账预占、未知结果核对，帮助保持订单状态与资金记录一致。
+
+### Go 原生高并发
+
+轻量 goroutine、数据库连接池与异步任务协同处理订单、回调和通知。API、Worker 与调度任务分开运行，可按部署环境配置处理能力；实际吞吐量取决于硬件、数据库、通道响应及业务负载。
+
+### 运营管理清晰有序
+
+在统一工作台管理商户、支付通道、订单、退款、结算与报表，为管理员和商户提供各自的权限与操作范围。完整功能状态见 [功能清单](web/capabilities.json)。
+
+## 快速开始
+
+本地体验需要 Git、Docker 和 Docker Compose。镜像构建包含 Go 服务与前端资源，无需先在宿主机安装 Go 或 Node.js。
+
+```sh
+git clone https://github.com/nodecloak/goepay.git
+cd goepay
+cp .env.example .env
+```
+
+编辑 `.env`，将以下占位配置替换为独立的随机值：
+
+| 配置 | 用途 |
+| --- | --- |
+| `POSTGRES_PASSWORD` | PostgreSQL 数据库密码 |
+| `GOEPAY_MASTER_KEY` | 凭据加密主密钥，32 字节、64 位十六进制字符串 |
+| `GOEPAY_SEED_PASSWORD` | 初始后台密码，至少 12 个字符 |
+| `GOEPAY_SEED_API_KEY` | 初始商户 API 密钥，至少 24 个字符 |
+
+然后启动服务并初始化本地账号：
+
+```sh
 docker compose up -d --build
-docker compose run --rm --entrypoint /app/cli api seed-local
+docker compose exec api /app/cli seed-local
 ```
 
-Compose 的 migrate 服务先执行数据库迁移，API/Worker 等迁移成功后启动。已执行迁移的 SHA-256 变化会被拒绝；修复使用新迁移。API `/readyz` 检查数据库与迁移状态。
+Compose 会先执行数据库迁移，再启动 API 与后台任务。访问入口如下：
 
-- 前端：`http://127.0.0.1:8181/admin/dashboard`、`/merchant/dashboard`。
-- API：`http://127.0.0.1:8180`；PostgreSQL：`127.0.0.1:55433/goepay_final`。
-- 本地账号：`admin`、`merchant`，密码读取 `.env` 的 `GOEPAY_SEED_PASSWORD`；商户 PID 为 1000。
-- seed 只创建缺失账号，不覆盖现有密码或密钥。保留主密钥和数据库备份；丢失主密钥会使旧凭证无法解密。
-- 默认 `simulation` 模式只使用本地模拟通道，不加载 `.secrets`，不连接微信、支付宝或生产系统。模拟通道的上游状态在进程内，重启后不保留；账本与资金记录仍在 PostgreSQL。
+| 服务 | 默认地址 |
+| --- | --- |
+| 管理员后台 | <http://127.0.0.1:8181/admin/dashboard> |
+| 商户后台 | <http://127.0.0.1:8181/merchant/dashboard> |
+| API | <http://127.0.0.1:8180> |
+| 就绪检查 | <http://127.0.0.1:8180/readyz> |
 
-## 已有能力
+本地初始账号为 `admin`、`merchant`，密码使用 `.env` 中的 `GOEPAY_SEED_PASSWORD`，初始商户 PID 为 `1000`。初始化命令只创建缺失账号，保留已有账号的密码与密钥。
 
-整数分资金模型、不可变复式账本、费用快照、退款/转账预占与未知结果核对、持久任务和通知；V1 MD5/V2 RSA 兼容适配；显式支持的微信、支付宝支付产品；受保护收银台、回调验签和订单身份/金额校验；退款与转账的全局上游业务号避免跨商户碰撞。
+默认 Compose 使用 `simulation` 模拟通道，供本地体验和流程验证使用。接入真实支付前，需要另行配置通道凭据、商户授权范围、平台与商户 RSA 密钥，以及相应的外部执行开关。请妥善备份数据库与主密钥。
 
-后台使用持久会话、CSRF、Argon2id、TOTP、受限管理员与商户归属检查。支持资源管理、本地审核、账户安全、会员、充值、保证金、账务申请、站内转账/分账、报表和运行管理。82 个原版菜单中 80 项具有部分能力、2 项因其他插件暂缓；逐项状态见 [capabilities.json](web/capabilities.json)。本地审核不等于上游进件或投诉处理，结算核准不等于银行出款。
+## 接口与接入
 
-真实配置模式必须显式提供加密配置文件、商户通道白名单和外部写入开关；默认关闭。Worker 仅在显式启用查询时核对已授权通道，不重新发送资金请求。V2 需要单独配置平台 RSA 私钥与商户公钥；默认 Compose 未挂载真实密钥。
+V2 接口入口如下，详细请求方法、签名规则、返回字段及错误处理见 [官方接口参考](https://goepay.cc/doc/index.html)。
 
-独立应用标识查询使用加密配置中的显式OAuth应用档案。配置模式下须同时设置 `GOEPAY_ENABLE_OAUTH=true`、`GOEPAY_ENABLE_IDENTITY_LOOKUP=true`，且档案本身启用并授权指定商户；独立应用可以与支付AppID不同。付款写开关保持关闭时也可进行单独身份交换，但不会创建支付订单或发起资金操作。默认simulation不加载这些档案；微信mini档案另需显式 `enable_url_link=true` 才允许尝试一次真实URL Link生成，否则提供原SDK资料。链接结果未知不重发，二维码仅本地编码已验证的返回链接。另有默认关闭的独立支付宝应用授权，仅原super会话使用专用ISV档案并单次展示凭证，不自动绑定支付通道。开发、固定候选与原本地部署的区别见下方记录。
+| 接口 | 用途 |
+| --- | --- |
+| `/api/pay/submit` | 页面跳转支付 |
+| `/api/pay/create` | API 下单，返回支付链接或二维码 |
+| `/api/pay/query` | 查询订单 |
+| `/api/pay/refund` | 申请退款 |
+| `/api/pay/refundquery` | 查询退款 |
+| `/api/pay/close` | 关闭订单 |
+| `/api/merchant/info` | 查询商户信息与余额 |
+| `/api/merchant/orders` | 查询商户订单列表 |
 
-独立验收项目使用显式字段映射，时间展示采用北京时间；金额和ID保留精确字符串。固定80已整合原订单条款日结、退款回收和默认关闭的TLS邮件验证码发送，并通过252前端单元及130项mock浏览器；其完整后端验证和后续订单码支付增量仍按[最新验收记录](docs/verification/integrated-80-2026-10-24.md)逐项记录。旧版本的通过结论不替代新候选的验证，不据局部通过声明全部功能完成。
+商户服务端应生成请求签名，并验证响应与支付通知。可从 [Go SDK 接入指南](https://goepay.cc/doc/sdk.html) 开始，结合 [签名规则](https://goepay.cc/doc/sign_note.html) 和 [支付通知说明](https://goepay.cc/doc/pay_notify.html) 完成对接。
 
-## 验证
+官网提供独立的 [在线接口沙箱](https://goepay.cc/doc/pay_create.html)，用于体验参数校验、RSA 签名和模拟响应。文档中的 `pay.example.com` 为示例地址，接入时替换为自行部署的网关域名。
+
+## 部署与迁移
+
+1. **准备部署环境**：配置 Go 服务、PostgreSQL、域名、HTTPS 和备份策略。
+2. **配置商户与通道**：设置商户凭据，并接入已开通的支付宝或微信支付产品。
+3. **验证后再切换**：在测试环境核对下单、查询、回调、退款及账务，再切换业务流量。
+
+项目提供 API、Worker、迁移 CLI 与多种后台调度进程。生产环境应按实际使用的支付产品配置服务，接口兼容范围和功能实施情况可查阅 [实施状态](docs/implementation-status.md)；历史数据迁移步骤见 [迁移说明](docs/migration/RUNBOOK.md)。
+
+## 开发与验证
+
+源码开发使用 Go 1.27.3、Node.js 24 和 PostgreSQL；前端基于 Vue 3、TypeScript 与 Vite。版本要求以 `go.mod`、构建文件和前端依赖为准。
+
+后端测试需要显式指定独立的本地 PostgreSQL 测试库。PowerShell 下可运行：
 
 ```powershell
-$env:GOEPAY_TEST_DATABASE_URL='<本地 PostgreSQL 测试 DSN>'
+$env:GOEPAY_TEST_DATABASE_URL = '<本地 PostgreSQL 测试 DSN>'
 ./scripts/test.ps1
-$env:GOEPAY_PHP_INTEROP='1'
-go test ./internal/compat ./internal/adapters/payment -count=1
-node scripts/smoke.mjs
-node scripts/provider-smoke.mjs
-./scripts/restore-test.ps1
 ```
 
-数据库测试使用独立随机 schema；没有测试 DSN 时集成测试会跳过，不能据此声称数据库验收通过。浏览器、Linux race、依赖检查与执行证据见 [测试报告](docs/test-results.md)。脱敏历史迁移工具说明见 [迁移演练](docs/migration/RUNBOOK.md)。没有执行生产操作或真实资金交易，也没有旧 PHP 性能对照结论。
+也可在前端目录单独运行检查：
+
+```sh
+cd web
+npm ci
+npm run typecheck
+npm test
+npm run build
+```
+
+数据库测试缺少 DSN 时可能跳过，模拟通道测试也不能替代实际支付产品的联调验收。验证范围与执行记录见 [测试报告](docs/test-results.md)。
+
+## 项目结构
+
+```text
+cmd/          API、CLI、Worker 与调度进程
+internal/     支付、账务、通道适配及后台业务
+db/           PostgreSQL 数据库迁移
+web/          Vue 3 管理员与商户后台
+sdk/goepay/   Go 商户接入 SDK
+api/          接口规范
+tests/        契约与集成测试
+scripts/      开发、测试与运维脚本
+docs/         设计、迁移与验证资料
+```
+
+## 使用与授权
+
+项目源码已公开，个人使用免费。企业及组织可自愿购买商业授权，终身有效、按域名绑定，具体授权范围与条款见 [官网商业授权说明](https://goepay.cc/pricing/)。支付通道费用以服务商规则为准。
+
+---
+
+[访问官网](https://goepay.cc/) · [阅读文档](https://goepay.cc/doc/) · [反馈问题](https://github.com/nodecloak/goepay/issues)
