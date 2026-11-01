@@ -5,7 +5,7 @@ import SettlementListFilters from "../src/components/SettlementListFilters.vue";
 import { freshSettlementFilters } from "../src/settlement-filters";
 
 // The settle list filter must match epay_pro settle/list: 搜索内容 + 结算方式
-// (admin also 商户号); merchant status is primary, dates remain behind 展开.
+// (admin also 商户号); status is primary in both areas, dates remain behind 展开.
 describe("settle list filter (kit, Pro model)", () => {
   function mountBar(area: "admin" | "merchant") {
     return mount(SettlementListFilters, {
@@ -31,14 +31,20 @@ describe("settle list filter (kit, Pro model)", () => {
     expect(w.findAll(".pa-label").map((l) => l.text())).not.toContain("商户号");
   });
 
-  it("keeps the merchant status filter visible alongside settlement method", () => {
-    const w = mountBar("merchant");
-    expect(w.findAll(".pa-label").map((l) => l.text())).toContain("状态");
-  });
+  it.each(["admin", "merchant"] as const)(
+    "keeps %s status visible alongside settlement method",
+    (area) => {
+      const w = mountBar(area);
+      expect(w.findAll(".pa-label").map((l) => l.text())).toContain("状态");
+      expect(w.findAll(".pa-label").map((l) => l.text())).not.toContain(
+        "开始日期",
+      );
+    },
+  );
 
-  it("reveals status and date fields only after 展开", async () => {
+  it("keeps one status filter while expanding and collapsing dates", async () => {
     const w = mountBar("admin");
-    expect(w.findAll(".pa-label").map((l) => l.text())).not.toContain("状态");
+    expect(w.findAll(".pa-label").map((l) => l.text())).toContain("状态");
     await w
       .findAll("button")
       .find((b) => b.text() === "展开")!
@@ -47,6 +53,14 @@ describe("settle list filter (kit, Pro model)", () => {
     expect(labels).toContain("状态");
     expect(labels).toContain("开始日期");
     expect(labels).toContain("结束日期");
+    expect(labels.filter((label) => label === "状态")).toHaveLength(1);
+    await w
+      .findAll("button")
+      .find((b) => b.text() === "收起")!
+      .trigger("click");
+    const collapsed = w.findAll(".pa-label").map((l) => l.text());
+    expect(collapsed).toContain("状态");
+    expect(collapsed).not.toContain("开始日期");
   });
 
   it("emits submit on 查询 and reset on 重置", async () => {

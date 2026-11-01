@@ -682,8 +682,31 @@ let controller: AbortController | undefined,
 const unknownMerchantCreation = ref<{ login: string } | null>(null);
 const merchantCreateSetupIssue = ref("");
 const resourcePanel = ref<HTMLElement>();
+const formDialog = ref<HTMLElement>();
 let pendingFormFocus: HTMLElement | undefined;
 let pendingPayRollRowFocus: string | undefined;
+function focusResourceDialog() {
+  if (
+    props.entry ||
+    !mode.value ||
+    isGroupEditor.value ||
+    isMerchantCreationForm.value ||
+    isPayRollCustom.value
+  )
+    return;
+  const root = formDialog.value;
+  if (!root || root.contains(document.activeElement)) return;
+  const field = Array.from(
+    root.querySelectorAll<HTMLElement>(
+      'input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled])',
+    ),
+  ).find((element) => element.tabIndex >= 0 && element.getClientRects().length);
+  const target =
+    (mode.value === "delete" ? undefined : field) ??
+    root.querySelector<HTMLElement>("button:not([disabled])") ??
+    root;
+  target.focus();
+}
 function restoreFormFocus() {
   if (mode.value || loading.value || busy.value || payRollBusy.value) return;
   if (resourcePanel.value?.querySelector(".loading-row")) return;
@@ -700,6 +723,16 @@ function restoreFormFocus() {
     )
       return;
     target ??=
+      resourcePanel.value?.querySelector<HTMLElement>(
+        "[data-resource-create]",
+      ) ||
+      resourcePanel.value?.querySelector<HTMLElement>(
+        "[data-resource-refresh]",
+      ) ||
+      undefined;
+  }
+  if (!target && pendingFormFocus) {
+    target =
       resourcePanel.value?.querySelector<HTMLElement>(
         "[data-resource-create]",
       ) ||
@@ -758,17 +791,16 @@ function resetContext() {
 watch(
   mode,
   (next, previous) => {
-    if (
-      next === null &&
-      previous !== null &&
-      ["merchants", "pay-rolls"].includes(props.resource)
-    ) {
-      payRollBusy.value = false;
-      unknownMerchantCreation.value = null;
-      merchantCreateSetupIssue.value = "";
-      for (const key of Object.keys(values.value)) delete values.value[key];
-      values.value = {};
-      fieldErrors.value = {};
+    if (next === null && previous !== null) {
+      if (["merchants", "pay-rolls"].includes(props.resource)) {
+        payRollBusy.value = false;
+        unknownMerchantCreation.value = null;
+        merchantCreateSetupIssue.value = "";
+        for (const key of Object.keys(values.value)) delete values.value[key];
+        values.value = {};
+        fieldErrors.value = {};
+      }
+      if (props.entry) return;
       pendingFormFocus = groupReturnFocus.value;
       pendingPayRollRowFocus =
         props.resource === "pay-rolls" && previous === "channels"
@@ -779,6 +811,9 @@ watch(
   },
   { flush: "sync" },
 );
+// Focus only after Vue has mounted the drawer; the synchronous watcher above
+// is reserved for immediately clearing private drafts when their modal closes.
+watch(mode, focusResourceDialog, { flush: "post" });
 // Successful creates/reconciliation reload the list while its opener is still
 // disabled. Restore only after both the read and write have released it.
 watch([loading, busy, payRollBusy], () => void nextTick(restoreFormFocus), {
@@ -999,13 +1034,8 @@ const drawerWidth = computed(() =>
       ? "900px"
       : "560px",
 );
-function trapGroupFocus(event: KeyboardEvent) {
-  if (
-    !isGroupEditor.value &&
-    !isMerchantCreationForm.value &&
-    !isPayRollCustom.value
-  )
-    return;
+function trapResourceFocus(event: KeyboardEvent) {
+  if (props.entry || !mode.value) return;
   const root = event.currentTarget as HTMLElement;
   const nodes = Array.from(
     root.querySelectorAll<HTMLElement>(
@@ -1014,6 +1044,16 @@ function trapGroupFocus(event: KeyboardEvent) {
   ).filter((el) => el.tabIndex >= 0 && el.getClientRects().length);
   const first = nodes[0],
     last = nodes.at(-1);
+  if (!first || !last) {
+    event.preventDefault();
+    formDialog.value?.focus();
+    return;
+  }
+  if (!nodes.includes(document.activeElement as HTMLElement)) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+    return;
+  }
   if (
     first &&
     last &&
@@ -2234,9 +2274,10 @@ onBeforeUnmount(resetContext);
           (isGroupEditor ? ' group-edit-backdrop' : '')
     "
     @keydown.esc="!entry && !editingBusy && (mode = null)"
-    @keydown.tab="trapGroupFocus"
+    @keydown.tab="trapResourceFocus"
   >
     <section
+      ref="formDialog"
       :class="
         entry
           ? 'panel resource-entry-form'
@@ -2249,6 +2290,7 @@ onBeforeUnmount(resetContext);
       "
       :style="asDrawer ? { '--drawer-w': drawerWidth } : undefined"
       :role="entry ? undefined : 'dialog'"
+      :tabindex="entry ? undefined : -1"
       :aria-modal="entry ? undefined : true"
       :aria-label="
         isPayRollCustom

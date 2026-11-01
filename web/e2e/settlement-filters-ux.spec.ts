@@ -47,6 +47,9 @@ for (const width of [1280, 375])
       ).toBeVisible();
       const form = page.getByRole("form", { name: "结算筛选" });
       await expect(form).toBeVisible();
+      await expect(
+        form.getByRole("button", { name: "状态", exact: true }),
+      ).toBeVisible();
       const count = reads.length;
       await form
         .getByLabel("结算账号/姓名", { exact: true })
@@ -56,12 +59,12 @@ for (const width of [1280, 375])
         form.getByRole("button", { name: "结算方式", exact: true }),
         "银行卡",
       );
-      await form.getByRole("button", { name: "展开", exact: true }).click();
       await chooseKitOption(
         page,
         form.getByRole("button", { name: "状态", exact: true }),
         "待结算",
       );
+      await form.getByRole("button", { name: "展开", exact: true }).click();
       await form.getByLabel("开始日期").fill("2026-10-01");
       await form.getByLabel("结束日期").fill("2026-10-26");
       if (role === "admin")
@@ -109,6 +112,26 @@ for (const width of [1280, 375])
       });
       await dialog.getByRole("button", { name: "关闭", exact: true }).click();
       await expect(opener).toBeFocused();
+      const beforeReset = reads.length;
+      await form.getByRole("button", { name: "重置", exact: true }).click();
+      await expect.poll(() => reads.length).toBeGreaterThan(beforeReset);
+      const reset = reads.at(-1)!;
+      for (const field of [
+        "value",
+        "type",
+        "dstatus",
+        "from",
+        "to",
+        "merchant_id",
+      ])
+        expect(reset.searchParams.get(field) || "").toBe("");
+      await expect(
+        form.getByRole("button", { name: "状态", exact: true }),
+      ).toHaveText("全部状态");
+      await form.getByRole("button", { name: "收起", exact: true }).click();
+      await expect(
+        form.getByRole("button", { name: "状态", exact: true }),
+      ).toBeVisible();
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= window.innerWidth,

@@ -69,7 +69,7 @@ function set<K extends keyof SettlementFilters>(
         @update:model-value="(v) => set('type', v)"
       />
     </KitField>
-    <KitField v-if="area === 'merchant'" label="状态">
+    <KitField label="状态">
       <KitSelect
         :model-value="modelValue.dstatus"
         :options="statusOptions"
@@ -78,14 +78,6 @@ function set<K extends keyof SettlementFilters>(
       />
     </KitField>
     <template #extra>
-      <KitField v-if="area === 'admin'" label="状态">
-        <KitSelect
-          :model-value="modelValue.dstatus"
-          :options="statusOptions"
-          aria-label="状态"
-          @update:model-value="(v) => set('dstatus', v)"
-        />
-      </KitField>
       <KitField label="开始日期">
         <KitInput
           :model-value="modelValue.from"

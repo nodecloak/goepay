@@ -207,6 +207,130 @@ const items = ref<Record<string, unknown>[]>([]),
   checked = ref<string[]>([]),
   batchMode = ref(false);
 const rejectReason = ref("");
+const workflowDialog = ref<HTMLElement>();
+const workflowList = ref<HTMLElement>();
+let dialogOpener: HTMLElement | undefined;
+let pendingDialogFocus: HTMLElement | undefined;
+function restoreDialogFocus() {
+  if (
+    props.application ||
+    dialog.value ||
+    busy.value ||
+    loading.value ||
+    !pendingDialogFocus
+  )
+    return;
+  const target = pendingDialogFocus.isConnected
+    ? pendingDialogFocus
+    : (workflowList.value?.querySelector<HTMLElement>(
+        "[data-workflow-create]",
+      ) ??
+      workflowList.value?.querySelector<HTMLElement>(
+        "[data-workflow-refresh]",
+      ));
+  if (target?.matches(":disabled")) return;
+  target?.focus();
+  pendingDialogFocus = undefined;
+}
+watch(
+  dialog,
+  (value, previous) => {
+    if (props.application) return;
+    if (value && !previous) {
+      dialogOpener =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : undefined;
+      pendingDialogFocus = undefined;
+    } else if (!value && previous) {
+      pendingDialogFocus = dialogOpener;
+      dialogOpener = undefined;
+      void nextTick(restoreDialogFocus);
+    }
+  },
+  { flush: "sync" },
+);
+watch(
+  dialog,
+  (value) => {
+    const root = workflowDialog.value;
+    if (
+      props.application ||
+      !value ||
+      !root ||
+      root.contains(document.activeElement)
+    )
+      return;
+    const field =
+      value === "create"
+        ? Array.from(
+            root.querySelectorAll<HTMLElement>(
+              'input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled])',
+            ),
+          ).find((node) => node.tabIndex >= 0 && node.getClientRects().length)
+        : undefined;
+    (
+      field ??
+      root.querySelector<HTMLElement>("button:not([disabled])") ??
+      root
+    ).focus();
+  },
+  { flush: "post" },
+);
+watch([loading, busy], () => void nextTick(restoreDialogFocus), {
+  flush: "post",
+});
+watch(
+  () => [
+    props.client,
+    props.area,
+    props.workflow,
+    props.application,
+    props.selfID,
+    props.boundMerchantID,
+  ],
+  () => {
+    dialogOpener = pendingDialogFocus = undefined;
+  },
+  { flush: "sync" },
+);
+function handleDialogKey(event: KeyboardEvent) {
+  const root = workflowDialog.value;
+  if (
+    props.application ||
+    !dialog.value ||
+    !root ||
+    event.defaultPrevented ||
+    (event.target as Element)?.closest('[role="dialog"]') !== root
+  )
+    return;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!busy.value) dialog.value = null;
+    return;
+  }
+  if (event.key !== "Tab") return;
+  const nodes = Array.from(
+    root.querySelectorAll<HTMLElement>(
+      'button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex="0"]',
+    ),
+  ).filter((node) => node.tabIndex >= 0 && node.getClientRects().length);
+  const first = nodes[0],
+    last = nodes.at(-1);
+  if (!first || !last) {
+    event.preventDefault();
+    root.focus();
+  } else if (
+    !nodes.includes(document.activeElement as HTMLElement) ||
+    (event.shiftKey
+      ? document.activeElement === first
+      : document.activeElement === last)
+  ) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+  }
+}
 watch(busy, (value) => emit("busy", value), { flush: "sync" });
 const validBoundMerchant = computed(
   () =>
@@ -295,6 +419,7 @@ watch(
     props.boundMerchantID,
   ],
   () => {
+    dialogOpener = pendingDialogFocus = undefined;
     intentEpoch212++;
     intentStore212 = null;
     pendingIntent212.value = null;
@@ -909,13 +1034,14 @@ onMounted(() => {
   else void load();
 });
 onBeforeUnmount(() => {
+  dialogOpener = pendingDialogFocus = undefined;
   controller?.abort();
   invalidateFunds();
 });
 </script>
 <template>
   <template v-if="!application || !dialog">
-    <div class="list-page">
+    <div ref="workflowList" class="list-page">
       <form
         v-if="internalMerchantList && !application"
         class="toolbar list-filter-card panel internal-transfer-filters"
@@ -1082,6 +1208,7 @@ onBeforeUnmount(() => {
             v-if="workflow !== 'profitsharing'"
             type="button"
             class="primary"
+            data-workflow-create
             :disabled="busy"
             @click="openCreate"
           >
@@ -1109,7 +1236,12 @@ onBeforeUnmount(() => {
               :disabled="!checked.length || busy || loading"
               @action="pickBatch"
             />
-            <button v-if="!application" :disabled="loading" @click="load">
+            <button
+              v-if="!application"
+              data-workflow-refresh
+              :disabled="loading"
+              @click="load"
+            >
               <ShellIcon name="refresh" />刷新
             </button>
             <KitHelpPopover v-if="!application" :text="listNote" />
@@ -1261,6 +1393,9 @@ onBeforeUnmount(() => {
     "
   >
     <section
+      ref="workflowDialog"
+      :tabindex="application ? undefined : -1"
+      @keydown="handleDialogKey"
       :class="
         application
           ? 'panel workflow-application-form'
