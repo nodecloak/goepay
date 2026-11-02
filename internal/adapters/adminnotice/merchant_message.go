@@ -64,7 +64,7 @@ func (w *Webhook) SendMerchantNotice(ctx context.Context, to string, m merchantn
 		// untrusted angle brackets prevents names from becoming group mentions.
 		payload = map[string]any{"msg_type": "text", "content": map[string]string{"text": html.EscapeString(m.Title + "\n" + m.Text)}}
 	}
-	out, e := postJSON(ctx, w.client, w.endpoint, payload)
+	out, e := postJSON(ctx, w.client, w.endpoint, w.mentionPayload(payload, m.Title, m.Text))
 	if e != nil {
 		return ErrMerchantDelivery
 	}

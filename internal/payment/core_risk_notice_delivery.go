@@ -122,7 +122,15 @@ func (s *Store) DeliverCoreRiskNotice(ctx context.Context, job int64, lease stri
 		}
 		return ErrState
 	}
-	sender, recipient, e := resolver.ResolveCoreRiskNotice(ctx, n.Kind)
+	var sender merchantnotice.Sender
+	var recipient string
+	if resolved, ok := resolver.(interface {
+		ResolveCoreRiskNoticeTx231(context.Context, pgx.Tx, string) (merchantnotice.Sender, string, error)
+	}); ok {
+		sender, recipient, e = resolved.ResolveCoreRiskNoticeTx231(ctx, tx, n.Kind)
+	} else {
+		sender, recipient, e = resolver.ResolveCoreRiskNotice(ctx, n.Kind)
+	}
 	if e != nil || sender == nil {
 		return ErrState
 	}
@@ -134,6 +142,13 @@ func (s *Store) DeliverCoreRiskNotice(ctx context.Context, job int64, lease stri
 	}
 	if sender.NoticeScope() == "" || sender.ValidateNoticeRecipient(recipient) != nil {
 		return ErrInvalid
+	}
+	if guarded, ok := sender.(interface {
+		ValidateNoticeConfig231(context.Context, pgx.Tx, time.Time) error
+	}); ok {
+		if e = guarded.ValidateNoticeConfig231(ctx, tx, n.CreatedAt); e != nil {
+			return e
+		}
 	}
 	message, e := merchantnotice.Render(body.Input)
 	if e != nil {

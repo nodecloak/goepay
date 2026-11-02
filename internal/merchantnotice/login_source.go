@@ -43,6 +43,9 @@ func (s *Store) CaptureLoginAudit(ctx context.Context, tx pgx.Tx, id int64) erro
 	return s.appendEvent(ctx, tx, eventRecord{MerchantID: p.MerchantID, LoginAuditID: p.ID, Scene: "login"}, eventData{Version: 1, Login: &p, Input: in}, active)
 }
 func (s *Store) verifyEventSource(ctx context.Context, tx pgx.Tx, r eventRecord, data eventData) error {
+	if r.SupplementID > 0 || data.Supplement != nil {
+		return s.verifySupplement231(ctx, tx, r, data)
+	}
 	if r.Scene != data.Input.Scene {
 		return ErrConflict
 	}

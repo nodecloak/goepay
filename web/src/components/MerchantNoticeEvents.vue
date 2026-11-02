@@ -12,6 +12,7 @@ const items = ref<MerchantNoticeEvent[]>([]),
   busy = ref(false),
   error = ref("");
 const scenes: Record<string, string> = Object.fromEntries(noticeScenes);
+scenes.wxtransfer = "微信转账确认收款";
 const states: Record<string, string> = {
   not_scheduled: "未安排发送",
   queued: "等待处理",

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"html/template"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/ledger"
 	"goepay/internal/siteinfo"
+	"goepay/internal/wxtransferlink231"
 )
 
 // 商家转账（新） payee confirmation (original paypage/wxtrans.php with
@@ -27,11 +27,7 @@ import (
 var wxtransZone = time.FixedZone("Asia/Shanghai", 8*3600)
 
 func (s *Server) wxtransSign(n, t string) string {
-	key := hmac.New(sha256.New, s.CheckoutKey)
-	key.Write([]byte("goepay/wxtrans/confirm-link/v1"))
-	mac := hmac.New(sha256.New, key.Sum(nil))
-	mac.Write([]byte("link\x00" + n + "\x00" + t))
-	return hex.EncodeToString(mac.Sum(nil))
+	return wxtransferlink231.Sign(s.CheckoutKey, n, t)
 }
 
 func (s *Server) wxtransBase() string {
@@ -43,8 +39,7 @@ func (s *Server) wxtransBase() string {
 
 // wxtransConfirmURL is the payee's 确认收款 link (and QR content).
 func (s *Server) wxtransConfirmURL(id int64, created time.Time) string {
-	n, t := strconv.FormatInt(id, 10), strconv.FormatInt(created.Unix(), 10)
-	return s.wxtransBase() + "/pay/wxtrans?" + url.Values{"n": {n}, "t": {t}, "s": {s.wxtransSign(n, t)}}.Encode()
+	return s.wxtransBase() + wxtransferlink231.Path(s.CheckoutKey, id, created)
 }
 
 // transferConfirmURLs maps transfers still waiting for the payee (a recorded

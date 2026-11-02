@@ -166,6 +166,9 @@ func (s *Server) Handler() http.Handler {
 		if s.wxtransPublic(w, r) {
 			return
 		}
+		if s.qqNoticeCallback231(w, r) {
+			return
+		}
 		if r.URL.Path == "/console/v1/public/site" {
 			s.publicSite191(w, r)
 			return
@@ -333,6 +336,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.voiceSettings230(w, r, role, session, parts, c.Value) {
 		return
 	}
+	if s.noticeAccounts231(w, r, role, session, parts, c.Value) {
+		return
+	}
 	if s.noticeTemplates230(w, r, role, session, parts, c.Value) {
 		return
 	}
@@ -491,6 +497,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.smsAccounts134(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.businessSMSSettings231(w, r, role, session, parts, c.Value) {
 		return
 	}
 	if s.siteBrandConsole193(w, r, role, session, parts, c.Value) {

@@ -298,6 +298,13 @@ onBeforeUnmount(() => {
           <p>
             接收邮箱：{{ state.email_masked || "未设置，请先完善账户资料" }}
           </p>
+          <p class="muted">
+            业务短信手机：{{
+              state.target_masks.bind_mobile || "未验证绑定"
+            }}。<a v-if="!admin" href="/merchant/account/settings"
+              >验证绑定手机</a
+            >
+          </p>
           <div class="notice-grid">
             <div
               v-for="[key, title] in noticeTargets"

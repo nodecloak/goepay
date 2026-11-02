@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"goepay/internal/businesssms231"
 	"goepay/internal/merchantnotice"
 	"time"
 )
@@ -28,10 +29,14 @@ type requestSource struct {
 	Facts              RequestFacts
 }
 type eventData struct {
-	Version int
-	Audit   *auditSource
-	Request *requestSource
-	Input   merchantnotice.Input
+	SMS231               *businesssms231.Snapshot `json:",omitempty"`
+	NoticeRevision231    map[string]int64         `json:",omitempty"`
+	NoticeFingerprint231 map[string]string        `json:",omitempty"`
+	Supplement231        *supplementSource231     `json:",omitempty"`
+	Version              int
+	Audit                *auditSource
+	Request              *requestSource
+	Input                merchantnotice.Input
 }
 type eventRecord struct {
 	ID, MerchantID, AuditID, RequestEventID, JobID int64
@@ -77,8 +82,43 @@ func (s *Store) appendEvent(ctx context.Context, tx pgx.Tx, r eventRecord, data 
 	if r.Transaction != current {
 		return ErrConflict
 	}
-	data.Version = 1
+	data.Version = 2
+	data.NoticeRevision231 = map[string]int64{}
+	data.NoticeFingerprint231 = map[string]string{}
+	selected, _ := ModeFor(r.Scene, r.Mode)
+	accountKind := string(selected)
+	if selected == merchantnotice.SMS {
+		accountKind = "robot"
+	}
+	accountKinds := []string{}
+	if accountKind == "robot" || accountKind == "telegram" || accountKind == "qqbot" {
+		accountKinds = append(accountKinds, accountKind)
+	}
+	for _, kind := range accountKinds {
+		v, _, _, stamp, e := s.accounts231.EffectiveTx(ctx, tx, kind)
+		if e != nil {
+			return e
+		}
+		data.NoticeRevision231[kind] = v.Revision
+		data.NoticeFingerprint231[kind] = stamp
+	}
 	data.Input.Scene = r.Scene
+	if r.Scene == "complain_all" && r.Mode == "3" {
+		_, c, managed, e := s.accounts231.ResolveTx(ctx, tx, "robot")
+		if e != nil {
+			return e
+		}
+		if managed && c.Phone != "" {
+			resolved, e := s.sms231.ResolveAdminTx(ctx, tx, c.Phone, "complain")
+			if e != nil {
+				return e
+			}
+			if resolved != nil {
+				snap := resolved.Snapshot
+				data.SMS231 = &snap
+			}
+		}
+	}
 	data.Input.At = r.At
 	data.Input.SiteName = values["sitename"]
 	if _, err = merchantnotice.Render(data.Input); err != nil {
@@ -110,7 +150,11 @@ func (s *Store) appendEvent(ctx context.Context, tx pgx.Tx, r eventRecord, data 
 	if r.JobID > 0 {
 		job = r.JobID
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO admin_business_notice_events(id,merchant_id,scene,mode,audit_id,request_event_id,job_id,source_transaction,created_at,payload_cipher,body_hash,proof_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8::xid8,$9,$10,$11,$12)`, r.ID, r.MerchantID, r.Scene, r.Mode, audit, request, job, r.Transaction, r.At, r.Cipher, r.BodyHash, r.Proof)
+	var merchant any
+	if r.MerchantID > 0 {
+		merchant = r.MerchantID
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO admin_business_notice_events(id,merchant_id,scene,mode,audit_id,request_event_id,job_id,source_transaction,created_at,payload_cipher,body_hash,proof_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8::xid8,$9,$10,$11,$12)`, r.ID, merchant, r.Scene, r.Mode, audit, request, job, r.Transaction, r.At, r.Cipher, r.BodyHash, r.Proof)
 	if err != nil {
 		return err
 	}

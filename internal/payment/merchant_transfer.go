@@ -127,15 +127,24 @@ func (s *Store) merchantTransferRequest(ctx context.Context, r adapter.TransferR
 
 // recordTransferPackageTx keeps WeChat's package_info for a bill waiting for
 // the payee. The package is fixed for the bill: the first one recorded stays.
-func recordTransferPackageTx(ctx context.Context, tx pgx.Tx, id int64, pkg string) error {
+func recordTransferPackageTx(ctx context.Context, tx pgx.Tx, id int64, pkg string) (bool, error) {
 	if pkg == "" {
-		return nil
+		return false, nil
 	}
 	if len(pkg) > 2048 || !utf8.ValidString(pkg) || strings.IndexFunc(pkg, unicode.IsControl) >= 0 {
-		return ErrInvalid
+		return false, ErrInvalid
 	}
-	_, e := tx.Exec(ctx, "INSERT INTO wechat_transfer_packages(transfer_id,package_info) VALUES($1,$2) ON CONFLICT (transfer_id) DO NOTHING", id, pkg)
-	return e
+	var ready bool
+	if e := tx.QueryRow(ctx, `SELECT to_regclass('notification_sources231') IS NOT NULL`).Scan(&ready); e != nil {
+		return false, e
+	}
+	columns, values := "", ""
+	if ready {
+		columns = ",notification_transaction231"
+		values = ",pg_current_xact_id()"
+	}
+	tag, e := tx.Exec(ctx, "INSERT INTO wechat_transfer_packages(transfer_id,package_info"+columns+") VALUES($1,$2"+values+") ON CONFLICT (transfer_id) DO NOTHING", id, pkg)
+	return e == nil && tag.RowsAffected() == 1, e
 }
 
 // TransferPackage returns the recorded package_info of a transfer.

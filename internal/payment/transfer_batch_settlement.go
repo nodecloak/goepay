@@ -58,7 +58,7 @@ func (g ProviderFlow) sendClaimedTransfer(ctx context.Context, t Transfer, tp ad
 	if state == "succeeded" && result.ProviderTransferNo == "" {
 		state = "unknown"
 	}
-	if e = g.Store.resolveProviderTransferPackage(ctx, t.ID, state, result.ProviderTransferNo, result.PayDate, result.PackageInfo); e != nil {
+	if e = g.Store.resolveProviderTransferPackage(ctx, t.ID, state, result.ProviderTransferNo, result.PayDate, result.PackageInfo, g.Providers[t.ChannelID]); e != nil {
 		return t, &adapter.UnknownOutcome{Operation: "persist transfer", Cause: e}
 	}
 	return g.Store.Transfer(ctx, t.MerchantID, t.TransferNo)

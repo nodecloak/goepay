@@ -128,7 +128,14 @@ func (s *Store) Check(ctx context.Context) (IntegrityCheck, error) {
 							route = true
 						}
 					}
-					if readErr == nil && (!route || claim.ID != id || claim.JobID != event.JobID || claim.ProfileID != event.ProfileID || !hmac.Equal(claim.EventHash, event.Hash) || !hmac.Equal(claim.ProfileHash, event.ProfileHash) || !hmac.Equal(claim.RecipientHash, s.digest("recipient", []byte(recipientFor(profile.Targets, kind))))) {
+					recipient := recipientFor(profile.Targets, kind)
+					if kind == Wechat && data.Supplement != nil && data.Input.Scene == "wxtransfer" {
+						recipient = data.Supplement.Facts.Recipient
+					}
+					if kind == SMS && data.SMS231 != nil {
+						recipient = data.SMS231.Phone
+					}
+					if readErr == nil && (!route || claim.ID != id || claim.JobID != event.JobID || claim.ProfileID != event.ProfileID || !hmac.Equal(claim.EventHash, event.Hash) || !hmac.Equal(claim.ProfileHash, event.ProfileHash) || !hmac.Equal(claim.RecipientHash, s.digest("recipient", []byte(recipient)))) {
 						readErr = ErrConflict
 					}
 				}
@@ -153,6 +160,7 @@ func (s *Store) Check(ctx context.Context) (IntegrityCheck, error) {
  +(SELECT count(DISTINCT p.merchant_id) FROM merchant_notice_profiles p WHERE NOT EXISTS(SELECT 1 FROM merchant_notice_current c WHERE c.merchant_id=p.merchant_id))
  +(SELECT count(*) FROM backoffice_audit a WHERE a.resource='merchant-notice-profiles' AND NOT EXISTS(SELECT 1 FROM merchant_notice_profiles p WHERE p.id=a.resource_id)),
  (SELECT count(*) FROM backoffice_audit a WHERE a.resource='merchant-notice-events' AND NOT EXISTS(SELECT 1 FROM merchant_notice_events e WHERE e.id=a.resource_id))
+ +(SELECT count(*) FROM notification_sources231 n WHERE n.kind='wxtransfer' AND NOT EXISTS(SELECT 1 FROM merchant_notice_events e WHERE e.supplement_id=n.id))
  +(SELECT count(*) FROM merchant_notice_timer_sources t WHERE NOT EXISTS(SELECT 1 FROM merchant_notice_events e WHERE e.timer_id=t.id))
  +(SELECT count(*) FROM backoffice_audit a WHERE a.resource='merchant-notice-timers' AND NOT EXISTS(SELECT 1 FROM merchant_notice_timer_sources t WHERE t.id=a.resource_id))
  +(SELECT count(*) FROM jobs j WHERE j.kind='merchant.notice' AND NOT EXISTS(SELECT 1 FROM merchant_notice_events e WHERE e.job_id=j.id)),

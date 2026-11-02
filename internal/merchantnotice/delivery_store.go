@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"goepay/internal/businesssms231"
 	"goepay/internal/voiceconfig230"
 )
 
@@ -18,6 +19,9 @@ import (
 // it must be pure: token acquisition and all network work belong to Send, after
 // the permanent delivery claim has committed. None of this data is an API view.
 type Account struct {
+	TelegramResolved                                bool                      `json:"-"`
+	TelegramToken                                   string                    `json:"-"`
+	SMS231                                          *businesssms231.Resolved  `json:"-"`
 	VoiceResolved, VoiceManaged                     bool                      `json:"-"`
 	VoiceRevision                                   int64                     `json:"-"`
 	VoiceCredential                                 voiceconfig230.Credential `json:"-"`
@@ -65,7 +69,7 @@ func resultAudit(r resultRecord) []byte {
 }
 func (s *Store) readClaim(ctx context.Context, tx pgx.Tx, event int64, kind Transport) (claimRecord, string, error) {
 	var c claimRecord
-	err := tx.QueryRow(ctx, `SELECT id,event_id,job_id,profile_id,transport,event_hash,profile_hash,recipient_hash,scope_hash,lease_hash,claim_hash,transaction_id::text,created_at FROM merchant_notice_claims WHERE event_id=$1 AND transport=$2`, event, kind).Scan(&c.ID, &c.EventID, &c.JobID, &c.ProfileID, &c.Transport, &c.EventHash, &c.ProfileHash, &c.RecipientHash, &c.ScopeHash, &c.LeaseHash, &c.Hash, &c.Transaction, &c.CreatedAt)
+	err := tx.QueryRow(ctx, `SELECT id,event_id,job_id,COALESCE(profile_id,0),transport,event_hash,profile_hash,recipient_hash,scope_hash,lease_hash,claim_hash,transaction_id::text,created_at FROM merchant_notice_claims WHERE event_id=$1 AND transport=$2`, event, kind).Scan(&c.ID, &c.EventID, &c.JobID, &c.ProfileID, &c.Transport, &c.EventHash, &c.ProfileHash, &c.RecipientHash, &c.ScopeHash, &c.LeaseHash, &c.Hash, &c.Transaction, &c.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return c, "", ErrNotFound
 	}
@@ -182,17 +186,39 @@ func (s *Store) Deliver(ctx context.Context, jobID int64, lease string, kind Tra
 	if err != nil {
 		return err
 	}
-	if !active || source.SnapshotState != "captured" {
+	direct := source.SnapshotState == "direct" && source.Scene == "wxtransfer" && kind == Wechat && data.Supplement != nil
+	if !active || (source.SnapshotState != "captured" && !direct) {
 		return ErrState
 	}
-	profile, prefs, err := s.readProfile(ctx, tx, source.MerchantID)
-	if err != nil {
-		return err
+	var profile profileRecord
+	var prefs profileData
+	if !direct {
+		profile, prefs, err = s.readProfile(ctx, tx, source.MerchantID)
+		if err != nil {
+			return err
+		}
 	}
 	if profile.ID != source.ProfileID || !hmac.Equal(profile.ProfileHash, source.ProfileHash) {
 		return ErrConflict
 	}
 	recipient := recipientFor(prefs.Targets, kind)
+	if kind == Wechat && data.Supplement != nil && data.Input.Scene == "wxtransfer" {
+		recipient = data.Supplement.Facts.Recipient
+	}
+	var sms *businesssms231.Resolved
+	if kind == SMS {
+		if data.Version < 3 || data.SMS231 == nil || s.sms == nil {
+			return ErrState
+		}
+		sms, err = s.sms.ResolveTx(ctx, tx, source.MerchantID, data.Input.Scene)
+		if err != nil {
+			return err
+		}
+		if sms == nil || sms.Snapshot != *data.SMS231 {
+			return ErrState
+		}
+		recipient = sms.Snapshot.Phone
+	}
 	recipients := map[Transport]bool{kind: recipient != ""}
 	configured := map[Transport]bool{kind: true}
 	routes, err := SelectMerchant(SelectionInput{MerchantID: source.MerchantID, Scene: data.Input.Scene, Subject: data.Input.Params["name"], Mode: prefs.Preferences.mode(data.Input.Scene), Amount: data.Source.Amount, OrderMinimum: prefs.Preferences.OrderMoney, VoiceOrder: prefs.VoiceOrder, Global: global, Recipients: recipients, Configured: configured})
@@ -210,11 +236,23 @@ func (s *Store) Deliver(ctx context.Context, jobID int64, lease string, kind Tra
 	}
 	// Freeze the rendered value before handing any reference-valued source
 	// input to a transport constructor. Factories cannot rewrite this message.
-	message, err := Render(data.Input)
+	message, err := renderSource231(data.Input)
 	if err != nil {
 		return err
 	}
 	account := Account{WXAppID: prefs.Targets.WXAppID, WebhookURL: prefs.Targets.MsgRobotURL, QQBotAppID: prefs.Targets.QQBotAppID, QQBotAppSecret: prefs.Targets.QQBotAppSecret, Input: data.Input}
+	if kind == Wechat && data.Supplement != nil && data.Input.Scene == "wxtransfer" {
+		account.WXAppID = data.Supplement.Facts.AppID
+	}
+	account.SMS231 = sms
+	if kind == Telegram {
+		if err = s.prepareTelegram231(ctx, tx, &account); err != nil {
+			return err
+		}
+		if data.TelegramStamp231 == "" || data.TelegramStamp231 != hex.EncodeToString(s.digest("telegram231", []byte(account.TelegramToken))) {
+			return ErrState
+		}
+	}
 	if kind == Voice && s.voice != nil {
 		v, c, managed, e := s.voice.ResolveTx(ctx, tx)
 		if e != nil {
@@ -233,13 +271,26 @@ func (s *Store) Deliver(ctx context.Context, jobID int64, lease string, kind Tra
 		if err != nil {
 			return err
 		}
+		if direct && (data.Supplement.Facts.Params["wx_template231"] == "" || confirmationTemplateHash231(account.Template) != data.Supplement.Facts.Params["wx_template231"]) {
+			return ErrState
+		}
 	}
-	sender, err := resolver.ResolveMerchantNotice(ctx, kind, account)
+	var sender Sender
+	if resolved, ok := resolver.(interface {
+		ResolveMerchantNoticeTx231(context.Context, pgx.Tx, Transport, Account) (Sender, error)
+	}); ok {
+		sender, err = resolved.ResolveMerchantNoticeTx231(ctx, tx, kind, account)
+	} else {
+		sender, err = resolver.ResolveMerchantNotice(ctx, kind, account)
+	}
 	if err != nil || sender == nil || sender.NoticeTransport() != kind || sender.NoticeScope() == "" || len(sender.NoticeScope()) > 4096 || sender.ValidateNoticeRecipient(recipient) != nil {
 		return ErrState
 	}
 	if kind == Wechat || kind == QQBot {
 		expected := prefs.Targets.WXAppID
+		if kind == Wechat && data.Supplement != nil && data.Input.Scene == "wxtransfer" {
+			expected = data.Supplement.Facts.AppID
+		}
 		if kind == QQBot {
 			expected = prefs.Targets.QQBotAppID
 		}
@@ -254,7 +305,11 @@ func (s *Store) Deliver(ctx context.Context, jobID int64, lease string, kind Tra
 		return err
 	}
 	c.Hash = s.claimProof(c)
-	if _, err = tx.Exec(ctx, `INSERT INTO merchant_notice_claims(id,event_id,job_id,profile_id,transport,event_hash,profile_hash,recipient_hash,scope_hash,lease_hash,claim_hash,transaction_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::xid8,$13)`, c.ID, c.EventID, c.JobID, c.ProfileID, c.Transport, c.EventHash, c.ProfileHash, c.RecipientHash, c.ScopeHash, c.LeaseHash, c.Hash, c.Transaction, c.CreatedAt); err != nil {
+	var profileID any
+	if c.ProfileID > 0 {
+		profileID = c.ProfileID
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO merchant_notice_claims(id,event_id,job_id,profile_id,transport,event_hash,profile_hash,recipient_hash,scope_hash,lease_hash,claim_hash,transaction_id,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::xid8,$13)`, c.ID, c.EventID, c.JobID, profileID, c.Transport, c.EventHash, c.ProfileHash, c.RecipientHash, c.ScopeHash, c.LeaseHash, c.Hash, c.Transaction, c.CreatedAt); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES('system',0,'merchant-notice','merchant-notice-deliveries',$1,'attempt',$2)`, c.ID, claimAudit(c)); err != nil {
@@ -274,7 +329,11 @@ func (s *Store) Deliver(ctx context.Context, jobID int64, lease string, kind Tra
 	// Recheck immediately before I/O. A revoke or deadline after claiming never
 	// frees another sending attempt, and a late response is saved independently.
 	if ctx.Err() == nil {
-		err = s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM merchants m JOIN merchant_notice_current p ON p.merchant_id=m.id JOIN jobs j ON j.id=$3 WHERE m.id=$1 AND m.enabled AND p.profile_id=$2 AND j.state='running' AND j.lease_token=$4 AND j.lease_until>clock_timestamp())`, source.MerchantID, profile.ID, jobID, lease).Scan(&alive)
+		if direct {
+			err = s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM merchants m JOIN transfers t ON t.merchant_id=m.id JOIN jobs j ON j.id=$3 WHERE m.id=$1 AND m.enabled AND t.id=$2 AND t.status IN('pending','unknown') AND j.state='running' AND j.lease_token=$4 AND j.lease_until>clock_timestamp())`, source.MerchantID, data.Supplement.Facts.ReferenceID, jobID, lease).Scan(&alive)
+		} else {
+			err = s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM merchants m JOIN merchant_notice_current p ON p.merchant_id=m.id JOIN jobs j ON j.id=$3 WHERE m.id=$1 AND m.enabled AND p.profile_id=$2 AND j.state='running' AND j.lease_token=$4 AND j.lease_until>clock_timestamp())`, source.MerchantID, profile.ID, jobID, lease).Scan(&alive)
+		}
 		if err == nil && alive {
 			state = "accepted"
 			if sender.SendMerchantNotice(ctx, recipient, message) != nil {

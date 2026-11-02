@@ -223,7 +223,16 @@ func (s *Store) recordParentSuccessfulPayment(ctx context.Context, tx pgx.Tx, o 
 	if e != nil {
 		return e
 	}
-	if _, e = tx.Exec(ctx, `INSERT INTO runtime_channel_success_events(order_id,channel_id,merchant_id,trade_no,day,realmoney,observed_at,provider_trade_no,revision,previous_hash,proof_hash) VALUES($1,$2,$3,$4,$5::date,$6,$7,$8,$9,$10,$11)`, o.ID, r.ChannelID, o.MerchantID, o.TradeNo, day, r.RealMoney, now, r.ProviderTradeNo, next.Revision, next.Previous, next.Proof); e != nil {
+	var noticesReady bool
+	if e = tx.QueryRow(ctx, `SELECT to_regclass('notification_sources231') IS NOT NULL`).Scan(&noticesReady); e != nil {
+		return e
+	}
+	extraColumn, extraValue := "", ""
+	if noticesReady {
+		extraColumn = ",notification_transaction231"
+		extraValue = ",pg_current_xact_id()"
+	}
+	if _, e = tx.Exec(ctx, `INSERT INTO runtime_channel_success_events(order_id,channel_id,merchant_id,trade_no,day,realmoney,observed_at,provider_trade_no,revision,previous_hash,proof_hash`+extraColumn+`) VALUES($1,$2,$3,$4,$5::date,$6,$7,$8,$9,$10,$11`+extraValue+`)`, o.ID, r.ChannelID, o.MerchantID, o.TradeNo, day, r.RealMoney, now, r.ProviderTradeNo, next.Revision, next.Previous, next.Proof); e != nil {
 		return e
 	}
 	money, ok := new(big.Int).SetString(head.Money, 10)
@@ -244,5 +253,8 @@ func (s *Store) recordParentSuccessfulPayment(ctx context.Context, tx pgx.Tx, o 
 		return e
 	}
 	_, e = tx.Exec(ctx, `INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES('system',0,'payment-engine','runtime-channel-success',$1,'runtime-channel-success',jsonb_build_object('channel_id',$2::bigint::text,'day',$3::text,'realmoney',$4::bigint::text,'revision',$5::bigint::text))`, o.ID, r.ChannelID, day, r.RealMoney, head.Revision)
+	if e == nil && noticesReady {
+		s.recordChannelLimitNotice231(ctx, tx, next)
+	}
 	return e
 }

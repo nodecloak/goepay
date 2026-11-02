@@ -12,12 +12,14 @@ import KitField from "./KitField.vue";
 import KitInput from "./KitInput.vue";
 import KitSwitch from "./KitSwitch.vue";
 import KitModal from "./KitModal.vue";
+import BusinessSMSSettings231 from "./BusinessSMSSettings231.vue";
 const props = defineProps<{
   client: ApiClient;
   adminClass?: string;
   ownSession: boolean;
 }>();
 const emit = defineEmits<{ busy: [boolean] }>();
+const businessBusy = ref(false);
 const loading = ref(false),
   busy = ref(false),
   testBusy = ref(false),
@@ -411,7 +413,12 @@ watch(
   { immediate: true, flush: "sync" },
 );
 watch(
-  () => busy.value || testBusy.value || editing.value !== "" || testOpen.value,
+  () =>
+    busy.value ||
+    testBusy.value ||
+    editing.value !== "" ||
+    testOpen.value ||
+    businessBusy.value,
   (v) => emit("busy", v),
   { flush: "sync" },
 );
@@ -423,171 +430,183 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section aria-label="短信配置">
-    <h3 class="settings-group">短信验证码频率限制</h3>
-    <p class="muted">
-      当前服务规则：同一手机号发送间隔至少60秒，每24小时最多3次；同一IP每24小时最多6次。验证码有效期60分钟，使用后立即失效。频率随服务发布管理。
-    </p>
-    <p v-if="!allowed" class="muted">短信网关设置需要超级管理员本人会话。</p>
-    <template v-else>
-      <button :disabled="loading || busy || testBusy" @click="load">
-        重新读取短信网关
-      </button>
-      <p v-if="loading" role="status">正在读取短信网关…</p>
-      <p v-if="error" role="alert" class="alert error">{{ error }}</p>
-      <p v-if="notice" role="status" class="alert success">{{ notice }}</p>
-      <template v-if="state">
-        <p class="muted">
-          网关默认关闭；开启某服务商后，注册、找回密码与绑定手机的短信验证码才会发送。密钥加密存储，不会回显。
-        </p>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>服务商</th>
-                <th>状态</th>
-                <th>签名</th>
-                <th>模板</th>
-                <th>账号</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="p in state.providers" :key="p.provider">
-                <td>
-                  {{ title(p.provider)
-                  }}<span
-                    v-if="state.active === p.provider && state.status === 1"
-                    class="badge success"
-                    >当前</span
-                  >
-                </td>
-                <td>{{ p.configured ? "已配置" : "未配置" }}</td>
-                <td>{{ p.sign || "-" }}</td>
-                <td>{{ p.template || "-" }}</td>
-                <td>{{ p.principal || "-" }}</td>
-                <td>
-                  <button
-                    class="pa-btn"
-                    :disabled="busy || editing !== ''"
-                    @click="openProvider(p.provider)"
-                  >
-                    {{
-                      draftProvider === p.provider && draftDirty
-                        ? "继续编辑草稿"
-                        : "服务商设置"
-                    }}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="sms-gateway-state">
-          网关状态：{{ state.status === 1 ? "已开启" : "已关闭"
-          }}{{
-            state.status === 1 && state.active
-              ? "（" + title(state.active) + "）"
-              : ""
-          }}
-          <button
-            v-if="state.status === 1"
-            class="pa-btn"
-            :disabled="testBusy"
-            @click="openTest"
-          >
-            测试发送
-          </button>
-        </div>
-      </template>
-    </template>
-    <KitModal
-      v-if="editing"
-      :title="title(editing) + '设置'"
-      :loading="busy"
-      :submit-text="busy ? '保存中…' : '保存'"
-      @close="closeProvider"
-      @submit="saveProvider"
-    >
-      <template #footer-extra>
-        <button type="button" :disabled="busy" @click="suspendProvider">
-          收起并保留草稿
-        </button>
-      </template>
-      <p v-if="error" role="alert" class="alert error">{{ error }}</p>
-      <template v-if="editing === 'aliyun'">
-        <KitField label="AccessKeyId" required
-          ><KitInput
-            v-model="draft.access_key_id"
-            autocomplete="off"
-            :disabled="busy"
-        /></KitField>
-        <KitField label="AccessKeySecret" required
-          ><KitInput
-            v-model="draft.access_key_secret"
-            type="password"
-            autocomplete="new-password"
-            :disabled="busy"
-        /></KitField>
-      </template>
-      <template v-else-if="editing === 'qcloud'">
-        <KitField label="AppId" required
-          ><KitInput v-model="draft.appid" autocomplete="off" :disabled="busy"
-        /></KitField>
-        <KitField label="AppKey" required
-          ><KitInput
-            v-model="draft.appkey"
-            type="password"
-            autocomplete="new-password"
-            :disabled="busy"
-        /></KitField>
-      </template>
-      <template v-else>
-        <KitField label="账号" required
-          ><KitInput v-model="draft.user" autocomplete="off" :disabled="busy"
-        /></KitField>
-        <KitField label="密码" required
-          ><KitInput
-            v-model="draft.pass"
-            type="password"
-            autocomplete="new-password"
-            :disabled="busy"
-        /></KitField>
-      </template>
-      <KitField label="模板" required
-        ><KitInput v-model="draft.template" :disabled="busy"
-      /></KitField>
-      <KitField label="签名" required
-        ><KitInput v-model="draft.sign" :disabled="busy"
-      /></KitField>
-      <KitField label="设为启用网关"
-        ><KitSwitch
-          v-model="draft.enabled"
-          :disabled="busy"
-          aria-label="设为启用网关"
-      /></KitField>
-    </KitModal>
-    <KitModal
-      v-if="testOpen"
-      title="短信网关测试发送"
-      :loading="testBusy"
-      :submit-disabled="testResult === '发送结果无法确认'"
-      :submit-text="testBusy ? '发送中…' : '发送'"
-      @close="testOpen = false"
-      @submit="sendTest"
-    >
-      <p v-if="error" role="alert" class="alert error">{{ error }}</p>
-      <KitField label="测试手机号" required
-        ><KitInput
-          v-model="testPhone"
-          inputmode="numeric"
-          :maxlength="20"
-          :disabled="testBusy"
-      /></KitField>
-      <p v-if="testResult" role="status" class="alert">{{ testResult }}</p>
-      <p v-if="testResult === '发送结果无法确认'" class="muted">
-        请先在服务商核对这次发送结果，勿重复发送；关闭后重新读取网关时会再次确认。
+    <BusinessSMSSettings231
+      :client="client"
+      :admin-class="adminClass"
+      :own-session="ownSession"
+      :disabled="busy || testBusy || editing !== '' || testOpen"
+      @busy="businessBusy = $event"
+    />
+    <div :inert="businessBusy ? true : undefined">
+      <h3 class="settings-group">短信验证码频率限制</h3>
+      <p class="muted">
+        当前服务规则：同一手机号发送间隔至少60秒，每24小时最多3次；同一IP每24小时最多6次。验证码有效期60分钟，使用后立即失效。频率随服务发布管理。
       </p>
-    </KitModal>
+      <p v-if="!allowed" class="muted">短信网关设置需要超级管理员本人会话。</p>
+      <template v-else>
+        <button :disabled="loading || busy || testBusy" @click="load">
+          重新读取短信网关
+        </button>
+        <p v-if="loading" role="status">正在读取短信网关…</p>
+        <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+        <p v-if="notice" role="status" class="alert success">{{ notice }}</p>
+        <template v-if="state">
+          <p class="muted">
+            网关默认关闭；开启某服务商后，注册、找回密码与绑定手机的短信验证码才会发送。密钥加密存储，不会回显。
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>服务商</th>
+                  <th>状态</th>
+                  <th>签名</th>
+                  <th>模板</th>
+                  <th>账号</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in state.providers" :key="p.provider">
+                  <td>
+                    {{ title(p.provider)
+                    }}<span
+                      v-if="state.active === p.provider && state.status === 1"
+                      class="badge success"
+                      >当前</span
+                    >
+                  </td>
+                  <td>{{ p.configured ? "已配置" : "未配置" }}</td>
+                  <td>{{ p.sign || "-" }}</td>
+                  <td>{{ p.template || "-" }}</td>
+                  <td>{{ p.principal || "-" }}</td>
+                  <td>
+                    <button
+                      class="pa-btn"
+                      :disabled="busy || editing !== ''"
+                      @click="openProvider(p.provider)"
+                    >
+                      {{
+                        draftProvider === p.provider && draftDirty
+                          ? "继续编辑草稿"
+                          : "服务商设置"
+                      }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="sms-gateway-state">
+            网关状态：{{ state.status === 1 ? "已开启" : "已关闭"
+            }}{{
+              state.status === 1 && state.active
+                ? "（" + title(state.active) + "）"
+                : ""
+            }}
+            <button
+              v-if="state.status === 1"
+              class="pa-btn"
+              :disabled="testBusy"
+              @click="openTest"
+            >
+              测试发送
+            </button>
+          </div>
+        </template>
+      </template>
+      <KitModal
+        v-if="editing"
+        :title="title(editing) + '设置'"
+        :loading="busy"
+        :submit-text="busy ? '保存中…' : '保存'"
+        @close="closeProvider"
+        @submit="saveProvider"
+      >
+        <template #footer-extra>
+          <button type="button" :disabled="busy" @click="suspendProvider">
+            收起并保留草稿
+          </button>
+        </template>
+        <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+        <template v-if="editing === 'aliyun'">
+          <KitField label="AccessKeyId" required
+            ><KitInput
+              v-model="draft.access_key_id"
+              autocomplete="off"
+              :disabled="busy"
+          /></KitField>
+          <KitField label="AccessKeySecret" required
+            ><KitInput
+              v-model="draft.access_key_secret"
+              type="password"
+              autocomplete="new-password"
+              :disabled="busy"
+          /></KitField>
+        </template>
+        <template v-else-if="editing === 'qcloud'">
+          <KitField label="AppId" required
+            ><KitInput
+              v-model="draft.appid"
+              autocomplete="off"
+              :disabled="busy"
+          /></KitField>
+          <KitField label="AppKey" required
+            ><KitInput
+              v-model="draft.appkey"
+              type="password"
+              autocomplete="new-password"
+              :disabled="busy"
+          /></KitField>
+        </template>
+        <template v-else>
+          <KitField label="账号" required
+            ><KitInput v-model="draft.user" autocomplete="off" :disabled="busy"
+          /></KitField>
+          <KitField label="密码" required
+            ><KitInput
+              v-model="draft.pass"
+              type="password"
+              autocomplete="new-password"
+              :disabled="busy"
+          /></KitField>
+        </template>
+        <KitField label="模板" required
+          ><KitInput v-model="draft.template" :disabled="busy"
+        /></KitField>
+        <KitField label="签名" required
+          ><KitInput v-model="draft.sign" :disabled="busy"
+        /></KitField>
+        <KitField label="设为启用网关"
+          ><KitSwitch
+            v-model="draft.enabled"
+            :disabled="busy"
+            aria-label="设为启用网关"
+        /></KitField>
+      </KitModal>
+      <KitModal
+        v-if="testOpen"
+        title="短信网关测试发送"
+        :loading="testBusy"
+        :submit-disabled="testResult === '发送结果无法确认'"
+        :submit-text="testBusy ? '发送中…' : '发送'"
+        @close="testOpen = false"
+        @submit="sendTest"
+      >
+        <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+        <KitField label="测试手机号" required
+          ><KitInput
+            v-model="testPhone"
+            inputmode="numeric"
+            :maxlength="20"
+            :disabled="testBusy"
+        /></KitField>
+        <p v-if="testResult" role="status" class="alert">{{ testResult }}</p>
+        <p v-if="testResult === '发送结果无法确认'" class="muted">
+          请先在服务商核对这次发送结果，勿重复发送；关闭后重新读取网关时会再次确认。
+        </p>
+      </KitModal>
+    </div>
   </section>
 </template>
 <style scoped>

@@ -47,6 +47,7 @@ export interface PlatformNoticeSwitches {
     Record<"wechat_template" | "smtp" | "sms" | "robot", boolean>
   >;
   wechat_templates?: Record<string, boolean>;
+  sms_templates?: Record<string, boolean>;
 }
 // Channel columns in the original epay_pro 消息推送 order. Each value is the
 // stored Mode an event row selects when that channel is picked (0 = 关闭提醒).
@@ -117,7 +118,9 @@ export function channelCell(
     case 3: // SMS
       if (!smsSelectableScenes.has(scene))
         return cell(false, "该事件不支持短信提醒");
-      if (!smsActive) return cell(false, "通知短信尚未接入");
+      if (!smsActive || (p?.sms_templates && !p.sms_templates[scene]))
+        return cell(false, "平台尚未配置该业务短信模板或启用短信网关");
+      if (!recipientConfigured) return cell(false, "请先验证绑定手机号码");
       break;
     case 5: // Telegram
       if (p && !p.telegram) return cell(false, "平台未启用 Telegram 提醒");
@@ -140,7 +143,7 @@ export function recipientConfigured(
     case 2:
       return !!configured.email;
     case 3:
-      return true; // SMS recipient is the merchant's bound mobile, resolved at send.
+      return !!configured.bind_mobile;
     case 4:
       return !!configured.msgrobot_url;
     case 5:

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"goepay/internal/noticeconfig231"
 	"goepay/internal/payment"
 	"sync"
 )
@@ -60,6 +61,23 @@ func (r *channelNoticeRuntime) Resolve(ctx context.Context) (payment.ChannelNoti
 			}
 		}
 		return r.getenv(key)
+	}
+	if source, ok := r.settings.(interface {
+		NoticeAccounts231() (*noticeconfig231.Store, error)
+	}); ok {
+		if kind := riskKind231(getenv("GOEPAY_ADMIN_MSGCONFIG_RISK")); kind != "" {
+			config, e := source.NoticeAccounts231()
+			if e != nil {
+				return nil, "", e
+			}
+			v, c, managed, stamp, e := config.Effective(ctx, kind)
+			if e != nil {
+				return nil, "", e
+			}
+			if managed {
+				return managedFactory231(config, kind, v, c, stamp)
+			}
+		}
 	}
 	sender, to, e := configuredChannelNoticesWithSMTP195(getenv, func() (payment.ChannelNoticeSender, error) {
 		if r.mailAccounts == nil {

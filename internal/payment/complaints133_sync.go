@@ -64,7 +64,7 @@ func (g ProviderFlow) SyncComplaints(ctx context.Context, channelID int64, num, 
 	}
 	upserted := 0
 	for i := range page.Items {
-		if e := g.Store.upsertComplaint133(ctx, channelID, page.Items[i]); e != nil {
+		if e := g.Store.upsertComplaint133(ctx, channelID, page.Items[i], p); e != nil {
 			return upserted, e
 		}
 		if e := g.Store.autoHandleComplaint(ctx, channelID, page.Items[i]); e != nil {
@@ -80,7 +80,7 @@ func (g ProviderFlow) SyncComplaints(ctx context.Context, channelID int64, num, 
 // trade linkage and a once-known amount never change and state never moves
 // backward, so a re-sync of the same complaint is a safe no-op or a
 // forward-only status/last-seen advance.
-func (s *Store) upsertComplaint133(ctx context.Context, channelID int64, rec provider.ComplaintRecord) error {
+func (s *Store) upsertComplaint133(ctx context.Context, channelID int64, rec provider.ComplaintRecord, providers ...provider.Provider) error {
 	if rec.ThirdID == "" || (rec.PayType != "wxpay" && rec.PayType != "alipay") {
 		return ErrInvalid
 	}
@@ -93,18 +93,6 @@ func (s *Store) upsertComplaint133(ctx context.Context, channelID int64, rec pro
 	if tradeNos == nil {
 		tradeNos = []string{}
 	}
-	// owner_id: best-effort match of any linked order to its merchant. NULL when
-	// the order is unknown (a complaint may arrive before its order resolves).
-	var owner *int64
-	if len(tradeNos) > 0 {
-		var id int64
-		e := s.pool.QueryRow(ctx, `SELECT merchant_id FROM orders WHERE trade_no=ANY($1) OR out_trade_no=ANY($1) LIMIT 1`, tradeNos).Scan(&id)
-		if e == nil {
-			owner = &id
-		} else if !errors.Is(e, pgx.ErrNoRows) {
-			return e
-		}
-	}
 	// The upsert itself is unchanged; it now runs in a transaction only so the
 	// append of a subscription event (for a new complaint or a forward state
 	// change on a known-owner complaint) is atomic with the row it reports.
@@ -113,11 +101,32 @@ func (s *Store) upsertComplaint133(ctx context.Context, channelID int64, rec pro
 		return e
 	}
 	defer tx.Rollback(ctx)
+	// Upstream merchant order numbers are OUR platform trade_no. Merchant
+	// out_trade_no is scoped per merchant and must never be matched globally.
+	var p provider.Provider
+	if len(providers) == 1 {
+		p = providers[0]
+	}
+	owner, verifiedTrades, e := s.complaintOwner231(ctx, tx, channelID, rec.PayType, tradeNos, p)
+	if e != nil {
+		return e
+	}
+	var sourceReady bool
+	if e = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid='complaints133'::regclass AND attname='notification_transaction231' AND NOT attisdropped)`).Scan(&sourceReady); e != nil {
+		return e
+	}
+	// Old migration fixtures stay readable. New runtime installations freeze
+	// the original birth transaction on INSERT, never on a later resync.
+	extraColumn, extraValue := "", ""
+	if sourceReady {
+		extraColumn = ",notification_transaction231"
+		extraValue = ",pg_current_xact_id()"
+	}
 	var complaintID, ownerID int64
 	var resultState string
 	e = tx.QueryRow(ctx, `INSERT INTO complaints133
- (pay_type,third_id,channel_id,owner_id,trade_nos,third_mch_id,category,title,content,complaint_times,amount_cents,provider_status,local_state,phone,detail,last_seen_at)
- VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,now())
+ (pay_type,third_id,channel_id,owner_id,trade_nos,third_mch_id,category,title,content,complaint_times,amount_cents,provider_status,local_state,phone,detail,last_seen_at`+extraColumn+`)
+ VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,now()`+extraValue+`)
  ON CONFLICT (pay_type,third_id) DO UPDATE SET
    provider_status=EXCLUDED.provider_status,
    local_state=CASE WHEN jsonb_build_object('open',0,'processing',1,'done',2)->>EXCLUDED.local_state >= jsonb_build_object('open',0,'processing',1,'done',2)->>complaints133.local_state THEN EXCLUDED.local_state ELSE complaints133.local_state END,
@@ -126,7 +135,7 @@ func (s *Store) upsertComplaint133(ctx context.Context, channelID int64, rec pro
    phone=COALESCE(EXCLUDED.phone,complaints133.phone),
    detail=COALESCE(EXCLUDED.detail,complaints133.detail),
    amount_cents=COALESCE(complaints133.amount_cents,EXCLUDED.amount_cents),
-   owner_id=COALESCE(complaints133.owner_id,EXCLUDED.owner_id),
+   owner_id=EXCLUDED.owner_id,
    last_seen_at=now()
  RETURNING id,local_state,COALESCE(owner_id,0)`,
 		rec.PayType, rec.ThirdID, channelID, owner, tradeNos, nullString(rec.ThirdMchID), nullString(rec.Type), nullString(rec.Title), nullString(rec.Content), maxInt(rec.Times, 1), rec.AmountCents, rec.Status, local, nullString(rec.Phone), detail).Scan(&complaintID, &resultState, &ownerID)
@@ -138,10 +147,15 @@ func (s *Store) upsertComplaint133(ctx context.Context, channelID int64, rec pro
 	// nothing and enqueues no job; only a forward state change is a new event. An
 	// unknown owner (owner_id=0) or an install without the 201 subscription
 	// tables simply skips it — the sync's own semantics are unchanged.
-	if ownerID > 0 {
+	// Historical guessed owner_id is not delivery authority. Only the current
+	// signed account and complete exact order set may authorize a recipient.
+	if owner != nil && *owner == ownerID {
 		if e = s.captureComplaintEvent201(ctx, tx, complaintID, ownerID, resultState, complaintRecordView{PayType: rec.PayType, ThirdID: rec.ThirdID}); e != nil {
 			return e
 		}
+	}
+	if sourceReady {
+		s.recordComplaintNotices231(ctx, tx, complaintID, channelID, rec, owner, verifiedTrades)
 	}
 	return tx.Commit(ctx)
 }

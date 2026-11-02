@@ -13,7 +13,7 @@ var ErrNotFound = errors.New("administrator business notice not found")
 // UID0 business scenes use another switch namespace than sendAdminMessage.
 func SettingKey(scene string) (string, error) {
 	switch scene {
-	case "regaudit", "apply", "domain":
+	case "regaudit", "apply", "domain", "complain_all", "channellimit":
 		return "msgconfig_" + scene, nil
 	case "internal_transfer":
 		return "msgconfig_domain", nil
@@ -32,6 +32,11 @@ func ModeFor(scene, value string) (merchantnotice.Transport, error) {
 		return merchantnotice.SMTP, nil
 	case "2":
 		return merchantnotice.Robot, nil
+	case "3":
+		if scene == "complain_all" {
+			return merchantnotice.SMS, nil
+		}
+		return "", ErrInvalid
 	case "4":
 		return merchantnotice.Telegram, nil
 	case "5":

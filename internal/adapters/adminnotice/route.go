@@ -19,6 +19,9 @@ func (w *Webhook) ChannelNoticeScope() string {
 	if w == nil {
 		return ""
 	}
+	if w.mentionPhone != "" {
+		return routeScope("robot", w.endpoint, w.mentionPhone)
+	}
 	return routeScope("robot", w.endpoint)
 }
 func (w *Webhook) ValidateChannelNoticeRecipient(to string) error {

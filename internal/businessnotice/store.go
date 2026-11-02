@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"goepay/internal/businesssms231"
+	"goepay/internal/noticeconfig231"
 )
 
 type RequestFacts struct {
@@ -21,10 +23,12 @@ type RequestFactsReader interface {
 	BusinessNoticeRequestFacts(context.Context, pgx.Tx, int64) (RequestFacts, error)
 }
 type Store struct {
-	pool     *pgxpool.Pool
-	aead     cipher.AEAD
-	macKey   []byte
-	requests RequestFactsReader
+	accounts231 *noticeconfig231.Store
+	sms231      *businesssms231.Store
+	pool        *pgxpool.Pool
+	aead        cipher.AEAD
+	macKey      []byte
+	requests    RequestFactsReader
 }
 
 // Pure construction; no configuration, credentials, database or network reads.
@@ -45,7 +49,15 @@ func NewStore(pool *pgxpool.Pool, key []byte, reader RequestFactsReader) (*Store
 	if err != nil {
 		return nil, ErrInvalid
 	}
-	return &Store{pool: pool, aead: aead, macKey: derive("integrity"), requests: reader}, nil
+	accounts, e := noticeconfig231.FromMaster(pool, key)
+	if e != nil {
+		return nil, e
+	}
+	sms, e := businesssms231.FromMaster(pool, key)
+	if e != nil {
+		return nil, e
+	}
+	return &Store{pool: pool, aead: aead, macKey: derive("integrity"), requests: reader, accounts231: accounts, sms231: sms}, nil
 }
 func (s *Store) available() bool {
 	return s != nil && s.pool != nil && s.aead != nil && len(s.macKey) == 32

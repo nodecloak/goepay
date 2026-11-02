@@ -10,7 +10,7 @@ import (
 
 func (s *Store) globalSwitches(ctx context.Context, scene string) (GlobalSwitches, error) {
 	switch scene {
-	case "order", "settle", "login", "complain", "mchrisk", "balance", "group", "domain_audit", "daily_report":
+	case "order", "settle", "login", "complain", "mchrisk", "balance", "group", "domain_audit", "daily_report", "wxtransfer":
 	default:
 		return GlobalSwitches{}, ErrInvalid
 	}

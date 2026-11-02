@@ -23,7 +23,9 @@ func TestPlatformNoticeSwitches134ReadsPerSceneMailAndGlobalBots(t *testing.T) {
 	if !sw.MailRobot["order"] || sw.MailRobot["daily_report"] || sw.MailRobot["settle"] {
 		t.Fatalf("per-scene mail/robot switch wrong: %+v", sw.MailRobot)
 	}
-	if !sw.Telegram || sw.QQBot || !sw.Voice || !sw.GroupSMS {
+	// A switch alone cannot advertise delivery without the shared bot token
+	// or an independent business SMS template and gateway.
+	if sw.Telegram || sw.QQBot || !sw.Voice || sw.GroupSMS {
 		t.Fatalf("global switches wrong: %+v", sw)
 	}
 	// All nine notice scenes are represented so the console can draw the full grid.

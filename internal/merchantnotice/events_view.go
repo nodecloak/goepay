@@ -80,6 +80,9 @@ func (s *Store) Events(ctx context.Context, mid, before int64, limit int, actor 
 		if event.OrderID > 0 {
 			view.TradeNo = data.Source.TradeNo
 		}
+		if data.Supplement != nil && data.Input.Scene == "complain" {
+			view.TradeNo = data.Input.Params["trade_no"]
+		}
 		if event.JobID > 0 {
 			if err = tx.QueryRow(ctx, `SELECT state FROM jobs WHERE id=$1`, event.JobID).Scan(&view.JobState); err != nil {
 				return nil, ErrConflict
@@ -103,7 +106,14 @@ func (s *Store) Events(ctx context.Context, mid, before int64, limit int, actor 
 			} else if readErr != nil {
 				return nil, readErr
 			} else {
-				if claim.JobID != event.JobID || claim.ProfileID != event.ProfileID || !hmac.Equal(claim.EventHash, event.Hash) || !hmac.Equal(claim.ProfileHash, event.ProfileHash) || !hmac.Equal(claim.RecipientHash, s.digest("recipient", []byte(recipientFor(profile.Targets, kind)))) {
+				recipient := recipientFor(profile.Targets, kind)
+				if kind == Wechat && data.Supplement != nil && data.Input.Scene == "wxtransfer" {
+					recipient = data.Supplement.Facts.Recipient
+				}
+				if kind == SMS && data.SMS231 != nil {
+					recipient = data.SMS231.Phone
+				}
+				if claim.JobID != event.JobID || claim.ProfileID != event.ProfileID || !hmac.Equal(claim.EventHash, event.Hash) || !hmac.Equal(claim.ProfileHash, event.ProfileHash) || !hmac.Equal(claim.RecipientHash, s.digest("recipient", []byte(recipient))) {
 					return nil, ErrConflict
 				}
 				at := claim.CreatedAt

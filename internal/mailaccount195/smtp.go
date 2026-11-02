@@ -3,6 +3,7 @@ package mailaccount195
 import (
 	"context"
 	"encoding/hex"
+	"github.com/jackc/pgx/v5"
 	"goepay/internal/mailer"
 	"goepay/internal/siteinfo"
 )
@@ -30,12 +31,26 @@ func (s *Store) ResolveSMTP(ctx context.Context) (*BoundSMTP, bool, error) {
 		return nil, false, ErrSource
 	}
 	defer tx.Rollback(ctx)
+	bound, managed, e := s.ResolveSMTPTx231(ctx, tx)
+	if e != nil {
+		return nil, managed, e
+	}
+	if e = tx.Commit(ctx); e != nil {
+		return nil, managed, ErrSource
+	}
+	return bound, managed, nil
+}
+
+func (s *Store) ResolveSMTPTx231(ctx context.Context, tx pgx.Tx) (*BoundSMTP, bool, error) {
+	if s == nil || tx == nil {
+		return nil, false, ErrSource
+	}
 	account, e := s.load(ctx, tx, false)
 	if e != nil {
 		return nil, true, ErrSource
 	}
 	if !account.managed {
-		return nil, false, tx.Commit(ctx)
+		return nil, false, nil
 	}
 	if account.facts.Status != 1 {
 		return nil, true, ErrSource
@@ -59,8 +74,5 @@ func (s *Store) ResolveSMTP(ctx context.Context) (*BoundSMTP, bool, error) {
 		return nil, true, ErrSource
 	}
 	bound := &BoundSMTP{SMTP: sender, scope: hex.EncodeToString(scope)}
-	if e = tx.Commit(ctx); e != nil {
-		return nil, true, ErrSource
-	}
 	return bound, true, nil
 }

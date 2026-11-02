@@ -91,6 +91,13 @@ func (n *Notices) Deliver(ctx context.Context, jobID int64, leaseToken, recipien
 	if _, e = tx.Exec(ctx, `INSERT INTO page_template_notices(event_id,job_id,recipient_hash,lease_hash)VALUES($1,$2,$3,$4)`, eventID, jobID, recipientHash[:], leaseHash[:]); e != nil {
 		return e
 	}
+	if guarded, ok := sender.(interface {
+		ValidateNoticeConfig231(context.Context, pgx.Tx, time.Time) error
+	}); ok {
+		if e = guarded.ValidateNoticeConfig231(ctx, tx, notice.At); e != nil {
+			return e
+		}
+	}
 	// The job lease must still hold the claim at commit; otherwise another
 	// worker could have taken the job between the lock and here.
 	var alive bool

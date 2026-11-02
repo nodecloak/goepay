@@ -8,6 +8,7 @@ import (
 	"goepay/internal/merchantnotice"
 	"goepay/internal/templatechange"
 	"net/http"
+	"regexp"
 	"strings"
 )
 
@@ -15,6 +16,7 @@ var ErrDelivery = errors.New("administrator notice submission unavailable")
 
 type Webhook struct {
 	target, endpoint, kind string
+	mentionPhone           string
 	client                 *http.Client
 }
 
@@ -30,6 +32,36 @@ func NewWebhook(endpoint string, client *http.Client) (*Webhook, error) {
 		return nil, e
 	}
 	return &Webhook{target: target.Original, endpoint: target.Canonical, kind: target.Kind, client: configured}, nil
+}
+
+// Only explicit administrator configuration can mention a phone. Order text
+// never becomes an @all or mention directive.
+func NewWebhookMention(endpoint, phone string, client *http.Client) (*Webhook, error) {
+	if phone != "" && !regexp.MustCompile(`^\+?[0-9]{5,20}$`).MatchString(phone) {
+		return nil, ErrDelivery
+	}
+	w, e := NewWebhook(endpoint, client)
+	if e != nil {
+		return nil, e
+	}
+	w.mentionPhone = phone
+	return w, nil
+}
+func (w *Webhook) mentionPayload(payload any, title, text string) any {
+	if w.mentionPhone == "" {
+		return payload
+	}
+	p, ok := payload.(map[string]any)
+	if !ok {
+		return payload
+	}
+	if w.kind == "ding" {
+		p["at"] = map[string]any{"isAtAll": false, "atMobiles": []string{w.mentionPhone}}
+	}
+	if w.kind == "work" {
+		return map[string]any{"msgtype": "text", "text": map[string]any{"content": title + "\n" + text, "mentioned_mobile_list": []string{w.mentionPhone}}}
+	}
+	return p
 }
 
 func (w *Webhook) SendChannelStopped(ctx context.Context, to string, channel, event int64, code string) error {
@@ -49,7 +81,7 @@ func (w *Webhook) SendChannelStopped(ctx context.Context, to string, channel, ev
 	default:
 		payload = map[string]any{"msg_type": "text", "content": map[string]string{"text": text}}
 	}
-	raw, e := postJSON(ctx, w.client, w.endpoint, payload)
+	raw, e := postJSON(ctx, w.client, w.endpoint, w.mentionPayload(payload, title, text))
 	if e != nil {
 		return ErrDelivery
 	}
@@ -80,7 +112,7 @@ func (w *Webhook) SendPageTemplateNotice(ctx context.Context, to string, n templ
 	default:
 		payload = map[string]any{"msg_type": "text", "content": map[string]string{"text": title + "\n" + text}}
 	}
-	raw, e := postJSON(ctx, w.client, w.endpoint, payload)
+	raw, e := postJSON(ctx, w.client, w.endpoint, w.mentionPayload(payload, title, text))
 	if e != nil {
 		return ErrDelivery
 	}

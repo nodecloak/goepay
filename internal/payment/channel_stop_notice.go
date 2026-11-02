@@ -181,6 +181,13 @@ func (s *Store) DeliverChannelStopNotice(ctx context.Context, jobID int64, lease
 	if source.ID == 0 || source.Action != "pause" {
 		return ErrConflict
 	}
+	if guarded, ok := sender.(interface {
+		ValidateNoticeConfig231(context.Context, pgx.Tx, time.Time) error
+	}); ok {
+		if e = guarded.ValidateNoticeConfig231(ctx, tx, source.CreatedAt); e != nil {
+			return e
+		}
+	}
 	old, e := s.readChannelNoticeClaim(ctx, tx, event)
 	if e == nil {
 		if !hmac.Equal(old.RecipientHash, configured.RecipientHash) || old.JobID != jobID || !sameChannelNoticeRoute(old, configured) {

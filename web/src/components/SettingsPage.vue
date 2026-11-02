@@ -36,6 +36,7 @@ import CaptchaKeySettings203 from "./CaptchaKeySettings203.vue";
 import ProxyCredentialSettings from "./ProxyCredentialSettings.vue";
 import OAuthCredentialSettings from "./OAuthCredentialSettings.vue";
 import NotificationHardwareSettings230 from "./NotificationHardwareSettings230.vue";
+import NotificationBotSettings231 from "./NotificationBotSettings231.vue";
 import BuyerFeeSettings104 from "./BuyerFeeSettings104.vue";
 import { siteKeys191 } from "../site191";
 const emit = defineEmits<{ siteChanged: [] }>();
@@ -78,6 +79,7 @@ const active = ref<SettingsTab>("site"),
   transferRoutingBusy = ref(false),
   voiceBusy230 = ref(false),
   printingBusy230 = ref(false),
+  noticeBusy231 = ref({ robot: false, telegram: false, qqbot: false }),
   uncertain = ref(false),
   error = ref(""),
   notice = ref("");
@@ -92,6 +94,9 @@ watch(
 );
 const scanBusy = computed(() => scanpayBusy.value || scanJSBusy.value);
 const riskBusy = computed(() => coreRiskBusy.value || paymentDefendBusy.value);
+const botsBusy231 = computed(() =>
+  Object.values(noticeBusy231.value).some(Boolean),
+);
 const canWrite = computed(
   () =>
     props.adminClass === "super" &&
@@ -100,7 +105,6 @@ const canWrite = computed(
 );
 function writable(d: SettingDefinition) {
   return (
-    d.key !== "smsnotice" &&
     canWrite.value &&
     !!(records.value[d.key]
       ? schema.value?.permissions.update
@@ -112,7 +116,15 @@ const fieldsFor = (tab: SettingsTab) =>
     .filter((d) => d.tab === tab)
     .filter(
       (d) =>
-        d.key !== "voicenotice" &&
+        ![
+          "voicenotice",
+          "msgrobot_url",
+          "msgrobot_phone",
+          "msgtelegram_chatid",
+          "qqbot_openid",
+          "qqbot_appid",
+          "qqbot_appsecret",
+        ].includes(d.key) &&
         (!["test_pay_uid", "captcha_open_test"].includes(d.key) ||
           values.value.test_open === "1"),
     )
@@ -229,6 +241,7 @@ const controlsBusy = computed(
     transferRoutingBusy.value ||
     voiceBusy230.value ||
     printingBusy230.value ||
+    botsBusy231.value ||
     riskBusy.value ||
     scanBusy.value ||
     mailBusy.value ||
@@ -353,6 +366,7 @@ async function load() {
     transferRoutingBusy.value ||
     voiceBusy230.value ||
     printingBusy230.value ||
+    botsBusy231.value ||
     riskBusy.value ||
     scanBusy.value ||
     brandBusy.value ||
@@ -447,6 +461,7 @@ async function save() {
     transferRoutingBusy.value ||
     voiceBusy230.value ||
     printingBusy230.value ||
+    botsBusy231.value ||
     riskBusy.value ||
     scanBusy.value ||
     brandBusy.value ||
@@ -616,6 +631,7 @@ function navigate(event: KeyboardEvent, index: number) {
     transferRoutingBusy.value ||
     voiceBusy230.value ||
     printingBusy230.value ||
+    botsBusy231.value ||
     riskBusy.value ||
     scanBusy.value ||
     brandBusy.value ||
@@ -688,6 +704,7 @@ onBeforeUnmount(() => {
           platformBusy ||
           voiceBusy230 ||
           printingBusy230 ||
+          botsBusy231 ||
           riskBusy ||
           scanBusy ||
           mailBusy ||
@@ -717,6 +734,7 @@ onBeforeUnmount(() => {
           :tabindex="active === tab[0] ? 0 : -1"
           :disabled="
             busy ||
+            botsBusy231 ||
             platformBusy ||
             riskBusy ||
             scanBusy ||
@@ -910,12 +928,40 @@ onBeforeUnmount(() => {
                     mailBusy ||
                     smsBusy ||
                     brandBusy ||
+                    botsBusy231 ||
                     uncertain
                   "
                   @busy="
                     block.embed === 'voice-settings230'
                       ? (voiceBusy230 = $event)
                       : (printingBusy230 = $event)
+                  "
+                />
+                <NotificationBotSettings231
+                  v-else-if="
+                    block.embed === 'notice-robot231' ||
+                    block.embed === 'notice-telegram231' ||
+                    block.embed === 'notice-qqbot231'
+                  "
+                  :kind="
+                    block.embed === 'notice-robot231'
+                      ? 'robot'
+                      : block.embed === 'notice-telegram231'
+                        ? 'telegram'
+                        : 'qqbot'
+                  "
+                  :client="client"
+                  :admin-class="adminClass"
+                  :own-session="ownSession"
+                  :disabled="controlsBusy || loading"
+                  @busy="
+                    noticeBusy231[
+                      block.embed === 'notice-robot231'
+                        ? 'robot'
+                        : block.embed === 'notice-telegram231'
+                          ? 'telegram'
+                          : 'qqbot'
+                    ] = $event
                   "
                 />
               </div>

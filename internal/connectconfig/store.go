@@ -297,6 +297,19 @@ func (s *Store) Resolve(ctx context.Context, field string) (string, error) {
 	return value, tx.Commit(ctx)
 }
 
+// ResolveTx reuses the caller's claim transaction and shared credential lock.
+func (s *Store) ResolveTx(ctx context.Context, tx pgx.Tx, field string) (string, error) {
+	if tx == nil || !validField(field) {
+		return "", ErrInvalid
+	}
+	_, c, e := s.readTx(ctx, tx)
+	if e != nil {
+		return "", e
+	}
+	raw := map[string][]byte{"qq": c.qq, "wx": c.wx, "alipay": c.alipay, "telegram": c.tg}[field]
+	return s.decrypt(aadFor(field), raw)
+}
+
 // ConfiguredFields lists which provider secrets are set, sorted, for diagnostics.
 func (s *Store) ConfiguredFields(ctx context.Context) ([]string, error) {
 	if s.pool == nil {

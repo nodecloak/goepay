@@ -4,6 +4,8 @@ export const businessScenes: Record<string, string> = {
   apply: "手动提现申请",
   domain: "授权域名待审核",
   internal_transfer: "站内转账待审核",
+  complain_all: "全部交易投诉",
+  channellimit: "支付通道达到当日限额",
 };
 export const businessStates: Record<string, string> = {
   not_scheduled: "未安排发送",
@@ -16,6 +18,7 @@ export const businessModes = [
   { value: "0", label: "关闭提醒" },
   { value: "1", label: "电子邮件" },
   { value: "2", label: "群机器人" },
+  { value: "3", label: "短信" },
   { value: "4", label: "Telegram" },
   { value: "5", label: "QQ Bot" },
 ];
@@ -25,7 +28,13 @@ export function businessNoticeSettingsFields(
 ): ResourceField[] {
   if (
     typeof key !== "string" ||
-    !["msgconfig_regaudit", "msgconfig_apply", "msgconfig_domain"].includes(key)
+    ![
+      "msgconfig_regaudit",
+      "msgconfig_apply",
+      "msgconfig_domain",
+      "msgconfig_complain_all",
+      "msgconfig_channellimit",
+    ].includes(key)
   )
     return fields;
   return fields.map((field) =>
@@ -33,7 +42,9 @@ export function businessNoticeSettingsFields(
       ? {
           ...field,
           type: "select",
-          options: businessModes.map((o) => ({ ...o })),
+          options: businessModes
+            .filter((o) => o.value !== "3" || key === "msgconfig_complain_all")
+            .map((o) => ({ ...o })),
         }
       : field,
   );
@@ -69,8 +80,15 @@ export function parseBusinessNotices(value: unknown): {
   const items = v.items.map((raw: unknown): BusinessNotice => {
     if (!raw || typeof raw !== "object") throw Error("invalid event");
     const e = raw as Record<string, unknown>;
-    for (const k of ["id", "merchant_id", "source_id"])
+    for (const k of ["id", "source_id"])
       if (!id(e[k])) throw Error("invalid identity");
+    if (
+      !id(
+        e.merchant_id,
+        ["complain_all", "channellimit"].includes(String(e.scene)),
+      )
+    )
+      throw Error("invalid merchant identity");
     if (!id(e.job_id, true)) throw Error("invalid job");
     if (
       typeof e.scene !== "string" ||
@@ -80,7 +98,10 @@ export function parseBusinessNotices(value: unknown): {
       typeof e.mode !== "string" ||
       !businessModes.some((m) => m.value === e.mode) ||
       typeof e.transport !== "string" ||
-      !["", "smtp", "robot", "telegram", "qqbot"].includes(e.transport) ||
+      !["", "smtp", "robot", "sms", "telegram", "qqbot"].includes(
+        e.transport,
+      ) ||
+      (e.mode === "3" && e.scene !== "complain_all") ||
       typeof e.at !== "string" ||
       !Number.isFinite(Date.parse(e.at))
     )
@@ -96,6 +117,7 @@ export function parseBusinessNotices(value: unknown): {
           "0": "",
           "1": "smtp",
           "2": "robot",
+          "3": "sms",
           "4": "telegram",
           "5": "qqbot",
         } as Record<string, string>

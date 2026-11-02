@@ -7,13 +7,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5"
+	"goepay/internal/businesssms231"
 	"goepay/internal/merchantnotice"
+	"goepay/internal/noticeconfig231"
 	"time"
 )
 
 type Account struct {
-	Settings map[string]string    `json:"-"`
-	Input    merchantnotice.Input `json:"-"`
+	SMS231        *businesssms231.Resolved   `json:"-"`
+	Managed231    bool                       `json:"-"`
+	Credential231 noticeconfig231.Credential `json:"-"`
+	Revision231   int64                      `json:"-"`
+	Settings      map[string]string          `json:"-"`
+	Input         merchantnotice.Input       `json:"-"`
 }
 
 func (Account) String() string   { return "businessnotice.Account(redacted)" }
@@ -88,7 +95,40 @@ func (s *Store) HandleJob(ctx context.Context, job int64, lease string, resolver
 	var route Route
 	if !blocked {
 		expected := ""
-		if kind == merchantnotice.QQBot {
+		account := Account{Settings: values, Input: data.Input}
+		if kind == merchantnotice.SMS {
+			_, c, managed, stamp, e := s.accounts231.EffectiveTx(ctx, tx, "robot")
+			if e != nil {
+				return e
+			}
+			if !managed || data.Version < 2 || data.SMS231 == nil || data.NoticeFingerprint231["robot"] != stamp {
+				return ErrState
+			}
+			resolved, e := s.sms231.ResolveAdminTx(ctx, tx, c.Phone, "complain")
+			if e != nil {
+				return e
+			}
+			if resolved == nil || resolved.Snapshot != *data.SMS231 {
+				return ErrState
+			}
+			account.SMS231 = resolved
+		}
+		if kind == merchantnotice.Robot || kind == merchantnotice.Telegram || kind == merchantnotice.QQBot {
+			v, c, managed, stamp, e := s.accounts231.EffectiveTx(ctx, tx, string(kind))
+			if e != nil {
+				return e
+			}
+			if managed && (!v.Enabled || data.Version < 2 || data.NoticeRevision231[string(kind)] != v.Revision || data.NoticeFingerprint231[string(kind)] != stamp) {
+				return ErrState
+			}
+			account.Managed231 = managed
+			account.Credential231 = c
+			account.Revision231 = v.Revision
+			if managed && kind == merchantnotice.QQBot {
+				expected = c.AppID
+			}
+		}
+		if kind == merchantnotice.QQBot && !account.Managed231 {
 			identity, ok := resolver.(AccountResolver)
 			if !ok {
 				return ErrState
@@ -98,7 +138,13 @@ func (s *Store) HandleJob(ctx context.Context, job int64, lease string, resolver
 				return ErrState
 			}
 		}
-		route, err = resolver.ResolveBusinessNotice(ctx, kind, Account{Settings: values, Input: data.Input})
+		if resolved, ok := resolver.(interface {
+			ResolveBusinessNoticeTx231(context.Context, pgx.Tx, merchantnotice.Transport, Account) (Route, error)
+		}); ok {
+			route, err = resolved.ResolveBusinessNoticeTx231(ctx, tx, kind, account)
+		} else {
+			route, err = resolver.ResolveBusinessNotice(ctx, kind, account)
+		}
 		if err != nil || route.Sender == nil || route.Sender.NoticeTransport() != kind || route.Sender.NoticeScope() == "" || len(route.Sender.NoticeScope()) > 4096 || route.Sender.ValidateNoticeRecipient(route.Recipient) != nil {
 			return ErrState
 		}
@@ -120,7 +166,11 @@ func (s *Store) HandleJob(ctx context.Context, job int64, lease string, resolver
 	}
 	c.At = c.At.UTC()
 	c.Proof = s.claimProof(c)
-	if _, err = tx.Exec(ctx, `INSERT INTO admin_business_notice_claims(event_id,job_id,merchant_id,transport,blocked,recipient_hash,scope_hash,lease_hash,created_at,transaction_id,proof_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::xid8,$11)`, c.EventID, c.JobID, c.MerchantID, c.Transport, c.Blocked, c.RecipientHash, c.ScopeHash, c.LeaseHash, c.At, c.Transaction, c.Proof); err != nil {
+	var merchant any
+	if c.MerchantID > 0 {
+		merchant = c.MerchantID
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO admin_business_notice_claims(event_id,job_id,merchant_id,transport,blocked,recipient_hash,scope_hash,lease_hash,created_at,transaction_id,proof_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::xid8,$11)`, c.EventID, c.JobID, merchant, c.Transport, c.Blocked, c.RecipientHash, c.ScopeHash, c.LeaseHash, c.At, c.Transaction, c.Proof); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES('system',0,'business-notice','admin-business-notice-deliveries',$1,'attempt',$2::jsonb)`, id, claimAudit(c)); err != nil {

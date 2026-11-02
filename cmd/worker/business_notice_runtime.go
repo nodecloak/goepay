@@ -3,12 +3,19 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/jackc/pgx/v5"
 	"goepay/internal/adapters/adminnotice"
 	"goepay/internal/businessnotice"
 	"goepay/internal/merchantnotice"
 )
 
 var errBusinessNoticeConfiguration = errors.New("administrator business notice configuration unavailable")
+
+func (r *businessNoticeRuntime) ResolveBusinessNoticeTx231(ctx context.Context, tx pgx.Tx, kind merchantnotice.Transport, a businessnotice.Account) (businessnotice.Route, error) {
+	copy := *r
+	copy.mailAccounts = bindMailTx231(r.mailAccounts, tx)
+	return copy.ResolveBusinessNotice(ctx, kind, a)
+}
 
 type businessNoticeRuntime struct {
 	mailAccounts mailAccountResolver195
@@ -45,6 +52,12 @@ func (r *businessNoticeRuntime) ResolveBusinessNotice(ctx context.Context, kind 
 	}
 	var err error
 	switch kind {
+	case merchantnotice.SMS:
+		if a.SMS231 == nil {
+			return out, errBusinessNoticeConfiguration
+		}
+		out.Recipient = a.SMS231.Snapshot.Phone
+		out.Sender, err = adminnotice.NewSMSMerchant231(a.SMS231, a.Input, nil)
 	case merchantnotice.SMTP:
 		if _, present := a.Settings["mail_recv"]; present {
 			out.Recipient = a.Settings["mail_recv"]
@@ -65,13 +78,28 @@ func (r *businessNoticeRuntime) ResolveBusinessNotice(ctx context.Context, kind 
 		out.Sender, err = (&merchantNoticeRuntime{getenv: r.getenv, mailAccounts: r.mailAccounts}).ResolveMerchantNotice(ctx, kind, merchantnotice.Account{})
 	case merchantnotice.Robot:
 		out.Recipient = r.getenv("GOEPAY_ADMIN_MSGROBOT_URL")
+		if a.Managed231 {
+			out.Recipient = a.Credential231.AppID
+		}
 		out.Sender, err = adminnotice.NewWebhook(out.Recipient, nil)
+		if err == nil && a.Managed231 && a.Credential231.Phone != "" {
+			out.Sender, err = adminnotice.NewWebhookMention(out.Recipient, a.Credential231.Phone, nil)
+		}
 	case merchantnotice.Telegram:
 		out.Recipient = get("msgtelegram_chatid", "GOEPAY_ADMIN_MSGTELEGRAM_CHATID")
-		out.Sender, err = adminnotice.NewTelegram(r.getenv("GOEPAY_ADMIN_LOGIN_TELEGRAM_TOKEN"), nil)
+		token := r.getenv("GOEPAY_ADMIN_LOGIN_TELEGRAM_TOKEN")
+		if a.Managed231 {
+			out.Recipient = a.Credential231.AppID
+			token = a.Credential231.Secret
+		}
+		out.Sender, err = adminnotice.NewTelegram(token, nil)
 	case merchantnotice.QQBot:
 		out.Recipient = get("qqbot_openid", "GOEPAY_ADMIN_QQBOT_OPENID")
-		out.Sender, err = adminnotice.NewQQBot(r.getenv("GOEPAY_ADMIN_QQBOT_APPID"), r.getenv("GOEPAY_ADMIN_QQBOT_APPSECRET"), nil)
+		app, secret := r.getenv("GOEPAY_ADMIN_QQBOT_APPID"), r.getenv("GOEPAY_ADMIN_QQBOT_APPSECRET")
+		if a.Managed231 {
+			app, secret, out.Recipient = a.Credential231.AppID, a.Credential231.Secret, a.Credential231.Recipient
+		}
+		out.Sender, err = adminnotice.NewQQBot(app, secret, nil)
 	default:
 		return businessnotice.Route{}, errBusinessNoticeConfiguration
 	}

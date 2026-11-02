@@ -127,14 +127,15 @@ type Balance struct {
 }
 type Store struct {
 	// Configure once before serving; nil never bypasses enabled rules.
-	CoreRiskGeo  riskgeo.Resolver
-	updateJobs   sync.Map
-	updateClosed atomic.Bool
-	pool         *pgxpool.Pool
-	aead         cipher.AEAD
-	indexKey     []byte
-	notice       *merchantnotice.Store
-	business     *businessnotice.Store
+	CoreRiskGeo        riskgeo.Resolver
+	updateJobs         sync.Map
+	updateClosed       atomic.Bool
+	pool               *pgxpool.Pool
+	aead               cipher.AEAD
+	indexKey           []byte
+	confirmationKey231 []byte
+	notice             *merchantnotice.Store
+	business           *businessnotice.Store
 }
 
 func New(pool *pgxpool.Pool) *Store {
@@ -159,7 +160,8 @@ func NewWithKey(pool *pgxpool.Pool, key []byte) (*Store, error) {
 	}
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte("goepay/transfer-policy-index/v1"))
-	s := &Store{pool: pool, aead: a, indexKey: mac.Sum(nil)}
+	confirmationKey231 := sha256.Sum256(append([]byte("checkout-signing:"), key...))
+	s := &Store{pool: pool, aead: a, indexKey: mac.Sum(nil), confirmationKey231: confirmationKey231[:]}
 	if pool != nil {
 		s.business, e = businessnotice.NewStore(pool, key, s)
 		if e != nil {

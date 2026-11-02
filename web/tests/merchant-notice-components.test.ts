@@ -186,7 +186,9 @@ it("renders the full event×channel matrix and disables cells GOEPAY cannot deli
   // SMS gateway is off -> the SMS cell on its only selectable scenes is disabled.
   const smsBalance = w.get('[data-cell="balance:3"]');
   expect(smsBalance.attributes("disabled")).toBeDefined();
-  expect(w.get('[data-reason="balance:3"]').text()).toContain("通知短信尚未接入");
+  expect(w.get('[data-reason="balance:3"]').text()).toContain(
+    "平台尚未配置该业务短信模板或启用短信网关",
+  );
   // QQ Bot platform switch off -> disabled with reason.
   expect(w.get('[data-cell="order:6"]').attributes("disabled")).toBeDefined();
   expect(w.get('[data-reason="order:6"]').text()).toContain("QQ Bot");

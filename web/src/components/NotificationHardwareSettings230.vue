@@ -254,14 +254,14 @@ onBeforeUnmount(() => {
       </button>
       <form v-if="state" @submit.prevent="check">
         <fieldset :disabled="busy || loading || confirming || disabled">
-          <label class="hardware-row230"
+          <div class="hardware-row230"
             ><span>{{ voice ? "云喇叭收款提醒开关" : "订单小票打印开关" }}</span
             ><KitSwitch
               v-model="enabled"
               :label="enabled ? '开启' : '关闭'"
               :aria-label="voice ? '云喇叭收款提醒开关' : '订单小票打印开关'"
               :disabled="uncertain || disabled"
-          /></label>
+          /></div>
           <label v-if="!voice" class="hardware-row230"
             ><span>打印服务</span
             ><KitSelect

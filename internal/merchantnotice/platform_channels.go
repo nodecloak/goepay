@@ -21,6 +21,7 @@ type PlatformNoticeSwitches struct {
 	GroupSMS        bool               `json:"group_sms"`
 	Channels        map[Transport]bool `json:"channels"`
 	WechatTemplates map[string]bool    `json:"wechat_templates"`
+	SMSTemplates    map[string]bool    `json:"sms_templates"`
 }
 
 var noticeScenes80 = []string{"order", "settle", "login", "complain", "mchrisk", "balance", "group", "domain_audit", "daily_report"}
@@ -61,6 +62,13 @@ func (s *Store) PlatformNoticeSwitches(ctx context.Context) (PlatformNoticeSwitc
 		out.MailRobot[scene] = values["msgconfig_"+scene]
 	}
 	out.Telegram = values["telegramnotice"]
+	if out.Telegram && s.connect231 != nil {
+		token, e := s.connect231.Resolve(ctx, "telegram")
+		if e != nil {
+			return out, e
+		}
+		out.Telegram = token != ""
+	}
 	out.QQBot = values["qqbotnotice"]
 	out.Voice = values["voicenotice"]
 	out.Channels = noticeChannels230(values)
@@ -76,6 +84,13 @@ func (s *Store) PlatformNoticeSwitches(ctx context.Context) (PlatformNoticeSwitc
 	out.WechatTemplates, err = s.wechatTemplateReadiness230(ctx)
 	if err != nil {
 		return out, err
+	}
+	if s.sms != nil {
+		out.SMSTemplates, err = s.sms.Capability(ctx)
+		if err != nil {
+			return out, err
+		}
+		out.GroupSMS = out.SMSTemplates["group"] && out.Channels[SMS]
 	}
 	return out, nil
 }

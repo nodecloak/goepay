@@ -26,7 +26,7 @@ func noticeTLS77(t *testing.T, handler http.Handler) (*http.Client, *atomic.Int3
 	if e != nil {
 		t.Fatal(e)
 	}
-	hosts := []string{"oapi.dingtalk.com", "qyapi.weixin.qq.com", "open.feishu.cn", "open.larksuite.com", "api.telegram.org", "api.bot.qq.com", "api.weixin.qq.com", "iot.solomo-info.com"}
+	hosts := []string{"oapi.dingtalk.com", "qyapi.weixin.qq.com", "open.feishu.cn", "open.larksuite.com", "api.telegram.org", "api.bot.qq.com", "api.weixin.qq.com", "iot.solomo-info.com", "dysmsapi.aliyuncs.com", "yun.tim.qq.com", "api.smsbao.com"}
 	template := &x509.Certificate{SerialNumber: big.NewInt(77), Subject: pkix.Name{CommonName: "synthetic-notice77"}, DNSNames: hosts, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour), KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}}
 	der, e := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
 	if e != nil {

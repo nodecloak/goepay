@@ -22,6 +22,17 @@ type WechatTemplate struct {
 }
 
 var templateField80 = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{0,63}$`)
+var confirmationNumber231 = regexp.MustCompile(`^[1-9][0-9]{0,18}$`)
+var confirmationSignature231 = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+func validConfirmationPath231(raw string) bool {
+	u, e := url.Parse(raw)
+	if e != nil || u.IsAbs() || u.Host != "" || u.Path != "/pay/wxtrans" || u.Fragment != "" || u.RawPath != "" {
+		return false
+	}
+	q, e := url.ParseQuery(u.RawQuery)
+	return e == nil && len(q) == 3 && len(q["n"]) == 1 && len(q["t"]) == 1 && len(q["s"]) == 1 && confirmationNumber231.MatchString(q.Get("n")) && confirmationNumber231.MatchString(q.Get("t")) && confirmationSignature231.MatchString(q.Get("s"))
+}
 
 func clipWechatChars(s string, n int) string {
 	r := []rune(s)
@@ -49,6 +60,9 @@ func validateWechatInput(in Input) error {
 		if !safeValue(in.SiteName, 128, false) || in.At.IsZero() || in.At.Year() < 1970 || in.At.Year() > 9999 || !safeValue(in.Params["time"], 128, false) || in.Daily != nil {
 			return ErrInvalid
 		}
+		if path, present := in.Params["confirm_path"]; present && !validConfirmationPath231(path) {
+			return ErrInvalid
+		}
 		_, err := normalizedMoney(in.Params["money"], maxMoney)
 		return err
 	default:
@@ -67,6 +81,10 @@ func RenderWechat(in Input) (Message, error) {
 	}
 	amount, _ := normalizedMoney(in.Params["money"], maxMoney)
 	m := Message{Title: "微信转账通知 - " + in.SiteName, Text: "微信转账到账金额：¥" + amount + "\n到账时间：" + in.Params["time"]}
+	if in.Params["confirm_path"] != "" {
+		m.Title = "微信转账待确认收款 - " + in.SiteName
+		m.Text = "微信转账待确认收款金额：¥" + amount + "\n申请时间：" + in.Params["time"] + "\n请打开通知中的确认收款链接完成微信确认。"
+	}
 	m.seal = m.fingerprint()
 	return m, nil
 }
@@ -100,6 +118,9 @@ func BuildWechatTemplate(in Input, cfg WechatTemplateConfig) (WechatTemplate, er
 		values = map[string]string{"user": p["user"], "time": p["time"], "money": amount, "msg": "为避免造成订单失败，请及时充值"}
 	case "wxtransfer":
 		values = map[string]string{"money": "¥" + amount, "time": p["time"]}
+		if p["confirm_path"] != "" {
+			path = p["confirm_path"]
+		}
 	}
 	prefix := "wxnotice_tpl_" + in.Scene + "_"
 	out := WechatTemplate{TemplateID: cfg.ID, URL: strings.TrimRight(cfg.ConsoleURL, "/") + path, Data: map[string]WechatTemplateValue{}}

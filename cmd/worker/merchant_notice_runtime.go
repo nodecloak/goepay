@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"goepay/internal/adapters/adminnotice"
 	"goepay/internal/mailaccount195"
@@ -15,6 +16,12 @@ import (
 )
 
 var errMerchantNoticeConfiguration = errors.New("merchant notice delivery configuration unavailable")
+
+func (r *merchantNoticeRuntime) ResolveMerchantNoticeTx231(ctx context.Context, tx pgx.Tx, kind notice.Transport, a notice.Account) (notice.Sender, error) {
+	copy := *r
+	copy.mailAccounts = bindMailTx231(r.mailAccounts, tx)
+	return copy.ResolveMerchantNotice(ctx, kind, a)
+}
 
 type merchantNoticeRuntime struct {
 	mailAccounts mailAccountResolver195
@@ -55,6 +62,12 @@ func (r *merchantNoticeRuntime) ResolveMerchantNotice(ctx context.Context, kind 
 		return nil, errMerchantNoticeConfiguration
 	}
 	switch kind {
+	case notice.SMS:
+		sender, err := adminnotice.NewSMSMerchant231(a.SMS231, a.Input, nil)
+		if err != nil {
+			return nil, errMerchantNoticeConfiguration
+		}
+		return sender, nil
 	case notice.Voice:
 		agent, secret := r.getenv("GOEPAY_MERCHANT_VOICE_AGENT_ID"), r.getenv("GOEPAY_MERCHANT_VOICE_SECRET")
 		revision := int64(0)
@@ -118,7 +131,11 @@ func (r *merchantNoticeRuntime) ResolveMerchantNotice(ctx context.Context, kind 
 		}
 		return sender, nil
 	case notice.Telegram:
-		sender, err := adminnotice.NewTelegram(r.getenv("GOEPAY_MERCHANT_TELEGRAM_TOKEN"), nil)
+		token := r.getenv("GOEPAY_MERCHANT_TELEGRAM_TOKEN")
+		if a.TelegramResolved {
+			token = a.TelegramToken
+		}
+		sender, err := adminnotice.NewTelegram(token, nil)
 		if err != nil {
 			return nil, errMerchantNoticeConfiguration
 		}

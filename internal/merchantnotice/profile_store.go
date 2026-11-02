@@ -13,16 +13,20 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"goepay/internal/businesssms231"
+	"goepay/internal/connectconfig"
 	"goepay/internal/voiceconfig230"
 	"io"
 	"time"
 )
 
 type Store struct {
-	pool   *pgxpool.Pool
-	aead   cipher.AEAD
-	macKey []byte
-	voice  *voiceconfig230.Store
+	connect231 *connectconfig.Store
+	pool       *pgxpool.Pool
+	aead       cipher.AEAD
+	macKey     []byte
+	voice      *voiceconfig230.Store
+	sms        *businesssms231.Store
 }
 
 // Each bounded context derives its own AES and integrity keys. No credentials
@@ -48,7 +52,16 @@ func NewStore(pool *pgxpool.Pool, key []byte) (*Store, error) {
 	if e != nil {
 		return nil, e
 	}
-	return &Store{pool: pool, aead: aead, macKey: derive("integrity"), voice: voice}, nil
+	sms, e := businesssms231.FromMaster(pool, key)
+	if e != nil {
+		return nil, e
+	}
+	checkout := sha256.Sum256(append([]byte("checkout-signing:"), key...))
+	connect, e := connectconfig.NewStore(pool, checkout[:])
+	if e != nil {
+		return nil, e
+	}
+	return &Store{pool: pool, aead: aead, macKey: derive("integrity"), voice: voice, sms: sms, connect231: connect}, nil
 }
 func (s *Store) available() bool {
 	return s != nil && s.pool != nil && s.aead != nil && len(s.macKey) == 32

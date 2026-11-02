@@ -43,7 +43,7 @@ func SelectMerchant(in SelectionInput) ([]Route, error) {
 		return nil, ErrInvalid
 	}
 	switch in.Scene {
-	case "order", "settle", "login", "complain", "mchrisk", "balance", "group", "domain_audit", "daily_report":
+	case "order", "settle", "login", "complain", "mchrisk", "balance", "group", "domain_audit", "daily_report", "wxtransfer":
 	default:
 		return nil, ErrInvalid
 	}
@@ -83,7 +83,7 @@ func SelectMerchant(in SelectionInput) ([]Route, error) {
 		switch kind {
 		case Wechat:
 			switch in.Scene {
-			case "order", "settle", "login", "complain", "balance":
+			case "order", "settle", "login", "complain", "balance", "wxtransfer":
 			default:
 				blocker = "template_unsupported_scene"
 			}

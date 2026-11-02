@@ -16,7 +16,7 @@ import (
 func (s *Store) readEvent(ctx context.Context, tx pgx.Tx, id int64) (eventRecord, eventData, error) {
 	var r eventRecord
 	var data eventData
-	err := tx.QueryRow(ctx, `SELECT id,merchant_id,scene,mode,COALESCE(audit_id,0),COALESCE(request_event_id,0),COALESCE(job_id,0),source_transaction::text,created_at,payload_cipher,body_hash,proof_hash FROM admin_business_notice_events WHERE id=$1`, id).Scan(&r.ID, &r.MerchantID, &r.Scene, &r.Mode, &r.AuditID, &r.RequestEventID, &r.JobID, &r.Transaction, &r.At, &r.Cipher, &r.BodyHash, &r.Proof)
+	err := tx.QueryRow(ctx, `SELECT id,COALESCE(merchant_id,0),scene,mode,COALESCE(audit_id,0),COALESCE(request_event_id,0),COALESCE(job_id,0),source_transaction::text,created_at,payload_cipher,body_hash,proof_hash FROM admin_business_notice_events WHERE id=$1`, id).Scan(&r.ID, &r.MerchantID, &r.Scene, &r.Mode, &r.AuditID, &r.RequestEventID, &r.JobID, &r.Transaction, &r.At, &r.Cipher, &r.BodyHash, &r.Proof)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r, data, ErrNotFound
 	}
@@ -29,7 +29,7 @@ func (s *Store) readEvent(ctx context.Context, tx pgx.Tx, id int64) (eventRecord
 	}
 	n := s.aead.NonceSize()
 	raw, err := s.aead.Open(nil, r.Cipher[:n], r.Cipher[n:], eventAAD(r))
-	if err != nil || !hmac.Equal(r.BodyHash, s.digest("event-body", raw)) || json.Unmarshal(raw, &data) != nil || data.Version != 1 || data.Input.Scene != r.Scene || !data.Input.At.Equal(r.At) {
+	if err != nil || !hmac.Equal(r.BodyHash, s.digest("event-body", raw)) || json.Unmarshal(raw, &data) != nil || (data.Version != 1 && data.Version != 2) || data.Input.Scene != r.Scene || !data.Input.At.Equal(r.At) {
 		return r, data, ErrConflict
 	}
 	kind, err := ModeFor(r.Scene, r.Mode)
@@ -37,7 +37,14 @@ func (s *Store) readEvent(ctx context.Context, tx pgx.Tx, id int64) (eventRecord
 		return r, data, ErrConflict
 	}
 	expected := map[string]string{"uid": fmt.Sprint(r.MerchantID)}
-	if r.AuditID > 0 {
+	if r.Scene == "complain_all" || r.Scene == "channellimit" {
+		expected, err = s.verifySupplement231(ctx, tx, r, data)
+		if err != nil {
+			return r, data, err
+		}
+	} else if data.Supplement231 != nil {
+		return r, data, ErrConflict
+	} else if r.AuditID > 0 {
 		if r.RequestEventID != 0 || data.Audit == nil || data.Request != nil {
 			return r, data, ErrConflict
 		}

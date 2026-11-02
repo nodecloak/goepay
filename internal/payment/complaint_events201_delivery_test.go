@@ -54,7 +54,7 @@ func syncComplaint(t *testing.T, s *Store, channelID int64, thirdID, tradeNo, st
 	t.Helper()
 	if e := s.upsertComplaint133(context.Background(), channelID, provider.ComplaintRecord{
 		ThirdID: thirdID, PayType: "wxpay", Status: status, Times: 1, TradeNos: []string{tradeNo},
-	}); e != nil {
+	}, &flowProvider{}); e != nil {
 		t.Fatal("sync complaint", e)
 	}
 }
@@ -74,17 +74,17 @@ func complaintResponse(status int, body string) *http.Response {
 func TestComplaintEvent201NewComplaintDeliversOnceAndReSyncDeliversNothing(t *testing.T) {
 	s := testStore(t)
 	feeMerchant(t, s, 30201, 0, "platform")
-	o := incomePaidOrder(t, s, 30201, "complaint-order-1")
+	o := complaintVerifiedPaid231(t, s, 30201, "complaint-order-1", &flowProvider{})
 	subscribeComplaints(t, s, 30201, "https://events.example.invalid/complain201", []string{"complain"})
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 
 	// A new complaint enqueues exactly one event.
-	syncComplaint(t, s, 7, "CMP-201-A", o.OutTradeNo, "PENDING")
+	syncComplaint(t, s, 7, "CMP-201-A", o.TradeNo, "PENDING")
 	if got := complaintEventJobs(t, s); got != 1 {
 		t.Fatalf("new complaint did not enqueue exactly one event: %d", got)
 	}
 	// A re-sync at the SAME state enqueues nothing (idempotent per complaint+state).
-	syncComplaint(t, s, 7, "CMP-201-A", o.OutTradeNo, "PENDING")
+	syncComplaint(t, s, 7, "CMP-201-A", o.TradeNo, "PENDING")
 	if got := complaintEventJobs(t, s); got != 1 {
 		t.Fatalf("re-sync at same state enqueued a duplicate: %d", got)
 	}
@@ -117,19 +117,19 @@ func TestComplaintEvent201NewComplaintDeliversOnceAndReSyncDeliversNothing(t *te
 func TestComplaintEvent201StateChangeDeliversOnceMore(t *testing.T) {
 	s := testStore(t)
 	feeMerchant(t, s, 30202, 0, "platform")
-	o := incomePaidOrder(t, s, 30202, "complaint-order-2")
+	o := complaintVerifiedPaid231(t, s, 30202, "complaint-order-2", &flowProvider{})
 	subscribeComplaints(t, s, 30202, "https://events.example.invalid/complain202", []string{"complain"})
 
-	syncComplaint(t, s, 7, "CMP-202", o.OutTradeNo, "PENDING") // open
+	syncComplaint(t, s, 7, "CMP-202", o.TradeNo, "PENDING") // open
 	if got := complaintEventJobs(t, s); got != 1 {
 		t.Fatalf("open event missing: %d", got)
 	}
-	syncComplaint(t, s, 7, "CMP-202", o.OutTradeNo, "PROCESSING") // forward state change
+	syncComplaint(t, s, 7, "CMP-202", o.TradeNo, "PROCESSING") // forward state change
 	if got := complaintEventJobs(t, s); got != 2 {
 		t.Fatalf("state change did not enqueue one more event: %d", got)
 	}
 	// A re-sync at the new state enqueues nothing.
-	syncComplaint(t, s, 7, "CMP-202", o.OutTradeNo, "PROCESSING")
+	syncComplaint(t, s, 7, "CMP-202", o.TradeNo, "PROCESSING")
 	if got := complaintEventJobs(t, s); got != 2 {
 		t.Fatalf("re-sync at processing enqueued a duplicate: %d", got)
 	}
@@ -138,10 +138,10 @@ func TestComplaintEvent201StateChangeDeliversOnceMore(t *testing.T) {
 func TestComplaintEvent201UnsubscribedMerchantGetsNothingDelivered(t *testing.T) {
 	s := testStore(t)
 	feeMerchant(t, s, 30203, 0, "platform")
-	o := incomePaidOrder(t, s, 30203, "complaint-order-3")
+	o := complaintVerifiedPaid231(t, s, 30203, "complaint-order-3", &flowProvider{})
 	// No subscription saved for this merchant.
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
-	syncComplaint(t, s, 7, "CMP-203", o.OutTradeNo, "PENDING")
+	syncComplaint(t, s, 7, "CMP-203", o.TradeNo, "PENDING")
 	// An event is still CAPTURED (so a later subscribe can begin fresh), but
 	// delivery is skipped because the merchant has no active subscription.
 	j, e := (jobs.Queue{Pool: s.pool}).Claim(t.Context(), []string{refundevent201.ComplaintJobKind}, time.Minute)

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"goepay/internal/businesssms231"
 )
 
 type paidEventSource struct {
@@ -26,14 +27,18 @@ type eventRecord struct {
 	SettlementID                        int64
 	TimerID                             int64
 	DomainAuditID                       int64
+	SupplementID                        int64
 	Scene                               string
 	ProfileHash, Cipher, BodyHash, Hash []byte
 	SnapshotState, Transaction          string
 	CreatedAt                           time.Time
 }
 type eventData struct {
-	VoiceManaged230  bool  `json:",omitempty"`
-	VoiceRevision230 int64 `json:",omitempty"`
+	TelegramStamp231 string                   `json:",omitempty"`
+	SMS231           *businesssms231.Snapshot `json:",omitempty"`
+	Supplement       *supplementSource231     `json:",omitempty"`
+	VoiceManaged230  bool                     `json:",omitempty"`
+	VoiceRevision230 int64                    `json:",omitempty"`
 	Version          int
 	Source           paidEventSource
 	Input            Input
@@ -46,6 +51,10 @@ type eventData struct {
 
 func eventAAD(r eventRecord) []byte {
 	raw, _ := json.Marshal([]any{"notice-event80/v1", r.ID, r.MerchantID, r.OrderID, r.LoginAuditID, r.SettlementID, r.TimerID, r.DomainAuditID, r.JobID, r.Scene, r.ProfileID, hex.EncodeToString(r.ProfileHash), r.SnapshotState, r.Transaction, r.CreatedAt.UTC().Format(time.RFC3339Nano), hex.EncodeToString(r.BodyHash)})
+	if r.SupplementID > 0 {
+		extra, _ := json.Marshal(r.SupplementID)
+		raw = append(raw, extra...)
+	}
 	return raw
 }
 func (s *Store) eventProof(r eventRecord) []byte {
@@ -98,7 +107,7 @@ func (s *Store) CapturePaid(ctx context.Context, tx pgx.Tx, orderID, channelID i
 func (s *Store) readEvent(ctx context.Context, tx pgx.Tx, id int64) (eventRecord, eventData, error) {
 	var r eventRecord
 	var data eventData
-	err := tx.QueryRow(ctx, `SELECT id,merchant_id,COALESCE(order_id,0),COALESCE(login_audit_id,0),COALESCE(settlement_id,0),COALESCE(timer_id,0),COALESCE(domain_audit_id,0),COALESCE(job_id,0),scene,COALESCE(profile_id,0),profile_hash,snapshot_state,payload_cipher,body_hash,event_hash,source_transaction::text,created_at FROM merchant_notice_events WHERE id=$1`, id).Scan(&r.ID, &r.MerchantID, &r.OrderID, &r.LoginAuditID, &r.SettlementID, &r.TimerID, &r.DomainAuditID, &r.JobID, &r.Scene, &r.ProfileID, &r.ProfileHash, &r.SnapshotState, &r.Cipher, &r.BodyHash, &r.Hash, &r.Transaction, &r.CreatedAt)
+	err := tx.QueryRow(ctx, `SELECT id,merchant_id,COALESCE(order_id,0),COALESCE(login_audit_id,0),COALESCE(settlement_id,0),COALESCE(timer_id,0),COALESCE(domain_audit_id,0),COALESCE(job_id,0),scene,COALESCE(profile_id,0),profile_hash,snapshot_state,payload_cipher,body_hash,event_hash,source_transaction::text,created_at,COALESCE(supplement_id,0) FROM merchant_notice_events WHERE id=$1`, id).Scan(&r.ID, &r.MerchantID, &r.OrderID, &r.LoginAuditID, &r.SettlementID, &r.TimerID, &r.DomainAuditID, &r.JobID, &r.Scene, &r.ProfileID, &r.ProfileHash, &r.SnapshotState, &r.Cipher, &r.BodyHash, &r.Hash, &r.Transaction, &r.CreatedAt, &r.SupplementID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r, data, ErrNotFound
 	}
@@ -110,10 +119,19 @@ func (s *Store) readEvent(ctx context.Context, tx pgx.Tx, id int64) (eventRecord
 	}
 	n := s.aead.NonceSize()
 	raw, err := s.aead.Open(nil, r.Cipher[:n], r.Cipher[n:], eventAAD(r))
-	if err != nil || !hmac.Equal(r.BodyHash, s.digest("event-body", raw)) || json.Unmarshal(raw, &data) != nil || (data.Version != 1 && data.Version != 2) {
+	if err != nil || !hmac.Equal(r.BodyHash, s.digest("event-body", raw)) || json.Unmarshal(raw, &data) != nil || (data.Version != 1 && data.Version != 2 && data.Version != 3 && data.Version != 4) {
 		return r, data, ErrConflict
 	}
 	if data.Version == 2 && (!data.VoiceManaged230 || data.VoiceRevision230 <= 0 || r.Scene != "order") || data.Version == 1 && (data.VoiceManaged230 || data.VoiceRevision230 != 0) {
+		return r, data, ErrConflict
+	}
+	if data.Version == 3 && (data.SMS231 == nil || !data.SMS231.Valid() || r.Scene != "balance" && r.Scene != "group" && r.Scene != "complain") || data.Version < 3 && data.SMS231 != nil {
+		return r, data, ErrConflict
+	}
+	if data.Version == 4 && len(data.TelegramStamp231) != 64 || data.Version < 4 && data.TelegramStamp231 != "" {
+		return r, data, ErrConflict
+	}
+	if data.SMS231 != nil && (!data.SMS231.Valid() || r.Scene != "balance" && r.Scene != "group" && r.Scene != "complain") {
 		return r, data, ErrConflict
 	}
 	if err = s.verifyEventSource(ctx, tx, r, data); err != nil {
@@ -126,7 +144,7 @@ func (s *Store) readEvent(ctx context.Context, tx pgx.Tx, id int64) (eventRecord
 	if !valid {
 		return r, data, ErrConflict
 	}
-	if _, err = Render(data.Input); err != nil {
+	if _, err = renderSource231(data.Input); err != nil {
 		return r, data, ErrConflict
 	}
 	if len(data.Routes) > 0 {
@@ -144,7 +162,7 @@ func (s *Store) readEvent(ctx context.Context, tx pgx.Tx, id int64) (eventRecord
 	}
 	seen := map[Transport]bool{}
 	for _, kind := range data.Routes {
-		if !validTransport(kind) || seen[kind] || r.SnapshotState != "captured" {
+		if !validTransport(kind) || seen[kind] || (r.SnapshotState != "captured" && !(r.SnapshotState == "direct" && r.Scene == "wxtransfer" && kind == Wechat && data.Supplement != nil)) {
 			return r, data, ErrConflict
 		}
 		seen[kind] = true

@@ -73,12 +73,16 @@ func (a Aliyun) Send(ctx context.Context, phone, code string) error {
 	if a.Nonce != nil {
 		nonce = a.Nonce
 	}
+	templateParam, e := json.Marshal(map[string]string{"code": code})
+	if e != nil {
+		return ErrConfig
+	}
 	params := map[string]string{
 		"Action":           "SendSms",
 		"PhoneNumbers":     phone,
 		"SignName":         a.SignName,
 		"TemplateCode":     a.TemplateCode,
-		"TemplateParam":    `{"code":"` + code + `"}`,
+		"TemplateParam":    string(templateParam),
 		"Format":           "JSON",
 		"RegionId":         "cn-hangzhou",
 		"Version":          "2017-05-25",

@@ -14,15 +14,15 @@ type SettingsReader interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }
 
-var settingKeys = []string{"msgconfig_regaudit", "msgconfig_apply", "msgconfig_domain", "mail_recv", "mail_name", "msgtelegram_chatid", "qqbot_openid", "sitename", "site_name"}
+var settingKeys = []string{"msgconfig_regaudit", "msgconfig_apply", "msgconfig_domain", "msgconfig_complain_all", "msgconfig_channellimit", "mail_recv", "mail_name", "msgtelegram_chatid", "qqbot_openid", "sitename", "site_name"}
 var telegramName = regexp.MustCompile(`^@[A-Za-z0-9_]{1,64}$`)
 var botID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
 func PlatformSettings() []merchantnotice.PlatformSetting {
-	return []merchantnotice.PlatformSetting{{Key: "msgconfig_regaudit", Label: "新商户待审核提醒（0关闭/1邮件/2机器人/4Telegram/5QQ）"}, {Key: "msgconfig_apply", Label: "手动提现申请提醒（0关闭/1邮件/2机器人/4Telegram/5QQ）"}, {Key: "msgconfig_domain", Label: "域名与站内转账待审核提醒（0关闭/1邮件/2机器人/4Telegram/5QQ）"}}
+	return []merchantnotice.PlatformSetting{{Key: "msgconfig_regaudit", Label: "新商户待审核提醒（0关闭/1邮件/2机器人/4Telegram/5QQ）"}, {Key: "msgconfig_apply", Label: "手动提现申请提醒（0关闭/1邮件/2机器人/4Telegram/5QQ）"}, {Key: "msgconfig_domain", Label: "域名与站内转账待审核提醒（0关闭/1邮件/2机器人/4Telegram/5QQ）"}, {Key: "msgconfig_complain_all", Label: "全部交易投诉通知（0关闭/1邮件/2机器人/3短信/4Telegram/5QQ）"}, {Key: "msgconfig_channellimit", Label: "支付通道达到限额提醒（0关闭/1邮件/2机器人/4Telegram/5QQ）"}}
 }
 func ValidatePlatformSetting(key, value string) (bool, error) {
-	for _, scene := range []string{"regaudit", "apply", "domain"} {
+	for _, scene := range []string{"regaudit", "apply", "domain", "complain_all", "channellimit"} {
 		if key == "msgconfig_"+scene {
 			_, err := ModeFor(scene, value)
 			return true, err

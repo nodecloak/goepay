@@ -10,7 +10,7 @@ import (
 
 func (s *Store) readClaim(ctx context.Context, tx pgx.Tx, e eventRecord) (claimRecord, string, error) {
 	var c claimRecord
-	err := tx.QueryRow(ctx, `SELECT event_id,job_id,merchant_id,transport,blocked,recipient_hash,scope_hash,lease_hash,created_at,transaction_id::text,proof_hash FROM admin_business_notice_claims WHERE event_id=$1`, e.ID).Scan(&c.EventID, &c.JobID, &c.MerchantID, &c.Transport, &c.Blocked, &c.RecipientHash, &c.ScopeHash, &c.LeaseHash, &c.At, &c.Transaction, &c.Proof)
+	err := tx.QueryRow(ctx, `SELECT event_id,job_id,COALESCE(merchant_id,0),transport,blocked,recipient_hash,scope_hash,lease_hash,created_at,transaction_id::text,proof_hash FROM admin_business_notice_claims WHERE event_id=$1`, e.ID).Scan(&c.EventID, &c.JobID, &c.MerchantID, &c.Transport, &c.Blocked, &c.RecipientHash, &c.ScopeHash, &c.LeaseHash, &c.At, &c.Transaction, &c.Proof)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return c, "", ErrNotFound
 	}

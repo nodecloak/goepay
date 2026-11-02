@@ -471,7 +471,7 @@ func (g ProviderFlow) QueryTransfer(ctx context.Context, merchantID int64, no st
 	if state == "succeeded" && result.ProviderTransferNo == "" {
 		return t, adapter.ErrAuthentication
 	}
-	if e = g.Store.resolveProviderTransferPackage(ctx, t.ID, state, result.ProviderTransferNo, result.PayDate, result.PackageInfo); e != nil {
+	if e = g.Store.resolveProviderTransferPackage(ctx, t.ID, state, result.ProviderTransferNo, result.PayDate, result.PackageInfo, g.Providers[t.ChannelID]); e != nil {
 		return t, e
 	}
 	return g.Store.Transfer(ctx, merchantID, no)
@@ -482,7 +482,7 @@ func (s *Store) resolveProviderTransfer(ctx context.Context, id int64, state, pr
 
 // resolveProviderTransferPackage also records a 商家转账 package_info, in the
 // same transaction, for a bill still waiting for the payee.
-func (s *Store) resolveProviderTransferPackage(ctx context.Context, id int64, state, providerNo, payDate, pkg string) error {
+func (s *Store) resolveProviderTransferPackage(ctx context.Context, id int64, state, providerNo, payDate, pkg string, providers ...adapter.Provider) error {
 	if len(providerNo) > 256 || len(payDate) > 64 {
 		return ErrInvalid
 	}
@@ -530,8 +530,12 @@ func (s *Store) resolveProviderTransferPackage(ctx context.Context, id int64, st
 		s.recordMerchantNoticeSettlement(ctx, tx, id)
 	}
 	if state == "pending" || state == "unknown" {
-		if e = recordTransferPackageTx(ctx, tx, id, pkg); e != nil {
-			return e
+		inserted, err := recordTransferPackageTx(ctx, tx, id, pkg)
+		if err != nil {
+			return err
+		}
+		if inserted && len(providers) == 1 {
+			s.recordTransferConfirmNotice231(ctx, tx, id, pkg, providers[0])
 		}
 	}
 	return tx.Commit(ctx)

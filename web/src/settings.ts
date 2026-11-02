@@ -1,4 +1,5 @@
 import { siteKeys191 } from "./site191";
+import { businessModes } from "./business-notice";
 export const settingsTabs = [
   ["site", "网站信息"],
   ["merchant", "商户相关"],
@@ -50,6 +51,9 @@ export type SettingsEmbed =
   | "buyer-fee"
   | "proxy-credentials"
   | "oauth-credentials"
+  | "notice-robot231"
+  | "notice-telegram231"
+  | "notice-qqbot231"
   | "voice-settings230"
   | "printing-settings230";
 type LayoutEntry = string | { group: string } | { embed: SettingsEmbed };
@@ -193,11 +197,17 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     "msgconfig_regaudit",
     "msgconfig_apply",
     "msgconfig_domain",
+    "msgconfig_complain_all",
+    "msgconfig_channellimit",
     "msgconfig_risk",
     "mail_recv",
     "mail_name",
-    "msgtelegram_chatid",
-    "qqbot_openid",
+    { group: "管理员群机器人配置" },
+    { embed: "notice-robot231" },
+    { group: "管理员Telegram配置" },
+    { embed: "notice-telegram231" },
+    { group: "管理员QQ机器人配置" },
+    { embed: "notice-qqbot231" },
     { group: "用户接收消息渠道开关" },
     "wxnotice",
     "mailnotice",
@@ -248,7 +258,18 @@ export function settingsBlocks(
   tab: SettingsTab,
   fields: readonly SettingDefinition[],
 ): SettingsBlock[] {
-  const used = new Set<string>(),
+  const used = new Set<string>(
+      tab === "notice"
+        ? [
+            "msgrobot_url",
+            "msgrobot_phone",
+            "msgtelegram_chatid",
+            "qqbot_openid",
+            "qqbot_appid",
+            "qqbot_appsecret",
+          ]
+        : [],
+    ),
     blocks: SettingsBlock[] = [];
   const matches = (pattern: string, key: string) =>
     pattern.endsWith("*")
@@ -476,6 +497,8 @@ const scenes: Record<string, string> = {
   domain_audit: "授权域名审核",
   daily_report: "每日交易统计",
   regaudit: "新商户待审核",
+  complain_all: "全部交易投诉",
+  channellimit: "支付通道达到当日限额",
   apply: "手动提现申请",
   domain: "域名与站内转账待审核",
   risk: "管理员异常事件",
@@ -731,14 +754,16 @@ export function settingDefinition(
     d.tab = "notice";
     d.kind = "select";
     d.label = (scenes[scene] || scene) + "提醒";
-    d.options = ["regaudit", "apply", "domain"].includes(scene)
-      ? [
-          option("0", "关闭提醒"),
-          option("1", "电子邮件"),
-          option("2", "群机器人"),
-          option("4", "Telegram"),
-          option("5", "QQ Bot"),
-        ]
+    d.options = [
+      "regaudit",
+      "apply",
+      "domain",
+      "complain_all",
+      "channellimit",
+    ].includes(scene)
+      ? businessModes
+          .filter((o) => o.value !== "3" || scene === "complain_all")
+          .map((o) => ({ ...o }))
       : scene === "risk"
         ? [
             option("0", "电子邮件"),
@@ -786,7 +811,7 @@ export function settingDefinition(
       "渠道总开关；未设置时沿用现有行为。除平台开启外，商户还需绑定接收方并选择提醒类型。";
   if (key === "smsnotice")
     d.hint =
-      "通知短信尚未接入；验证码短信配置不代表业务通知可发送。此开关暂不可编辑。";
+      "业务短信总开关。需在短信配置中启用网关并单独填写余额不足、交易投诉和会员到期模板；仅发送至已验证手机。会员到期短信独立于商户选择的提醒渠道。";
   return d;
 }
 const formatMinor = (n: bigint) =>

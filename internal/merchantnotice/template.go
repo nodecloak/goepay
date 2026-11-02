@@ -66,6 +66,7 @@ type noticeSpec struct {
 
 // These are fixed source templates, never supplied by a profile or API client.
 var noticeSpecs = map[string]noticeSpec{
+	"complain_all":      {title: "全部交易投诉通知", required: "id type trade_no title", body: `尊敬的管理员，平台收到新的支付交易投诉，请前往管理后台核对。<br/><b>投诉ID：</b>{{.P.id}}<br/><b>支付方式：</b>{{.P.type}}<br/><b>平台订单号：</b>{{.P.trade_no}}<br/><b>投诉原因：</b>{{.P.title}}`},
 	"payment_disabled":  {title: "支付权限关闭记录", suffix: true, required: "uid count", body: `商户 {{.P.uid}} 于 {{.Now}} 因连续 {{.P.count}} 个订单回调通知失败被关闭新支付权限。请检查回调站点及其防护设置，并前往后台核对当前状态。原已受理订单仍按原回执处理。`},
 	"regaudit":          {title: "新注册商户待审核提醒", required: "uid account", body: `尊敬的{{.Site}}管理员，网站有新注册的商户待审核，请及时前往用户列表审核处理。<br/><b>商户ID：</b>{{.P.uid}}<br/><b>注册账号：</b>{{.P.account}}<br/><b>注册时间：</b>{{.Now}}`},
 	"apply":             {title: "新的提现待处理提醒", required: "uid type realmoney", money: "realmoney", body: `尊敬的{{.Site}}管理员，商户{{.P.uid}}发起了手动提现申请，请及时处理。<br/><b>商户ID：</b>{{.P.uid}}<br/><b>提现方式：</b>{{.P.type}}<br/><b>提现金额：</b>{{.P.realmoney}}<br/><b>提交时间：</b>{{.Now}}`},

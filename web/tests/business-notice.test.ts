@@ -6,6 +6,7 @@ import {
   parseBusinessNotices,
 } from "../src/business-notice";
 import BusinessNoticeEvents from "../src/components/BusinessNoticeEvents.vue";
+import { settingDefinition } from "../src/settings";
 
 it("uses original UID0 business mode options without changing the risk namespace", () => {
   const fields = [
@@ -31,6 +32,25 @@ it("uses original UID0 business mode options without changing the risk namespace
     fields,
   );
 });
+it("offers SMS only for administrator all-complaint settings and recognizes the channel cap route", () => {
+  const fields = [{ name: "value", label: "配置值", type: "string" as const }];
+  expect(
+    businessNoticeSettingsFields(fields, "msgconfig_complain_all")[0].options,
+  ).toContainEqual({ value: "3", label: "短信" });
+  const cap = businessNoticeSettingsFields(fields, "msgconfig_channellimit")[0];
+  expect(cap.type).toBe("select");
+  expect(
+    cap.options?.some((o) => (typeof o === "object" ? o.value : o) === "3"),
+  ).toBe(false);
+  expect(settingDefinition("msgconfig_complain_all").options).toContainEqual({
+    value: "3",
+    label: "短信",
+  });
+  expect(settingDefinition("msgconfig_channellimit").options).toContainEqual({
+    value: "5",
+    label: "QQ Bot",
+  });
+});
 const item = {
   id: "83",
   merchant_id: "1000",
@@ -42,6 +62,25 @@ const item = {
   state: "unknown",
   at: "2026-10-25T10:00:00Z",
 };
+it("reads administrator supplement history while restricting zero-owner and SMS to their valid scenes", () => {
+  const complaint = {
+    ...item,
+    merchant_id: "0",
+    scene: "complain_all",
+    mode: "3",
+    transport: "sms",
+  };
+  const cap = { ...item, merchant_id: "0", scene: "channellimit" };
+  expect(
+    parseBusinessNotices({ items: [complaint, cap], next_cursor: "" }).items,
+  ).toEqual([complaint, cap]);
+  expect(() =>
+    parseBusinessNotices({
+      items: [{ ...cap, mode: "3", transport: "sms" }],
+      next_cursor: "",
+    }),
+  ).toThrow();
+});
 it("validates original history with bounded canonical IDs and does not project unknown private fields", () => {
   const value = parseBusinessNotices({
     items: [{ ...item, secret: "must-not-project" }],

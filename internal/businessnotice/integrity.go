@@ -68,6 +68,7 @@ func (s *Store) Check(ctx context.Context) (IntegrityCheck, error) {
 	var missingEvents, missingDeliveries int64
 	err = tx.QueryRow(ctx, `SELECT
  (SELECT count(*) FROM backoffice_audit a WHERE a.business_notice_scene IS NOT NULL AND NOT EXISTS(SELECT 1 FROM admin_business_notice_events e WHERE e.audit_id=a.id))
+ +(SELECT count(*) FROM notification_sources231 n WHERE n.kind IN('complain','channellimit') AND NOT EXISTS(SELECT 1 FROM backoffice_audit a JOIN admin_business_notice_events e ON e.audit_id=a.id WHERE a.resource='notification-sources231' AND a.resource_id=n.id AND a.actor_name='notification-source231'))
  +(SELECT count(*) FROM ledger_request_events a WHERE a.business_notice_transaction IS NOT NULL AND NOT EXISTS(SELECT 1 FROM admin_business_notice_events e WHERE e.request_event_id=a.id))
  +(SELECT count(*) FROM backoffice_audit a WHERE a.resource='admin-business-notice-events' AND NOT EXISTS(SELECT 1 FROM admin_business_notice_events e WHERE e.id=a.resource_id))
  +(SELECT count(*) FROM jobs j WHERE j.kind='admin.business-notice' AND NOT EXISTS(SELECT 1 FROM admin_business_notice_events e WHERE e.job_id=j.id)),
