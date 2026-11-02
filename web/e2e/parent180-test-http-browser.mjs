@@ -8,7 +8,7 @@ const web = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const api = process.env.PARENT180_BROWSER_API,
   token = process.env.PARENT180_BROWSER_COOKIE,
   channel = process.env.PARENT180_BROWSER_CHANNEL,
-  artifacts = process.env.PARENT180_BROWSER_ARTIFACTS;
+  artifacts = process.env.GOEPAY_PARENT_CRUD_ARTIFACTS || process.env.PARENT180_BROWSER_ARTIFACTS;
 if (!api?.startsWith("http://127.0.0.1:") || !token || !channel || !artifacts)
   throw new Error("explicit local synthetic browser fixture required");
 await fs.mkdir(artifacts, { recursive: true });
@@ -63,6 +63,53 @@ try {
     await expect(
       page.getByRole("region", { name: "支付通道", exact: true }),
     ).toBeVisible();
+    let configurationCRUD = false;
+    if (process.env.GOEPAY_PARENT_CRUD_CERT_PATH && process.env.GOEPAY_PARENT_CRUD_KEY_PATH) {
+      const name = "local-crud-" + width;
+      await page.getByRole("button", { name: "新增通道", exact: true }).click();
+      const editor = page.getByRole("dialog", { name: "父通道配置", exact: true });
+      await editor.getByLabel("通道名称", { exact: true }).fill(name);
+      await editor.getByLabel("分成比例", { exact: true }).fill("99");
+      await editor.getByLabel("授权来源", { exact: true }).selectOption("8");
+      await editor.getByLabel("appid 内容", { exact: true }).fill("wx-local-crud");
+      await editor.getByLabel("appmchid 内容", { exact: true }).fill("local-crud-merchant");
+      await editor.getByLabel("appkey 内容", { exact: true }).fill("0123456789abcdef0123456789abcdef");
+      await editor.getByLabel("sslcert_path 内容", { exact: true }).fill(await fs.readFile(process.env.GOEPAY_PARENT_CRUD_CERT_PATH, "utf8"));
+      await editor.getByLabel("sslkey_path 内容", { exact: true }).fill(await fs.readFile(process.env.GOEPAY_PARENT_CRUD_KEY_PATH, "utf8"));
+      const creating = page.waitForResponse(r => r.request().method() === "POST" && new URL(r.url()).pathname === "/console/v1/admin/payment-channels");
+      await editor.locator("[data-parent-save]").click();
+      const created = await (await creating).json();
+      expect(created.code).toBe(0);
+      await expect(editor).toHaveCount(0);
+      const createdID = created.data.id;
+      const target = page.getByRole("row").filter({ has: page.getByRole("cell", { name: createdID, exact: true }) });
+      await expect(target.getByRole("switch")).not.toBeChecked();
+      await target.locator("[data-parent-parameters]").click();
+      await editor.getByLabel("通道名称", { exact: true }).fill(name + "-edited");
+      await editor.locator("[data-parent-save]").click();
+      await expect(editor).toHaveCount(0);
+      await page.reload();
+      await expect(target.getByRole("cell", { name: name + "-edited", exact: true })).toBeVisible();
+      for (const enabled of [true, false]) {
+        await target.getByRole("switch").click();
+        const confirm = page.getByRole("dialog", { name: "确认通道操作", exact: true });
+        await confirm.getByRole("button", { name: "取消", exact: true }).click();
+        await expect(target.getByRole("switch")).toBeChecked({ checked: !enabled });
+        await target.getByRole("switch").click();
+        await confirm.locator("[data-parent-confirm]").click();
+        await expect(target.getByRole("switch")).toBeChecked({ checked: enabled });
+      }
+      await target.getByRole("button", { name: "删除", exact: true }).click();
+      const confirm = page.getByRole("dialog", { name: "确认通道操作", exact: true });
+      await confirm.locator("[data-parent-confirm]").click();
+      await expect(target).toHaveCount(0);
+      const retained = await context.request.get(origin + "/console/v1/admin/payment-channels/" + createdID);
+      expect(retained.ok()).toBe(true);
+      const detail = (await retained.json()).data;
+      expect(detail.archived).toBe(true);
+      expect(detail.account_version).toBe(created.data.account_version);
+      configurationCRUD = true;
+    }
     const row = page
       .getByRole("row")
       .filter({ has: page.getByRole("cell", { name: channel, exact: true }) });
@@ -128,6 +175,7 @@ try {
       original_query_paid: true,
       original_subject_advanced_http: true,
       optional_real_limit_columns: true,
+      configuration_crud: configurationCRUD,
       external_requests: 0,
       page_errors: 0,
     });

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-async function setup(page: Page) {
+async function setup(page: Page, total = 1) {
   const reads: URL[] = [],
     writes: string[] = [],
     relatedReads: URL[] = [],
@@ -47,7 +47,7 @@ async function setup(page: Page) {
       reads.push(u);
       data = {
         items: [{ id: "1", name: "本地商户", enabled: true, pay: "2" }],
-        total: 1,
+        total,
       };
     }
     return route.fulfill({
@@ -128,7 +128,7 @@ test("duplicate merchant route IDs fail without silently reading the whole direc
 test("route page size and paging remain bound to the original merchant filters", async ({
   page,
 }) => {
-  const f = await setup(page);
+  const f = await setup(page, 2);
   await page.goto("/admin/merchant/merchant-list?pay=2&page=2&limit=1");
   await expect.poll(() => f.reads.at(-1)?.searchParams.get("page")).toBe("2");
   expect(f.reads.at(-1)!.searchParams.get("limit")).toBe("1");

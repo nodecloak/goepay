@@ -69,6 +69,15 @@ it("KitSwitch emits boolean change", async () => {
   expect(w.emitted("update:modelValue")).toEqual([[true]]);
   expect(w.emitted("change")).toEqual([[true]]);
 });
+it("KitSwitch keeps the accepted state while confirmation is pending or cancelled", async () => {
+  const w = mount(KitSwitch, { props: { modelValue: false } });
+  await w.get("input").setValue(true);
+  expect((w.get("input").element as HTMLInputElement).checked).toBe(false);
+  await w.setProps({ modelValue: true });
+  expect((w.get("input").element as HTMLInputElement).checked).toBe(true);
+  await w.get("input").setValue(false);
+  expect((w.get("input").element as HTMLInputElement).checked).toBe(true);
+});
 it("KitSwitch names the feature independently from its changing state text", async () => {
   const w = mount(KitSwitch, {
     props: { modelValue: false, label: "关闭", ariaLabel: "开放商户注册" },

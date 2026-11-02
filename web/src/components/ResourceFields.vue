@@ -8,6 +8,7 @@ const props = defineProps<{
   values: Record<string, unknown>;
   errors: Record<string, string>;
   editing: boolean;
+  disabled?: boolean;
 }>();
 defineEmits<{ change: [name: string, value: unknown] }>();
 // Required, except a secret that may be left blank to keep it when editing.
@@ -30,6 +31,7 @@ const marked = (field: ResourceField) =>
           v-if="field.type === 'boolean'"
           :id="'field-' + field.name"
           type="checkbox"
+          :disabled="disabled"
           :checked="!!values[field.name]"
           @change="
             $emit(
@@ -42,12 +44,13 @@ const marked = (field: ResourceField) =>
           v-else-if="field.type === 'permission_tree'"
           :catalog="adminPermissionCatalog"
           :value="(values[field.name] as string[]) || []"
-          :disabled="values['admin_class'] === 'super'"
+          :disabled="disabled || values['admin_class'] === 'super'"
           @change="$emit('change', field.name, $event)"
         /><select
           v-else-if="field.options?.length || field.type === 'select'"
           :id="'field-' + field.name"
           :value="values[field.name]"
+          :disabled="disabled"
           :aria-required="marked(field) || undefined"
           @change="
             $emit(
@@ -69,6 +72,7 @@ const marked = (field: ResourceField) =>
           v-else-if="['text', 'json'].includes(field.type)"
           :id="'field-' + field.name"
           :value="String(values[field.name] ?? '')"
+          :disabled="disabled"
           :maxlength="field.max_length"
           :aria-required="marked(field) || undefined"
           rows="5"
@@ -83,6 +87,7 @@ const marked = (field: ResourceField) =>
           v-else
           :id="'field-' + field.name"
           :value="values[field.name]"
+          :disabled="disabled"
           :type="
             ['password', 'email', 'url', 'date'].includes(field.type)
               ? field.type

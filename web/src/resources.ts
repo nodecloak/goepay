@@ -207,7 +207,9 @@ export function buildPayload(
       f.type === "json"
         ? JSON.parse(String(v))
         : f.type === "permission_tree"
-          ? (Array.isArray(v) ? v : []).map(String)
+          ? values.admin_class === "super"
+            ? []
+            : (Array.isArray(v) ? v : []).map(String)
           : ["integer", "number"].includes(f.type)
             ? Number(v)
             : f.type === "boolean"

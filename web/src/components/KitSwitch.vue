@@ -1,5 +1,6 @@
 <script setup lang="ts">
-defineProps<{
+import { nextTick } from "vue";
+const props = defineProps<{
   modelValue: boolean;
   label?: string;
   ariaLabel?: string;
@@ -10,9 +11,13 @@ const emit = defineEmits<{
   change: [value: boolean];
 }>();
 function toggle(event: Event) {
-  const checked = (event.target as HTMLInputElement).checked;
+  const input = event.target as HTMLInputElement;
+  const checked = input.checked;
   emit("update:modelValue", checked);
   emit("change", checked);
+  // A parent may require confirmation before accepting the proposed value.
+  // Vue need not patch an unchanged prop, so restore the actual state explicitly.
+  void nextTick(() => { input.checked = props.modelValue; });
 }
 </script>
 <template>

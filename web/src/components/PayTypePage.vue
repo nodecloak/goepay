@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { ApiClient } from "../api";
+import { uncertainCreationResult } from "../mutation-result";
 import type { ResourceSchema } from "../resources";
 import { validateFields, buildPayload, formValues } from "../resources";
 import { payTypeLabel } from "../pay-types";
@@ -30,6 +31,7 @@ const schema = ref<ResourceSchema | null>(null);
 const items = ref<Row[]>([]);
 const loading = ref(false);
 const busy = ref(false);
+const unknownCreate = ref(false);
 const togglingType = ref("");
 const error = ref("");
 const notice = ref("");
@@ -71,6 +73,7 @@ function resetContext() {
   busy.value = false;
   togglingType.value = "";
   mode.value = null;
+  unknownCreate.value = false;
   selected.value = null;
   values.value = {};
   fieldErrors.value = {};
@@ -196,6 +199,7 @@ async function toggle(row: Row, value: boolean) {
 function openCreate() {
   if (!canCreate.value || busy.value || mode.value) return;
   selected.value = null;
+  unknownCreate.value = false;
   values.value = formValues(schema.value!);
   fieldErrors.value = {};
   error.value = "";
@@ -204,6 +208,7 @@ function openCreate() {
 async function openEdit(row: Row) {
   if (!canWrite.value || busy.value || mode.value) return;
   error.value = "";
+  unknownCreate.value = false;
   fieldErrors.value = {};
   if (row.id === "0") {
     // No record yet: seed the create form with the catalog defaults.
@@ -243,6 +248,7 @@ function openDelete(row: Row) {
 async function save() {
   if (
     busy.value ||
+    unknownCreate.value ||
     !schema.value ||
     !["create", "edit"].includes(mode.value || "")
   )
@@ -254,6 +260,8 @@ async function save() {
   );
   if (Object.keys(fieldErrors.value).length) return;
   const current = context();
+  const creating = mode.value === "create";
+  let dispatched = false;
   busy.value = true;
   error.value = "";
   try {
@@ -267,17 +275,36 @@ async function save() {
         (mode.value === "edit"
           ? "/" + encodeURIComponent(String(selected.value!.id))
           : ""),
-      { method: mode.value === "edit" ? "PATCH" : "POST", body: payload },
+      {
+        method: mode.value === "edit" ? "PATCH" : "POST",
+        body: payload,
+        beforeDispatch: () => {
+          dispatched = true;
+        },
+      },
     );
     if (!currentContext(current)) return;
     notice.value = mode.value === "edit" ? "修改已保存" : "新增已保存";
     mode.value = null;
     await load();
   } catch (e) {
-    if (currentContext(current)) error.value = message(e);
+    if (currentContext(current)) {
+      if (creating && dispatched && uncertainCreationResult(e)) {
+        unknownCreate.value = true;
+        error.value =
+          "新增结果尚未确认，此表单不会再次提交。请关闭并读取列表核对原记录。";
+      } else error.value = message(e);
+    }
   } finally {
     finishAction(current);
   }
+}
+async function readCreatedList() {
+  if (busy.value) return;
+  mode.value = null;
+  values.value = {};
+  fieldErrors.value = {};
+  await load();
 }
 async function remove() {
   if (busy.value || !selected.value || mode.value !== "delete") return;
@@ -426,14 +453,24 @@ onBeforeUnmount(() => {
       (mode === 'create' ? '新增' : '编辑') + (schema?.title || '支付方式')
     "
     :loading="busy"
+    :submit-disabled="unknownCreate"
     drawer
     width="560px"
     @close="mode = null"
     @submit="save"
   >
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+    <button
+      v-if="unknownCreate"
+      type="button"
+      :disabled="busy"
+      @click="readCreatedList"
+    >
+      关闭并核对列表
+    </button>
     <ResourceFields
       v-if="schema"
+      :disabled="unknownCreate"
       class="form-rows"
       :fields="editableFields"
       :values="values"

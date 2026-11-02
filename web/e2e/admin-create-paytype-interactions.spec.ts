@@ -309,9 +309,11 @@ test("pay-type operations remain usable across two toggles, create, edit and del
   await page.goto("/admin/payapi/pay-type");
   const row = (type: string) =>
     page.locator("tbody tr").filter({ hasText: type });
-  await row("alipay").getByRole("switch").check();
+  await row("alipay").getByRole("switch").click();
+  await expect(row("alipay").getByRole("switch")).toBeChecked();
   await expect(row("wxpay").getByRole("switch")).toBeEnabled();
-  await row("wxpay").getByRole("switch").check();
+  await row("wxpay").getByRole("switch").click();
+  await expect(row("wxpay").getByRole("switch")).toBeChecked();
   const create = page.getByRole("button", { name: "新增", exact: true });
   await expect(create).toBeEnabled();
   await create.click();

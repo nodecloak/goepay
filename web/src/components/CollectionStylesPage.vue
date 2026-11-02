@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { listPageWithinTotal } from "../list-page";
 import { computed, ref, watch, onBeforeUnmount } from "vue";
 import { ApiClient, ApiError } from "../api";
 import {
@@ -25,6 +26,8 @@ const props = defineProps<{
   editing: boolean;
   styleId?: unknown;
 }>();
+const emit = defineEmits<{ created: [id: string] }>();
+let pendingCreatedRoute: { id: string; client: ApiClient } | null = null;
 const items = ref<CollectionStyleView[]>([]),
   draft = ref(newCollectionStyle()),
   active = ref<CollectionStyleView | null>(null),
@@ -156,6 +159,7 @@ function privateImage(address: string) {
     : address;
 }
 async function initialize() {
+  pendingCreatedRoute = null;
   const current = ++epoch;
   readController?.abort();
   renderController?.abort();
@@ -193,6 +197,11 @@ async function initialize() {
       }>("/collection-styles", { signal: c.signal });
       if (current !== epoch || !alive || c.signal.aborted) return;
       items.value = value.items;
+      page.value = listPageWithinTotal(
+        page.value,
+        filtered.value.length,
+        pageSize.value,
+      );
     }
   } catch (e) {
     if (alive && current === epoch && !c.signal.aborted) {
@@ -269,6 +278,7 @@ async function save() {
     return;
   }
   const current = epoch;
+  const creating = !active.value;
   busy.value = true;
   try {
     const value = await props.client.request<CollectionStyleView>(
@@ -284,6 +294,12 @@ async function save() {
       active.value = value;
       draft.value = styleDraft(value);
       notice.value = "样式已保存，商户生成收款码时会使用当前布局。";
+      if (creating) {
+        const id = readCollectionStyleID(value.id);
+        if (!id) throw Error("新增样式编号无法核实，请返回列表核对。");
+        pendingCreatedRoute = { id, client: props.client };
+        emit("created", id);
+      }
     }
   } catch (e) {
     if (alive && current === epoch) {
@@ -533,9 +549,22 @@ function moveKey(e: KeyboardEvent, kind: "qr" | "text") {
   }
   void showPreview();
 }
-watch(() => [props.client, props.editing, props.styleId], initialize, {
-  immediate: true,
-});
+watch(
+  () => [props.client, props.editing, props.styleId],
+  () => {
+    if (
+      pendingCreatedRoute &&
+      props.editing &&
+      props.client === pendingCreatedRoute.client &&
+      props.styleId === pendingCreatedRoute.id
+    ) {
+      pendingCreatedRoute = null;
+      return;
+    }
+    void initialize();
+  },
+  { immediate: true },
+);
 watch(query, () => (page.value = 1));
 onBeforeUnmount(() => {
   alive = false;

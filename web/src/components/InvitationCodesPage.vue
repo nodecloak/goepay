@@ -7,6 +7,7 @@ const invitationIntents = new WeakMap<
 >();
 </script>
 <script setup lang="ts">
+import { listPageWithinTotal } from "../list-page";
 import {
   computed,
   ref,
@@ -113,6 +114,12 @@ async function load() {
       total: number;
     }>("/invitation-codes?" + q, { signal: c.signal });
     if (!alive || c.signal.aborted) return;
+    const targetPage = listPageWithinTotal(page.value, data.total, limit.value);
+    if (targetPage !== page.value) {
+      page.value = targetPage;
+      await load();
+      return;
+    }
     items.value = data.items;
     total.value = data.total;
   } catch (e) {

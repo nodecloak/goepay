@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { listPageWithinTotal } from "../list-page";
 import { ref, computed, watch, onBeforeUnmount, nextTick, toRaw } from "vue";
 import { ApiClient } from "../api";
 import type { ResourceSchema } from "../resources";
@@ -206,6 +207,12 @@ async function load() {
     const found = data.items.map(row);
     if (new Set(found.map((r) => r.id)).size !== found.length)
       throw Error("公告列表编号重复");
+    const targetPage = listPageWithinTotal(page.value, data.total, 20);
+    if (targetPage !== page.value) {
+      page.value = targetPage;
+      await load();
+      return;
+    }
     schema.value = s;
     rows.value = found;
     total.value = data.total;

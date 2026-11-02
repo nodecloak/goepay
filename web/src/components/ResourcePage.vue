@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { listPageWithinTotal } from "../list-page";
+import { uncertainCreationResult } from "../mutation-result";
 import {
   ref,
   computed,
@@ -680,6 +682,7 @@ let controller: AbortController | undefined,
   detailController: AbortController | undefined,
   contextEpoch = 0;
 const unknownMerchantCreation = ref<{ login: string } | null>(null);
+const unknownResourceCreation = ref(false);
 const merchantCreateSetupIssue = ref("");
 const resourcePanel = ref<HTMLElement>();
 const formDialog = ref<HTMLElement>();
@@ -785,6 +788,7 @@ function resetContext() {
   pendingFormFocus = undefined;
   pendingPayRollRowFocus = undefined;
   unknownMerchantCreation.value = null;
+  unknownResourceCreation.value = false;
   merchantCreateSetupIssue.value = "";
   applyMerchantQuery();
 }
@@ -792,6 +796,11 @@ watch(
   mode,
   (next, previous) => {
     if (next === null && previous !== null) {
+      if (unknownResourceCreation.value) {
+        values.value = {};
+        fieldErrors.value = {};
+      }
+      unknownResourceCreation.value = false;
       if (["merchants", "pay-rolls"].includes(props.resource)) {
         payRollBusy.value = false;
         unknownMerchantCreation.value = null;
@@ -1273,6 +1282,16 @@ async function load() {
       total: number;
     }>(path + "?" + q, { signal: c.signal });
     if (!c.signal.aborted && current === contextEpoch) {
+      const targetPage = listPageWithinTotal(
+        page.value,
+        data.total || 0,
+        limit.value,
+      );
+      if (targetPage !== page.value) {
+        page.value = targetPage;
+        await load();
+        return;
+      }
       items.value = data.items || [];
       total.value = data.total || 0;
     }
@@ -1356,6 +1375,7 @@ async function save() {
   if (
     editingBusy.value ||
     unknownMerchantCreation.value ||
+    unknownResourceCreation.value ||
     isPayRollCustom.value
   )
     return;
@@ -1425,6 +1445,8 @@ async function save() {
       Object.assign(fieldErrors.value, createRecipientErrors(values.value));
   }
   if (Object.keys(fieldErrors.value).length) return;
+  const creatingResource = mode.value === "create";
+  let creationDispatched = false;
   busy.value = true;
   error.value = "";
   try {
@@ -1446,6 +1468,9 @@ async function save() {
       {
         method: mode.value === "edit" ? "PATCH" : "POST",
         body: payload,
+        beforeDispatch: () => {
+          creationDispatched = true;
+        },
       },
     );
     if (current !== contextEpoch) return;
@@ -1466,11 +1491,31 @@ async function save() {
         delete values.value.settlement_account;
         delete values.value.settlement_name;
         error.value = "添加结果尚未确认，请核对商户账号；不会自动重复添加。";
+      } else if (
+        creatingResource &&
+        creationDispatched &&
+        uncertainCreationResult(e)
+      ) {
+        unknownResourceCreation.value = true;
+        for (const field of formSchema.value?.fields || []) {
+          if (field.type === "password" || field.write_only)
+            delete values.value[field.name];
+        }
+        error.value =
+          "新增结果尚未确认，此表单不会再次提交。请关闭并读取列表核对原记录。";
       } else error.value = message(e);
     }
   } finally {
     if (current === contextEpoch) busy.value = false;
   }
+}
+async function readCreatedResourceList() {
+  if (editingBusy.value || props.entry) return;
+  mode.value = null;
+  values.value = {};
+  fieldErrors.value = {};
+  page.value = 1;
+  await load();
 }
 async function reconcileMerchantCreation() {
   const pending = unknownMerchantCreation.value;
@@ -2469,7 +2514,9 @@ onBeforeUnmount(resetContext);
           :fields="formSchema!.fields"
           :values="values"
           :errors="fieldErrors"
-          :disabled="editingBusy || !!unknownMerchantCreation"
+          :disabled="
+            editingBusy || !!unknownMerchantCreation || unknownResourceCreation
+          "
           @change="(name, value) => (values[name] = value)"
           @settlement-validity="merchantCreateSetupIssue = $event"
         />
@@ -2504,7 +2551,7 @@ onBeforeUnmount(resetContext);
           :values="values"
           :errors="fieldErrors"
           :editing="mode === 'edit'"
-          :disabled="busy"
+          :disabled="busy || unknownResourceCreation"
           :initial-tab="groupSection"
           :return-focus="groupReturnFocus"
           :client="client"
@@ -2539,11 +2586,12 @@ onBeforeUnmount(resetContext);
           :values="values"
           :errors="fieldErrors"
           :editing="mode === 'edit'"
-          :disabled="busy"
+          :disabled="busy || unknownResourceCreation"
           @change="(name, value) => (values[name] = value)"
         />
         <ResourceFields
           v-else
+          :disabled="unknownResourceCreation"
           class="form-rows"
           :fields="formSchema!.fields"
           :values="values"
@@ -2561,6 +2609,13 @@ onBeforeUnmount(resetContext);
           >
             {{ isMerchantCreationForm ? "关闭" : "取消" }}</button
           ><button
+            v-if="unknownResourceCreation && !entry"
+            type="button"
+            :disabled="editingBusy"
+            @click="readCreatedResourceList"
+          >
+            关闭并核对列表</button
+          ><button
             v-if="unknownMerchantCreation"
             type="button"
             :disabled="editingBusy"
@@ -2572,6 +2627,7 @@ onBeforeUnmount(resetContext);
             :disabled="
               editingBusy ||
               !!unknownMerchantCreation ||
+              unknownResourceCreation ||
               !!merchantCreateSetupIssue
             "
           >

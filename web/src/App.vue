@@ -2310,6 +2310,10 @@ onBeforeUnmount(() => {
         :own-session="!session.delegated_by"
         :editing="path === '/other/onecode/edit'"
         :style-id="route.query.id"
+        @created="
+          (id) =>
+            router.replace({ path: route.path, query: { ...route.query, id } })
+        "
       />
       <CollectionGeneratorPage
         v-else-if="kind === 'collection-generator'"
