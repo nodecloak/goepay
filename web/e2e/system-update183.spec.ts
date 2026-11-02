@@ -74,8 +74,11 @@ for (const width of [1440, 375])
       page.getByText("<script>literal changelog</script>", { exact: false }),
     ).toBeVisible();
     expect(await page.locator(".update-record script").count()).toBe(0);
-    await page.getByRole("button", { name: "立即更新", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: "确认更新", exact: true });
+    await page.getByRole("button", { name: "准备更新包", exact: true }).click();
+    const dialog = page.getByRole("dialog", {
+      name: "确认准备更新包",
+      exact: true,
+    });
     await expect(dialog).toBeVisible();
     await expect(
       dialog.getByRole("button", { name: "确认", exact: true }),
@@ -105,7 +108,7 @@ test("a lost preparation response requires original state reads and never a seco
 }) => {
   const calls = await setup(page, true);
   await page.goto("/admin/system/update");
-  await page.getByRole("button", { name: "立即更新", exact: true }).click();
+  await page.getByRole("button", { name: "准备更新包", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("checkbox").check();
   await dialog.getByRole("button", { name: "确认", exact: true }).click();
@@ -131,7 +134,7 @@ test("a verified restarted build displays the actual applied result and complete
     page.getByRole("heading", { name: "更新已部署", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "立即更新", exact: true }),
+    page.getByRole("button", { name: "准备更新包", exact: true }),
   ).toHaveCount(0);
   const progress = page.locator(".actual-progress progress");
   await expect(progress).toHaveCount(2);

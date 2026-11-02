@@ -433,7 +433,10 @@ export function scheduledTaskChange(
     enabled: draft.enabled,
     schedule: {
       frequency: draft.frequency as ScheduledFrequency,
-      interval: inputInteger(draft.interval, 1, maxima[draft.frequency]),
+      interval:
+        draft.frequency === "once"
+          ? 1
+          : inputInteger(draft.interval, 1, maxima[draft.frequency]),
       execute_at: parsed.toISOString(),
     },
     params: values,

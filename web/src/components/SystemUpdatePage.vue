@@ -324,7 +324,7 @@ onBeforeUnmount(() => {
         :disabled="busy || loading || uncertain"
         @click="show('prepare')"
       >
-        立即更新
+        准备更新包
       </button>
       <div v-if="view.update_log" class="update-record">
         <h3>更新记录</h3>
@@ -414,7 +414,7 @@ onBeforeUnmount(() => {
                 ? "取消更新"
                 : confirmation === "retry"
                   ? "确认重试准备"
-                  : "确认更新"
+                  : "确认准备更新包"
             }}
           </h3>
           <p>

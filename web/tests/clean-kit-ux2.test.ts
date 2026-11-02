@@ -23,9 +23,10 @@ it("clean page shows Pro's 自定义清理 grid with every clean type", async ()
   const text = wrapper.text();
   // No page-title heading; the custom-clean section keeps its own heading.
   expect(wrapper.find("h2").exists()).toBe(false);
-  expect(wrapper.get("h3.clean-subhead").text()).toBe(
-    "自定义清理（按类型 / 天数）",
-  );
+  expect(wrapper.findAll("h3.clean-subhead").map((h) => h.text())).toEqual([
+    "快捷清理",
+    "自定义清理",
+  ]);
   for (const t of [
     "登录日志",
     "订单记录",

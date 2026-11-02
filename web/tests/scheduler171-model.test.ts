@@ -135,7 +135,6 @@ it("converts original seconds/minutes/hours/days/once and UTC+8 without browser 
     { interval: "1.5" },
     { interval: "01" },
     { frequency: "week" },
-    { frequency: "once", interval: "2" },
     { executeAt: "2026-02-30T10:00:00" },
     { params: { limit: "101" } },
     { params: { limit: "1", extra: "1" } },

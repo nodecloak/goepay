@@ -47,7 +47,9 @@ test("API rotation requires explicit password confirmation and keeps new key out
     .getByRole("button", { name: "重置 API 密钥", exact: true })
     .click();
   expect(rotations).toBe(0);
-  await page.getByLabel("登录密码", { exact: true }).fill("current-secret-for-test");
+  await page
+    .getByLabel("登录密码", { exact: true })
+    .fill("current-secret-for-test");
   await page.getByRole("button", { name: "确认重置密钥" }).click();
   await expect(page.getByLabel("新 API 密钥", { exact: true })).toHaveValue(
     "new-test-only-key-value",
@@ -73,7 +75,14 @@ test("password confirmation blocks mismatched update then requires reauthenticat
     if (siteReply191) return siteReply191;
     const p = new URL(route.request().url()).pathname;
     if (p.endsWith("/session") && changes > 0)
-      return route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ code: -1, message: "original sessions revoked" }) });
+      return route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({
+          code: -1,
+          message: "original sessions revoked",
+        }),
+      });
     if (p.endsWith("/session"))
       return route.fulfill(
         ok({
@@ -118,13 +127,13 @@ test("password confirmation blocks mismatched update then requires reauthenticat
       .getByRole("alert"),
   ).toContainText("两次新密码输入不一致");
   expect(changes).toBe(0);
-  await page
-    .getByLabel("确认密码", { exact: true })
-    .fill("new-password-long");
+  await page.getByLabel("确认密码", { exact: true }).fill("new-password-long");
   await page.getByRole("button", { name: "修改密码", exact: true }).click();
   await expect(page.getByRole("button", { name: "登录工作台" })).toBeVisible();
   await expect(page).toHaveURL(/\/merchant\/login\?.*reauth=password/);
-  await expect(page.getByRole("status")).toHaveText("请使用当前有效密码重新登录");
+  await expect(page.getByRole("status")).toHaveText(
+    "请使用当前有效密码重新登录",
+  );
   expect(changes).toBe(1);
 });
 
@@ -135,8 +144,8 @@ for (const width of [375, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     let writes = 0;
     await page.route("**/console/v1/**", (route) => {
-    const captcha205Reply = closedLoginCaptchaFixture205(route);
-    if (captcha205Reply) return captcha205Reply;
+      const captcha205Reply = closedLoginCaptchaFixture205(route);
+      if (captcha205Reply) return captcha205Reply;
       const siteReply191 = publicSiteFixture191(route);
       if (siteReply191) return siteReply191;
       const request = route.request(),
@@ -223,9 +232,9 @@ for (const width of [375, 1440]) {
     await modify.click();
     await expect(current).toHaveValue("");
     await expect(dialog.getByLabel("新密码", { exact: true })).toHaveValue("");
-    await expect(
-      dialog.getByLabel("确认密码", { exact: true }),
-    ).toHaveValue("");
+    await expect(dialog.getByLabel("确认密码", { exact: true })).toHaveValue(
+      "",
+    );
     await dialog.getByRole("button", { name: "取消", exact: true }).click();
     expect(writes).toBe(0);
     expect(
@@ -263,7 +272,10 @@ test("cleanup requires preview and explicit confirmation with the echoed cutoff"
       ok({
         expired_sessions: 2,
         expired_attempts: 3,
-        cutoff: "2026-10-21T16:00:00Z",
+        expired_login_throttle_keys: 5,
+        expired_login_audit_rows: 7,
+        cutoff: route.request().postDataJSON().cutoff,
+        preview: route.request().postDataJSON().preview,
       }),
     );
   });
@@ -271,15 +283,16 @@ test("cleanup requires preview and explicit confirmation with the echoed cutoff"
   await page.getByLabel("清理截止日期（UTC+08:00）").fill("2026-10-22");
   await page.getByRole("button", { name: "预览清理范围" }).click();
   await expect(
-    page.getByRole("definition").filter({ hasText: "2026-10-21T16:00:00Z" }),
+    page.getByRole("definition").filter({ hasText: "2026-10-22 00:00:00" }),
   ).toBeVisible();
   expect(bodies).toHaveLength(1);
   await page.getByRole("button", { name: "立即删除", exact: true }).click();
   expect(bodies).toHaveLength(1);
   await page.getByRole("button", { name: "确认清理", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("过期登录状态已清理");
+  await expect(page.getByRole("status")).toContainText("登录日志 7 条");
+  await expect(page.getByRole("status")).toContainText("持久限流记录 5 条");
   expect(bodies).toEqual([
     { preview: true, cutoff: "2026-10-22T00:00:00+08:00" },
-    { preview: false, cutoff: "2026-10-21T16:00:00Z" },
+    { preview: false, cutoff: "2026-10-22T00:00:00+08:00" },
   ]);
 });

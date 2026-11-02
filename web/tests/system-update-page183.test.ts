@@ -125,7 +125,7 @@ it("matches original version fields and shows changelog as literal text before c
   expect(w.find("script").exists()).toBe(false);
   expect(w.text()).toContain("<script>literal changelog</script>");
   await w.get('[data-action="prepare"]').trigger("click");
-  expect(w.get('[role="dialog"]').text()).toContain("确认更新");
+  expect(w.get('[role="dialog"]').text()).toContain("确认准备更新包");
   expect(request).toHaveBeenCalledTimes(1);
   expect(w.get('[data-action="confirm"]').attributes("disabled")).toBeDefined();
   w.unmount();

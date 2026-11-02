@@ -131,7 +131,7 @@ for (const width of [1440, 375])
     await f.row.getByRole("button", { name: "配置", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await expect(
-      dialog.getByLabel("首次执行时间（UTC+8）", { exact: true }),
+      dialog.getByLabel("执行时间（UTC+8）", { exact: true }),
     ).toBeVisible();
     await dialog.getByLabel("开启此任务", { exact: true }).uncheck();
     await dialog.getByRole("button", { name: "核对配置", exact: true }).click();

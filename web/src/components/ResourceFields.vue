@@ -19,11 +19,28 @@ const marked = (field: ResourceField) =>
 <template>
   <div class="resource-fields">
     <template v-for="field in fields" :key="field.name"
-      ><label
-        v-if="!readonly(field, editing)"
-        :class="{ 'checkbox-field': field.type === 'boolean' }"
-        :for="'field-' + field.name"
+      ><component
+        :is="field.type === 'permission_tree' ? 'div' : 'label'"
+        v-if="
+          !readonly(field, editing) &&
+          (field.type !== 'permission_tree' ||
+            values.admin_class === 'operator')
+        "
+        :class="{
+          'checkbox-field': field.type === 'boolean',
+          'resource-permission-field': field.type === 'permission_tree',
+        }"
+        :for="
+          field.type === 'permission_tree' ? undefined : 'field-' + field.name
+        "
+        :role="field.type === 'permission_tree' ? 'group' : undefined"
+        :aria-labelledby="
+          field.type === 'permission_tree'
+            ? 'field-label-' + field.name
+            : undefined
+        "
         ><span
+          :id="'field-label-' + field.name"
           class="field-label"
           :class="{ 'field-label--req': marked(field) }"
           >{{ field.label }}</span
@@ -121,8 +138,16 @@ const marked = (field: ResourceField) =>
           class="field-error"
           role="alert"
           >{{ errors[field.name] }}</small
-        ></label
+        ></component
       ></template
     >
   </div>
 </template>
+<style scoped>
+.resource-permission-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+</style>

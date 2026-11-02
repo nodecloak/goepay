@@ -492,6 +492,7 @@ onBeforeUnmount(() => {
             />
           </header>
           <p class="job-key muted">{{ item.task }}</p>
+          <p class="job-description">{{ item.description }}</p>
           <p class="job-mode muted">{{ scheduledTaskModeLabel(item) }}</p>
           <p v-if="!item.available" class="job-unavailable muted">
             {{ item.unavailable_reason }}
@@ -597,7 +598,9 @@ onBeforeUnmount(() => {
                       ]"
                       aria-label="执行频率"
                   /></label>
-                  <label for="scheduler171-interval"
+                  <label
+                    v-if="draft.frequency !== 'once'"
+                    for="scheduler171-interval"
                     >间隔<input
                       id="scheduler171-interval"
                       v-model="draft.interval"
@@ -607,7 +610,11 @@ onBeforeUnmount(() => {
                       inputmode="numeric"
                   /></label>
                   <label for="scheduler171-at"
-                    >首次执行时间（UTC+8）<input
+                    >{{
+                      draft.frequency === "once"
+                        ? "执行时间（UTC+8）"
+                        : "首次执行时间（UTC+8）"
+                    }}<input
                       id="scheduler171-at"
                       v-model="draft.executeAt"
                       type="datetime-local"
