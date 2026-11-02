@@ -131,6 +131,17 @@ func (s *Store) beginProviderAttemptTerms(ctx context.Context, tradeNo string, c
 	if !admitted {
 		return ProviderAttempt{}, false, ErrState
 	}
+	// Recheck first-send admission for orders created before the operator
+	// enabled certification. Existing attempts above remain recoverable.
+	var recharge bool
+	if e = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM recharge_intents WHERE order_id=$1)`, orderID).Scan(&recharge); e != nil {
+		return ProviderAttempt{}, false, e
+	}
+	if !recharge {
+		if e = s.requireCertification233Tx(ctx, tx, pricedOrder.MerchantID); e != nil {
+			return ProviderAttempt{}, false, e
+		}
+	}
 	riskOrigin, e := s.prepareCoreRiskOrigin(ctx, tx, pricedOrder, channelID, method)
 	if e != nil {
 		return ProviderAttempt{}, false, e

@@ -245,6 +245,11 @@ describe("Pro field contracts", () => {
     ).toBe("—");
   });
   it("maps 资金明细 ledger_type codes to the original pre_record type names", () => {
+    expect(ledgerTerm("ledger_type", "certification")).toBe("实名认证");
+    expect(ledgerTypeFilters).toContainEqual({
+      value: "certification",
+      label: "实名认证",
+    });
     expect(ledgerTerm("ledger_type", "order_income")).toBe("订单收入");
     expect(ledgerTerm("ledger_type", "transfer")).toBe("代付");
     expect(ledgerTerm("ledger_type", "transfer_return")).toBe("代付退回");

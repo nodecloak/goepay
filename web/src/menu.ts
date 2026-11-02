@@ -370,11 +370,14 @@ export type ViewKind =
   | "settlement-schedule"
   | "printing"
   | "merchant-notice"
+  | "certification"
   | "template"
   | "app-store"
   | "complain"
   | "unavailable";
 export function viewKind(area: Area, path: string): ViewKind {
+  if (area === "merchant" && path === "/account/certificate")
+    return "certification";
   if (
     (area === "admin" &&
       ["/complain/list", "/complain/charts", "/complain/task"].includes(

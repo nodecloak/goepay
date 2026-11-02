@@ -39,6 +39,7 @@ const ledgerTypeExpression = `CASE
  WHEN j.event_key LIKE 'deposit:%' AND j.description LIKE 'deposit release%' THEN 'deposit_out'
  WHEN j.event_key LIKE 'membership:%' THEN 'membership_buy'
  WHEN j.event_key LIKE 'membership-referral:%' THEN 'invite_reward'
+ WHEN j.event_key LIKE 'certification233:%' THEN 'certification'
  WHEN j.description LIKE 'original payment fee referral reward%' THEN 'invite_reward'
  WHEN j.event_key LIKE 'admin-adjust:%' AND e.amount>0 THEN 'admin_credit'
  WHEN j.event_key LIKE 'admin-adjust:%' THEN 'admin_debit'
@@ -68,6 +69,7 @@ var ledgerTypeCodes = map[string]string{
 	"deposit_out":       "j.event_key LIKE 'deposit:%' AND j.description LIKE 'deposit release%'",
 	"membership_buy":    "j.event_key LIKE 'membership:%'",
 	"invite_reward":     "(j.event_key LIKE 'membership-referral:%' OR j.description LIKE 'original payment fee referral reward%')",
+	"certification":     "j.event_key LIKE 'certification233:%'",
 	"admin_credit":      "j.event_key LIKE 'admin-adjust:%' AND e.amount>0",
 	"admin_debit":       "j.event_key LIKE 'admin-adjust:%' AND e.amount<=0",
 }

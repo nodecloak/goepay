@@ -26,6 +26,7 @@ import (
 	"goepay/internal/channelconfig"
 	"goepay/internal/compat"
 	"goepay/internal/identity"
+	"goepay/internal/kyc233"
 	"goepay/internal/ledger"
 	"goepay/internal/logincaptcha205"
 	"goepay/internal/merchantnotice"
@@ -40,6 +41,9 @@ import (
 )
 
 type Server struct {
+	KYC233Provider        kyc233.Provider
+	KYC233BaseURL         string
+	KYC233ConsoleOrigin   string
 	OrderAPITradeAlias120 *orderalias120.Store
 	PaymentDefend206      *paymentdefend206.Store
 	// Create-order Geetest v4 (pay_verify_type 1/2). Nil verifier = unavailable.
@@ -114,6 +118,9 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		bodyLimit := int64(1 << 20)
+		if r.Method == "POST" && (r.URL.Path == "/console/v1/admin/account/ocr" || r.URL.Path == "/console/v1/merchant/account/ocr") {
+			bodyLimit = kyc233.MaxImageBytes + 8192
+		}
 		if r.Method == "POST" && r.URL.Path == "/console/v1/admin/collection-style-images" {
 			bodyLimit += 8192
 		}
@@ -167,6 +174,9 @@ func (s *Server) Handler() http.Handler {
 			return
 		}
 		if s.qqNoticeCallback231(w, r) {
+			return
+		}
+		if s.certificationReturn233(w, r) {
 			return
 		}
 		if r.URL.Path == "/console/v1/public/site" {
@@ -334,6 +344,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.voiceSettings230(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.certification233Console(w, r, role, session, parts, c.Value) {
 		return
 	}
 	if s.noticeAccounts231(w, r, role, session, parts, c.Value) {
@@ -827,6 +840,9 @@ func (s *Server) fail(w http.ResponseWriter, e error) {
 	case errors.Is(e, payment.ErrInsufficient):
 		status = 409
 		msg = "insufficient balance"
+	case errors.Is(e, payment.ErrCertificationRequired):
+		status = 422
+		msg = "商户尚未完成实名认证，暂不能发起支付"
 	case errors.Is(e, payment.ErrInvalid), errors.Is(e, payment.ErrState):
 		status = 422
 		msg = "invalid input or state"

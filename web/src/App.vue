@@ -98,6 +98,7 @@ import { readHeldRefundFunding } from "./refund-funding";
 import TransferPage from "./components/TransferPage.vue";
 import GroupSalesPage from "./components/GroupSalesPage.vue";
 import SettingsPage from "./components/SettingsPage.vue";
+import MerchantCertification233 from "./components/MerchantCertification233.vue";
 import InvitationCodesPage from "./components/InvitationCodesPage.vue";
 import CollectionStylesPage from "./components/CollectionStylesPage.vue";
 import CollectionGeneratorPage from "./components/CollectionGeneratorPage.vue";
@@ -1219,6 +1220,7 @@ async function load() {
     kind.value === "settlement-schedule" ||
     kind.value === "printing" ||
     kind.value === "merchant-notice" ||
+    kind.value === "certification" ||
     kind.value === "template" ||
     kind.value === "app-store" ||
     kind.value === "complain" ||
@@ -2289,6 +2291,13 @@ onBeforeUnmount(() => {
         :admin-class="session.user.admin_class"
         :own-session="!session.delegated_by"
         @site-changed="reloadPublicSite191"
+      />
+      <MerchantCertification233
+        v-else-if="kind === 'certification'"
+        :key="area + path"
+        :client="client"
+        :merchant-i-d="String(session.user.id)"
+        :own-session="!session.delegated_by"
       />
       <GroupSalesPage
         v-else-if="kind === 'group-sales'"

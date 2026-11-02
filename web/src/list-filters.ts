@@ -37,6 +37,7 @@ export const ledgerTypeFilters = [
   { value: "deposit_out", label: "提取保证金" },
   { value: "membership_buy", label: "购买会员" },
   { value: "invite_reward", label: "邀请返现" },
+  { value: "certification", label: "实名认证" },
   { value: "admin_credit", label: "后台加款" },
   { value: "admin_debit", label: "后台扣款" },
 ] as const;

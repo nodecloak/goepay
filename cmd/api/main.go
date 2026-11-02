@@ -142,6 +142,7 @@ func main() {
 	if consoleOrigin == "" {
 		consoleOrigin = os.Getenv("GOEPAY_PUBLIC_ORIGIN")
 	}
+	app.KYC233ConsoleOrigin = consoleOrigin
 	app.Enrollment = enrollment.NewHandler(enrollmentService, consoleOrigin)
 	if e = configureProviders(app, os.Getenv("GOEPAY_PROVIDER_MODE"), seed, os.Getenv("GOEPAY_PUBLIC_ORIGIN")); e != nil {
 		slog.Error("invalid local provider configuration")

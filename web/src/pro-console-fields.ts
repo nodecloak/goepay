@@ -577,6 +577,7 @@ export const ledgerTypeLabels: Record<string, string> = {
   deposit_out: "提取保证金",
   membership_buy: "购买会员",
   invite_reward: "邀请返现",
+  certification: "实名认证",
   admin_credit: "后台加款",
   admin_debit: "后台扣款",
   other: "其他",

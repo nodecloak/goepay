@@ -904,9 +904,9 @@
     "path": "/account/certificate",
     "title": "账户中心 / 实名认证",
     "hidden": false,
-    "status": "deferred",
-    "capabilities": [],
-    "limitations": "实名认证依赖身份核验服务插件，本轮按约定暂缓接入。"
+    "status": "partial",
+    "capabilities": ["实名认证", "企业认证", "成功扣费", "证照OCR"],
+    "limitations": "内置实名认证与OCR需配置并开通相应服务；扩展实名认证插件未接入，生产身份核验需由商户本人完成。"
   },
   {
     "area": "merchant",

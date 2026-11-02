@@ -1,0 +1,55 @@
+import {
+  certificationCredentials233,
+  type CertificationConfig233,
+  type CertificationInfo233,
+} from "../../src/kyc233";
+export const kycConfig233 = (
+  extra: Partial<CertificationConfig233> = {},
+): CertificationConfig233 => ({
+  revision: "0",
+  cert_open: 0,
+  cert_channel: "",
+  cert_corpopen: false,
+  cert_force: false,
+  cert_money: "0.00",
+  ocr_type: "",
+  credentials: Object.fromEntries(
+    certificationCredentials233.map((key) => [
+      key,
+      { present: false, masked: "" },
+    ]),
+  ) as CertificationConfig233["credentials"],
+  channels: [{ id: "31", name: "本地支付宝通道" }],
+  ...extra,
+});
+export const kycInfo233 = (
+  extra: Partial<CertificationInfo233> = {},
+): CertificationInfo233 => ({
+  revision: "1",
+  ocr_config_revision: "1",
+  configuration_changed: false,
+  auth_code_used: false,
+  auth_code_ready: false,
+  query_after: "",
+  cert: 0,
+  certtype: 0,
+  certcardtype: 0,
+  certmethod_text: "",
+  certtype_text: "",
+  certname: "",
+  certno: "",
+  certcorpname: "",
+  certcorpno: "",
+  certtime: "",
+  cert_open: 1,
+  cert_corpopen: false,
+  cert_money: "0.00",
+  phone_masked: "138****0001",
+  ocr_type: "",
+  attempt_id: "",
+  status: "none",
+  scan: "",
+  url: "",
+  expires_at: "",
+  ...extra,
+});

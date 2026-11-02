@@ -37,6 +37,8 @@ import ProxyCredentialSettings from "./ProxyCredentialSettings.vue";
 import OAuthCredentialSettings from "./OAuthCredentialSettings.vue";
 import NotificationHardwareSettings230 from "./NotificationHardwareSettings230.vue";
 import NotificationBotSettings231 from "./NotificationBotSettings231.vue";
+import CertificationSettings233 from "./CertificationSettings233.vue";
+import OCRSettings233 from "./OCRSettings233.vue";
 import BuyerFeeSettings104 from "./BuyerFeeSettings104.vue";
 import { siteKeys191 } from "../site191";
 const emit = defineEmits<{ siteChanged: [] }>();
@@ -80,6 +82,8 @@ const active = ref<SettingsTab>("site"),
   voiceBusy230 = ref(false),
   printingBusy230 = ref(false),
   noticeBusy231 = ref({ robot: false, telegram: false, qqbot: false }),
+  certificationBusy233 = ref(false),
+  ocrBusy233 = ref(false),
   uncertain = ref(false),
   error = ref(""),
   notice = ref("");
@@ -114,6 +118,7 @@ function writable(d: SettingDefinition) {
 const fieldsFor = (tab: SettingsTab) =>
   definitions.value
     .filter((d) => d.tab === tab)
+    .filter((d) => d.tab !== "certificate" && d.tab !== "ocr")
     .filter(
       (d) =>
         ![
@@ -242,6 +247,8 @@ const controlsBusy = computed(
     voiceBusy230.value ||
     printingBusy230.value ||
     botsBusy231.value ||
+    certificationBusy233.value ||
+    ocrBusy233.value ||
     riskBusy.value ||
     scanBusy.value ||
     mailBusy.value ||
@@ -367,6 +374,8 @@ async function load() {
     voiceBusy230.value ||
     printingBusy230.value ||
     botsBusy231.value ||
+    certificationBusy233.value ||
+    ocrBusy233.value ||
     riskBusy.value ||
     scanBusy.value ||
     brandBusy.value ||
@@ -462,6 +471,8 @@ async function save() {
     voiceBusy230.value ||
     printingBusy230.value ||
     botsBusy231.value ||
+    certificationBusy233.value ||
+    ocrBusy233.value ||
     riskBusy.value ||
     scanBusy.value ||
     brandBusy.value ||
@@ -632,6 +643,8 @@ function navigate(event: KeyboardEvent, index: number) {
     voiceBusy230.value ||
     printingBusy230.value ||
     botsBusy231.value ||
+    certificationBusy233.value ||
+    ocrBusy233.value ||
     riskBusy.value ||
     scanBusy.value ||
     brandBusy.value ||
@@ -662,8 +675,6 @@ function navigate(event: KeyboardEvent, index: number) {
   document.getElementById(`settings-tab-${active.value}`)?.focus();
 }
 const guidance: Partial<Record<SettingsTab, string>> = {
-  certificate: "实名认证业务插件按本轮范围暂缓。",
-  ocr: "OCR业务插件按本轮范围暂缓。",
   sms: "配置短信网关、验证码和通知模板；网关配置与外部发送权限分别校验。",
   iptype:
     "IP获取方式与归属地识别分别管理。默认读取直连来源；仅经部署授权的代理可转发单个真实IP，代理信任范围由部署配置管理。",
@@ -705,6 +716,8 @@ onBeforeUnmount(() => {
           voiceBusy230 ||
           printingBusy230 ||
           botsBusy231 ||
+          certificationBusy233 ||
+          ocrBusy233 ||
           riskBusy ||
           scanBusy ||
           mailBusy ||
@@ -735,6 +748,8 @@ onBeforeUnmount(() => {
           :disabled="
             busy ||
             botsBusy231 ||
+            certificationBusy233 ||
+            ocrBusy233 ||
             platformBusy ||
             riskBusy ||
             scanBusy ||
@@ -818,6 +833,24 @@ onBeforeUnmount(() => {
               :admin-class="adminClass"
               :own-session="ownSession"
               @busy="smsBusy = $event"
+            />
+            <CertificationSettings233
+              v-if="panelTab === 'certificate'"
+              :client="client"
+              :admin-class="adminClass"
+              :own-session="ownSession"
+              :active="active === panelTab"
+              :disabled="busy || loading || uncertain || ocrBusy233"
+              @busy="certificationBusy233 = $event"
+            />
+            <OCRSettings233
+              v-if="panelTab === 'ocr'"
+              :client="client"
+              :admin-class="adminClass"
+              :own-session="ownSession"
+              :active="active === panelTab"
+              :disabled="busy || loading || uncertain || certificationBusy233"
+              @busy="ocrBusy233 = $event"
             />
             <template v-if="panelTab === 'risk'">
               <div :inert="paymentDefendBusy">
@@ -929,6 +962,8 @@ onBeforeUnmount(() => {
                     smsBusy ||
                     brandBusy ||
                     botsBusy231 ||
+                    certificationBusy233 ||
+                    ocrBusy233 ||
                     uncertain
                   "
                   @busy="
@@ -1046,7 +1081,10 @@ onBeforeUnmount(() => {
               </div>
             </template>
             <p
-              v-if="!fields.length && !['mail', 'sms'].includes(panelTab)"
+              v-if="
+                !fields.length &&
+                !['mail', 'sms', 'certificate', 'ocr'].includes(panelTab)
+              "
               class="empty"
             >
               {{
