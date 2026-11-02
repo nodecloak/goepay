@@ -65,6 +65,26 @@ export interface PayoutCapabilities {
   }[];
   reason: string;
 }
+export function payoutCapabilityReason(reason: string): string {
+  if (!reason) return "";
+  const messages: Record<string, string> = {
+    "payment writes or merchant transfers disabled":
+      "当前未开放结算出款，请管理员核对出款执行开关和商户的“允许代付 API”设置。",
+    "approved settlement required":
+      "结算申请尚未核准，请先由管理员审核原申请。",
+    "original dedicated gross reservation required":
+      "原申请缺少独立冻结资金，请核对资金归属后再处理。",
+    "original recipient snapshot required":
+      "原申请缺少有效收款快照，当前收款资料不能替代历史快照，请核对原申请。",
+    "no matching payment application/product and permitted channel":
+      "没有匹配原收款快照的可用出款通道，请核对收款方式、应用及通道权限。",
+    "original payout already prepared; use its existing transfer":
+      "原结算已建立唯一出款记录，请使用原记录继续核对和操作。",
+  };
+  return Object.hasOwn(messages, reason)
+    ? messages[reason]!
+    : "结算出款条件未满足，请刷新原申请并核对资金、收款资料和执行权限。";
+}
 function row(raw: unknown): Row {
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
     throw new Error("结算出款资料格式无效，请重新读取原申请");

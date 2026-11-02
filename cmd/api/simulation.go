@@ -7,6 +7,9 @@ import (
 	"goepay/internal/payment"
 	"goepay/internal/server"
 	"goepay/internal/simulation"
+	"os"
+	"strconv"
+	"strings"
 )
 
 func configureSimulation(app *server.Server, mode string, seed []byte, origin string) error {
@@ -19,6 +22,24 @@ func configureSimulation(app *server.Server, mode string, seed []byte, origin st
 	if origin == "" {
 		origin = "http://127.0.0.1:8180"
 	}
+	// Explicit local fixtures may admit new merchants before they are created.
+	// Never infer admission from an HTTP parameter or extend configured providers.
+	raw := os.Getenv("GOEPAY_SIMULATION_MERCHANT_IDS")
+	if raw == "" {
+		raw = "1000"
+	}
+	ids := strings.Split(raw, ",")
+	if len(ids) > 100 {
+		return errors.New("invalid local simulation merchant allowlist")
+	}
+	mapping := make(map[int64][]int64, len(ids))
+	for _, id := range ids {
+		mid, err := strconv.ParseInt(id, 10, 64)
+		if err != nil || mid <= 0 || strconv.FormatInt(mid, 10) != id || mapping[mid] != nil {
+			return errors.New("invalid local simulation merchant allowlist")
+		}
+		mapping[mid] = []int64{1, 2}
+	}
 	env, e := simulation.New(seed, origin)
 	if e != nil {
 		return e
@@ -28,7 +49,7 @@ func configureSimulation(app *server.Server, mode string, seed []byte, origin st
 	flow := &payment.ProviderFlow{Store: app.Store, Providers: env.Providers(), AllowLive: true, LocalSimulation: true, CallbackBaseURL: origin}
 	app.ProviderFlow = flow
 	flow.ReturnURLBuilder = app.ProviderReturnURL
-	app.MerchantChannels = map[int64][]int64{1000: {1, 2}}
+	app.MerchantChannels = mapping
 	env.Notify = func(ctx context.Context, id int64, trade string, raw []byte) error {
 		return flow.HandleNotification(ctx, id, trade, nil, raw)
 	}

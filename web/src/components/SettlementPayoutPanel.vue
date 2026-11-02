@@ -3,6 +3,7 @@ import { ref, computed, watch, onBeforeUnmount } from "vue";
 import type { ApiClient } from "../api";
 import type { Area } from "../menu";
 import {
+  payoutCapabilityReason,
   readPayoutDetail,
   readPayoutCapabilities,
   readSettlementPayout,
@@ -233,7 +234,9 @@ onBeforeUnmount(() => {
       <p v-else class="muted">
         尚未准备出款。缺失申请费用快照、独立资金或收款快照时不能出款；银行卡须匹配明确可用的银行产品。
       </p>
-      <p v-if="caps?.reason" class="alert">{{ caps.reason }}</p>
+      <p v-if="caps?.reason" class="alert">
+        {{ payoutCapabilityReason(caps.reason) }}
+      </p>
       <hr class="payout-divider" aria-hidden="true" />
       <template v-if="actions.prepare && !uncertain"
         ><label
