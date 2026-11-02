@@ -10,6 +10,7 @@ interface TransferCapabilityCommon {
   effective_enabled?: boolean;
   permission_source?: string;
   merchant_enabled: boolean;
+  default_channels?: Record<string, string>;
   channels: {
     id: string;
     types: string[];
@@ -59,6 +60,27 @@ export function readTransferCapabilities(value: unknown): TransferCapabilities {
     )
   )
     throw invalid();
+  if (Object.hasOwn(data, "default_channels")) {
+    const defaults = data.default_channels;
+    if (
+      !defaults ||
+      typeof defaults !== "object" ||
+      Array.isArray(defaults) ||
+      Object.keys(defaults).length !== 4
+    )
+      throw invalid();
+    for (const kind of ["alipay", "wxpay", "qqpay", "bank"]) {
+      const id = (defaults as Record<string, unknown>)[kind];
+      if (
+        typeof id !== "string" ||
+        (id !== "" &&
+          !(data.channels as TransferCapabilityCommon["channels"]).some(
+            (c) => c.id === id && c.types.includes(kind),
+          ))
+      )
+        throw invalid();
+    }
+  }
   const common = data as unknown as TransferCapabilityCommon;
   const hasFeeFlag = Object.hasOwn(data, "fee_policy_available"),
     hasFundsFlag = Object.hasOwn(data, "funds_policy_available");
@@ -116,4 +138,13 @@ export function readTransferCapabilities(value: unknown): TransferCapabilities {
     transfer_rate: rate,
     policy_available: true,
   };
+}
+
+export function defaultTransferChannel228(
+  value: TransferCapabilities | null,
+  kind: string,
+): string {
+  if (!value) return "";
+  if (value.default_channels) return value.default_channels[kind] || "";
+  return value.channels.find((c) => c.types.includes(kind))?.id || "";
 }

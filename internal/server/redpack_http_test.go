@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -18,6 +19,7 @@ import (
 // redpackProvider is an in-process transfer double on channel 7 (alipay).
 type redpackProvider struct {
 	*channel168Provider
+	unknown  bool
 	sent     atomic.Int32
 	accounts []string
 }
@@ -26,6 +28,9 @@ func (p *redpackProvider) TransferTypes() []string { return []string{"alipay"} }
 func (p *redpackProvider) Transfer(_ context.Context, r adapter.TransferRequest) (adapter.TransferResult, error) {
 	p.sent.Add(1)
 	p.accounts = append(p.accounts, r.Account)
+	if p.unknown {
+		return adapter.TransferResult{}, errors.New("synthetic unknown result")
+	}
 	return adapter.TransferResult{TransferNo: r.TransferNo, ProviderTransferNo: "ALI_" + r.TransferNo, State: "SUCCESS", Amount: r.Amount, PayDate: "2026-10-28 10:00:00"}, nil
 }
 func (p *redpackProvider) QueryTransfer(_ context.Context, r adapter.TransferRequest) (adapter.TransferResult, error) {

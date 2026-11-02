@@ -18,9 +18,9 @@ it("maps the assigned settings keys to their epay_pro tab, label and control", (
     ["settle_wxpay", "settle", "微信结算开关", "select"],
     ["settle_qqpay", "settle", "QQ钱包结算开关", "select"],
     ["settle_bank", "settle", "银行卡结算开关", "select"],
-    ["transfer_wxpay", "transfer", "微信转账接口通道", "select"],
-    ["transfer_qqpay", "transfer", "QQ钱包转账接口通道", "select"],
-    ["transfer_bank", "transfer", "银行卡转账接口通道", "select"],
+    ["transfer_wxpay", "transfer", "微信转账方式开关（兼容配置）", "select"],
+    ["transfer_qqpay", "transfer", "QQ钱包转账方式开关（兼容配置）", "select"],
+    ["transfer_bank", "transfer", "银行卡转账方式开关（兼容配置）", "select"],
     ["user_transfer_batch", "transfer", "用户中心批量代付功能", "select"],
     ["subchannel_open", "merchant", "开启子通道管理功能", "select"],
     ["user_profitsharing", "merchant", "开启添加分账规则(进件)", "select"],
@@ -167,7 +167,15 @@ it("renders the assigned settings on the design kit with one 保存 per tab", as
         permissions: { create: true, update: true, delete: false },
       };
     if (path === "/resources/settings?page=1&limit=100")
-      return { items: [], total: 0 };
+      return {
+        items: [
+          "settle_alipay",
+          "settle_wxpay",
+          "settle_qqpay",
+          "settle_bank",
+        ].map((key, i) => ({ id: String(i + 1), key, value: "1" })),
+        total: 4,
+      };
     throw new Error("unexpected settings API " + path);
   }) as ApiClient["request"];
   const wrapper = mount(SettingsPage, {

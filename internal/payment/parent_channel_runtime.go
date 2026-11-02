@@ -11,6 +11,11 @@ import (
 	adapter "goepay/internal/adapters/payment"
 )
 
+type ParentRuntimeReader interface {
+	fundsReader
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}
+
 // The fee anchor and execution account have separate private provenance.
 // A new version never impersonates the original fee account or product.
 type parentExecutionBinding struct {
@@ -152,15 +157,29 @@ func (g ProviderFlow) restoreParentExecution(a parentChannelAccount) (adapter.Pa
 // cannot expand the current operator allowlist; both sources must agree.
 // No provider request, cache write, or persistent configuration write occurs.
 func (g *ProviderFlow) RuntimeParentChannels(ctx context.Context, mid int64, operator map[int64][]int64, current ...func(int64, int64) bool) (ProviderFlow, []int64, error) {
-	allowed := append([]int64(nil), operator[mid]...)
 	if g.Store == nil || mid <= 0 {
 		return *g, nil, ErrInvalid
 	}
-	tx, e := g.Store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
-	if e != nil {
-		return *g, nil, e
+	tx, err := g.Store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return *g, nil, err
 	}
 	defer tx.Rollback(ctx)
+	out, allowed, err := g.RuntimeParentChannelsSnapshot(ctx, tx, mid, operator, current...)
+	if err != nil {
+		return *g, nil, err
+	}
+	return out, allowed, tx.Commit(ctx)
+}
+
+// RuntimeParentChannelsSnapshot restores the same verified catalog inside the
+// caller's snapshot. It never commits, mutates grants, or calls a provider.
+func (g *ProviderFlow) RuntimeParentChannelsSnapshot(ctx context.Context, tx ParentRuntimeReader, mid int64, operator map[int64][]int64, current ...func(int64, int64) bool) (ProviderFlow, []int64, error) {
+	allowed := append([]int64(nil), operator[mid]...)
+	if g.Store == nil || mid <= 0 || tx == nil {
+		return *g, nil, ErrInvalid
+	}
+	var e error
 	if _, e = g.Store.parentPaymentSchema(ctx, tx); e != nil {
 		return *g, nil, e
 	}
@@ -268,9 +287,6 @@ func (g *ProviderFlow) RuntimeParentChannels(ctx context.Context, mid int64, ope
 	}
 	sort.Slice(extras, func(i, j int) bool { return extras[i] < extras[j] })
 	allowed = append(allowed, extras...)
-	if e = tx.Commit(ctx); e != nil {
-		return *g, nil, e
-	}
 	return out, allowed, nil
 }
 

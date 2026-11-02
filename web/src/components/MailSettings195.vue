@@ -11,7 +11,7 @@ const props = defineProps<{
   ownSession: boolean;
 }>();
 const emit = defineEmits<{ busy: [boolean] }>();
-const tab = ref<"channel" | "rate">("channel"),
+const tab = ref<"all" | "channel" | "rate">("all"),
   busy = ref(false),
   rateBusy = ref(false),
   testBusy = ref(false),
@@ -30,7 +30,7 @@ const draft = ref({
 });
 const hasDraft = ref(false),
   unresolvedDraft = ref(false),
-  visitedRate = ref(false);
+  visitedRate = ref(true);
 const draftDirty = computed(
   () =>
     unresolvedDraft.value ||
@@ -335,6 +335,14 @@ onBeforeUnmount(() => {
     <div role="tablist" aria-label="邮箱配置分类" class="settings-tabs">
       <button
         role="tab"
+        :aria-selected="tab === 'all'"
+        :disabled="busy || rateBusy || opened || testBusy"
+        @click="tab = 'all'"
+      >
+        查看全部
+      </button>
+      <button
+        role="tab"
         :aria-selected="tab === 'channel'"
         :disabled="busy || rateBusy || opened || testBusy"
         @click="tab = 'channel'"
@@ -352,13 +360,13 @@ onBeforeUnmount(() => {
     </div>
     <MailFrequency194
       v-if="visitedRate"
-      v-show="tab === 'rate'"
+      v-show="tab !== 'channel'"
       :client="client"
       :admin-class="adminClass"
       :own-session="ownSession"
       @busy="rateBusy = $event"
     />
-    <div v-show="tab === 'channel'">
+    <div v-show="tab !== 'rate'">
       <p v-if="!allowed" class="muted">账号设置需要超级管理员本人会话。</p>
       <template v-else>
         <button :disabled="loading || busy || opened || testBusy" @click="load">

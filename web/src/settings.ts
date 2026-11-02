@@ -106,6 +106,10 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     { group: "进件配置（本轮暂缓）" },
     "applyments_open",
     "mchrisk_open",
+    { group: "商户保证金" },
+    "user_deposit",
+    "user_deposit_min",
+    "user_deposit_day",
   ],
   pay: [
     "pay_maxmoney",
@@ -124,6 +128,10 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     "wxcombine_open",
     "wxcombine_minmoney",
     "wxcombine_submoney",
+    { group: "通知失败管控" },
+    "auto_check_notify",
+    "check_notify_count",
+    "check_notify_notice",
   ],
   complaint: ["complain_open"],
   settle: [
@@ -179,6 +187,7 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     { embed: "oauth-credentials" },
   ],
   notice: [
+    { group: "管理员接收消息设置" },
     "msgconfig_regaudit",
     "msgconfig_apply",
     "msgconfig_domain",
@@ -187,8 +196,10 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     "mail_name",
     "msgtelegram_chatid",
     "qqbot_openid",
+    { group: "用户接收消息渠道开关" },
     "telegramnotice",
     "qqbotnotice",
+    { group: "用户接收消息类型开关" },
     "msgconfig_order",
     "msgconfig_settle",
     "msgconfig_login",
@@ -199,12 +210,14 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     "msgconfig_domain_audit",
     "msgconfig_daily_report",
     "msgconfig_*",
+    { group: "微信公众号消息提醒设置" },
     "wxnotice_tpl_order*",
     "wxnotice_tpl_settle*",
     "wxnotice_tpl_login*",
     "wxnotice_tpl_complain*",
     "wxnotice_tpl_balance*",
     "wxnotice_tpl_*",
+    { group: "云喇叭语音播报" },
     "voicenotice",
   ],
   anounce: ["modal", "zhuce", "footer"],
@@ -382,7 +395,7 @@ const labels: Record<
   qqbotnotice: ["notice", "QQ Bot提醒", "select"],
   voicenotice: ["notice", "语音提醒", "select"],
   mail_recv: ["notice", "管理员邮箱", "email"],
-  mail_name: ["notice", "管理员邮箱", "email"],
+  mail_name: ["notice", "管理员接收邮箱（兼容回退）", "email"],
   msgtelegram_chatid: ["notice", "管理员Telegram会话ID", "text"],
   qqbot_openid: ["notice", "管理员QQ机器人OpenID", "text"],
   admin_funds_authorization_enabled: [
@@ -407,13 +420,19 @@ const labels: Record<
   settle_wxpay: ["settle", "微信结算开关", "select"],
   settle_qqpay: ["settle", "QQ钱包结算开关", "select"],
   settle_bank: ["settle", "银行卡结算开关", "select"],
-  transfer_wxpay: ["transfer", "微信转账接口通道", "select"],
-  transfer_qqpay: ["transfer", "QQ钱包转账接口通道", "select"],
-  transfer_bank: ["transfer", "银行卡转账接口通道", "select"],
+  transfer_wxpay: ["transfer", "微信转账方式开关（兼容配置）", "select"],
+  transfer_qqpay: ["transfer", "QQ钱包转账方式开关（兼容配置）", "select"],
+  transfer_bank: ["transfer", "银行卡转账方式开关（兼容配置）", "select"],
   user_transfer_batch: ["transfer", "用户中心批量代付功能", "select"],
   subchannel_open: ["merchant", "开启子通道管理功能", "select"],
   user_profitsharing: ["merchant", "开启添加分账规则(进件)", "select"],
   user_totp_open: ["merchant", "开启商户TOTP二次验证", "select"],
+  user_deposit: ["merchant", "开启商户保证金功能", "select"],
+  user_deposit_min: ["merchant", "平台最低缴纳保证金（元）", "money"],
+  user_deposit_day: ["merchant", "商户保证金最少冻结天数", "integer"],
+  auto_check_notify: ["pay", "连续通知失败后关闭新支付权限", "select"],
+  check_notify_count: ["pay", "连续通知失败订单数量", "integer"],
+  check_notify_notice: ["pay", "支付权限关闭邮件提醒", "select"],
   verifytype: ["merchant", "用户验证方式", "select"],
   onecode_domains: ["merchant", "聚合收款码可选域名", "textarea"],
   pay_domain_open: ["merchant", "开启授权支付域名添加", "select"],
@@ -535,6 +554,9 @@ export function settingDefinition(
       "subchannel_open",
       "user_profitsharing",
       "user_totp_open",
+      "user_deposit",
+      "auto_check_notify",
+      "check_notify_notice",
       "pay_domain_open",
       "pageordername",
       "notifyordername",
@@ -652,6 +674,23 @@ export function settingDefinition(
   if (key === "user_totp_open")
     d.hint =
       "开启后，商户可在账户设置中绑定TOTP，登录时进行二次验证。关闭后不能新绑定；已绑定的商户登录仍需验证，也可自行解绑。";
+  if (key === "support_email")
+    d.hint = "清空后将停止显示联系邮箱，原兼容值保留作历史参考。";
+  if (key === "mail_name")
+    d.hint =
+      "管理员接收邮箱为空时使用此兼容回退地址；可清空停用，保存不会发送消息。";
+  if (["transfer_wxpay", "transfer_qqpay", "transfer_bank"].includes(key))
+    d.hint =
+      "仅在上方对应通道选择为沿用兼容配置时生效；0关闭、1开启，不是通道ID。";
+  if (key === "user_deposit_min")
+    d.hint =
+      "有效用户组可覆盖；低于要求禁止新支付。金额使用元，最多两位小数；0或留空不设平台最低保证金。";
+  if (key === "user_deposit_day")
+    d.hint = "提取保证金前最近指定天数内须无订单、无投诉；范围0–3660天。";
+  if (key === "check_notify_count")
+    d.hint = "0关闭此检查，最多1000笔；只统计已支付且通知失败的订单。";
+  if (["auto_check_notify", "check_notify_notice"].includes(key))
+    d.hint = "由通知失败检查任务执行，保存配置不会运行任务或发送消息。";
   if (key === "verifytype")
     d.hint =
       "用于商户注册绑定邮箱/手机。选手机验证时需短信接口可用；未配置时两种方式都可用。";
@@ -738,6 +777,44 @@ export function settingDisplay(d: SettingDefinition, value: string): string {
 }
 export function settingStorage(d: SettingDefinition, input: string): string {
   const value = input.trim();
+  if (
+    !value &&
+    ([
+      "blockname",
+      "blockalert",
+      "blackmsg",
+      "pay_force_cashier_pids",
+      "user_deposit_min",
+      "user_deposit_day",
+      "mail_recv",
+      "mail_name",
+      "msgtelegram_chatid",
+      "qqbot_openid",
+    ].includes(d.key) ||
+      new Set(
+        Object.entries({
+          order: "no name money time outno",
+          settle: "type account money realmoney time",
+          login: "user time name ip iploc",
+          complain: "order_no time reason type name",
+          balance: "user time money msg",
+          wxtransfer: "money time",
+        }).flatMap(([scene, fields]) =>
+          fields.split(" ").map((field) => `wxnotice_tpl_${scene}_${field}`),
+        ),
+      ).has(d.key))
+  )
+    return "";
+  const boundedInteger: Record<string, number> = {
+    user_deposit_day: 3660,
+    check_notify_count: 1000,
+  };
+  if (
+    d.key in boundedInteger &&
+    (!/^(0|[1-9]\d*)$/.test(value) ||
+      BigInt(value) > BigInt(boundedInteger[d.key]!))
+  )
+    throw Error(`${d.label}：请输入0–${boundedInteger[d.key]}的整数`);
   if (d.key === "captcha_id") {
     if (!/^[A-Za-z0-9_-]{0,128}$/.test(value))
       throw Error("极验滑动验证码ID格式无效");

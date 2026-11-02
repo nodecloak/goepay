@@ -321,6 +321,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if !s.auditDelegatedRequest(w, r, session) {
 		return
 	}
+	if s.transferRoutingConsole228(w, r, role, session, parts, c.Value) {
+		return
+	}
 	if s.captchaSettingsConsole203(w, r, role, session, parts, c.Value) {
 		return
 	}

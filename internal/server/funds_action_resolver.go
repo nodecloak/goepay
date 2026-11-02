@@ -467,9 +467,13 @@ func (s *Server) ResolveFundsAction(ctx context.Context, q identity.FundsQuerier
 		if s.ProviderFlow == nil {
 			return identity.FundsAction{}, nil, payment.ErrLiveDisabled
 		}
-		channel, err := s.transferChannel(mid, compat.Params{"type": fundsText(fields, "type"), "channel_id": fundsText(fields, "channel_id")})
+		view, channel, routing, err := s.resolveTransferRouting228(ctx, q, mid, fundsText(fields, "external_no"), compat.Params{"type": fundsText(fields, "type"), "channel_id": fundsText(fields, "channel_id")})
 		if err != nil {
 			return identity.FundsAction{}, nil, err
+		}
+		s = view
+		if routing.Fingerprint != "" {
+			snapshot["transfer_routes228"] = routing
 		}
 		channels[channel] = true
 		summary["channel_id"] = fmt.Sprint(channel)
@@ -482,10 +486,23 @@ func (s *Server) ResolveFundsAction(ctx context.Context, q identity.FundsQuerier
 		if json.Unmarshal(fields["items"], &items) != nil || len(items) == 0 {
 			return identity.FundsAction{}, nil, payment.ErrInvalid
 		}
-		for _, item := range items {
-			channel, err := s.transferChannel(mid, compat.Params{"type": item.Type, "channel_id": item.ChannelID})
+		var batchID int64
+		err := q.QueryRow(ctx, `SELECT id FROM transfer_batches WHERE merchant_id=$1 AND external_no=$2`, mid, fundsText(fields, "external_no")).Scan(&batchID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return identity.FundsAction{}, nil, err
+		}
+		for pos, item := range items {
+			no := ""
+			if batchID > 0 {
+				no = fmt.Sprintf("TB%d-%d", batchID, pos+1)
+			}
+			view, channel, routing, err := s.resolveTransferRouting228(ctx, q, mid, no, compat.Params{"type": item.Type, "channel_id": item.ChannelID})
 			if err != nil {
 				return identity.FundsAction{}, nil, err
+			}
+			s = view
+			if routing.Fingerprint != "" {
+				snapshot["transfer_routes228"] = routing
 			}
 			channels[channel] = true
 		}
@@ -659,6 +676,13 @@ func (s *Server) ResolveFundsAction(ctx context.Context, q identity.FundsQuerier
 		}
 		if e = rows.Err(); e != nil {
 			return identity.FundsAction{}, nil, e
+		}
+		if len(ids) > 0 {
+			view, err := s.transferBatchOriginalView228(ctx, q, mid, id)
+			if err != nil {
+				return identity.FundsAction{}, nil, err
+			}
+			s = view
 		}
 		snapshot["selected"] = selected
 		snapshot["selected_ids"] = ids

@@ -55,6 +55,7 @@ import {
 import TransferPolicySummary from "./TransferPolicySummary.vue";
 import {
   readTransferCapabilities,
+  defaultTransferChannel228,
   type TransferCapabilities,
 } from "../transfer-capabilities";
 const props = defineProps<{
@@ -407,7 +408,10 @@ const tabDisabled = (type: string) =>
 function setType(type: string) {
   if (tabDisabled(type) || form.value.type === type) return;
   form.value.type = type;
-  form.value.channel_id = channels.value[0]?.id || "";
+  form.value.channel_id = defaultTransferChannel228(
+    capabilities.value,
+    form.value.type,
+  );
 }
 function tabKeydown(event: KeyboardEvent) {
   const step =
@@ -482,7 +486,10 @@ async function loadCapabilities() {
       form.value.type = availableTypes.value.includes(form.value.type)
         ? form.value.type
         : availableTypes.value[0] || "";
-      form.value.channel_id = channels.value[0]?.id || "";
+      form.value.channel_id = defaultTransferChannel228(
+        capabilities.value,
+        form.value.type,
+      );
     }
   } catch (e) {
     if (epoch === capEpoch) error.value = message(e);

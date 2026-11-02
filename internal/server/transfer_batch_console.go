@@ -130,13 +130,25 @@ func (s *Server) transferBatchConsole(w http.ResponseWriter, r *http.Request, ro
 			return true
 		}
 		items := make([]payment.TransferBatchInput, 0, len(in.Items))
-		for _, item := range in.Items {
-			channel, e := s.transferChannel(mid, compat.Params{"type": item.Type, "channel_id": item.ChannelID})
+		var batchID int64
+		err := s.Pool.QueryRow(r.Context(), `SELECT id FROM transfer_batches WHERE merchant_id=$1 AND external_no=$2`, mid, in.ExternalNo).Scan(&batchID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			fail(err)
+			return true
+		}
+		for pos, item := range in.Items {
+			no := ""
+			if batchID > 0 {
+				no = fmt.Sprintf("TB%d-%d", batchID, pos+1)
+			}
+			view, channel, routing, e := s.resolveTransferRouting228(r.Context(), s.Pool, mid, no, compat.Params{"type": item.Type, "channel_id": item.ChannelID})
 			amount, ae := ledger.Parse(item.Amount)
 			if e != nil || ae != nil || amount <= 0 {
 				response(w, 422, -1, "invalid batch item or channel", nil)
 				return true
 			}
+			s = view
+			r = r.WithContext(transferRoutingContext228(r.Context(), routing))
 			req := adapter.TransferRequest{Type: item.Type, Account: item.Account, Name: item.Name, Amount: amount, Remark: item.Remark, BankCode: item.BankCode}
 			if item.Type == "alipay" {
 				req.Title = req.Remark
@@ -207,7 +219,12 @@ func (s *Server) transferBatchConsole(w http.ResponseWriter, r *http.Request, ro
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 		defer cancel()
-		out, e = s.ProviderFlow.ExecuteTransferBatch(ctx, mid, id, in.Limit, actor, s.batchChannelCheck(mid))
+		view, err := s.transferBatchOriginalView228(ctx, s.Pool, mid, id)
+		if err != nil {
+			fail(err)
+			return true
+		}
+		out, e = view.ProviderFlow.ExecuteTransferBatch(ctx, mid, id, in.Limit, actor, view.batchChannelCheck(mid))
 	case "query", "cancel-unsent":
 		var in struct{}
 		if !decode(w, r, &in) {

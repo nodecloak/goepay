@@ -2,6 +2,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, expect, it, vi } from "vitest";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { ApiClient } from "../src/api";
+import KitSelect from "../src/components/KitSelect.vue";
 import TransferPage from "../src/components/TransferPage.vue";
 import { defaultTransferNo, transferCost } from "../src/transfers";
 
@@ -266,4 +267,45 @@ it("defaultTransferNo is the original 19-digit date + random number", () => {
   const at = new Date(2026, 9, 29, 23, 23, 44);
   expect(defaultTransferNo(at, 0)).toBe("2026102923234411111");
   expect(defaultTransferNo(at, 0.999999)).toBe("2026102923234499999");
+});
+
+it("selects the configured authorized default instead of the first channel", async () => {
+  const { w } = setup(
+    "merchant",
+    caps({
+      channels: [
+        { id: "42", types: ["alipay", "wxpay"] },
+        { id: "99", types: ["alipay", "wxpay"] },
+      ],
+      default_channels: { alipay: "99", wxpay: "99", qqpay: "", bank: "" },
+    }),
+  );
+  try {
+    await open(w);
+    expect(
+      w
+        .findAllComponents(KitSelect)
+        .find((c) => c.props("ariaLabel") === "通道选择")!
+        .props("modelValue"),
+    ).toBe("99");
+  } finally {
+    w.unmount();
+  }
+});
+it("keeps channel selection empty when the configured default is not authorized", async () => {
+  const { w } = setup(
+    "merchant",
+    caps({ default_channels: { alipay: "", wxpay: "", qqpay: "", bank: "" } }),
+  );
+  try {
+    await open(w);
+    expect(
+      w
+        .findAllComponents(KitSelect)
+        .find((c) => c.props("ariaLabel") === "通道选择")!
+        .props("modelValue"),
+    ).toBe("");
+  } finally {
+    w.unmount();
+  }
 });

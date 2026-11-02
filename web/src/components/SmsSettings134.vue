@@ -423,6 +423,10 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section aria-label="短信配置">
+    <h3 class="settings-group">短信验证码频率限制</h3>
+    <p class="muted">
+      当前服务规则：同一手机号发送间隔至少60秒，每24小时最多3次；同一IP每24小时最多6次。验证码有效期60分钟，使用后立即失效。频率随服务发布管理。
+    </p>
     <p v-if="!allowed" class="muted">短信网关设置需要超级管理员本人会话。</p>
     <template v-else>
       <button :disabled="loading || busy || testBusy" @click="load">

@@ -18,7 +18,7 @@ const state = () => ({
   revision: "0",
   fingerprint: "a".repeat(64),
 });
-async function setup() {
+async function setup(openRate = true) {
   const c = new ApiClient("admin");
   c.csrfToken = "mail194-session";
   const writes: any[] = [];
@@ -48,13 +48,31 @@ async function setup() {
   await flushPromises();
   await w.get("#settings-tab-mail").trigger("click");
   await flushPromises();
-  await w
-    .findAll('button[role="tab"]')
-    .find((b) => b.text() === "发送频率配置")!
-    .trigger("click");
+  if (openRate)
+    await w
+      .findAll('button[role="tab"]')
+      .find((b) => b.text() === "发送频率配置")!
+      .trigger("click");
   await flushPromises();
   return { c, w, request, writes };
 }
+it("shows the four original rate fields and channel controls on initial mail entry", async () => {
+  const { w, writes } = await setup(false);
+  try {
+    expect(w.find('form[aria-label="邮件发送频率配置"]').exists()).toBe(true);
+    expect(w.get('input[aria-label="同一邮箱每日发送次数"]').isVisible()).toBe(
+      true,
+    );
+    expect(
+      w
+        .findAll("button")
+        .some((b) => b.text() === "重新读取SMTP账号" && b.isVisible()),
+    ).toBe(true);
+    expect(writes).toHaveLength(0);
+  } finally {
+    w.unmount();
+  }
+});
 it("original mail frequency fields use a protected four-field save and display the actual legacy limits", async () => {
   const { w, writes } = await setup();
   expect(w.text()).toContain("发送频率配置");

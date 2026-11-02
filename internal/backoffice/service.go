@@ -119,6 +119,7 @@ var (
 func validate(p Principal, d definition, raw map[string]json.RawMessage, current map[string]any, create bool) (map[string]any, error) {
 	d = layoutSettingDefinition(d, raw, current)
 	d = siteSettingDefinition191(d, raw, current)
+	d = optionalSettingDefinition228(d, raw, current)
 	fields := map[string]Field{}
 	for _, f := range d.fields {
 		fields[f.Name] = f
@@ -288,6 +289,9 @@ func validateSpecific(resource string, v map[string]any) error {
 			v["max_uses"] = "1"
 		}
 	case "settings":
+		if _, ok := v["value"].(string); !ok {
+			return ErrInvalid
+		}
 		key := fmt.Sprint(v["key"])
 		if originalLayoutSetting(key) {
 			if _, ok := v["value"].(string); !ok {

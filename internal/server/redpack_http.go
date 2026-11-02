@@ -151,12 +151,35 @@ func (s *Server) redpackConsole(w http.ResponseWriter, r *http.Request, role str
 			response(w, 422, -1, "红包金额无效", nil)
 			return true
 		}
-		channel, err := s.transferChannel(mid, compat.Params{"type": in.Type, "channel_id": in.ChannelID})
-		if err != nil {
-			response(w, 422, -1, "转账通道不可用", nil)
+		var channel int64
+		var routing payment.TransferRoutingState228
+		old, existing := s.Store.RedpackByExternal228(r.Context(), mid, in.OutBizNo)
+		if existing == nil {
+			channel = old.ChannelID
+			if in.ChannelID != "" && in.ChannelID != strconv.FormatInt(channel, 10) {
+				response(w, 409, -1, "该交易号的原通道不一致", nil)
+				return true
+			}
+		} else if errors.Is(existing, payment.ErrNotFound) {
+			_, channel, routing, err = s.resolveTransferRouting228(r.Context(), s.Pool, mid, "", compat.Params{"type": in.Type, "channel_id": in.ChannelID})
+			if err != nil {
+				response(w, 422, -1, "转账通道不可用", nil)
+				return true
+			}
+			var managed bool
+			if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM runtime_parent_channels WHERE id=$1)`, channel).Scan(&managed); err != nil {
+				s.fail(w, err)
+				return true
+			}
+			if managed || s.OAuthProviders[channel] == nil || s.OAuthProviders[channel].ID() != in.Type {
+				response(w, 422, -1, "此通道缺少可恢复的红包领取授权，请选择已配置领取授权的通道", nil)
+				return true
+			}
+		} else {
+			s.fail(w, existing)
 			return true
 		}
-		p, err := s.Store.CreateRedpack(r.Context(), payment.RedpackInput{MerchantID: mid, ChannelID: channel, ActorID: self, OutBizNo: in.OutBizNo, Type: in.Type, Remark: in.Remark, Role: role, Amount: amount})
+		p, err := s.Store.CreateRedpack(transferRoutingContext228(r.Context(), routing), payment.RedpackInput{MerchantID: mid, ChannelID: channel, ActorID: self, OutBizNo: in.OutBizNo, Type: in.Type, Remark: in.Remark, Role: role, Amount: amount})
 		switch {
 		case err == nil:
 			response(w, 200, 0, "", s.redpackView(p))
@@ -248,21 +271,31 @@ func (s *Server) redpackPublic(w http.ResponseWriter, r *http.Request) bool {
 		return true
 	}
 	switch p.Status {
-	case "succeeded", "claiming", "failed":
+	case "succeeded", "failed":
 		fail(409, "该红包已被领取")
 		return true
 	case "expired":
 		fail(410, "红包已过期")
 		return true
 	}
-	if !time.Now().Before(p.ExpiresAt) {
+	if p.Status != "claiming" && !time.Now().Before(p.ExpiresAt) {
 		fail(410, "红包已过期")
+		return true
+	}
+	if p.Status == "claiming" && r.URL.Path == "/pay/red" {
+		redpackRender(w, 200, redpackPageData{Title: "核对红包领取", Heading: "领取身份已锁定", Money: ledger.Format(p.Amount), Message: "请使用原领取账号继续核对。已有转账只恢复原请求，不会重复付款。", Action: "/pay/red/authorize?" + r.URL.RawQuery, ActionLabel: "原领取人继续核对"})
 		return true
 	}
 	if r.URL.Path == "/pay/red" {
 		redpackRender(w, 200, redpackPageData{Title: "领取红包", Heading: "恭喜发财，大吉大利", Money: ledger.Format(p.Amount), Remark: p.Remark, Message: "领取后将存入" + redpackWallet(p.Type), Action: "/pay/red/authorize?" + r.URL.RawQuery, ActionLabel: "立即领取"})
 		return true
 	}
+	restored, restoreErr := s.redpackOriginalView228(r.Context(), p)
+	if restoreErr != nil {
+		fail(503, "原红包付款资料暂时无法核实，请联系发放方核对")
+		return true
+	}
+	s = restored
 	oauth := s.OAuthProviders[p.ChannelID]
 	if oauth == nil || oauth.ID() != p.Type {
 		fail(503, "红包领取通道暂不可用")
@@ -319,6 +352,12 @@ func (s *Server) redpackCallback(w http.ResponseWriter, r *http.Request, fail fu
 		fail(404, "红包不存在")
 		return
 	}
+	restored, restoreErr := s.redpackOriginalView228(r.Context(), p)
+	if restoreErr != nil {
+		fail(503, "原红包付款资料暂时无法核实，请联系发放方核对")
+		return
+	}
+	s = restored
 	oauth := s.OAuthProviders[p.ChannelID]
 	code := q.Get("code")
 	if p.Type == "alipay" {
@@ -334,7 +373,13 @@ func (s *Server) redpackCallback(w http.ResponseWriter, r *http.Request, fail fu
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: redpackBrowserCookie, Value: "", Path: "/pay/red/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1})
-	got, t, err := s.ProviderFlow.ClaimRedpack(r.Context(), id, who.SubjectID)
+	var got payment.Redpack
+	var t payment.Transfer
+	if p.Status == "claiming" {
+		got, t, err = s.ProviderFlow.ResumeRedpack228(r.Context(), id, who.SubjectID)
+	} else {
+		got, t, err = s.ProviderFlow.ClaimRedpack(r.Context(), id, who.SubjectID)
+	}
 	if err == nil && got.Status == "claiming" && t.ID > 0 && t.Type == "wxpay" {
 		// 商家转账（新） (original red_confirmwx.php): the claimer, already in
 		// WeChat, confirms the bill with requestMerchantTransfer.
@@ -348,10 +393,12 @@ func (s *Server) redpackCallback(w http.ResponseWriter, r *http.Request, fail fu
 		fail(409, "该红包已被领取")
 	case errors.Is(err, payment.ErrRedpackExpired):
 		fail(410, "红包已过期")
+	case t.ID == 0 && err != nil:
+		fail(503, "本次尚未完成付款，请联系发放方核对转账配置后，使用原领取账号重新扫码继续")
 	case got.Status == "succeeded":
 		redpackRender(w, 200, redpackPageData{Title: "领取成功", Heading: "领取成功", Money: ledger.Format(got.Amount), Message: "已存入" + redpackWallet(got.Type)})
 	case got.Status == "claiming" || t.ID > 0 && got.Status != "failed":
-		redpackRender(w, 200, redpackPageData{Title: "领取成功", Heading: "领取成功", Money: ledger.Format(got.Amount), Message: "将稍后存入" + redpackWallet(got.Type)})
+		redpackRender(w, 200, redpackPageData{Title: "领取处理中", Heading: "付款结果待核对", Money: ledger.Format(got.Amount), Message: "请勿重复领取；可使用原领取账号重新扫码核对原请求"})
 	default:
 		fail(502, "红包领取失败，请联系发放方")
 	}

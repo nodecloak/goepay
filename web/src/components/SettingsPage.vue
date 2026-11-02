@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import CorePaymentRisk from "./CorePaymentRisk.vue";
+import TransferRoutingSettings228 from "./TransferRoutingSettings228.vue";
+import SettingsRuntimeInfo from "./SettingsRuntimeInfo.vue";
 import PaymentDefend206 from "./PaymentDefend206.vue";
 import {
   computed,
@@ -72,6 +74,7 @@ const active = ref<SettingsTab>("site"),
   loading = ref(false),
   busy = ref(false),
   platformBusy = ref(false),
+  transferRoutingBusy = ref(false),
   uncertain = ref(false),
   error = ref(""),
   notice = ref("");
@@ -108,21 +111,26 @@ const fieldsFor = (tab: SettingsTab) =>
         !["test_pay_uid", "captcha_open_test"].includes(d.key) ||
         values.value.test_open === "1",
     )
-    .filter(
-      (d) =>
-        !(
-          d.key === "site_name" &&
-          definitions.value.some((x) => x.key === "sitename")
-        ) &&
-        !(
-          d.key === "support_email" &&
-          definitions.value.some((x) => x.key === "email")
-        ) &&
-        !(
-          d.key === "mail_name" &&
-          definitions.value.some((x) => x.key === "mail_recv")
-        ),
-    );
+    .filter((d) => {
+      for (const [canonical, alias] of [
+        ["sitename", "site_name"],
+        ["email", "support_email"],
+      ]) {
+        const canonicalActive =
+          canonical === "email"
+            ? !!records.value[canonical!]
+            : !!records.value[canonical!]?.value;
+        if (d.key === alias && (canonicalActive || !records.value[alias!]))
+          return false;
+        if (
+          d.key === canonical &&
+          !canonicalActive &&
+          records.value[alias!]?.value
+        )
+          return false;
+      }
+      return true;
+    });
 const fields = computed(() => fieldsFor(active.value));
 function original(d: SettingDefinition) {
   const r = records.value[d.key];
@@ -161,6 +169,7 @@ const links: Partial<Record<SettingsTab, [string, string][]>> = {
   merchant: [
     ["/admin/merchant/group-buy", "用户组购买设置"],
     ["/admin/merchant/group-list", "用户组设置"],
+    ["/admin/system/referral-policies", "邀请返现政策"],
   ],
   risk: [
     ["/admin/trade/blacklist", "黑名单管理"],
@@ -168,7 +177,16 @@ const links: Partial<Record<SettingsTab, [string, string][]>> = {
   ],
   complaint: [["/admin/complain/task", "投诉同步任务"]],
   settle: [["/admin/settle/plans", "自动结算计划"]],
-  notice: [["/admin/merchant/notice", "商户消息提醒"]],
+  notice: [
+    ["/admin/merchant/notice", "商户消息提醒"],
+    ["/admin/system/printing", "小票打印配置"],
+  ],
+  pay: [["/admin/system/cron", "计划任务管理"]],
+  transfer: [
+    ["/admin/payapi/pay-channel", "支付通道配置"],
+    ["/admin/transfer/list", "转账付款"],
+    ["/admin/settle/list", "结算管理"],
+  ],
   anounce: [["/admin/system/anounce", "公告管理"]],
 };
 function dirty(d: SettingDefinition) {
@@ -187,7 +205,8 @@ function switchPair(d: SettingDefinition): readonly [string, string] | null {
   return on && off ? [on.value, off.value] : null;
 }
 function isSwitch(d: SettingDefinition): boolean {
-  return switchPair(d) !== null;
+  // Absence means the server's default applies; it is not an explicit OFF.
+  return switchPair(d) !== null && values.value[d.key] !== "";
 }
 function switchOn(d: SettingDefinition): boolean {
   const pair = switchPair(d);
@@ -202,6 +221,7 @@ const controlsBusy = computed(
   () =>
     busy.value ||
     platformBusy.value ||
+    transferRoutingBusy.value ||
     riskBusy.value ||
     scanBusy.value ||
     mailBusy.value ||
@@ -322,6 +342,7 @@ async function load() {
   if (
     busy.value ||
     platformBusy.value ||
+    transferRoutingBusy.value ||
     riskBusy.value ||
     scanBusy.value ||
     brandBusy.value ||
@@ -413,6 +434,7 @@ async function save() {
     !canWrite.value ||
     busy.value ||
     platformBusy.value ||
+    transferRoutingBusy.value ||
     riskBusy.value ||
     scanBusy.value ||
     brandBusy.value ||
@@ -436,21 +458,34 @@ async function save() {
   let saved = 0;
   let siteSaved = false;
   try {
-    const pending = changed.value.map((d) => ({
-      definition: d,
-      value: settingStorage(d, values.value[d.key] || ""),
-      record: records.value[d.key],
-    }));
+    const pending = changed.value.map((d) => {
+      const clearsLegacyEmail =
+        d.key === "support_email" &&
+        !values.value[d.key]?.trim() &&
+        definitions.value.some((x) => x.key === "email");
+      const target = clearsLegacyEmail ? settingDefinition("email") : d;
+      return {
+        definition: target,
+        value: settingStorage(target, values.value[d.key] || ""),
+        record: records.value[target.key],
+        compatibilityKey: clearsLegacyEmail ? d.key : undefined,
+        compatibilityRecord: clearsLegacyEmail
+          ? records.value[d.key]
+          : undefined,
+      };
+    });
     busy.value = true;
     for (const entry of pending) {
       const { definition: d, value, record } = entry;
-      if (record) {
+      for (const previous of [record, entry.compatibilityRecord].filter(
+        (r): r is SettingRecord => !!r,
+      )) {
         const current = await stamp.client.request<SettingRecord>(
-          `/resources/settings/${encodeURIComponent(record.id)}`,
+          `/resources/settings/${encodeURIComponent(previous.id)}`,
           { signal: c.signal },
         );
         if (c.signal.aborted || !currentContext(stamp)) return;
-        if (current.key !== record.key || current.value !== record.value)
+        if (current.key !== previous.key || current.value !== previous.value)
           throw new ApiError(`${d.label}已由其它操作修改，请刷新核对`, 409, -1);
       }
       if (
@@ -479,6 +514,10 @@ async function save() {
         throw Error(`${d.label}的保存结果未确认`);
       records.value[d.key] = row;
       values.value[d.key] = settingDisplay(d, row.value);
+      if (entry.compatibilityKey)
+        values.value[entry.compatibilityKey] = original(
+          settingDefinition(entry.compatibilityKey),
+        );
       saved++;
       if ((siteKeys191 as readonly string[]).includes(d.key)) siteSaved = true;
     }
@@ -489,7 +528,11 @@ async function save() {
     if (saved) notice.value = `已保存${saved}项，其余设置未完成`;
     if (
       busy.value &&
-      (!(e instanceof ApiError) || e.status >= 500 || e.status === 409)
+      (!(e instanceof ApiError) ||
+        !e.responseDecoded ||
+        e.status < 400 ||
+        e.status >= 500 ||
+        e.status === 409)
     ) {
       uncertain.value = true;
       error.value += "；请刷新核对后再保存";
@@ -504,6 +547,7 @@ function navigate(event: KeyboardEvent, index: number) {
   if (
     busy.value ||
     platformBusy.value ||
+    transferRoutingBusy.value ||
     riskBusy.value ||
     scanBusy.value ||
     brandBusy.value ||
@@ -536,8 +580,9 @@ function navigate(event: KeyboardEvent, index: number) {
 const guidance: Partial<Record<SettingsTab, string>> = {
   certificate: "实名认证业务插件按本轮范围暂缓。",
   ocr: "OCR业务插件按本轮范围暂缓。",
-  sms: "当前尚未接入短信业务插件。",
-  iptype: "当前不提供在线IP归属服务配置，未采集的地域统计显示未知。",
+  sms: "配置短信网关、验证码和通知模板；网关配置与外部发送权限分别校验。",
+  iptype:
+    "IP获取方式与归属地识别分别管理。默认读取直连来源；仅经部署授权的代理可转发单个真实IP，代理信任范围由部署配置管理。",
   advanced: "服务运行参数通过部署配置管理，当前不支持在线执行脚本。",
 };
 watch(
@@ -639,6 +684,27 @@ onBeforeUnmount(() => {
             <p v-if="guidance[panelTab]" class="muted">
               {{ guidance[panelTab] }}
             </p>
+            <TransferRoutingSettings228
+              v-if="panelTab === 'transfer'"
+              :client="client"
+              :admin-class="adminClass"
+              :own-session="ownSession"
+              :disabled="
+                busy ||
+                platformBusy ||
+                riskBusy ||
+                scanBusy ||
+                mailBusy ||
+                smsBusy ||
+                brandBusy ||
+                uncertain
+              "
+              @busy="transferRoutingBusy = $event"
+            />
+            <SettingsRuntimeInfo
+              v-if="panelTab === 'iptype' || panelTab === 'advanced'"
+              :kind="panelTab"
+            />
             <nav
               v-if="links[panelTab]"
               class="settings-links"
@@ -850,14 +916,7 @@ onBeforeUnmount(() => {
                 class="primary"
                 :form="`${formId}-${panelTab}`"
                 :disabled="
-                  !canWrite ||
-                  busy ||
-                  platformBusy ||
-                  scanBusy ||
-                  mailBusy ||
-                  brandBusy ||
-                  uncertain ||
-                  !fieldsFor(panelTab).some(dirty)
+                  !canWrite || controlsBusy || !fieldsFor(panelTab).some(dirty)
                 "
               >
                 {{ busy ? "正在保存…" : "保存本页设置" }}</button

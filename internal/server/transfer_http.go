@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	adapter "goepay/internal/adapters/payment"
-	"goepay/internal/backoffice"
 	"goepay/internal/compat"
 	"goepay/internal/identity"
 	"goepay/internal/ledger"
@@ -68,12 +67,23 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 			return true
 		}
 		channels := []map[string]any{}
+		routes := map[string]payment.TransferRoute228{}
 		if s.ProviderFlow != nil {
-			// transfer_wxpay / transfer_qqpay / transfer_bank hide a rail from the offered types.
-			transferSwitches, e := backoffice.New(s.Pool, s.Store).SettingValues(r.Context(), "transfer_wxpay", "transfer_qqpay", "transfer_bank")
-			if e != nil {
-				s.fail(w, e)
+			view, err := s.transferRuntimeSnapshot228(r.Context(), s.Pool, mid)
+			if err != nil {
+				s.fail(w, err)
 				return true
+			}
+			s = view
+			offeredTypes := map[string]bool{}
+			for _, kind := range []string{"alipay", "wxpay", "qqpay", "bank"} {
+				_, route, err := s.Store.TransferRouteSnapshot228(r.Context(), s.Pool, kind)
+				if err != nil {
+					s.fail(w, err)
+					return true
+				}
+				routes[kind] = route
+				offeredTypes[kind] = route.Mode != "disabled" && route.Mode != "manual"
 			}
 			for _, id := range s.MerchantChannels[mid] {
 				p := s.ProviderFlow.Providers[id]
@@ -84,7 +94,7 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 						bankProduct := ""
 						offered := []string{}
 						for _, typ := range caps.TransferTypes() {
-							if !backoffice.TransferTypeOffered(transferSwitches, typ) {
+							if !offeredTypes[typ] {
 								continue
 							}
 							offered = append(offered, typ)
@@ -107,7 +117,27 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 				}
 			}
 		}
-		data := map[string]any{"merchant_id": fmt.Sprint(mid), "writes_enabled": false, "platform_enabled": access.PlatformEnabled, "effective_enabled": access.Enabled, "permission_source": access.Source, "effective_group_id": fmt.Sprint(access.GroupID), "merchant_enabled": merchantEnabled && enabled, "channels": channels, "minimum_money": ledger.Format(policy.MinimumAmount), "maximum_money": ledger.Format(policy.MaximumAmount), "daily_recipient_limit": policy.DailyRecipientLimit, "default_remark": policy.DefaultRemark, "default_title": policy.DefaultTitle}
+		defaults := map[string]string{"alipay": "", "wxpay": "", "qqpay": "", "bank": ""}
+		for kind, route := range routes {
+			for _, channel := range channels {
+				if route.Mode == "channel" && channel["id"] != fmt.Sprint(route.ChannelID) {
+					continue
+				}
+				if route.Mode != "channel" && route.Mode != "inherit" {
+					continue
+				}
+				for _, typ := range channel["types"].([]string) {
+					if typ == kind {
+						defaults[kind] = channel["id"].(string)
+						break
+					}
+				}
+				if defaults[kind] != "" {
+					break
+				}
+			}
+		}
+		data := map[string]any{"merchant_id": fmt.Sprint(mid), "default_channels": defaults, "writes_enabled": false, "platform_enabled": access.PlatformEnabled, "effective_enabled": access.Enabled, "permission_source": access.Source, "effective_group_id": fmt.Sprint(access.GroupID), "merchant_enabled": merchantEnabled && enabled, "channels": channels, "minimum_money": ledger.Format(policy.MinimumAmount), "maximum_money": ledger.Format(policy.MaximumAmount), "daily_recipient_limit": policy.DailyRecipientLimit, "default_remark": policy.DefaultRemark, "default_title": policy.DefaultTitle}
 		if access.Source == "group_disabled" {
 			// Historical balances and business permission remain readable, but
 			// a disabled group cannot supply an executable fee/maturity quote.
@@ -177,7 +207,7 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 			response(w, 422, -1, "valid amount and external_no required", nil)
 			return true
 		}
-		channel, e := s.transferChannel(mid, compat.Params{"type": in.Type, "channel_id": in.ChannelID})
+		view, channel, routing, e := s.resolveTransferRouting228(r.Context(), s.Pool, mid, in.ExternalNo, compat.Params{"type": in.Type, "channel_id": in.ChannelID})
 		if e != nil {
 			response(w, 422, -1, "transfer channel not permitted or unsupported", nil)
 			return true
@@ -200,7 +230,7 @@ func (s *Server) transferConsole(w http.ResponseWriter, r *http.Request, role st
 			}
 			finish(transfer, state)
 		}()
-		transfer, e = s.ProviderFlow.Transfer(r.Context(), mid, channel, in.ExternalNo, req)
+		transfer, e = view.ProviderFlow.Transfer(transferRoutingContext228(r.Context(), routing), mid, channel, in.ExternalNo, req)
 		if isFundsAuthorizationError(e) {
 			fundsHTTPError(w, e)
 			return true
@@ -370,21 +400,6 @@ func (s *Server) transferAPI(w http.ResponseWriter, r *http.Request, id int64, p
 			s.wire(w, false, nil, "invalid transfer amount")
 			return
 		}
-		// transfer_wxpay / transfer_qqpay / transfer_bank decide which transfer rails
-		// are offered; a type turned off is refused. Blank/missing keeps the rail
-		// offered, so a default install is unchanged.
-		if tv, e := backoffice.New(s.Pool, s.Store).SettingValues(r.Context(), "transfer_wxpay", "transfer_qqpay", "transfer_bank"); e != nil {
-			s.wire(w, false, nil, "transfer configuration unavailable")
-			return
-		} else if !backoffice.TransferTypeOffered(tv, p["type"]) {
-			s.wire(w, false, nil, "该转账方式已关闭")
-			return
-		}
-		channel, e := s.transferChannel(id, p)
-		if e != nil {
-			s.wire(w, false, nil, "transfer channel not permitted or unsupported")
-			return
-		}
 		no := p["out_biz_no"]
 		if no == "" {
 			if e = s.Pool.QueryRow(r.Context(), "SELECT nextval('trade_no_seq')::text").Scan(&no); e != nil {
@@ -392,12 +407,17 @@ func (s *Server) transferAPI(w http.ResponseWriter, r *http.Request, id int64, p
 				return
 			}
 		}
+		view, channel, routing, e := s.resolveTransferRouting228(r.Context(), s.Pool, id, no, p)
+		if e != nil {
+			s.wire(w, false, nil, "转账通道已关闭、需手动处理或尚未授权")
+			return
+		}
 		req := adapter.TransferRequest{Type: p["type"], Account: p["account"], Name: p["name"], Amount: amount, Remark: p["remark"], BankCode: p["bank_code"]}
 		if req.Type == "alipay" {
 			req.Title = req.Remark
 			req.Remark = ""
 		}
-		transfer, e := s.ProviderFlow.TransferFromAPI(r.Context(), id, channel, no, req)
+		transfer, e := view.ProviderFlow.TransferFromAPI(transferRoutingContext228(r.Context(), routing), id, channel, no, req)
 		if transfer.ID == 0 {
 			s.wire(w, false, nil, "transfer rejected")
 			return

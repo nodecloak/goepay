@@ -13,7 +13,7 @@ type parentChannelStored struct {
 	configured bool
 }
 
-func (s *Store) readParentStates(ctx context.Context, tx pgx.Tx) ([]parentChannelStored, error) {
+func (s *Store) readParentStates(ctx context.Context, tx ParentRuntimeReader) ([]parentChannelStored, error) {
 	states := []parentChannelStored{}
 	var e error
 	var tables int

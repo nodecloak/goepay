@@ -1,8 +1,14 @@
 package backoffice
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"goepay/internal/payment"
+)
 
 func protectedPlatformSetting179(key string) bool {
+	if key == payment.TransferRoutingKey228 {
+		return true
+	}
 	return key == "close_keylogin" || key == "user_refund" || key == "__platform_merchant_access179" || key == "scanpay_open" || key == "mail_interval_email" || key == "mail_interval_ip" || key == "mail_daily_email" || key == "mail_daily_ip"
 }
 

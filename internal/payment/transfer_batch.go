@@ -268,6 +268,11 @@ func (g ProviderFlow) PrepareTransferBatchChecked(ctx context.Context, mid int64
 	if e != nil {
 		return TransferBatch{}, e
 	}
+	for _, route := range routes {
+		if e = g.Store.admitTransferRouting228(ctx, tx, route.Input.Request.Type); e != nil {
+			return TransferBatch{}, e
+		}
+	}
 	if e = requireFundsAction(ctx, tx, "batch-prepare", fmt.Sprintf("%d:%s", mid, no)); e != nil {
 		return TransferBatch{}, e
 	}

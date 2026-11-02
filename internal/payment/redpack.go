@@ -103,6 +103,9 @@ func (s *Store) CreateRedpack(ctx context.Context, in RedpackInput) (Redpack, er
 	if !errors.Is(err, ErrNotFound) {
 		return Redpack{}, err
 	}
+	if err = s.admitTransferRouting228(ctx, tx, in.Type); err != nil {
+		return Redpack{}, err
+	}
 	var feature merchantRedpackFeature
 	if in.Role == "merchant" {
 		feature, err = readMerchantRedpackFeature(ctx, tx, in.MerchantID, true)
@@ -167,6 +170,10 @@ func (s *Store) CreateRedpack(ctx context.Context, in RedpackInput) (Redpack, er
 }
 
 // Redpack reads one red packet.
+func (s *Store) RedpackByExternal228(ctx context.Context, mid int64, no string) (Redpack, error) {
+	return scanRedpack(s.pool.QueryRow(ctx, `SELECT `+redpackColumns+` FROM redpacks WHERE merchant_id=$1 AND out_biz_no=$2`, mid, no))
+}
+
 func (s *Store) Redpack(ctx context.Context, id int64) (Redpack, error) {
 	return scanRedpack(s.pool.QueryRow(ctx, `SELECT `+redpackColumns+` FROM redpacks WHERE id=$1`, id))
 }
@@ -194,6 +201,9 @@ func (s *Store) beginRedpackClaim(ctx context.Context, id int64, account string)
 	}
 	switch r.Status {
 	case "claimable":
+		if err = s.admitTransferRouting228(ctx, tx, r.Type); err != nil {
+			return r, false, err
+		}
 		var live bool
 		if err = tx.QueryRow(ctx, `SELECT $1>clock_timestamp()`, r.ExpiresAt).Scan(&live); err != nil {
 			return r, false, err
@@ -268,6 +278,29 @@ func (g ProviderFlow) ClaimRedpack(ctx context.Context, id int64, account string
 		return r, t, errors.Join(err, rerr)
 	}
 	return out, t, err
+}
+
+// A browser resumption authenticates the original claimer before observing the
+// old transfer. Querying an existing intent never requires enabling new sends.
+func (g ProviderFlow) ResumeRedpack228(ctx context.Context, id int64, account string) (Redpack, Transfer, error) {
+	if g.Store == nil || id <= 0 || account == "" || len(account) > 128 {
+		return Redpack{}, Transfer{}, ErrInvalid
+	}
+	r, _, err := g.Store.beginRedpackClaim(ctx, id, account)
+	if err != nil {
+		return r, Transfer{}, err
+	}
+	t, err := g.Store.Transfer(ctx, r.MerchantID, RedpackTransferNo(id))
+	if err == nil {
+		if r.Status != "claiming" {
+			return r, t, nil
+		}
+		return g.QueryRedpack(ctx, id)
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return r, t, err
+	}
+	return g.ClaimRedpack(ctx, id, account)
 }
 
 // QueryRedpack resolves a claiming red packet from its claim transfer.

@@ -6,12 +6,13 @@ import App from "../src/App.vue";
 async function fixture(
   config: {
     readOnly?: boolean;
+    extraSchemaKeys?: string[];
     extraRows?: { id: string; key: string; value: string }[];
   } = {},
 ) {
   const writes: { path: string; body: Record<string, unknown> }[] = [];
   const requests: string[] = [],
-    state = { failRead: false, writeFailureAt: 0 };
+    state = { failRead: false, writeFailureAt: 0, malformedWriteAt: 0 };
   const rows = [
     ...(config.extraRows || []),
     { id: "1", key: "site_name", value: "本地支付" },
@@ -52,6 +53,7 @@ async function fixture(
               type: "select",
               label: "设置项",
               options: [
+                ...(config.extraSchemaKeys || []),
                 "site_name",
                 "support_email",
                 "registration_open",
@@ -91,7 +93,13 @@ async function fixture(
         if (row) {
           Object.assign(row, body);
           data = row;
+        } else {
+          const created = { id: String(9000 + writes.length), ...body };
+          rows.push(created as { id: string; key: string; value: string });
+          data = created;
         }
+        if (state.malformedWriteAt === writes.length)
+          return new Response("<html>broken response</html>", { status: 200 });
       }
       return new Response(JSON.stringify({ code: 0, data }));
     }),
@@ -109,6 +117,46 @@ async function fixture(
   await flushPromises();
   return { w, writes, requests, state };
 }
+it("does not present an absent switch value as an explicitly disabled feature", async () => {
+  const { w, writes } = await fixture();
+  try {
+    await w.get("#settings-tab-merchant").trigger("click");
+    await flushPromises();
+    expect(
+      w.find('input[role="switch"][aria-label="开放商户注册"]').exists(),
+    ).toBe(false);
+    expect(w.get('button[aria-label="开放商户注册"]').text()).toContain(
+      "未配置",
+    );
+    expect(writes).toHaveLength(0);
+  } finally {
+    w.unmount();
+    vi.unstubAllGlobals();
+  }
+});
+it("identifies deployment-controlled IP, backend path and cache fields without editable placeholders", async () => {
+  const { w, writes } = await fixture();
+  try {
+    await w.get("#settings-tab-iptype").trigger("click");
+    await flushPromises();
+    expect(
+      w.get('input[aria-label="用户IP地址获取方式"]').attributes("readonly"),
+    ).toBeDefined();
+    expect(w.text()).toContain("X-Real-IP");
+    await w.get("#settings-tab-advanced").trigger("click");
+    await flushPromises();
+    expect(
+      w.get('input[aria-label="后台路径"]').attributes("readonly"),
+    ).toBeDefined();
+    expect(
+      w.get('input[aria-label="缓存驱动"]').attributes("readonly"),
+    ).toBeDefined();
+    expect(writes).toHaveLength(0);
+  } finally {
+    w.unmount();
+    vi.unstubAllGlobals();
+  }
+});
 it("restores original settings groups and saves only explicitly edited values", async () => {
   const { w, writes } = await fixture();
   try {
@@ -262,6 +310,113 @@ it("uses exact yuan and percent controls without treating basis points as percen
         body: { value: "124" },
       },
     ]);
+  } finally {
+    w.unmount();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("shows active compatible values even when canonical keys are present only in schema", async () => {
+  const { w, writes } = await fixture({
+    extraSchemaKeys: ["sitename", "email", "mail_recv", "mail_name"],
+    extraRows: [
+      { id: "2300", key: "support_email", value: "legacy@example.invalid" },
+      { id: "2301", key: "mail_name", value: "admin@example.invalid" },
+    ],
+  });
+  try {
+    expect(w.get('input[aria-label="网站名称"]').element).toHaveProperty(
+      "value",
+      "本地支付",
+    );
+    expect(w.get('input[aria-label="客服邮箱"]').element).toHaveProperty(
+      "value",
+      "legacy@example.invalid",
+    );
+    await w
+      .findAll('[role="tab"]')
+      .find((t) => t.text().includes("消息提醒"))!
+      .trigger("click");
+    await flushPromises();
+    expect(
+      w.get('input[aria-label="管理员接收邮箱（兼容回退）"]').element,
+    ).toHaveProperty("value", "admin@example.invalid");
+    expect(writes).toHaveLength(0);
+  } finally {
+    w.unmount();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("preserves an explicitly cleared canonical email instead of showing a shadowed legacy value", async () => {
+  const { w, writes } = await fixture({
+    extraSchemaKeys: ["email"],
+    extraRows: [
+      { id: "2400", key: "email", value: "" },
+      { id: "2401", key: "support_email", value: "shadowed@example.invalid" },
+    ],
+  });
+  try {
+    expect(w.get('input[aria-label="联系邮箱"]').element).toHaveProperty(
+      "value",
+      "",
+    );
+    expect(w.findAll('input[aria-label="联系邮箱"]')).toHaveLength(1);
+    expect(writes).toHaveLength(0);
+  } finally {
+    w.unmount();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("clears an active legacy contact by explicitly overriding canonical email", async () => {
+  const { w, writes } = await fixture({
+    extraSchemaKeys: ["email"],
+    extraRows: [
+      { id: "2501", key: "support_email", value: "legacy@example.invalid" },
+    ],
+  });
+  try {
+    await w.get('input[aria-label="客服邮箱"]').setValue("");
+    await w
+      .findAll("button")
+      .find((b) => b.text() === "保存本页设置")!
+      .trigger("click");
+    await flushPromises();
+    expect(writes).toEqual([
+      {
+        path: "/console/v1/admin/resources/settings",
+        body: { key: "email", value: "" },
+      },
+    ]);
+    expect(w.get('input[aria-label="联系邮箱"]').element).toHaveProperty(
+      "value",
+      "",
+    );
+    expect(w.text()).toContain("本页没有未保存修改");
+  } finally {
+    w.unmount();
+    vi.unstubAllGlobals();
+  }
+});
+it("locks generic settings after a committed but malformed success response", async () => {
+  const { w, writes, state } = await fixture();
+  try {
+    state.malformedWriteAt = 1;
+    await w.get('input[aria-label="网站名称"]').setValue("Committed New Name");
+    await w
+      .findAll("button")
+      .find((b) => b.text() === "保存本页设置")!
+      .trigger("click");
+    await flushPromises();
+    expect(writes).toHaveLength(1);
+    expect(w.text()).toContain("请刷新核对后再保存");
+    expect(
+      w
+        .findAll("button")
+        .find((b) => b.text() === "保存本页设置")!
+        .attributes("disabled"),
+    ).toBeDefined();
   } finally {
     w.unmount();
     vi.unstubAllGlobals();

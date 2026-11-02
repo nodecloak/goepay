@@ -7,6 +7,7 @@ for (const width of [375, 1280])
     const writes: { path: string; body: unknown }[] = [];
     const rows = [
       { id: "1", key: "site_name", value: "本地支付" },
+      { id: "4", key: "registration_open", value: "false" },
       { id: "2", key: "settlement_minimum_cents", value: "123" },
       { id: "3", key: "settlement_fee_rate_bps", value: "101" },
     ];

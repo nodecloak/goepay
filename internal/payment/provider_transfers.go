@@ -186,6 +186,9 @@ func (s *Store) beginTransferTxWithFeeSelection(ctx context.Context, tx pgx.Tx, 
 	if !errors.Is(e, ErrNotFound) {
 		return Transfer{}, false, e
 	}
+	if e = s.admitTransferRouting228(ctx, tx, r.Type); e != nil {
+		return Transfer{}, false, e
+	}
 	if len(apiOrigin) > 1 {
 		return Transfer{}, false, ErrInvalid
 	}
