@@ -21,6 +21,8 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ change: [SettlementRecipient | null] }>();
 const panel = ref<HTMLElement>(),
+  editTrigger = ref<HTMLButtonElement>(),
+  refreshTrigger = ref<HTMLButtonElement>(),
   fieldErrors = ref<RecipientFieldErrors>({}),
   manualBankCode = ref(false);
 const current = ref<SettlementRecipient | null>(null),
@@ -92,6 +94,47 @@ const canEdit = computed(
     !saving.value &&
     !props.disabled,
 );
+function focusRemainsInPanel() {
+  const focused = document.activeElement;
+  return (
+    !focused ||
+    focused === document.body ||
+    focused === document.documentElement ||
+    !!panel.value?.contains(focused)
+  );
+}
+function focusEditor(generation: number, scope: Context) {
+  if (!currentContext(generation, scope) || !editing.value || !canEdit.value)
+    return;
+  const target = panel.value?.querySelector<HTMLElement>(
+    '[data-recipient-field] button:not([disabled]),[data-recipient-field] input:not([disabled]):not([type="hidden"])',
+  );
+  if (
+    focusRemainsInPanel() &&
+    target?.isConnected &&
+    !target.matches(":disabled")
+  )
+    target.focus();
+}
+function restoreEditorFocus(generation: number, scope: Context) {
+  if (
+    !currentContext(generation, scope) ||
+    editing.value ||
+    loading.value ||
+    saving.value
+  )
+    return;
+  const target =
+    editTrigger.value && !editTrigger.value.matches(":disabled")
+      ? editTrigger.value
+      : refreshTrigger.value;
+  if (
+    focusRemainsInPanel() &&
+    target?.isConnected &&
+    !target.matches(":disabled")
+  )
+    target.focus();
+}
 function clear(resetCurrent = true) {
   epoch++;
   controller?.abort();
@@ -184,6 +227,8 @@ async function load(resetCurrent = false, explicitReadback = false) {
 const refresh = () => load(false, true);
 function edit() {
   if (!canEdit.value) return;
+  const generation = epoch,
+    scope = context();
   draft.value = empty();
   if (current.value?.type && allowedTypes.value.includes(current.value.type)) {
     draft.value.type = current.value.type;
@@ -202,14 +247,18 @@ function edit() {
   manualBankCode.value = false;
   notice.value = "";
   emit("change", null);
+  void nextTick(() => focusEditor(generation, scope));
 }
 function cancel() {
   if (saving.value) return;
+  const generation = epoch,
+    scope = context();
   draft.value = empty();
   editing.value = false;
   fieldErrors.value = {};
   if (!unknownSave.value && typesState.value === "ready")
     emit("change", current.value);
+  void nextTick(() => restoreEditorFocus(generation, scope));
 }
 async function save() {
   if (!editing.value || !canEdit.value || !current.value) return;
@@ -262,9 +311,12 @@ async function save() {
     manualBankCode.value = false;
     emit("change", null);
     if (e instanceof ApiError && e.responseDecoded && e.status === 409) {
-      const readback = await load(false, true);
+      const readbackRequest = load(false, true);
+      const readbackGeneration = epoch;
+      const readback = await readbackRequest;
       if (readback !== null && currentContext(readback, scope))
         error.value = "收款版本已变化，请核对当前版本后重新编辑";
+      void nextTick(() => restoreEditorFocus(readbackGeneration, scope));
     } else if (!(
       e instanceof ApiError &&
       e.responseDecoded &&
@@ -279,7 +331,11 @@ async function save() {
       typesState.value = "unavailable";
     }
   } finally {
-    if (currentContext(generation, scope)) saving.value = false;
+    if (currentContext(generation, scope)) {
+      saving.value = false;
+      if (!editing.value)
+        void nextTick(() => restoreEditorFocus(generation, scope));
+    }
   }
 }
 watch(
@@ -373,11 +429,21 @@ onBeforeUnmount(() => {
         }}历史缺失快照的申请不能出款。
       </p>
       <div v-if="!editing" class="row-actions">
-        <button type="button" :disabled="!canEdit" @click="edit">
+        <button
+          ref="editTrigger"
+          type="button"
+          :disabled="!canEdit"
+          @click="edit"
+        >
           {{
             current.state === "missing" ? "配置收款资料" : "修改收款资料"
           }}</button
-        ><button type="button" :disabled="loading" @click="refresh">
+        ><button
+          ref="refreshTrigger"
+          type="button"
+          :disabled="loading"
+          @click="refresh"
+        >
           刷新收款版本
         </button>
       </div>

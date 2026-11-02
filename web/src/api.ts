@@ -32,6 +32,12 @@ export interface Session {
   // server session endpoint; absent for admin sessions.
   merchant_features?: Record<string, boolean>;
 }
+const ownMerchantSessionErrors = new Set([
+  "original merchant session required",
+  "own merchant session required",
+  "own authenticated session required",
+  "own merchant session required for membership purchase",
+]);
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -46,7 +52,11 @@ export class ApiError extends Error {
       reason: string;
     },
   ) {
-    super(message);
+    super(
+      status === 403 && ownMerchantSessionErrors.has(message)
+        ? "该功能需要商户本人登录，请使用商户账号登录后操作。"
+        : message,
+    );
   }
 }
 export class ApiClient {

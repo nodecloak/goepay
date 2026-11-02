@@ -61,9 +61,14 @@ async function load() {
     emit("observed", parsed);
     selection.value =
       state.value.keytype === null ? "" : String(state.value.keytype);
-  } catch {
+  } catch (e) {
     if (active && !c.signal.aborted && current === epoch)
-      error.value = "签名方式读取失败，请刷新重试。";
+      error.value =
+        e instanceof ApiError && e.status === 403
+          ? props.client.area === "merchant"
+            ? "签名方式涉及接入安全，需要商户本人登录后查看。"
+            : "当前管理员没有读取签名方式的权限，请联系超级管理员核对授权。"
+          : "签名方式读取失败，请刷新重试。";
   } finally {
     if (active && current === epoch) loading.value = false;
   }

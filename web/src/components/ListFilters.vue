@@ -79,23 +79,28 @@ const ledgerOptions = [
           aria-label="资金类型筛选"
         />
       </KitField>
-      <template v-if="expanded">
-        <KitField
-          v-if="kind === 'orders' || kind === 'refunds'"
-          label="支付方式"
-        >
-          <KitSelect
-            v-model="filters.type"
-            :options="typeOptions"
-            aria-label="支付方式筛选"
-          />
-        </KitField>
+      <KitField
+        v-if="
+          (kind === 'orders' || kind === 'refunds') &&
+          (expanded || (area === 'merchant' && kind === 'orders'))
+        "
+        label="支付方式"
+      >
+        <KitSelect
+          v-model="filters.type"
+          :options="typeOptions"
+          aria-label="支付方式筛选"
+        />
+      </KitField>
+      <template v-if="expanded || (area === 'merchant' && kind === 'refunds')">
         <KitField label="创建开始">
           <input v-model="filters.from" type="date" aria-label="创建开始日期" />
         </KitField>
         <KitField label="创建结束">
           <input v-model="filters.to" type="date" aria-label="创建结束日期" />
         </KitField>
+      </template>
+      <template v-if="expanded">
         <KitField v-if="kind === 'orders'" label="通知状态">
           <KitSelect
             v-model="filters.notification_state"

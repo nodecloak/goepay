@@ -14,6 +14,7 @@ import KitModal from "./KitModal.vue";
 import KitField from "./KitField.vue";
 import KitInput from "./KitInput.vue";
 import KitSelect from "./KitSelect.vue";
+import MerchantRechargeBalance from "./MerchantRechargeBalance.vue";
 import { centsMoney } from "../settlement-terms";
 const props = withDefaults(
   defineProps<{
@@ -364,6 +365,10 @@ onBeforeUnmount(() => controller?.abort());
 </script>
 <template>
   <div>
+    <MerchantRechargeBalance
+      v-if="area === 'merchant' && kind === 'recharges'"
+      :client="client"
+    />
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
     <p v-if="availabilityNote" class="alert" role="status">

@@ -1,6 +1,51 @@
 import { expect, test, type Page } from "@playwright/test";
 import { accountSettingsReadFixture } from "./fixtures/account-settings";
 
+for (const width of [1280, 375]) {
+  test(`recipient inline editing keeps keyboard focus and discards cancelled private drafts at ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const state = await fixture(page);
+    const opener = page.getByRole("button", {
+      name: "配置收款资料",
+      exact: true,
+    });
+    await opener.click();
+    await expect(
+      page.getByRole("button", { name: "收款方式", exact: true }),
+    ).toBeFocused();
+    await page
+      .getByRole("textbox", { name: "收款账号", exact: true })
+      .fill("synthetic-cancelled-account-224");
+    await page
+      .getByRole("textbox", { name: "真实姓名", exact: true })
+      .fill("Synthetic Holder");
+    const cancel = page.getByRole("button", {
+      name: "取消修改收款资料",
+      exact: true,
+    });
+    await cancel.click();
+    await expect(opener).toBeFocused();
+    await opener.click();
+    await expect(
+      page.getByRole("textbox", { name: "收款账号", exact: true }),
+    ).toHaveValue("");
+    await expect(
+      page.getByRole("textbox", { name: "真实姓名", exact: true }),
+    ).toHaveValue("");
+    await cancel.click();
+    await expect(opener).toBeFocused();
+    expect(state.writes).toEqual([]);
+    expect(state.errors).toEqual([]);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  });
+}
+
 async function fixture(
   page: Page,
   failure?: "conflict" | "unknown" | "delegated",
