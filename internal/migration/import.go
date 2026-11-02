@@ -43,6 +43,22 @@ func Apply(ctx context.Context, pool *pgxpool.Pool, master []byte, raw []byte) (
 	if _, e = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(74973232)"); e != nil {
 		return report, e
 	}
+	report, e = applyValidatedTx234(ctx, tx, master, plan, report, aead)
+	if e != nil || report.AlreadyImported {
+		return report, e
+	}
+	if e = tx.Commit(ctx); e != nil {
+		report.Applied = false
+		return report, e
+	}
+	return report, nil
+}
+
+// applyValidatedTx234 shares the original import statements with the wizard.
+// The caller owns the transaction and holds advisory lock 74973232; wizard
+// completion evidence can therefore commit atomically with the opening ledger.
+func applyValidatedTx234(ctx context.Context, tx pgx.Tx, master []byte, plan Plan, report Report, aead cipher.AEAD) (Report, error) {
+	var e error
 	var previous string
 	e = tx.QueryRow(ctx, "SELECT sha256 FROM legacy_import_runs WHERE export_id=$1", plan.ExportID).Scan(&previous)
 	if e == nil {
@@ -175,10 +191,6 @@ func Apply(ctx context.Context, pool *pgxpool.Pool, master []byte, raw []byte) (
 		receiptSQL = "INSERT INTO legacy_import_runs(export_id,source,sha256,report,combined_history_version204) VALUES($1,$2,$3,$4::jsonb,1)"
 	}
 	if _, e = tx.Exec(ctx, receiptSQL, plan.ExportID, plan.Source, report.Digest, string(stored)); e != nil {
-		report.Applied = false
-		return report, e
-	}
-	if e = tx.Commit(ctx); e != nil {
 		report.Applied = false
 		return report, e
 	}

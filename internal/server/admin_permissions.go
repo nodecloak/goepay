@@ -15,6 +15,8 @@ func adminOperationAllowed(class string, parts []string) bool {
 		return true
 	}
 	switch parts[1] {
+	case "migration":
+		return false
 	case "resources", "manage":
 		switch parts[2] {
 		case "settings", "admin-users", "cron-tasks", "plugin-configs", "template-configs", "addon-configs":

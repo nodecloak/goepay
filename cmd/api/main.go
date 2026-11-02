@@ -92,6 +92,11 @@ func main() {
 	app.FundsActionResolver = app.ResolveFundsAction
 	app.BusinessNotice = store.AdminBusinessNotices()
 	seed, _ := hex.DecodeString(os.Getenv("GOEPAY_MASTER_KEY"))
+	app.MigrationWizard234, e = migration.NewWizard234(pool, seed)
+	if e != nil {
+		slog.Error("invalid migration protection configuration")
+		os.Exit(1)
+	}
 	app.PaymentDefend206, e = paymentdefend206.NewStore(pool, seed)
 	if e != nil {
 		slog.Error("invalid payment verification policy protection configuration")

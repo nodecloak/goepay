@@ -99,6 +99,7 @@ import TransferPage from "./components/TransferPage.vue";
 import GroupSalesPage from "./components/GroupSalesPage.vue";
 import SettingsPage from "./components/SettingsPage.vue";
 import MerchantCertification233 from "./components/MerchantCertification233.vue";
+import MigrationWizard234 from "./components/MigrationWizard234.vue";
 import InvitationCodesPage from "./components/InvitationCodesPage.vue";
 import CollectionStylesPage from "./components/CollectionStylesPage.vue";
 import CollectionGeneratorPage from "./components/CollectionGeneratorPage.vue";
@@ -1221,6 +1222,7 @@ async function load() {
     kind.value === "printing" ||
     kind.value === "merchant-notice" ||
     kind.value === "certification" ||
+    kind.value === "migration" ||
     kind.value === "template" ||
     kind.value === "app-store" ||
     kind.value === "complain" ||
@@ -2298,6 +2300,13 @@ onBeforeUnmount(() => {
         :client="client"
         :merchant-i-d="String(session.user.id)"
         :own-session="!session.delegated_by"
+      />
+      <MigrationWizard234
+        v-else-if="kind === 'migration'"
+        :key="area + path"
+        :client="client"
+        :own-session="!session.delegated_by"
+        :admin-class="session.user.admin_class"
       />
       <GroupSalesPage
         v-else-if="kind === 'group-sales'"

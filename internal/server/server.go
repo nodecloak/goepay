@@ -95,6 +95,7 @@ type Server struct {
 	MerchantNotice          *merchantnotice.Store
 	BusinessNotice          *businessnotice.Store
 	LegacyRefundHistory     *migration.RefundHistoryReader
+	MigrationWizard234      *migration.Wizard234
 	CombinedOrderHistory204 *migration.CombinedOrderHistoryReader
 	Sessions                *identity.Sessions
 	PlatformKey             *rsa.PrivateKey
@@ -332,6 +333,9 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.auditDelegatedRequest(w, r, session) {
+		return
+	}
+	if s.migrationWizardConsole234(w, r, role, session, parts, c.Value) {
 		return
 	}
 	if s.transferRoutingConsole228(w, r, role, session, parts, c.Value) {

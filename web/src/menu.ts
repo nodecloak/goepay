@@ -51,6 +51,14 @@ export const menus: Record<Area, MenuNode[]> = {
 export const supplementalMenus: Record<Area, MenuNode[]> = {
   admin: [
     {
+      id: "EpayMigration234",
+      title: "易支付迁移",
+      path: "/system/migration",
+      hidden: false,
+      roles: ["R_SUPER"],
+      children: [],
+    },
+    {
       id: "MerchantNotice",
       title: "商户消息提醒",
       path: "/merchant/notice",
@@ -371,11 +379,13 @@ export type ViewKind =
   | "printing"
   | "merchant-notice"
   | "certification"
+  | "migration"
   | "template"
   | "app-store"
   | "complain"
   | "unavailable";
 export function viewKind(area: Area, path: string): ViewKind {
+  if (area === "admin" && path === "/system/migration") return "migration";
   if (area === "merchant" && path === "/account/certificate")
     return "certification";
   if (

@@ -39,7 +39,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) != 2 {
-		return fmt.Errorf("usage: cli migrate|seed-local|reconcile|check-channels|verify-update|build-info")
+		return fmt.Errorf("usage: cli migrate|seed-admin|seed-local|reconcile|check-channels|verify-update|build-info")
 	}
 	if os.Args[1] == "build-info" {
 		return json.NewEncoder(os.Stdout).Encode(systemupdate.RuntimeBuild(0))
@@ -85,6 +85,17 @@ func run() error {
 		return verifyLocalUpdate183(ctx, pool, os.Stdout)
 	case "migrate":
 		return db.Migrate(ctx, pool)
+	case "seed-admin":
+		created, e := seedMigrationAdmin234(ctx, pool, os.Getenv("GOEPAY_SEED_PASSWORD"))
+		if e != nil {
+			return e
+		}
+		if created {
+			fmt.Println("Migration administrator initialized; no merchant or financial data was created.")
+		} else {
+			fmt.Println("Existing administrator preserved; credentials were not changed.")
+		}
+		return nil
 	case "seed-local":
 		if os.Getenv("GOEPAY_SANDBOX") != "true" {
 			return fmt.Errorf("sandbox required")

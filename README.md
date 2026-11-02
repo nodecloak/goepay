@@ -42,6 +42,8 @@ GOEPAY 是使用 Go 构建的支付网关，采用 PostgreSQL 存储订单与账
 
 在统一工作台管理商户、支付通道、订单、退款、结算与报表，为管理员和商户提供各自的权限与操作范围。完整功能状态见 [功能清单](web/capabilities.json)。
 
+易支付迁移可使用后台的 [迁移向导](docs/migration/WIZARD.md)：上传 MySQL 备份、预检查并原子导入到全新实例。核心历史与期初余额原生导入，其它原始数据加密归档；通道、旧凭据和插件不会自动启用。迁移安装请使用 `cli seed-admin` 初始化管理员，跳过会创建示例商户的 `seed-local`。
+
 ## 快速开始
 
 本地体验需要 Git、Docker 和 Docker Compose。镜像构建包含 Go 服务与前端资源，无需先在宿主机安装 Go 或 Node.js。
