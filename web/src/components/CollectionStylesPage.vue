@@ -608,6 +608,7 @@ onBeforeUnmount(() => {
               </p>
               <div class="toolbar">
                 <KitSwitch
+                  :aria-label="'收款码样式 ' + item.fields.name + ' 状态'"
                   :model-value="
                     item.style?.enabled ?? item.fields.enabled === true
                   "

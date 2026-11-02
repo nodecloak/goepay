@@ -106,6 +106,17 @@ for (const width of [375, 1280])
     await expect(
       tabs.getByRole("tab", { name: "网站信息", exact: true }),
     ).toBeFocused();
+    await tabs.getByRole("tab", { name: "商户相关", exact: true }).click();
+    const registration = page.getByRole("switch", {
+      name: "开放商户注册",
+      exact: true,
+    });
+    await expect(registration).not.toBeChecked();
+    await registration.focus();
+    await registration.press("Space");
+    await expect(registration).toBeChecked();
+    await expect(registration).toHaveAccessibleName("开放商户注册");
+    expect(writes).toHaveLength(2);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,

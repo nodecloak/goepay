@@ -272,3 +272,18 @@ describe("Pro field contracts", () => {
     expect(orders.get("type")).toBe("settle_auto"); // orders also push type; value validated server+route side
   });
 });
+
+it("names order fee policies and refund responsibility without changing unknown values", () => {
+  for (const [key, value, label] of [
+    ["fee_policy", "none", "不收取手续费"],
+    ["fee_policy", "merchant_deduct", "从商户收入扣除"],
+    ["fee_policy", "buyer_additive", "付款方承担"],
+    ["refund_fee_payer", "platform", "平台承担"],
+    ["refund_fee_payer", "merchant", "商户承担"],
+  ])
+    expect(consoleValue(key!, value, true)).toBe(label);
+  expect(consoleValue("fee_policy", "future-policy", true)).toBe(
+    "future-policy",
+  );
+  expect(consoleValue("refund_fee_payer", null, true)).toBe("—");
+});

@@ -11,7 +11,11 @@ import {
 import { ApiClient, displayValue } from "../api";
 import { orderRefundRemaining104 } from "../order-charge104";
 import { subchannelID } from "../subchannels";
-import { consoleColumnLabel, consoleValue } from "../pro-console-fields";
+import {
+  consoleColumnLabel,
+  consoleValue,
+  orderProviderValue,
+} from "../pro-console-fields";
 import KitStatusTag from "./KitStatusTag.vue";
 import { operationNotice } from "../order-operations";
 import NotificationDeliveryPanel from "./NotificationDeliveryPanel.vue";
@@ -823,7 +827,9 @@ onBeforeUnmount(() => controller?.abort());
                 }"
                 :key="key"
                 ><dt>{{ label }}</dt>
-                <dd>{{ displayValue(provider[key]) }}</dd></template
+                <dd>
+                  {{ orderProviderValue(String(key), provider[key]) }}
+                </dd></template
               >
             </dl>
             <p class="muted">

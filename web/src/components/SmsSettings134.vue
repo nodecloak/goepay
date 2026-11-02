@@ -556,7 +556,10 @@ onBeforeUnmount(() => {
         ><KitInput v-model="draft.sign" :disabled="busy"
       /></KitField>
       <KitField label="设为启用网关"
-        ><KitSwitch v-model="draft.enabled" :disabled="busy"
+        ><KitSwitch
+          v-model="draft.enabled"
+          :disabled="busy"
+          aria-label="设为启用网关"
       /></KitField>
     </KitModal>
     <KitModal

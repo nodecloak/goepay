@@ -76,7 +76,7 @@ it("renders kit filter fields, a kit switch, Pro columns and kit pagination", as
   expect(w.find('input[placeholder="通道ID/名称"]').exists()).toBe(true);
   expect(w.find("[data-parent-parameters]").text()).toBe("配置密钥");
   // 状态 is a kit KitSwitch reflecting the enabled flag.
-  const toggle = w.get('input[role="switch"][aria-label="已开启"]');
+  const toggle = w.get('input[role="switch"][aria-label="支付通道 2 状态"]');
   expect((toggle.element as HTMLInputElement).checked).toBe(true);
   // Kit pagination is present.
   expect(w.find(".pa-pager").exists()).toBe(true);

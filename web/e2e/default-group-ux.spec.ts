@@ -55,9 +55,14 @@ for (const width of [1280, 375])
     await expect(
       row.getByRole("link", { name: "用户", exact: true }),
     ).toHaveAttribute("href", "/admin/merchant/merchant-list?gid=0");
-    await row.getByRole("button", { name: "删除", exact: true }).click();
-    await expect(page.getByRole("alert")).toContainText(
-      "系统自带默认用户组不支持删除",
+    const deleteDefault = row.getByRole("button", {
+      name: "删除",
+      exact: true,
+    });
+    await expect(deleteDefault).toBeDisabled();
+    await expect(deleteDefault).toHaveAttribute(
+      "title",
+      "默认用户组不可删除，请通过编辑修改配置。",
     );
     await expect(page.getByRole("dialog")).toHaveCount(0);
     expect(writes).toHaveLength(0);

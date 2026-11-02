@@ -538,8 +538,7 @@ const guidance: Partial<Record<SettingsTab, string>> = {
   ocr: "OCR业务插件按本轮范围暂缓。",
   sms: "当前尚未接入短信业务插件。",
   iptype: "当前不提供在线IP归属服务配置，未采集的地域统计显示未知。",
-  advanced:
-    "服务运行参数通过部署配置管理，当前不支持在线执行脚本。",
+  advanced: "服务运行参数通过部署配置管理，当前不支持在线执行脚本。",
 };
 watch(
   () =>
@@ -771,6 +770,7 @@ onBeforeUnmount(() => {
                   v-if="isSwitch(block.definition)"
                   :model-value="switchOn(block.definition)"
                   :label="switchOn(block.definition) ? '开启' : '关闭'"
+                  :aria-label="block.definition.label"
                   :disabled="!writable(block.definition) || controlsBusy"
                   @update:model-value="setSwitch(block.definition, $event)"
                 />

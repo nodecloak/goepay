@@ -295,3 +295,57 @@ test("plan authorization always obtains an exact-body grant even when global enf
     await page.evaluate(() => localStorage.length + sessionStorage.length),
   ).toBe(0);
 });
+
+for (const width of [1280, 375])
+  test(`empty settlement plan editor can cancel and focus returns without writes at ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const writes: unknown[] = [];
+    await page.route("**/console/v1/**", (route) => {
+      const req = route.request(),
+        path = new URL(req.url()).pathname;
+      if (req.method() !== "GET") writes.push({ path, method: req.method() });
+      if (path.endsWith("/session"))
+        return route.fulfill(
+          ok({
+            user: {
+              id: "1",
+              name: "Local",
+              role: "admin",
+              admin_class: "super",
+            },
+            csrf_token: "empty-plan226",
+          }),
+        );
+      return route.fulfill(ok({ items: [], next_cursor: "" }));
+    });
+    await page.goto("/admin/settle/plans");
+    await expect(page.getByText(/暂无结算计划/)).toBeVisible();
+    const create = page.getByRole("button", {
+      name: "新建关闭的计划",
+      exact: true,
+    });
+    await create.click();
+    const name = page.getByRole("textbox", { name: "计划名称", exact: true });
+    await expect(name).toBeFocused();
+    await name.fill("准备放弃的草稿");
+    await page
+      .getByRole("button", { name: "取消修改计划", exact: true })
+      .click();
+    await expect(name).toHaveCount(0);
+    await expect(create).toBeFocused();
+    await expect(page.getByText(/暂无结算计划/)).toBeVisible();
+    await create.click();
+    await expect(name).toBeFocused();
+    await expect(name).toHaveValue("");
+    await page
+      .getByRole("button", { name: "取消修改计划", exact: true })
+      .click();
+    expect(writes).toEqual([]);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth,
+      ),
+    ).toBe(false);
+  });

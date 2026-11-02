@@ -69,6 +69,22 @@ it("KitSwitch emits boolean change", async () => {
   expect(w.emitted("update:modelValue")).toEqual([[true]]);
   expect(w.emitted("change")).toEqual([[true]]);
 });
+it("KitSwitch names the feature independently from its changing state text", async () => {
+  const w = mount(KitSwitch, {
+    props: { modelValue: false, label: "关闭", ariaLabel: "开放商户注册" },
+  });
+  expect(w.get('input[role="switch"]').attributes("aria-label")).toBe(
+    "开放商户注册",
+  );
+  expect(w.text()).toBe("关闭");
+  await w.get("input").setValue(true);
+  expect(w.emitted("update:modelValue")).toEqual([[true]]);
+  await w.setProps({ modelValue: true, label: "开启" });
+  expect(w.get('input[role="switch"]').attributes("aria-label")).toBe(
+    "开放商户注册",
+  );
+  expect(w.text()).toBe("开启");
+});
 
 it("KitEmpty shows the default empty text", () => {
   expect(mount(KitEmpty).text()).toContain("暂无数据");

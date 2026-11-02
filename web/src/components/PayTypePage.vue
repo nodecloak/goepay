@@ -378,6 +378,9 @@ onBeforeUnmount(() => {
                 :model-value="row.enabled"
                 :disabled="busy || loading || togglingType === row.type"
                 :label="row.enabled ? '已开启' : '已关闭'"
+                :aria-label="
+                  '支付方式 ' + row.name + '（' + row.type + '）状态'
+                "
                 @change="(value) => toggle(row, value)"
               />
               <KitStatusTag

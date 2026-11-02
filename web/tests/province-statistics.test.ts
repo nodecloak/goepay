@@ -97,4 +97,17 @@ describe("original province statistics", () => {
       ),
     ).toBe(true);
   });
+  it("keeps unnamed map outlines out of selectable regions without losing unknown transactions", () => {
+    const data = provinceStatisticsData([
+      { name: "", money: "1.23", count: "2" },
+      { name: "广东", money: "2.00", count: "1" },
+    ]);
+    expect(data.regions).toHaveLength(34);
+    expect(data.regions.every((region) => region.name.trim())).toBe(true);
+    expect(data.unmappedMoney).toBe("1.23");
+    expect(data.unmappedCount).toBe("2");
+    expect(data.rank.map((region) => region.name)).toEqual(["广东省"]);
+    // Geographic outlines remain available for drawing, including decoration.
+    expect(provincePaths()).toHaveLength(35);
+  });
 });

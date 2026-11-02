@@ -182,3 +182,79 @@ it("does not restart a merchant read after a late save resolves after unmount", 
   await flushPromises();
   expect(request).toHaveBeenCalledTimes(2);
 });
+
+it("separates plan loading, a verified empty list and read failure without offering creation during loading", async () => {
+  let resolveList!: (value: unknown) => void;
+  const request = vi.fn(
+    () =>
+      new Promise((resolve) => {
+        resolveList = resolve;
+      }),
+  );
+  const w = mount(SettlementPlansPage, {
+    props: {
+      client: Object.assign(new ApiClient("admin"), { request }),
+      adminClass: "super",
+      ownSession: true,
+    },
+  });
+  await flushPromises();
+  expect(w.text()).toContain("正在读取结算计划…");
+  expect(w.text()).not.toContain("暂无结算计划");
+  expect(
+    w
+      .findAll("button")
+      .find((b) => b.text() === "新建关闭的计划")!
+      .attributes("disabled"),
+  ).toBeDefined();
+  resolveList({ items: [], next_cursor: "" });
+  await flushPromises();
+  expect(w.text()).toContain("暂无结算计划，可新建一个默认关闭的计划");
+  request.mockRejectedValueOnce(new Error("读取失败"));
+  await w
+    .findAll("button")
+    .find((b) => b.text() === "刷新计划列表")!
+    .trigger("click");
+  await flushPromises();
+  expect(w.get('[role="alert"]').text()).toContain("读取失败");
+  expect(w.text()).not.toContain("暂无结算计划");
+  w.unmount();
+});
+
+it("does not show an empty plan list beside the first successfully created plan", async () => {
+  const request = vi.fn().mockResolvedValue({ items: [], next_cursor: "" });
+  const requestResult = vi.fn().mockResolvedValue({ status: 201, data: plan });
+  const w = mount(SettlementPlansPage, {
+    props: {
+      client: Object.assign(new ApiClient("admin"), { request, requestResult }),
+      adminClass: "super",
+      ownSession: true,
+    },
+    global: { stubs: { SettlementAutoAuthorization: true } },
+  });
+  await flushPromises();
+  expect(w.text()).toContain("暂无结算计划");
+  const click = async (name: string) => {
+    await w
+      .findAll("button")
+      .find((b) => b.text() === name)!
+      .trigger("click");
+    await flushPromises();
+  };
+  await click("新建关闭的计划");
+  await w.get('input[aria-label="计划名称"]').setValue("新建计划");
+  await w
+    .get('input[aria-label="锚点 RFC3339"]')
+    .setValue("2026-11-02T09:00:00+08:00");
+  await w
+    .get('textarea[aria-label="商户ID范围（逗号分隔，最多100）"]')
+    .setValue("2");
+  await click("核对计划定义");
+  expect(requestResult).not.toHaveBeenCalled();
+  await click("确认保存关闭的定义");
+  expect(requestResult).toHaveBeenCalledOnce();
+  expect(requestResult.mock.calls[0]![0]).toBe("/settlement-plans");
+  expect(w.text()).toContain("计划 4 · 当前修订 1");
+  expect(w.text()).not.toContain("暂无结算计划");
+  w.unmount();
+});

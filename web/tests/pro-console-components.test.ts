@@ -567,3 +567,46 @@ describe("Pro console field presentation", () => {
     }
   });
 });
+
+it("describes provider requests without implying that a pending request is paid", async () => {
+  const client = new ApiClient("admin");
+  const request = vi.spyOn(client, "request").mockResolvedValue({
+    order: {
+      trade_no: "display-only",
+      amount: "123",
+      status: "pending",
+      fee_policy: "none",
+      refund_fee_payer: "platform",
+    },
+    provider: {
+      channel_id: "9007199254740993",
+      method: "page",
+      state: "pending",
+      material_type: "html",
+    },
+  });
+  const wrapper = mount(OrderDetails, {
+    props: { client, tradeNo: "display-only" },
+    global: {
+      stubs: {
+        OrderIncomePanel: true,
+        NotificationDeliveryPanel: true,
+        OrderPrintingPanel: true,
+      },
+    },
+  });
+  await flushPromises();
+  expect(wrapper.text()).toContain("不收取手续费");
+  expect(wrapper.text()).toContain("平台承担");
+  expect(wrapper.text()).toContain("网页支付");
+  expect(wrapper.text()).toContain("已发起，等待支付结果");
+  expect(wrapper.text()).toContain("网页表单");
+  expect(wrapper.text()).toContain("9007199254740993");
+  expect(wrapper.text()).not.toContain("已支付");
+  expect(
+    request.mock.calls.every(
+      ([, options]) => !options?.method || options.method === "GET",
+    ),
+  ).toBe(true);
+  wrapper.unmount();
+});

@@ -128,6 +128,22 @@ export function consoleValue(
         } as Record<string, string>
       )[String(value)] ?? displayValue(value)
     );
+  if (key === "fee_policy")
+    return (
+      (
+        {
+          none: "不收取手续费",
+          merchant_deduct: "从商户收入扣除",
+          buyer_additive: "付款方承担",
+        } as Record<string, string>
+      )[String(value)] ?? displayValue(value)
+    );
+  if (key === "refund_fee_payer")
+    return (
+      (
+        { platform: "平台承担", merchant: "商户承担" } as Record<string, string>
+      )[String(value)] ?? displayValue(value)
+    );
   if (key === "enabled")
     return value === true ? "正常" : value === false ? "已禁用" : "—";
   if (key === "notification_state")
@@ -147,6 +163,40 @@ export function consoleValue(
       ? "待支付"
       : (statuses[String(value)] ?? displayValue(value));
   return displayValue(value);
+}
+// Provider attempt state describes the request, not the order's paid status.
+export function orderProviderValue(key: string, value: unknown): string {
+  const labels: Record<string, Record<string, string>> = {
+    method: {
+      page: "网页支付",
+      wap: "手机网站支付",
+      native: "扫码支付",
+      jsapi: "JSAPI 支付",
+      app: "应用支付",
+      mini: "小程序支付",
+      preauth: "预授权支付",
+      scan: "付款码支付",
+    },
+    state: {
+      processing: "请求处理中",
+      pending: "已发起，等待支付结果",
+      unknown: "结果待核对",
+      failed: "请求失败",
+      succeeded: "请求已完成",
+    },
+    material_type: {
+      html: "网页表单",
+      qrcode: "二维码",
+      jsapi: "JSAPI 参数",
+      app: "应用调起参数",
+      preauth: "预授权参数",
+      wxapp: "微信小程序参数",
+      urlscheme: "应用跳转链接",
+      jump: "跳转链接",
+      url: "跳转链接",
+    },
+  };
+  return labels[key]?.[String(value)] ?? displayValue(value);
 }
 const orderColumns: ConsoleColumn[] = [
   { key: "trade_no", label: "系统订单号" },

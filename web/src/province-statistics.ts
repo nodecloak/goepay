@@ -82,7 +82,9 @@ export interface ProvinceRegion {
   colour: string;
 }
 const aliases = new Map<string, string>();
-for (const b of boundaries) {
+// The source also contains an unnamed geographic outline for drawing only.
+const namedBoundaries = boundaries.filter((boundary) => boundary.name.trim());
+for (const b of namedBoundaries) {
   aliases.set(b.name, b.name);
   aliases.set(
     b.name.replace(
@@ -95,7 +97,7 @@ for (const b of boundaries) {
 export function provinceStatisticsData(rows: Record<string, unknown>[]) {
   if (!Array.isArray(rows)) throw Error("地区统计数据格式不正确");
   const sums = new Map(
-    boundaries.map((b) => [b.name, { amount: 0n, count: 0n }]),
+    namedBoundaries.map((b) => [b.name, { amount: 0n, count: 0n }]),
   );
   let unmappedAmount = 0n,
     unmappedCount = 0n;

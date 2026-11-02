@@ -26,7 +26,7 @@ it('does not automatically repeat an uncertain parameter mutation',async()=>{
 it('reviews the exact original channel before changing its status',async()=>{
  const c=client(),w=mount(ParentChannelPage,{props:{client:c,allowed:true}});await flushPromises();
  // The 状态 pill is now a kit KitSwitch; toggling it asks for confirmation.
- await w.get('input[role="switch"][aria-label="已关闭"]').setValue(true);await flushPromises();
+ await w.get('input[role="switch"][aria-label="支付通道 9007199254740993 状态"]').setValue(true);await flushPromises();
  expect(vi.mocked(c.request).mock.calls.filter(([,o])=>o?.method==='POST')).toHaveLength(0);
  expect(w.get('[role="dialog"]').text()).toContain(row.id);
  expect(w.get('[role="dialog"]').text()).toContain('开启');

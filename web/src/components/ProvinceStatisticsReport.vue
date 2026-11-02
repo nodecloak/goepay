@@ -191,6 +191,7 @@ function choose(name: string, click = false) {
     dragged = false;
     return;
   }
+  if (!name.trim()) return;
   selected.value = regions.value.get(name) ?? null;
 }
 </script>
@@ -345,23 +346,28 @@ function choose(name: string, click = false) {
                       regions.get(boundary.name)?.colour || provinceEmptyColour,
                   }"
                   fill-rule="evenodd"
-                  role="button"
-                  tabindex="0"
+                  :role="boundary.name ? 'button' : undefined"
+                  :tabindex="boundary.name ? 0 : undefined"
+                  :aria-hidden="boundary.name ? undefined : true"
                   :aria-label="
-                    boundary.name +
-                    '：交易金额' +
-                    (regions.get(boundary.name)?.money ?? '0.00') +
-                    '元，交易笔数' +
-                    (regions.get(boundary.name)?.count ?? '0')
+                    boundary.name
+                      ? boundary.name +
+                        '：交易金额' +
+                        (regions.get(boundary.name)?.money ?? '0.00') +
+                        '元，交易笔数' +
+                        (regions.get(boundary.name)?.count ?? '0')
+                      : undefined
                   "
-                  :aria-pressed="selected?.name === boundary.name"
+                  :aria-pressed="
+                    boundary.name ? selected?.name === boundary.name : undefined
+                  "
                   @click="choose(boundary.name, true)"
                   @pointerenter="choose(boundary.name)"
                   @focus="choose(boundary.name)"
                   @keydown.enter.prevent="choose(boundary.name)"
                   @keydown.space.prevent="choose(boundary.name)"
                 >
-                  <title>
+                  <title v-if="boundary.name">
                     {{ boundary.name }}：{{
                       regions.get(boundary.name)?.money
                     }}
@@ -536,11 +542,14 @@ function choose(name: string, click = false) {
 .province-map path {
   stroke: var(--ink-muted);
   stroke-width: 0.9;
-  cursor: pointer;
+  cursor: default;
   vector-effect: non-scaling-stroke;
   /* Lift every province above the near-black background so empty regions are
      still distinguishable on the dark theme; data fills still show through. */
   fill-opacity: 0.92;
+}
+.province-map path[role="button"] {
+  cursor: pointer;
 }
 .province-label {
   pointer-events: none;
@@ -553,8 +562,8 @@ function choose(name: string, click = false) {
   stroke-width: 2px;
   stroke-linejoin: round;
 }
-.province-map path:hover,
-.province-map path:focus,
+.province-map path[role="button"]:hover,
+.province-map path[role="button"]:focus,
 .province-map path[aria-pressed="true"] {
   fill: var(--warning-text);
   stroke: var(--warning-text);

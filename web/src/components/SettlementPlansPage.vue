@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, nextTick, onMounted, onBeforeUnmount } from "vue";
 import { ApiClient } from "../api";
 import SettlementAutoAuthorization from "./SettlementAutoAuthorization.vue";
 import KitField from "./KitField.vue";
@@ -142,7 +142,30 @@ async function select(id: string) {
     if (active && controller === c) loading.value = false;
   }
 }
-function edit(create = false) {
+const editorElement = ref<HTMLElement | null>(null);
+let editTrigger: HTMLElement | null = null;
+function cancelEdit() {
+  if (busy.value) return;
+  clearReview();
+  draft.value = fresh();
+  editing.value = false;
+  creating.value = false;
+  void nextTick(() => {
+    if (active && allowed() && editTrigger?.isConnected) editTrigger.focus();
+  });
+}
+function edit(create = false, event?: Event) {
+  if (
+    !active ||
+    !allowed() ||
+    busy.value ||
+    loading.value ||
+    uncertain.value ||
+    (!create && !selected.value)
+  )
+    return;
+  editTrigger =
+    event?.currentTarget instanceof HTMLElement ? event.currentTarget : null;
   clearReview();
   creating.value = create;
   editing.value = true;
@@ -160,6 +183,10 @@ function edit(create = false) {
         execute_second: String(selected.value!.schedule.execute_second),
         merchant_ids: selected.value!.merchant_ids.join(","),
       };
+  void nextTick(() => {
+    if (active && allowed() && editing.value)
+      editorElement.value?.querySelector<HTMLInputElement>("input")?.focus();
+  });
 }
 function review(kind: string) {
   if (!allowed() || busy.value || (uncertain.value && kind !== "revoke"))
@@ -359,10 +386,21 @@ onBeforeUnmount(() => {
     <template v-if="allowed()">
       <div class="toolbar">
         <button :disabled="busy || loading" @click="list()">刷新计划列表</button
-        ><button :disabled="busy || uncertain" @click="edit(true)">
+        ><button
+          :disabled="busy || loading || uncertain"
+          @click="edit(true, $event)"
+        >
           新建关闭的计划
         </button>
       </div>
+      <p v-if="loading" role="status">正在读取结算计划…</p>
+      <p
+        v-else-if="!error && !plans.length && !editing && !selected"
+        role="status"
+        class="muted"
+      >
+        暂无结算计划，可新建一个默认关闭的计划；新建后需单独核对授权，当前不会生成申请或发起付款。
+      </p>
       <ul>
         <li v-for="p in plans" :key="p.id">
           {{ p.name }} · 修订{{ p.revision }} ·
@@ -394,7 +432,7 @@ onBeforeUnmount(() => {
         <div class="toolbar">
           <button :disabled="busy || loading" @click="select(selected.id)">
             重新读取计划</button
-          ><button :disabled="busy || uncertain" @click="edit()">
+          ><button :disabled="busy || uncertain" @click="edit(false, $event)">
             修改计划定义</button
           ><button :disabled="busy || uncertain" @click="review('scan')">
             核对到期扫描</button
@@ -479,7 +517,7 @@ onBeforeUnmount(() => {
           :plan="selected"
         />
       </section>
-      <section v-if="editing" class="case-panel">
+      <section v-if="editing" ref="editorElement" class="case-panel">
         <h3>
           {{ creating ? "新建计划（默认关闭）" : "修改定义后关闭旧授权" }}
         </h3>
@@ -557,6 +595,9 @@ onBeforeUnmount(() => {
           </KitField>
           <button class="pa-btn pa-btn--primary" @click="review('definition')">
             核对计划定义
+          </button>
+          <button type="button" :disabled="busy" @click="cancelEdit">
+            取消修改计划
           </button>
         </fieldset>
       </section>

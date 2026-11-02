@@ -890,21 +890,36 @@ function applyFieldFilter(param: string, value: string) {
   selectedIds.value = [];
   void load();
 }
+function isDefaultGroup(id: unknown): boolean {
+  return props.resource === "groups" && String(id) === "0";
+}
+const selectableItems = computed(() =>
+  items.value.filter((row) => !isDefaultGroup(row.id)),
+);
 function toggleRow(id: string, on: boolean) {
+  if (on && isDefaultGroup(id)) return;
   selectedIds.value = on
     ? [...new Set([...selectedIds.value, id])]
     : selectedIds.value.filter((x) => x !== id);
 }
 const allRowsSelected = computed(
   () =>
-    items.value.length > 0 &&
-    items.value.every((r) => selectedIds.value.includes(String(r.id))),
+    selectableItems.value.length > 0 &&
+    selectableItems.value.every((r) =>
+      selectedIds.value.includes(String(r.id)),
+    ),
 );
 function toggleAllRows(on: boolean) {
-  selectedIds.value = on ? items.value.map((r) => String(r.id)) : [];
+  selectedIds.value = on ? selectableItems.value.map((r) => String(r.id)) : [];
 }
 async function runBatchDelete() {
   if (batchBusy.value || !selectedIds.value.length) return;
+  if (selectedIds.value.some(isDefaultGroup)) {
+    selectedIds.value = selectedIds.value.filter((id) => !isDefaultGroup(id));
+    confirmBatch.value = false;
+    error.value = "默认用户组不可删除，请重新核对所选记录。";
+    return;
+  }
   batchBusy.value = true;
   error.value = "";
   try {
@@ -1286,11 +1301,7 @@ async function open(
   detailController = c;
   error.value = "";
   notice.value = "";
-  if (
-    action === "delete" &&
-    props.resource === "groups" &&
-    String(row.id) === "0"
-  ) {
+  if (action === "delete" && isDefaultGroup(row.id)) {
     error.value = "系统自带默认用户组不支持删除";
     return;
   }
@@ -1779,7 +1790,7 @@ onBeforeUnmount(resetContext);
                   type="checkbox"
                   aria-label="选择本页全部记录"
                   :checked="allRowsSelected"
-                  :disabled="!items.length"
+                  :disabled="busy || batchBusy || !selectableItems.length"
                   @change="
                     toggleAllRows(($event.target as HTMLInputElement).checked)
                   "
@@ -1838,6 +1849,7 @@ onBeforeUnmount(resetContext);
                   type="checkbox"
                   :aria-label="'选择记录 ' + row.id"
                   :checked="selectedIds.includes(String(row.id))"
+                  :disabled="busy || batchBusy || isDefaultGroup(row.id)"
                   @change="
                     toggleRow(
                       String(row.id),
@@ -2105,7 +2117,12 @@ onBeforeUnmount(resetContext);
                   ><button
                     v-if="schema.permissions.delete"
                     class="link-button danger-text"
-                    :disabled="busy"
+                    :disabled="busy || isDefaultGroup(row.id)"
+                    :title="
+                      isDefaultGroup(row.id)
+                        ? '默认用户组不可删除，请通过编辑修改配置。'
+                        : undefined
+                    "
                     @click="open('delete', row)"
                   >
                     删除

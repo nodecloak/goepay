@@ -75,3 +75,85 @@ for (const width of [1280, 375])
     expect(reads.every((u) => u.searchParams.get("gid") === id)).toBe(true);
     expect(writes).toEqual([]);
   });
+
+for (const width of [1280, 375])
+  test(`default group cannot enter single or batch deletion at ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const ordinaryID = "9007199254740993";
+    const writes: { path: string; body: unknown }[] = [];
+    let removed = false;
+    await page.route("**/console/v1/**", (route) => {
+      const request = route.request(),
+        path = new URL(request.url()).pathname;
+      let data: unknown = { items: [], total: 0 };
+      if (path.endsWith("/session"))
+        data = {
+          user: { id: "1", role: "admin", admin_class: "super" },
+          csrf_token: "local-protected-group",
+        };
+      else if (path.endsWith("/groups/schema"))
+        data = {
+          title: "用户组设置",
+          fields: [{ name: "name", label: "名称", type: "string" }],
+          batch_delete: true,
+          permissions: { create: false, update: false, delete: true },
+        };
+      else if (
+        path.endsWith("/groups/batch-delete") &&
+        request.method() === "POST"
+      ) {
+        writes.push({ path, body: request.postDataJSON() });
+        removed = true;
+        data = { deleted: 1 };
+      } else if (path.endsWith("/groups")) {
+        const items = [
+          { id: "0", name: "默认用户组", rate_bps: "0", info: {} },
+          ...(removed
+            ? []
+            : [
+                { id: ordinaryID, name: "普通用户组", rate_bps: "0", info: {} },
+              ]),
+        ];
+        data = { items, total: items.length };
+      }
+      return route.fulfill({ json: { code: 0, data } });
+    });
+    await page.goto("/admin/merchant/group-list");
+    const defaultRow = page
+      .getByRole("row")
+      .filter({ has: page.getByRole("cell", { name: "0", exact: true }) });
+    await expect(
+      defaultRow.getByRole("button", { name: "删除", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      defaultRow.getByRole("button", { name: "删除", exact: true }),
+    ).toHaveAttribute("title", /默认用户组.*不可删除/);
+    await expect(page.getByLabel("选择记录 0", { exact: true })).toBeDisabled();
+    await page.getByLabel("选择本页全部记录", { exact: true }).check();
+    await expect(
+      page.getByLabel("选择记录 0", { exact: true }),
+    ).not.toBeChecked();
+    await expect(
+      page.getByLabel("选择记录 " + ordinaryID, { exact: true }),
+    ).toBeChecked();
+    await page
+      .getByRole("button", { name: "批量删除 (1)", exact: true })
+      .click();
+    await page
+      .getByRole("dialog", { name: "批量删除确认" })
+      .getByRole("button", { name: "删除", exact: true })
+      .click();
+    await expect.poll(() => writes.length).toBe(1);
+    expect(writes[0]).toEqual({
+      path: "/console/v1/admin/resources/groups/batch-delete",
+      body: { ids: [ordinaryID] },
+    });
+    await expect(
+      page.getByLabel("选择本页全部记录", { exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "批量删除", exact: true }),
+    ).toBeDisabled();
+  });

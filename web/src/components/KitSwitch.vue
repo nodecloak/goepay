@@ -1,5 +1,10 @@
 <script setup lang="ts">
-defineProps<{ modelValue: boolean; label?: string; disabled?: boolean }>();
+defineProps<{
+  modelValue: boolean;
+  label?: string;
+  ariaLabel?: string;
+  disabled?: boolean;
+}>();
 const emit = defineEmits<{
   "update:modelValue": [value: boolean];
   change: [value: boolean];
@@ -17,7 +22,7 @@ function toggle(event: Event) {
       role="switch"
       :checked="modelValue"
       :disabled="disabled"
-      :aria-label="label"
+      :aria-label="ariaLabel || label"
       @change="toggle"
     />
     <span v-if="label">{{ label }}</span>
