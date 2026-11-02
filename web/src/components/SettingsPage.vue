@@ -1045,7 +1045,10 @@ onBeforeUnmount(() => {
                 </button>
               </div>
             </template>
-            <p v-if="!fields.length && active !== 'mail'" class="empty">
+            <p
+              v-if="!fields.length && !['mail', 'sms'].includes(panelTab)"
+              class="empty"
+            >
               {{
                 panelTab === "site" ||
                 panelTab === "merchant" ||

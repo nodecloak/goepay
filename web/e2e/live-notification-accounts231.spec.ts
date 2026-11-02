@@ -155,4 +155,12 @@ test("live local administrator bot editing, signed one-shot binding and unbindin
     ).json()
   ).data;
   expect(view).toMatchObject({ bound: false, revision: "3" });
+  await page.getByRole("tab", { name: "短信配置", exact: true }).click();
+  const sms = page.getByRole("region", { name: "业务短信模板", exact: true });
+  await expect(sms.locator("input")).toHaveCount(9);
+  await expect(
+    page
+      .locator("#settings-panel-sms")
+      .getByText("该分类当前没有可在线维护的设置项。", { exact: true }),
+  ).toHaveCount(0);
 });
