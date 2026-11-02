@@ -14,7 +14,6 @@ import (
 	"goepay/internal/identity"
 	"goepay/internal/ledger"
 	notice "goepay/internal/merchantnotice"
-	"goepay/internal/smsgateway134"
 )
 
 func parseMerchantNoticeBody(raw []byte) (notice.SettingsWrite, int64, error) {
@@ -223,25 +222,6 @@ func (s *Server) merchantNoticeConsole(w http.ResponseWriter, r *http.Request, r
 	return true
 }
 
-// merchantNoticeSMSActive reports whether the platform SMS gateway can deliver
-// right now, so the 消息推送 matrix can disable the 短信 column with a reason
-// when the gateway is off (the default). Read-only, no credential is returned;
-// any error is treated as "not active" so the UI fails closed to disabled.
-func (s *Server) merchantNoticeSMSActive(ctx context.Context) bool {
-	if s.Pool == nil || len(s.CheckoutKey) != 32 {
-		return false
-	}
-	store := smsgateway134.New(s.Pool, s.CheckoutKey)
-	if store == nil {
-		return false
-	}
-	tx, e := s.Pool.Begin(ctx)
-	if e != nil {
-		return false
-	}
-	defer tx.Rollback(ctx)
-	if _, _, e = store.ActiveCredentials(ctx, tx); e != nil {
-		return false
-	}
-	return tx.Commit(ctx) == nil
-}
+// Business SMS needs its own bound recipient, templates and durable sender.
+// A configured verification-code gateway alone grants no notice capability.
+func (s *Server) merchantNoticeSMSActive(context.Context) bool { return false }

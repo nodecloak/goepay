@@ -110,6 +110,7 @@ func main() {
 		os.Exit(1)
 	}
 	if coreRiskNotices != nil {
+		coreRiskNotices.mailAccounts = mailAccounts195
 		kinds = append(kinds, "core-risk.notice")
 	}
 	var channels []int64

@@ -49,7 +49,9 @@ export type SettingsEmbed =
   | "user-refund"
   | "buyer-fee"
   | "proxy-credentials"
-  | "oauth-credentials";
+  | "oauth-credentials"
+  | "voice-settings230"
+  | "printing-settings230";
 type LayoutEntry = string | { group: string } | { embed: SettingsEmbed };
 // Field order follows the original epay_pro settings pages. A trailing "*"
 // matches a key prefix; keys not listed keep their server order at the end.
@@ -197,6 +199,10 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     "msgtelegram_chatid",
     "qqbot_openid",
     { group: "用户接收消息渠道开关" },
+    "wxnotice",
+    "mailnotice",
+    "robotnotice",
+    "smsnotice",
     "telegramnotice",
     "qqbotnotice",
     { group: "用户接收消息类型开关" },
@@ -218,7 +224,9 @@ const settingsLayout: Partial<Record<SettingsTab, LayoutEntry[]>> = {
     "wxnotice_tpl_balance*",
     "wxnotice_tpl_*",
     { group: "云喇叭语音播报" },
-    "voicenotice",
+    { embed: "voice-settings230" },
+    { group: "订单小票打印" },
+    { embed: "printing-settings230" },
   ],
   anounce: ["modal", "zhuce", "footer"],
   proxy: [
@@ -392,6 +400,10 @@ const labels: Record<
     "text",
   ],
   telegramnotice: ["notice", "Telegram提醒", "select"],
+  wxnotice: ["notice", "公众号消息", "select"],
+  mailnotice: ["notice", "邮件消息", "select"],
+  robotnotice: ["notice", "群机器人Webhook", "select"],
+  smsnotice: ["notice", "短信消息", "select"],
   qqbotnotice: ["notice", "QQ Bot提醒", "select"],
   voicenotice: ["notice", "语音提醒", "select"],
   mail_recv: ["notice", "管理员邮箱", "email"],
@@ -536,6 +548,10 @@ export function settingDefinition(
     [
       "user_transfer",
       "telegramnotice",
+      "wxnotice",
+      "mailnotice",
+      "robotnotice",
+      "smsnotice",
       "qqbotnotice",
       "voicenotice",
       "test_open",
@@ -765,6 +781,12 @@ export function settingDefinition(
   if (key === "test_pay_uid")
     d.hint =
       "0关闭测试支付。仅使用此固定商户及当前启用通道，测试订单仍执行原支付费率和权限校验。";
+  if (["wxnotice", "mailnotice", "robotnotice"].includes(key))
+    d.hint =
+      "渠道总开关；未设置时沿用现有行为。除平台开启外，商户还需绑定接收方并选择提醒类型。";
+  if (key === "smsnotice")
+    d.hint =
+      "通知短信尚未接入；验证码短信配置不代表业务通知可发送。此开关暂不可编辑。";
   return d;
 }
 const formatMinor = (n: bigint) =>
@@ -777,6 +799,7 @@ export function settingDisplay(d: SettingDefinition, value: string): string {
 }
 export function settingStorage(d: SettingDefinition, input: string): string {
   const value = input.trim();
+  if (d.key.startsWith("wxnotice_tpl_") && !value) return "";
   if (
     !value &&
     ([

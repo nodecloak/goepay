@@ -14,7 +14,7 @@ func (s *Store) globalSwitches(ctx context.Context, scene string) (GlobalSwitche
 	default:
 		return GlobalSwitches{}, ErrInvalid
 	}
-	rows, err := s.pool.Query(ctx, `SELECT body->>'key',body->'value' FROM backoffice_records WHERE resource='settings' AND body->>'key'=ANY($1::text[]) ORDER BY id`, []string{"msgconfig_" + scene, "telegramnotice", "qqbotnotice", "voicenotice"})
+	rows, err := s.pool.Query(ctx, `SELECT body->>'key',body->'value' FROM backoffice_records WHERE resource='settings' AND body->>'key'=ANY($1::text[]) ORDER BY id`, []string{"msgconfig_" + scene, "telegramnotice", "qqbotnotice", "voicenotice", "wxnotice", "mailnotice", "robotnotice", "smsnotice"})
 	if err != nil {
 		return GlobalSwitches{}, err
 	}
@@ -34,7 +34,18 @@ func (s *Store) globalSwitches(ctx context.Context, scene string) (GlobalSwitche
 	if err = rows.Err(); err != nil {
 		return GlobalSwitches{}, err
 	}
-	return GlobalSwitches{MailRobot: values["msgconfig_"+scene], Telegram: values["telegramnotice"], QQBot: values["qqbotnotice"], Voice: values["voicenotice"], GroupSMS: true}, nil
+	channels := noticeChannels230(values)
+	voice := values["voicenotice"]
+	if s.voice != nil {
+		view, _, managed, e := s.voice.Resolve(ctx)
+		if e != nil {
+			return GlobalSwitches{}, e
+		}
+		if managed {
+			voice = view.Enabled
+		}
+	}
+	return GlobalSwitches{Channels: channels, MailRobot: values["msgconfig_"+scene], Telegram: values["telegramnotice"], QQBot: values["qqbotnotice"], Voice: voice, GroupSMS: true}, nil
 }
 
 // HandleJob uses only the routes sealed at the original business event. Each

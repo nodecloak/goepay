@@ -330,6 +330,12 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if s.proxyCredentialsConsole(w, r, role, session, parts, c.Value) {
 		return
 	}
+	if s.voiceSettings230(w, r, role, session, parts, c.Value) {
+		return
+	}
+	if s.noticeTemplates230(w, r, role, session, parts, c.Value) {
+		return
+	}
 	if s.oauthCredentialsConsole(w, r, role, session, parts, c.Value) {
 		return
 	}

@@ -532,6 +532,9 @@ func (s *Service) Create(ctx context.Context, p Principal, r string, in map[stri
 	if e = validatePaymentLimitSetting(ctx, tx, r, 0, v); e != nil {
 		return Item{}, e
 	}
+	if e = validateNoticeTemplate230(ctx, tx, r, 0, v); e != nil {
+		return Item{}, e
+	}
 	if r == "groups" {
 		if e = s.validateGroupRoutingReferences(ctx, tx, v); e != nil {
 			return Item{}, e
@@ -807,6 +810,9 @@ func (s *Service) update(ctx context.Context, p Principal, r string, id int64, i
 		return Item{}, e
 	}
 	if e = validatePaymentLimitSetting(ctx, tx, r, id, v); e != nil {
+		return Item{}, e
+	}
+	if e = validateNoticeTemplate230(ctx, tx, r, id, v); e != nil {
 		return Item{}, e
 	}
 	// Approval applies to the reviewed hostname, not to this mutable record ID.

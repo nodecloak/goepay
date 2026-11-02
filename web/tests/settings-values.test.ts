@@ -117,6 +117,7 @@ it("clears only optional values whose consumers support a default", () => {
     "平台最低缴纳保证金（元）",
   );
   expect(settingDefinition("user_deposit_min").hint).toContain("禁止新支付");
-  for (const key of ["user_deposit", "wxnotice_tpl_order"])
+  expect(settingStorage(settingDefinition("wxnotice_tpl_order"), "")).toBe("");
+  for (const key of ["user_deposit"])
     expect(() => settingStorage(settingDefinition(key), "")).toThrow();
 });

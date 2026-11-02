@@ -10,8 +10,9 @@ import (
 var errCoreRiskNoticeConfiguration = errors.New("core risk notice delivery configuration unavailable")
 
 type coreRiskNoticeRuntime struct {
-	store  *payment.Store
-	getenv func(string) string
+	mailAccounts mailAccountResolver195
+	store        *payment.Store
+	getenv       func(string) string
 }
 
 func newCoreRiskNoticeRuntime(store *payment.Store, getenv func(string) string) (*coreRiskNoticeRuntime, error) {
@@ -25,7 +26,7 @@ func newCoreRiskNoticeRuntime(store *payment.Store, getenv func(string) string) 
 		if store == nil {
 			return nil, errCoreRiskNoticeConfiguration
 		}
-		return &coreRiskNoticeRuntime{store, getenv}, nil
+		return &coreRiskNoticeRuntime{store: store, getenv: getenv}, nil
 	default:
 		return nil, errCoreRiskNoticeConfiguration
 	}
@@ -35,7 +36,7 @@ func (r *coreRiskNoticeRuntime) ResolveCoreRiskNotice(ctx context.Context, kind 
 		return nil, "", errCoreRiskNoticeConfiguration
 	}
 	if kind == "merchant" {
-		sender, e := (&merchantNoticeRuntime{getenv: r.getenv}).ResolveMerchantNotice(ctx, merchantnotice.SMTP, merchantnotice.Account{})
+		sender, e := (&merchantNoticeRuntime{getenv: r.getenv, mailAccounts: r.mailAccounts}).ResolveMerchantNotice(ctx, merchantnotice.SMTP, merchantnotice.Account{})
 		return sender, "", e
 	}
 	if kind != "channel" && kind != "subchannel" {
@@ -57,7 +58,8 @@ func (r *coreRiskNoticeRuntime) ResolveCoreRiskNotice(ctx context.Context, kind 
 		}
 		return r.getenv(k)
 	}
-	sender, to, e := configuredChannelNotices(get)
+	runtime := &channelNoticeRuntime{getenv: get, settings: r.store, mailAccounts: r.mailAccounts}
+	sender, to, e := runtime.Resolve(ctx)
 	if e != nil || sender == nil {
 		return nil, "", errCoreRiskNoticeConfiguration
 	}

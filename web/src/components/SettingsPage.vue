@@ -35,6 +35,7 @@ import SmsSettings134 from "./SmsSettings134.vue";
 import CaptchaKeySettings203 from "./CaptchaKeySettings203.vue";
 import ProxyCredentialSettings from "./ProxyCredentialSettings.vue";
 import OAuthCredentialSettings from "./OAuthCredentialSettings.vue";
+import NotificationHardwareSettings230 from "./NotificationHardwareSettings230.vue";
 import BuyerFeeSettings104 from "./BuyerFeeSettings104.vue";
 import { siteKeys191 } from "../site191";
 const emit = defineEmits<{ siteChanged: [] }>();
@@ -75,6 +76,8 @@ const active = ref<SettingsTab>("site"),
   busy = ref(false),
   platformBusy = ref(false),
   transferRoutingBusy = ref(false),
+  voiceBusy230 = ref(false),
+  printingBusy230 = ref(false),
   uncertain = ref(false),
   error = ref(""),
   notice = ref("");
@@ -97,6 +100,7 @@ const canWrite = computed(
 );
 function writable(d: SettingDefinition) {
   return (
+    d.key !== "smsnotice" &&
     canWrite.value &&
     !!(records.value[d.key]
       ? schema.value?.permissions.update
@@ -108,8 +112,9 @@ const fieldsFor = (tab: SettingsTab) =>
     .filter((d) => d.tab === tab)
     .filter(
       (d) =>
-        !["test_pay_uid", "captcha_open_test"].includes(d.key) ||
-        values.value.test_open === "1",
+        d.key !== "voicenotice" &&
+        (!["test_pay_uid", "captcha_open_test"].includes(d.key) ||
+          values.value.test_open === "1"),
     )
     .filter((d) => {
       for (const [canonical, alias] of [
@@ -222,6 +227,8 @@ const controlsBusy = computed(
     busy.value ||
     platformBusy.value ||
     transferRoutingBusy.value ||
+    voiceBusy230.value ||
+    printingBusy230.value ||
     riskBusy.value ||
     scanBusy.value ||
     mailBusy.value ||
@@ -281,6 +288,7 @@ function confirmDiscard(
   });
 }
 async function refreshSettings() {
+  if (controlsBusy.value || loading.value) return;
   if (await confirmDiscard("refresh")) {
     panelVersion.value++;
     await load();
@@ -343,6 +351,8 @@ async function load() {
     busy.value ||
     platformBusy.value ||
     transferRoutingBusy.value ||
+    voiceBusy230.value ||
+    printingBusy230.value ||
     riskBusy.value ||
     scanBusy.value ||
     brandBusy.value ||
@@ -435,6 +445,8 @@ async function save() {
     busy.value ||
     platformBusy.value ||
     transferRoutingBusy.value ||
+    voiceBusy230.value ||
+    printingBusy230.value ||
     riskBusy.value ||
     scanBusy.value ||
     brandBusy.value ||
@@ -475,7 +487,61 @@ async function save() {
       };
     });
     busy.value = true;
-    for (const entry of pending) {
+    const templatePending = pending.filter((e) =>
+      e.definition.key.startsWith("wxnotice_tpl_"),
+    );
+    if (templatePending.length) {
+      for (const e of templatePending)
+        if (
+          e.record
+            ? !schema.value?.permissions.update
+            : !schema.value?.permissions.create
+        )
+          throw new ApiError("没有保存微信通知模板的权限", 403, -1);
+      const savedTemplates = await stamp.client.request<SettingRecord[]>(
+        "/settings/notice-templates",
+        {
+          method: "PUT",
+          signal: c.signal,
+          body: {
+            expected: Object.values(records.value).filter((row) =>
+              row.key.startsWith("wxnotice_tpl_"),
+            ),
+            values: Object.fromEntries(
+              templatePending.map((e) => [e.definition.key, e.value]),
+            ),
+          },
+        },
+      );
+      if (c.signal.aborted || !currentContext(stamp)) return;
+      if (
+        !Array.isArray(savedTemplates) ||
+        savedTemplates.length !== templatePending.length ||
+        new Set(savedTemplates.map((row) => row.key)).size !==
+          templatePending.length ||
+        templatePending.some(
+          (e) =>
+            !savedTemplates.some(
+              (row) =>
+                row.key === e.definition.key &&
+                row.value === e.value &&
+                /^[1-9]\d*$/.test(row.id),
+            ),
+        )
+      )
+        throw Error("微信模板保存结果未确认，请刷新核对");
+      for (const row of savedTemplates) {
+        records.value[row.key] = row;
+        values.value[row.key] = settingDisplay(
+          settingDefinition(row.key),
+          row.value,
+        );
+      }
+      saved += savedTemplates.length;
+    }
+    for (const entry of pending.filter(
+      (e) => !e.definition.key.startsWith("wxnotice_tpl_"),
+    )) {
       const { definition: d, value, record } = entry;
       for (const previous of [record, entry.compatibilityRecord].filter(
         (r): r is SettingRecord => !!r,
@@ -548,6 +614,8 @@ function navigate(event: KeyboardEvent, index: number) {
     busy.value ||
     platformBusy.value ||
     transferRoutingBusy.value ||
+    voiceBusy230.value ||
+    printingBusy230.value ||
     riskBusy.value ||
     scanBusy.value ||
     brandBusy.value ||
@@ -618,6 +686,8 @@ onBeforeUnmount(() => {
           loading ||
           busy ||
           platformBusy ||
+          voiceBusy230 ||
+          printingBusy230 ||
           riskBusy ||
           scanBusy ||
           mailBusy ||
@@ -820,6 +890,34 @@ onBeforeUnmount(() => {
                   :admin-class="adminClass"
                   :own-session="ownSession"
                 />
+                <NotificationHardwareSettings230
+                  v-else-if="
+                    block.embed === 'voice-settings230' ||
+                    block.embed === 'printing-settings230'
+                  "
+                  :kind="
+                    block.embed === 'voice-settings230' ? 'voice' : 'printing'
+                  "
+                  :client="client"
+                  :admin-class="adminClass"
+                  :own-session="ownSession"
+                  :disabled="
+                    busy ||
+                    platformBusy ||
+                    transferRoutingBusy ||
+                    riskBusy ||
+                    scanBusy ||
+                    mailBusy ||
+                    smsBusy ||
+                    brandBusy ||
+                    uncertain
+                  "
+                  @busy="
+                    block.embed === 'voice-settings230'
+                      ? (voiceBusy230 = $event)
+                      : (printingBusy230 = $event)
+                  "
+                />
               </div>
               <div
                 v-else
@@ -909,6 +1007,9 @@ onBeforeUnmount(() => {
                   ? "该分类暂无其它通用设置项。"
                   : "该分类当前没有可在线维护的设置项。"
               }}
+            </p>
+            <p v-if="panelTab === 'notice'" class="muted">
+              云喇叭和订单小票打印的开关、凭据请在各自区块保存；下方按钮与修改计数只针对本页其它普通设置。
             </p>
             <div v-if="fieldsFor(panelTab).length" class="settings-actions">
               <button

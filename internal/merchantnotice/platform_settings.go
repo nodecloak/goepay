@@ -62,6 +62,9 @@ func PlatformSettings() []PlatformSetting {
 	for _, pair := range []PlatformSetting{{"telegramnotice", "Telegram 提醒开关（0/1）"}, {"qqbotnotice", "QQ Bot 提醒开关（0/1）"}, {"voicenotice", "语音提醒开关（0/1）"}, {"user_transfer", "原用户代付开关（0/1）"}, {"sitename", "原网站名称"}} {
 		out = append(out, pair)
 	}
+	for _, pair := range []PlatformSetting{{"wxnotice", "公众号消息"}, {"mailnotice", "邮件消息"}, {"robotnotice", "群机器人Webhook"}, {"smsnotice", "短信消息"}} {
+		out = append(out, pair)
+	}
 	for _, scene := range wechatSettingFields {
 		base := "wxnotice_tpl_" + scene.scene
 		out = append(out, PlatformSetting{base, "微信模板 ID " + base})
@@ -90,7 +93,7 @@ func ValidatePlatformSetting(key, value string) (bool, error) {
 	if !known {
 		return false, nil
 	}
-	if strings.HasPrefix(key, "msgconfig_") || key == "telegramnotice" || key == "qqbotnotice" || key == "voicenotice" || key == "user_transfer" {
+	if strings.HasPrefix(key, "msgconfig_") || key == "telegramnotice" || key == "qqbotnotice" || key == "voicenotice" || key == "user_transfer" || key == "wxnotice" || key == "mailnotice" || key == "robotnotice" || key == "smsnotice" {
 		if value != "0" && value != "1" {
 			return true, ErrInvalid
 		}
@@ -99,7 +102,7 @@ func ValidatePlatformSetting(key, value string) (bool, error) {
 	for _, scene := range wechatSettingFields {
 		base := "wxnotice_tpl_" + scene.scene
 		if key == base {
-			if !validTargetID(value) || value == "" {
+			if !validTargetID(value) {
 				return true, ErrInvalid
 			}
 			return true, nil

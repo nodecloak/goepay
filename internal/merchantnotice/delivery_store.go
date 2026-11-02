@@ -11,15 +11,19 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"goepay/internal/voiceconfig230"
 )
 
 // Account is short-lived input to the internal transport constructor. Resolving
 // it must be pure: token acquisition and all network work belong to Send, after
 // the permanent delivery claim has committed. None of this data is an API view.
 type Account struct {
-	Template                                        WechatTemplateConfig `json:"-"`
-	WXAppID, WebhookURL, QQBotAppID, QQBotAppSecret string               `json:"-"`
-	Input                                           Input                `json:"-"`
+	VoiceResolved, VoiceManaged                     bool                      `json:"-"`
+	VoiceRevision                                   int64                     `json:"-"`
+	VoiceCredential                                 voiceconfig230.Credential `json:"-"`
+	Template                                        WechatTemplateConfig      `json:"-"`
+	WXAppID, WebhookURL, QQBotAppID, QQBotAppSecret string                    `json:"-"`
+	Input                                           Input                     `json:"-"`
 }
 
 func (Account) String() string   { return "merchantnotice.Account(redacted)" }
@@ -211,6 +215,19 @@ func (s *Store) Deliver(ctx context.Context, jobID int64, lease string, kind Tra
 		return err
 	}
 	account := Account{WXAppID: prefs.Targets.WXAppID, WebhookURL: prefs.Targets.MsgRobotURL, QQBotAppID: prefs.Targets.QQBotAppID, QQBotAppSecret: prefs.Targets.QQBotAppSecret, Input: data.Input}
+	if kind == Voice && s.voice != nil {
+		v, c, managed, e := s.voice.ResolveTx(ctx, tx)
+		if e != nil {
+			return e
+		}
+		if managed && (!v.Enabled || !data.VoiceManaged230 || data.VoiceRevision230 != v.Revision) {
+			return ErrState
+		}
+		account.VoiceResolved = true
+		account.VoiceManaged = managed
+		account.VoiceCredential = c
+		account.VoiceRevision = v.Revision
+	}
 	if kind == Wechat {
 		account.Template, err = s.wechatTemplateSettings(ctx, tx, data.Input.Scene)
 		if err != nil {

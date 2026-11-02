@@ -48,6 +48,9 @@ func (r *businessNoticeRuntime) ResolveBusinessNotice(ctx context.Context, kind 
 	case merchantnotice.SMTP:
 		if _, present := a.Settings["mail_recv"]; present {
 			out.Recipient = a.Settings["mail_recv"]
+			if out.Recipient == "" {
+				out.Recipient = a.Settings["mail_name"]
+			}
 		} else if _, present := a.Settings["mail_name"]; present {
 			out.Recipient = a.Settings["mail_name"]
 		} else {

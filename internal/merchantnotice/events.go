@@ -32,14 +32,16 @@ type eventRecord struct {
 	CreatedAt                           time.Time
 }
 type eventData struct {
-	Version    int
-	Source     paidEventSource
-	Input      Input
-	Routes     []Transport
-	Login      *loginEventSource
-	Settlement *settlementEventSource
-	Timer      *timerSource
-	Domain     *domainEventSource
+	VoiceManaged230  bool  `json:",omitempty"`
+	VoiceRevision230 int64 `json:",omitempty"`
+	Version          int
+	Source           paidEventSource
+	Input            Input
+	Routes           []Transport
+	Login            *loginEventSource
+	Settlement       *settlementEventSource
+	Timer            *timerSource
+	Domain           *domainEventSource
 }
 
 func eventAAD(r eventRecord) []byte {
@@ -108,7 +110,10 @@ func (s *Store) readEvent(ctx context.Context, tx pgx.Tx, id int64) (eventRecord
 	}
 	n := s.aead.NonceSize()
 	raw, err := s.aead.Open(nil, r.Cipher[:n], r.Cipher[n:], eventAAD(r))
-	if err != nil || !hmac.Equal(r.BodyHash, s.digest("event-body", raw)) || json.Unmarshal(raw, &data) != nil || data.Version != 1 {
+	if err != nil || !hmac.Equal(r.BodyHash, s.digest("event-body", raw)) || json.Unmarshal(raw, &data) != nil || (data.Version != 1 && data.Version != 2) {
+		return r, data, ErrConflict
+	}
+	if data.Version == 2 && (!data.VoiceManaged230 || data.VoiceRevision230 <= 0 || r.Scene != "order") || data.Version == 1 && (data.VoiceManaged230 || data.VoiceRevision230 != 0) {
 		return r, data, ErrConflict
 	}
 	if err = s.verifyEventSource(ctx, tx, r, data); err != nil {

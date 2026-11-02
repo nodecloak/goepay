@@ -69,12 +69,25 @@ func (s *Store) appendEvent(ctx context.Context, tx pgx.Tx, r eventRecord, data 
 		return err
 	}
 	if r.SnapshotState == "captured" {
+		global := GlobalSwitches{MailRobot: true, Telegram: true, QQBot: true, Voice: true, GroupSMS: true}
+		if r.Scene == "order" && prefs.VoiceOrder && s.voice != nil {
+			v, _, managed, e := s.voice.ResolveTx(ctx, tx)
+			if e != nil {
+				return e
+			}
+			if managed {
+				global.Voice = v.Enabled
+				data.Version = 2
+				data.VoiceManaged230 = true
+				data.VoiceRevision230 = v.Revision
+			}
+		}
 		all := map[Transport]bool{Wechat: true, SMTP: true, SMS: true, Robot: true, Telegram: true, QQBot: true, Voice: true}
 		recipients := make(map[Transport]bool, len(all))
 		for kind := range all {
 			recipients[kind] = recipientFor(prefs.Targets, kind) != ""
 		}
-		routes, e := SelectMerchant(SelectionInput{MerchantID: r.MerchantID, Scene: r.Scene, Subject: data.Input.Params["name"], Mode: prefs.Preferences.mode(r.Scene), Amount: data.Source.Amount, OrderMinimum: prefs.Preferences.OrderMoney, VoiceOrder: prefs.VoiceOrder, Global: GlobalSwitches{MailRobot: true, Telegram: true, QQBot: true, Voice: true, GroupSMS: true}, Recipients: recipients, Configured: all})
+		routes, e := SelectMerchant(SelectionInput{MerchantID: r.MerchantID, Scene: r.Scene, Subject: data.Input.Params["name"], Mode: prefs.Preferences.mode(r.Scene), Amount: data.Source.Amount, OrderMinimum: prefs.Preferences.OrderMoney, VoiceOrder: prefs.VoiceOrder, Global: global, Recipients: recipients, Configured: all})
 		if e != nil {
 			return e
 		}

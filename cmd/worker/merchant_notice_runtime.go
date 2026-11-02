@@ -11,14 +11,18 @@ import (
 	"goepay/internal/mailaccount195"
 	"goepay/internal/mailer"
 	notice "goepay/internal/merchantnotice"
+	"goepay/internal/voiceconfig230"
 )
 
 var errMerchantNoticeConfiguration = errors.New("merchant notice delivery configuration unavailable")
 
 type merchantNoticeRuntime struct {
 	mailAccounts mailAccountResolver195
-	store        *notice.Store
-	getenv       func(string) string
+	voiceConfig  interface {
+		Resolve(context.Context) (voiceconfig230.View, voiceconfig230.Credential, bool, error)
+	}
+	store  *notice.Store
+	getenv func(string) string
 }
 
 func newMerchantNoticeRuntime(pool *pgxpool.Pool, getenv func(string) string) (*merchantNoticeRuntime, error) {
@@ -40,7 +44,11 @@ func newMerchantNoticeRuntime(pool *pgxpool.Pool, getenv func(string) string) (*
 	if err != nil {
 		return nil, errMerchantNoticeConfiguration
 	}
-	return &merchantNoticeRuntime{store: store, getenv: getenv, mailAccounts: mailaccount195.FromMaster(pool, key)}, nil
+	voice, e := voiceconfig230.FromMaster(pool, key)
+	if e != nil {
+		return nil, e
+	}
+	return &merchantNoticeRuntime{store: store, getenv: getenv, mailAccounts: mailaccount195.FromMaster(pool, key), voiceConfig: voice}, nil
 }
 func (r *merchantNoticeRuntime) ResolveMerchantNotice(ctx context.Context, kind notice.Transport, a notice.Account) (notice.Sender, error) {
 	if r == nil || r.getenv == nil || ctx == nil || ctx.Err() != nil {
@@ -48,7 +56,22 @@ func (r *merchantNoticeRuntime) ResolveMerchantNotice(ctx context.Context, kind 
 	}
 	switch kind {
 	case notice.Voice:
-		sender, err := adminnotice.NewVoiceMerchant(adminnotice.VoiceMerchantConfig{Endpoint: r.getenv("GOEPAY_MERCHANT_VOICE_HTTPS_ENDPOINT"), AgentID: r.getenv("GOEPAY_MERCHANT_VOICE_AGENT_ID"), Secret: r.getenv("GOEPAY_MERCHANT_VOICE_SECRET"), Input: a.Input}, nil)
+		agent, secret := r.getenv("GOEPAY_MERCHANT_VOICE_AGENT_ID"), r.getenv("GOEPAY_MERCHANT_VOICE_SECRET")
+		revision := int64(0)
+		if a.VoiceResolved && a.VoiceManaged {
+			agent, secret = a.VoiceCredential.AgentID, a.VoiceCredential.Secret
+			revision = a.VoiceRevision
+		} else if !a.VoiceResolved && r.voiceConfig != nil {
+			v, c, managed, e := r.voiceConfig.Resolve(ctx)
+			if e != nil || managed && !v.Enabled {
+				return nil, errMerchantNoticeConfiguration
+			}
+			if managed {
+				agent, secret = c.AgentID, c.Secret
+				revision = v.Revision
+			}
+		}
+		sender, err := adminnotice.NewVoiceMerchant(adminnotice.VoiceMerchantConfig{Endpoint: r.getenv("GOEPAY_MERCHANT_VOICE_HTTPS_ENDPOINT"), AgentID: agent, Secret: secret, Input: a.Input, Revision: revision}, nil)
 		if err != nil {
 			return nil, errMerchantNoticeConfiguration
 		}

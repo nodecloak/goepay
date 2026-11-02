@@ -15,6 +15,8 @@ const (
 
 type GlobalSwitches struct {
 	MailRobot, Telegram, QQBot, Voice, GroupSMS bool
+	// Explicit channel switches override legacy defaults.
+	Channels map[Transport]bool
 }
 
 // Presence and configuration are preflight facts, not recipient identifiers or
@@ -47,6 +49,9 @@ func SelectMerchant(in SelectionInput) ([]Route, error) {
 	}
 	routes := make([]Route, 0, 4)
 	add := func(kind Transport, trigger, blocker string) {
+		if on, present := in.Global.Channels[kind]; present && !on {
+			blocker = "platform_disabled"
+		}
 		if blocker == "" && !in.Recipients[kind] {
 			blocker = "recipient_missing"
 		}

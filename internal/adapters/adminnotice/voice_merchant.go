@@ -6,10 +6,12 @@ import (
 	notice "goepay/internal/merchantnotice"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 )
 
 type VoiceMerchantConfig struct {
+	Revision                  int64
 	Endpoint, AgentID, Secret string
 	Input                     notice.Input
 }
@@ -53,7 +55,10 @@ func NewVoiceMerchant(c VoiceMerchantConfig, client *http.Client) (*VoiceMerchan
 	if err != nil {
 		return nil, ErrMerchantDelivery
 	}
-	return &VoiceMerchant{endpoint: c.Endpoint, agent: c.AgentID, secret: c.Secret, text: c.Input.Params["type"] + "收款" + ledger.Format(amount) + "元", scope: routeScope("voice80/v1", c.Endpoint, c.AgentID, c.Secret), messageHash: wechatMessageHash(message), client: configured}, nil
+	if c.Revision < 0 {
+		return nil, ErrMerchantDelivery
+	}
+	return &VoiceMerchant{endpoint: c.Endpoint, agent: c.AgentID, secret: c.Secret, text: c.Input.Params["type"] + "收款" + ledger.Format(amount) + "元", scope: routeScope("voice80/v1", c.Endpoint, c.AgentID, c.Secret, strconv.FormatInt(c.Revision, 10)), messageHash: wechatMessageHash(message), client: configured}, nil
 }
 func (v *VoiceMerchant) SendMerchantNotice(ctx context.Context, to string, m notice.Message) error {
 	if v == nil || ctx == nil || ctx.Err() != nil || !m.Valid() || wechatMessageHash(m) != v.messageHash || v.ValidateNoticeRecipient(to) != nil {

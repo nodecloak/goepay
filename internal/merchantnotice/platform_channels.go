@@ -14,11 +14,13 @@ import (
 // 会员到期 forced-SMS route). This never reads a credential or a merchant row.
 type PlatformNoticeSwitches struct {
 	// MailRobot[scene] reports the per-scene 邮件/群机器人 platform switch.
-	MailRobot map[string]bool `json:"mail_robot"`
-	Telegram  bool            `json:"telegram"`
-	QQBot     bool            `json:"qqbot"`
-	Voice     bool            `json:"voice"`
-	GroupSMS  bool            `json:"group_sms"`
+	MailRobot       map[string]bool    `json:"mail_robot"`
+	Telegram        bool               `json:"telegram"`
+	QQBot           bool               `json:"qqbot"`
+	Voice           bool               `json:"voice"`
+	GroupSMS        bool               `json:"group_sms"`
+	Channels        map[Transport]bool `json:"channels"`
+	WechatTemplates map[string]bool    `json:"wechat_templates"`
 }
 
 var noticeScenes80 = []string{"order", "settle", "login", "complain", "mchrisk", "balance", "group", "domain_audit", "daily_report"}
@@ -34,7 +36,7 @@ func (s *Store) PlatformNoticeSwitches(ctx context.Context) (PlatformNoticeSwitc
 	for _, scene := range noticeScenes80 {
 		keys = append(keys, "msgconfig_"+scene)
 	}
-	keys = append(keys, "telegramnotice", "qqbotnotice", "voicenotice")
+	keys = append(keys, "telegramnotice", "qqbotnotice", "voicenotice", "wxnotice", "mailnotice", "robotnotice", "smsnotice")
 	rows, err := s.pool.Query(ctx, `SELECT body->>'key',body->'value' FROM backoffice_records WHERE resource='settings' AND body->>'key'=ANY($1::text[]) ORDER BY id`, keys)
 	if err != nil {
 		return out, err
@@ -61,5 +63,19 @@ func (s *Store) PlatformNoticeSwitches(ctx context.Context) (PlatformNoticeSwitc
 	out.Telegram = values["telegramnotice"]
 	out.QQBot = values["qqbotnotice"]
 	out.Voice = values["voicenotice"]
+	out.Channels = noticeChannels230(values)
+	if s.voice != nil {
+		v, _, managed, e := s.voice.Resolve(ctx)
+		if e != nil {
+			return out, e
+		}
+		if managed {
+			out.Voice = v.Enabled
+		}
+	}
+	out.WechatTemplates, err = s.wechatTemplateReadiness230(ctx)
+	if err != nil {
+		return out, err
+	}
 	return out, nil
 }

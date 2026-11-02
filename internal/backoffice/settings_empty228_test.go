@@ -6,7 +6,7 @@ import (
 )
 
 func TestSettings228ClearOptionalValuesWithoutClearingRequiredSwitches(t *testing.T) {
-	for _, key := range []string{"blockname", "blockalert", "blackmsg", "pay_force_cashier_pids", "user_deposit_min", "user_deposit_day", "wxnotice_tpl_order_no"} {
+	for _, key := range []string{"blockname", "blockalert", "blackmsg", "pay_force_cashier_pids", "user_deposit_min", "user_deposit_day", "wxnotice_tpl_order_no", "wxnotice_tpl_order"} {
 		t.Run(key, func(t *testing.T) {
 			raw := map[string]json.RawMessage{"value": json.RawMessage(`""`)}
 			current := map[string]any{"key": key, "value": "existing"}
@@ -19,7 +19,7 @@ func TestSettings228ClearOptionalValuesWithoutClearingRequiredSwitches(t *testin
 			}
 		})
 	}
-	for _, key := range []string{"user_deposit", "registration_open", "wxnotice_tpl_order"} {
+	for _, key := range []string{"user_deposit", "registration_open"} {
 		if _, err := validate(Principal{Role: "admin"}, definitions["settings"], map[string]json.RawMessage{"value": json.RawMessage(`""`)}, map[string]any{"key": key, "value": "1"}, false); err == nil {
 			t.Fatal("required setting accepted empty", key)
 		}

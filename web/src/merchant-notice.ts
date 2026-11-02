@@ -43,6 +43,10 @@ export interface PlatformNoticeSwitches {
   qqbot: boolean;
   voice: boolean;
   group_sms: boolean;
+  channels?: Partial<
+    Record<"wechat_template" | "smtp" | "sms" | "robot", boolean>
+  >;
+  wechat_templates?: Record<string, boolean>;
 }
 // Channel columns in the original epay_pro 消息推送 order. Each value is the
 // stored Mode an event row selects when that channel is picked (0 = 关闭提醒).
@@ -90,10 +94,20 @@ export function channelCell(
     ready,
     reason,
   });
+  const transport = {
+    1: "wechat_template",
+    2: "smtp",
+    3: "sms",
+    4: "robot",
+  } as const;
+  if (mode <= 4 && p?.channels?.[transport[mode as 1 | 2 | 3 | 4]] === false)
+    return cell(false, "平台已关闭该消息渠道");
   switch (mode) {
     case 1: // WeChat template
       if (!wechatScenes.has(scene))
         return cell(false, "该事件没有微信模板消息");
+      if (p?.wechat_templates && !p.wechat_templates[scene])
+        return cell(false, "平台尚未配置完整的微信通知模板");
       break;
     case 2: // Email
     case 4: // Group robot
@@ -103,7 +117,7 @@ export function channelCell(
     case 3: // SMS
       if (!smsSelectableScenes.has(scene))
         return cell(false, "该事件不支持短信提醒");
-      if (!smsActive) return cell(false, "短信网关未启用");
+      if (!smsActive) return cell(false, "通知短信尚未接入");
       break;
     case 5: // Telegram
       if (p && !p.telegram) return cell(false, "平台未启用 Telegram 提醒");
