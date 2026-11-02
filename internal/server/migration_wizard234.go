@@ -14,12 +14,14 @@ import (
 
 var errMigrationUpload234 = errors.New("invalid migration backup upload")
 
+const migrationUploadBodyLimit234 = int64(64<<20) + (128 << 10)
+
 func readMigrationDump234(r *http.Request) ([]byte, string, string, error) {
 	const max = int64(64 << 20)
-	if r.ContentLength > max+(128<<10) {
+	if r.ContentLength > migrationUploadBodyLimit234 {
 		return nil, "", "", errMigrationUpload234
 	}
-	r.Body = http.MaxBytesReader(nil, r.Body, max+(128<<10))
+	r.Body = http.MaxBytesReader(nil, r.Body, migrationUploadBodyLimit234)
 	m, e := r.MultipartReader()
 	if e != nil {
 		return nil, "", "", errMigrationUpload234

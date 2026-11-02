@@ -116,6 +116,11 @@ func callWizard234(s *Server, token, csrf, method, path string, body any) *httpt
 
 func prepareWizard234(t *testing.T, s *Server, token, csrf string) migration.WizardView234 {
 	t.Helper()
+	return prepareWizardDump234(t, s, token, csrf, syntheticSQL234)
+}
+
+func prepareWizardDump234(t *testing.T, s *Server, token, csrf, raw string) migration.WizardView234 {
+	t.Helper()
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
 	w.WriteField("source", "epay_pro")
@@ -124,7 +129,7 @@ func prepareWizard234(t *testing.T, s *Server, token, csrf string) migration.Wiz
 	if e != nil {
 		t.Fatal(e)
 	}
-	part.Write([]byte(syntheticSQL234))
+	part.Write([]byte(raw))
 	w.Close()
 	r := httptest.NewRequest("POST", "/console/v1/admin/migration/epay/prepare", &body)
 	r.Header.Set("Content-Type", w.FormDataContentType())
@@ -136,6 +141,20 @@ func prepareWizard234(t *testing.T, s *Server, token, csrf string) migration.Wiz
 		t.Fatal("private backup leaked")
 	}
 	return kyc233View[migration.WizardView234](t, out)
+}
+
+func TestMigration234HTTPBackupOverDefaultBodyLimit(t *testing.T) {
+	s, _, token, csrf := migrationHTTP234(t)
+	// Use small valid comment tokens to exceed the default HTTP body limit
+	// without exceeding any SQL token, row or column limit.
+	raw := strings.Repeat("-- synthetic padding for large backup\n", 40000) + syntheticSQL234
+	if len(raw) <= 1<<20 {
+		t.Fatal("large backup regression fixture is too small")
+	}
+	v := prepareWizardDump234(t, s, token, csrf, raw)
+	if v.Status != "prepared" || len(v.Issues) != 0 || v.Merchants != 1 || v.Orders != 1 {
+		t.Fatal("valid backup above the ordinary request limit was not prepared", v.Status, v.Issues)
+	}
 }
 
 func TestMigration234HTTPCompleteApplyReplayAndNoJobs(t *testing.T) {

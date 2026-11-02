@@ -34,10 +34,12 @@ test("local real API migrates a SQL backup once and preserves a safe activation 
   expect(session.code).toBe(0);
   const csrf = session.data.csrf_token;
   const sql =
+    "-- synthetic padding for large backup\n".repeat(40000) +
     "CREATE TABLE pay_user(uid bigint,money decimal(10,2),codename text,addtime datetime,deposit decimal(10,2)); INSERT INTO pay_user VALUES(9001,12.50,'Synthetic merchant','2026-10-01 00:00:00',0);" +
     "CREATE TABLE pay_type(id int,name text); INSERT INTO pay_type VALUES(1,'alipay');" +
     "CREATE TABLE pay_order(trade_no text,uid int,out_trade_no text,name text,type int,money decimal(10,2),realmoney decimal(10,2),status int,addtime datetime,endtime datetime,tid int,version int); INSERT INTO pay_order VALUES('2340000000000000001',9001,'synthetic234','Synthetic Product',1,1.00,1.00,1,'2026-10-01 01:00:00','2026-10-01 01:01:00',0,0);" +
     "CREATE TABLE pay_config(k text,v text); INSERT INTO pay_config VALUES('secret','synthetic-not-for-ui234');";
+  expect(Buffer.byteLength(sql)).toBeGreaterThan(1 << 20);
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   let prepares = 0,
