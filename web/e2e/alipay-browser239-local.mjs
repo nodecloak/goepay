@@ -21,7 +21,7 @@ for (const method of ['page', 'wap']) {
 await fs.mkdir(artifacts, { recursive: true });
 if (!inside(await fs.realpath(owned), await fs.realpath(artifacts))) throw Error('artifact symlink escaped the owned directory');
 
-const report = { syntheticOnly: true, amount: '66.50', actualExternalNetworkRequests: 0, virtualOfficialOrigins: ['https://openapi.alipay.com', 'https://excashier.alipay.com'], loopbackPeers: [fixture.api, fixture.gatewayLocal, fixture.cashierLocal], scenarios: [], submitted: [], navigations: [], merchantReturns: [], requestFailures: [], errors: [], forbidden: [] };
+const report = { syntheticOnly: true, amount: '66.50', actualExternalNetworkRequests: 0, fixtureLimitation: 'Synthetic 230px inline QR with margin/padding reset and 12px/1.5 font line box; relevant layout conditions only, not copied provider HTML or an exact live reconstruction. The separate 260px negative probe validates detection of cropping and does not claim the product accommodates arbitrary provider sizes.', virtualOfficialOrigins: ['https://openapi.alipay.com', 'https://excashier.alipay.com'], loopbackPeers: [fixture.api, fixture.gatewayLocal, fixture.cashierLocal], scenarios: [], submitted: [], navigations: [], merchantReturns: [], requestFailures: [], errors: [], forbidden: [] };
 const gatewayPort = new URL(fixture.gatewayLocal).port;
 const cashierPort = new URL(fixture.cashierLocal).port;
 const hostRules = `MAP openapi.alipay.com:443 127.0.0.1:${gatewayPort}, MAP excashier.alipay.com:443 127.0.0.1:${cashierPort}, MAP merchant.example.invalid:443 127.0.0.1:${cashierPort}, MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1`;
@@ -101,24 +101,75 @@ async function newPage(name, mobile) {
   return page;
 }
 
-async function assertImage(image, withinFrameViewport = false) {
+async function measureImage(image) {
   await expect(image).toBeVisible({ timeout: 12000 });
   await expect.poll(() => image.evaluate(node => node.complete && node.naturalWidth > 0 && node.naturalHeight > 0), { timeout: 10000 }).toBe(true);
-  if (withinFrameViewport) {
-    await image.scrollIntoViewIfNeeded();
-    const bounds = await image.evaluate(node => {
-      const rect = node.getBoundingClientRect();
-      return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height, viewportWidth: innerWidth, viewportHeight: innerHeight, documentHeight: document.documentElement.scrollHeight };
-    });
-    expect(bounds.width, 'complete 230px QR image including its quiet zone').toBe(230);
-    expect(bounds.height, 'complete 230px QR image including its quiet zone').toBe(230);
-    expect(bounds.left, 'QR left quiet zone stays inside iframe').toBeGreaterThanOrEqual(0);
-    expect(bounds.top, 'QR top quiet zone stays inside iframe').toBeGreaterThanOrEqual(0);
-    expect(bounds.right, 'QR right quiet zone stays inside iframe').toBeLessThanOrEqual(bounds.viewportWidth);
-    expect(bounds.bottom, 'QR bottom quiet zone stays inside iframe').toBeLessThanOrEqual(bounds.viewportHeight);
-    expect(bounds.documentHeight, 'compact mode4 fixture fits the cashier iframe').toBeLessThanOrEqual(bounds.viewportHeight);
-    return bounds;
+  // Do not scroll the iframe/image before measuring: doing so can conceal
+  // initial clipping, move a quiet zone out of view, or mask scrollbar feedback.
+  return image.evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    const metrics = element => ({ tag: element.tagName, clientWidth: element.clientWidth, clientHeight: element.clientHeight, scrollWidth: element.scrollWidth, scrollHeight: element.scrollHeight, scrollLeft: element.scrollLeft, scrollTop: element.scrollTop });
+    return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height, naturalWidth: node.naturalWidth, naturalHeight: node.naturalHeight, innerWidth, innerHeight, windowScrollX: scrollX, windowScrollY: scrollY, scrollingElement: metrics(document.scrollingElement), document: metrics(document.documentElement), body: metrics(document.body) };
+  });
+}
+
+function assertUnobscuredQR(bounds, sourceSize = 230) {
+  const viewport = bounds.scrollingElement;
+  const scrollWidth = Math.max(viewport.scrollWidth, bounds.document.scrollWidth, bounds.body.scrollWidth);
+  const scrollHeight = Math.max(viewport.scrollHeight, bounds.document.scrollHeight, bounds.body.scrollHeight);
+  expect(bounds.width, 'complete original QR width including quiet zones').toBe(sourceSize);
+  expect(bounds.height, 'complete original QR height including quiet zones').toBe(sourceSize);
+  expect(bounds.naturalWidth, 'source image is not scaled to conceal clipping').toBe(sourceSize);
+  expect(bounds.naturalHeight, 'source image is not scaled to conceal clipping').toBe(sourceSize);
+  for (const element of [viewport, bounds.document, bounds.body]) {
+    expect(element.scrollLeft, element.tag + ' initial horizontal scroll is zero').toBe(0);
+    expect(element.scrollTop, element.tag + ' initial vertical scroll is zero').toBe(0);
   }
+  expect(bounds.windowScrollX, 'initial window horizontal scroll is zero').toBe(0);
+  expect(bounds.windowScrollY, 'initial window vertical scroll is zero').toBe(0);
+  expect(bounds.left, 'QR left quiet zone stays inside unobscured iframe client viewport').toBeGreaterThanOrEqual(0);
+  expect(bounds.top, 'QR top quiet zone stays inside unobscured iframe client viewport').toBeGreaterThanOrEqual(0);
+  expect(bounds.right, 'QR right quiet zone stays inside unobscured iframe client viewport').toBeLessThanOrEqual(viewport.clientWidth);
+  expect(bounds.bottom, 'QR bottom quiet zone stays inside unobscured iframe client viewport').toBeLessThanOrEqual(viewport.clientHeight);
+  expect(scrollWidth, 'document/body have zero horizontal overflow, even when scrolling=no hides bars').toBeLessThanOrEqual(viewport.clientWidth);
+  expect(scrollHeight, 'document/body line boxes have zero vertical overflow, even when scrolling=no hides bars').toBeLessThanOrEqual(viewport.clientHeight);
+}
+
+async function assertImage(image, withinFrameViewport = false) {
+  const bounds = await measureImage(image);
+  if (withinFrameViewport) {
+    const check = { bounds };
+    (report.qrFitChecks ??= []).push(check);
+    try { assertUnobscuredQR(bounds); check.passed = true; }
+    catch (error) {
+      check.passed = false;
+      check.rejection = error.message;
+      await image.page().screenshot({ path: path.join(artifacts, 'mode4-fit-failure.png'), fullPage: true });
+      throw error;
+    }
+  }
+  return bounds;
+}
+
+async function proveCropGuard() {
+  // Independent local browser geometry probe. scrolling=no can hide bars while
+  // a too-large child is still cropped, so absence of bars is never the proof.
+  const probe = await newPage('geometry-negative-probe', false);
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="260" height="260"><rect width="260" height="260" fill="white"/><path d="M24 24h212v212H24z" fill="black"/></svg>';
+  const source = 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64');
+  const child = `<!doctype html><meta charset="UTF-8"><style>html,body{margin:0;padding:0}body{font:12px/1.5 sans-serif}</style><img width="260" height="260" alt="Oversize geometry probe" src="${source}">`;
+  await probe.setContent('<!doctype html><iframe title="Separate crop guard probe" scrolling="no" style="width:230px;height:256px;border:0"></iframe>');
+  await probe.locator('iframe').evaluate((element, document) => { element.srcdoc = document; }, child);
+  const image = probe.frameLocator('iframe').getByRole('img', { name: 'Oversize geometry probe' });
+  const bounds = await measureImage(image);
+  await expect(probe.locator('iframe')).toHaveAttribute('scrolling', 'no');
+  let rejection;
+  try { assertUnobscuredQR(bounds, 260); } catch (error) { rejection = error.message; }
+  expect(rejection, 'shared fit validator must reject real browser 260px cropping despite hidden scrollbars').toBeTruthy();
+  expect(bounds.right > bounds.scrollingElement.clientWidth || bounds.bottom > bounds.scrollingElement.clientHeight, 'negative probe actually exceeds unobscured client viewport').toBe(true);
+  report.cropGuardSelfCheck = { passed: true, scrolling: 'no', bounds, rejection, limitation: 'Validator self-check only; not a payment scenario or product accommodation of arbitrary provider size' };
+  await probe.screenshot({ path: path.join(artifacts, 'negative-260-hidden-scrollbars.png'), fullPage: true });
+  await probe.close();
 }
 
 async function assertMerchant(page, trade) {
@@ -127,7 +178,7 @@ async function assertMerchant(page, trade) {
   if (verifyMerchant(new URL(page.url())) !== trade) throw Error('returned to another merchant order');
 }
 
-async function assertCardCentered(page, image, frame) {
+async function assertCardCentered(page, image, frame, childBounds) {
   const card = await page.locator('main').boundingBox();
   const bounds = await image.boundingBox(); // Playwright reports iframe images in global coordinates.
   if (!card || !bounds) throw Error('visible checkout card and QR bounds required');
@@ -137,7 +188,10 @@ async function assertCardCentered(page, image, frame) {
   if (frame) {
     const viewport = await frame.boundingBox();
     expect(viewport.width, 'mode4 iframe matches the real QR-only viewport').toBe(230);
-    expect(viewport.height, 'mode4 iframe is square').toBe(230);
+    // Child scroll extents include the inline image's font line box. Do not
+    // encode an exact parent height: require enough usable room for that child.
+    expect(viewport.height, 'iframe contains measured child document extent').toBeGreaterThanOrEqual(Math.max(childBounds.scrollingElement.scrollHeight, childBounds.document.scrollHeight, childBounds.body.scrollHeight));
+    await expect(frame, 'parent explicitly suppresses cashier scrollbars').toHaveAttribute('scrolling', 'no');
     expect(bounds.y, 'top quiet zone is not clipped').toBeGreaterThanOrEqual(viewport.y);
     expect(bounds.y + bounds.height, 'bottom quiet zone is not clipped').toBeLessThanOrEqual(viewport.y + viewport.height);
   }
@@ -147,6 +201,7 @@ async function assertCardCentered(page, image, frame) {
 }
 
 try {
+  await proveCropGuard();
   for (const method of ['page', 'wap']) {
     const trade = fixture[method + 'Trade'];
     const desktopName = `desktop-${method}1280`;
@@ -159,10 +214,11 @@ try {
       await expect(desktop.locator('iframe[name="alipay-cashier"]')).toHaveCount(1);
       const qrBounds = await assertImage(desktop.frameLocator('iframe[name="alipay-cashier"]').getByRole('img', { name: 'Local Alipay QR239' }), true);
       report.desktopPageQRBounds = qrBounds;
-      report.desktopPageGlobalQRBounds = await assertCardCentered(desktop, desktop.frameLocator('iframe[name="alipay-cashier"]').getByRole('img', { name: 'Local Alipay QR239' }), desktop.locator('iframe[name="alipay-cashier"]'));
+      report.desktopPageGlobalQRBounds = await assertCardCentered(desktop, desktop.frameLocator('iframe[name="alipay-cashier"]').getByRole('img', { name: 'Local Alipay QR239' }), desktop.locator('iframe[name="alipay-cashier"]'), qrBounds);
       await desktop.setViewportSize({ width: 375, height: 812 });
-      await assertImage(desktop.frameLocator('iframe[name="alipay-cashier"]').getByRole('img', { name: 'Local Alipay QR239' }), true);
-      report.desktopPage375GlobalQRBounds = await assertCardCentered(desktop, desktop.frameLocator('iframe[name="alipay-cashier"]').getByRole('img', { name: 'Local Alipay QR239' }), desktop.locator('iframe[name="alipay-cashier"]'));
+      const narrowBounds = await assertImage(desktop.frameLocator('iframe[name="alipay-cashier"]').getByRole('img', { name: 'Local Alipay QR239' }), true);
+      report.desktopPage375QRBounds = narrowBounds;
+      report.desktopPage375GlobalQRBounds = await assertCardCentered(desktop, desktop.frameLocator('iframe[name="alipay-cashier"]').getByRole('img', { name: 'Local Alipay QR239' }), desktop.locator('iframe[name="alipay-cashier"]'), narrowBounds);
       await desktop.screenshot({ path: path.join(artifacts, 'desktop-page375-qr-only.png'), fullPage: true });
       await desktop.setViewportSize({ width: 1280, height: 900 });
       if (!desktop.frames().some(frame => frame.url().startsWith(cashierOrigin + '/fixture/'))) throw Error('gateway POST did not redirect its iframe across official cashier origins');

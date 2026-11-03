@@ -121,7 +121,9 @@ func (s *Server) renderAlipayBrowser239(w http.ResponseWriter, r *http.Request, 
 	target := "_self"
 	if desktop && p.Method == "page" {
 		target = "alipay-cashier"
-		io.WriteString(w, `<p>请使用手机支付宝扫描二维码完成支付。</p><iframe name="alipay-cashier" title="支付宝支付二维码" sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation" style="display:block;width:230px;max-width:100%;height:230px;border:0;margin:20px auto"></iframe>`)
+		// Keep the full QR width and leave room for the provider's image line box.
+		// Disabling scrolling alone would hide gutters while retaining clipping.
+		io.WriteString(w, `<p>请使用手机支付宝扫描二维码完成支付。</p><iframe name="alipay-cashier" title="支付宝支付二维码" scrolling="no" sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation" style="display:block;width:230px;max-width:100%;height:256px;border:0;margin:20px auto"></iframe>`)
 	} else if desktop {
 		qrURL := *r.URL
 		qrURL.Path += "/browser-qr.png"

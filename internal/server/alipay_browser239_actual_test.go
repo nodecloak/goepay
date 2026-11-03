@@ -241,10 +241,12 @@ func TestAlipayBrowser239ActualBrowser(t *testing.T) {
 			cashierPages.Add(1)
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			if session.qrOnly {
-				// Alipay mode 4 is a QR-only 230px document, left aligned in its
-				// own viewport. Centering inside a wider fake body hides a real
-				// 320px iframe alignment bug; epay's alipay_qrcodepc.php uses 230.
-				fmt.Fprintf(w, `<!doctype html><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Local Alipay mode4 QR239</title><style>html,body{margin:0;padding:0}img{display:block;width:230px;height:230px}</style><img width="230" height="230" alt="Local Alipay QR239" src="/qr.png?session=%s">`, id)
+				// Synthetic QR-only mode 4 fixture: retain an inline 230px image
+				// and its font line box. A block-image reset masked scrollbar
+				// feedback/cropping in a 230px-square parent viewport. The reset
+				// and 12px/1.5 font reproduce the relevant layout conditions;
+				// this is not copied provider HTML or an exact live reconstruction.
+				fmt.Fprintf(w, `<!doctype html><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Local Alipay mode4 QR239</title><style>html,body{margin:0;padding:0}body{font:12px/1.5 sans-serif}</style><img width="230" height="230" alt="Local Alipay QR239" src="/qr.png?session=%s">`, id)
 				return
 			}
 			fmt.Fprintf(w, `<!doctype html><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Local Alipay cashier239</title><style>html,body{margin:0;padding:0;font:14px/18px sans-serif}h1{margin:4px 0;font:inherit;text-align:center;white-space:nowrap}img{display:block;margin:0 auto}form{margin:4px 0 0}button{display:block;box-sizing:border-box;height:24px;margin:0 auto;padding:1px 8px;font:12px/18px sans-serif}</style><h1>本地合成支付宝收银台</h1><img width="230" height="230" alt="Local Alipay QR239" src="/qr.png?session=%s"><form method="post" action="/confirm"><input type="hidden" name="session" value="%s"><button type="submit">Confirm synthetic payment239</button></form>`, id, id)
