@@ -141,12 +141,15 @@ func (s *Server) oauthCheckout(w http.ResponseWriter, r *http.Request, order pay
 	}
 	checkoutPath := "/checkout/" + url.PathEscape(order.TradeNo)
 	if r.URL.Path != checkoutPath {
-		if r.URL.Path == checkoutPath+"/return" && s.checkoutAuthorized(r, order.TradeNo, "return") {
+		if b.Provider == "wxpay" && r.URL.Path == checkoutPath+"/browser-qr.png" {
+			// The signed checkout bearer is checked below before serving this QR.
+		} else if r.URL.Path == checkoutPath+"/return" && s.checkoutAuthorized(r, order.TradeNo, "return") {
 			http.Error(w, "payment authorization is incomplete", 202)
+			return true
 		} else {
 			http.NotFound(w, r)
+			return true
 		}
-		return true
 	}
 	if !s.checkoutAuthorized(r, order.TradeNo, "checkout") {
 		http.Error(w, "invalid checkout token", 403)
@@ -160,6 +163,9 @@ func (s *Server) oauthCheckout(w http.ResponseWriter, r *http.Request, order pay
 	s = resolved
 	if !s.oauthBindingEnabled(r.Context(), b) {
 		http.Error(w, "authorization unavailable", 503)
+		return true
+	}
+	if s.wechatOAuthDesktop240(w, r, order) {
 		return true
 	}
 	browser, ok := oauthCookie(r)

@@ -60,6 +60,19 @@ func TestRisk177EveryNativeAndWAPHTTPMaterialUsesProtectedIntermediary(t *testin
 				t.Fatal(e)
 			}
 			page := risk177ScanGET(f, f.s.checkoutURL(order.TradeNo, "checkout"), "192.0.2.177")
+			if method == "h5" {
+				if page.Code != 200 || !strings.Contains(page.Body.String(), "browser-qr.png") || strings.Contains(page.Body.String(), "http://pay.example.invalid/original-http-material") {
+					t.Fatal("desktop must retain the same protected checkout QR")
+				}
+				r := httptest.NewRequest("GET", f.s.checkoutURL(order.TradeNo, "checkout"), nil)
+				r.RemoteAddr = "192.0.2.177:49177"
+				r.Header.Set("User-Agent", "Mozilla/5.0 (iPhone) Mobile Safari")
+				page = httptest.NewRecorder()
+				f.s.Handler().ServeHTTP(page, r)
+				if !strings.Contains(page.Body.String(), "location.assign") {
+					t.Fatal("mobile H5 continuation did not navigate the protected original intermediary")
+				}
+			}
 			if page.Code != 200 || strings.Contains(page.Body.String(), "http://pay.example.invalid/original-http-material") || !strings.Contains(page.Body.String(), "scan-region") {
 				t.Fatal("outgoing HTTP material bypassed intermediary", method, page.Code)
 			}

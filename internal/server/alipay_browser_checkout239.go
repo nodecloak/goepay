@@ -121,11 +121,12 @@ func (s *Server) renderAlipayBrowser239(w http.ResponseWriter, r *http.Request, 
 	target := "_self"
 	if desktop && p.Method == "page" {
 		target = "alipay-cashier"
-		io.WriteString(w, `<p>请使用手机支付宝扫描二维码完成支付。</p><iframe name="alipay-cashier" title="支付宝支付二维码" sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation" style="display:block;width:100%;max-width:320px;height:300px;border:0;margin:20px auto"></iframe>`)
+		io.WriteString(w, `<p>请使用手机支付宝扫描二维码完成支付。</p><iframe name="alipay-cashier" title="支付宝支付二维码" sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation" style="display:block;width:230px;max-width:100%;height:230px;border:0;margin:20px auto"></iframe>`)
 	} else if desktop {
 		qrURL := *r.URL
 		qrURL.Path += "/browser-qr.png"
-		fmt.Fprintf(w, `<p>请使用手机支付宝扫描支付二维码，在手机上继续原订单支付。</p><img width="320" height="320" alt="支付宝支付二维码" style="max-width:100%%;height:auto" src="%s">`, html.EscapeString(qrURL.String()))
+		io.WriteString(w, `<p>请使用手机支付宝扫描支付二维码，在手机上继续原订单支付。</p>`)
+		checkoutQRImage240(w, qrURL.String(), "支付宝支付二维码")
 	} else {
 		io.WriteString(w, `<p>正在前往支付宝，请稍候。未自动打开时，请点击下方按钮继续。</p>`)
 	}

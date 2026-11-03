@@ -563,7 +563,11 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(parts) == 2 && parts[1] == "browser-qr.png" {
-		s.alipayBrowserQR239(w, r, order, attempt)
+		if order.Type == "wxpay" {
+			s.wechatContinuationQR240(w, r, order, attempt)
+		} else {
+			s.alipayBrowserQR239(w, r, order, attempt)
+		}
 		return
 	}
 	if len(parts) == 1 && order.Status == "paid" && order.ReturnURL != "" && attempt.Method == "native" && attempt.MaterialType == "qrcode" {
@@ -572,6 +576,14 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	checkoutHTML := attempt.Material
+	wechatBrowser := false
+	if purpose == "checkout" && len(parts) == 1 && order.Status == "pending" && attempt.State == "pending" {
+		wechatBrowser, e = s.originalWechatBrowser240(r.Context(), order, attempt)
+		if e != nil {
+			http.Error(w, "original checkout unavailable", http.StatusServiceUnavailable)
+			return
+		}
+	}
 	var browserPresentation *provider.BrowserCheckoutPresentation
 	if purpose == "checkout" && len(parts) == 1 && order.Status == "pending" && attempt.State == "pending" && attempt.MaterialType == "html" && order.Type == "alipay" {
 		var err error
@@ -592,6 +604,9 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	nonce := base64.RawStdEncoding.EncodeToString(nonceBytes)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Referrer-Policy", "no-referrer")
+	if wechatBrowser && attempt.Method == "h5" && (alipayMobileBrowser239(r) || r.URL.Query().Get("browser_launch") == "1") && !wechatInside240(r) {
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+	}
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; style-src 'unsafe-inline'; img-src 'self'; connect-src 'self'; form-action http: https:; script-src 'nonce-"+nonce+"'")
 	if browserPresentation != nil {
 		w.Header().Set("Content-Security-Policy", alipayBrowserCSP239(*browserPresentation, order.ReturnURL, nonce))
@@ -643,6 +658,11 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "original scan protection unavailable", 503)
 			return
 		}
+	}
+	if wechatBrowser {
+		s.renderWechatBrowser240(w, r, order, attempt, material, nonce)
+		io.WriteString(w, tail)
+		return
 	}
 	switch attempt.MaterialType {
 	case "html":

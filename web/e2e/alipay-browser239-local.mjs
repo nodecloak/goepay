@@ -127,6 +127,25 @@ async function assertMerchant(page, trade) {
   if (verifyMerchant(new URL(page.url())) !== trade) throw Error('returned to another merchant order');
 }
 
+async function assertCardCentered(page, image, frame) {
+  const card = await page.locator('main').boundingBox();
+  const bounds = await image.boundingBox(); // Playwright reports iframe images in global coordinates.
+  if (!card || !bounds) throw Error('visible checkout card and QR bounds required');
+  expect(Math.abs(bounds.x + bounds.width / 2 - card.x - card.width / 2), 'global QR center aligns with checkout card center').toBeLessThanOrEqual(1);
+  expect(bounds.x, 'complete left quiet zone inside card').toBeGreaterThanOrEqual(card.x);
+  expect(bounds.x + bounds.width, 'complete right quiet zone inside card').toBeLessThanOrEqual(card.x + card.width);
+  if (frame) {
+    const viewport = await frame.boundingBox();
+    expect(viewport.width, 'mode4 iframe matches the real QR-only viewport').toBe(230);
+    expect(viewport.height, 'mode4 iframe is square').toBe(230);
+    expect(bounds.y, 'top quiet zone is not clipped').toBeGreaterThanOrEqual(viewport.y);
+    expect(bounds.y + bounds.height, 'bottom quiet zone is not clipped').toBeLessThanOrEqual(viewport.y + viewport.height);
+  }
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+  expect(overflow, 'checkout must not overflow horizontally').toBe(false);
+  return { card, qr: bounds };
+}
+
 try {
   for (const method of ['page', 'wap']) {
     const trade = fixture[method + 'Trade'];
@@ -140,10 +159,17 @@ try {
       await expect(desktop.locator('iframe[name="alipay-cashier"]')).toHaveCount(1);
       const qrBounds = await assertImage(desktop.frameLocator('iframe[name="alipay-cashier"]').getByRole('img', { name: 'Local Alipay QR239' }), true);
       report.desktopPageQRBounds = qrBounds;
+      report.desktopPageGlobalQRBounds = await assertCardCentered(desktop, desktop.frameLocator('iframe[name="alipay-cashier"]').getByRole('img', { name: 'Local Alipay QR239' }), desktop.locator('iframe[name="alipay-cashier"]'));
+      await desktop.setViewportSize({ width: 375, height: 812 });
+      await assertImage(desktop.frameLocator('iframe[name="alipay-cashier"]').getByRole('img', { name: 'Local Alipay QR239' }), true);
+      report.desktopPage375GlobalQRBounds = await assertCardCentered(desktop, desktop.frameLocator('iframe[name="alipay-cashier"]').getByRole('img', { name: 'Local Alipay QR239' }), desktop.locator('iframe[name="alipay-cashier"]'));
+      await desktop.screenshot({ path: path.join(artifacts, 'desktop-page375-qr-only.png'), fullPage: true });
+      await desktop.setViewportSize({ width: 1280, height: 900 });
       if (!desktop.frames().some(frame => frame.url().startsWith(cashierOrigin + '/fixture/'))) throw Error('gateway POST did not redirect its iframe across official cashier origins');
     } else {
       await expect(desktop.locator('iframe')).toHaveCount(0);
       await assertImage(desktop.getByRole('img', { name: '支付宝支付二维码' }));
+      await assertCardCentered(desktop, desktop.getByRole('img', { name: '支付宝支付二维码' }));
       launch = await desktop.getByRole('link', { name: '在当前设备前往支付宝支付' }).getAttribute('href');
       const continuation = new URL(launch);
       if (continuation.origin !== fixture.api || continuation.pathname !== '/checkout/' + trade || continuation.searchParams.get('browser_launch') !== '1') throw Error('desktop wap QR continuation does not address the same original order');
