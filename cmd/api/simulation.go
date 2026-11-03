@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"goepay/internal/channelconfig"
 	"goepay/internal/payment"
 	"goepay/internal/server"
 	"goepay/internal/simulation"
@@ -44,12 +45,17 @@ func configureSimulation(app *server.Server, mode string, seed []byte, origin st
 	if e != nil {
 		return e
 	}
+	defaults, e := channelconfig.DefaultPaymentChannels(os.Getenv("GOEPAY_DEFAULT_PAYMENT_CHANNELS"), env.Providers())
+	if e != nil {
+		return errors.New("invalid local default payment channels")
+	}
 	key := sha256.Sum256(append([]byte("checkout-signing:"), seed...))
 	app.CheckoutKey = key[:]
 	flow := &payment.ProviderFlow{Store: app.Store, Providers: env.Providers(), AllowLive: true, LocalSimulation: true, CallbackBaseURL: origin}
 	app.ProviderFlow = flow
 	flow.ReturnURLBuilder = app.ProviderReturnURL
 	app.MerchantChannels = mapping
+	app.DefaultPaymentChannels = defaults
 	env.Notify = func(ctx context.Context, id int64, trade string, raw []byte) error {
 		return flow.HandleNotification(ctx, id, trade, nil, raw)
 	}

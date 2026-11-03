@@ -41,11 +41,12 @@ import (
 )
 
 type Server struct {
-	KYC233Provider        kyc233.Provider
-	KYC233BaseURL         string
-	KYC233ConsoleOrigin   string
-	OrderAPITradeAlias120 *orderalias120.Store
-	PaymentDefend206      *paymentdefend206.Store
+	originalPaymentScope236 *originalPaymentScope236
+	KYC233Provider          kyc233.Provider
+	KYC233BaseURL           string
+	KYC233ConsoleOrigin     string
+	OrderAPITradeAlias120   *orderalias120.Store
+	PaymentDefend206        *paymentdefend206.Store
 	// Create-order Geetest v4 (pay_verify_type 1/2). Nil verifier = unavailable.
 	PaymentDefendCaptcha206 *captcha203.Store
 	// ProxyConnectivity overrides the 测试连通性 probe in tests.
@@ -85,8 +86,11 @@ type Server struct {
 	CheckoutKey                             []byte
 	// ConnectTokenBase overrides a quick-login provider's token/authorize base
 	// (test seam only; nil in production so the real provider endpoint is used).
-	ConnectTokenBase        map[string]string
-	MerchantChannels        map[int64][]int64
+	ConnectTokenBase map[string]string
+	MerchantChannels map[int64][]int64
+	// Deliberately configured collection sources; never an outgoing-funds grant.
+	DefaultPaymentChannels  []int64
+	defaultPaymentScope236  *defaultPaymentScope236
 	Simulation              http.Handler
 	Enrollment              http.Handler
 	Pool                    *pgxpool.Pool

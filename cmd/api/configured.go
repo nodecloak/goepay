@@ -20,6 +20,7 @@ var errConfiguredProviders = errors.New("invalid explicitly configured payment p
 // mode requires an explicit encrypted path, origin, and merchant allowlist.
 func configureProviders(app *server.Server, mode string, master []byte, origin string) error {
 	if app != nil {
+		app.DefaultPaymentChannels = nil
 		if app.ProviderFlow != nil {
 			app.ProviderFlow.ScanRecoveryEnabled = false
 		}
@@ -137,6 +138,10 @@ func configureProviders(app *server.Server, mode string, master []byte, origin s
 	if e != nil {
 		return e
 	}
+	defaults, e := startup.DefaultPaymentChannels(os.Getenv("GOEPAY_DEFAULT_PAYMENT_CHANNELS"))
+	if e != nil {
+		return errConfiguredProviders
+	}
 	key := sha256.Sum256(append([]byte("checkout-signing:"), master...))
 	app.CheckoutKey = key[:]
 	childFactories, e := startup.BuildSubchannelFactories(channelconfig.BuildOptions{AllowLive: allowWrites, ScanRecovery: scanRecovery, EnableSubchannelOAuth: oauthEnabled == "true", WechatMerchantTransfer: merchantTransfer})
@@ -151,6 +156,7 @@ func configureProviders(app *server.Server, mode string, master []byte, origin s
 	app.ProviderFlow = flow
 	flow.ReturnURLBuilder = app.ProviderReturnURL
 	app.MerchantChannels = mapping
+	app.DefaultPaymentChannels = defaults
 	if app.InstallParentRuntimeAuthorization() != nil {
 		return errConfiguredProviders
 	}

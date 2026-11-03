@@ -863,6 +863,9 @@ const quickLinks = computed(() =>
   margin: 0;
   overflow-wrap: anywhere;
 }
+.welcome h2 {
+  overflow-wrap: anywhere;
+}
 .welcome span {
   margin-left: 20px;
 }

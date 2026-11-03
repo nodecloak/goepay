@@ -118,6 +118,11 @@ type cashierPayType struct{ Name, ShowName string }
 // the payer's choice.
 func (s *Server) cashierAllowedTypes(r *http.Request, mid int64) []cashierPayType {
 	out := []cashierPayType{}
+	view, err := s.withParentRuntime(r.Context(), mid, "")
+	if err != nil {
+		return out
+	}
+	s = view
 	if s.ProviderFlow == nil {
 		return out
 	}
@@ -177,7 +182,11 @@ func (s *Server) cashierPublic(w http.ResponseWriter, r *http.Request) bool {
 // cashierPage renders the pay-type picker through the public page template with
 // Pro's look (订单名称/金额 header, a radio list of pay types, one 立即支付).
 func (s *Server) cashierPage(w http.ResponseWriter, r *http.Request, in cashierIntent) {
-	types := s.cashierAllowedTypes(r, in.MerchantID)
+	types, typeErr := s.cashierIntentTypes236(r, in)
+	if typeErr != nil {
+		http.Error(w, "原订单暂时无法核实，请稍后重试", http.StatusServiceUnavailable)
+		return
+	}
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action 'self'")
 	page := pagetemplate.Page{Title: "收银台", Amount: in.Money, OrderName: backoffice.CheckoutDisplayName(s.cashierHideName(r), in.Name, ""), Sandbox: s.Sandbox}
 	tail, ok := s.pageTemplateOpen(w, r, "pay", page, nil)
@@ -218,7 +227,12 @@ func (s *Server) cashierChoose(w http.ResponseWriter, r *http.Request, in cashie
 	}
 	chosen := r.PostFormValue("type")
 	allowed := false
-	for _, t := range s.cashierAllowedTypes(r, in.MerchantID) {
+	types, typeErr := s.cashierIntentTypes236(r, in)
+	if typeErr != nil {
+		http.Error(w, "原订单暂时无法核实，请稍后重试", http.StatusServiceUnavailable)
+		return
+	}
+	for _, t := range types {
 		if t.Name == chosen {
 			allowed = true
 			break

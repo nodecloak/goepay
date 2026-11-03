@@ -196,6 +196,9 @@ func (s *Server) providerCreate(w http.ResponseWriter, r *http.Request, legacy b
 	s.wire(w, legacy, data, "")
 }
 func (s *Server) providerRoute(merchantID int64, p compat.Params) (int64, string, error) {
+	if original := s.originalPaymentScope236; original != nil && (original.merchant != merchantID || p["out_trade_no"] != original.outTradeNo) {
+		return 0, "", payment.ErrConflict
+	}
 	if !provider.CatalogPayType(p["type"]) {
 		return 0, "", payment.ErrInvalid
 	}
@@ -267,6 +270,9 @@ func (s *Server) providerRoute(merchantID int64, p compat.Params) (int64, string
 				method = "preauth"
 			}
 		}
+	}
+	if s.defaultPaymentScope236 != nil && s.defaultPaymentScope236.merchant == merchantID && method == "preauth" {
+		return 0, "", payment.ErrState
 	}
 	supported := false
 	for _, m := range provider.Capabilities().Methods {

@@ -55,6 +55,14 @@ const dashboardSQL = `WITH
  )`
 
 func (s *Server) dashboard(w http.ResponseWriter, r *http.Request, mid int64) {
+	if mid > 0 {
+		view, err := s.withParentRuntime(r.Context(), mid, "")
+		if err != nil {
+			s.fail(w, err)
+			return
+		}
+		s = view
+	}
 	if r.URL.RawQuery != "" {
 		response(w, 400, -1, "dashboard query parameters not accepted", nil)
 		return

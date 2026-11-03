@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"errors"
+	"github.com/jackc/pgx/v5"
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/payment"
 )
@@ -24,8 +26,32 @@ func (s *Server) InstallParentRuntimeAuthorization() error {
 // A request owns its restored catalog; no mutable global provider registry or
 // authenticated operator scope is rewritten by a GET or configuration save.
 func (s *Server) withParentRuntime(ctx context.Context, mid int64, no string, payTypes ...string) (*Server, error) {
+	// An original upstream operation is restored from its sealed source, not
+	// from today's group/default catalog. This creates no new send authority.
+	if no != "" && s.ProviderFlow != nil && s.Pool != nil {
+		var channel int64
+		e := s.Pool.QueryRow(ctx, `SELECT a.channel_id FROM orders o JOIN provider_attempts a ON a.order_id=o.id WHERE o.merchant_id=$1 AND o.out_trade_no=$2 LIMIT 1`, mid, no).Scan(&channel)
+		if e != nil && !errors.Is(e, pgx.ErrNoRows) {
+			return nil, e
+		}
+		if e == nil {
+			flow, e := s.ProviderFlow.ParentPaymentIntent(ctx, mid, no)
+			if e != nil {
+				return nil, e
+			}
+			view := s.withRestoredParentFlow(flow)
+			view.originalPaymentScope236 = &originalPaymentScope236{merchant: mid, outTradeNo: no, channel: channel}
+			view.MerchantChannels[mid] = []int64{channel}
+			return view, nil
+		}
+	}
+	var admissionErr error
+	s, admissionErr = s.withDefaultPaymentAdmission236(ctx, mid)
+	if admissionErr != nil {
+		return nil, admissionErr
+	}
 	if s.ProviderFlow == nil || len(s.ProviderFlow.ParentFactories) == 0 {
-		return s, nil
+		return s.projectDefaultPaymentCandidates236(ctx, mid)
 	}
 	// A provider attempt fixes an original external operation. Current vault
 	// corruption/rotation must not block its query or callback restoration. A
@@ -41,13 +67,8 @@ func (s *Server) withParentRuntime(ctx context.Context, mid int64, no string, pa
 		root = root.subchannelPolicySource
 	}
 	base := s.ProviderFlow.WithCurrentWritePolicy(func() bool { return root.paymentExecutionWriteAllowed() })
-	flow, allowed, e := base.RuntimeParentChannels(ctx, mid, root.MerchantChannels, func(merchant, source int64) bool {
-		for _, id := range root.MerchantChannels[merchant] {
-			if id == source {
-				return true
-			}
-		}
-		return false
+	flow, allowed, e := base.RuntimeParentChannels(ctx, mid, s.MerchantChannels, func(merchant, source int64) bool {
+		return s.collectionOperatorAllowed236(merchant, source)
 	})
 	if e != nil {
 		return nil, e
@@ -74,13 +95,8 @@ func (s *Server) withParentRuntime(ctx context.Context, mid int64, no string, pa
 			}
 			s = resolved
 			base = s.ProviderFlow.WithCurrentWritePolicy(func() bool { return root.paymentExecutionWriteAllowed() })
-			flow, allowed, err = base.RuntimeParentChannels(ctx, mid, root.MerchantChannels, func(merchant, source int64) bool {
-				for _, id := range root.MerchantChannels[merchant] {
-					if id == source {
-						return true
-					}
-				}
-				return false
+			flow, allowed, err = base.RuntimeParentChannels(ctx, mid, s.MerchantChannels, func(merchant, source int64) bool {
+				return s.collectionOperatorAllowed236(merchant, source)
 			})
 			if err != nil {
 				return nil, err
@@ -99,7 +115,7 @@ func (s *Server) withParentRuntime(ctx context.Context, mid int64, no string, pa
 		out.MerchantChannels[id] = ids
 	}
 	out.MerchantChannels[mid] = allowed
-	return out, nil
+	return out.projectDefaultPaymentCandidates236(ctx, mid)
 }
 
 // Restore execution profiles from the same sealed account as the SDK, without
@@ -115,9 +131,12 @@ func (s *Server) withRestoredParentFlow(flow payment.ProviderFlow) *Server {
 	for mid, ids := range root.MerchantChannels {
 		out.MerchantChannels[mid] = append([]int64(nil), ids...)
 	}
+	if scope := s.defaultPaymentScope236; scope != nil {
+		out.MerchantChannels[scope.merchant] = append([]int64{}, s.MerchantChannels[scope.merchant]...)
+	}
 	for mid, aliases := range flow.ParentExecutionPermissionOrigins() {
 		for alias, origin := range aliases {
-			originAllowed, already := false, false
+			originAllowed, already := s.collectionOperatorAllowed236(mid, origin), false
 			for _, id := range root.MerchantChannels[mid] {
 				originAllowed = originAllowed || id == origin
 				already = already || id == alias
@@ -126,6 +145,9 @@ func (s *Server) withRestoredParentFlow(flow payment.ProviderFlow) *Server {
 				out.MerchantChannels[mid] = append(out.MerchantChannels[mid], alias)
 			}
 		}
+	}
+	if original := s.originalPaymentScope236; original != nil {
+		out.MerchantChannels[original.merchant] = []int64{original.channel}
 	}
 	out.OAuthProviders = make(map[int64]adapter.WebOAuthProvider, len(s.OAuthProviders))
 	for id, p := range s.OAuthProviders {

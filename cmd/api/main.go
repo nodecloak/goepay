@@ -33,6 +33,13 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 {
+		if e := runPaymentInspection236(context.Background(), os.Args[1:], os.Stdout); e != nil {
+			slog.Error("payment admission inspection failed")
+			os.Exit(1)
+		}
+		return
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	proxyWrapper, e := server.NewTrustedProxy(os.Getenv("GOEPAY_TRUSTED_PROXY_CIDRS"))

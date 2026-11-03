@@ -36,6 +36,7 @@ func TestConfiguredProvidersExplicitFileAndDisabledWrites(t *testing.T) {
 	os.WriteFile(path, envelope, 0600)
 	t.Setenv("GOEPAY_CHANNEL_CONFIG_FILE", path)
 	t.Setenv("GOEPAY_MERCHANT_CHANNELS", `{"1000":[7]}`)
+	t.Setenv("GOEPAY_DEFAULT_PAYMENT_CHANNELS", `[7]`)
 	t.Setenv("GOEPAY_ENABLE_PROVIDER_WRITES", "")
 	app := &server.Server{}
 	if e := configureProviders(app, "configured", master, "https://pay.example.invalid"); e != nil {
@@ -44,6 +45,15 @@ func TestConfiguredProvidersExplicitFileAndDisabledWrites(t *testing.T) {
 	if app.ProviderFlow == nil || app.ProviderFlow.AllowLive || app.Simulation != nil {
 		t.Fatal("configured provider unexpectedly write-enabled or simulationmixed")
 	}
+	if len(app.DefaultPaymentChannels) != 1 || app.DefaultPaymentChannels[0] != 7 || len(app.MerchantChannels) != 1 || len(app.ProviderFlow.MerchantChannels) != 1 {
+		t.Fatal("default collection configuration changed generic admission")
+	}
+	t.Setenv("GOEPAY_DEFAULT_PAYMENT_CHANNELS", `[8]`)
+	badDefault := &server.Server{}
+	if e := configureProviders(badDefault, "configured", master, "https://pay.example.invalid"); e == nil || badDefault.ProviderFlow != nil {
+		t.Fatal("unknown default source installed a provider flow")
+	}
+	t.Setenv("GOEPAY_DEFAULT_PAYMENT_CHANNELS", `[7]`)
 	if _, e := app.ProviderFlow.Submit(context.Background(), "test", 7, "native", "192.0.2.1", ""); !errors.Is(e, payment.ErrLiveDisabled) {
 		t.Fatal("write wasn't blocked")
 	}

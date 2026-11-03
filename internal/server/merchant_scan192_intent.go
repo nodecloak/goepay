@@ -49,7 +49,7 @@ func (s *Server) merchantScanResult192(w http.ResponseWriter, r *http.Request, a
 	}
 	enabled := false
 	if view, e := s.withParentRuntime(r.Context(), a.User.ID, v.Intent.OutTradeNo); e == nil {
-		enabled = s.merchantScanGrant192(view.ProviderFlow, a.User.ID, v.ChannelID)
+		enabled = view.merchantScanGrant192(view.ProviderFlow, a.User.ID, v.ChannelID)
 	}
 	out := merchantScanOutput192{RequestID: key, TradeNo: v.Order.TradeNo, Money: ledger.Format(v.Intent.Amount), ChargeMoney: ledger.Format(v.Charge), NetMoney: ledger.Format(v.Order.MerchantAmount), FeeMoney: ledger.Format(v.Order.PlatformFee), Remark: v.Intent.Name, PayType: v.Intent.Kind, State: v.State, CanApply: v.CanApply && enabled, CanQuery: v.CanQuery}
 	response(w, 200, 0, "", out)
@@ -59,20 +59,11 @@ func (s *Server) merchantScanGrant192(flow *payment.ProviderFlow, mid, channel i
 	if flow == nil || !s.paymentExecutionWriteAllowed() {
 		return false
 	}
-	root := s
-	for root.subchannelPolicySource != nil {
-		root = root.subchannelPolicySource
-	}
 	origin := channel
 	if source, ok := flow.ParentExecutionPermissionOrigins()[mid][channel]; ok {
 		origin = source
 	}
-	for _, id := range root.MerchantChannels[mid] {
-		if id == origin {
-			return true
-		}
-	}
-	return false
+	return s.collectionOperatorAllowed236(mid, origin)
 }
 func (s *Server) merchantScanIntent192(w http.ResponseWriter, r *http.Request, session identity.Session, parts []string, token string) {
 	if s.Store == nil || s.ProviderFlow == nil {
@@ -252,7 +243,7 @@ func (s *Server) merchantScanIntent192(w http.ResponseWriter, r *http.Request, s
 			merchantScanError192(w, e)
 			return
 		}
-		allowed := func(mid, channel int64) bool { return s.merchantScanGrant192(view.ProviderFlow, mid, channel) }
+		allowed := func(mid, channel int64) bool { return view.merchantScanGrant192(view.ProviderFlow, mid, channel) }
 		ctx := s.Store.WithMerchantScan106(r.Context(), a, v.Intent, allowed)
 		ctx = payment.WithCoreRiskCustomerIP(ctx, v.Intent.ClientIP, "direct_http")
 		// SDK errors do not imply definite failure. Read the durable original state;
