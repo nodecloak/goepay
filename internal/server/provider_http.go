@@ -453,7 +453,7 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	}
 	purpose := "checkout"
 	if len(parts) == 2 {
-		if parts[1] != "return" && parts[1] != "qr.png" && parts[1] != "status" && parts[1] != "scan-region" && parts[1] != "scan-region-continue" {
+		if parts[1] != "return" && parts[1] != "qr.png" && parts[1] != "browser-qr.png" && parts[1] != "status" && parts[1] != "scan-region" && parts[1] != "scan-region-continue" {
 			http.NotFound(w, r)
 			return
 		}
@@ -540,8 +540,8 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(parts) == 2 && parts[1] == "qr.png" {
-		if order.Status == "paid" {
-			http.Error(w, "order already paid", http.StatusGone)
+		if order.Status != "pending" {
+			http.Error(w, "order is no longer payable", http.StatusGone)
 			return
 		}
 		if attempt.State != "pending" || attempt.MaterialType != "qrcode" {
@@ -562,15 +562,23 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 		w.Write(png)
 		return
 	}
+	if len(parts) == 2 && parts[1] == "browser-qr.png" {
+		s.alipayBrowserQR239(w, r, order, attempt)
+		return
+	}
 	if len(parts) == 1 && order.Status == "paid" && order.ReturnURL != "" && attempt.Method == "native" && attempt.MaterialType == "qrcode" {
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		http.Redirect(w, r, s.ProviderReturnURL(order.TradeNo), http.StatusFound)
 		return
 	}
 	checkoutHTML := attempt.Material
-	if purpose == "checkout" && len(parts) == 1 && order.Status != "paid" && attempt.State == "pending" && attempt.MaterialType == "html" && order.Type == "alipay" {
+	var browserPresentation *provider.BrowserCheckoutPresentation
+	if purpose == "checkout" && len(parts) == 1 && order.Status == "pending" && attempt.State == "pending" && attempt.MaterialType == "html" && order.Type == "alipay" {
 		var err error
-		checkoutHTML, err = s.prepareOriginalCheckoutHTML(r.Context(), order, attempt)
+		browserPresentation, err = s.originalAlipayBrowser239(r.Context(), order, attempt, !alipayMobileBrowser239(r) && r.URL.Query().Get("browser_launch") != "1")
+		if err == nil && browserPresentation == nil {
+			checkoutHTML, err = s.prepareOriginalCheckoutHTML(r.Context(), order, attempt)
+		}
 		if err != nil {
 			http.Error(w, "checkout material unavailable", http.StatusServiceUnavailable)
 			return
@@ -585,6 +593,9 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; style-src 'unsafe-inline'; img-src 'self'; connect-src 'self'; form-action http: https:; script-src 'nonce-"+nonce+"'")
+	if browserPresentation != nil {
+		w.Header().Set("Content-Security-Policy", alipayBrowserCSP239(*browserPresentation, order.ReturnURL, nonce))
+	}
 	// pageordername=1 hides the real goods name on the scan/checkout page,
 	// showing "onlinepay" (no per-order override exists here) — Payment.php:87/122.
 	displayName := order.Name
@@ -608,6 +619,14 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	if order.Status != "pending" {
+		if order.Status == "closed" || order.Status == "failed" {
+			io.WriteString(w, "<p>该订单已关闭或结束，不能继续支付，请回到商户订单页核对。</p>"+tail)
+		} else {
+			io.WriteString(w, "<p>订单正在核实，请查询原订单；已付款请勿重复支付。</p>"+tail)
+		}
+		return
+	}
 	if attempt.Method == "scan" {
 		io.WriteString(w, "<p>付款码支付正在核实，请使用原订单查单。</p>")
 		io.WriteString(w, tail)
@@ -627,7 +646,11 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 	}
 	switch attempt.MaterialType {
 	case "html":
-		io.WriteString(w, checkoutHTML)
+		if browserPresentation != nil {
+			s.renderAlipayBrowser239(w, r, order, *browserPresentation, nonce)
+		} else {
+			io.WriteString(w, checkoutHTML)
+		}
 	case "qrcode":
 		qrURL := *r.URL
 		qrURL.Path += "/qr.png"
@@ -642,15 +665,7 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 		}
 		fmt.Fprintf(w, `<p>请使用%s扫描%s。</p><img width="320" height="320" alt="%s" src="%s"><p>%s</p>`, clientName, label, label, html.EscapeString(qrURL.String()), html.EscapeString(material))
 		if attempt.Method == "native" {
-			statusURL := *r.URL
-			statusURL.Path += "/status"
-			statusJSON, _ := json.Marshal(statusURL.String())
-			returnURL := ""
-			if order.ReturnURL != "" {
-				returnURL = s.ProviderReturnURL(order.TradeNo)
-			}
-			returnJSON, _ := json.Marshal(returnURL)
-			fmt.Fprintf(w, `<p id="payment-status">等待支付结果确认…</p><script nonce="%s">(function(){const statusURL=%s,returnURL=%s;async function poll(){try{const response=await fetch(statusURL,{cache:'no-store',credentials:'omit'});if(response.status===403){document.getElementById('payment-status').textContent='页面验证已过期，请回到商户订单页重新打开；已付款请勿重复支付';return;}if(response.ok){const result=await response.json();if(result.paid===true){if(returnURL){location.replace(returnURL);}else{document.getElementById('payment-status').textContent='支付已完成';}return;}}}catch(e){}setTimeout(poll,3000);}setTimeout(poll,3000);})();</script>`, nonce, statusJSON, returnJSON)
+			s.checkoutStatusPoll239(w, r, order, nonce)
 		}
 	case "jump", "urlscheme":
 		if !s.checkoutJumpAllowed(material) {

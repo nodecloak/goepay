@@ -329,6 +329,15 @@ func (g guarded) RefreshCheckoutHTML(material, tradeNo, returnURL string) (strin
 	return "", provider.ErrUnsupported
 }
 
+func (g guarded) PrepareBrowserCheckout(material, tradeNo, returnURL string, desktop bool) (provider.BrowserCheckoutPresentation, error) {
+	if p, ok := g.Provider.(interface {
+		PrepareBrowserCheckout(string, string, string, bool) (provider.BrowserCheckoutPresentation, error)
+	}); ok {
+		return p.PrepareBrowserCheckout(material, tradeNo, returnURL, desktop)
+	}
+	return provider.BrowserCheckoutPresentation{}, provider.ErrUnsupported
+}
+
 type guarded struct {
 	provider.Provider
 	allowLive           bool
