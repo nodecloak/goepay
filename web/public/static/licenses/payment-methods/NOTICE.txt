@@ -1,0 +1,22 @@
+GOEPAY payment method icons
+
+QQ Wallet (qqpay): QQ silhouette from Remix Icon v4.6.0, qq-fill.
+Copyright Remix Design. Apache License 2.0 (see RemixIcon-LICENSE.txt).
+Source: https://github.com/Remix-Design/RemixIcon/blob/v4.6.0/icons/Logos/qq-fill.svg
+GOEPAY modification, 2026-11-03: fixed fill to QQ blue #12b7f5 for img use;
+added the copyright, modification notice and license location in the SVG.
+
+UnionPay (bank), PayPal (paypal), Douyin/TikTok music-note mark (douyinpay):
+SVG Logos by Gil Barbara and contributors, CC0 1.0 Universal
+(see SVGLogos-LICENSE.txt).
+Source revision: 22f03ffc4a652309d1fea4ade70f46e9e1d6602c
+https://github.com/gilbarbara/logos/tree/22f03ffc4a652309d1fea4ade70f46e9e1d6602c/logos
+Source files: unionpay.svg, paypal.svg, tiktok-icon.svg. Unchanged SVG artwork.
+
+JD Pay (jdpay): original GOEPAY geometric vector drawing of the existing
+red JD letter tile appearance, under the project's AGPL-3.0 license.
+https://github.com/nodecloak/goepay/blob/main/LICENSE
+This is not an upstream official SVG download.
+
+Brand names and trademarks belong to their respective owners. These asset
+licenses do not grant rights in trademarks or change the project's license.

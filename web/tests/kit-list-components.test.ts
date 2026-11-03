@@ -44,11 +44,22 @@ it("KitPayMethod shows the Alipay and WeChat icons with the Chinese name", () =>
   }
 });
 
-it("KitPayMethod keeps the letter mark for methods without an icon", () => {
-  const w = mount(KitPayMethod, { props: { type: "qqpay" } });
-  expect(w.find("img").exists()).toBe(false);
-  expect(w.get(".pa-method-mark").classes()).toContain("pa-method-mark--qqpay");
-  expect(w.text()).toContain("Q");
+it("KitPayMethod shows local SVG brand assets and names for the other five payment methods", () => {
+  for (const [type, label] of [
+    ["qqpay", "QQ钱包"],
+    ["bank", "银联支付"],
+    ["jdpay", "京东支付"],
+    ["paypal", "PayPal"],
+    ["douyinpay", "抖音支付"],
+  ]) {
+    const w = mount(KitPayMethod, { props: { type } });
+    const icon = w.get("img.pa-method-icon");
+    expect(icon.attributes("src")).toContain(`${type}.svg`);
+    expect(icon.attributes("alt")).toBe("");
+    expect(icon.attributes("aria-hidden")).toBe("true");
+    expect(w.text()).toBe(label);
+    w.unmount();
+  }
 });
 
 it("KitPagination emits page changes and page-size changes", async () => {

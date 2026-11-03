@@ -500,6 +500,7 @@ onBeforeUnmount(() => {
 }
 .pay-type-page table {
   width: 100%;
+  min-width: 640px;
 }
 /* No pager under this table: the card edge closes the last row. */
 .pay-type-page tbody tr:last-child td {

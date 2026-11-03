@@ -2928,6 +2928,7 @@ button.badge.state-toggle:hover:not(:disabled) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
 .pa-method-icon {
   width: 16px;
@@ -2936,22 +2937,13 @@ button.badge.state-toggle:hover:not(:disabled) {
   display: block;
   object-fit: contain;
 }
-.pa-method-mark {
-  width: 16px;
-  height: 16px;
-  border-radius: var(--radius-xs);
-  display: grid;
-  place-content: center;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--on-chart);
-  flex: none;
-}
-.pa-method-mark--qqpay {
-  background: var(--chart-3);
-}
-.pa-method-mark--bank {
-  background: var(--chart-4);
+.pa-method-icon--paypal,
+.pa-method-icon--douyinpay {
+  /* These marks include dark shapes: retain their colors on both themes. */
+  box-sizing: border-box;
+  padding: 1px;
+  border-radius: 2px;
+  background: #fff;
 }
 
 /* Empty */
