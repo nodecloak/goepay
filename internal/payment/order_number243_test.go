@@ -19,13 +19,13 @@ func TestOrderNumber243TimeZoneAndSuffixBoundaries(t *testing.T) {
 		sequence int64
 		want     string
 	}{
-		{1, "20261104000203000001"},
-		{999999, "20261104000203999999"},
-		{1000000, "202611040002031000000"},
-		{maxOrderSequence243, "202611040002039999999999999999"},
+		{1, "20261104000203" + "0000000000001"},
+		{999999, "20261104000203" + "0000000999999"},
+		{1000000, "20261104000203" + "0000001000000"},
+		{maxOrderSequence243, "20261104000203" + "9999999999999"},
 	} {
 		got, err := orderTradeNumber243(at, tc.sequence)
-		if err != nil || got != tc.want || len(got) > 30 {
+		if err != nil || got != tc.want || len(got) != 27 || strings.Trim(got, "0123456789") != "" {
 			t.Fatalf("sequence %d: got %q, want %q: %v", tc.sequence, got, tc.want, err)
 		}
 		if len(CombineSubTradeNo207(got, 50)) > 32 {
@@ -38,8 +38,26 @@ func TestOrderNumber243TimeZoneAndSuffixBoundaries(t *testing.T) {
 		}
 	}
 	otherZone := at.In(time.FixedZone("UTC-7", -7*3600))
-	if got, err := orderTradeNumber243(otherZone, 1); err != nil || got != "20261104000203000001" {
+	if got, err := orderTradeNumber243(otherZone, 1); err != nil || got != "20261104000203"+"0000000000001" {
 		t.Fatal("process/input timezone changed the system number", got, err)
+	}
+}
+
+func TestOrderNumber243CombinedNamespaceDoesNotOverlap(t *testing.T) {
+	at := time.Date(2026, 11, 4, 1, 2, 3, 0, time.UTC)
+	first, err := orderTradeNumber243(at, 100000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := orderTradeNumber243(at, 1000001)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if CombineSubTradeNo207(first, 1) == second {
+		t.Fatal("combined child overlaps another ordinary payment number")
+	}
+	if CombineSubTradeNo207(first, 11) == CombineSubTradeNo207(second, 1) {
+		t.Fatal("children of different combined orders overlap")
 	}
 }
 
@@ -71,14 +89,14 @@ func TestOrderNumber243DatabaseIdentityCollisionsAndLimits(t *testing.T) {
 			}
 			prefix := at.In(time.FixedZone("UTC+8", 8*3600)).Format("20060102150405")
 			for i := 1; i <= collisions; i++ {
-				if _, err = tx.Exec(ctx, `INSERT INTO orders(trade_no,merchant_id,out_trade_no,name,type,amount) VALUES($1,$2,$3,'Historical imported number','sandbox',100)`, fmt.Sprintf("%s%06d", prefix, i), mid, fmt.Sprintf("imported-%d", i)); err != nil {
+				if _, err = tx.Exec(ctx, `INSERT INTO orders(trade_no,merchant_id,out_trade_no,name,type,amount) VALUES($1,$2,$3,'Historical imported number','sandbox',100)`, fmt.Sprintf("%s%013d", prefix, i), mid, fmt.Sprintf("imported-%d", i)); err != nil {
 					t.Fatal(err)
 				}
 			}
 			in := CreateOrderInput{MerchantID: mid, OutTradeNo: "candidate243", Name: "Synthetic candidate", Type: "sandbox", Amount: 100, Version: "v1"}
 			o, err := insertOrderRow243(ctx, tx, in, feeSnapshot{Policy: "none", Net: 100, Payer: "platform"}, false, nil)
 			if collisions == 2 {
-				if err != nil || o.TradeNo != prefix+"000003" {
+				if err != nil || o.TradeNo != prefix+"0000000000003" {
 					t.Fatal("did not skip existing legacy numbers", o.TradeNo, err)
 				}
 			} else if !errors.Is(err, ErrConflict) {
@@ -200,7 +218,7 @@ func TestOrderNumber243DatabaseIdentityCollisionsAndLimits(t *testing.T) {
 			t.Fatal(err)
 		}
 		o, err := s.CreateOrder(ctx, CreateOrderInput{MerchantID: mid, OutTradeNo: "maximum243", Name: "Synthetic combined", Type: "wxpay", Amount: 100})
-		if err != nil || len(o.TradeNo) != 30 {
+		if err != nil || len(o.TradeNo) != 27 {
 			t.Fatal("maximum sequence lost digits", o.TradeNo, err)
 		}
 		amounts := make([]int64, 50)
@@ -208,7 +226,7 @@ func TestOrderNumber243DatabaseIdentityCollisionsAndLimits(t *testing.T) {
 			amounts[i] = 2
 		}
 		subs, err := s.CreateCombineSubOrders(ctx, o.ID, o.TradeNo, amounts)
-		if err != nil || len(subs) != 50 || len(subs[49].SubTradeNo) != 32 {
+		if err != nil || len(subs) != 50 || len(subs[49].SubTradeNo) != 29 {
 			t.Fatal("maximum order number did not support combined children", err)
 		}
 		if _, err = s.CreateOrder(ctx, CreateOrderInput{MerchantID: mid, OutTradeNo: "exhausted243", Name: "Synthetic", Type: "sandbox", Amount: 100}); err == nil {

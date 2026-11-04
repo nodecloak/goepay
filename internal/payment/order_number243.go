@@ -10,18 +10,19 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-const maxOrderSequence243 int64 = 9999999999999999
+const maxOrderSequence243 int64 = 9999999999999
 
 var orderNumberZone243 = time.FixedZone("UTC+8", 8*3600)
 
 // orderTradeNumber243 uses the database transaction's timestamp, also used by
-// orders.created_at. The decimal suffix grows rather than truncating or cycling.
+// orders.created_at. A fixed-width suffix keeps ordinary identifiers distinct
+// from combined child identifiers, which append their position to the parent.
 func orderTradeNumber243(at time.Time, sequence int64) (string, error) {
 	local := at.In(orderNumberZone243)
 	if sequence < 1 || sequence > maxOrderSequence243 || local.Year() < 1 || local.Year() > 9999 {
 		return "", ErrInvalid
 	}
-	return fmt.Sprintf("%s%06d", local.Format("20060102150405"), sequence), nil
+	return fmt.Sprintf("%s%013d", local.Format("20060102150405"), sequence), nil
 }
 
 // insertOrderRow243 preserves the merchant-idempotency INSERT. A historical

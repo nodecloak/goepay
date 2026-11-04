@@ -135,8 +135,8 @@ func TestOrderIDAndIdempotency(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if len(o.TradeNo) < 20 || len(o.TradeNo) > 30 {
-		t.Fatalf("trade_no must contain the timestamp and unique decimal suffix (20..30 digits): %q", o.TradeNo)
+	if len(o.TradeNo) != 27 {
+		t.Fatalf("trade_no must contain the timestamp and fixed-width unique decimal suffix (27 digits): %q", o.TradeNo)
 	}
 	if want := o.CreatedAt.In(time.FixedZone("UTC+8", 8*3600)).Format("20060102150405"); !strings.HasPrefix(o.TradeNo, want) {
 		t.Fatalf("trade_no %q does not start with its creation time %q", o.TradeNo, want)
