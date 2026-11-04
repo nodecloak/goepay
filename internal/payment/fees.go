@@ -272,16 +272,12 @@ func (s *Store) createOrderWithPrintOrigin(ctx context.Context, in CreateOrderIn
 			return Order{}, ErrState
 		}
 	}
-	var trade string
-	if e = tx.QueryRow(ctx, "SELECT nextval('trade_no_seq')::text").Scan(&trade); e != nil {
-		return Order{}, e
-	}
 	var actualCharge104 *int64
 	if f.CustomerCharge104 != nil {
 		value := f.CustomerCharge104.Charge
 		actualCharge104 = &value
 	}
-	o, e := scanOrder(tx.QueryRow(ctx, "INSERT INTO orders(trade_no,merchant_id,out_trade_no,name,type,amount,notify_url,return_url,param,version,fee_policy,fee_rate_bps,fee_group_id,merchant_amount,platform_fee,refund_fee_payer,runtime_fee_quote_required,actual_charge_amount104,actual_charge_required104) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) ON CONFLICT(merchant_id,out_trade_no) DO NOTHING RETURNING "+orderColumns, trade, in.MerchantID, in.OutTradeNo, in.Name, in.Type, in.Amount, in.NotifyURL, in.ReturnURL, in.Param, in.Version, f.Policy, f.Rate, f.GroupID, f.Net, f.Fee, f.Payer, routed, actualCharge104, actualCharge104 != nil))
+	o, e := insertOrderRow243(ctx, tx, in, f, routed, actualCharge104)
 	if errors.Is(e, ErrNotFound) {
 		o, e = scanOrder(tx.QueryRow(ctx, "SELECT "+orderColumns+" FROM orders WHERE merchant_id=$1 AND out_trade_no=$2", in.MerchantID, in.OutTradeNo))
 		if e != nil {

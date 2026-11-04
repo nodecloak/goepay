@@ -426,8 +426,8 @@ var kuaiqianShanghai = func() *time.Location {
 }()
 
 // kuaiqianOrderTime renders the orderTime (date('YmdHis')) from the live
-// Asia/Shanghai clock, exactly as the original PHP does. GOEPAY trade numbers
-// do not carry the creation time, so the clock is the only correct source.
+// Asia/Shanghai clock, exactly as the original PHP does. Historical order
+// identifiers do not necessarily encode time; do not infer this field from them.
 func kuaiqianOrderTime(CreateRequest) string {
 	return kuaiqianNow().In(kuaiqianShanghai).Format("20060102150405")
 }
