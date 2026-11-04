@@ -262,7 +262,10 @@ test("admin conditional credentials, company and fee fields preserve the complet
     ["腾讯云SecretKey", "synthetic-key233"],
     ["腾讯云RuleId", "synthetic-rule233"],
   ]) {
-    await choose(page, `${label}操作`, "填写或替换");
+    await page
+      .getByRole("group", { name: `${label}配置`, exact: true })
+      .getByRole("button", { name: /^(设置|修改)/ })
+      .click();
     await page.getByLabel(label, { exact: true }).fill(value);
   }
   await page.getByLabel("实名认证费用", { exact: true }).fill("0.10");
@@ -295,7 +298,10 @@ test("admin conditional credentials, company and fee fields preserve the complet
   ).toHaveCount(0);
   await choose(page, "文字识别接口", "百度云OCR");
   for (const label of ["百度云API Key", "百度云Secret Key"]) {
-    await choose(page, `${label}操作`, "填写或替换");
+    await page
+      .getByRole("group", { name: `${label}配置`, exact: true })
+      .getByRole("button", { name: /^(设置|修改)/ })
+      .click();
     await page.getByLabel(label, { exact: true }).fill("synthetic233");
   }
   await page.getByRole("button", { name: "保存OCR配置", exact: true }).click();
@@ -320,7 +326,9 @@ test("admin conditional credentials, company and fee fields preserve the complet
   await page
     .getByRole("button", { name: "管理其它服务凭据项", exact: true })
     .click();
-  await choose(page, "腾讯云SecretKey操作", "清除原值");
+  await page
+    .getByRole("button", { name: "清除腾讯云SecretKey", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "保存实名认证配置", exact: true })
     .click();
@@ -340,8 +348,12 @@ test("admin conditional credentials, company and fee fields preserve the complet
   await page
     .getByRole("button", { name: "管理其它服务凭据项", exact: true })
     .click();
-  await choose(page, "百度云API Key操作", "清除原值");
-  await choose(page, "百度云Secret Key操作", "清除原值");
+  await page
+    .getByRole("button", { name: "清除百度云API Key", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "清除百度云Secret Key", exact: true })
+    .click();
   await page.getByRole("button", { name: "保存OCR配置", exact: true }).click();
   await page
     .getByRole("dialog", { name: "确认保存OCR文字识别配置", exact: true })
@@ -361,7 +373,9 @@ test("a cached credential draft survives tab changes and requires explicit disca
 }) => {
   const { writes } = await fixture(page, "admin");
   await choose(page, "是否开启实名认证", "手机号三要素实名认证");
-  await choose(page, "手机号三要素AppCode操作", "填写或替换");
+  await page
+    .getByRole("button", { name: "设置手机号三要素AppCode", exact: true })
+    .click();
   await page
     .getByLabel("手机号三要素AppCode", { exact: true })
     .fill("synthetic-retained-draft233");

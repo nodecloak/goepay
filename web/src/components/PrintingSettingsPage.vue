@@ -4,6 +4,7 @@ import { ApiClient } from "../api";
 import type { PlatformPrinting, MerchantPrinting } from "../printing";
 import KitSelect from "./KitSelect.vue";
 import KitSwitch from "./KitSwitch.vue";
+import CredentialActionControl from "./CredentialActionControl.vue";
 const props = defineProps<{
   client: ApiClient;
   ownSession: boolean;
@@ -42,6 +43,21 @@ function clearPrivate() {
   deviceID.value = "";
   credentialAction.value = "keep";
   deviceAction.value = "keep";
+}
+function setCredentialAction(next: "keep" | "replace" | "clear") {
+  if (busy.value || confirming.value || (next === "clear" && enabled.value))
+    return;
+  credentialAction.value = next;
+  if (next !== "replace") {
+    appID.value = "";
+    secret.value = "";
+  }
+}
+function setDeviceAction(next: "keep" | "replace" | "clear") {
+  if (busy.value || confirming.value || (next === "clear" && mode.value !== 0))
+    return;
+  deviceAction.value = next;
+  if (next !== "replace") deviceID.value = "";
 }
 function apply(v: PlatformPrinting | MerchantPrinting) {
   if (admin.value) {
@@ -178,16 +194,15 @@ onBeforeUnmount(() => {
                 platform?.secret_present ? "已保存" : "未保存"
               }}
             </p>
-            <label
-              >凭据操作<KitSelect
-                v-model="credentialAction"
-                :options="[
-                  { value: 'keep', label: '保留原凭据' },
-                  { value: 'replace', label: '替换凭据' },
-                  { value: 'clear', label: '清除凭据（先停用）' },
-                ]"
-                aria-label="凭据操作"
-            /></label>
+            <CredentialActionControl
+              :model-value="credentialAction"
+              :configured="!!platform?.secret_present"
+              label="打印服务凭据"
+              :disabled="busy || confirming"
+              :clear-disabled="enabled"
+              clear-hint="请先关闭订单打印，再清除凭据。"
+              @update:model-value="setCredentialAction"
+            />
             <template v-if="credentialAction === 'replace'"
               ><label
                 >应用ID<input
@@ -227,16 +242,15 @@ onBeforeUnmount(() => {
               ><KitSwitch v-model="voice" label="语音播报"
             /></label>
             <p>已绑定设备：{{ merchant?.device_masked || "未配置" }}</p>
-            <label
-              >设备操作<KitSelect
-                v-model="deviceAction"
-                :options="[
-                  { value: 'keep', label: '保留原设备' },
-                  { value: 'replace', label: '替换设备' },
-                  { value: 'clear', label: '清除设备（先停用）' },
-                ]"
-                aria-label="设备操作"
-            /></label>
+            <CredentialActionControl
+              :model-value="deviceAction"
+              :configured="!!merchant?.device_present"
+              label="打印设备"
+              :disabled="busy || confirming"
+              :clear-disabled="mode !== 0"
+              clear-hint="请先将自动打印范围设为“不自动打印”，再清除设备。"
+              @update:model-value="setDeviceAction"
+            />
             <label v-if="deviceAction === 'replace'"
               >设备编号<input
                 v-model="deviceID"

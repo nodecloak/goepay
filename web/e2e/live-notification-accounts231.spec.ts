@@ -40,10 +40,7 @@ test("live local administrator bot editing, signed one-shot binding and unbindin
     exact: true,
   });
   await robot
-    .getByRole("button", { name: "管理员群机器人配置凭据操作", exact: true })
-    .click();
-  await page
-    .getByRole("option", { name: "填写或替换凭据", exact: true })
+    .getByRole("button", { name: "设置管理员群机器人配置凭据", exact: true })
     .click();
   await robot.getByLabel("管理员手机号码", { exact: true }).fill("13800138231");
   await robot
@@ -70,10 +67,7 @@ test("live local administrator bot editing, signed one-shot binding and unbindin
     exact: true,
   });
   await qq
-    .getByRole("button", { name: "管理员QQ机器人配置凭据操作", exact: true })
-    .click();
-  await page
-    .getByRole("option", { name: "填写或替换凭据", exact: true })
+    .getByRole("button", { name: "设置管理员QQ机器人配置凭据", exact: true })
     .click();
   await qq.getByLabel("管理员QQ机器人AppID", { exact: true }).fill("123456231");
   const secret = "synthetic-live-secret231";

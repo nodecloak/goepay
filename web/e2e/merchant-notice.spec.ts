@@ -90,7 +90,8 @@ for (const area of ["admin", "merchant"] as const)
       await page.getByLabel("订单支付成功 Telegram", { exact: true }).check();
       await page
         .locator('[data-target-action="telegram_uid"]')
-        .selectOption("replace");
+        .getByRole("button", { name: /^(设置|修改)/ })
+        .click();
       await page
         .locator('[data-target-value="telegram_uid"]')
         .fill("-1000000000080");

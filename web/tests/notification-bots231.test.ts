@@ -2,6 +2,7 @@ import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import Bots from "../src/components/NotificationBotSettings231.vue";
 import KitSelect from "../src/components/KitSelect.vue";
+import CredentialActionControl from "../src/components/CredentialActionControl.vue";
 import KitSwitch from "../src/components/KitSwitch.vue";
 import KitModal from "../src/components/KitModal.vue";
 import { ApiError } from "../src/api";
@@ -53,9 +54,10 @@ function setup(
   return { wrapper, request, client };
 }
 async function replace(wrapper: VueWrapper) {
-  wrapper
-    .findAllComponents(KitSelect)[0]!
-    .vm.$emit("update:modelValue", "replace");
+  await wrapper
+    .findComponent(CredentialActionControl)
+    .get("button")
+    .trigger("click");
   await flushPromises();
 }
 async function submit(wrapper: VueWrapper) {
@@ -73,6 +75,34 @@ afterEach(() => {
 });
 
 describe("administrator notification accounts", () => {
+  it("cancels edited credentials, restores binding availability, and keeps enabled-account clearing unavailable", async () => {
+    const { wrapper, request } = setup("qqbot", configured());
+    await flushPromises();
+    expect(
+      wrapper
+        .get('[aria-label="清除管理员QQ机器人配置凭据"]')
+        .attributes("disabled"),
+    ).toBeDefined();
+    await replace(wrapper);
+    await wrapper.get('[aria-label="管理员QQ机器人AppID"]').setValue("new123");
+    await wrapper
+      .get('[aria-label="管理员QQ机器人AppSecret"]')
+      .setValue("private-new231");
+    expect(button(wrapper, "开始QQ绑定").attributes("disabled")).toBeDefined();
+    await wrapper
+      .get('[aria-label="取消修改管理员QQ机器人配置凭据"]')
+      .trigger("click");
+    expect(
+      wrapper.get('[aria-label="管理员QQ机器人AppID"]').element,
+    ).toHaveProperty("value", "");
+    expect(
+      wrapper.get('[aria-label="管理员QQ机器人AppSecret"]').element,
+    ).toHaveProperty("value", "");
+    expect(
+      button(wrapper, "开始QQ绑定").attributes("disabled"),
+    ).toBeUndefined();
+    expect(request).toHaveBeenCalledTimes(1);
+  });
   it("places three account editors in the notice layout instead of editable raw bindings", () => {
     const fields = ["msgtelegram_chatid", "qqbot_openid", "mail_recv"].map(
       (k) => settingDefinition(k)!,
@@ -180,7 +210,7 @@ describe("administrator notification accounts", () => {
       .find('[aria-label="Telegram Bot Token"]')
       .setValue("synthetic-dedicated231");
     wrapper
-      .findAllComponents(KitSelect)[1]!
+      .findAllComponents(KitSelect)[0]!
       .vm.$emit("update:modelValue", "oauth");
     await flushPromises();
     wrapper.findComponent(KitSwitch).vm.$emit("update:modelValue", true);
@@ -273,7 +303,9 @@ describe("administrator notification accounts", () => {
         },
       }),
     );
-    wrapper.findComponent(KitSelect).vm.$emit("update:modelValue", "clear");
+    await wrapper
+      .get('[aria-label="清除管理员QQ机器人配置凭据"]')
+      .trigger("click");
     request.mockResolvedValueOnce({ ...empty(), revision: "3" });
     await submit(wrapper);
     expect(request).toHaveBeenLastCalledWith(

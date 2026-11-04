@@ -4,6 +4,7 @@ import Settings from "../src/components/KYCSettingsPanel233.vue";
 import Merchant from "../src/components/MerchantCertification233.vue";
 import Recognition from "../src/components/OCRRecognition233.vue";
 import KitSelect from "../src/components/KitSelect.vue";
+import CredentialActionControl from "../src/components/CredentialActionControl.vue";
 import KitModal from "../src/components/KitModal.vue";
 import { ApiError } from "../src/api";
 import {
@@ -76,6 +77,14 @@ async function choose(wrapper: VueWrapper, label: string, value: string) {
   select.vm.$emit("update:modelValue", value);
   await flushPromises();
 }
+async function editCredential(wrapper: VueWrapper, label: string) {
+  const control = wrapper
+    .findAllComponents(CredentialActionControl)
+    .find((c) => c.props("label") === label);
+  if (!control) throw Error(`missing credential ${label}`);
+  await control.get("button").trigger("click");
+  await flushPromises();
+}
 function button(wrapper: VueWrapper, text: string) {
   const b = wrapper.findAll("button").find((b) => b.text() === text);
   if (!b) throw Error(`missing button ${text}`);
@@ -133,6 +142,43 @@ describe("certification233 response boundaries", () => {
 });
 
 describe("original-console certification and OCR settings", () => {
+  it("cancels a private edit without changing the saved mode and explains required-credential clearing", async () => {
+    const config = kycConfig233({ cert_open: 2 });
+    config.credentials.cert_appcode = { present: true, masked: "***233" };
+    const { wrapper, request } = setupSettings("certification", config);
+    await flushPromises();
+    expect(
+      wrapper
+        .get('[aria-label="清除手机号三要素AppCode"]')
+        .attributes("disabled"),
+    ).toBeDefined();
+    expect(wrapper.text()).toContain("请先停用当前服务");
+    await editCredential(wrapper, "手机号三要素AppCode");
+    await wrapper
+      .get('[aria-label="手机号三要素AppCode"]')
+      .setValue("private-cancel233");
+    await wrapper
+      .get('[aria-label="取消修改手机号三要素AppCode"]')
+      .trigger("click");
+    expect(
+      wrapper.get('[aria-label="手机号三要素AppCode"]').element,
+    ).toHaveProperty("value", "");
+    expect(
+      button(wrapper, "保存实名认证配置").attributes("disabled"),
+    ).toBeDefined();
+    expect(request).toHaveBeenCalledTimes(1);
+    await choose(wrapper, "是否开启实名认证", "0");
+    await button(wrapper, "管理其它服务凭据项").trigger("click");
+    await wrapper
+      .get('[aria-label="清除手机号三要素AppCode"]')
+      .trigger("click");
+    expect(wrapper.text()).toContain("保存后清除");
+    await wrapper
+      .get('[aria-label="撤销清除手机号三要素AppCode"]')
+      .trigger("click");
+    expect(wrapper.text()).not.toContain("保存后清除");
+    expect(request).toHaveBeenCalledTimes(1);
+  });
   it.each([{ ownSession: false }, { adminClass: "operator" }])(
     "does not load or edit credentials without original super session %j",
     async (props) => {
@@ -182,7 +228,7 @@ describe("original-console certification and OCR settings", () => {
       { wrapper, request } = setupSettings("certification", config);
     await flushPromises();
     await choose(wrapper, "是否开启实名认证", "2");
-    await choose(wrapper, "手机号三要素AppCode操作", "replace");
+    await editCredential(wrapper, "手机号三要素AppCode");
     await wrapper
       .find('[aria-label="手机号三要素AppCode"]')
       .setValue("synthetic-private233");
@@ -231,7 +277,7 @@ describe("original-console certification and OCR settings", () => {
     await flushPromises();
     await choose(wrapper, "文字识别接口", "baidu");
     for (const label of ["百度云API Key", "百度云Secret Key"]) {
-      await choose(wrapper, `${label}操作`, "replace");
+      await editCredential(wrapper, label);
       await wrapper
         .find(`[aria-label="${label}"]`)
         .setValue(`synthetic-${label}`);
@@ -278,7 +324,7 @@ describe("original-console certification and OCR settings", () => {
     const { wrapper, request } = setupSettings("certification", config);
     await flushPromises();
     await button(wrapper, "管理其它服务凭据项").trigger("click");
-    await choose(wrapper, "腾讯云SecretKey操作", "clear");
+    await wrapper.get('[aria-label="清除腾讯云SecretKey"]').trigger("click");
     request.mockResolvedValueOnce(kycConfig233({ revision: "1" }));
     await wrapper.find("form").trigger("submit");
     await flushPromises();
@@ -345,7 +391,7 @@ describe("original-console certification and OCR settings", () => {
     wrappers.push(wrapper);
     await flushPromises();
     await choose(wrapper, "是否开启实名认证", "2");
-    await choose(wrapper, "手机号三要素AppCode操作", "replace");
+    await editCredential(wrapper, "手机号三要素AppCode");
     await wrapper
       .find('[aria-label="手机号三要素AppCode"]')
       .setValue("retained-private-draft233");

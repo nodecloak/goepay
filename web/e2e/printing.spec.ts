@@ -44,8 +44,9 @@ test("platform printing saves an explicit CAS secret replacement only after conf
   ).toBeVisible();
   await expect(page.getByText(/固定网关连接器可用/)).toBeVisible();
   await expect(page.getByText(/外部执行默认关闭/)).toBeVisible();
-  await page.getByRole("button", { name: "凭据操作", exact: true }).click();
-  await page.getByRole("option", { name: "替换凭据", exact: true }).click();
+  await page
+    .getByRole("button", { name: "修改打印服务凭据", exact: true })
+    .click();
   await page.getByLabel("应用ID").fill("synthetic-app");
   await page.getByLabel("应用密钥").fill("synthetic-printing-secret");
   await page.getByRole("button", { name: "检查并保存打印设置" }).click();

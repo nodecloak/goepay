@@ -37,9 +37,8 @@ test("live local notification credentials and atomic template editing never disp
     name: "云喇叭语音播报",
     exact: true,
   });
-  await voice.getByRole("button", { name: "凭据操作", exact: true }).click();
-  await page
-    .getByRole("option", { name: "填写或替换凭据", exact: true })
+  await voice
+    .getByRole("button", { name: "设置云喇叭语音播报凭据", exact: true })
     .click();
   await voice
     .getByLabel("云喇叭agent_id", { exact: true })
@@ -64,9 +63,8 @@ test("live local notification credentials and atomic template editing never disp
     secret_present: true,
   });
   expect(JSON.stringify(data)).not.toContain("local-secret230");
-  await voice.getByRole("button", { name: "凭据操作", exact: true }).click();
-  await page
-    .getByRole("option", { name: "清除凭据（先停用）", exact: true })
+  await voice
+    .getByRole("button", { name: "清除云喇叭语音播报凭据", exact: true })
     .click();
   await voice
     .getByRole("button", { name: "保存云喇叭配置", exact: true })

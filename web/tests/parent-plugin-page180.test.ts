@@ -106,8 +106,9 @@ it("renders the plugin field label, note and an options select in the editor", a
   const html = w.get('[role="dialog"]').html();
   expect(html).toContain("商户号");
   expect(html).toContain("易支付后台的商户 ID");
-  await w.get('select[aria-label="签名方式 操作"]').setValue("replace");
-  await flushPromises();
+  expect(w.find('select[aria-label="签名方式 操作"]').exists()).toBe(false);
+  expect((w.get('input[aria-label="商户号 内容"]').element as HTMLInputElement).value).toBe("888");
+  expect((w.get('select[aria-label="签名方式 选项"]').element as HTMLSelectElement).value).toBe("MD5");
   const opts = w
     .get('select[aria-label="签名方式 选项"]')
     .findAll("option")

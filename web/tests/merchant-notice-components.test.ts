@@ -50,7 +50,7 @@ it("keeps original config fields and submits private replacement once with its o
   await flushPromises();
   expect(w.text()).toContain("订单金额提醒门槛");
   expect(w.text()).toContain("Telegram");
-  await w.get('[data-target-action="qqbot_appsecret"]').setValue("replace");
+  await w.get('[data-target-action="qqbot_appsecret"] button').trigger("click");
   await w
     .get('[data-target-value="qqbot_appsecret"]')
     .setValue("synthetic-ui-secret80");
@@ -81,7 +81,7 @@ it("clears secrets after an uncertain save and requires a fresh version before a
     props: { client: c, ownSession: true },
   });
   await flushPromises();
-  await w.get('[data-target-action="msgrobot_url"]').setValue("replace");
+  await w.get('[data-target-action="msgrobot_url"] button').trigger("click");
   await w
     .get('[data-target-value="msgrobot_url"]')
     .setValue(
@@ -93,6 +93,41 @@ it("clears secrets after an uncertain save and requires a fresh version before a
   expect(w.text()).toContain("版本冲突");
   expect(w.text()).not.toContain("key=synthetic80");
   expect(sends).toBe(1);
+  w.unmount();
+});
+it("cancels a private recipient edit and undoes clearing without submitting or changing preserved targets", async () => {
+  const c = new ApiClient("merchant");
+  let saved: unknown;
+  const request = vi.spyOn(c, "request").mockImplementation(async (_p, o) => {
+    if (o?.method === "PUT") saved = o.body;
+    return settings as never;
+  });
+  const w = mount(MerchantNoticeSettings, {
+    props: { client: c, ownSession: true },
+  });
+  await flushPromises();
+  const target = w.get('[data-target-action="qqbot_appsecret"]');
+  expect(target.find("select").exists()).toBe(false);
+  await target.get('[aria-label="修改QQ Bot AppSecret"]').trigger("click");
+  await w
+    .get('[data-target-value="qqbot_appsecret"]')
+    .setValue("private-cancel80");
+  await target.get('[aria-label="取消修改QQ Bot AppSecret"]').trigger("click");
+  expect(w.find('[data-target-value="qqbot_appsecret"]').exists()).toBe(false);
+  await target.get('[aria-label="清除QQ Bot AppSecret"]').trigger("click");
+  expect(target.text()).toContain("保存后清除");
+  await target.get('[aria-label="撤销清除QQ Bot AppSecret"]').trigger("click");
+  expect(
+    request.mock.calls.filter(([, o]) => o?.method === "PUT"),
+  ).toHaveLength(0);
+  await w.get("form").trigger("submit");
+  await flushPromises();
+  expect(saved).toMatchObject({
+    expected_profile_id: "7",
+    targets: {},
+    clear_fields: [],
+  });
+  expect(JSON.stringify(saved)).not.toContain("private-cancel80");
   w.unmount();
 });
 it("never loads configuration through a delegated session", async () => {

@@ -177,7 +177,9 @@ test("administrator editors save complete robot and OAuth Telegram settings with
   await expect(
     robot.getByLabel("管理员手机号码", { exact: true }),
   ).toBeVisible();
-  await choose(robot, "管理员群机器人配置凭据操作", "填写或替换凭据");
+  await robot
+    .getByRole("button", { name: "设置管理员群机器人配置凭据", exact: true })
+    .click();
   await robot
     .getByLabel("群机器人Webhook地址", { exact: true })
     .fill("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=synthetic231");
@@ -204,7 +206,9 @@ test("administrator editors save complete robot and OAuth Telegram settings with
     name: "管理员Telegram配置",
     exact: true,
   });
-  await choose(tg, "管理员Telegram配置凭据操作", "填写或替换凭据");
+  await tg
+    .getByRole("button", { name: "设置管理员Telegram配置凭据", exact: true })
+    .click();
   await tg
     .getByLabel("管理员Telegram Chat Id", { exact: true })
     .fill("-100123456789");
@@ -309,7 +313,9 @@ test("a lost save response clears secrets and permits readback without replaying
     name: "管理员QQ机器人配置",
     exact: true,
   });
-  await choose(qq, "管理员QQ机器人配置凭据操作", "填写或替换凭据");
+  await qq
+    .getByRole("button", { name: "设置管理员QQ机器人配置凭据", exact: true })
+    .click();
   await qq.getByLabel("管理员QQ机器人AppID", { exact: true }).fill("12345678");
   await qq
     .getByLabel("管理员QQ机器人AppSecret", { exact: true })
@@ -348,7 +354,9 @@ test("a phone-only SMS destination and explicit QQ window cancellation use their
     name: "管理员群机器人配置",
     exact: true,
   });
-  await choose(robot, "管理员群机器人配置凭据操作", "填写或替换凭据");
+  await robot
+    .getByRole("button", { name: "设置管理员群机器人配置凭据", exact: true })
+    .click();
   await robot.getByLabel("管理员手机号码", { exact: true }).fill("13800000001");
   await robot
     .getByRole("button", { name: "保存管理员群机器人配置", exact: true })

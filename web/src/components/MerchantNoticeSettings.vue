@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { ApiClient } from "../api";
 import MerchantNoticeEvents from "./MerchantNoticeEvents.vue";
+import CredentialActionControl from "./CredentialActionControl.vue";
 import {
   noticeScenes,
   noticeTargets,
@@ -74,6 +75,15 @@ function clearPrivate() {
   actions.value = {};
   values.value = {};
 }
+function setTargetAction(
+  key: NoticeTarget,
+  action: "keep" | "replace" | "clear",
+) {
+  if (busy.value) return;
+  if (action === "keep") delete actions.value[key];
+  else actions.value[key] = action;
+  if (action !== "replace") delete values.value[key];
+}
 async function load() {
   const current = ++epoch;
   controller?.abort();
@@ -116,7 +126,7 @@ async function save() {
   for (const [key] of noticeTargets) {
     if (actions.value[key] === "replace") {
       if (!values.value[key]) {
-        error.value = "请填写替换内容";
+        error.value = "请填写新的通知接收配置";
         return;
       }
       targets[key] = values.value[key];
@@ -311,17 +321,14 @@ onBeforeUnmount(() => {
               :key="key"
               class="notice-target"
             >
-              <label
-                >{{ title
-                }}<span class="muted">{{
-                  state.configured[key] ? "已配置" : "未配置"
-                }}</span
-                ><select v-model="actions[key]" :data-target-action="key">
-                  <option :value="undefined">保留原设置</option>
-                  <option value="replace">替换</option>
-                  <option value="clear">清除</option>
-                </select></label
-              >
+              <CredentialActionControl
+                :model-value="actions[key] || 'keep'"
+                :configured="!!state.configured[key]"
+                :label="title"
+                :disabled="busy"
+                :data-target-action="key"
+                @update:model-value="setTargetAction(key, $event)"
+              />
               <label v-if="actions[key] === 'replace'"
                 >新的{{ title
                 }}<input

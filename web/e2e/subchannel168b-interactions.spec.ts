@@ -283,14 +283,9 @@ for (const width of [1440, 375]) {
       enabled: false,
     });
     await action(page, "参数设置");
-    await expect(d.locator("textarea")).toHaveCount(0);
-    // 参数操作 is a kit KitSelect: open the first param's trigger and choose 替换为新值.
-    await d
-      .locator(".subchannel-param")
-      .first()
-      .locator(".pa-select-trigger")
-      .click();
-    await d.getByRole("option", { name: "替换为新值", exact: true }).click();
+    await expect(d.locator("textarea")).toHaveCount(2);
+    await expect(d.getByLabel("secret", { exact: true })).toHaveValue("");
+    await expect(d.locator(".subchannel-param .pa-select-trigger")).toHaveCount(0);
     await d.getByLabel("app", { exact: true }).fill("synthetic-replacement");
     await d.getByRole("button", { name: "确认保存", exact: true }).click();
     await expect(d).toHaveCount(0);

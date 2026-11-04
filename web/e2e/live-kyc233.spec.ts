@@ -17,7 +17,10 @@ test("local real API persists, masks, edits and clears certification/OCR configu
     await page.getByRole("option", { name: option, exact: true }).click();
   };
   const edit = async (label: string, value: string) => {
-    await choose(label + "操作", "填写或替换");
+    await page
+      .getByRole("group", { name: `${label}配置`, exact: true })
+      .getByRole("button", { name: /^(设置|修改)/ })
+      .click();
     await page.getByLabel(label, { exact: true }).fill(value);
   };
   const save = async (kind: string) => {
@@ -74,7 +77,9 @@ test("local real API persists, masks, edits and clears certification/OCR configu
     await page
       .getByRole("button", { name: "管理其它服务凭据项", exact: true })
       .click();
-    await choose("手机号三要素AppCode操作", "清除原值");
+    await page
+      .getByRole("button", { name: "清除手机号三要素AppCode", exact: true })
+      .click();
     await save("实名认证");
     data = await local.call("admin", "/settings/certification");
     expect(data).toMatchObject({
@@ -89,8 +94,15 @@ test("local real API persists, masks, edits and clears certification/OCR configu
     await page
       .getByRole("button", { name: "管理其它服务凭据项", exact: true })
       .click();
-    await choose("OCR阿里云AccessKey ID操作", "清除原值");
-    await choose("OCR阿里云AccessKey Secret操作", "清除原值");
+    await page
+      .getByRole("button", { name: "清除OCR阿里云AccessKey ID", exact: true })
+      .click();
+    await page
+      .getByRole("button", {
+        name: "清除OCR阿里云AccessKey Secret",
+        exact: true,
+      })
+      .click();
     await save("OCR");
     data = await local.call("admin", "/settings/ocr");
     expect(data).toMatchObject({ revision: "4", cert_open: 0, ocr_type: "" });

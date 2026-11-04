@@ -3,6 +3,7 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { ApiClient } from "../src/api";
 import PrintingSettingsPage from "../src/components/PrintingSettingsPage.vue";
 import OrderPrintingPanel from "../src/components/OrderPrintingPanel.vue";
+import KitSelect from "../src/components/KitSelect.vue";
 const receipt = {
   trade_no: "123",
   merchant_name: "Local",
@@ -25,18 +26,79 @@ const job = {
 };
 afterEach(() => vi.restoreAllMocks());
 
+it("cancels device drafts, requires stopping automatic printing before clearing, and saves only after confirmation", async () => {
+  const c = new ApiClient("merchant");
+  const initial = {
+    revision: "5",
+    mode: 2,
+    copies: 1,
+    voice: false,
+    device_masked: "***1234",
+    device_present: true,
+  };
+  const request = vi.spyOn(c, "request").mockResolvedValue(initial);
+  const w = mount(PrintingSettingsPage, {
+    props: { client: c, ownSession: true },
+  });
+  await flushPromises();
+  expect(
+    w.get('[aria-label="清除打印设备"]').attributes("disabled"),
+  ).toBeDefined();
+  await w.get('[aria-label="修改打印设备"]').trigger("click");
+  await w.get('input[maxlength="128"]').setValue("private-device244");
+  await w.get('[aria-label="取消修改打印设备"]').trigger("click");
+  expect(w.find('input[maxlength="128"]').exists()).toBe(false);
+  await w.get('[aria-label="修改打印设备"]').trigger("click");
+  expect(w.get('input[maxlength="128"]').element).toHaveProperty("value", "");
+  await w.get('[aria-label="取消修改打印设备"]').trigger("click");
+  w.findComponent(KitSelect).vm.$emit("update:modelValue", "0");
+  await flushPromises();
+  await w.get('[aria-label="清除打印设备"]').trigger("click");
+  expect(w.text()).toContain("保存后清除");
+  await w.get('[aria-label="撤销清除打印设备"]').trigger("click");
+  expect(w.text()).not.toContain("保存后清除");
+  await w.get('[aria-label="清除打印设备"]').trigger("click");
+  await w.get("form").trigger("submit");
+  expect(request).toHaveBeenCalledTimes(1);
+  request.mockResolvedValueOnce({
+    ...initial,
+    revision: "6",
+    mode: 0,
+    device_present: false,
+    device_masked: "",
+  });
+  await w
+    .findAll("button")
+    .find((b) => b.text() === "确认保存")!
+    .trigger("click");
+  await flushPromises();
+  expect(request).toHaveBeenLastCalledWith(
+    "/account/printing",
+    expect.objectContaining({
+      method: "PUT",
+      body: {
+        expected_revision: "5",
+        mode: 0,
+        copies: 1,
+        voice: false,
+        device_action: "clear",
+        device_id: "",
+      },
+    }),
+  );
+  w.unmount();
+});
+
 it("distinguishes an installed external connector from an enabled worker", async () => {
   const c = new ApiClient("admin");
-  const read = vi
-    .spyOn(c, "request")
-    .mockResolvedValue({
-      revision: "1",
-      enabled: false,
-      provider: "excelsecu",
-      app_id_masked: "***test",
-      secret_present: true,
-      external_execution_available: true,
-    });
+  const read = vi.spyOn(c, "request").mockResolvedValue({
+    revision: "1",
+    enabled: false,
+    provider: "excelsecu",
+    app_id_masked: "***test",
+    secret_present: true,
+    external_execution_available: true,
+  });
   const w = mount(PrintingSettingsPage, {
     props: { client: c, ownSession: true, adminClass: "super" },
   });
@@ -80,13 +142,7 @@ it("clears private fields on rejected CAS save and blocks a blind second save", 
     props: { client: c, ownSession: true, adminClass: "super" },
   });
   await flushPromises();
-  await w
-    .get('button.pa-select-trigger[aria-label="凭据操作"]')
-    .trigger("click");
-  await w
-    .findAll('[role="option"]')
-    .find((o) => o.text() === "替换凭据")!
-    .trigger("click");
+  await w.get('[aria-label="修改打印服务凭据"]').trigger("click");
   await w.find('input[type="password"]').setValue("synthetic-ui-secret");
   await w.find("form").trigger("submit");
   await w

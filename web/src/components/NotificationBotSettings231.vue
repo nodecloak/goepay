@@ -5,6 +5,7 @@ import { useSettingsDraft212 } from "../settings-drafts212";
 import KitModal from "./KitModal.vue";
 import KitSelect from "./KitSelect.vue";
 import KitSwitch from "./KitSwitch.vue";
+import CredentialActionControl from "./CredentialActionControl.vue";
 
 const props = defineProps<{
   client: ApiClient;
@@ -145,6 +146,17 @@ function clearPrivate() {
   tokenSource.value =
     state.value?.token_source === "oauth" ? "oauth" : "dedicated";
   confirming.value = undefined;
+}
+function setCredentialAction(next: "keep" | "replace" | "clear") {
+  if (editingBlocked.value || (next === "clear" && enabled.value)) return;
+  action.value = next;
+  if (next !== "replace") {
+    appID.value = "";
+    secret.value = "";
+    phone.value = "";
+    tokenSource.value =
+      state.value?.token_source === "oauth" ? "oauth" : "dedicated";
+  }
 }
 function parse(v: State): State {
   if (
@@ -539,18 +551,15 @@ onBeforeUnmount(() => {
               :disabled="editingBlocked"
             />
           </div>
-          <label class="bot-row231"
-            ><span>凭据操作</span
-            ><KitSelect
-              v-model="action"
-              :aria-label="`${title}凭据操作`"
-              :disabled="editingBlocked"
-              :options="[
-                { value: 'keep', label: '保留原凭据' },
-                { value: 'replace', label: '填写或替换凭据' },
-                { value: 'clear', label: '清除凭据（先停用）' },
-              ]"
-          /></label>
+          <CredentialActionControl
+            :model-value="action"
+            :configured="state.secret_present || !!state.phone_masked"
+            :label="`${title}凭据`"
+            :disabled="editingBlocked"
+            :clear-disabled="enabled"
+            clear-hint="请先关闭开关，再清除凭据。"
+            @update:model-value="setCredentialAction"
+          />
           <label class="bot-row231"
             ><span>{{ accountLabel }}</span
             ><input
@@ -626,8 +635,8 @@ onBeforeUnmount(() => {
             {{
               state.secret_present
                 ? "凭据已配置，加密保存，不回显原值。"
-                : "凭据未配置，请选择“填写或替换凭据”。"
-            }}保留时无需重填；停用后可清除。
+                : "凭据未配置，请点击“设置”填写。"
+            }}未修改的凭据无需重填；停用后可清除。
           </p>
           <p v-if="kind === 'robot'" class="muted">
             支持企业微信、钉钉和飞书群机器人。管理员手机可用于群机器人@和管理员全部交易投诉短信；短信仅支持中国大陆手机号。

@@ -12,6 +12,7 @@ import {
 import KitSelect from "./KitSelect.vue";
 import KitSwitch from "./KitSwitch.vue";
 import KitModal from "./KitModal.vue";
+import CredentialActionControl from "./CredentialActionControl.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -118,11 +119,6 @@ const visibleKeys = computed<CredentialKey233[]>(() =>
       ) as CredentialKey233[])
     : requiredKeys.value,
 );
-const actionOptions = [
-  { value: "keep", label: "保留原值" },
-  { value: "replace", label: "填写或替换" },
-  { value: "clear", label: "清除原值" },
-];
 let alive = true,
   epoch = 0,
   controller: AbortController | undefined;
@@ -154,6 +150,15 @@ function begin() {
 function clearPrivate() {
   edits.value = emptyCredentialEdits233();
   confirming.value = false;
+}
+function setCredentialAction(
+  key: CredentialKey233,
+  action: "keep" | "replace" | "clear",
+) {
+  if (blocked.value || confirming.value || staleDraft.value) return;
+  if (action === "clear" && requiredKeys.value.includes(key)) return;
+  edits.value[key].action = action;
+  if (action !== "replace") edits.value[key].value = "";
 }
 function apply(value: unknown) {
   state.value = parseConfig233(value);
@@ -240,7 +245,7 @@ function check() {
       (v) => v.action === "replace" && !v.value.trim(),
     )
   ) {
-    error.value = "替换值不能为空；删除原值请使用“清除原值”。";
+    error.value = "新值不能为空；删除已有凭据请点击“清除”。";
     return;
   }
   confirming.value = true;
@@ -475,14 +480,15 @@ onBeforeUnmount(() => {
             }}
           </button>
           <div v-for="key in visibleKeys" :key="key" class="kyc-credential233">
-            <label class="kyc-row233"
-              ><span>{{ credentialLabels[key] }}操作</span
-              ><KitSelect
-                v-model="edits[key].action"
-                :aria-label="`${credentialLabels[key]}操作`"
-                :options="actionOptions"
-                :disabled="blocked"
-            /></label>
+            <CredentialActionControl
+              :model-value="edits[key].action"
+              :configured="state.credentials[key].present"
+              :label="credentialLabels[key]"
+              :disabled="blocked || confirming || staleDraft"
+              :clear-disabled="requiredKeys.includes(key)"
+              clear-hint="请先停用当前服务或切换服务，再清除必要凭据。"
+              @update:model-value="setCredentialAction(key, $event)"
+            />
             <label class="kyc-row233"
               ><span>{{ credentialLabels[key] }}</span
               ><input
@@ -499,7 +505,7 @@ onBeforeUnmount(() => {
             /></label>
           </div>
           <p class="muted">
-            凭据加密保存，不回显原值。保留原值时无需重新输入；保存配置不会提交认证、上传证照或调用计费接口。
+            凭据加密保存，不回显原值。需要更新时点击“修改”；未修改的凭据无需重填。保存配置不会提交认证、上传证照或调用计费接口。
           </p>
           <button type="submit" :disabled="blocked || staleDraft || !dirty">
             保存{{ kind === "ocr" ? "OCR" : "实名认证" }}配置

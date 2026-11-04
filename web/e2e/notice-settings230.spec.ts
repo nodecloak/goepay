@@ -129,9 +129,8 @@ for (const width of [375, 1280])
       .click();
     await expect(voice.getByRole("alert")).toContainText("请先填写完整");
     expect(writes).toHaveLength(0);
-    await voice.getByRole("button", { name: "凭据操作", exact: true }).click();
-    await page
-      .getByRole("option", { name: "填写或替换凭据", exact: true })
+    await voice
+      .getByRole("button", { name: "设置云喇叭语音播报凭据", exact: true })
       .click();
     await voice.getByLabel("云喇叭agent_id", { exact: true }).fill("agent230");
     await voice
@@ -164,10 +163,7 @@ for (const width of [375, 1280])
       printer.getByLabel("APPSECRET", { exact: true }),
     ).toBeVisible();
     await printer
-      .getByRole("button", { name: "凭据操作", exact: true })
-      .click();
-    await page
-      .getByRole("option", { name: "填写或替换凭据", exact: true })
+      .getByRole("button", { name: "设置订单小票打印凭据", exact: true })
       .click();
     await printer.getByLabel("APPID", { exact: true }).fill("printer230");
     await printer

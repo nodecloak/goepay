@@ -5,6 +5,7 @@ import { useSettingsDraft212 } from "../settings-drafts212";
 import KitSwitch from "./KitSwitch.vue";
 import KitSelect from "./KitSelect.vue";
 import KitModal from "./KitModal.vue";
+import CredentialActionControl from "./CredentialActionControl.vue";
 const props = defineProps<{
   client: ApiClient;
   kind: "voice" | "printing";
@@ -83,6 +84,22 @@ function clearPrivate() {
   secret.value = "";
   action.value = "keep";
   confirming.value = false;
+}
+function setCredentialAction(next: "keep" | "replace" | "clear") {
+  if (
+    busy.value ||
+    loading.value ||
+    confirming.value ||
+    uncertain.value ||
+    props.disabled
+  )
+    return;
+  if (next === "clear" && enabled.value) return;
+  action.value = next;
+  if (next !== "replace") {
+    appID.value = "";
+    secret.value = "";
+  }
 }
 function apply(v: State) {
   if (
@@ -254,14 +271,15 @@ onBeforeUnmount(() => {
       </button>
       <form v-if="state" @submit.prevent="check">
         <fieldset :disabled="busy || loading || confirming || disabled">
-          <div class="hardware-row230"
-            ><span>{{ voice ? "云喇叭收款提醒开关" : "订单小票打印开关" }}</span
+          <div class="hardware-row230">
+            <span>{{ voice ? "云喇叭收款提醒开关" : "订单小票打印开关" }}</span
             ><KitSwitch
               v-model="enabled"
               :label="enabled ? '开启' : '关闭'"
               :aria-label="voice ? '云喇叭收款提醒开关' : '订单小票打印开关'"
               :disabled="uncertain || disabled"
-          /></div>
+            />
+          </div>
           <label v-if="!voice" class="hardware-row230"
             ><span>打印服务</span
             ><KitSelect
@@ -273,18 +291,15 @@ onBeforeUnmount(() => {
               ]"
               :disabled="uncertain || disabled"
           /></label>
-          <label class="hardware-row230"
-            ><span>凭据操作</span
-            ><KitSelect
-              v-model="action"
-              aria-label="凭据操作"
-              :options="[
-                { value: 'keep', label: '保留原凭据' },
-                { value: 'replace', label: '填写或替换凭据' },
-                { value: 'clear', label: '清除凭据（先停用）' },
-              ]"
-              :disabled="uncertain || disabled"
-          /></label>
+          <CredentialActionControl
+            :model-value="action"
+            :configured="state.secret_present"
+            :label="`${title}凭据`"
+            :disabled="busy || loading || confirming || uncertain || disabled"
+            :clear-disabled="enabled"
+            clear-hint="请先关闭开关，再清除凭据。"
+            @update:model-value="setCredentialAction"
+          />
           <label class="hardware-row230"
             ><span>{{ voice ? "云喇叭agent_id" : "APPID" }}</span
             ><input
@@ -315,9 +330,9 @@ onBeforeUnmount(() => {
             {{
               state.secret_present
                 ? "凭据已配置，加密保存，不回显原值。"
-                : "凭据未配置；请先选择“填写或替换凭据”。"
+                : "凭据未配置；请点击“设置”填写。"
             }}
-            保留原凭据时无需重新输入；停用后可清除。
+            未修改的凭据无需重填；停用后可清除。
           </p>
           <p v-if="voice" class="muted">
             对接启易付云喇叭。商户需在消息推送中填写设备编号并开启订单语音提醒；付款码收款订单不播报。实际发送还需部署端开启消息任务并配置受支持的HTTPS网关。

@@ -13,6 +13,7 @@ import { ApiClient, ApiError } from "../api";
 import { effectiveRiskDescription } from "../core-risk-status";
 import { safePaymentUrl } from "../commerce";
 import ActionDropdown from "./ActionDropdown.vue";
+import ConfigValueEditor from "./ConfigValueEditor.vue";
 import KitSelect from "./KitSelect.vue";
 import KitSwitch from "./KitSwitch.vue";
 import KitStatusTag from "./KitStatusTag.vue";
@@ -239,20 +240,15 @@ const dialogRollModel = computed({
     if (modal.value) modal.value.rollType = Number(v);
   },
 });
-// 参数操作: in params mode the 保留原值 option is only offered when the field is
-// already present for the same parent (previously a disabled <option>); omit it
-// otherwise so the kit select never shows an unselectable row — same effect.
-function operationOptions(f: SubchannelSchema["fields"][number]) {
+// Only an existing field bound to this exact parent can remain unchanged.
+// A new parent must receive its own account values, including required fields.
+function canKeepField(f: SubchannelSchema["fields"][number]) {
   const d = modal.value;
-  const keepAllowed =
+  return (
     d?.mode === "params" &&
     d.parentId === d.row?.parentId &&
-    !!d.row?.fields.some((v) => v.name === f.name && v.present);
-  const opts: { value: string; label: string }[] = [];
-  if (keepAllowed) opts.push({ value: "keep", label: "保留原值" });
-  opts.push({ value: "replace", label: "替换为新值" });
-  if (!f.required) opts.push({ value: "clear", label: "清除" });
-  return opts;
+    !!d.row?.fields.some((v) => v.name === f.name && v.present)
+  );
 }
 // The table 状态 cell word (tri-state) and its kit tone.
 function statusWord(row: SubchannelRow) {
@@ -396,7 +392,7 @@ function setupValues(d: Dialog) {
       d.row?.parentId === d.parentId &&
       d.row.fields.some((v) => v.name === f.name && v.present)
         ? "keep"
-        : "replace";
+        : d.mode === "params" && !f.required ? "clear" : "replace";
   }
 }
 async function open(mode: Mode, row: SubchannelRow | null = null) {
@@ -1214,40 +1210,22 @@ onBeforeUnmount(() => {
               ></template>
               <div
                 v-for="f in modalSchema?.fields || []"
-                :key="f.name"
+                :key="modal.parentId + '.' + f.name"
                 class="subchannel-param"
               >
-                <label
-                  >{{ f.label
-                  }}<KitSelect
-                    v-if="modal.mode === 'params'"
-                    v-model="modal.operations[f.name]"
-                    :options="operationOptions(f)"
-                    :disabled="modal.busy || modal.uncertain"
-                    :aria-label="f.label + ' 操作'"
-                  /><textarea
-                    v-if="
-                      modal.mode === 'create' ||
-                      modal.operations[f.name] === 'replace'
-                    "
-                    v-model="modal.values[f.name]"
-                    :disabled="modal.busy || modal.uncertain"
-                    :aria-label="f.label"
-                    autocomplete="off"
-                    autocapitalize="off"
-                    spellcheck="false"
-                    rows="3"
-                    :placeholder="
-                      f.secret
-                        ? '请输入完整新值；原值不会显示'
-                        : '请输入完整新值'
-                    "
-                  /><span v-else class="muted">{{
-                    modal.operations[f.name] === "keep"
-                      ? "已配置，保留原值"
-                      : "将清除该值"
-                  }}</span></label
-                >
+                <span class="subchannel-param-label">{{ f.label }}{{ f.required ? ' *' : '' }}</span>
+                <ConfigValueEditor
+                  :model-value="modal.values[f.name] || ''"
+                  @update:model-value="modal.values[f.name] = $event"
+                  v-model:operation="modal.operations[f.name]"
+                  :label="f.label"
+                  :configured="canKeepField(f)"
+                  :keep-allowed="canKeepField(f)"
+                  :clear-allowed="!f.required && modal.mode === 'params'"
+                  :secret="f.secret"
+                  multiline
+                  :disabled="modal.busy || modal.uncertain"
+                />
               </div></template
             ><template
               v-if="modal.mode === 'create' || modal.mode === 'settings'"
@@ -1527,12 +1505,18 @@ onBeforeUnmount(() => {
   font-family: ui-monospace, monospace;
 }
 .subchannel-param {
+  display: grid;
+  gap: 6px;
   padding: 0.7rem;
   background: var(--bg-raised);
   border: 1px solid var(--line);
   border-radius: 5px;
   min-width: 0;
   box-sizing: border-box;
+}
+.subchannel-param-label {
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
 }
 .subchannel-form textarea,
 .subchannel-form input,

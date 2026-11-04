@@ -9,8 +9,9 @@ it('renders original parent columns, filters and versioned secret edits without 
  const c=client(),w=mount(ParentChannelPage,{props:{client:c,allowed:true}});await flushPromises();
  expect(w.text()).toContain('分成比例');expect(w.text()).toContain('配置密钥');expect(w.find('input[aria-label="ID或名称"]').exists()).toBe(true);
  await w.get('button[data-parent-parameters]').trigger('click');await flushPromises();
- expect((w.get('select[aria-label="appkey 操作"]').element as HTMLSelectElement).value).toBe('keep');
- await w.get('select[aria-label="appkey 操作"]').setValue('replace');await w.get('input[aria-label="appkey 内容"]').setValue('draft-secret');
+ expect(w.find('select[aria-label="appkey 操作"]').exists()).toBe(false);
+ expect((w.get('input[aria-label="appkey 内容"]').element as HTMLInputElement).value).toBe('');
+ await w.get('input[aria-label="appkey 内容"]').setValue('draft-secret');
  c.csrfToken='changed';await w.get('input[aria-label="通道名称"]').trigger('focusin');await flushPromises();
  expect(w.html()).not.toContain('draft-secret');expect(w.find('[role="dialog"]').exists()).toBe(false);w.unmount();
 });
@@ -35,6 +36,6 @@ it('reviews the exact original channel before changing its status',async()=>{
 
 it('clears a sensitive draft when an in-flight response observes a raw CSRF change without another interaction',async()=>{
  const c=client();let release!:(value:unknown)=>void;const pending=new Promise(resolve=>{release=resolve});vi.mocked(c.request).mockImplementation(async(path,options)=>{if(options?.method==='PATCH')return pending;return path.includes('/templates')?{items:[],total:0}:path.includes('?')?{items:[row],total:1,page:1,size:20}:row});
- const w=mount(ParentChannelPage,{props:{client:c,allowed:true}});await flushPromises();await w.get('[data-parent-parameters]').trigger('click');await flushPromises();await w.get('select[aria-label="appkey 操作"]').setValue('replace');await w.get('input[aria-label="appkey 内容"]').setValue('late-response-secret');await w.get('form[data-parent-editor]').trigger('submit');
+ const w=mount(ParentChannelPage,{props:{client:c,allowed:true}});await flushPromises();await w.get('[data-parent-parameters]').trigger('click');await flushPromises();await w.get('input[aria-label="appkey 内容"]').setValue('late-response-secret');await w.get('form[data-parent-editor]').trigger('submit');
  c.csrfToken='changed-during-await';release(row);await flushPromises();expect(w.find('[role="dialog"]').exists()).toBe(false);expect(w.html()).not.toContain('late-response-secret');w.unmount();
 });
