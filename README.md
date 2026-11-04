@@ -14,6 +14,7 @@
 
 <p align="center">
   <a href="https://goepay.cc/">官网</a> ·
+  <a href="manual/index.md">使用手册</a> ·
   <a href="https://goepay.cc/doc/">开发文档</a> ·
   <a href="https://goepay.cc/doc/pay_create.html">在线沙箱</a> ·
   <a href="https://goepay.cc/doc/sdk.html">Go SDK</a> ·

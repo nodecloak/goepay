@@ -1,0 +1,33 @@
+sequenceDiagram
+  autonumber
+  actor U as 付款用户
+  participant M as 商户系统
+  participant G as GOEPAY
+  participant P as 支付机构
+  participant D as 账务与任务
+  M->>G: 签名下单 · 唯一商户订单号
+  G->>D: 校验准入，保存订单与通道快照
+  G->>P: 保存上游尝试后创建支付
+  P-->>G: 支付参数或二维码
+  G-->>M: 原订单支付材料
+  M-->>U: 展示收银台
+  U->>P: 本人确认付款
+  P->>G: 签名支付回调
+  G->>G: 验签，核对通道身份、订单与金额
+  alt 回调可信且订单匹配
+    G->>D: 同事务提交：已支付 + 入账 + 通知任务
+    Note over G,D: 重复确认不重复入账
+    D-->>G: 提交完成
+    G-->>P: 协议成功应答
+  else 验证失败或数据不符
+    G-->>P: 拒绝确认，保留待核查结果
+  end
+  opt 已确认支付
+    loop 未确认成功，按规则重试
+      G->>D: 异步执行原通知任务
+      G->>M: 签名支付结果通知
+      M-->>G: 验签、幂等处理后成功应答
+    end
+  end
+  U->>M: 浏览器回跳，读取业务结果
+  Note over U,M: 页面回跳不作为付款证明

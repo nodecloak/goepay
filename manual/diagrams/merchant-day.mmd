@@ -1,0 +1,16 @@
+flowchart LR
+  subgraph S1["开始营业"]
+    direction TB
+    A["本人登录并确认商户号"] --> B["核对通道、费率与接入资料"]
+  end
+  subgraph S2["处理交易"]
+    direction TB
+    C["业务系统下单或聚合收款"] --> D["查看订单及商户通知"]
+    D --> E["按原订单处理退款售后"]
+  end
+  subgraph S3["核对与结算"]
+    direction TB
+    F["核对收入、费用与资金明细"] --> G["满足条件后申请提现"]
+    G --> H["查看原结算及实际到账"]
+  end
+  S1 --> S2 --> S3

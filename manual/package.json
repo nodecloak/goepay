@@ -1,0 +1,21 @@
+{
+  "name": "goepay-user-manual",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev . --host 127.0.0.1 --port 5188",
+    "build": "vitepress build .",
+    "preview": "vitepress preview . --host 127.0.0.1 --port 5188",
+    "check": "node scripts/check-manual.mjs",
+    "diagrams": "node scripts/render-diagrams.mjs",
+    "screenshots": "node scripts/capture-screenshots.mjs",
+    "sync:menus": "node scripts/sync-menus.mjs",
+    "test:browser": "node scripts/test-browser.mjs"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4",
+    "mermaid": "12.3.0",
+    "playwright": "1.58.2"
+  }
+}

@@ -1,0 +1,22 @@
+flowchart LR
+  subgraph S1["01 商户开通"]
+    direction TB
+    A["配置通道与用户组"] --> B["创建商户 · 完成认证"]
+    B --> C["核对接入资料与费率"]
+  end
+  subgraph S2["02 收款交易"]
+    direction TB
+    D["商户下单 / 聚合收款"] --> E["用户本人确认支付"]
+    E --> F["可信回调确认订单"]
+  end
+  subgraph S3["03 账务与业务结果"]
+    direction TB
+    G["订单、入账、通知同事务"] --> H["商户验签并幂等处理"]
+    G --> I["退款售后 · 原单核对"]
+  end
+  subgraph S4["04 结算与核查"]
+    direction TB
+    J["满足规则后申请结算"] --> K["审批 · 原单付款"]
+    K --> L["核对资金明细与到账"]
+  end
+  S1 --> S2 --> S3 --> S4

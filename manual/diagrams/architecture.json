@@ -1,0 +1,5 @@
+{
+  "kind": "alias",
+  "target": "system-architecture",
+  "description": "保留旧 architecture 图名称；内容由 system-architecture.json 统一生成。"
+}

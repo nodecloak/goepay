@@ -1,0 +1,7 @@
+node_modules/
+.vitepress/cache/
+.vitepress/dist/
+test-results/
+# The repository excludes legacy reference material; these are public manual pages.
+!reference/
+!reference/**
