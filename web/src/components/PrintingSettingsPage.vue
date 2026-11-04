@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { ApiClient } from "../api";
+import { ApiClient, ApiError } from "../api";
 import type { PlatformPrinting, MerchantPrinting } from "../printing";
 import KitSelect from "./KitSelect.vue";
 import KitSwitch from "./KitSwitch.vue";
@@ -38,11 +38,14 @@ const path = computed(() =>
   admin.value ? "/printing/settings" : "/account/printing",
 );
 function clearPrivate() {
+  wipePrivateValues();
+  credentialAction.value = "keep";
+  deviceAction.value = "keep";
+}
+function wipePrivateValues() {
   appID.value = "";
   secret.value = "";
   deviceID.value = "";
-  credentialAction.value = "keep";
-  deviceAction.value = "keep";
 }
 function setCredentialAction(next: "keep" | "replace" | "clear") {
   if (busy.value || confirming.value || (next === "clear" && enabled.value))
@@ -76,7 +79,7 @@ function apply(v: PlatformPrinting | MerchantPrinting) {
   loaded.value = true;
 }
 async function load() {
-  if (!allowed.value) return;
+  if (!allowed.value || busy.value) return;
   error.value = "";
   busy.value = true;
   loaded.value = false;
@@ -93,9 +96,63 @@ async function load() {
     if (alive) busy.value = false;
   }
 }
+function validationError() {
+  const validText = (value: string, max: number) =>
+    !!value.trim() &&
+    !/[\u0000-\u001f\u007f]/.test(value) &&
+    new TextEncoder().encode(value).length <= max;
+  if (admin.value) {
+    if (!["local_fake", "excelsecu"].includes(provider.value))
+      return "请选择有效的打印服务。";
+    if (!["keep", "replace", "clear"].includes(credentialAction.value))
+      return "请重新选择凭据修改方式。";
+    if (credentialAction.value === "clear" && enabled.value)
+      return "清除凭据前请先关闭订单打印。";
+    if (
+      credentialAction.value === "replace" &&
+      (!validText(appID.value, 128) || !validText(secret.value, 512))
+    )
+      return "请填写完整的应用ID和应用密钥，不能包含控制字符。";
+    if (
+      enabled.value &&
+      credentialAction.value !== "replace" &&
+      !(credentialAction.value === "keep" && platform.value?.secret_present)
+    )
+      return "请先设置完整的打印服务凭据，再开启订单打印。";
+  } else {
+    if (!Number.isInteger(mode.value) || ![0, 1, 2].includes(mode.value))
+      return "请选择有效的自动打印范围。";
+    if (!Number.isInteger(copies.value) || copies.value < 1 || copies.value > 5)
+      return "每单份数须为1到5之间的整数。";
+    if (!["keep", "replace", "clear"].includes(deviceAction.value))
+      return "请重新选择打印设备修改方式。";
+    if (deviceAction.value === "clear" && mode.value !== 0)
+      return "清除设备前请先将自动打印范围设为“不自动打印”。";
+    if (deviceAction.value === "replace" && !validText(deviceID.value, 128))
+      return "请填写有效的设备编号，不能包含控制字符。";
+    if (
+      mode.value > 0 &&
+      deviceAction.value !== "replace" &&
+      !(deviceAction.value === "keep" && merchant.value?.device_present)
+    )
+      return "请先设置打印设备，再开启自动打印。";
+  }
+  return "";
+}
+function check() {
+  if (!allowed.value || !loaded.value || busy.value || confirming.value) return;
+  error.value = validationError();
+  notice.value = "";
+  if (!error.value) confirming.value = true;
+}
 async function save() {
   if (!allowed.value || !loaded.value || busy.value || !confirming.value)
     return;
+  error.value = validationError();
+  if (error.value) {
+    confirming.value = false;
+    return;
+  }
   busy.value = true;
   error.value = "";
   notice.value = "";
@@ -116,6 +173,8 @@ async function save() {
         device_action: deviceAction.value,
         device_id: deviceID.value,
       };
+  wipePrivateValues();
+  let rejected = false;
   try {
     const v = await props.client.request<PlatformPrinting | MerchantPrinting>(
       path.value,
@@ -127,12 +186,24 @@ async function save() {
     }
   } catch (e) {
     if (alive) {
-      error.value =
-        e instanceof Error ? e.message : "设置结果未知，请重新读取版本";
-      loaded.value = false;
+      rejected =
+        e instanceof ApiError &&
+        e.responseDecoded &&
+        [400, 422].includes(e.status);
+      if (rejected)
+        error.value =
+          "打印设置未被接受，请核对后重新保存；私密输入已清空，请重新填写。";
+      else {
+        error.value =
+          e instanceof ApiError && e.status === 409
+            ? "打印配置已变化，请重新读取后再编辑；不会自动重试。"
+            : "保存结果未知，请重新读取版本核对；不会自动重试。";
+        loaded.value = false;
+      }
     }
   } finally {
-    clearPrivate();
+    if (rejected) wipePrivateValues();
+    else clearPrivate();
     if (alive) {
       busy.value = false;
       confirming.value = false;
@@ -169,7 +240,7 @@ onBeforeUnmount(() => {
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="notice" role="status">{{ notice }}</p>
       <button :disabled="busy" @click="load">重新读取设置</button>
-      <form v-if="loaded" @submit.prevent="confirming = true">
+      <form v-if="loaded" @submit.prevent="check">
         <fieldset :disabled="busy || confirming">
           <template v-if="admin">
             <label class="kit-row"
@@ -208,12 +279,14 @@ onBeforeUnmount(() => {
                 >应用ID<input
                   v-model="appID"
                   autocomplete="off"
+                  required
                   maxlength="128" /></label
               ><label
                 >应用密钥<input
                   v-model="secret"
                   type="password"
                   autocomplete="new-password"
+                  required
                   maxlength="512" /></label
             ></template>
           </template>
@@ -255,6 +328,7 @@ onBeforeUnmount(() => {
               >设备编号<input
                 v-model="deviceID"
                 autocomplete="off"
+                required
                 maxlength="128"
             /></label>
           </template>

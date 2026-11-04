@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, toRaw, watch } from "vue";
 import { ApiClient, ApiError } from "../api";
 import { useSettingsDraft212 } from "../settings-drafts212";
+import CredentialActionControl from "./CredentialActionControl.vue";
 const props = withDefaults(
   defineProps<{
     client: ApiClient;
@@ -19,6 +20,7 @@ type Field = "password" | "apikey";
 const state = ref<Metadata>(),
   draft = ref<Record<Field, string>>({ password: "", apikey: "" }),
   editing = ref<Field>(),
+  clearing = ref<Field>(),
   loading = ref(false),
   busy = ref(false),
   unresolvedSave = ref(false),
@@ -53,7 +55,11 @@ function isAllowed() {
 const allowed = computed(isAllowed);
 const { confirmDiscard: confirmDraftDiscard } = useSettingsDraft212(
   "代理密码和接口密钥",
-  () => !!draft.value.password || !!draft.value.apikey || unresolvedSave.value,
+  () =>
+    !!draft.value.password ||
+    !!draft.value.apikey ||
+    !!clearing.value ||
+    unresolvedSave.value,
 );
 function same(source = tracked) {
   const now = context();
@@ -73,6 +79,7 @@ function clear(message = "", preserveUnresolved = false) {
   state.value = undefined;
   draft.value = { password: "", apikey: "" };
   editing.value = undefined;
+  clearing.value = undefined;
   loading.value = false;
   busy.value = false;
   error.value = message;
@@ -145,9 +152,10 @@ async function load() {
   }
 }
 function edit(field: Field) {
-  if (!same() || !isAllowed() || busy.value || !state.value) return;
+  if (!same() || !isAllowed() || fieldBlocked(field) || !state.value) return;
   editing.value = field;
-  draft.value[field] = "";
+  clearing.value = undefined;
+  draft.value = { password: "", apikey: "" };
   error.value = "";
   notice.value = "";
   void nextTick(() => {
@@ -158,9 +166,37 @@ function edit(field: Field) {
 function cancelEdit() {
   if (busy.value) return;
   editing.value = undefined;
+  clearing.value = undefined;
   draft.value = { password: "", apikey: "" };
   unresolvedSave.value = false;
   error.value = "";
+}
+function fieldBlocked(field: Field) {
+  return (
+    busy.value ||
+    loading.value ||
+    (!!editing.value && editing.value !== field) ||
+    (!!clearing.value && clearing.value !== field)
+  );
+}
+function fieldAction(field: Field) {
+  return editing.value === field
+    ? "replace"
+    : clearing.value === field
+      ? "clear"
+      : "keep";
+}
+function setAction(field: Field, action: "keep" | "replace" | "clear") {
+  if (!same() || !isAllowed() || !state.value || fieldBlocked(field)) return;
+  if (action === "keep") cancelEdit();
+  else if (action === "replace") edit(field);
+  else if (
+    field === "password" ? state.value.password_set : state.value.apikey_set
+  ) {
+    cancelEdit();
+    clearing.value = field;
+    notice.value = "";
+  }
 }
 function randomKey() {
   const chars = "ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz2345678";
@@ -173,6 +209,7 @@ function randomKey() {
 async function save(field: Field, action: "replace" | "clear") {
   if (!same() || !isAllowed() || busy.value || loading.value || !state.value)
     return;
+  if (fieldAction(field) !== action) return;
   const body: Record<string, unknown> = {
     expected_fingerprint: state.value.fingerprint,
   };
@@ -194,6 +231,7 @@ async function save(field: Field, action: "replace" | "clear") {
   busy.value = true;
   unresolvedSave.value = true;
   editing.value = undefined;
+  clearing.value = undefined;
   draft.value = { password: "", apikey: "" };
   error.value = "";
   notice.value = "";
@@ -218,6 +256,7 @@ async function save(field: Field, action: "replace" | "clear") {
       reason.responseDecoded &&
       [400, 422].includes(reason.status)
     ) {
+      unresolvedSave.value = false;
       error.value = "密钥操作未被接受，请核对后重新输入";
     } else {
       state.value = undefined;
@@ -304,17 +343,21 @@ onBeforeUnmount(() => {
           旧密钥不会显示，加密保存，仅在支付成功异步回调走中转代理时使用。
         </p>
         <div class="proxy-secret">
-          <p>
-            代理密码：<strong>{{
-              state.password_set ? "已设置" : "未配置"
-            }}</strong>
-          </p>
+          <CredentialActionControl
+            :model-value="fieldAction('password')"
+            :configured="state.password_set"
+            label="代理密码"
+            :disabled="fieldBlocked('password')"
+            @update:model-value="setAction('password', $event)"
+          />
           <form
-            v-if="editing === 'password'"
+            v-if="editing === 'password' || clearing === 'password'"
             novalidate
-            @submit.prevent="save('password', 'replace')"
+            @submit.prevent="
+              save('password', clearing === 'password' ? 'clear' : 'replace')
+            "
           >
-            <label
+            <label v-if="editing === 'password'"
               >新的代理密码<input
                 ref="passwordInput"
                 v-model="draft.password"
@@ -325,44 +368,32 @@ onBeforeUnmount(() => {
                 :spellcheck="false"
                 :disabled="busy"
             /></label>
+            <p v-if="clearing === 'password'" class="muted">
+              点击保存后才会清除代理密码，API接口密钥不受影响。
+            </p>
             <div class="proxy-actions">
               <button type="submit" class="primary" :disabled="busy">
-                保存代理密码</button
-              ><button type="button" :disabled="busy" @click="cancelEdit">
-                取消编辑
+                保存代理密码
               </button>
             </div>
           </form>
-          <div v-else class="proxy-actions">
-            <button
-              type="button"
-              class="primary"
-              :disabled="busy || loading"
-              @click="edit('password')"
-            >
-              {{ state.password_set ? "替换代理密码" : "设置代理密码" }}</button
-            ><button
-              v-if="state.password_set"
-              type="button"
-              :disabled="busy || loading"
-              @click="save('password', 'clear')"
-            >
-              清除代理密码
-            </button>
-          </div>
         </div>
         <div class="proxy-secret">
-          <p>
-            API接口密钥：<strong>{{
-              state.apikey_set ? "已设置" : "未配置"
-            }}</strong>
-          </p>
+          <CredentialActionControl
+            :model-value="fieldAction('apikey')"
+            :configured="state.apikey_set"
+            label="API接口密钥"
+            :disabled="fieldBlocked('apikey')"
+            @update:model-value="setAction('apikey', $event)"
+          />
           <form
-            v-if="editing === 'apikey'"
+            v-if="editing === 'apikey' || clearing === 'apikey'"
             novalidate
-            @submit.prevent="save('apikey', 'replace')"
+            @submit.prevent="
+              save('apikey', clearing === 'apikey' ? 'clear' : 'replace')
+            "
           >
-            <label
+            <label v-if="editing === 'apikey'"
               >新的API接口密钥<input
                 ref="apikeyInput"
                 v-model="draft.apikey"
@@ -373,35 +404,22 @@ onBeforeUnmount(() => {
                 :spellcheck="false"
                 :disabled="busy"
             /></label>
+            <p v-if="clearing === 'apikey'" class="muted">
+              点击保存后才会清除API接口密钥，代理密码不受影响。
+            </p>
             <div class="proxy-actions">
-              <button type="button" :disabled="busy" @click="randomKey">
+              <button
+                v-if="editing === 'apikey'"
+                type="button"
+                :disabled="busy"
+                @click="randomKey"
+              >
                 随机</button
               ><button type="submit" class="primary" :disabled="busy">
-                保存API接口密钥</button
-              ><button type="button" :disabled="busy" @click="cancelEdit">
-                取消编辑
+                保存API接口密钥
               </button>
             </div>
           </form>
-          <div v-else class="proxy-actions">
-            <button
-              type="button"
-              class="primary"
-              :disabled="busy || loading"
-              @click="edit('apikey')"
-            >
-              {{
-                state.apikey_set ? "替换API接口密钥" : "设置API接口密钥"
-              }}</button
-            ><button
-              v-if="state.apikey_set"
-              type="button"
-              :disabled="busy || loading"
-              @click="save('apikey', 'clear')"
-            >
-              清除API接口密钥
-            </button>
-          </div>
         </div>
       </template>
       <div class="proxy-secret proxy-test">

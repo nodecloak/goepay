@@ -20,6 +20,11 @@ func (s *Server) recordLogin(r *http.Request, role, username string, success *bo
 	if s.Pool == nil {
 		return
 	}
+	// Successful admin logins retain the canonical identity used by MFA and
+	// administrator metadata, even when the submitted login name has changed.
+	if *success && role == "admin" && len(verified) == 1 && verified[0].Role == role && verified[0].ID > 0 {
+		username = verified[0].Username
+	}
 	if len(username) > 128 {
 		username = username[:128]
 	}

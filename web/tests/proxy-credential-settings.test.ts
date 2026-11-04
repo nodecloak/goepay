@@ -57,7 +57,9 @@ async function setup(
   return { wrapper, calls };
 }
 function button(w: VueWrapper, label: string) {
-  const b = w.findAll("button").find((e) => e.text() === label);
+  const b = w
+    .findAll("button")
+    .find((e) => e.text() === label || e.attributes("aria-label") === label);
   expect(b, label).toBeDefined();
   return b!;
 }
@@ -68,7 +70,7 @@ it("hides configuration from a non-super or non-owner session", async () => {
   expect(calls.length).toBe(0);
 });
 
-it("sets the API key through a write-only PATCH and shows 已设置, never echoing the key", async () => {
+it("sets the API key through a write-only PATCH and shows configured status, never echoing the key", async () => {
   let saved = false;
   const { wrapper, calls } = await setup({
     handler: async (method, body) => {
@@ -85,7 +87,7 @@ it("sets the API key through a write-only PATCH and shows 已设置, never echoi
       return reply(base);
     },
   });
-  expect(wrapper.text()).toContain("API接口密钥：");
+  expect(wrapper.text()).toContain("API接口密钥");
   await button(wrapper, "设置API接口密钥").trigger("click");
   await flushPromises();
   await wrapper
@@ -95,7 +97,7 @@ it("sets the API key through a write-only PATCH and shows 已设置, never echoi
   await flushPromises();
   expect(saved).toBe(true);
   expect(wrapper.text()).toContain("API接口密钥已保存");
-  expect(wrapper.findAll(".proxy-secret")[1]!.text()).toContain("已设置");
+  expect(wrapper.findAll(".proxy-secret")[1]!.text()).toContain("已配置");
   expect(wrapper.html()).not.toContain("AbCdEf2345xyzKMNPQ78");
   expect(calls.filter((c) => c.method === "PATCH").length).toBe(1);
 });
@@ -113,6 +115,34 @@ it("the 随机 button fills a 20-char key from the original alphabet", async () 
   );
 });
 
+it("stages and undoes clearing without touching the other proxy credential, then saves one explicit mutation", async () => {
+  const { wrapper, calls } = await setup({
+    handler: async (method, body) => {
+      const state = { ...base, password_set: true, apikey_set: true };
+      if (method !== "PATCH") return reply(state);
+      expect(body).toEqual({
+        expected_fingerprint: base.fingerprint,
+        clear_password: true,
+      });
+      return reply({
+        ...state,
+        password_set: false,
+        fingerprint: "b".repeat(64),
+      });
+    },
+  });
+  await wrapper.get('[aria-label="清除代理密码"]').trigger("click");
+  expect(calls.filter((c) => c.method === "PATCH")).toHaveLength(0);
+  expect(wrapper.text()).toContain("保存后清除");
+  await wrapper.get('[aria-label="撤销清除代理密码"]').trigger("click");
+  expect(wrapper.text()).not.toContain("保存后清除");
+  await wrapper.get('[aria-label="清除代理密码"]').trigger("click");
+  await button(wrapper, "保存代理密码").trigger("click");
+  await flushPromises();
+  expect(calls.filter((c) => c.method === "PATCH")).toHaveLength(1);
+  expect(wrapper.findAll(".proxy-secret")[1]!.text()).toContain("已配置");
+});
+
 it("a stale fingerprint (409) forces a re-read without auto-retry", async () => {
   const { wrapper } = await setup({
     handler: async (method) =>
@@ -120,12 +150,36 @@ it("a stale fingerprint (409) forces a re-read without auto-retry", async () => 
         ? reply(null, 409)
         : reply({ ...base, password_set: true }),
   });
-  await button(wrapper, "替换代理密码").trigger("click");
+  await button(wrapper, "修改").trigger("click");
   await flushPromises();
   await wrapper.get('input[name="proxy_pwd"]').setValue("relay-secret");
   await button(wrapper, "保存代理密码").trigger("click");
   await flushPromises();
   expect(wrapper.text()).toContain("代理密钥状态已变化");
+});
+
+it("cancels a private edit and removes an unsubmitted clear on session loss", async () => {
+  const { wrapper, calls } = await setup({
+    handler: async () => reply({ ...base, password_set: true }),
+  });
+  await wrapper.get('[aria-label="修改代理密码"]').trigger("click");
+  await wrapper
+    .get('input[name="proxy_pwd"]')
+    .setValue("private-cancel-proxy245");
+  await wrapper.get('[aria-label="取消修改代理密码"]').trigger("click");
+  expect(wrapper.find('input[name="proxy_pwd"]').exists()).toBe(false);
+  await wrapper.get('[aria-label="修改代理密码"]').trigger("click");
+  expect(wrapper.get('input[name="proxy_pwd"]').element).toHaveProperty(
+    "value",
+    "",
+  );
+  await wrapper.get('[aria-label="取消修改代理密码"]').trigger("click");
+  await wrapper.get('[aria-label="清除代理密码"]').trigger("click");
+  await wrapper.setProps({ ownSession: false });
+  await flushPromises();
+  expect(wrapper.find("form").exists()).toBe(false);
+  expect(wrapper.text()).not.toContain("保存后清除");
+  expect(calls.filter((c) => c.method === "PATCH")).toHaveLength(0);
 });
 
 it("tests proxy connectivity through the configured server and shows the egress IP", async () => {

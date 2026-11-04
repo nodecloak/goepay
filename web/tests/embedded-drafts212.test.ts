@@ -24,7 +24,12 @@ afterEach(() => {
 });
 const fp = (char: string) => char.repeat(64);
 function button(wrapper: VueWrapper, label: string) {
-  const found = wrapper.findAll("button").find((item) => item.text() === label);
+  const found = wrapper
+    .findAll("button")
+    .find(
+      (item) =>
+        item.text() === label || item.attributes("aria-label") === label,
+    );
   expect(found, `visible ${label}`).toBeDefined();
   return found!;
 }
@@ -397,6 +402,7 @@ const credentials = [
     selector: '[name="new_captcha_key"]',
     save: "保存新密钥",
     confirm: "确认保存",
+    cancel: "取消编辑",
     saved: { configured: true, fingerprint: fp("b") },
   },
   {
@@ -406,6 +412,7 @@ const credentials = [
     open: "设置API接口密钥",
     selector: '[name="proxy_apikey"]',
     save: "保存API接口密钥",
+    cancel: "取消修改",
     saved: { password_set: false, apikey_set: true, fingerprint: fp("b") },
   },
   {
@@ -421,6 +428,7 @@ const credentials = [
     open: "设置QQ互联 APPKEY",
     selector: 'input[type="password"]',
     save: "保存QQ互联 APPKEY",
+    cancel: "取消修改",
     saved: {
       qq_set: true,
       wx_set: false,
@@ -460,7 +468,7 @@ it.each(credentials)(
       "value",
       "synthetic-in-memory-secret212",
     );
-    await button(panel.wrapper, "取消编辑").trigger("click");
+    await button(panel.wrapper, scenario.cancel).trigger("click");
     expect(panel.dirty()).toBe(false);
     await button(panel.wrapper, scenario.open).trigger("click");
     await panel.wrapper
@@ -474,7 +482,7 @@ it.each(credentials)(
     expect(panel.wrapper.html()).not.toContain("synthetic-in-memory-secret212");
     const replace = panel.wrapper
       .findAll("button")
-      .find((item) => item.text().startsWith("替换"))!;
+      .find((item) => /^(替换|修改)/.test(item.text()))!;
     await replace.trigger("click");
     await panel.wrapper
       .get(scenario.selector)
@@ -489,6 +497,45 @@ it.each(credentials)(
     expect(
       request.mock.calls.filter((call) => call[1]?.method === "PATCH"),
     ).toHaveLength(2);
+  },
+);
+
+it.each([
+  {
+    component: OAuthCredentialSettings,
+    base: {
+      qq_set: true,
+      wx_set: true,
+      alipay_set: false,
+      telegram_set: false,
+      fingerprint: fp("a"),
+    },
+    label: "QQ互联 APPKEY",
+  },
+  {
+    component: ProxyCredentialSettings,
+    base: { password_set: true, apikey_set: true, fingerprint: fp("a") },
+    label: "代理密码",
+  },
+])(
+  "protects a staged credential clear until undo or explicit discard",
+  async (scenario) => {
+    const request = vi.fn(async () => scenario.base);
+    const panel = render(scenario.component, request, {}, async () => false);
+    await flushPromises();
+    expect(panel.dirty()).toBe(false);
+    await button(panel.wrapper, `清除${scenario.label}`).trigger("click");
+    expect(panel.dirty()).toBe(true);
+    await panel.wrapper
+      .findAll("button")
+      .find((item) => /重新读取/.test(item.text()))!
+      .trigger("click");
+    await flushPromises();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(panel.wrapper.text()).toContain("保存后清除");
+    await button(panel.wrapper, `撤销清除${scenario.label}`).trigger("click");
+    expect(panel.dirty()).toBe(false);
+    expect(request).toHaveBeenCalledTimes(1);
   },
 );
 

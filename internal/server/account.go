@@ -24,6 +24,9 @@ func (s *Server) account(w http.ResponseWriter, r *http.Request, role string, se
 	if len(parts) < 2 || parts[1] != "account" {
 		return false
 	}
+	if len(parts) >= 3 && parts[2] == "login-name" {
+		return s.accountLoginName245(w, r, role, session, parts)
+	}
 	if role != "merchant" && !(role == "admin" && len(parts) == 3 && parts[2] == "password") {
 		response(w, 403, -1, "merchant account required", nil)
 		return true

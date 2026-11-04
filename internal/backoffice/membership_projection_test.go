@@ -65,8 +65,8 @@ func TestMerchantBaselineProjectionReadOnlyAndNoProfilePollution(t *testing.T) {
 		t.Fatal(e)
 	}
 	for _, f := range admins.Fields {
-		if f.Name == "username" && !f.CreateOnly {
-			t.Fatal("administrator username must be create-only")
+		if f.Name == "username" && (f.CreateOnly || f.ReadOnly) {
+			t.Fatal("administrator login name must be editable")
 		}
 	}
 }

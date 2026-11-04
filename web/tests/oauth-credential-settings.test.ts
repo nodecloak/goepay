@@ -59,9 +59,9 @@ describe("OAuthCredentialSettings", () => {
     expect(request).toHaveBeenCalledTimes(1);
     expect(request.mock.calls[0]![0]).toBe("/settings/oauth-credentials");
     expect(row(w, "QQ互联 APPKEY").text()).toContain("未配置");
-    expect(row(w, "微信开放平台 AppSecret").text()).toContain("已设置");
-    expect(row(w, "微信开放平台 AppSecret").text()).toContain(
-      "清除微信开放平台 AppSecret",
+    expect(row(w, "微信开放平台 AppSecret").text()).toContain("已配置");
+    expect(w.find('[aria-label="清除微信开放平台 AppSecret"]').exists()).toBe(
+      true,
     );
     expect(row(w, "QQ互联 APPKEY").text()).not.toContain("清除");
     w.unmount();
@@ -75,7 +75,7 @@ describe("OAuthCredentialSettings", () => {
     );
     const w = render(request);
     await flushPromises();
-    await row(w, "QQ互联 APPKEY").get("button.primary").trigger("click");
+    await row(w, "QQ互联 APPKEY").get("button").trigger("click");
     await w.get('input[type="password"]').setValue("qq-secret-1");
     await w.get("form").trigger("submit");
     await flushPromises();
@@ -86,13 +86,13 @@ describe("OAuthCredentialSettings", () => {
       value: "qq-secret-1",
     });
     expect(w.text()).toContain("QQ互联 APPKEY已保存");
-    expect(row(w, "QQ互联 APPKEY").text()).toContain("已设置");
+    expect(row(w, "QQ互联 APPKEY").text()).toContain("已配置");
     expect(w.find('input[type="password"]').exists()).toBe(false);
     expect(w.html()).not.toContain("qq-secret-1");
     w.unmount();
   });
 
-  it("clears a secret with an explicit clear flag", async () => {
+  it("stages and undoes clearing, then clears only the chosen secret on explicit save", async () => {
     const request = vi.fn(async (_path: string, options?: any) =>
       options?.method === "PATCH"
         ? meta({ wx_set: false, fingerprint: fp("c") })
@@ -105,6 +105,17 @@ describe("OAuthCredentialSettings", () => {
       .find((b) => b.text().startsWith("清除"))!;
     await clear.trigger("click");
     await flushPromises();
+    expect(
+      request.mock.calls.filter((c) => c[1]?.method === "PATCH"),
+    ).toHaveLength(0);
+    expect(w.text()).toContain("保存后清除");
+    await w
+      .get('[aria-label="撤销清除微信开放平台 AppSecret"]')
+      .trigger("click");
+    expect(w.text()).not.toContain("保存后清除");
+    await w.get('[aria-label="清除微信开放平台 AppSecret"]').trigger("click");
+    await w.get("form").trigger("submit");
+    await flushPromises();
     const patch = request.mock.calls.find((c) => c[1]?.method === "PATCH")!;
     expect(patch[1].body).toEqual({
       field: "wx",
@@ -112,6 +123,9 @@ describe("OAuthCredentialSettings", () => {
       clear: true,
     });
     expect(w.text()).toContain("微信开放平台 AppSecret已清除");
+    expect(
+      request.mock.calls.filter((c) => c[1]?.method === "PATCH"),
+    ).toHaveLength(1);
     w.unmount();
   });
 
@@ -119,7 +133,7 @@ describe("OAuthCredentialSettings", () => {
     const request = vi.fn(async (_path: string, _options?: any) => meta());
     const w = render(request);
     await flushPromises();
-    await row(w, "Telegram Bot Token").get("button.primary").trigger("click");
+    await row(w, "Telegram Bot Token").get("button").trigger("click");
     await w.get('input[type="password"]').setValue("bad\u0001token");
     await w.get("form").trigger("submit");
     await flushPromises();
@@ -130,6 +144,38 @@ describe("OAuthCredentialSettings", () => {
     w.unmount();
   });
 
+  it("cancels a typed replacement without clearing it or changing any other platform", async () => {
+    const request = vi.fn(async () => meta());
+    const w = render(request);
+    await flushPromises();
+    await w.get('[aria-label="修改微信开放平台 AppSecret"]').trigger("click");
+    await w.get('input[type="password"]').setValue("private-cancel-oauth245");
+    await w
+      .get('[aria-label="取消修改微信开放平台 AppSecret"]')
+      .trigger("click");
+    expect(w.find("form").exists()).toBe(false);
+    expect(request).toHaveBeenCalledTimes(1);
+    await w.get('[aria-label="修改微信开放平台 AppSecret"]').trigger("click");
+    expect(w.get('input[type="password"]').element).toHaveProperty("value", "");
+    expect(
+      w.get('[aria-label="设置QQ互联 APPKEY"]').attributes("disabled"),
+    ).toBeDefined();
+    w.unmount();
+  });
+
+  it("forgets staged clearing when the authenticated context changes", async () => {
+    const request = vi.fn(async () => meta());
+    const w = render(request);
+    await flushPromises();
+    await w.get('[aria-label="清除微信开放平台 AppSecret"]').trigger("click");
+    await w.setProps({ ownSession: false });
+    await flushPromises();
+    expect(w.find("form").exists()).toBe(false);
+    expect(w.text()).not.toContain("保存后清除");
+    expect(request).toHaveBeenCalledTimes(1);
+    w.unmount();
+  });
+
   it("a conflict drops the state and asks for a fresh read, without retrying", async () => {
     const request = vi.fn(async (_path: string, options?: any) => {
       if (options?.method === "PATCH") throw new ApiError("conflict", 409, -1);
@@ -137,7 +183,7 @@ describe("OAuthCredentialSettings", () => {
     });
     const w = render(request);
     await flushPromises();
-    await row(w, "QQ互联 APPKEY").get("button.primary").trigger("click");
+    await row(w, "QQ互联 APPKEY").get("button").trigger("click");
     await w.get('input[type="password"]').setValue("qq-secret-2");
     await w.get("form").trigger("submit");
     await flushPromises();
@@ -153,7 +199,7 @@ describe("OAuthCredentialSettings", () => {
     const request = vi.fn(async (_path: string, _options?: any) => meta());
     const w = render(request);
     await flushPromises();
-    await row(w, "QQ互联 APPKEY").get("button.primary").trigger("click");
+    await row(w, "QQ互联 APPKEY").get("button").trigger("click");
     await w.get('input[type="password"]').setValue("qq-secret-3");
     await w.get("form").trigger("submit");
     await flushPromises();

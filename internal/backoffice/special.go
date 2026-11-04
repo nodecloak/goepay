@@ -184,7 +184,7 @@ func (s *Service) getSpecial(ctx context.Context, p Principal, r string, id int6
 	if r == "merchants" {
 		e = s.pool.QueryRow(ctx, "SELECT "+merchantConsoleProjection+" FROM "+merchantConsoleFrom+" WHERE merchants.id=$1", id).Scan(&raw)
 	} else {
-		e = s.pool.QueryRow(ctx, "SELECT jsonb_build_object('username',username,'display_name',display_name,'enabled',enabled,'admin_class',admin_class,'permissions',permissions,'auth_version',auth_version::text) FROM console_users WHERE id=$1 AND role='admin'", id).Scan(&raw)
+		e = s.pool.QueryRow(ctx, "SELECT jsonb_build_object('username',COALESCE(login_name,username),'display_name',display_name,'enabled',enabled,'admin_class',admin_class,'permissions',permissions,'auth_version',auth_version::text) FROM console_users WHERE id=$1 AND role='admin'", id).Scan(&raw)
 	}
 	if e != nil {
 		return Item{}, businessError(e)
@@ -208,7 +208,7 @@ func (s *Service) listSpecial(ctx context.Context, p Principal, r string, q Quer
 	if r == "admin-users" {
 		table = "console_users"
 		condition = "role='admin'"
-		projection = "jsonb_build_object('username',username,'display_name',display_name,'enabled',enabled,'admin_class',admin_class,'permissions',permissions)"
+		projection = "jsonb_build_object('username',COALESCE(login_name,username),'display_name',display_name,'enabled',enabled,'admin_class',admin_class,'permissions',permissions)"
 		idColumn = "console_users.id"
 	}
 	where := " WHERE " + condition + " AND ($1::text='' OR strpos(lower((" + projection + ")::text),lower($1))>0)"
@@ -307,8 +307,15 @@ func (s *Service) createAdministrator(ctx context.Context, p Principal, d defini
 	return Item{ID: id, Fields: v}, nil
 }
 func (s *Service) updateAdministrator(ctx context.Context, p Principal, d definition, id int64, in map[string]json.RawMessage) (Item, error) {
-	if _, ok := in["username"]; ok {
-		return Item{}, ErrForbidden
+	var expectedUsername string
+	_, changingUsername := in["username"]
+	if raw, ok := in["expected_username"]; ok {
+		if !changingUsername || json.Unmarshal(raw, &expectedUsername) != nil || expectedUsername == "" || len(expectedUsername) > 100 {
+			return Item{}, ErrInvalid
+		}
+		delete(in, "expected_username")
+	} else if changingUsername {
+		return Item{}, ErrInvalid
 	}
 	permissions, hasPermissions, e := extractAdminPermissions(in)
 	if e != nil {
@@ -318,12 +325,16 @@ func (s *Service) updateAdministrator(ctx context.Context, p Principal, d defini
 	if e != nil {
 		return Item{}, e
 	}
+	if changingUsername && current.Fields["username"] != expectedUsername {
+		return Item{}, ErrConflict
+	}
 	v, e := validate(p, d, in, current.Fields, false)
 	if e != nil {
 		return Item{}, e
 	}
-	if v["enabled"] == false && current.Fields["username"] == p.Username {
-		return Item{}, ErrForbidden
+	username := fmt.Sprint(v["username"])
+	if !usernamePattern.MatchString(username) {
+		return Item{}, ErrInvalid
 	}
 	// The resulting class decides whether a grant set is meaningful: forbid
 	// storing permissions on a row that is (or becomes) super.
@@ -348,6 +359,20 @@ func (s *Service) updateAdministrator(ctx context.Context, p Principal, d defini
 	defer tx.Rollback(ctx)
 	if _, e = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(74973232)"); e != nil {
 		return Item{}, e
+	}
+	var canonical string
+	if e = tx.QueryRow(ctx, "SELECT username FROM console_users WHERE id=$1 AND role='admin'", id).Scan(&canonical); e != nil {
+		return Item{}, businessError(e)
+	}
+	if v["enabled"] == false && canonical == p.Username {
+		return Item{}, ErrForbidden
+	}
+	var duplicate bool
+	if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM console_users WHERE role='admin' AND id<>$1 AND (username=$2 OR COALESCE(login_name,username)=$2))", id, username).Scan(&duplicate); e != nil {
+		return Item{}, e
+	}
+	if duplicate {
+		return Item{}, ErrConflict
 	}
 	if v["enabled"] == false {
 		var count int
@@ -379,12 +404,17 @@ func (s *Service) updateAdministrator(ctx context.Context, p Principal, d defini
 		setPermissions = true
 		permissionArg = nil
 	}
-	tag, e := tx.Exec(ctx, "UPDATE console_users SET display_name=$2,enabled=$3,password_hash=CASE WHEN $4::text='' THEN password_hash ELSE $4 END,admin_class=$5,permissions=CASE WHEN $7::boolean THEN $8::jsonb ELSE permissions END WHERE id=$1 AND role='admin' AND auth_version=$6::bigint", id, fmt.Sprint(v["display_name"]), v["enabled"], hash, v["admin_class"], fmt.Sprint(current.Fields["auth_version"]), setPermissions, permissionArg)
+	tag, e := tx.Exec(ctx, "UPDATE console_users SET display_name=$2,enabled=$3,password_hash=CASE WHEN $4::text='' THEN password_hash ELSE $4 END,admin_class=$5,permissions=CASE WHEN $7::boolean THEN $8::jsonb ELSE permissions END,login_name=NULLIF($9,username) WHERE id=$1 AND role='admin' AND auth_version=$6::bigint", id, fmt.Sprint(v["display_name"]), v["enabled"], hash, v["admin_class"], fmt.Sprint(current.Fields["auth_version"]), setPermissions, permissionArg, username)
 	if e != nil {
-		return Item{}, e
+		return Item{}, businessError(e)
 	}
 	if tag.RowsAffected() != 1 {
 		return Item{}, ErrConflict
+	}
+	if username != current.Fields["username"] {
+		if _, e = tx.Exec(ctx, "DELETE FROM console_sessions WHERE username=$1 AND role='admin'", canonical); e != nil {
+			return Item{}, e
+		}
 	}
 	if hasPermissions {
 		v["permissions"] = permissions

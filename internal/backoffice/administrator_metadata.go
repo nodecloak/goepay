@@ -7,7 +7,7 @@ import (
 
 func administratorResourceFields() []Field {
 	return []Field{
-		createOnly(text("username", "账号", true, 100)), text("display_name", "名称", true, 100),
+		text("username", "账号", true, 100), text("display_name", "名称", true, 100),
 		{Name: "password", Label: "密码", Type: "password", WriteOnly: true, MaxLength: 1024},
 		adminClassField(),
 		{Name: "permissions", Label: "菜单权限", Type: "permission_tree", Description: "仅当权限等级为 operator 时生效：留空表示全部业务菜单，勾选则仅限所选菜单。super 忽略此项。"},

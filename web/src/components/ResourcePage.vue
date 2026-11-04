@@ -1166,9 +1166,7 @@ const formSchema = computed<ResourceSchema | null>(() =>
                   : mode.value === "edit" &&
                       ((props.resource === "merchants" &&
                         selected.value.login_username &&
-                        f.name === "login_username") ||
-                        (props.resource === "admin-users" &&
-                          f.name === "username"))
+                        f.name === "login_username"))
                     ? { ...f, read_only: true }
                     : props.resource === "merchants" &&
                         mode.value === "create" &&
@@ -1459,6 +1457,11 @@ async function save() {
       if (!values.value.login_username) delete payload.login_username;
       if (!values.value.login_password) delete payload.login_password;
       if (mode.value === "create") omitUnusedCreateRecipient(payload);
+    }
+    if (props.resource === "admin-users" && mode.value === "edit") {
+      if (payload.username === selected.value.username) delete payload.username;
+      else if (payload.username !== undefined)
+        payload.expected_username = String(selected.value.username || "");
     }
     await props.client.request(
       endpoint.value +
@@ -2506,7 +2509,7 @@ onBeforeUnmount(resetContext);
           </p></template
         >
         <p v-if="resource === 'admin-users' && mode === 'edit'" class="muted">
-          管理员账号：{{ selected.username }}。账号创建后不可更名。
+          管理员账号：{{ selected.username }}。修改用户名后，该管理员需重新登录；动态验证码和资金密码继续有效。
         </p>
         <MerchantCreateFields
           v-if="isMerchantCreationForm"

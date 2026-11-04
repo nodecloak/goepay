@@ -77,6 +77,7 @@ import ReportPage from "./components/ReportPage.vue";
 import { workflowFor } from "./workflows";
 import WorkflowPage from "./components/WorkflowPage.vue";
 import AccountPage from "./components/AccountPage.vue";
+import AdminLoginNameSettings245 from "./components/AdminLoginNameSettings245.vue";
 import MerchantAccountSettings from "./components/MerchantAccountSettings.vue";
 import OperationsPage from "./components/OperationsPage.vue";
 import SystemUpdatePage from "./components/SystemUpdatePage.vue";
@@ -2424,6 +2425,11 @@ onBeforeUnmount(() => {
         v-else-if="kind === 'account'"
         :class="{ 'account-security-grid': area === 'admin' }"
       >
+        <AdminLoginNameSettings245
+          v-if="area === 'admin'"
+          :client="client"
+          @reauthenticate="(message) => { session = null; notice = message; error = ''; }"
+        />
         <AccountPage
           :key="path"
           :client="client"

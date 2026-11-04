@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, toRaw, watch } from "vue";
 import { ApiClient, ApiError } from "../api";
 import { useSettingsDraft212 } from "../settings-drafts212";
+import CredentialActionControl from "./CredentialActionControl.vue";
 const props = withDefaults(
   defineProps<{
     client: ApiClient;
@@ -48,6 +49,7 @@ const state = ref<Metadata>(),
     telegram: "",
   }),
   editing = ref<Field>(),
+  clearing = ref<Field>(),
   loading = ref(false),
   busy = ref(false),
   unresolvedSave = ref(false),
@@ -83,7 +85,10 @@ function isAllowed() {
 const allowed = computed(isAllowed);
 const { confirmDiscard: confirmDraftDiscard } = useSettingsDraft212(
   "快捷登录应用密钥",
-  () => Object.values(draft.value).some(Boolean) || unresolvedSave.value,
+  () =>
+    Object.values(draft.value).some(Boolean) ||
+    !!clearing.value ||
+    unresolvedSave.value,
 );
 function same(source = tracked) {
   const now = context();
@@ -112,6 +117,7 @@ function clear(message = "", preserveUnresolved = false) {
   state.value = undefined;
   draft.value = { qq: "", wx: "", alipay: "", telegram: "" };
   editing.value = undefined;
+  clearing.value = undefined;
   loading.value = false;
   busy.value = false;
   error.value = message;
@@ -188,9 +194,10 @@ async function load() {
   }
 }
 function edit(field: Field) {
-  if (!same() || !isAllowed() || busy.value || !state.value) return;
+  if (!same() || !isAllowed() || fieldBlocked(field) || !state.value) return;
   editing.value = field;
-  draft.value[field] = "";
+  clearing.value = undefined;
+  draft.value = { qq: "", wx: "", alipay: "", telegram: "" };
   error.value = "";
   notice.value = "";
   void nextTick(() => {
@@ -200,13 +207,40 @@ function edit(field: Field) {
 function cancelEdit() {
   if (busy.value) return;
   editing.value = undefined;
+  clearing.value = undefined;
   draft.value = { qq: "", wx: "", alipay: "", telegram: "" };
   unresolvedSave.value = false;
   error.value = "";
 }
+function fieldBlocked(field: Field) {
+  return (
+    busy.value ||
+    loading.value ||
+    (!!editing.value && editing.value !== field) ||
+    (!!clearing.value && clearing.value !== field)
+  );
+}
+function fieldAction(field: Field) {
+  return editing.value === field
+    ? "replace"
+    : clearing.value === field
+      ? "clear"
+      : "keep";
+}
+function setAction(field: Field, action: "keep" | "replace" | "clear") {
+  if (!same() || !isAllowed() || !state.value || fieldBlocked(field)) return;
+  if (action === "keep") cancelEdit();
+  else if (action === "replace") edit(field);
+  else if (setFromField(field, state.value)) {
+    cancelEdit();
+    clearing.value = field;
+    notice.value = "";
+  }
+}
 async function save(field: Field, action: "replace" | "clear") {
   if (!same() || !isAllowed() || busy.value || loading.value || !state.value)
     return;
+  if (fieldAction(field) !== action) return;
   const body: Record<string, unknown> = {
     field,
     expected_fingerprint: state.value.fingerprint,
@@ -230,6 +264,7 @@ async function save(field: Field, action: "replace" | "clear") {
   busy.value = true;
   unresolvedSave.value = true;
   editing.value = undefined;
+  clearing.value = undefined;
   draft.value = { qq: "", wx: "", alipay: "", telegram: "" };
   error.value = "";
   notice.value = "";
@@ -252,6 +287,7 @@ async function save(field: Field, action: "replace" | "clear") {
       reason.responseDecoded &&
       [400, 422].includes(reason.status)
     ) {
+      unresolvedSave.value = false;
       error.value = "密钥操作未被接受，请核对后重新输入";
     } else {
       state.value = undefined;
@@ -309,17 +345,21 @@ onBeforeUnmount(() => {
       </p>
       <template v-if="state">
         <div v-for="row in rows" :key="row.field" class="oauth-secret">
-          <p>
-            {{ row.title }}：<strong>{{
-              setFromField(row.field, state) ? "已设置" : "未配置"
-            }}</strong>
-          </p>
+          <CredentialActionControl
+            :model-value="fieldAction(row.field)"
+            :configured="setFromField(row.field, state)"
+            :label="row.title"
+            :disabled="fieldBlocked(row.field)"
+            @update:model-value="setAction(row.field, $event)"
+          />
           <form
-            v-if="editing === row.field"
+            v-if="editing === row.field || clearing === row.field"
             novalidate
-            @submit.prevent="save(row.field, 'replace')"
+            @submit.prevent="
+              save(row.field, clearing === row.field ? 'clear' : 'replace')
+            "
           >
-            <label
+            <label v-if="editing === row.field"
               >新的{{ row.title
               }}<input
                 :ref="(el) => (inputs[row.field] = el as HTMLInputElement)"
@@ -330,36 +370,17 @@ onBeforeUnmount(() => {
                 :spellcheck="false"
                 :disabled="busy"
             /></label>
-            <small class="muted">{{ row.hint }}</small>
+            <small class="muted">{{
+              clearing === row.field
+                ? "点击保存后才会清除当前密钥，其它平台密钥不受影响。"
+                : row.hint
+            }}</small>
             <div class="oauth-actions">
               <button type="submit" class="primary" :disabled="busy">
-                保存{{ row.title }}</button
-              ><button type="button" :disabled="busy" @click="cancelEdit">
-                取消编辑
+                保存{{ row.title }}
               </button>
             </div>
           </form>
-          <div v-else class="oauth-actions">
-            <button
-              type="button"
-              class="primary"
-              :disabled="busy || loading"
-              @click="edit(row.field)"
-            >
-              {{
-                setFromField(row.field, state)
-                  ? "替换" + row.title
-                  : "设置" + row.title
-              }}</button
-            ><button
-              v-if="setFromField(row.field, state)"
-              type="button"
-              :disabled="busy || loading"
-              @click="save(row.field, 'clear')"
-            >
-              清除{{ row.title }}
-            </button>
-          </div>
         </div>
       </template>
     </template>

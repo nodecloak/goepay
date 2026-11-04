@@ -786,9 +786,13 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, role, cookieName 
 			return
 		}
 	}
-	var hash, name, adminClass string
+	var hash, name, adminClass, canonical string
 	var id, authVersion int64
-	e := s.Pool.QueryRow(r.Context(), "SELECT subject_id,display_name,password_hash,auth_version,admin_class FROM console_users WHERE username=$1 AND role=$2 AND enabled", in.Username, role).Scan(&id, &name, &hash, &authVersion, &adminClass)
+	query := "SELECT username,subject_id,display_name,password_hash,auth_version,admin_class FROM console_users WHERE username=$1 AND role=$2 AND enabled"
+	if role == "admin" {
+		query = "SELECT username,subject_id,display_name,password_hash,auth_version,admin_class FROM console_users WHERE COALESCE(login_name,username)=$1 AND role=$2 AND enabled"
+	}
+	e := s.Pool.QueryRow(r.Context(), query, in.Username, role).Scan(&canonical, &id, &name, &hash, &authVersion, &adminClass)
 	if e != nil || !identity.CheckPassword(hash, in.Password) {
 		response(w, 401, -1, "invalid credentials", nil)
 		return
@@ -800,8 +804,8 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, role, cookieName 
 			return
 		}
 	}
-	u := identity.User{Username: in.Username, ID: id, Name: name, Role: role, AuthVersion: authVersion, AdminClass: adminClass}
-	if !s.checkMFA(r.Context(), in.Username, role, in.Code) {
+	u := identity.User{Username: canonical, ID: id, Name: name, Role: role, AuthVersion: authVersion, AdminClass: adminClass}
+	if !s.checkMFA(r.Context(), canonical, role, in.Code) {
 		response(w, 401, -1, "invalid credentials or authenticator code", nil)
 		return
 	}
