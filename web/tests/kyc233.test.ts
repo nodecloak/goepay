@@ -1,3 +1,4 @@
+import { pageReload248 } from "./helpers/page-reload248";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import Settings from "../src/components/KYCSettingsPanel233.vue";
@@ -38,7 +39,7 @@ function setupSettings(
 ) {
   const request = vi.fn().mockResolvedValue(extra),
     client = { area: "admin", csrfToken: "synthetic233", request };
-  const wrapper = mount(Settings, {
+  let wrapper = mount(Settings, {
     props: {
       client: client as never,
       kind,
@@ -57,7 +58,7 @@ function setupMerchant(
 ) {
   const request = vi.fn().mockResolvedValue(extra),
     client = { area: "merchant", csrfToken: "synthetic233", request };
-  const wrapper = mount(Merchant, {
+  let wrapper = mount(Merchant, {
     props: {
       client: client as never,
       merchantID: "1000",
@@ -145,7 +146,7 @@ describe("original-console certification and OCR settings", () => {
   it("cancels a private edit without changing the saved mode and explains required-credential clearing", async () => {
     const config = kycConfig233({ cert_open: 2 });
     config.credentials.cert_appcode = { present: true, masked: "***233" };
-    const { wrapper, request } = setupSettings("certification", config);
+    let { wrapper, request } = setupSettings("certification", config);
     await flushPromises();
     expect(
       wrapper
@@ -182,7 +183,7 @@ describe("original-console certification and OCR settings", () => {
   it.each([{ ownSession: false }, { adminClass: "operator" }])(
     "does not load or edit credentials without original super session %j",
     async (props) => {
-      const { wrapper, request } = setupSettings(
+      let { wrapper, request } = setupSettings(
         "certification",
         kycConfig233(),
         props,
@@ -201,7 +202,7 @@ describe("original-console certification and OCR settings", () => {
   ])(
     "shows every required conditional field for mode %s",
     async (mode, fields) => {
-      const { wrapper } = setupSettings();
+      let { wrapper } = setupSettings();
       await flushPromises();
       await choose(wrapper, "是否开启实名认证", mode as string);
       for (const field of fields as string[])
@@ -214,7 +215,7 @@ describe("original-console certification and OCR settings", () => {
     },
   );
   it("refuses enabling incomplete credentials before issuing a write", async () => {
-    const { wrapper, request } = setupSettings();
+    let { wrapper, request } = setupSettings();
     await flushPromises();
     await choose(wrapper, "是否开启实名认证", "4");
     await wrapper.find("form").trigger("submit");
@@ -255,7 +256,7 @@ describe("original-console certification and OCR settings", () => {
     expect(wrapper.text()).toContain("配置已保存");
   });
   it("blocks ambiguous saves until an explicit read, and does not retry", async () => {
-    const { wrapper, request } = setupSettings();
+    let { wrapper, request } = setupSettings();
     await flushPromises();
     await wrapper.find('[aria-label="实名认证费用"]').setValue("1.20");
     request.mockRejectedValueOnce(new TypeError("transport failed"));
@@ -267,7 +268,7 @@ describe("original-console certification and OCR settings", () => {
       button(wrapper, "保存实名认证配置").attributes("disabled"),
     ).toBeDefined();
     expect(request).toHaveBeenCalledTimes(2);
-    await button(wrapper, "重新读取配置").trigger("click");
+    wrapper = await pageReload248(wrapper);
     await flushPromises();
     expect(request).toHaveBeenCalledTimes(3);
   });
@@ -303,7 +304,7 @@ describe("original-console certification and OCR settings", () => {
   it("ignores an old response after session replacement", async () => {
     const delayed = pending<unknown>(),
       request = vi.fn().mockReturnValueOnce(delayed.promise);
-    const wrapper = mount(Settings, {
+    let wrapper = mount(Settings, {
       props: {
         client: { area: "admin", csrfToken: "old233", request } as never,
         kind: "certification",
@@ -321,7 +322,7 @@ describe("original-console certification and OCR settings", () => {
   it("can clear inactive provider credentials without enabling a service", async () => {
     const config = kycConfig233();
     config.credentials.cert_qcloudkey = { present: true, masked: "***233" };
-    const { wrapper, request } = setupSettings("certification", config);
+    let { wrapper, request } = setupSettings("certification", config);
     await flushPromises();
     await button(wrapper, "管理其它服务凭据项").trigger("click");
     await wrapper.get('[aria-label="清除腾讯云SecretKey"]').trigger("click");
@@ -338,7 +339,7 @@ describe("original-console certification and OCR settings", () => {
     });
   });
   it("refreshes the shared snapshot when a clean cached panel becomes active again", async () => {
-    const { wrapper, request } = setupSettings(
+    let { wrapper, request } = setupSettings(
       "certification",
       kycConfig233({ revision: "1" }),
       { active: true },
@@ -370,7 +371,7 @@ describe("original-console certification and OCR settings", () => {
   it("keeps credential drafts when reactivated and requires explicit confirmed reload before saving", async () => {
     const request = vi.fn().mockResolvedValue(kycConfig233({ revision: "1" })),
       confirmDiscard = vi.fn().mockResolvedValue(false);
-    const wrapper = mount(Settings, {
+    let wrapper = mount(Settings, {
       props: {
         client: { area: "admin", csrfToken: "activation233", request } as never,
         kind: "certification",
@@ -408,18 +409,18 @@ describe("original-console certification and OCR settings", () => {
     ).toBeDefined();
     await wrapper.find("form").trigger("submit");
     expect(wrapper.findComponent(KitModal).exists()).toBe(false);
-    await button(wrapper, "重新读取配置").trigger("click");
-    await flushPromises();
-    expect(confirmDiscard).toHaveBeenCalledTimes(1);
+    expect(
+      wrapper.findAll("button").some((b) => b.text().includes("重新读取")),
+    ).toBe(false);
+    expect(confirmDiscard).not.toHaveBeenCalled();
     expect(request).toHaveBeenCalledTimes(1);
     expect(
       wrapper.find('[aria-label="手机号三要素AppCode"]').element,
     ).toHaveProperty("value", "retained-private-draft233");
-    confirmDiscard.mockResolvedValueOnce(true);
     request.mockResolvedValueOnce(
       kycConfig233({ revision: "2", ocr_type: "baidu" }),
     );
-    await button(wrapper, "重新读取配置").trigger("click");
+    wrapper = await pageReload248(wrapper);
     await flushPromises();
     expect(request).toHaveBeenCalledTimes(2);
     expect(wrapper.text()).not.toContain("草稿已保留");
@@ -428,11 +429,9 @@ describe("original-console certification and OCR settings", () => {
     );
   });
   it("does not implicitly clear an unknown save when a cached panel becomes active", async () => {
-    const { wrapper, request } = setupSettings(
-      "certification",
-      kycConfig233(),
-      { active: true },
-    );
+    let { wrapper, request } = setupSettings("certification", kycConfig233(), {
+      active: true,
+    });
     await flushPromises();
     await wrapper.find('[aria-label="实名认证费用"]').setValue("0.20");
     request.mockRejectedValueOnce(new TypeError("unknown outcome"));
@@ -450,7 +449,7 @@ describe("original-console certification and OCR settings", () => {
     ).toBeDefined();
   });
   it("preserves standalone loading behavior and waits for activation only when explicitly inactive", async () => {
-    const { wrapper, request } = setupSettings("ocr", kycConfig233(), {
+    let { wrapper, request } = setupSettings("ocr", kycConfig233(), {
       active: false,
     });
     await flushPromises();
@@ -463,7 +462,7 @@ describe("original-console certification and OCR settings", () => {
 
 describe("merchant certification business interaction", () => {
   it("does not read or submit private identity from administrator delegated sessions", async () => {
-    const { wrapper, request } = setupMerchant(kycInfo233(), {
+    let { wrapper, request } = setupMerchant(kycInfo233(), {
       ownSession: false,
     });
     await flushPromises();
@@ -471,7 +470,7 @@ describe("merchant certification business interaction", () => {
     expect(wrapper.find("form").exists()).toBe(false);
   });
   it("renders six Alipay document types and immutable bound phone for three-factor mode", async () => {
-    const { wrapper } = setupMerchant();
+    let { wrapper } = setupMerchant();
     await flushPromises();
     expect(wrapper.findComponent(KitSelect).props("options")).toHaveLength(6);
     const phone = setupMerchant(kycInfo233({ cert_open: 2 }));
@@ -484,7 +483,7 @@ describe("merchant certification business interaction", () => {
     ).toHaveProperty("value", "138****0001");
   });
   it("requires explicit consent, submits all original fields and does not initialize automatically", async () => {
-    const { wrapper, request } = setupMerchant();
+    let { wrapper, request } = setupMerchant();
     await flushPromises();
     await identity(wrapper);
     request.mockResolvedValueOnce(
@@ -543,7 +542,7 @@ describe("merchant certification business interaction", () => {
     );
   });
   it("displays masked certified fields and supports a fresh corporate upgrade without copying masks", async () => {
-    const { wrapper } = setupMerchant(
+    let { wrapper } = setupMerchant(
       kycInfo233({
         cert: 1,
         cert_corpopen: true,
@@ -564,7 +563,7 @@ describe("merchant certification business interaction", () => {
   });
   it("queries server-held OAuth authorization without browser codes and blocks reuse", async () => {
     const id = "c".repeat(32);
-    const { wrapper, request } = setupMerchant(
+    let { wrapper, request } = setupMerchant(
       kycInfo233({
         cert_open: 3,
         attempt_id: id,
@@ -595,7 +594,7 @@ describe("merchant certification business interaction", () => {
     expect(request).toHaveBeenCalledTimes(2);
   });
   it("does not query OAuth when the server has no authorization for this merchant attempt", async () => {
-    const { wrapper, request } = setupMerchant(
+    let { wrapper, request } = setupMerchant(
       kycInfo233({
         cert_open: 3,
         attempt_id: "e".repeat(32),
@@ -617,7 +616,7 @@ describe("merchant certification business interaction", () => {
         "",
         `/merchant/account/certificate?attempt_id=${id}&state=${"s".repeat(32)}`,
       );
-      const { wrapper, request } = setupMerchant(
+      let { wrapper, request } = setupMerchant(
         kycInfo233({ cert_open: mode, attempt_id: id, status: "pending" }),
       );
       await flushPromises();
@@ -641,7 +640,7 @@ describe("merchant certification business interaction", () => {
     },
   );
   it("does not retry a rejected validation request or expose raw provider errors", async () => {
-    const { wrapper, request } = setupMerchant();
+    let { wrapper, request } = setupMerchant();
     await flushPromises();
     await identity(wrapper);
     request.mockRejectedValueOnce(new ApiError("secretPII233", 422, -1));
@@ -653,7 +652,7 @@ describe("merchant certification business interaction", () => {
     expect(request).toHaveBeenCalledTimes(2);
   });
   it("uses the frozen pending attempt for queries after configuration changes and allows reset", async () => {
-    const { wrapper, request } = setupMerchant(
+    let { wrapper, request } = setupMerchant(
       kycInfo233({
         attempt_id: "f".repeat(32),
         status: "pending",
@@ -679,7 +678,7 @@ describe("merchant certification business interaction", () => {
       "",
       `/merchant/account/certificate?attempt_id=${id}&state=${"s".repeat(32)}&auth_code=oldcode233`,
     );
-    const { wrapper, request } = setupMerchant(
+    let { wrapper, request } = setupMerchant(
       kycInfo233({
         cert_open: 3,
         attempt_id: id,
@@ -702,7 +701,7 @@ describe("merchant certification business interaction", () => {
   });
   it("shows the server query cooldown without polling or automatically dispatching at expiry", async () => {
     vi.useFakeTimers();
-    const { wrapper, request } = setupMerchant(
+    let { wrapper, request } = setupMerchant(
       kycInfo233({
         attempt_id: "7".repeat(32),
         status: "pending",
@@ -815,7 +814,7 @@ describe("explicit OCR upload and review", () => {
       ),
     );
     vi.stubGlobal("fetch", fetch);
-    const wrapper = mount(Recognition, {
+    let wrapper = mount(Recognition, {
       props: {
         client: { area: "merchant", csrfToken: "test233" } as never,
         ownSession: true,
@@ -848,7 +847,7 @@ describe("explicit OCR upload and review", () => {
   it("keeps an unknown OCR result blocked without automatically sending another operation", async () => {
     const fetch = vi.fn().mockRejectedValue(new TypeError("offline"));
     vi.stubGlobal("fetch", fetch);
-    const wrapper = mount(Recognition, {
+    let wrapper = mount(Recognition, {
       props: {
         client: { area: "merchant", csrfToken: "test233" } as never,
         ownSession: true,

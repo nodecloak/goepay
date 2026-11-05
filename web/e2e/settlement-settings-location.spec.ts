@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { expect, test, type Page } from "@playwright/test";
 import { accountSettingsReadFixture } from "./fixtures/account-settings";
 
@@ -230,7 +231,7 @@ for (const failure of ["conflict", "unknown"] as const)
     await f.reserve
       .getByRole("button", { name: "保存设置", exact: true })
       .click();
-    await expect(f.reserve.getByRole("alert")).toContainText("重新读取");
+    await expect(f.reserve.getByRole("alert")).toContainText("刷新页面");
     await expect(
       f.reserve.getByRole("button", { name: "保存设置", exact: true }),
     ).toBeDisabled();
@@ -238,9 +239,7 @@ for (const failure of ["conflict", "unknown"] as const)
     expect(
       f.reads.filter((p) => p.endsWith("/account/personal-settings")),
     ).toHaveLength(1);
-    await f.reserve
-      .getByRole("button", { name: "重新读取", exact: true })
-      .click();
+    await pageReload248(page);
     await expect(f.reserve.getByLabel("预留余额", { exact: true })).toHaveValue(
       failure === "unknown" ? "25%" : "10%",
     );

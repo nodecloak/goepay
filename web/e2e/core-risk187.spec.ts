@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { test, expect } from "@playwright/test";
 import fixture from "./fixtures/core-risk177-http.json" with { type: "json" };
 import { coreRiskFields } from "../src/core-payment-risk";
@@ -102,31 +103,11 @@ for (const width of [1440, 375])
         ).toBeVisible();
         await expect(save).toBeDisabled();
         expect(writes).toHaveLength(1);
-        await region
-          .getByRole("button", { name: "刷新风控设置", exact: true })
-          .click();
-        const discard = page.getByRole("dialog", {
-          name: "放弃未保存的设置？",
-          exact: true,
-        });
-        await expect(discard).toContainText("核心支付风控");
+        await expect(
+          region.getByRole("button", { name: "刷新风控设置", exact: true }),
+        ).toHaveCount(0);
         expect(reads).toBe(1);
-        await discard
-          .getByRole("button", { name: "继续编辑", exact: true })
-          .click();
-        await expect(discard).toBeHidden();
-        expect(reads).toBe(1);
-        expect(writes).toHaveLength(1);
-        await region
-          .getByRole("button", { name: "刷新风控设置", exact: true })
-          .click();
-        await expect(discard).toContainText("核心支付风控");
-        await discard
-          .getByRole("button", {
-            name: "放弃修改并重新读取",
-            exact: true,
-          })
-          .click();
+        await pageReload248(page);
         await expect(region).toContainText("修订 2");
         expect(reads).toBe(2);
       } else

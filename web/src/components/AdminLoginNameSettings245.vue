@@ -47,7 +47,7 @@ function current(run: number, c: AbortController) {
   if (!alive || run !== epoch || c.signal.aborted) return false;
   if (!same()) {
     reset();
-    error.value = "会话已变化，请重新读取账户信息";
+    error.value = "会话已变化，请刷新页面后核对";
     return false;
   }
   return true;
@@ -78,7 +78,9 @@ async function load() {
     username.value = value.username;
   } catch (e) {
     if (current(run, c))
-      error.value = e instanceof Error ? e.message : "读取账户信息失败";
+      error.value =
+        (e instanceof Error ? e.message : "读取账户信息失败") +
+        "；请刷新页面后核对。";
   } finally {
     if (current(run, c)) {
       loading.value = false;
@@ -107,7 +109,7 @@ function cancel() {
 async function save() {
   if (!same()) {
     reset();
-    error.value = "会话已变化，请重新读取账户信息";
+    error.value = "会话已变化，请刷新页面后核对";
     return;
   }
   if (!editing.value || busy.value || loading.value || uncertain.value) return;
@@ -200,15 +202,6 @@ onBeforeUnmount(() => {
         @click="edit"
       >
         修改
-      </button>
-      <button
-        v-if="!username && !uncertain"
-        type="button"
-        class="pa-btn"
-        :disabled="loading"
-        @click="load"
-      >
-        重新读取
       </button>
     </div>
     <p class="muted">

@@ -44,7 +44,7 @@ function render(
     csrfToken: "embedded212-session",
     request,
   });
-  const wrapper = mount(component, {
+  const options = {
     attachTo: document.body,
     props: { client, ownSession: true, adminClass: "super", ...props },
     global: {
@@ -59,10 +59,20 @@ function render(
         },
       },
     },
-  });
+  };
+  let wrapper = mount(component, options);
   mounted.push(wrapper);
   return {
-    wrapper,
+    get wrapper() {
+      return wrapper;
+    },
+    async remount() {
+      const props = wrapper.props();
+      wrapper.unmount();
+      wrapper = mount(component, { ...options, props });
+      mounted.push(wrapper);
+      await flushPromises();
+    },
     dirty: () => [...entries.values()].some((entry) => entry.dirty()),
     labels: () => [...entries.values()].map((entry) => entry.label),
   };
@@ -264,38 +274,32 @@ async function submit(wrapper: VueWrapper, scenario: Scenario) {
 
 describe("embedded settings participate in the parent unsaved draft guard", () => {
   it.each(scenarios)(
-    "$name cannot resume a reread after permission changes during discard confirmation",
+    "$name has no redundant read action and drops drafts when permission changes",
     async (scenario) => {
-      let resolveDiscard!: (allowed: boolean) => void;
       const request = vi.fn(async (path: string) =>
         path.endsWith("/actions")
           ? { items: [], total: 0 }
           : structuredClone(scenario.base),
       );
-      const panel = render(
-        scenario.component,
-        request,
-        scenario.props,
-        () => new Promise<boolean>((yes) => (resolveDiscard = yes)),
-      );
+      const panel = render(scenario.component, request, scenario.props);
       await flushPromises();
       await panel.wrapper.get(scenario.selector).setValue(scenario.changed);
       const readsBefore = request.mock.calls.length;
-      await panel.wrapper
-        .findAll("button")
-        .find((item) => /刷新|重新读取/.test(item.text()))!
-        .trigger("click");
+      expect(
+        panel.wrapper
+          .findAll("button")
+          .some((b) => /刷新风控设置|重新读取/.test(b.text())),
+      ).toBe(false);
       await panel.wrapper.setProps(
         scenario.props?.allowed ? { allowed: false } : { ownSession: false },
       );
-      resolveDiscard(true);
       await flushPromises();
       expect(request.mock.calls).toHaveLength(readsBefore);
       expect(panel.dirty()).toBe(false);
     },
   );
   it.each(scenarios)(
-    "$name reread preserves the draft until its parent confirms discarding",
+    "$name keeps an unsubmitted draft until an explicit page reload",
     async (scenario) => {
       let discard = false;
       const request = vi.fn(async (path: string) =>
@@ -312,11 +316,11 @@ describe("embedded settings participate in the parent unsaved draft guard", () =
       await flushPromises();
       await panel.wrapper.get(scenario.selector).setValue(scenario.changed);
       const readsBefore = request.mock.calls.length;
-      const reload = () =>
+      expect(
         panel.wrapper
           .findAll("button")
-          .find((item) => /刷新|重新读取/.test(item.text()))!;
-      await reload().trigger("click");
+          .some((b) => /刷新风控设置|重新读取/.test(b.text())),
+      ).toBe(false);
       await flushPromises();
       expect(request.mock.calls).toHaveLength(readsBefore);
       expect(panel.dirty()).toBe(true);
@@ -326,7 +330,7 @@ describe("embedded settings participate in the parent unsaved draft guard", () =
         typeof scenario.changed === "boolean" ? input.checked : input.value,
       ).toBe(scenario.changed);
       discard = true;
-      await reload().trigger("click");
+      await panel.remount();
       await flushPromises();
       expect(request.mock.calls.length).toBeGreaterThan(readsBefore);
       expect(panel.dirty()).toBe(false);
@@ -360,7 +364,7 @@ describe("embedded settings participate in the parent unsaved draft guard", () =
     },
   );
   it.each(scenarios)(
-    "$name retains an unconfirmed save until a successful readonly check",
+    "$name guards an unconfirmed save and only reads metadata after page reload",
     async (scenario) => {
       let failRead = false;
       const request = vi.fn(async (path: string, options?: any) => {
@@ -375,15 +379,19 @@ describe("embedded settings participate in the parent unsaved draft guard", () =
       await submit(panel.wrapper, scenario);
       expect(panel.dirty()).toBe(true);
       failRead = true;
-      const reload = () =>
+      const before = request.mock.calls.length;
+      expect(
         panel.wrapper
           .findAll("button")
-          .find((item) => /刷新|重新读取/.test(item.text()))!;
-      await reload().trigger("click");
+          .some((b) => /刷新风控设置|重新读取/.test(b.text())),
+      ).toBe(false);
       await flushPromises();
       expect(panel.dirty()).toBe(true);
+      expect(request.mock.calls).toHaveLength(before);
+      await panel.remount();
+      expect(panel.wrapper.find("form").exists()).toBe(false);
       failRead = false;
-      await reload().trigger("click");
+      await panel.remount();
       await flushPromises();
       expect(panel.dirty()).toBe(false);
       expect(
@@ -458,10 +466,9 @@ it.each(credentials)(
       .setValue("synthetic-in-memory-secret212");
     expect(panel.dirty()).toBe(true);
     const readsBefore = request.mock.calls.length;
-    await panel.wrapper
-      .findAll("button")
-      .find((item) => /重新读取/.test(item.text()))!
-      .trigger("click");
+    expect(
+      panel.wrapper.findAll("button").some((b) => /重新读取/.test(b.text())),
+    ).toBe(false);
     await flushPromises();
     expect(request.mock.calls).toHaveLength(readsBefore);
     expect(panel.wrapper.get(scenario.selector).element).toHaveProperty(
@@ -526,10 +533,9 @@ it.each([
     expect(panel.dirty()).toBe(false);
     await button(panel.wrapper, `清除${scenario.label}`).trigger("click");
     expect(panel.dirty()).toBe(true);
-    await panel.wrapper
-      .findAll("button")
-      .find((item) => /重新读取/.test(item.text()))!
-      .trigger("click");
+    expect(
+      panel.wrapper.findAll("button").some((b) => /重新读取/.test(b.text())),
+    ).toBe(false);
     await flushPromises();
     expect(request).toHaveBeenCalledTimes(1);
     expect(panel.wrapper.text()).toContain("保存后清除");
@@ -576,7 +582,7 @@ it("brand selection uploads immediately, protects an in-flight operation and has
   expect((input.element as HTMLInputElement).value).toBe("");
 });
 
-it("an uncertain image upload remains protected until a confirmed successful reread, while an invalid local file has no draft", async () => {
+it("an uncertain image upload remains guarded until page reload; invalid files have no draft", async () => {
   const base = { revision: "0", fingerprint: fp("a"), logo: null, icon: null };
   const fetch = vi.fn(async () => {
     throw new TypeError("controlled upload interruption212");
@@ -595,7 +601,7 @@ it("an uncertain image upload remains protected until a confirmed successful rer
   await flushPromises();
   expect(fetch).not.toHaveBeenCalled();
   expect(panel.dirty()).toBe(false);
-  await button(panel.wrapper, "重新读取品牌图片").trigger("click");
+  await panel.remount();
   await flushPromises();
   const validInput = panel.wrapper.get('input[type="file"]');
   Object.defineProperty(validInput.element, "files", {
@@ -607,12 +613,14 @@ it("an uncertain image upload remains protected until a confirmed successful rer
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(panel.dirty()).toBe(true);
   const readsBefore = request.mock.calls.length;
-  await button(panel.wrapper, "重新读取品牌图片").trigger("click");
+  expect(
+    panel.wrapper.findAll("button").some((b) => b.text().includes("重新读取")),
+  ).toBe(false);
   await flushPromises();
   expect(request.mock.calls).toHaveLength(readsBefore);
   expect(panel.dirty()).toBe(true);
   discard = true;
-  await button(panel.wrapper, "重新读取品牌图片").trigger("click");
+  await panel.remount();
   await flushPromises();
   expect(panel.dirty()).toBe(false);
 });

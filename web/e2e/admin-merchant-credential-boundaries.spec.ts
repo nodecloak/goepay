@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { test, expect, type Page } from "@playwright/test";
 const firstID = "9007199254740993",
   secondID = "9007199254740995",
@@ -313,17 +314,14 @@ test("conflicted credential change requires an explicit refresh and new confirma
     .getByRole("button", { name: "确定重置", exact: true })
     .click();
   await expect(panel.getByRole("alert")).toContainText("密钥状态已变更");
-  await expect(
-    panel.getByRole("button", { name: "刷新密钥状态", exact: true }),
-  ).toBeFocused();
+  await expect(panel.getByRole("alert")).toBeFocused();
   await expect(reset).toBeDisabled();
   expect(f.writes).toHaveLength(1);
   await expect(
     panel.getByLabel("新MD5密钥（仅本次显示）", { exact: true }),
   ).toHaveCount(0);
-  await panel
-    .getByRole("button", { name: "刷新密钥状态", exact: true })
-    .click();
+  await pageReload248(page);
+  await f.open(firstID);
   await expect(reset).toBeEnabled();
   await reset.click();
   await panel

@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { test, expect } from "@playwright/test";
 import fixture from "./fixtures/buyer-charge104-http.json" with { type: "json" };
 import { accountSettingsReadFixture } from "./fixtures/account-settings";
@@ -80,9 +81,7 @@ for (const width of [1440, 375])
         await expect(panel.getByRole("alert")).toContainText("结果无法确认");
         await expect(panel.locator("form")).toHaveCount(0);
         expect(writes).toHaveLength(1);
-        await panel
-          .getByRole("button", { name: "重新读取", exact: true })
-          .click();
+        await pageReload248(page);
         await expect(panel.getByLabel("买家承担费率")).toHaveValue("3.125");
         expect(reads).toBe(2);
         expect(writes).toHaveLength(1);

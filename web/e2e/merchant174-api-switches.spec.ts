@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { test, expect, type Page } from "@playwright/test";
 import { accountSettingsReadFixture } from "./fixtures/account-settings";
 import actualPlatform from "./globalaccess179-http-fixture.json" with { type: "json" };
@@ -189,14 +190,12 @@ for (const mode of ["conflict", "lost", "malformed"])
     await f.panel
       .getByRole("button", { name: "确认保存", exact: true })
       .click();
-    await expect(f.panel.getByRole("alert")).toContainText("重新读取");
+    await expect(f.panel.getByRole("alert")).toContainText("刷新页面");
     await expect(
       f.panel.getByRole("button", { name: "保存功能开关", exact: true }),
     ).toBeDisabled();
     expect(f.writes).toHaveLength(1);
-    await f.panel
-      .getByRole("button", { name: "重新读取", exact: true })
-      .click();
+    await pageReload248(page);
     await expect(
       f.panel.getByRole("checkbox", { name: "开启密钥登录" }),
     ).toBeVisible();

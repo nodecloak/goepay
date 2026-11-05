@@ -35,6 +35,6 @@ export function readMailAccount195(raw: unknown): MailAccount195 {
     r.effective_source !== (r.configured ? "console" : "deployment") ||
     Object.hasOwn(r.config, "password")
   )
-    throw Error("SMTP账号状态无法确认，请重新读取");
+    throw Error("SMTP账号状态无法确认，请刷新页面后核对");
   return r;
 }

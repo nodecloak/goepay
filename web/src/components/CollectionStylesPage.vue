@@ -311,7 +311,7 @@ async function save() {
         e.status !== 408
       );
       error.value = blocked.value
-        ? "保存结果需核对。请重新读取原样式；新增结果未知时先返回列表按风格标识核对。 " +
+        ? "保存结果需核对。请刷新页面后核对；新增结果未知时先返回列表按风格标识核对。 " +
           message(e)
         : message(e);
     }
@@ -595,16 +595,7 @@ onBeforeUnmount(() => {
             to="/admin/other/onecode/edit"
             >新增样式</RouterLink
           >
-          <div class="table-tools-end">
-            <button
-              type="button"
-              class="pa-btn"
-              :disabled="loading || busy"
-              @click="initialize"
-            >
-              <ShellIcon name="refresh" />刷新
-            </button>
-          </div>
+          <div class="table-tools-end"></div>
         </div>
         <div class="style-card-region">
           <div class="style-cards">
@@ -694,11 +685,6 @@ onBeforeUnmount(() => {
     <template v-else>
       <div class="toolbar">
         <RouterLink to="/admin/other/onecode">返回样式列表</RouterLink
-        ><button
-          :disabled="busy || loading || (!active && blocked)"
-          @click="initialize"
-        >
-          重新读取</button
         ><span v-if="!ownSession" class="muted">当前会话只读</span>
       </div>
       <p v-if="active && !active.style" class="alert">

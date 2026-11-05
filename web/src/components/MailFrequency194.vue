@@ -67,7 +67,7 @@ function current(
     toRaw(props.client).csrfToken !== csrf
   ) {
     clear();
-    error.value = "会话已变化，请重新读取邮件频率配置";
+    error.value = "会话已变化，请刷新页面后核对";
     return false;
   }
   return true;
@@ -111,7 +111,7 @@ async function load() {
     readyCSRF = csrf;
   } catch {
     if (current(run, client, csrf, ac.signal))
-      error.value = "邮件频率配置无法确认，请重新读取";
+      error.value = "邮件频率配置无法确认，请刷新页面后核对";
   } finally {
     if (current(run, client, csrf, ac.signal)) loading.value = false;
   }
@@ -123,7 +123,7 @@ async function save() {
     readyCSRF !== toRaw(props.client).csrfToken
   ) {
     clear();
-    error.value = "会话已变化，请重新读取邮件频率配置";
+    error.value = "会话已变化，请刷新页面后核对";
     return;
   }
   let values: MailValues194;
@@ -158,7 +158,7 @@ async function save() {
       BigInt(saved.revision) !== BigInt(before.revision) + 1n ||
       mailFields194.some(([k]) => saved[k] !== values[k])
     )
-      throw Error("保存结果无法确认，请重新读取");
+      throw Error("保存结果无法确认，请刷新页面后核对");
     state.value = saved;
     draft.value = mailValues194(saved);
     unresolvedDraft.value = false;
@@ -168,7 +168,7 @@ async function save() {
       state.value = null;
       draft.value = null;
       unresolvedDraft.value = true;
-      error.value = "保存结果无法确认，请重新读取后核对";
+      error.value = "保存结果无法确认，请刷新页面后核对";
     }
   } finally {
     if (current(run, client, csrf, ac.signal)) busy.value = false;
@@ -199,9 +199,6 @@ onBeforeUnmount(() => {
     <h3>发送频率配置</h3>
     <p v-if="!allowed" class="muted">修改需要超级管理员本人会话。</p>
     <template v-else>
-      <button :disabled="loading || busy" @click="load">
-        重新读取邮件频率配置
-      </button>
       <p v-if="loading" role="status">正在读取邮件频率配置…</p>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="notice" class="alert success" role="status">{{ notice }}</p>

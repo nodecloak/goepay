@@ -45,7 +45,9 @@ async function load() {
     if (active) status.value = readPaymentPasswordStatus(raw);
   } catch (e) {
     if (active)
-      error.value = e instanceof Error ? e.message : "资金安全状态读取失败";
+      error.value =
+        (e instanceof Error ? e.message : "资金安全状态读取失败") +
+        "；请刷新页面后核对。";
   } finally {
     if (active) loading.value = false;
   }
@@ -92,9 +94,7 @@ async function save() {
   } catch (e) {
     if (active)
       error.value =
-        e instanceof Error
-          ? e.message
-          : "资金密码设置未确认，请重新读取状态后核对";
+        e instanceof Error ? e.message : "资金密码设置未确认，请刷新页面后核对";
   } finally {
     clear();
     if (active) busy.value = false;
@@ -198,9 +198,6 @@ onBeforeUnmount(() => {
         </div>
       </form>
     </template>
-    <button v-if="!editing" :disabled="loading || busy" @click="load">
-      刷新资金安全状态
-    </button>
   </section>
 </template>
 <style scoped>

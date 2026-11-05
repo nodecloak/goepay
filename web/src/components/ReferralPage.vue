@@ -144,7 +144,7 @@ async function load() {
         (row) => !states[row.state] || !/^[1-9]\d*$/.test(row.amount),
       )
     )
-      throw new Error("邀请资料响应不完整，请重新读取");
+      throw new Error("邀请资料响应不完整，请刷新页面后核对");
     summary.value = Object.fromEntries(
       Object.keys(summaryLabels).map((key) => [key, overview[key] as string]),
     );
@@ -157,7 +157,7 @@ async function load() {
       overview.daily_queue_available === true &&
       !referralID(current.merchant_id)
     )
-      throw Error("本人商户归属未确认，请重新读取");
+      throw Error("本人商户归属未确认，请刷新页面后核对");
     dailyAvailable.value = overview.daily_queue_available === true;
     uncertain.value = false;
   } catch (e) {
@@ -201,7 +201,7 @@ async function changeToken() {
     token.value = { ...out, token: undefined };
     if (operation === "rotate") {
       if (!out.token || !validPromotionToken(out.token))
-        throw new Error("完整令牌未确认，请重新读取原版本");
+        throw new Error("完整令牌未确认，请刷新页面后核对");
       const url = new URL("/merchant/dashboard", window.location.origin);
       url.hash = new URLSearchParams({ promotion_token: out.token }).toString();
       issuedURL.value = url.toString();
@@ -214,7 +214,7 @@ async function changeToken() {
     uncertain.value = true;
     error.value = e instanceof Error ? e.message : "令牌变更结果未知";
     notice.value =
-      "请先重新读取当前版本；不会自动重试，也无法找回已发行的完整令牌。";
+      "请刷新页面后核对；不会自动重试，也无法找回已发行的完整令牌。";
   } finally {
     if (active && currentEpoch === epoch) busy.value = false;
   }
@@ -243,9 +243,6 @@ onBeforeUnmount(() => {
         <span v-if="loading" role="status" class="muted"
           >正在核对邀请资料…</span
         >
-        <button class="pa-btn" :disabled="loading || busy" @click="load">
-          重新读取邀请资料
-        </button>
       </span>
     </div>
     <p v-if="error" role="alert" class="alert error">{{ error }}</p>
@@ -256,11 +253,7 @@ onBeforeUnmount(() => {
       :merchant-i-d="token.merchant_id"
     />
     <dl v-if="summary" class="stat-grid referral-stats">
-      <div
-        v-for="(label, key) in summaryLabels"
-        :key="key"
-        class="panel stat"
-      >
+      <div v-for="(label, key) in summaryLabels" :key="key" class="panel stat">
         <dt>{{ label }}</dt>
         <dd>
           {{

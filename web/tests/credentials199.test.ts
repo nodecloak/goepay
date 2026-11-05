@@ -1,3 +1,4 @@
+import { pageReload248 } from "./helpers/page-reload248";
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
@@ -83,7 +84,7 @@ async function setup(
   client: ApiClient,
   section: "profile" | "api-info" | "security" = "profile",
 ) {
-  const w = mount(AccountPage, {
+  let w = mount(AccountPage, {
     attachTo: document.body,
     props: { client, section, showLoginLog: true },
     global: {
@@ -132,7 +133,7 @@ async function fillPassword(w: VueWrapper) {
 describe("original merchant password row and dialog", () => {
   it("shows the real status and original modify/log links before opening the password dialog", async () => {
     const { client } = account();
-    const w = await setup(client);
+    let w = await setup(client);
     const row = passwordRow(w);
     expect(row.text()).toContain("已设置");
     expect(row.findAll("button").map((b) => b.text())).toEqual([
@@ -153,7 +154,7 @@ describe("original merchant password row and dialog", () => {
 
   it("does not invent first-password initialization for a merchant without a password", async () => {
     const { client, writes } = account(undefined, false);
-    const w = await setup(client);
+    let w = await setup(client);
     expect(passwordRow(w).text()).toContain("未设置");
     const modify = button(w, "修改");
     if (!modify.attributes("disabled")) await modify.trigger("click");
@@ -164,7 +165,7 @@ describe("original merchant password row and dialog", () => {
 
   it("restores focus and clears all dialog passwords on Escape and cancellation", async () => {
     const { client } = account();
-    const w = await setup(client);
+    let w = await setup(client);
     const modify = button(w, "修改");
     (modify.element as HTMLButtonElement).focus();
     await modify.trigger("click");
@@ -196,7 +197,7 @@ describe("original merchant password row and dialog", () => {
         throw new ApiError("当前密码错误，请重试", 422, 422);
       return {};
     });
-    const w = await setup(client);
+    let w = await setup(client);
     await button(w, "修改").trigger("click");
     await fillPassword(w);
     await w.get('[role="dialog"] form').trigger("submit");
@@ -229,7 +230,7 @@ describe("original merchant password row and dialog", () => {
   it("burns a pending password result when the user closes the dialog", async () => {
     const response = deferred<unknown>();
     const { client, writes } = account(() => response.promise);
-    const w = await setup(client);
+    let w = await setup(client);
     await button(w, "修改").trigger("click");
     await fillPassword(w);
     await w.get('[role="dialog"] form').trigger("submit");
@@ -247,7 +248,7 @@ describe("original merchant password row and dialog", () => {
     const { client, writes } = account(async () => {
       throw new TypeError("synthetic network interruption");
     });
-    const w = await setup(client);
+    let w = await setup(client);
     await button(w, "修改").trigger("click");
     await fillPassword(w);
     await w.get('[role="dialog"] form').trigger("submit");
@@ -269,7 +270,7 @@ describe("original merchant password row and dialog", () => {
     const { client, writes } = account(async () => {
       throw new TypeError("synthetic rotation interruption");
     });
-    const w = await setup(client, "api-info");
+    let w = await setup(client, "api-info");
     await button(w, "重置 API 密钥").trigger("click");
     await w
       .get('input[autocomplete="current-password"]')
@@ -279,7 +280,7 @@ describe("original merchant password row and dialog", () => {
     expect(w.text()).toContain("不会自动重试");
     expect(w.find('[role="dialog"]').exists()).toBe(false);
     expect(button(w, "重置 API 密钥").attributes("disabled")).toBeDefined();
-    await button(w, "重新读取接入信息").trigger("click");
+    w = await pageReload248(w);
     await flushPromises();
     expect(writes).toHaveLength(1);
     expect(button(w, "重置 API 密钥").attributes("disabled")).toBeUndefined();
@@ -317,7 +318,7 @@ describe.each(changes)(
     it("never revives a prior MD5 key or prior error", async () => {
       const response = deferred<unknown>();
       const { client, writes } = account(() => response.promise);
-      const w = await setup(client, "api-info");
+      let w = await setup(client, "api-info");
       await button(w, "重置 API 密钥").trigger("click");
       await w
         .get('input[autocomplete="current-password"]')
@@ -337,7 +338,7 @@ describe.each(changes)(
     it("never emits a password reauthentication for the replacement context", async () => {
       const response = deferred<unknown>();
       const { client, writes } = account(() => response.promise, true, "admin");
-      const w = await setup(client, "security");
+      let w = await setup(client, "security");
       await fillPassword(w);
       await w.get("form").trigger("submit");
       expect(writes).toHaveLength(1);
@@ -351,7 +352,7 @@ describe.each(changes)(
     it("discards a prior MD5 failure without changing the new screen", async () => {
       const response = deferred<unknown>();
       const { client } = account(() => response.promise);
-      const w = await setup(client, "api-info");
+      let w = await setup(client, "api-info");
       await button(w, "重置 API 密钥").trigger("click");
       await w
         .get('input[autocomplete="current-password"]')
@@ -369,7 +370,7 @@ describe.each(changes)(
     it("discards a prior password failure without changing the new screen", async () => {
       const response = deferred<unknown>();
       const { client } = account(() => response.promise, true, "admin");
-      const w = await setup(client, "security");
+      let w = await setup(client, "security");
       await fillPassword(w);
       await w.get("form").trigger("submit");
       await switchContext(w, client, change);

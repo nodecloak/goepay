@@ -27,7 +27,7 @@ const state = ref<SignaturePolicy>(),
   error = ref(""),
   notice = ref("");
 const select = ref<HTMLSelectElement>(),
-  refresh = ref<HTMLButtonElement>(),
+  errorTarget = ref<HTMLElement>(),
   cancelButton = ref<HTMLButtonElement>(),
   confirmGroup = ref<HTMLDivElement>();
 let epoch = 0,
@@ -151,8 +151,8 @@ async function submit() {
       confirming.value = false;
       error.value =
         e instanceof ApiError && e.status === 409
-          ? "签名配置已变更，请刷新后重新确认；不会自动重试。"
-          : "本次签名方式修改未能确认，请刷新当前状态；不要直接重复提交。";
+          ? "签名配置已变更，请刷新页面后重新确认；不会自动重试。"
+          : "本次签名方式修改未能确认，请刷新页面核对当前状态；不要直接重复提交。";
     }
   } finally {
     if (active && current === epoch) {
@@ -160,7 +160,7 @@ async function submit() {
       emit("busy", before.merchant_id, false);
       await nextTick();
       if (active && current === epoch)
-        (error.value ? refresh.value : select.value)?.focus();
+        (error.value ? errorTarget.value : select.value)?.focus();
     }
   }
 }
@@ -206,7 +206,15 @@ onBeforeUnmount(() => {
     @keydown="keydown"
   >
     <h2>签名方式</h2>
-    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+    <div
+      ref="errorTarget"
+      tabindex="-1"
+      v-if="error"
+      class="alert error"
+      role="alert"
+    >
+      {{ error }}
+    </div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
     <p v-if="loading" role="status">正在读取签名方式…</p>
     <template v-else-if="state">
@@ -279,15 +287,6 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </template>
-    <button
-      v-if="!loading && !confirming"
-      ref="refresh"
-      type="button"
-      :disabled="disabled || busy"
-      @click="load"
-    >
-      刷新签名方式
-    </button>
   </section>
 </template>
 <style scoped>

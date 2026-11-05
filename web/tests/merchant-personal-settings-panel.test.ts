@@ -1,3 +1,4 @@
+import { pageReload248 } from "./helpers/page-reload248";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
 import { ApiClient, ApiError } from "../src/api";
@@ -30,7 +31,7 @@ function setup(
   const request = vi
     .spyOn(client, "request")
     .mockImplementation((handler || (async () => original)) as never);
-  const w = mount(Panel, {
+  let w = mount(Panel, {
     props: { client, merchantId: mid, ownSession: true },
   });
   return { client, request, w };
@@ -81,9 +82,7 @@ it("a pending save blocks duplicate writes and reload; malformed committed resul
   await f.w.get("form").trigger("submit");
   await f.w.get("form").trigger("submit");
   expect(f.request).toHaveBeenCalledTimes(2);
-  expect(
-    f.w.get('[data-action="reload"]').attributes("disabled"),
-  ).toBeDefined();
+  expect(f.w.find('[data-action="reload"]').exists()).toBe(false);
   d.resolve({
     ...original,
     merchant_id: "9007199254740995",
@@ -95,7 +94,7 @@ it("a pending save blocks duplicate writes and reload; malformed committed resul
   expect(f.w.find("form").exists()).toBe(false);
   await f.w.get('[type="submit"]').trigger("click");
   expect(f.request).toHaveBeenCalledTimes(2);
-  await f.w.get('[data-action="reload"]').trigger("click");
+  f.w = await pageReload248(f.w);
   await flushPromises();
   expect(f.request).toHaveBeenCalledTimes(3);
   f.w.unmount();
@@ -109,7 +108,7 @@ it("a 409 never silently reads a new fingerprint and retries", async () => {
   await f.w.get("form").trigger("submit");
   await flushPromises();
   expect(f.request).toHaveBeenCalledTimes(2);
-  expect(f.w.text()).toContain("重新读取");
+  expect(f.w.text()).toContain("刷新页面");
   expect(f.w.get('[type="submit"]').attributes("disabled")).toBeDefined();
   f.w.unmount();
 });
@@ -121,7 +120,7 @@ it("an unobserved same-client CSRF replacement rejects old reads and old draft w
   await flushPromises();
   expect(f.w.find('[name="qq"]').exists()).toBe(false);
   expect(f.request).toHaveBeenCalledTimes(1);
-  await f.w.get('[data-action="reload"]').trigger("click");
+  f.w = await pageReload248(f.w);
   await flushPromises();
   expect(f.w.get('[name="qq"]').element).toHaveProperty("value", "123456");
   f.client.csrfToken = "e".repeat(43);
@@ -153,7 +152,7 @@ it("a late save cannot enter a replacement own merchant context", async () => {
 it("does not read or edit in a delegated view", async () => {
   const client = new ApiClient("merchant"),
     request = vi.spyOn(client, "request");
-  const w = mount(Panel, {
+  let w = mount(Panel, {
     props: { client, merchantId: mid, ownSession: false },
   });
   await flushPromises();
@@ -173,7 +172,7 @@ it("ignores a committed save response after an unobserved same-client CSRF repla
   await flushPromises();
   expect(f.request).toHaveBeenCalledTimes(2);
   expect(f.w.text()).not.toContain("保存成功");
-  expect(f.w.text()).toContain("重新读取");
+  expect(f.w.text()).toContain("刷新页面");
   expect(f.w.find("form").exists()).toBe(false);
   f.w.unmount();
 });

@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { expect, test, type Page } from "@playwright/test";
 
 const fields = [
@@ -204,11 +205,9 @@ for (const width of [1280, 375])
       channel_ids: "",
       merchant_id: "0",
     });
-    const draftRow = page
-      .getByRole("row")
-      .filter({
-        has: page.getByRole("cell", { name: "本地安全草稿", exact: true }),
-      });
+    const draftRow = page.getByRole("row").filter({
+      has: page.getByRole("cell", { name: "本地安全草稿", exact: true }),
+    });
     await draftRow.getByRole("button", { name: "编辑", exact: true }).click();
     const draftEditor = page.getByRole("dialog");
     await expect(draftEditor.locator("#field-channel_ids")).toHaveValue("");
@@ -300,18 +299,16 @@ test("unknown channel save stays locked across failed explicit readback and does
     .getByRole("button", { name: "保存通道配置", exact: true })
     .click();
   await expect(dialog).toContainText("保存结果尚未确认");
-  await dialog
-    .getByRole("button", { name: "重新读取配置", exact: true })
-    .click();
+  await pageReload248(page);
+  await page.getByRole("button", { name: "配置通道", exact: true }).click();
   await expect(dialog).toContainText("Synthetic readback unavailable");
   await expect(
     dialog.getByRole("button", { name: "保存通道配置", exact: true }),
   ).toBeDisabled();
   expect(f.writes).toHaveLength(1);
   f.allowReadback();
-  await dialog
-    .getByRole("button", { name: "重新读取配置", exact: true })
-    .click();
+  await pageReload248(page);
+  await page.getByRole("button", { name: "配置通道", exact: true }).click();
   await expect(dialog.getByLabel("选择通道 8", { exact: true })).toBeChecked();
   await expect(dialog).not.toContainText("保存结果尚未确认");
   expect(f.writes).toHaveLength(1);

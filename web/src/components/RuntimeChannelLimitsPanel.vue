@@ -46,7 +46,7 @@ const draft = reactive(blank()),
   confirmation = ref<ChannelLimitFields>();
 const modal = ref<HTMLElement>(),
   firstInput = ref<HTMLInputElement>(),
-  refreshButton = ref<HTMLButtonElement>(),
+  errorTarget = ref<HTMLElement>(),
   closeButton = ref<HTMLButtonElement>(),
   backButton = ref<HTMLButtonElement>(),
   confirmGroup = ref<HTMLElement>();
@@ -130,13 +130,13 @@ async function load() {
     preserveDraft = false;
   } catch {
     if (valid(current, c))
-      error.value = "当前父通道限额无法核实，请刷新后重新确认。";
+      error.value = "当前父通道限额无法核实，请刷新页面后重新确认。";
   } finally {
     if (valid(current, c)) {
       loading.value = false;
       await nextTick();
       if (valid(current, c))
-        (error.value ? refreshButton.value : firstInput.value)?.focus();
+        (error.value ? errorTarget.value : firstInput.value)?.focus();
     }
   }
 }
@@ -210,15 +210,15 @@ async function submit() {
       preserveDraft = true;
       error.value =
         e instanceof ApiError && e.status === 409
-          ? "通道配置已变更，请刷新后核对草稿；不会自动重试。"
-          : "本次限额修改未能确认，请刷新当前状态；不要直接重复提交。";
+          ? "通道配置已变更，请刷新页面后核对；不会自动重试。"
+          : "本次限额修改未能确认，请刷新页面核对当前状态；不要直接重复提交。";
     }
   } finally {
     if (valid(current, c)) {
       busy.value = false;
       await nextTick();
       if (valid(current, c))
-        (error.value ? refreshButton.value : closeButton.value)?.focus();
+        (error.value ? errorTarget.value : closeButton.value)?.focus();
     }
   }
 }
@@ -262,6 +262,11 @@ function keydown(event: KeyboardEvent) {
     ).filter((el) => el.getClientRects().length > 0),
     first = nodes[0],
     last = nodes.at(-1);
+  if (!nodes.includes(document.activeElement as HTMLElement)) {
+    event.preventDefault();
+    (event.shiftKey ? last : first)?.focus();
+    return;
+  }
   if (event.shiftKey && document.activeElement === first) {
     event.preventDefault();
     last?.focus();
@@ -311,7 +316,15 @@ onBeforeUnmount(() => {
         同一父通道跨用户组、直连和轮询共用限制。开放时间按 UTC+8 判断。
       </p>
       <p v-if="loading" role="status">正在核对当前父通道…</p>
-      <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+      <p
+        ref="errorTarget"
+        tabindex="-1"
+        v-if="error"
+        class="alert error"
+        role="alert"
+      >
+        {{ error }}
+      </p>
       <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
       <div v-if="target" class="usage" aria-label="父通道当前用量">
         <p>
@@ -461,20 +474,7 @@ onBeforeUnmount(() => {
         @context-invalid="emit('contextInvalid')"
       />
       <div class="toolbar-actions bottom">
-        <button
-          v-if="!loading && !confirmation"
-          ref="refreshButton"
-          type="button"
-          :disabled="busy"
-          @click="load"
-        >
-          刷新限额状态</button
-        ><button
-          ref="closeButton"
-          type="button"
-          :disabled="busy"
-          @click="close"
-        >
+        <button ref="closeButton" type="button" :disabled="busy" @click="close">
           关闭
         </button>
       </div>

@@ -123,7 +123,7 @@ async function load() {
     }
   } catch {
     if (current(run, client, csrf))
-      error.value = "业务短信模板读取失败，请重新读取";
+      error.value = "业务短信模板读取失败，请刷新页面后核对";
   } finally {
     if (current(run, client, csrf)) loading.value = false;
   }
@@ -173,9 +173,9 @@ async function save() {
       reloadRequired.value =
         e instanceof ApiError && (e.status === 409 || e.status === 403);
       error.value = uncertain.value
-        ? "保存结果无法确认，请重新读取核对；不会自动重试"
+        ? "保存结果无法确认，请刷新页面后核对；不会自动重试"
         : reloadRequired.value
-          ? "配置或会话已变化，请重新读取后编辑"
+          ? "配置或会话已变化，请刷新页面后核对"
           : "模板未保存，请核对模板格式";
     }
   } finally {
@@ -232,9 +232,6 @@ onBeforeUnmount(() => {
     </p>
     <p v-if="!allowed" class="muted">业务短信配置需要超级管理员本人会话。</p>
     <template v-else>
-      <button :disabled="busy || loading || disabled" @click="load">
-        重新读取业务短信模板
-      </button>
       <p v-if="loading" role="status">正在读取业务短信模板…</p>
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
       <p v-if="notice" role="status" class="alert success">{{ notice }}</p>

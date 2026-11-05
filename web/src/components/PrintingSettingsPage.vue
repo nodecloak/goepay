@@ -196,8 +196,8 @@ async function save() {
       else {
         error.value =
           e instanceof ApiError && e.status === 409
-            ? "打印配置已变化，请重新读取后再编辑；不会自动重试。"
-            : "保存结果未知，请重新读取版本核对；不会自动重试。";
+            ? "打印配置已变化，请刷新页面后核对；不会自动重试。"
+            : "保存结果未知，请刷新页面后核对；不会自动重试。";
         loaded.value = false;
       }
     }
@@ -239,7 +239,7 @@ onBeforeUnmount(() => {
       </p>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="notice" role="status">{{ notice }}</p>
-      <button :disabled="busy" @click="load">重新读取设置</button>
+
       <form v-if="loaded" @submit.prevent="check">
         <fieldset :disabled="busy || confirming">
           <template v-if="admin">

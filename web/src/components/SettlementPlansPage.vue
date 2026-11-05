@@ -130,7 +130,7 @@ async function select(id: string) {
       !validRev(p.revision) ||
       !Array.isArray(p.merchant_ids)
     )
-      throw new Error("计划身份或模式不匹配，请重新读取");
+      throw new Error("计划身份或模式不匹配，请刷新页面后核对");
     selected.value = p;
     runs.value = page.items;
     runNext.value = page.next_cursor;
@@ -283,8 +283,7 @@ async function submit() {
     if (active) {
       uncertain.value = true;
       error.value = e instanceof Error ? e.message : "操作结果未知";
-      notice.value =
-        "不会自动重复提交。请重新读取原计划及运行记录，核对后再操作。";
+      notice.value = "不会自动重复提交。请刷新页面后核对。";
     }
   } finally {
     if (active) busy.value = false;
@@ -385,8 +384,7 @@ onBeforeUnmount(() => {
     <p v-if="notice" role="status">{{ notice }}</p>
     <template v-if="allowed()">
       <div class="toolbar">
-        <button :disabled="busy || loading" @click="list()">刷新计划列表</button
-        ><button
+        <button
           :disabled="busy || loading || uncertain"
           @click="edit(true, $event)"
         >
@@ -430,9 +428,7 @@ onBeforeUnmount(() => {
           {{ selected.last_authorization_id }}。
         </p>
         <div class="toolbar">
-          <button :disabled="busy || loading" @click="select(selected.id)">
-            重新读取计划</button
-          ><button :disabled="busy || uncertain" @click="edit(false, $event)">
+          <button :disabled="busy || uncertain" @click="edit(false, $event)">
             修改计划定义</button
           ><button :disabled="busy || uncertain" @click="review('scan')">
             核对到期扫描</button

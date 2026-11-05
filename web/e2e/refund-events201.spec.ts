@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { expect, test, type Page } from "@playwright/test";
 import { accountSettingsReadFixture } from "./fixtures/account-settings";
 
@@ -279,13 +280,11 @@ for (const failure of ["conflict", "network"] as const) {
     await f.panel
       .getByRole("button", { name: "确认保存", exact: true })
       .click();
-    await expect(f.panel.getByRole("alert")).toContainText("重新读取");
+    await expect(f.panel.getByRole("alert")).toContainText("刷新页面");
     await expect(f.panel.locator("form")).toHaveCount(0);
     expect(f.writes.filter((write) => write.path === endpoint)).toHaveLength(1);
     expect(f.reads.filter((path) => path === endpoint)).toHaveLength(1);
-    await f.panel
-      .getByRole("button", { name: "重新读取订阅", exact: true })
-      .click();
+    await pageReload248(page);
     await expect(f.panel.getByLabel("订阅URL", { exact: true })).toHaveValue(
       failure === "conflict"
         ? "https://merchant-refund201.invalid/concurrent"

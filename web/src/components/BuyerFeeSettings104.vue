@@ -122,7 +122,7 @@ function clear(message = "", preserveUnresolved = false) {
 function valid(run: number, c: AbortController, bound: Context) {
   if (run !== epoch || c.signal.aborted) return false;
   if (!same(bound)) {
-    clear("会话已变化，请重新读取手续费设置");
+    clear("会话已变化，请刷新页面后核对");
     return false;
   }
   return allowed.value;
@@ -158,7 +158,8 @@ async function load() {
     draftFrom(state.value);
     unresolvedSave.value = false;
   } catch {
-    if (valid(run, c, bound)) error.value = "手续费设置无法确认，请重新读取";
+    if (valid(run, c, bound))
+      error.value = "手续费设置无法确认，请刷新页面后核对";
   } finally {
     if (valid(run, c, bound)) loading.value = false;
   }
@@ -166,7 +167,7 @@ async function load() {
 async function save() {
   if (!allowed.value || busy.value || loading.value || !state.value) return;
   if (!confirmedContext || !same(confirmedContext)) {
-    clear("会话已变化，请重新读取手续费设置");
+    clear("会话已变化，请刷新页面后核对");
     return;
   }
   const before = state.value,
@@ -216,8 +217,8 @@ async function save() {
     if (valid(run, c, bound))
       clear(
         e instanceof ApiError && e.status === 409
-          ? "手续费设置已变化，请重新读取并核对后保存"
-          : "保存结果无法确认，请重新读取后核对",
+          ? "手续费设置已变化，请刷新页面后核对"
+          : "保存结果无法确认，请刷新页面后核对",
         true,
       );
   } finally {
@@ -227,7 +228,7 @@ async function save() {
 function cancel() {
   if (busy.value || loading.value || !state.value) return;
   if (!confirmedContext || !same(confirmedContext)) {
-    clear("会话已变化，请重新读取手续费设置");
+    clear("会话已变化，请刷新页面后核对");
     return;
   }
   draftFrom(state.value);
@@ -260,15 +261,6 @@ onBeforeUnmount(() => clear());
   <section class="panel buyer-fee104" :aria-label="title">
     <div class="toolbar">
       <h2>{{ title }}</h2>
-      <button
-        v-if="allowed"
-        type="button"
-        data-action="reload"
-        :disabled="loading || busy"
-        @click="load"
-      >
-        重新读取
-      </button>
     </div>
     <p v-if="!allowed" class="muted">
       需要本人{{ kind === "merchant" ? "商户" : "超级管理员" }}会话查看和修改。

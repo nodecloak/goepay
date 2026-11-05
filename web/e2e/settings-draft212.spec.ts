@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 const actualPlatform = JSON.parse(
@@ -107,18 +108,15 @@ async function unloadBlocked(page: Page) {
   });
 }
 
-test("refresh cancel keeps drafts in every category, discard resets every category", async ({
+test("drafts survive category changes and only page reload resets them", async ({
   page,
 }) => {
   await fixture(page);
   await dirtyTwoTabs(page);
-  await page.getByRole("button", { name: "刷新设置", exact: true }).click();
-  const dialog = page.getByRole("dialog", {
-    name: "放弃未保存的设置？",
-    exact: true,
-  });
-  await expect(dialog).toContainText("2项");
-  await dialog.getByRole("button", { name: "继续编辑", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "刷新设置", exact: true }),
+  ).toHaveCount(0);
+  expect(await unloadBlocked(page)).toBe(true);
   await expect(page.getByLabel("网站名称", { exact: true })).toHaveValue(
     "未保存的网站212",
   );
@@ -126,10 +124,7 @@ test("refresh cancel keeps drafts in every category, discard resets every catego
   await expect(
     page.getByLabel("最低结算金额（元）", { exact: true }),
   ).toHaveValue("2.00");
-  await page.getByRole("button", { name: "刷新设置", exact: true }).click();
-  await dialog
-    .getByRole("button", { name: "放弃修改并刷新", exact: true })
-    .click();
+  await pageReload248(page);
   await expect(
     page.getByLabel("最低结算金额（元）", { exact: true }),
   ).toHaveValue("1.00");
@@ -190,7 +185,10 @@ test("a rejected settings save keeps the draft guarded", async ({ page }) => {
     page.getByRole("alert").filter({ hasText: "本地校验拒绝212" }),
   ).toBeVisible();
   expect(await unloadBlocked(page)).toBe(true);
-  await page.getByRole("button", { name: "刷新设置", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "刷新设置", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("link", { name: "仪表盘", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "放弃未保存的设置？", exact: true }),
   ).toBeVisible();

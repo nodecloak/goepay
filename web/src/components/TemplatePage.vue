@@ -161,7 +161,7 @@ async function load(nextKind = kind.value, nextName?: TemplateName) {
     );
     if (!active || token !== epoch) return;
     if (list.type !== nextKind)
-      throw new Error("模板目录类型不一致，请重新读取");
+      throw new Error("模板目录类型不一致，请刷新页面后核对");
     const name =
       nextName ||
       (list.items.some((item) => item.name === list.selected)
@@ -178,7 +178,7 @@ async function load(nextKind = kind.value, nextName?: TemplateName) {
       config.name !== name ||
       config.revision !== list.revision
     )
-      throw new Error("模板版本已变化，请重新读取后确认");
+      throw new Error("模板版本已变化，请刷新页面后核对");
     catalog.value = list;
     view.value = config;
     draft.value = { ...config.config };
@@ -235,10 +235,10 @@ async function commit() {
           e instanceof Error && e.message ? e.message : "无法切换到该模板";
       } else if (status === 409) {
         uncertain.value = true;
-        error.value = "模板版本已变化，请重新读取后再操作，禁止自动重发。";
+        error.value = "模板版本已变化，请刷新页面后核对。";
       } else {
         uncertain.value = true;
-        error.value = `${e instanceof Error ? e.message : "保存响应未知"}。请重新读取原版本，禁止自动重发。`;
+        error.value = `${e instanceof Error ? e.message : "保存响应未知"}。请刷新页面后核对；禁止自动重发。`;
       }
     }
   } finally {
@@ -341,7 +341,7 @@ async function commitUpload() {
     if (active && token === epoch) {
       if (e instanceof TemplateUploadError && e.status === 409) {
         uncertain.value = true;
-        error.value = "模板列表版本已变化，请点击“重新读取模板”后重试。";
+        error.value = "模板列表版本已变化，请刷新页面后核对模板版本。";
       } else {
         error.value = uploadError(e);
       }
@@ -393,7 +393,7 @@ async function commitRemove() {
       const status = (e as { status?: number })?.status;
       if (status === 409) {
         uncertain.value = true;
-        error.value = "模板列表版本已变化，请点击“重新读取模板”后重试。";
+        error.value = "模板列表版本已变化，请刷新页面后核对模板版本。";
       } else {
         error.value = e instanceof Error ? e.message : "删除失败";
       }
@@ -505,7 +505,7 @@ async function commitRestore() {
       const status = (e as { status?: number })?.status;
       if (status === 409) {
         uncertain.value = true;
-        error.value = "模板列表版本已变化，请点击“重新读取模板”后重试。";
+        error.value = "模板列表版本已变化，请刷新页面后核对模板版本。";
       } else {
         error.value = e instanceof Error ? e.message : "恢复失败";
       }
@@ -553,14 +553,6 @@ onBeforeUnmount(() => {
         <span v-if="catalog" class="muted"
           >类型修订：{{ catalog.revision }}</span
         >
-        <button
-          type="button"
-          class="text-button"
-          :disabled="busy || loading"
-          @click="load()"
-        >
-          <ShellIcon name="refresh" />重新读取模板
-        </button>
       </div>
       <div v-if="catalog" class="template-toolbar">
         <button
@@ -912,9 +904,7 @@ onBeforeUnmount(() => {
           >
             <p>
               确认把「{{ versionsTitle }}」恢复为第
-              {{
-                restoreConfirm.version
-              }}
+              {{ restoreConfirm.version }}
               版？这会生成一个新版本；如果该模板正在使用，网站立即显示，并通知管理员。
             </p>
             <div class="template-confirm-actions">

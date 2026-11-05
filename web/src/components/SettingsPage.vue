@@ -268,7 +268,7 @@ const dirtyPanels = computed(() =>
 const allChangedCount = computed(
   () => allChanged.value.length + dirtyPanels.value.length,
 );
-const discardAction = ref<"refresh" | "leave" | "panel-refresh" | null>(null);
+const discardAction = ref<"leave" | "panel-refresh" | null>(null);
 const scopedDiscardLabels = ref<string[] | null>(null);
 const discardLabels = computed(
   () =>
@@ -296,7 +296,7 @@ function finishDiscard(discard: boolean) {
   resolve?.(discard);
 }
 function confirmDiscard(
-  action: "refresh" | "leave" | "panel-refresh",
+  action: "leave" | "panel-refresh",
   labels?: string[],
 ): Promise<boolean> {
   if (!labels && !allChangedCount.value) return Promise.resolve(true);
@@ -306,13 +306,6 @@ function confirmDiscard(
   return new Promise((resolve) => {
     resolveDiscard = resolve;
   });
-}
-async function refreshSettings() {
-  if (controlsBusy.value || loading.value) return;
-  if (await confirmDiscard("refresh")) {
-    panelVersion.value++;
-    await load();
-  }
 }
 function warnBeforeUnload(event: BeforeUnloadEvent) {
   if (!allChangedCount.value) return;
@@ -707,26 +700,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="panel settings-page">
     <div class="settings-head">
-      <span class="muted">按分类维护平台设置</span
-      ><button
-        :disabled="
-          loading ||
-          busy ||
-          platformBusy ||
-          voiceBusy230 ||
-          printingBusy230 ||
-          botsBusy231 ||
-          certificationBusy233 ||
-          ocrBusy233 ||
-          riskBusy ||
-          scanBusy ||
-          mailBusy ||
-          brandBusy
-        "
-        @click="refreshSettings"
-      >
-        <ShellIcon name="refresh" />刷新设置
-      </button>
+      <span class="muted">按分类维护平台设置</span>
     </div>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
@@ -1131,11 +1105,7 @@ onBeforeUnmount(() => {
       title="放弃未保存的设置？"
       cancel-text="继续编辑"
       :submit-text="
-        discardAction === 'refresh'
-          ? '放弃修改并刷新'
-          : discardAction === 'panel-refresh'
-            ? '放弃修改并重新读取'
-            : '放弃修改并离开'
+        discardAction === 'panel-refresh' ? '放弃修改' : '放弃修改并离开'
       "
       danger
       @close="finishDiscard(false)"

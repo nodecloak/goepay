@@ -112,7 +112,7 @@ function current(
     csrf !== toRaw(props.client).csrfToken
   ) {
     reset();
-    error.value = "会话已变化，请重新读取SMTP账号";
+    error.value = "会话已变化，请刷新页面后核对";
     return false;
   }
   return true;
@@ -157,7 +157,7 @@ async function load() {
     readyCSRF = csrf;
   } catch {
     if (current(run, client, csrf, control.signal))
-      error.value = "SMTP账号状态无法确认，请重新读取";
+      error.value = "SMTP账号状态无法确认，请刷新页面后核对";
   } finally {
     if (current(run, client, csrf, control.signal)) loading.value = false;
   }
@@ -186,7 +186,7 @@ async function open() {
     readyCSRF !== toRaw(props.client).csrfToken
   ) {
     reset();
-    error.value = "会话已变化，请重新读取SMTP账号";
+    error.value = "会话已变化，请刷新页面后核对";
     return;
   }
   const c = state.value.config;
@@ -207,7 +207,7 @@ async function save() {
     readyCSRF !== toRaw(props.client).csrfToken
   ) {
     reset();
-    error.value = "会话已变化，请重新读取SMTP账号";
+    error.value = "会话已变化，请刷新页面后核对";
     return;
   }
   if (testDraftDirty.value) {
@@ -293,7 +293,7 @@ async function save() {
       } else {
         state.value = null;
         opened.value = false;
-        error.value = "保存结果无法确认，当前草稿仍保留；请重新读取后核对";
+        error.value = "保存结果无法确认，当前草稿仍保留；请刷新页面后核对";
       }
     }
   } finally {
@@ -369,9 +369,6 @@ onBeforeUnmount(() => {
     <div v-show="tab !== 'rate'">
       <p v-if="!allowed" class="muted">账号设置需要超级管理员本人会话。</p>
       <template v-else>
-        <button :disabled="loading || busy || opened || testBusy" @click="load">
-          重新读取SMTP账号
-        </button>
         <p v-if="loading" role="status">正在读取邮箱渠道…</p>
         <p v-if="error" role="alert" class="alert error">{{ error }}</p>
         <p v-if="notice" role="status" class="alert success">{{ notice }}</p>

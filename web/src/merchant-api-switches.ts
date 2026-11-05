@@ -16,7 +16,7 @@ export interface MerchantAPIDraft {
   refund: boolean;
   transfer: boolean;
 }
-const invalid = () => new Error("功能开关数据无法确认，请重新读取");
+const invalid = () => new Error("功能开关数据无法确认，请刷新页面后核对");
 export function parseMerchantAPISwitches(
   value: unknown,
   mid: string,

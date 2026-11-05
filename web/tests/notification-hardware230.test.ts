@@ -150,7 +150,7 @@ describe("notification hardware configuration", () => {
       }),
     );
     expect(request).toHaveBeenCalledTimes(2);
-    expect(wrapper.text()).toContain("重新读取");
+    expect(wrapper.text()).toContain("刷新页面");
     expect(
       (wrapper.find('input[type="password"]').element as HTMLInputElement)
         .value,

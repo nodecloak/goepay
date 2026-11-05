@@ -324,8 +324,7 @@ onBeforeUnmount(() => {
   <section class="collection-generator">
     <div class="toolbar">
       <MerchantScanShortcut192 :client="client" :own-session="ownSession" />
-      <button :disabled="busy || loading" @click="load">重新读取</button
-      ><button :disabled="busy" @click="history = !history">
+      <button :disabled="busy" @click="history = !history">
         {{ history ? "返回生成收款码" : "历史收款码" }}
       </button>
     </div>

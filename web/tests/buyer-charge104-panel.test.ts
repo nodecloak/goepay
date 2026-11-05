@@ -128,7 +128,7 @@ it("rejects an unconfirmed committed result and requires a fresh inspection", as
   await flushPromises();
   expect(f.w.text()).not.toContain("保存成功");
   expect(f.w.find("form").exists()).toBe(false);
-  expect(f.w.get('[role="alert"]').text()).toContain("重新读取");
+  expect(f.w.get('[role="alert"]').text()).toContain("刷新页面");
   f.w.unmount();
 });
 it("discards a late result after the original client or CSRF context changes", async () => {

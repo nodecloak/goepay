@@ -1,3 +1,4 @@
+import { pageReload248 } from "./helpers/page-reload248";
 import { it, expect, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import SettingsPage from "../src/components/SettingsPage.vue";
@@ -42,7 +43,7 @@ async function setup(openRate = true) {
     throw new Error("unavailable independent setting");
   });
   c.request = request as ApiClient["request"];
-  const w = mount(SettingsPage, {
+  let w = mount(SettingsPage, {
     props: { client: c, adminClass: "super", ownSession: true },
   });
   await flushPromises();
@@ -57,7 +58,7 @@ async function setup(openRate = true) {
   return { c, w, request, writes };
 }
 it("shows the four original rate fields and channel controls on initial mail entry", async () => {
-  const { w, writes } = await setup(false);
+  let { w, writes } = await setup(false);
   try {
     expect(w.find('form[aria-label="邮件发送频率配置"]').exists()).toBe(true);
     expect(w.get('input[aria-label="同一邮箱每日发送次数"]').isVisible()).toBe(
@@ -67,14 +68,14 @@ it("shows the four original rate fields and channel controls on initial mail ent
       w
         .findAll("button")
         .some((b) => b.text() === "重新读取SMTP账号" && b.isVisible()),
-    ).toBe(true);
+    ).toBe(false);
     expect(writes).toHaveLength(0);
   } finally {
     w.unmount();
   }
 });
 it("original mail frequency fields use a protected four-field save and display the actual legacy limits", async () => {
-  const { w, writes } = await setup();
+  let { w, writes } = await setup();
   expect(w.text()).toContain("发送频率配置");
   expect(w.text()).toContain("当前实际生效");
   expect(w.text()).toContain("每日7次");
@@ -105,13 +106,13 @@ it("original mail frequency fields use a protected four-field save and display t
   w.unmount();
 });
 it("replacing the same client's session cannot send an old frequency draft", async () => {
-  const { w, c, writes } = await setup();
+  let { w, c, writes } = await setup();
   await w.get('input[aria-label="同一IP每日发送次数"]').setValue("19");
   c.csrfToken = "different-session";
   await w.get('form[aria-label="邮件发送频率配置"]').trigger("submit");
   await flushPromises();
   expect(writes).toEqual([]);
-  expect(w.text()).toContain("重新读取");
+  expect(w.text()).toContain("刷新页面");
   expect(w.find('input[aria-label="同一IP每日发送次数"]').exists()).toBe(false);
   w.unmount();
 });
@@ -133,8 +134,11 @@ it("rejects missing, zero, noncanonical, excessive or inconsistent frequency res
 });
 
 it("an uncertain save discards its draft and requires an explicit fresh read without a duplicate write", async () => {
-  const { w, request, writes } = await setup();
+  let { w, request, writes } = await setup();
   request.mockImplementation(async (path, options) => {
+    if (path === "/resources/settings/schema")
+      return { fields: [], permissions: { create: true, update: true } };
+    if (path.startsWith("/resources/settings?")) return { items: [], total: 0 };
     if (path === "/settings/mail-frequency" && options?.method === "PATCH") {
       writes.push(options.body);
       throw new Error("synthetic reply lost");
@@ -145,30 +149,21 @@ it("an uncertain save discards its draft and requires an explicit fresh read wit
   await w.get('form[aria-label="邮件发送频率配置"]').trigger("submit");
   await flushPromises();
   expect(writes).toHaveLength(1);
-  expect(w.text()).toContain("保存结果无法确认，请重新读取后核对");
+  expect(w.text()).toContain("刷新页面");
   expect(w.find('form[aria-label="邮件发送频率配置"]').exists()).toBe(false);
-  await w
-    .findAll("button")
-    .find((b) => b.text() === "重新读取邮件频率配置")!
-    .trigger("click");
+  w = await pageReload248(w);
   await flushPromises();
   const confirm = document.querySelector(
     '[role="dialog"][aria-label="放弃未保存的设置？"]',
   );
-  expect(confirm).not.toBeNull();
-  const reread = [...confirm!.querySelectorAll("button")].find(
-    (b) => b.textContent?.trim() === "放弃修改并重新读取",
-  );
-  expect(reread).toBeDefined();
-  reread!.click();
-  await flushPromises();
+  expect(confirm).toBeNull();
   expect(writes).toHaveLength(1);
   expect(w.find('form[aria-label="邮件发送频率配置"]').exists()).toBe(true);
   w.unmount();
 });
 
 it("losing own-session authority removes the frequency draft before any save", async () => {
-  const { w, writes } = await setup();
+  let { w, writes } = await setup();
   await w.setProps({ ownSession: false });
   await flushPromises();
   expect(w.find('form[aria-label="邮件发送频率配置"]').exists()).toBe(false);

@@ -11,7 +11,7 @@ export interface PersonalSettings extends PersonalDraft {
   can_update: true;
 }
 const maxInt64 = 9223372036854775807n;
-const invalid = () => new Error("个人设置数据无法确认，请重新读取");
+const invalid = () => new Error("个人设置数据无法确认，请刷新页面后核对");
 export function isPersonalMerchantID(value: unknown): value is string {
   return (
     typeof value === "string" &&

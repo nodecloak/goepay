@@ -87,8 +87,9 @@ export function templatePreviewImage(kind: string, name: string): string {
   const image = `/static/template-previews/${encodeURIComponent(kind)}-${encodeURIComponent(name)}.jpg`;
   const version =
     kind === "home"
-      ? builtinTemplateData.find((entry) => entry.type === kind && entry.name === name)
-          ?.version
+      ? builtinTemplateData.find(
+          (entry) => entry.type === kind && entry.name === name,
+        )?.version
       : undefined;
   return version ? `${image}?v=${encodeURIComponent(version)}` : image;
 }
@@ -101,7 +102,7 @@ function revision(v: unknown): v is string {
 }
 function object(raw: unknown): Record<string, unknown> {
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
-    throw new Error("模板响应格式无效，请重新读取");
+    throw new Error("模板响应格式无效，请刷新页面后核对");
   return raw as Record<string, unknown>;
 }
 function config(
@@ -155,8 +156,7 @@ function config(
 // name (the server rejects an unknown upload, so the shape check is enough).
 function configName(kind: string, name: string): boolean {
   return (
-    builtinName(kind, name) ||
-    (uploadName.test(name) && !isReservedName(name))
+    builtinName(kind, name) || (uploadName.test(name) && !isReservedName(name))
   );
 }
 export function templateConfigBody(
@@ -168,7 +168,7 @@ export function templateConfigBody(
     !configName(view.type, view.name) ||
     !revision(view.revision)
   )
-    throw new Error("请重新读取原模板版本");
+    throw new Error("请刷新页面后核对原模板版本");
   return { expected_revision: view.revision, config: config(view.type, draft) };
 }
 export function readTemplateConfig(raw: unknown): TemplateConfigView {
@@ -251,12 +251,12 @@ function isReservedName(name: string): boolean {
 }
 function count(value: unknown): number {
   if (!Number.isSafeInteger(value) || Number(value) < 0)
-    throw new Error("模板响应格式无效，请重新读取");
+    throw new Error("模板响应格式无效，请刷新页面后核对");
   return value as number;
 }
 function positive(value: unknown): number {
   const n = count(value);
-  if (n < 1) throw new Error("模板响应格式无效，请重新读取");
+  if (n < 1) throw new Error("模板响应格式无效，请刷新页面后核对");
   return n;
 }
 function text(value: unknown, field: string): string {
@@ -270,7 +270,7 @@ function pictureURL(value: unknown): string {
     typeof value !== "string" ||
     !/^\/template-files\/[0-9a-f]{32}\/[^?#]+$/.test(value)
   )
-    throw new Error("模板预览图地址无效，请重新读取");
+    throw new Error("模板预览图地址无效，请刷新页面后核对");
   return value;
 }
 export function readTemplateList(raw: unknown): TemplateList {
@@ -324,8 +324,7 @@ export function readTemplateList(raw: unknown): TemplateList {
     };
   });
   // Every built-in of the kind must be present exactly once; uploads are free.
-  if (seenBuiltin.size !== allowed.length)
-    throw new Error("模板目录读取失败");
+  if (seenBuiltin.size !== allowed.length) throw new Error("模板目录读取失败");
   return {
     type: kind,
     revision: v.revision,
@@ -433,7 +432,7 @@ export interface TemplateRemoveResult {
 }
 function noticeState(value: unknown): TemplateNoticeState {
   if (value !== "pending" && value !== "accepted" && value !== "unknown")
-    throw new Error("模板通知状态无效，请重新读取");
+    throw new Error("模板通知状态无效，请刷新页面后核对");
   return value;
 }
 function operation(value: unknown): TemplateVersionRow["operation"] {
@@ -443,12 +442,12 @@ function operation(value: unknown): TemplateVersionRow["operation"] {
     value !== "remove" &&
     value !== "select"
   )
-    throw new Error("模板版本操作无效，请重新读取");
+    throw new Error("模板版本操作无效，请刷新页面后核对");
   return value;
 }
 function packageVersion(value: unknown): string {
   if (typeof value !== "string" || !/^[0-9A-Za-z.+-]{0,32}$/.test(value))
-    throw new Error("模板包版本号无效，请重新读取");
+    throw new Error("模板包版本号无效，请刷新页面后核对");
   return value;
 }
 function report(v: Record<string, unknown>): TemplateUploadReport {
@@ -458,11 +457,11 @@ function report(v: Record<string, unknown>): TemplateUploadReport {
     !Array.isArray(v.ignored) ||
     v.ignored.some((w) => typeof w !== "string")
   )
-    throw new Error("模板处理报告无效，请重新读取");
+    throw new Error("模板处理报告无效，请刷新页面后核对");
   const removedRaw = v.removed === undefined ? {} : object(v.removed);
   const removed: Record<string, number> = {};
   for (const [key, value] of Object.entries(removedRaw)) {
-    if (!key) throw new Error("模板移除报告无效，请重新读取");
+    if (!key) throw new Error("模板移除报告无效，请刷新页面后核对");
     removed[key] = count(value);
   }
   return {
@@ -477,16 +476,16 @@ export function readUploadCheck(
   raw: unknown,
 ): TemplateUploadCheck {
   const v = object(raw);
-  if (v.type !== kind) throw new Error("模板类型不一致，请重新读取");
+  if (v.type !== kind) throw new Error("模板类型不一致，请刷新页面后核对");
   const name = String(v.name);
   if (!uploadName.test(name) || isReservedName(name))
-    throw new Error("模板名称无效，请重新读取");
+    throw new Error("模板名称无效，请刷新页面后核对");
   if (
     typeof v.exists !== "boolean" ||
     typeof v.selected !== "boolean" ||
     typeof v.identical !== "boolean"
   )
-    throw new Error("模板检查结果无效，请重新读取");
+    throw new Error("模板检查结果无效，请刷新页面后核对");
   return {
     type: kind,
     name,
@@ -506,16 +505,16 @@ export function readUploadResult(
   raw: unknown,
 ): TemplateUploadResult {
   const v = object(raw);
-  if (v.type !== kind) throw new Error("模板类型不一致，请重新读取");
+  if (v.type !== kind) throw new Error("模板类型不一致，请刷新页面后核对");
   const name = String(v.name);
   if (!uploadName.test(name) || isReservedName(name))
-    throw new Error("模板名称无效，请重新读取");
+    throw new Error("模板名称无效，请刷新页面后核对");
   if (
     !revision(v.revision) ||
     typeof v.created !== "boolean" ||
     typeof v.selected !== "boolean"
   )
-    throw new Error("模板上传结果无效，请重新读取");
+    throw new Error("模板上传结果无效，请刷新页面后核对");
   return {
     type: kind,
     name,
@@ -560,13 +559,15 @@ export function readTemplateVersions(raw: unknown): TemplateVersionRow[] {
 // POST /<kind>/<name>/versions/<n>/restore.
 export function readRestoreResult(raw: unknown): TemplateRestoreResult {
   const v = object(raw);
-  if (!revision(v.revision)) throw new Error("模板恢复结果无效，请重新读取");
+  if (!revision(v.revision))
+    throw new Error("模板恢复结果无效，请刷新页面后核对");
   return { version: positive(v.version), revision: v.revision };
 }
 // POST /<kind>/<name>/remove.
 export function readRemoveResult(raw: unknown): TemplateRemoveResult {
   const v = object(raw);
-  if (!revision(v.revision)) throw new Error("模板删除结果无效，请重新读取");
+  if (!revision(v.revision))
+    throw new Error("模板删除结果无效，请刷新页面后核对");
   return { revision: v.revision };
 }
 function assertUploadTarget(kind: TemplateKind, name: string): void {
@@ -579,7 +580,7 @@ function assertUploadTarget(kind: TemplateKind, name: string): void {
 export function templateRevisionBody(revisionValue: string): {
   expected_revision: string;
 } {
-  if (!revision(revisionValue)) throw new Error("请重新读取模板版本");
+  if (!revision(revisionValue)) throw new Error("请刷新页面后核对模板版本");
   return { expected_revision: revisionValue };
 }
 // --- Upload / sample multipart POST --------------------------------------
@@ -659,7 +660,7 @@ export function uploadTemplatePackage(
   signal?: AbortSignal,
 ): Promise<TemplateUploadResult> {
   if (!kinds.includes(kind)) throw new Error("模板类型无效");
-  if (!revision(expectedRevision)) throw new Error("请重新读取模板版本");
+  if (!revision(expectedRevision)) throw new Error("请刷新页面后核对模板版本");
   return postTemplatePackage(
     client,
     `/templates/${kind}/uploads`,

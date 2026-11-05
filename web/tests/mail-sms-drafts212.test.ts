@@ -129,7 +129,7 @@ it("a successful SMTP save clears the guard and password, while a rejected save 
     expect(w.html()).not.toContain('value="synthetic-private212"');
   }
 });
-it("SMTP local reread cancellation keeps a minimized draft; an approved stale-session confirmation cannot read", async () => {
+it("SMTP has no reread action; minimized drafts survive until the session changes", async () => {
   let approve!: (value: boolean) => void,
     reads = 0;
   const { w, client, dirty } = render(
@@ -147,23 +147,20 @@ it("SMTP local reread cancellation keeps a minimized draft; an approved stale-se
   await fillSMTP(w);
   await button(w, "收起并保留草稿").trigger("click");
   const before = reads;
-  await button(w, "重新读取SMTP账号").trigger("click");
-  await flushPromises();
-  approve(false);
+  expect(w.findAll("button").some((b) => b.text() === "重新读取SMTP账号")).toBe(
+    false,
+  );
   await flushPromises();
   expect(dirty()).toBe(true);
   expect(reads).toBe(before);
-  await button(w, "重新读取SMTP账号").trigger("click");
-  await flushPromises();
   client.csrfToken = "rotated212";
   await flushPromises();
   const afterRotation = reads;
-  approve(true);
   await flushPromises();
   expect(reads).toBe(afterRotation);
   expect(dirty()).toBe(false);
 });
-it("a failed SMTP save followed by a failed reread remains guarded", async () => {
+it("a failed SMTP save stays guarded without a separate reread action", async () => {
   let fail = false;
   const { w, dirty } = render(
     MailSettings195,
@@ -182,7 +179,9 @@ it("a failed SMTP save followed by a failed reread remains guarded", async () =>
   await w.get("form").trigger("submit");
   await flushPromises();
   expect(dirty()).toBe(true);
-  await button(w, "重新读取SMTP账号").trigger("click");
+  expect(w.findAll("button").some((b) => b.text() === "重新读取SMTP账号")).toBe(
+    false,
+  );
   await flushPromises();
   expect(dirty()).toBe(true);
 });
@@ -205,7 +204,7 @@ it("SMS credential drafts survive suspend and explicit cancel discards them", as
   await button(w, "取消").trigger("click");
   expect(dirty()).toBe(false);
 });
-it("mail frequency draft stays dirty after a rejected write and failed reread", async () => {
+it("mail frequency stays guarded after an unconfirmed write with no reread action", async () => {
   let fail = false;
   const policy = {
     mail_interval_email: "60",
@@ -240,11 +239,13 @@ it("mail frequency draft stays dirty after a rejected write and failed reread", 
   await w.get("form").trigger("submit");
   await flushPromises();
   expect(dirty()).toBe(true);
-  await button(w, "重新读取邮件频率配置").trigger("click");
+  expect(
+    w.findAll("button").some((b) => b.text() === "重新读取邮件频率配置"),
+  ).toBe(false);
   await flushPromises();
   expect(dirty()).toBe(true);
 });
-it("an unresolved SMS test remains guarded after closing and cannot be silently removed by local reread", async () => {
+it("an unresolved SMS test remains guarded after closing without any automatic reread", async () => {
   let reads = 0,
     confirmations = 0;
   const { w, dirty } = render(
@@ -269,9 +270,11 @@ it("an unresolved SMS test remains guarded after closing and cannot be silently 
   await button(w, "取消").trigger("click");
   expect(dirty()).toBe(true);
   const before = reads;
-  await button(w, "重新读取短信网关").trigger("click");
+  expect(w.findAll("button").some((b) => b.text() === "重新读取短信网关")).toBe(
+    false,
+  );
   await flushPromises();
-  expect(confirmations).toBe(1);
+  expect(confirmations).toBe(0);
   expect(reads).toBe(before);
   expect(dirty()).toBe(true);
 });
@@ -301,7 +304,7 @@ it("same-client session rotation discards SMTP and SMS private drafts before the
     ).toBe(false);
   }
 });
-it("SMTP local reread preserves an independent frequency draft without claiming to discard it", async () => {
+it("switching SMTP categories preserves an independent frequency draft without a reread action", async () => {
   let confirmations = 0;
   const policy = {
     mail_interval_email: "60",
@@ -331,7 +334,9 @@ it("SMTP local reread preserves an independent frequency draft without claiming 
   await flushPromises();
   await w.get('input[name="mail_daily_email"]').setValue("11");
   await button(w, "邮箱渠道配置").trigger("click");
-  await button(w, "重新读取SMTP账号").trigger("click");
+  expect(w.findAll("button").some((b) => b.text() === "重新读取SMTP账号")).toBe(
+    false,
+  );
   await flushPromises();
   expect(confirmations).toBe(0);
   expect(dirty()).toBe(true);

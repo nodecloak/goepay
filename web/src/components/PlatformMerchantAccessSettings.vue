@@ -25,7 +25,7 @@ const state = ref<PlatformMerchantAccess | null>(null),
   notice = ref("");
 const saveButton = ref<HTMLButtonElement>(),
   confirmButton = ref<HTMLButtonElement>(),
-  reloadButton = ref<HTMLButtonElement>();
+  errorTarget = ref<HTMLElement>();
 const allowed = computed(
   () =>
     props.client.area === "admin" &&
@@ -80,7 +80,7 @@ function clear(message = "", preserveUnresolved = false) {
 }
 function ensure() {
   if (!same()) {
-    clear("会话已变化，请重新读取平台功能设置");
+    clear("会话已变化，请刷新页面后核对");
     return false;
   }
   return alive && allowed.value;
@@ -121,7 +121,7 @@ async function load() {
     });
     if (valid(run, c)) accept(parsePlatformMerchantAccess(v));
   } catch {
-    if (valid(run, c)) error.value = "平台功能状态无法确认，请重新读取";
+    if (valid(run, c)) error.value = "平台功能状态无法确认，请刷新页面后核对";
   } finally {
     if (valid(run, c)) loading.value = false;
   }
@@ -181,15 +181,15 @@ async function save() {
       enabled.value = false;
       error.value =
         e instanceof ApiError && e.status === 409
-          ? "设置已变化，请重新读取并核对后保存"
-          : "保存结果无法确认，请重新读取后核对";
+          ? "设置已变化，请刷新页面后核对"
+          : "保存结果无法确认，请刷新页面后核对";
     }
   } finally {
     if (valid(run, c)) {
       busy.value = false;
       void nextTick(() => {
         if (valid(run, c))
-          (state.value ? saveButton.value : reloadButton.value)?.focus();
+          (state.value ? saveButton.value : errorTarget.value)?.focus();
       });
     }
   }
@@ -219,16 +219,16 @@ watch(busy, (value) => emit("busy", value), { flush: "sync" });
     <h3>{{ label }}</h3>
     <p v-if="!allowed" class="muted">此设置需要超级管理员本人会话。</p>
     <template v-else>
-      <button
-        ref="reloadButton"
-        type="button"
-        :disabled="busy || loading"
-        @click="load"
-      >
-        重新读取平台功能
-      </button>
       <p v-if="loading" role="status">正在读取平台功能…</p>
-      <p v-if="error" role="alert" class="error">{{ error }}</p>
+      <p
+        ref="errorTarget"
+        tabindex="-1"
+        v-if="error"
+        role="alert"
+        class="error"
+      >
+        {{ error }}
+      </p>
       <p v-if="notice" role="status">{{ notice }}</p>
       <template v-if="state">
         <label class="platform-switch"

@@ -1,5 +1,5 @@
 import { isPersonalMerchantID } from "./merchant-personal-settings";
-const invalid = () => Error("手续费设置无法确认，请重新读取");
+const invalid = () => Error("手续费设置无法确认，请刷新页面后核对");
 function record(value: unknown, keys: string[]): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw invalid();

@@ -42,7 +42,7 @@ async function load() {
       !/^(0|[1-9]\d*)$/.test(p.revision) ||
       !/^(0|[1-9]\d*)$/.test(p.recipient_config_id)
     )
-      throw new Error("参与或收款配置版本不匹配，请重新读取");
+      throw new Error("参与或收款配置版本不匹配，请刷新页面后核对");
     current.value = { ...p, recipient };
     enabled.value = p.enabled && p.recipient_config_id === recipient.config_id;
     uncertain.value = false;
@@ -95,7 +95,7 @@ async function save() {
     if (active) {
       uncertain.value = true;
       error.value = e instanceof Error ? e.message : "保存结果未知";
-      notice.value = "不会自动重试，请先重新读取参与与收款版本。";
+      notice.value = "不会自动重试，请刷新页面后核对。";
     }
   } finally {
     if (active) busy.value = false;
@@ -116,9 +116,7 @@ onBeforeUnmount(() => {
     </p>
     <p v-if="error" role="alert" class="alert error">{{ error }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
-    <button :disabled="busy || loading || !allowed()" @click="load">
-      重新读取参与与收款版本
-    </button>
+
     <section v-if="current">
       <p>
         参与修订 {{ current.revision }}，原已绑定配置

@@ -1,3 +1,4 @@
+import { pageReload248 } from "./helpers/page-reload248";
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
@@ -56,7 +57,7 @@ async function fixture() {
   );
   const client = new ApiClient("admin");
   client.csrfToken = "local-csrf";
-  const w = mount(Panel, {
+  let w = mount(Panel, {
     attachTo: document.body,
     props: { client, adminClass: "super", ownSession: true },
   });
@@ -64,7 +65,7 @@ async function fixture() {
   return { w, requests, control };
 }
 it("keeps full channel IDs and requires explicit confirmation, then reads back saved configuration", async () => {
-  const { w, requests } = await fixture();
+  let { w, requests } = await fixture();
   try {
     expect(requests.map((r) => r.method)).toEqual(["GET"]);
     w.findAllComponents(KitSelect)[1]!.vm.$emit(
@@ -111,7 +112,7 @@ it("keeps full channel IDs and requires explicit confirmation, then reads back s
 });
 for (const failure of ["network", "malformed"])
   it(`never repeats ${failure} unknown save and reconciles through an explicit GET`, async () => {
-    const { w, requests, control } = await fixture();
+    let { w, requests, control } = await fixture();
     try {
       control.unknown = failure === "network";
       control.malformed = failure === "malformed";
@@ -138,10 +139,7 @@ for (const failure of ["network", "malformed"])
           .find((b) => b.text() === "保存转账通道")!
           .attributes("disabled"),
       ).toBeDefined();
-      await w
-        .findAll("button")
-        .find((b) => b.text() === "重新读取转账通道")!
-        .trigger("click");
+      w = await pageReload248(w);
       await flushPromises();
       expect(requests.map((r) => r.method)).toEqual(["GET", "PATCH", "GET"]);
       expect(w.text()).not.toContain("保存结果尚未核实");
@@ -155,7 +153,7 @@ for (const failure of ["network", "malformed"])
     }
   });
 it("clears state when own-session authority is lost and performs no delegated read", async () => {
-  const { w, requests } = await fixture();
+  let { w, requests } = await fixture();
   try {
     await w.setProps({ ownSession: false });
     await flushPromises();

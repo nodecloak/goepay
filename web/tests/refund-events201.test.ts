@@ -1,3 +1,4 @@
+import { pageReload248 } from "./helpers/page-reload248";
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -102,7 +103,7 @@ async function setup(
       throw new Error(`Unexpected request: ${call.method} ${path}`);
     }),
   );
-  const wrapper = mount(AccountPage, {
+  let wrapper = mount(AccountPage, {
     attachTo: document.body,
     props: { client, section: "api-info" },
     // These become declared props when the parent adds the real mounting hook.
@@ -365,8 +366,10 @@ describe("original API information refund event subscription", () => {
     await button(panel(f.wrapper), "确认保存").trigger("click");
     await panel(f.wrapper).get("form").trigger("submit");
     expect(
-      button(panel(f.wrapper), "重新读取订阅").attributes("disabled"),
-    ).toBeDefined();
+      panel(f.wrapper)
+        .findAll("button")
+        .some((b) => b.text() === "重新读取订阅"),
+    ).toBe(false);
     expect(f.events().filter((call) => call.method === "PATCH")).toHaveLength(
       1,
     );
@@ -459,11 +462,12 @@ describe("original API information refund event subscription", () => {
       await prepare(f.wrapper, "https://merchant-refund201.invalid/edited");
       await confirm(f.wrapper);
       let area = panel(f.wrapper);
-      expect(area.text()).toContain("重新读取");
+      expect(area.text()).toContain("刷新页面");
       expect(area.text()).not.toContain("订阅设置已保存");
       expect(area.find("form").exists()).toBe(false);
       expect(f.events()).toHaveLength(2);
-      await button(area, "重新读取订阅").trigger("click");
+      f.wrapper = await pageReload248(f.wrapper);
+      area = panel(f.wrapper);
       await flushPromises();
       area = panel(f.wrapper);
       expect(f.events().map((call) => call.method)).toEqual([
@@ -639,7 +643,7 @@ it("rejects late responses and old drafts when an unobserved raw ApiClient CSRF 
   await flushPromises();
   expect(panel(f.wrapper).text()).not.toContain("old-raw-context201");
   expect(panel(f.wrapper).find("form").exists()).toBe(false);
-  await button(panel(f.wrapper), "重新读取订阅").trigger("click");
+  f.wrapper = await pageReload248(f.wrapper);
   await flushPromises();
   f.client.csrfToken = "refund201-second-unobserved-session";
   await panel(f.wrapper).get("form").trigger("submit");

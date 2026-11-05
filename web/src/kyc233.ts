@@ -75,7 +75,7 @@ const revision = /^(0|[1-9]\d{0,18})$/;
 function record(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === "object" && !Array.isArray(v);
 }
-const invalid = () => Error("服务端响应不完整，请重新读取后核对。 ");
+const invalid = () => Error("服务端响应不完整，请刷新页面后核对。 ");
 export function parseConfig233(value: unknown): CertificationConfig233 {
   if (
     !record(value) ||
@@ -333,7 +333,7 @@ export async function recognizeOCR233(
     signal,
   });
   if (area !== client.area || csrf !== client.csrfToken || signal?.aborted)
-    throw Error("会话已变化，请重新读取。");
+    throw Error("会话已变化，请刷新页面后核对。");
   if (response.status === 401) {
     client.csrfToken = "";
     client.onUnauthorized?.();

@@ -157,7 +157,7 @@ async function save() {
   } catch (e) {
     if (current === epoch) {
       error.value =
-        e instanceof Error ? e.message : "保存结果未知，请重新读取设置";
+        e instanceof Error ? e.message : "保存结果未知，请刷新页面后核对";
       state.value = null;
       config.value = null;
     }
@@ -210,7 +210,7 @@ onBeforeUnmount(() => {
       </div>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="notice" role="status">{{ notice }}</p>
-      <button v-if="path" :disabled="busy" @click="load">重新读取设置</button>
+
       <p v-if="busy" role="status">正在处理…</p>
       <form v-if="state && config" @submit.prevent="save">
         <fieldset :disabled="busy">

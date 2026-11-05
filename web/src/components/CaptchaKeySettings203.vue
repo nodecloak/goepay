@@ -28,7 +28,7 @@ const state = ref<Metadata>(),
   unresolvedSave = ref(false),
   error = ref(""),
   notice = ref("");
-const refresh = ref<HTMLButtonElement>(),
+const errorTarget = ref<HTMLElement>(),
   saveButton = ref<HTMLButtonElement>(),
   clearButton = ref<HTMLButtonElement>(),
   cancelButton = ref<HTMLButtonElement>(),
@@ -89,7 +89,7 @@ function clear(message = "", preserveUnresolved = false) {
 }
 function ensure() {
   if (!same()) {
-    clear("会话已变化，请重新读取密钥状态");
+    clear("会话已变化，请刷新页面后核对");
     return false;
   }
   return isAllowed();
@@ -101,7 +101,7 @@ function current(
 ) {
   if (!active || run !== epoch || c.signal.aborted) return false;
   if (!same(source)) {
-    clear("会话已变化，请重新读取密钥状态");
+    clear("会话已变化，请刷新页面后核对");
     return false;
   }
   return isAllowed();
@@ -147,7 +147,7 @@ async function load() {
     }
   } catch {
     if (current(run, c, source))
-      error.value = "验证码密钥状态读取失败，请重新读取密钥状态";
+      error.value = "验证码密钥状态读取失败，请刷新页面后核对";
   } finally {
     if (current(run, c, source)) loading.value = false;
   }
@@ -262,14 +262,14 @@ async function save() {
       state.value = undefined;
       error.value =
         reason instanceof ApiError && reason.status === 409
-          ? "密钥状态已变化，请重新读取密钥状态并核对；不会自动重试。"
-          : "本次密钥操作结果无法确认，请重新读取密钥状态核对；不会自动重试。";
+          ? "密钥状态已变化，请刷新页面后核对；不会自动重试。"
+          : "本次密钥操作结果无法确认，请刷新页面后核对；不会自动重试。";
     }
   } finally {
     if (current(run, c, source)) {
       busy.value = false;
       void nextTick(() => {
-        if (current(run, c, source) && !state.value) refresh.value?.focus();
+        if (current(run, c, source) && !state.value) errorTarget.value?.focus();
       });
     }
   }
@@ -297,22 +297,21 @@ onBeforeUnmount(() => {
   <section class="panel captcha-key203" aria-label="极验验证码密钥">
     <div class="captcha-heading">
       <h2>极验验证码密钥</h2>
-      <button
-        v-if="allowed"
-        ref="refresh"
-        type="button"
-        :disabled="loading || busy || !!confirming"
-        @click="load"
-      >
-        重新读取密钥状态
-      </button>
     </div>
     <p v-if="!allowed" class="muted">
       请使用超级管理员本人会话配置验证码密钥。
     </p>
     <template v-else>
       <p v-if="loading" role="status">正在读取密钥状态…</p>
-      <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+      <p
+        ref="errorTarget"
+        tabindex="-1"
+        v-if="error"
+        role="alert"
+        class="alert error"
+      >
+        {{ error }}
+      </p>
       <p v-if="notice" role="status" class="alert success">{{ notice }}</p>
       <template v-if="state"
         ><p>

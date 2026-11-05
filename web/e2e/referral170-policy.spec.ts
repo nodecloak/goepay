@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { test, expect } from "@playwright/test";
 import policies from "./referral170-policies.json" with { type: "json" };
 for (const width of [1440, 375])
@@ -144,9 +145,7 @@ for (const width of [1440, 375])
       { i: 6, text: "当前未开启手续费预算" },
     ]) {
       index = item.i;
-      await card
-        .getByRole("button", { name: "刷新当前政策", exact: true })
-        .click();
+      await pageReload248(page);
       await expect(card).toContainText(item.text);
       if (item.i === 2) await expect(card).toContainText("当前有效会员组");
     }
@@ -177,9 +176,7 @@ for (const width of [1440, 375])
         () => JSON.stringify(localStorage) + JSON.stringify(sessionStorage),
       ),
     ).not.toContain(bearer);
-    await page
-      .getByRole("button", { name: "重新读取邀请资料", exact: true })
-      .click();
+    await pageReload248(page);
     await expect(page.getByLabel("本次推广链接")).toHaveCount(0);
     expect(writes).toHaveLength(1);
     expect(errors).toEqual([]);

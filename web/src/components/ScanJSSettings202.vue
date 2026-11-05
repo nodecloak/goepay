@@ -149,7 +149,7 @@ async function load() {
     if (alive && run === epoch && !ac.signal.aborted) accept(value);
   } catch {
     if (alive && run === epoch)
-      error.value = "原生扫码设置无法确认，请重新读取";
+      error.value = "原生扫码设置无法确认，请刷新页面后核对";
   } finally {
     if (alive && run === epoch) loading.value = false;
   }
@@ -204,7 +204,7 @@ async function save() {
   } catch {
     if (alive && run === epoch) {
       state.value = null;
-      error.value = "保存结果无法确认，请重新读取核对后再操作";
+      error.value = "保存结果无法确认，请刷新页面后核对";
     }
   } finally {
     if (alive && run === epoch) busy.value = false;
@@ -247,9 +247,7 @@ onBeforeUnmount(() => {
     <template v-else>
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
       <p v-if="notice" role="status">{{ notice }}</p>
-      <button :disabled="loading || busy" @click="load">
-        重新读取原生扫码设置
-      </button>
+
       <p v-if="loading" role="status">正在读取原生扫码授权…</p>
       <template v-if="state">
         <label class="scan-js-switch202"

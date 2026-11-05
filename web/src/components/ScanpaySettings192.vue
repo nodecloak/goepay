@@ -91,7 +91,7 @@ async function load() {
     if (alive && run === epoch && !ac.signal.aborted) accept(v);
   } catch {
     if (alive && run === epoch)
-      error.value = "付款码支付设置无法确认，请重新读取";
+      error.value = "付款码支付设置无法确认，请刷新页面后核对";
   } finally {
     if (alive && run === epoch) loading.value = false;
   }
@@ -147,7 +147,7 @@ async function save() {
   } catch {
     if (alive && run === epoch) {
       state.value = null;
-      error.value = "保存结果无法确认，请重新读取核对，不要直接重复保存";
+      error.value = "保存结果无法确认，请刷新页面后核对";
     }
   } finally {
     if (alive && run === epoch) busy.value = false;
@@ -188,9 +188,7 @@ onBeforeUnmount(() => {
     <template v-else>
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
       <p v-if="notice" role="status">{{ notice }}</p>
-      <button :disabled="busy || loading" @click="load">
-        重新读取付款码设置
-      </button>
+
       <p v-if="loading" role="status">正在读取付款码支付设置…</p>
       <template v-if="state">
         <label class="scanpay-switch192"

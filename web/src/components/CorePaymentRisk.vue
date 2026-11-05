@@ -31,7 +31,6 @@ const current = ref<CoreRiskPolicy>(),
   error = ref(""),
   notice = ref(""),
   confirm = ref<"save" | "check">(),
-  refresh = ref<HTMLButtonElement>(),
   prepare = ref<HTMLButtonElement>(),
   dialog = ref<HTMLElement>();
 let alive = true,
@@ -58,7 +57,7 @@ function context() {
   if (client === toRaw(props.client) && csrf === toRaw(props.client).csrfToken)
     return true;
   reset();
-  error.value = "会话已变化，请刷新后重新核对。";
+  error.value = "会话已变化，请刷新页面后重新核对。";
   return false;
 }
 function valid(stamp: number, c: AbortController) {
@@ -239,7 +238,7 @@ async function submit() {
       confirm.value = undefined;
       error.value =
         e instanceof ApiError && e.status === 409
-          ? "风控设置或事实已变化，请刷新后重新确认。"
+          ? "风控设置或事实已变化，请刷新页面后重新确认。"
           : "结果无法确认。请刷新核对，不会自动重复提交或运行检查。";
     }
   } finally {
@@ -309,7 +308,7 @@ watch(
   () => [props.client, props.client.csrfToken, props.allowed],
   () => {
     reset();
-    error.value = "会话或权限已变化，请刷新后重新核对。";
+    error.value = "会话或权限已变化，请刷新页面后重新核对。";
   },
 );
 onMounted(load);
@@ -324,13 +323,6 @@ onBeforeUnmount(() => {
   <section class="core-risk" aria-label="核心付款风控">
     <div class="toolbar">
       <h3>核心付款风控</h3>
-      <button
-        ref="refresh"
-        :disabled="busy || loading || !allowed"
-        @click="load"
-      >
-        刷新风控设置
-      </button>
     </div>
     <p>
       仅限制新的首次付款。原订单查询、回调和未决发送恢复继续执行。旧通用设置记录不会自动启用这些规则。

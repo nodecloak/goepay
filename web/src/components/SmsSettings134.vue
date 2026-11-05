@@ -141,7 +141,7 @@ async function load() {
     readyCSRF = csrf;
   } catch {
     if (current(run, client, csrf))
-      error.value = "短信网关状态无法确认，请重新读取";
+      error.value = "短信网关状态无法确认，请刷新页面后核对";
   } finally {
     if (current(run, client, csrf)) loading.value = false;
   }
@@ -154,7 +154,7 @@ function current(run: number, client: ApiClient, csrf: string) {
     csrf !== toRaw(props.client).csrfToken
   ) {
     reset();
-    error.value = "会话已变化，请重新读取短信网关";
+    error.value = "会话已变化，请刷新页面后核对";
     return false;
   }
   return true;
@@ -167,7 +167,7 @@ function ready() {
   )
     return true;
   reset();
-  error.value = "会话已变化，请重新读取短信网关";
+  error.value = "会话已变化，请刷新页面后核对";
   return false;
 }
 function title(p: string) {
@@ -319,7 +319,7 @@ async function saveProvider() {
       else {
         state.value = null;
         editing.value = "";
-        error.value = "保存结果无法确认，当前草稿仍保留；请重新读取后核对";
+        error.value = "保存结果无法确认，当前草稿仍保留；请刷新页面后核对";
       }
     }
   } finally {
@@ -444,9 +444,6 @@ onBeforeUnmount(() => {
       </p>
       <p v-if="!allowed" class="muted">短信网关设置需要超级管理员本人会话。</p>
       <template v-else>
-        <button :disabled="loading || busy || testBusy" @click="load">
-          重新读取短信网关
-        </button>
         <p v-if="loading" role="status">正在读取短信网关…</p>
         <p v-if="error" role="alert" class="alert error">{{ error }}</p>
         <p v-if="notice" role="status" class="alert success">{{ notice }}</p>
@@ -603,7 +600,7 @@ onBeforeUnmount(() => {
         /></KitField>
         <p v-if="testResult" role="status" class="alert">{{ testResult }}</p>
         <p v-if="testResult === '发送结果无法确认'" class="muted">
-          请先在服务商核对这次发送结果，勿重复发送；关闭后重新读取网关时会再次确认。
+          请先在服务商核对这次发送结果，勿重复发送；刷新页面会放弃当前草稿，请先核对本次发送结果。
         </p>
       </KitModal>
     </div>

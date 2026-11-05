@@ -191,7 +191,7 @@ async function load(forceRead = false) {
     if (current(run, c)) {
       state.value = undefined;
       clearPrivate();
-      error.value = "读取配置失败，请检查会话后重新读取。";
+      error.value = "读取配置失败，请检查会话并刷新页面后核对。";
     }
   } finally {
     if (current(run, c)) loading.value = false;
@@ -298,7 +298,7 @@ async function save() {
         [400, 422].includes(e.status)
       );
       error.value = uncertain.value
-        ? "保存结果尚未确认，或配置已被更新。请重新读取后核对；不会自动重试。"
+        ? "保存结果尚未确认，或配置已被更新。请刷新页面后核对；不会自动重试。"
         : "配置未被接受，请核对字段和凭据后重新填写。";
     }
   } finally {
@@ -369,15 +369,9 @@ onBeforeUnmount(() => {
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
       <p v-if="notice" role="status" class="alert success">{{ notice }}</p>
       <p v-if="staleDraft" class="alert" role="alert">
-        本页配置可能已更新，草稿已保留。请点击“重新读取配置”，确认放弃未保存内容后再编辑。
+        本页配置可能已更新，草稿已保留。请刷新页面并核对最新配置，刷新会放弃未保存内容。
       </p>
-      <button
-        type="button"
-        :disabled="busy || loading || disabled"
-        @click="load()"
-      >
-        {{ loading ? "正在读取…" : "重新读取配置" }}
-      </button>
+
       <form v-if="state" @submit.prevent="check">
         <fieldset :disabled="blocked || confirming">
           <template v-if="kind === 'certification'">

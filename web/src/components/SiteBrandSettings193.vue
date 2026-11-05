@@ -64,7 +64,8 @@ async function load() {
       unresolvedUpload.value = false;
     }
   } catch {
-    if (valid(run, ac.signal)) error.value = "品牌图片设置无法确认，请重新读取";
+    if (valid(run, ac.signal))
+      error.value = "品牌图片设置无法确认，请刷新页面后核对";
   } finally {
     if (valid(run, ac.signal)) loading.value = false;
   }
@@ -106,7 +107,7 @@ async function upload(slot: "logo" | "icon", event: Event) {
         ? v.icon?.id !== before.icon?.id
         : v.logo?.id !== before.logo?.id)
     )
-      throw new Error("上传结果无法确认，请重新读取");
+      throw new Error("上传结果无法确认，请刷新页面后核对");
     state.value = v;
     unresolvedUpload.value = false;
     notice.value = (slot === "logo" ? "首页LOGO" : "全局LOGO") + "上传成功";
@@ -115,7 +116,7 @@ async function upload(slot: "logo" | "icon", event: Event) {
     if (valid(run, ac.signal)) {
       state.value = null;
       error.value =
-        e instanceof Error ? e.message : "上传结果无法确认，请重新读取";
+        e instanceof Error ? e.message : "上传结果无法确认，请刷新页面后核对";
     }
   } finally {
     input.value = "";
@@ -154,9 +155,6 @@ onBeforeUnmount(() => {
   <section class="site-brand-settings193" aria-label="网站图片设置">
     <p v-if="!allowed" class="muted">图片修改需要超级管理员本人会话。</p>
     <template v-else>
-      <button :disabled="loading || busy" @click="load">
-        重新读取品牌图片
-      </button>
       <p v-if="loading" role="status">正在读取品牌图片…</p>
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
       <p v-if="notice" role="status">{{ notice }}</p>

@@ -171,7 +171,7 @@ function closeRotation() {
   rotationOpen.value = false;
   rotationPassword.value = "";
   error.value = pending
-    ? "已停止等待密钥重置结果。请先重新读取接入信息并核对当前配置，不会自动重试。"
+    ? "已停止等待密钥重置结果。请刷新页面后核对。"
     : rotationUncertain.value
       ? error.value
       : "";
@@ -345,19 +345,12 @@ async function rotate() {
     else {
       rotationUncertain.value = true;
       rotationOpen.value = false;
-      error.value =
-        "未能确认密钥重置结果。请先重新读取接入信息并核对当前配置，再明确发起新的重置；不会自动重试。";
+      error.value = "未能确认密钥重置结果。请刷新页面后核对；不会自动重试。";
     }
   } finally {
     if (source.current()) rotationPassword.value = "";
     finishAction(source);
   }
-}
-async function reloadAPIInfo() {
-  if (busy.value) return;
-  const source = context();
-  const loaded = await load();
-  if (sameContext(source) && loaded) rotationUncertain.value = false;
 }
 async function copyKey() {
   if (!newKey.value) return;
@@ -621,13 +614,6 @@ onBeforeUnmount(() => {
           @click="showRotation"
         >
           重置 API 密钥
-        </button>
-        <button
-          v-if="rotationUncertain"
-          :disabled="busy || loading"
-          @click="reloadAPIInfo"
-        >
-          重新读取接入信息
         </button>
       </section>
       <MerchantRSAKeyRotation

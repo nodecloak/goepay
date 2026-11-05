@@ -507,7 +507,8 @@ async function loadLoginPlatformAccess() {
     if (valid()) loginPlatformAccess.value = v;
   } catch {
     if (valid())
-      loginPlatformError.value = "平台登录功能状态无法确认，密码登录仍可使用。";
+      loginPlatformError.value =
+        "平台登录功能状态无法确认，请刷新页面后核对；密码登录仍可使用。";
   } finally {
     if (valid()) loginPlatformLoading.value = false;
   }
@@ -1326,7 +1327,7 @@ async function openRefund(row: Record<string, unknown>, recoveryOnly = false) {
       Object.hasOwn(row, "charge_verified104")) &&
     remaining104 === undefined
   ) {
-    error.value = "实际支付金额无法核对，请重新读取原订单";
+    error.value = "实际支付金额无法核对，请刷新页面后核对";
     return;
   }
   refundRecoveryOnly212.value = recoveryOnly;
@@ -1922,14 +1923,6 @@ onBeforeUnmount(() => {
             平台已关闭密钥登录，请使用密码登录。
           </p>
           <p v-if="loginPlatformError" role="alert">{{ loginPlatformError }}</p>
-          <button
-            v-if="!loginPlatformLoading && !loginPlatformAccess"
-            type="button"
-            :disabled="busy || loginUncertain"
-            @click="loadLoginPlatformAccess"
-          >
-            重新读取平台登录功能
-          </button>
         </template>
         <div v-if="error" class="alert error" role="alert">{{ error }}</div>
         <div v-if="notice" class="alert success" role="status">

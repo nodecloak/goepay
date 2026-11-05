@@ -34,7 +34,7 @@ const state = ref<PaymentDefend206Policy>(),
   confirming = ref(false),
   error = ref(""),
   notice = ref("");
-const refresh = ref<HTMLButtonElement>(),
+const errorTarget = ref<HTMLElement>(),
   prepareButton = ref<HTMLButtonElement>(),
   dialog = ref<HTMLElement>();
 let alive = true,
@@ -90,7 +90,7 @@ function clear(message = "") {
 }
 function ensure() {
   if (!same()) {
-    clear("会话已变化，请重新读取支付验证设置。");
+    clear("会话已变化，请刷新页面后核对。");
     return false;
   }
   return isAllowed();
@@ -102,7 +102,7 @@ function current(
 ) {
   if (!alive || run !== epoch || c.signal.aborted) return false;
   if (!same(source)) {
-    clear("会话已变化，请重新读取支付验证设置。");
+    clear("会话已变化，请刷新页面后核对。");
     return false;
   }
   return isAllowed();
@@ -167,7 +167,7 @@ async function load() {
     unresolvedSave.value = false;
   } catch {
     if (current(run, c, source))
-      error.value = "当前支付验证设置无法确认，请重新读取后再编辑。";
+      error.value = "当前支付验证设置无法确认，请刷新页面后核对。";
   } finally {
     if (current(run, c, source)) loading.value = false;
   }
@@ -247,8 +247,8 @@ async function submit() {
       uncertain.value = true;
       error.value =
         reason instanceof ApiError && reason.status === 409
-          ? "支付验证设置已变化，请重新读取并确认；不会自动重试。"
-          : "本次保存结果无法确认，请只读核对当前设置；不会自动重试。";
+          ? "支付验证设置已变化，请刷新页面后核对；不会自动重试。"
+          : "本次保存结果无法确认，请刷新页面后核对当前设置；不会自动重试。";
     }
   } finally {
     if (current(run, c, source)) {
@@ -256,7 +256,7 @@ async function submit() {
       emit("busy", false);
       await nextTick();
       if (current(run, c, source))
-        (state.value ? prepareButton.value : refresh.value)?.focus();
+        (state.value ? prepareButton.value : errorTarget.value)?.focus();
     }
   }
 }
@@ -337,20 +337,19 @@ onBeforeUnmount(() => {
   <section class="panel payment-defend206" aria-label="创建订单人机验证">
     <div class="toolbar">
       <h3>创建订单人机验证</h3>
-      <button
-        v-if="allowed"
-        ref="refresh"
-        type="button"
-        :disabled="loading || busy || confirming || disabled"
-        @click="load"
-      >
-        重新读取支付验证设置
-      </button>
     </div>
     <p v-if="!allowed" class="muted">此设置需要超级管理员本人会话。</p>
     <template v-else>
       <p v-if="loading" role="status">正在读取支付验证设置…</p>
-      <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+      <p
+        ref="errorTarget"
+        tabindex="-1"
+        v-if="error"
+        role="alert"
+        class="alert error"
+      >
+        {{ error }}
+      </p>
       <p v-if="notice" role="status" class="alert success">{{ notice }}</p>
       <template v-if="state && draft">
         <p class="muted">

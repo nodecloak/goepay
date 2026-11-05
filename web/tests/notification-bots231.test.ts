@@ -1,3 +1,4 @@
+import { pageReload248 } from "./helpers/page-reload248";
 import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import Bots from "../src/components/NotificationBotSettings231.vue";
@@ -35,7 +36,7 @@ function setup(
 ) {
   const request = vi.fn().mockResolvedValue(initial);
   const client = { area: "admin", csrfToken: "synthetic-bots231", request };
-  const wrapper = mount(Bots, {
+  let wrapper = mount(Bots, {
     props: {
       client: client as never,
       kind,
@@ -76,7 +77,7 @@ afterEach(() => {
 
 describe("administrator notification accounts", () => {
   it("cancels edited credentials, restores binding availability, and keeps enabled-account clearing unavailable", async () => {
-    const { wrapper, request } = setup("qqbot", configured());
+    let { wrapper, request } = setup("qqbot", configured());
     await flushPromises();
     expect(
       wrapper
@@ -130,7 +131,7 @@ describe("administrator notification accounts", () => {
   it.each([{ ownSession: false }, { adminClass: "operator" }])(
     "does not load credentials without an original super session %j",
     async (extra) => {
-      const { wrapper, request } = setup("qqbot", empty(), extra);
+      let { wrapper, request } = setup("qqbot", empty(), extra);
       await flushPromises();
       expect(request).not.toHaveBeenCalled();
       expect(wrapper.find("form").exists()).toBe(false);
@@ -138,7 +139,7 @@ describe("administrator notification accounts", () => {
   );
 
   it("shows robot webhook and administrator phone while using masked placeholders", async () => {
-    const { wrapper } = setup("robot", {
+    let { wrapper } = setup("robot", {
       ...configured(),
       phone_masked: "138***001",
     });
@@ -161,7 +162,7 @@ describe("administrator notification accounts", () => {
   });
 
   it("saves the complete robot configuration once without starting binding or sending", async () => {
-    const { wrapper, request } = setup("robot");
+    let { wrapper, request } = setup("robot");
     await flushPromises();
     await replace(wrapper);
     await wrapper
@@ -200,7 +201,7 @@ describe("administrator notification accounts", () => {
   });
 
   it("uses the OAuth Telegram token without retaining a dedicated secret", async () => {
-    const { wrapper, request } = setup("telegram");
+    let { wrapper, request } = setup("telegram");
     await flushPromises();
     await replace(wrapper);
     await wrapper
@@ -234,7 +235,7 @@ describe("administrator notification accounts", () => {
     expect(wrapper.html()).not.toContain("synthetic-dedicated231");
   });
   it("saves an administrator SMS phone without requiring a disabled robot webhook", async () => {
-    const { wrapper, request } = setup("robot");
+    let { wrapper, request } = setup("robot");
     await flushPromises();
     await replace(wrapper);
     await wrapper.find('[aria-label="管理员手机号码"]').setValue("13800000001");
@@ -266,7 +267,7 @@ describe("administrator notification accounts", () => {
   });
 
   it("rejects incomplete QQ credentials before dispatch and never offers an OpenID input", async () => {
-    const { wrapper, request } = setup();
+    let { wrapper, request } = setup();
     await flushPromises();
     await replace(wrapper);
     await wrapper
@@ -280,7 +281,7 @@ describe("administrator notification accounts", () => {
   });
 
   it("sends empty credential fields for keep and clears only after disabling", async () => {
-    const { wrapper, request } = setup("qqbot", configured());
+    let { wrapper, request } = setup("qqbot", configured());
     await flushPromises();
     wrapper.findComponent(KitSwitch).vm.$emit("update:modelValue", false);
     request.mockResolvedValueOnce({
@@ -321,7 +322,7 @@ describe("administrator notification accounts", () => {
   });
 
   it("clears drafts and blocks mutation after an unknown save until explicit readback", async () => {
-    const { wrapper, request } = setup("qqbot", configured());
+    let { wrapper, request } = setup("qqbot", configured());
     await flushPromises();
     await replace(wrapper);
     await wrapper
@@ -343,7 +344,7 @@ describe("administrator notification accounts", () => {
     expect(
       button(wrapper, "保存管理员QQ机器人配置").attributes("disabled"),
     ).toBeDefined();
-    await button(wrapper, "重新读取管理员QQ机器人配置").trigger("click");
+    wrapper = await pageReload248(wrapper);
     await flushPromises();
     expect(request).toHaveBeenCalledTimes(3);
     expect(wrapper.text()).not.toContain("不会自动重试");
@@ -351,7 +352,7 @@ describe("administrator notification accounts", () => {
 
   it("starts a deliberate in-memory QQ challenge and removes it when polling observes binding", async () => {
     vi.useFakeTimers();
-    const { wrapper, request } = setup("qqbot", configured());
+    let { wrapper, request } = setup("qqbot", configured());
     await flushPromises();
     request.mockResolvedValueOnce({
       id: "a".repeat(48),
@@ -387,7 +388,7 @@ describe("administrator notification accounts", () => {
   });
 
   it("cancels exactly the active binding window without putting its code in a URL", async () => {
-    const { wrapper, request } = setup("qqbot", configured());
+    let { wrapper, request } = setup("qqbot", configured());
     await flushPromises();
     request.mockResolvedValueOnce({
       id: "b".repeat(48),
@@ -409,7 +410,7 @@ describe("administrator notification accounts", () => {
     ).toBe(false);
   });
   it("does not repeat a binding start after its response is lost", async () => {
-    const { wrapper, request } = setup("qqbot", configured());
+    let { wrapper, request } = setup("qqbot", configured());
     await flushPromises();
     request.mockRejectedValueOnce(new Error("lost binding response"));
     await button(wrapper, "开始QQ绑定").trigger("click");
@@ -421,7 +422,7 @@ describe("administrator notification accounts", () => {
   });
   it("stops polling after a read failure and requires explicit configuration readback", async () => {
     vi.useFakeTimers();
-    const { wrapper, request } = setup("qqbot", configured());
+    let { wrapper, request } = setup("qqbot", configured());
     await flushPromises();
     request.mockResolvedValueOnce({
       id: "d".repeat(48),
@@ -441,7 +442,7 @@ describe("administrator notification accounts", () => {
 
   it("stops and hides a binding challenge at its five minute expiry", async () => {
     vi.useFakeTimers();
-    const { wrapper, request } = setup("qqbot", configured());
+    let { wrapper, request } = setup("qqbot", configured());
     await flushPromises();
     request.mockResolvedValueOnce({
       id: "c".repeat(48),
@@ -461,7 +462,7 @@ describe("administrator notification accounts", () => {
   });
 
   it("requires explicit confirmation before unbinding the saved QQ recipient", async () => {
-    const { wrapper, request } = setup("qqbot", {
+    let { wrapper, request } = setup("qqbot", {
       ...configured(),
       bound: true,
       recipient_masked: "op***id",
@@ -488,7 +489,7 @@ describe("administrator notification accounts", () => {
   });
 
   it("keeps definite validation failures editable but rejects a conflict until readback", async () => {
-    const { wrapper, request } = setup("qqbot", configured());
+    let { wrapper, request } = setup("qqbot", configured());
     await flushPromises();
     await replace(wrapper);
     await wrapper
@@ -514,7 +515,7 @@ describe("administrator notification accounts", () => {
 
   it("registers the live draft and discards private state on session change despite a late response", async () => {
     let dirty = () => false;
-    const { wrapper, request } = setup(
+    let { wrapper, request } = setup(
       "qqbot",
       configured(),
       {},

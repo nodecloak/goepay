@@ -25,7 +25,7 @@ const state = ref<MerchantCredentialState>(),
   confirmation = ref<MerchantCredentialOperation>(),
   result = ref<{ operation: MerchantCredentialOperation; secret: string }>();
 const resetButton = ref<HTMLButtonElement>(),
-  refreshButton = ref<HTMLButtonElement>(),
+  errorTarget = ref<HTMLElement>(),
   rsaButton = ref<HTMLButtonElement>(),
   cancelButton = ref<HTMLButtonElement>(),
   confirmGroup = ref<HTMLDivElement>(),
@@ -135,8 +135,8 @@ async function submit() {
       clearSecret();
       error.value =
         e instanceof ApiError && e.status === 409
-          ? "密钥状态已变更，请刷新后明确重新确认；原请求不会自动重试。"
-          : "本次密钥变更未能确认，请刷新当前状态；不要直接重复生成。";
+          ? "密钥状态已变更，请刷新页面后明确重新确认；原请求不会自动重试。"
+          : "本次密钥变更未能确认，请刷新页面核对当前状态；不要直接重复生成。";
     }
   } finally {
     if (active && current === epoch) {
@@ -145,7 +145,7 @@ async function submit() {
       await nextTick();
       if (active && current === epoch) {
         if (result.value) resultField.value?.focus();
-        else if (error.value) refreshButton.value?.focus();
+        else if (error.value) errorTarget.value?.focus();
       }
     }
   }
@@ -240,7 +240,15 @@ onBeforeUnmount(() => {
         merchantID
       }}。重置会立即更换接口密钥，请同步商户支付配置；签名算法保持不变。
     </p>
-    <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+    <p
+      ref="errorTarget"
+      tabindex="-1"
+      v-if="error"
+      role="alert"
+      class="alert error"
+    >
+      {{ error }}
+    </p>
     <p v-if="loading" role="status">正在读取密钥状态…</p>
     <div class="credential-actions">
       <button
@@ -262,14 +270,6 @@ onBeforeUnmount(() => {
         @click="confirm('generate-rsa')"
       >
         {{ rsaTitle }}
-      </button>
-      <button
-        ref="refreshButton"
-        type="button"
-        :disabled="disabled || loading || busy"
-        @click="load"
-      >
-        刷新密钥状态
       </button>
     </div>
     <div

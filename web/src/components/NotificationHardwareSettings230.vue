@@ -109,7 +109,7 @@ function apply(v: State) {
     typeof v.secret_present !== "boolean" ||
     typeof v.app_id_masked !== "string"
   )
-    throw Error("配置响应不完整，请重新读取");
+    throw Error("配置响应不完整，请刷新页面后核对");
   state.value = v;
   enabled.value = v.enabled;
   provider.value = v.provider || "excelsecu";
@@ -212,7 +212,7 @@ async function save() {
         [400, 422].includes(e.status)
       );
       error.value = uncertain.value
-        ? "保存结果尚未确认，请重新读取后核对；不会自动重试。"
+        ? "保存结果尚未确认，请刷新页面后核对；不会自动重试。"
         : e instanceof Error
           ? e.message
           : "配置未被接受";
@@ -262,13 +262,7 @@ onBeforeUnmount(() => {
     <template v-else>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="notice" role="status">{{ notice }}</p>
-      <button
-        type="button"
-        :disabled="busy || loading || disabled"
-        @click="load()"
-      >
-        重新读取{{ voice ? "云喇叭" : "打印" }}配置
-      </button>
+
       <form v-if="state" @submit.prevent="check">
         <fieldset :disabled="busy || loading || confirming || disabled">
           <div class="hardware-row230">

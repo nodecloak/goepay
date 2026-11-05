@@ -14,7 +14,7 @@ export type MailPolicy194 = MailValues194 & {
 };
 export function mailValues194(v: unknown, legacy = false): MailValues194 {
   if (!v || typeof v !== "object")
-    throw Error("邮件频率配置无法确认，请重新读取");
+    throw Error("邮件频率配置无法确认，请刷新页面后核对");
   const out = {} as MailValues194;
   for (const [key, , max] of mailFields194) {
     const raw = (v as Record<string, unknown>)[key];
@@ -40,10 +40,10 @@ export function readMailPolicy194(v: unknown): MailPolicy194 {
     typeof r.fingerprint !== "string" ||
     !/^[a-f0-9]{64}$/.test(r.fingerprint)
   )
-    throw Error("邮件频率配置无法确认，请重新读取");
+    throw Error("邮件频率配置无法确认，请刷新页面后核对");
   const effective = mailValues194(r.effective, !r.configured);
   if (r.configured && mailFields194.some(([k]) => fields[k] !== effective[k]))
-    throw Error("邮件频率生效状态无法确认，请重新读取");
+    throw Error("邮件频率生效状态无法确认，请刷新页面后核对");
   return {
     ...fields,
     effective,

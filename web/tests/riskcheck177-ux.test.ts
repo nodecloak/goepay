@@ -139,12 +139,7 @@ it("an in-flight policy write keeps real settings tabs and outer refresh disable
     .trigger("click");
   await flushPromises();
   expect(w.get("#settings-tab-site").attributes("disabled")).toBeDefined();
-  expect(
-    w
-      .findAll("button")
-      .find((x) => x.text() === "刷新设置")!
-      .attributes("disabled"),
-  ).toBeDefined();
+  expect(w.findAll("button").some((b) => b.text() === "刷新设置")).toBe(false);
   const next = policy("1");
   next.settings.pay_iplimit = "3";
   resolve(next);

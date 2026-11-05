@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { publicSiteFixture191 } from "./fixtures/site191";
 import { test, expect } from "@playwright/test";
 import currentPolicies from "./referral170-policies.json" with { type: "json" };
@@ -321,9 +322,7 @@ test("referral merchant owns token rotation and sees historical flows rather tha
       () => JSON.stringify(localStorage) + JSON.stringify(sessionStorage),
     ),
   ).not.toContain(bearer);
-  await page
-    .getByRole("button", { name: "重新读取邀请资料", exact: true })
-    .click();
+  await pageReload248(page);
   await expect(page.getByLabel("本次推广链接")).toHaveCount(0);
   expect(rotates).toBe(1);
 });

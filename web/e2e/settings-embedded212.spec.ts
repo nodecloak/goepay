@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { test, expect, type Page } from "@playwright/test";
 async function fixture(page: Page, rejected = false, withTest = false) {
   let smtp = {
@@ -157,33 +158,28 @@ test("SMTP draft remains in memory across categories and cancel explicitly clear
     ),
   ).not.toContain("synthetic-secret212");
 });
-test("SMTP draft blocks refresh in a different category; cancelled refresh preserves, confirmed refresh discards", async ({
+test("SMTP draft stays guarded across categories; page reload discards private fields", async ({
   page,
 }) => {
   await fixture(page);
   await suspend(page);
   await page.getByRole("tab", { name: "高级设置", exact: true }).click();
-  await page.getByRole("button", { name: "刷新设置", exact: true }).click();
-  const confirm = page.getByRole("dialog", {
-    name: "放弃未保存的设置？",
-    exact: true,
-  });
-  await expect(confirm).toContainText("SMTP");
-  await confirm.getByRole("button", { name: "继续编辑", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "刷新设置", exact: true }),
+  ).toHaveCount(0);
+  expect(await unloadBlocked(page)).toBe(true);
   await page.getByRole("tab", { name: "邮箱配置", exact: true }).click();
   await page.getByRole("button", { name: "继续编辑草稿", exact: true }).click();
   await expect(page.getByLabel("SMTP服务器", { exact: true })).toHaveValue(
     "smtp.synthetic212.invalid",
   );
   await suspend(page);
-  await page.getByRole("button", { name: "刷新设置", exact: true }).click();
-  await confirm
-    .getByRole("button", { name: "放弃修改并刷新", exact: true })
-    .click();
+  await pageReload248(page);
   await page.getByRole("button", { name: "账号设置", exact: true }).click();
   await expect(page.getByLabel("SMTP服务器", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("邮箱密码", { exact: true })).toHaveValue("");
 });
+
 test("SMTP draft protects route leave; success clears the unload guard", async ({
   page,
 }) => {
@@ -230,17 +226,9 @@ test("SMTP local reread cannot silently destroy an unresolved descendant test-ma
   await expect(sending).toContainText("发送结果尚未确认");
   await sending.getByRole("button", { name: "关闭", exact: true }).click();
   expect(await unloadBlocked(page)).toBe(true);
-  await page
-    .getByRole("button", { name: "重新读取SMTP账号", exact: true })
-    .click();
-  const confirmation = page.getByRole("dialog", {
-    name: "放弃未保存的设置？",
-    exact: true,
-  });
-  await expect(confirmation).toContainText("测试邮件");
-  await confirmation
-    .getByRole("button", { name: "继续编辑", exact: true })
-    .click();
+  await expect(
+    page.getByRole("button", { name: "重新读取SMTP账号", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "查看原测试结果", exact: true }),
   ).toBeVisible();

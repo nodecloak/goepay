@@ -36,8 +36,12 @@ async function fixture(
   };
   let state = { ...original };
   const parent = (channel: string) => ({
-    ...actual.bound, id: channel, source_channel_id: channel,
-    name: "原父通道 " + channel, pay_type: "alipay", plugin: "alipay",
+    ...actual.bound,
+    id: channel,
+    source_channel_id: channel,
+    name: "原父通道 " + channel,
+    pay_type: "alipay",
+    plugin: "alipay",
     rate: channel === id ? state.rate : null,
     fee_rate_bps: channel === id ? state.fee_rate_bps : null,
     enabled: channel === id ? state.enabled : true,
@@ -87,7 +91,12 @@ async function fixture(
     else if (p.endsWith("/payment-channels/templates"))
       data = { items: [], total: 0 };
     else if (p.endsWith("/payment-channels"))
-      data = { items: [parent(id), parent(other)], total: 2, page: 1, size: 20 };
+      data = {
+        items: [parent(id), parent(other)],
+        total: 2,
+        page: 1,
+        size: 20,
+      };
     else if (p.includes("/buyer-fees/parents/") && req.method() === "GET")
       data = { ...buyerFee104.parent, channel_id: p.split("/").at(-1) };
     else if (p.endsWith("/channel-policies"))
@@ -184,7 +193,10 @@ async function fixture(
   };
 }
 async function openPolicy(page: Page, target = id) {
-  const open = page.getByRole("button", { name: "通道 " + target + " 更多操作", exact: true });
+  const open = page.getByRole("button", {
+    name: "通道 " + target + " 更多操作",
+    exact: true,
+  });
   await open.click();
   await page.getByRole("menuitem", { name: "设置费率", exact: true }).click();
   return open;
@@ -282,16 +294,21 @@ test("committed policy with malformed response keeps confirmation state unavaila
     .click();
   await dialog.getByRole("button", { name: "确定保存", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("修改未能确认");
+  await expect(dialog.getByRole("alert")).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
   await expect(
-    dialog.getByRole("button", { name: "刷新通道配置", exact: true }),
+    dialog.getByRole("button", { name: "关闭", exact: true }),
   ).toBeFocused();
+  await page.keyboard.press("Tab");
+  expect(
+    await dialog.evaluate((el) => el.contains(document.activeElement)),
+  ).toBe(true);
   await expect(
     dialog.getByRole("button", { name: "确定保存", exact: true }),
   ).toHaveCount(0);
   expect(f.writes).toHaveLength(1);
-  await dialog
-    .getByRole("button", { name: "刷新通道配置", exact: true })
-    .click();
+  await dialog.getByRole("button", { name: "关闭", exact: true }).click();
+  await openPolicy(page);
   await expect(
     dialog.getByLabel("支付费率（商户分成%）", { exact: true }),
   ).toHaveValue("98.75");
@@ -391,9 +408,7 @@ test("conflicted policy requires refresh and never silently retries a newer fing
     .click();
   await dialog.getByRole("button", { name: "确定保存", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("已变更");
-  await expect(
-    dialog.getByRole("button", { name: "刷新通道配置", exact: true }),
-  ).toBeFocused();
+  await expect(dialog.getByRole("alert")).toBeFocused();
   expect(f.writes).toHaveLength(1);
   await expect(
     dialog.getByRole("button", { name: "确定保存", exact: true }),

@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 
 const blank = () => ({
@@ -335,13 +336,7 @@ test("a lost save response clears secrets and permits readback without replaying
     qq.getByRole("button", { name: "保存管理员QQ机器人配置", exact: true }),
   ).toBeDisabled();
   expect(writes).toHaveLength(1);
-  await qq
-    .getByRole("button", { name: "重新读取管理员QQ机器人配置", exact: true })
-    .click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: /放弃|丢弃|确认/, exact: false })
-    .click();
+  await pageReload248(page);
   await expect(qq.getByRole("alert")).toHaveCount(0);
   expect(writes).toHaveLength(1);
 });

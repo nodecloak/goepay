@@ -49,7 +49,7 @@ export async function uploadBrand193(
 ): Promise<Brand193> {
   const csrf = client.csrfToken;
   if (client.area !== "admin" || !csrf || !/^[a-f0-9]{64}$/.test(fingerprint))
-    throw new Error("请重新读取本人管理员会话");
+    throw new Error("请刷新页面后核对本人管理员会话");
   if (
     file.size === 0 ||
     file.size >= 2 * 1024 * 1024 ||
@@ -73,20 +73,20 @@ export async function uploadBrand193(
     signal,
   });
   if (signal.aborted || client.csrfToken !== csrf)
-    throw new Error("会话已变化，请重新读取");
+    throw new Error("会话已变化，请刷新页面后核对");
   let body;
   try {
     body = await reply.json();
   } catch {
-    throw new Error("上传结果无法确认，请重新读取后核对");
+    throw new Error("上传结果无法确认，请刷新页面后核对");
   }
   if (!reply.ok || body.code !== 0)
     throw new ApiError(
       reply.status === 409
-        ? "图片设置已变化，请重新读取后上传"
+        ? "图片设置已变化，请刷新页面后核对后上传"
         : reply.status === 422 || reply.status === 413
           ? "图片无效、尺寸或大小超限"
-          : "上传结果无法确认，请重新读取后核对",
+          : "上传结果无法确认，请刷新页面后核对",
       reply.status,
       body.code ?? -1,
     );

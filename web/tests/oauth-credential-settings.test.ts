@@ -187,7 +187,7 @@ describe("OAuthCredentialSettings", () => {
     await w.get('input[type="password"]').setValue("qq-secret-2");
     await w.get("form").trigger("submit");
     await flushPromises();
-    expect(w.text()).toContain("快捷登录密钥状态已变化，请重新读取并核对");
+    expect(w.text()).toContain("刷新页面");
     expect(w.findAll(".oauth-secret")).toHaveLength(0);
     expect(
       request.mock.calls.filter((c) => c[1]?.method === "PATCH"),
@@ -203,7 +203,7 @@ describe("OAuthCredentialSettings", () => {
     await w.get('input[type="password"]').setValue("qq-secret-3");
     await w.get("form").trigger("submit");
     await flushPromises();
-    expect(w.text()).toContain("本次操作结果无法确认，请重新读取核对");
+    expect(w.text()).toContain("刷新页面");
     w.unmount();
   });
 
@@ -211,7 +211,7 @@ describe("OAuthCredentialSettings", () => {
     const request = vi.fn(async () => ({ qq_set: "yes" }));
     const w = render(request);
     await flushPromises();
-    expect(w.text()).toContain("快捷登录密钥状态读取失败，请重新读取");
+    expect(w.text()).toContain("刷新页面");
     expect(w.findAll(".oauth-secret")).toHaveLength(0);
     w.unmount();
   });

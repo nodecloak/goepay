@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { test, expect, type Page } from "@playwright/test";
 import { accountSettingsReadFixture } from "./fixtures/account-settings";
 const mid = "9007199254740993";
@@ -124,7 +125,7 @@ test("personal172 conflicting settings require explicit refresh before another s
     p.endsWith("/account/personal-settings"),
   ).length;
   await f.panel.getByRole("button", { name: "保存设置", exact: true }).click();
-  await expect(f.panel.getByRole("alert")).toContainText("重新读取");
+  await expect(f.panel.getByRole("alert")).toContainText("刷新页面");
   await expect(
     f.panel.getByRole("button", { name: "保存设置", exact: true }),
   ).toBeDisabled();
@@ -132,7 +133,7 @@ test("personal172 conflicting settings require explicit refresh before another s
   expect(
     f.reads.filter((p) => p.endsWith("/account/personal-settings")),
   ).toHaveLength(before);
-  await f.panel.getByRole("button", { name: "重新读取", exact: true }).click();
+  await pageReload248(page);
   await expect(f.panel.getByLabel("联系QQ")).toHaveValue("123456");
   expect(f.writes).toHaveLength(1);
   expect(f.errors).toHaveLength(0);

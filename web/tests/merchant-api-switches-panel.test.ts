@@ -1,3 +1,4 @@
+import { pageReload248 } from "./helpers/page-reload248";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi, beforeEach, afterEach } from "vitest";
 import actualPlatform from "../e2e/globalaccess179-http-fixture.json";
@@ -40,7 +41,7 @@ function setup(
   const request = vi
     .spyOn(c, "request")
     .mockImplementation((handler || (async () => original)) as never);
-  const w = mount(Panel, {
+  let w = mount(Panel, {
     props: { client: c, merchantId: mid, ownSession: true },
   });
   return { c, request, w };
@@ -107,7 +108,7 @@ it.each(["conflict", "malformed", "network"])(
     expect(f.w.text()).not.toContain("保存成功");
     expect(f.w.find("form").exists()).toBe(false);
     expect(f.request).toHaveBeenCalledTimes(2);
-    await f.w.get('[data-action="reload"]').trigger("click");
+    f.w = await pageReload248(f.w);
     await flushPromises();
     expect(f.request).toHaveBeenCalledTimes(3);
     f.w.unmount();
@@ -122,9 +123,7 @@ it("pending saves block duplicates and stale raw-client stamps discard late resu
   await f.w.get('[data-action="confirm"]').trigger("click");
   await f.w.get("form").trigger("submit");
   expect(f.request).toHaveBeenCalledTimes(2);
-  expect(
-    f.w.get('[data-action="reload"]').attributes("disabled"),
-  ).toBeDefined();
+  expect(f.w.find('[data-action="reload"]').exists()).toBe(false);
   f.c.csrfToken = "d".repeat(43);
   resolve({
     ...original,
@@ -141,7 +140,7 @@ it("keyboard confirmation focuses its action and Escape returns to the original 
   const c = new ApiClient("merchant");
   c.csrfToken = "c".repeat(43);
   vi.spyOn(c, "request").mockResolvedValue(original as never);
-  const w = mount(Panel, {
+  let w = mount(Panel, {
     props: { client: c, merchantId: mid, ownSession: true },
     attachTo: document.body,
   });

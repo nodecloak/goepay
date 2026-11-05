@@ -43,9 +43,9 @@ const items = ref<RuntimeChannelPolicy[]>([]),
   confirmation = ref<RuntimeChannelPolicyChange>();
 const modal = ref<HTMLElement>(),
   rateInput = ref<HTMLInputElement>(),
-  refreshButton = ref<HTMLButtonElement>(),
+  detailErrorTarget = ref<HTMLElement>(),
   closeButton = ref<HTMLButtonElement>(),
-  catalogRefreshButton = ref<HTMLButtonElement>(),
+  catalogErrorTarget = ref<HTMLElement>(),
   returnButton = ref<HTMLButtonElement>(),
   confirmGroup = ref<HTMLElement>();
 let active = true,
@@ -84,7 +84,7 @@ function ensureSession() {
   const current = epoch;
   void nextTick(() => {
     if (active && current === epoch && !modalID.value)
-      catalogRefreshButton.value?.focus();
+      catalogErrorTarget.value?.focus();
   });
   return false;
 }
@@ -173,13 +173,16 @@ async function loadDetail() {
     enabled.value = state.enabled;
   } catch {
     if (valid(current, c) && modalID.value === id)
-      detailError.value = "当前通道配置无法核实，请刷新后重新确认。";
+      detailError.value = "当前通道配置无法核实，请刷新页面后重新确认。";
   } finally {
     if (valid(current, c) && modalID.value === id) {
       detailLoading.value = false;
       await nextTick();
       if (valid(current, c))
-        (detailError.value ? refreshButton.value : rateInput.value)?.focus();
+        (detailError.value
+          ? detailErrorTarget.value
+          : rateInput.value
+        )?.focus();
     }
   }
 }
@@ -301,15 +304,18 @@ async function submit() {
       confirmation.value = undefined;
       detailError.value =
         e instanceof ApiError && e.status === 409
-          ? "通道配置已变更，请刷新后重新确认；不会自动重试。"
-          : "本次通道修改未能确认，请刷新当前状态；不要直接重复提交。";
+          ? "通道配置已变更，请刷新页面后重新确认；不会自动重试。"
+          : "本次通道修改未能确认，请刷新页面核对当前状态；不要直接重复提交。";
     }
   } finally {
     if (valid(current, c) && modalID.value === id) {
       busy.value = false;
       await nextTick();
       if (valid(current, c))
-        (detailError.value ? refreshButton.value : closeButton.value)?.focus();
+        (detailError.value
+          ? detailErrorTarget.value
+          : closeButton.value
+        )?.focus();
     }
   }
 }
@@ -338,6 +344,11 @@ function keydown(event: KeyboardEvent) {
     ).filter((el) => el.getClientRects().length > 0),
     first = nodes[0],
     last = nodes.at(-1);
+  if (!nodes.includes(document.activeElement as HTMLElement)) {
+    event.preventDefault();
+    (event.shiftKey ? last : first)?.focus();
+    return;
+  }
   if (event.shiftKey && document.activeElement === first) {
     event.preventDefault();
     last?.focus();
@@ -386,19 +397,19 @@ onBeforeUnmount(() => {
     <template v-if="!channelID"
       ><div class="toolbar">
         <h2>已接入通道费率</h2>
-        <button
-          ref="catalogRefreshButton"
-          type="button"
-          :disabled="loading || !!modalID || !!limitsID"
-          @click="load"
-        >
-          刷新支付通道
-        </button>
       </div>
       <p class="muted">
         费率为给商户的分成比例；用户组另设比例时优先使用用户组，未启用手续费时不扣费。
       </p>
-      <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+      <div
+        ref="catalogErrorTarget"
+        tabindex="-1"
+        v-if="error"
+        class="alert error"
+        role="alert"
+      >
+        {{ error }}
+      </div>
       <p v-if="loading" role="status">正在读取支付通道…</p>
       <div v-else class="table-scroll">
         <table>
@@ -424,7 +435,12 @@ onBeforeUnmount(() => {
                   ></template
                 ><span v-else>尚未配置，沿用原费用设置</span>
               </td>
-              <td>配置：{{ item.enabled ? "开启" : "关闭" }}<small class="cell muted">{{ effectiveRiskDescription(item.core_risk, item.enabled) }}</small></td>
+              <td>
+                配置：{{ item.enabled ? "开启" : "关闭"
+                }}<small class="cell muted">{{
+                  effectiveRiskDescription(item.core_risk, item.enabled)
+                }}</small>
+              </td>
               <td>
                 <button
                   type="button"
@@ -476,7 +492,13 @@ onBeforeUnmount(() => {
         <h2>设置支付通道费率</h2>
         <p class="channel-target">通道ID：{{ modalID }}</p>
         <p v-if="detailLoading" role="status">正在核对当前通道…</p>
-        <p v-if="detailError" class="alert error" role="alert">
+        <p
+          ref="detailErrorTarget"
+          tabindex="-1"
+          v-if="detailError"
+          class="alert error"
+          role="alert"
+        >
           {{ detailError }}
         </p>
         <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
@@ -554,14 +576,6 @@ onBeforeUnmount(() => {
         </div>
         <div class="toolbar-actions">
           <button
-            v-if="!detailLoading && !confirmation"
-            ref="refreshButton"
-            type="button"
-            :disabled="busy || minimumBusy104"
-            @click="loadDetail"
-          >
-            刷新通道配置</button
-          ><button
             ref="closeButton"
             type="button"
             :disabled="busy || minimumBusy104"

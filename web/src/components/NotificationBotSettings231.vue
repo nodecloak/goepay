@@ -174,7 +174,7 @@ function parse(v: State): State {
     ].every((x) => typeof x === "string") ||
     !["", "oauth", "dedicated"].includes(v.token_source)
   )
-    throw Error("配置响应不完整，请重新读取");
+    throw Error("配置响应不完整，请刷新页面后核对");
   return {
     revision: v.revision,
     enabled: v.enabled,
@@ -271,7 +271,7 @@ function failMutation(e: unknown) {
     [400, 422].includes(e.status)
   );
   error.value = uncertain.value
-    ? "操作结果尚未确认，请重新读取配置后核对；不会自动重试。"
+    ? "操作结果尚未确认，请刷新页面后核对；不会自动重试。"
     : e instanceof Error
       ? e.message
       : "配置未被接受";
@@ -324,7 +324,7 @@ function expireBinding() {
   ++epoch;
   controller?.abort();
   clearBinding();
-  notice.value = "本次绑定码已过期，请重新读取配置后再开始绑定。";
+  notice.value = "本次绑定码已过期，请刷新页面后核对。";
 }
 function schedulePoll(run: number, c: readonly unknown[]) {
   pollTimer = setTimeout(() => {
@@ -354,7 +354,7 @@ async function poll(run: number, c: readonly unknown[]) {
     if (current(run, c)) {
       clearBinding();
       uncertain.value = true;
-      error.value = "绑定状态尚未确认，请重新读取配置后核对；不会自动重试。";
+      error.value = "绑定状态尚未确认，请刷新页面后核对；不会自动重试。";
     }
   }
 }
@@ -532,13 +532,7 @@ onBeforeUnmount(() => {
     <template v-else>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="notice" role="status">{{ notice }}</p>
-      <button
-        type="button"
-        :disabled="busy || loading || !!binding || disabled"
-        @click="load()"
-      >
-        重新读取{{ title }}
-      </button>
+
       <p v-if="loading" role="status">正在读取配置…</p>
       <form v-if="state" @submit.prevent="check">
         <fieldset :disabled="editingBlocked">

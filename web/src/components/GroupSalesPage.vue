@@ -215,16 +215,6 @@ onBeforeUnmount(() => {
       当前为只读查看，保存需要本人超级管理员会话。
     </p>
     <section class="panel sale-policy-card" aria-label="用户组购买设置">
-      <div class="sale-policy-head">
-        <button
-          type="button"
-          class="sale-refresh"
-          :disabled="busy || loading"
-          @click="load"
-        >
-          <ShellIcon name="refresh" />刷新配置
-        </button>
-      </div>
       <p
         v-if="loading && !configuration"
         role="status"

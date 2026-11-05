@@ -1,3 +1,4 @@
+import { pageReload248 } from "./helpers/page-reload248";
 import { afterEach, expect, it, vi } from "vitest";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { ApiClient, ApiError } from "../src/api";
@@ -42,7 +43,7 @@ async function fixture(
       }
       return original as never;
     });
-  const w = mount(Panel, {
+  let w = mount(Panel, {
     props: { client, merchantId: "1000", ownSession, section },
   });
   mounted.push(w);
@@ -51,7 +52,7 @@ async function fixture(
 }
 
 it("account contact settings never display or reset the existing settlement reserve", async () => {
-  const { w, request } = await fixture("contact");
+  let { w, request } = await fixture("contact");
   expect(w.find('[name="remain_money"]').exists()).toBe(false);
   await w.get('[name="qq"]').setValue("7654321");
   await w.get("form").trigger("submit");
@@ -67,7 +68,7 @@ it("account contact settings never display or reset the existing settlement rese
 });
 
 it("settlement reserve settings save only their visible draft while preserving contact and amount limits from the same CAS snapshot", async () => {
-  const { w, request } = await fixture("settlement");
+  let { w, request } = await fixture("settlement");
   expect(w.get("h2").text()).toBe("预留余额设置");
   for (const name of ["qq", "pay_minmoney", "pay_maxmoney"])
     expect(w.find(`[name="${name}"]`).exists()).toBe(false);
@@ -91,14 +92,14 @@ it("settlement reserve settings save only their visible draft while preserving c
 });
 
 it("a reserve conflict locks writes until explicit read instead of overwriting another section", async () => {
-  const { w, request } = await fixture("settlement", true);
+  let { w, request } = await fixture("settlement", true);
   await w.get('[name="remain_money"]').setValue("25%");
   await w.get("form").trigger("submit");
   await flushPromises();
-  expect(w.text()).toContain("设置已变更，请重新读取并核对后保存");
+  expect(w.text()).toContain("刷新页面");
   expect(w.find("form").exists()).toBe(false);
   expect(request).toHaveBeenCalledTimes(2);
-  await w.get('[data-action="reload"]').trigger("click");
+  w = await pageReload248(w);
   await flushPromises();
   expect(request).toHaveBeenCalledTimes(3);
   expect(
@@ -107,7 +108,7 @@ it("a reserve conflict locks writes until explicit read instead of overwriting a
 });
 
 it("delegated reserve settings never read personal values", async () => {
-  const { w, request } = await fixture("settlement", false, false);
+  let { w, request } = await fixture("settlement", false, false);
   expect(request).not.toHaveBeenCalled();
   expect(w.find("form").exists()).toBe(false);
 });
@@ -124,7 +125,7 @@ it("switching sections aborts and ignores an earlier section read", async () => 
       }) as never;
     return original as never;
   });
-  const w = mount(Panel, {
+  let w = mount(Panel, {
     props: { client, merchantId: "1000", ownSession: true, section: "contact" },
   });
   mounted.push(w);

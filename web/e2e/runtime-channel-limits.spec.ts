@@ -48,8 +48,12 @@ async function fixture(
   };
   let state = { ...original };
   const parent = (channel: string) => ({
-    ...actual.bound, id: channel, source_channel_id: channel,
-    name: "原父通道 " + channel, pay_type: "alipay", plugin: "alipay",
+    ...actual.bound,
+    id: channel,
+    source_channel_id: channel,
+    name: "原父通道 " + channel,
+    pay_type: "alipay",
+    plugin: "alipay",
     account: { plugin: "alipay", app_types: ["1"], mode: 0, fields: [] },
   });
   await page.route("**/console/v1/**", async (route) => {
@@ -84,9 +88,19 @@ async function fixture(
     else if (p.endsWith("/payment-channels/templates"))
       data = { items: [], total: 0 };
     else if (p.endsWith("/payment-channels"))
-      data = { items: [parent(id), parent(other)], total: 2, page: 1, size: 20 };
+      data = {
+        items: [parent(id), parent(other)],
+        total: 2,
+        page: 1,
+        size: 20,
+      };
     else if (/\/payment-channels\/\d+\/subject$/.test(p))
-      data = { channel_id: p.split("/").at(-2), ordername: "", ordername_rules: "", fingerprint: "d".repeat(64) };
+      data = {
+        channel_id: p.split("/").at(-2),
+        ordername: "",
+        ordername_rules: "",
+        fingerprint: "d".repeat(64),
+      };
     else if (p.endsWith("/channel-policies"))
       data = {
         items: [id, other].map((channel_id) => ({
@@ -179,7 +193,10 @@ async function fixture(
     panel
       .getByRole("row")
       .filter({ has: page.getByRole("cell", { name: target, exact: true }) })
-      .getByRole("button", { name: "通道 " + target + " 更多操作", exact: true });
+      .getByRole("button", {
+        name: "通道 " + target + " 更多操作",
+        exact: true,
+      });
   const open = async (target = id) => {
     await launch(target).click();
     await page.getByRole("menuitem", { name: "高级设置", exact: true }).click();
@@ -243,7 +260,9 @@ for (const width of [1440, 375])
         d.getByRole("button", { name: "返回修改", exact: true }),
       ).toBeFocused();
       await d.getByRole("button", { name: "确定保存", exact: true }).click();
-      await expect(d.getByRole("status").filter({ hasText: "限额设置已保存" })).toContainText("限额设置已保存");
+      await expect(
+        d.getByRole("status").filter({ hasText: "限额设置已保存" }),
+      ).toContainText("限额设置已保存");
       expect(f.writes).toHaveLength(1);
       expect(f.writes[0]).toEqual({
         path: "/console/v1/admin/channel-policies/" + id + "/limits",
@@ -275,9 +294,20 @@ for (const failure of ["conflict", "malformed", "abort"] as const)
       await expect(dialog(page).getByRole("alert")).toContainText(
         failure === "conflict" ? "已变更" : "未能确认",
       );
+      await expect(dialog(page).getByRole("alert")).toBeFocused();
+      await page.keyboard.press("Shift+Tab");
+      await expect(
+        dialog(page).getByRole("button", { name: "关闭", exact: true }),
+      ).toBeFocused();
+      await page.keyboard.press("Tab");
+      expect(
+        await dialog(page).evaluate((el) =>
+          el.contains(document.activeElement),
+        ),
+      ).toBe(true);
       await expect(
         dialog(page).getByRole("button", { name: "刷新限额状态", exact: true }),
-      ).toBeFocused();
+      ).toHaveCount(0);
       await expect(
         dialog(page).getByRole("button", { name: "确定保存", exact: true }),
       ).toHaveCount(0);
@@ -303,7 +333,9 @@ test("pending global limits write locks duplicate submit, escape and background 
   await expect(dialog(page)).toBeVisible();
   expect(f.writes).toHaveLength(1);
   f.release();
-  await expect(dialog(page).getByRole("status").filter({ hasText: "限额设置已保存" })).toContainText("已保存");
+  await expect(
+    dialog(page).getByRole("status").filter({ hasText: "限额设置已保存" }),
+  ).toContainText("已保存");
 });
 test("late limit read cannot replace another exact parent target", async ({
   page,
@@ -330,7 +362,7 @@ test("wrong target state never enables a parent limits write", async ({
   expect(f.writes).toHaveLength(0);
 });
 
-test("a conflicted global draft survives explicit refresh but never submits automatically", async ({
+test("a conflicted global setting is loaded anew on reopen without replaying its save", async ({
   page,
 }) => {
   const f = await fixture(page, { failure: "conflict" });
@@ -340,13 +372,11 @@ test("a conflicted global draft survives explicit refresh but never submits auto
     .getByRole("button", { name: "确定保存", exact: true })
     .click();
   await expect(dialog(page).getByRole("alert")).toContainText("已变更");
-  await dialog(page)
-    .getByRole("button", { name: "刷新限额状态", exact: true })
-    .click();
+  await dialog(page).getByRole("button", { name: "关闭", exact: true }).click();
+  await f.open();
   await expect(
     dialog(page).getByLabel("单日限额（成功实收元）", { exact: true }),
-  ).toHaveValue("200.00");
-  await expect(dialog(page).getByRole("status").filter({ hasText: "草稿已保留" })).toContainText("草稿已保留");
+  ).toHaveValue("100.00");
   expect(f.writes).toHaveLength(1);
 });
 test("invalid single amount intersection cannot open a save confirmation", async ({

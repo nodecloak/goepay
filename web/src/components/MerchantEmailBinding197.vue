@@ -162,7 +162,9 @@ async function load() {
     sourceCSRF = csrf;
   } catch (e) {
     if (current(turn, client, csrf))
-      error.value = e instanceof Error ? e.message : "读取绑定邮箱失败";
+      error.value =
+        (e instanceof Error ? e.message : "读取绑定邮箱失败") +
+        "；请刷新页面后核对。";
   } finally {
     if (current(turn, client, csrf)) loading.value = false;
   }
@@ -363,7 +365,7 @@ onBeforeUnmount(() => {
       暂未启用邮箱验证，请联系管理员配置发信邮箱。
     </p>
     <p v-if="error && !opened" class="alert error" role="alert">
-      {{ error }} <button type="button" @click="load">重新读取</button>
+      {{ error }}
     </p>
     <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
     <div v-if="opened" class="modal-backdrop" @keydown="trap">

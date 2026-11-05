@@ -273,7 +273,7 @@ onBeforeUnmount(() => {
       ><small>当前通道：{{ snapshot.fields.channel_ids || "尚未配置" }}</small>
     </div>
     <p v-if="unknown" role="alert">
-      保存结果尚未确认。编辑草稿已清除，请重新读取配置核对后再操作。
+      保存结果尚未确认。编辑草稿已清除，请刷新页面后核对。
     </p>
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="loading" role="status">正在读取配置…</p>
@@ -361,9 +361,7 @@ onBeforeUnmount(() => {
     </p>
     <div class="roll-actions">
       <button type="button" class="primary" :disabled="!canSave" @click="save">
-        {{ saving ? "正在保存…" : "保存通道配置" }}</button
-      ><button type="button" :disabled="saving || loading" @click="load()">
-        重新读取配置
+        {{ saving ? "正在保存…" : "保存通道配置" }}
       </button>
     </div>
   </section>

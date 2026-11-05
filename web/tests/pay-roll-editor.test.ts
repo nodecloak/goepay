@@ -1,3 +1,4 @@
+import { pageReload248 } from "./helpers/page-reload248";
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
@@ -63,7 +64,7 @@ it("creates only a named inert draft through the dedicated endpoint with the thr
     }
     return catalog;
   });
-  const w = mount(CreateForm, { props: { client: c } });
+  let w = mount(CreateForm, { props: { client: c } });
   mounted.push(w);
   await flushPromises();
   expect(w.findAll("input")).toHaveLength(1);
@@ -103,7 +104,7 @@ it("locks an unknown draft creation and reads the list without dispatching anoth
     if (path.includes("routing-options")) return catalog;
     return { items: [], total: 0 };
   });
-  const w = mount(CreateForm, { props: { client: c } });
+  let w = mount(CreateForm, { props: { client: c } });
   mounted.push(w);
   await flushPromises();
   await w.get('input[aria-label="显示名称"]').setValue("待核对");
@@ -133,7 +134,7 @@ it("configures a same-type channel table with a CAS token and requires explicit 
       ? catalog
       : record("a".repeat(64), true);
   });
-  const w = mount(ChannelEditor, { props: { client: c, rollID: "41" } });
+  let w = mount(ChannelEditor, { props: { client: c, rollID: "41" } });
   mounted.push(w);
   await flushPromises();
   expect(w.find('[data-channel-id="9"]').exists()).toBe(false);
@@ -178,19 +179,19 @@ it("clears editable channel drafts after unknown writes and requires explicit su
     if (failRead) throw new ApiError("unavailable", 503, -1);
     return record();
   });
-  const w = mount(ChannelEditor, { props: { client: c, rollID: "41" } });
+  let w = mount(ChannelEditor, { props: { client: c, rollID: "41" } });
   mounted.push(w);
   await flushPromises();
   await w.get('input[aria-label="选择通道 8"]').setValue(true);
   await button(w, "保存通道配置").trigger("click");
   await flushPromises();
   expect(w.text()).toContain("保存结果尚未确认");
-  await button(w, "重新读取配置").trigger("click");
+  w = await pageReload248(w);
   await flushPromises();
   expect(button(w, "保存通道配置").attributes("disabled")).toBeDefined();
-  expect(w.text()).toContain("保存结果尚未确认");
+  expect(w.text()).toContain("unavailable");
   failRead = false;
-  await button(w, "重新读取配置").trigger("click");
+  w = await pageReload248(w);
   await flushPromises();
   expect(w.get('input[aria-label="选择通道 8"]').element).toHaveProperty(
     "checked",
@@ -211,7 +212,7 @@ it("reads back 409 without retrying the write and preserves a repairable 422 dra
     }
     return path.includes("routing-options") ? catalog : record();
   });
-  const w = mount(ChannelEditor, { props: { client: c, rollID: "41" } });
+  let w = mount(ChannelEditor, { props: { client: c, rollID: "41" } });
   mounted.push(w);
   await flushPromises();
   await w.get('input[aria-label="选择通道 8"]').setValue(true);
@@ -238,7 +239,7 @@ it("keeps the stored configuration readable when the runtime catalog fails and r
       throw new ApiError("目录不可用", 503, -1);
     return record();
   });
-  const w = mount(ChannelEditor, { props: { client: c, rollID: "41" } });
+  let w = mount(ChannelEditor, { props: { client: c, rollID: "41" } });
   mounted.push(w);
   await flushPromises();
   expect(w.text()).toContain("轮询甲");
@@ -258,7 +259,7 @@ it("does not let a late save response or finally block pollute another client/CS
       });
     return path.includes("routing-options") ? catalog : record();
   });
-  const w = mount(ChannelEditor, { props: { client: c, rollID: "41" } });
+  let w = mount(ChannelEditor, { props: { client: c, rollID: "41" } });
   mounted.push(w);
   await flushPromises();
   await w.get('input[aria-label="选择通道 8"]').setValue(true);
@@ -310,7 +311,7 @@ it("treats an uncorrelated successful create response as unknown instead of clai
         }
       : catalog,
   );
-  const w = mount(CreateForm, { props: { client: c } });
+  let w = mount(CreateForm, { props: { client: c } });
   mounted.push(w);
   await flushPromises();
   await w.get('input[aria-label="显示名称"]').setValue("expected name");
@@ -331,7 +332,7 @@ it("edits channels on an existing supported record with omitted optional limits 
       ? catalog
       : { id: "41", revision: "a".repeat(64), fields: legacy },
   );
-  const w = mount(ChannelEditor, { props: { client: c, rollID: "41" } });
+  let w = mount(ChannelEditor, { props: { client: c, rollID: "41" } });
   mounted.push(w);
   await flushPromises();
   expect(w.text()).toContain("轮询甲");

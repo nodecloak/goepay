@@ -1,3 +1,4 @@
+import { pageReload248 } from "./helpers/page-reload248";
 // @vitest-environment jsdom
 import { it, expect, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
@@ -110,7 +111,7 @@ async function fixture(
   });
   await router.push("/admin/system/settings");
   await router.isReady();
-  const w = mount(App, {
+  let w = mount(App, {
     attachTo: document.body,
     global: { plugins: [router] },
   });
@@ -118,7 +119,7 @@ async function fixture(
   return { w, writes, requests, state };
 }
 it("does not present an absent switch value as an explicitly disabled feature", async () => {
-  const { w, writes } = await fixture();
+  let { w, writes } = await fixture();
   try {
     await w.get("#settings-tab-merchant").trigger("click");
     await flushPromises();
@@ -133,7 +134,7 @@ it("does not present an absent switch value as an explicitly disabled feature", 
   }
 });
 it("identifies deployment-controlled IP, backend path and cache fields without editable placeholders", async () => {
-  const { w, writes } = await fixture();
+  let { w, writes } = await fixture();
   try {
     await w.get("#settings-tab-iptype").trigger("click");
     await flushPromises();
@@ -156,7 +157,7 @@ it("identifies deployment-controlled IP, backend path and cache fields without e
   }
 });
 it("restores original settings groups and saves only explicitly edited values", async () => {
-  const { w, writes } = await fixture();
+  let { w, writes } = await fixture();
   try {
     expect(w.findAll('.settings-tabs [role="tab"]')).toHaveLength(17);
     expect(w.get('input[aria-label="网站名称"]').element).toHaveProperty(
@@ -183,34 +184,25 @@ it("restores original settings groups and saves only explicitly edited values", 
   }
 });
 
-it("blocks writes after a failed refresh rather than saving stale unconfirmed settings", async () => {
-  const { w, writes, state } = await fixture();
+it("guards a draft before page reload and offers no stale save when the fresh read fails", async () => {
+  let { w, writes, state } = await fixture();
   try {
     await w.get('input[aria-label="网站名称"]').setValue("尚未保存");
+    const unload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
     state.failRead = true;
-    await w
-      .findAll("button")
-      .find((b) => b.text() === "刷新设置")!
-      .trigger("click");
+    w = await pageReload248(w);
     await flushPromises();
     const confirmation = document.querySelector(
       '[role="dialog"][aria-label="放弃未保存的设置？"]',
     );
-    expect(confirmation).not.toBeNull();
-    const discard = [...confirmation!.querySelectorAll("button")].find(
-      (button) => button.textContent?.trim() === "放弃修改并刷新",
-    );
-    expect(discard).toBeDefined();
-    discard!.click();
-    await flushPromises();
+    expect(confirmation).toBeNull();
     expect(w.text()).toContain("settings unavailable");
-    expect(
-      w
-        .findAll("button")
-        .find((b) => b.text() === "保存本页设置")!
-        .attributes("disabled"),
-    ).toBeDefined();
-    await w.get(".settings-page form").trigger("submit");
+    expect(w.findAll("button").some((b) => b.text() === "保存本页设置")).toBe(
+      false,
+    );
+    expect(w.find(".settings-page form").exists()).toBe(false);
     await flushPromises();
     expect(writes).toHaveLength(0);
   } finally {
@@ -219,7 +211,7 @@ it("blocks writes after a failed refresh rather than saving stale unconfirmed se
   }
 });
 it("respects read-only schema permissions before exposing editable controls", async () => {
-  const { w, writes } = await fixture({ readOnly: true });
+  let { w, writes } = await fixture({ readOnly: true });
   try {
     expect(
       w.get('input[aria-label="网站名称"]').attributes("disabled"),
@@ -241,7 +233,7 @@ it("reads all pages while leaving historical unsupported keys untouched", async 
     key: "support_email",
     value: "support@example.invalid",
   });
-  const { w, writes, requests } = await fixture({ extraRows: extra });
+  let { w, writes, requests } = await fixture({ extraRows: extra });
   try {
     expect(requests).toContain(
       "/console/v1/admin/resources/settings?page=2&limit=100",
@@ -258,7 +250,7 @@ it("reads all pages while leaving historical unsupported keys untouched", async 
   }
 });
 it("reports partial saves accurately and never automatically retries an unknown write", async () => {
-  const { w, writes, state } = await fixture();
+  let { w, writes, state } = await fixture();
   try {
     await w
       .findAll('.settings-tabs [role="tab"]')
@@ -284,7 +276,7 @@ it("reports partial saves accurately and never automatically retries an unknown 
   }
 });
 it("uses exact yuan and percent controls without treating basis points as percentages", async () => {
-  const { w, writes } = await fixture();
+  let { w, writes } = await fixture();
   try {
     const tab = w
       .findAll('.settings-tabs [role="tab"]')
@@ -315,7 +307,7 @@ it("uses exact yuan and percent controls without treating basis points as percen
 });
 
 it("shows active compatible values even when canonical keys are present only in schema", async () => {
-  const { w, writes } = await fixture({
+  let { w, writes } = await fixture({
     extraSchemaKeys: ["sitename", "email", "mail_recv", "mail_name"],
     extraRows: [
       { id: "2300", key: "support_email", value: "legacy@example.invalid" },
@@ -347,7 +339,7 @@ it("shows active compatible values even when canonical keys are present only in 
 });
 
 it("preserves an explicitly cleared canonical email instead of showing a shadowed legacy value", async () => {
-  const { w, writes } = await fixture({
+  let { w, writes } = await fixture({
     extraSchemaKeys: ["email"],
     extraRows: [
       { id: "2400", key: "email", value: "" },
@@ -368,7 +360,7 @@ it("preserves an explicitly cleared canonical email instead of showing a shadowe
 });
 
 it("clears an active legacy contact by explicitly overriding canonical email", async () => {
-  const { w, writes } = await fixture({
+  let { w, writes } = await fixture({
     extraSchemaKeys: ["email"],
     extraRows: [
       { id: "2501", key: "support_email", value: "legacy@example.invalid" },
@@ -398,7 +390,7 @@ it("clears an active legacy contact by explicitly overriding canonical email", a
   }
 });
 it("locks generic settings after a committed but malformed success response", async () => {
-  const { w, writes, state } = await fixture();
+  let { w, writes, state } = await fixture();
   try {
     state.malformedWriteAt = 1;
     await w.get('input[aria-label="网站名称"]').setValue("Committed New Name");

@@ -45,7 +45,7 @@ interface Update {
   expected_fingerprint: string;
 }
 const path = "/account/event-subscription";
-const invalid = () => new Error("事件订阅数据无法核对，请重新读取订阅");
+const invalid = () => new Error("事件订阅数据无法核对，请刷新页面后核对");
 function callbackURL(value: string, enabled: boolean) {
   const url = value.trim();
   if (new TextEncoder().encode(url).length > 500)
@@ -134,7 +134,7 @@ const confirming = ref<"save" | "disable" | null>(null);
 const saveButton = ref<HTMLButtonElement>(),
   disableButton = ref<HTMLButtonElement>();
 const confirmButton = ref<HTMLButtonElement>(),
-  reloadButton = ref<HTMLButtonElement>();
+  errorTarget = ref<HTMLElement>();
 const urlInput = ref<HTMLInputElement>();
 let prepared: Update | undefined;
 let epoch = 0,
@@ -191,7 +191,7 @@ function clear(message = "") {
 }
 function ensureContext() {
   if (!sameContext()) {
-    clear("会话已变化，请重新读取订阅并核对");
+    clear("会话已变化，请刷新页面后核对");
     return false;
   }
   return isAllowed();
@@ -203,7 +203,7 @@ function current(
 ) {
   if (!active || run !== epoch || abort.signal.aborted) return false;
   if (!sameContext(source)) {
-    clear("会话已变化，请重新读取订阅并核对");
+    clear("会话已变化，请刷新页面后核对");
     return false;
   }
   return isAllowed();
@@ -226,7 +226,7 @@ async function load() {
     setDraft(state.value);
   } catch {
     if (current(run, abort, source))
-      error.value = "事件订阅读取失败或格式无法核对，请重新读取订阅";
+      error.value = "事件订阅读取失败或格式无法核对，请刷新页面后核对";
   } finally {
     if (current(run, abort, source)) loading.value = false;
   }
@@ -335,8 +335,8 @@ async function save() {
       setDraft();
       error.value =
         reason instanceof ApiError && reason.status === 409
-          ? "订阅设置已变更，请重新读取订阅并核对后保存；不会自动重试。"
-          : "保存结果无法确认，请重新读取订阅核对当前设置；不会自动重试。";
+          ? "订阅设置已变更，请刷新页面后核对；不会自动重试。"
+          : "保存结果无法确认，请刷新页面后核对；不会自动重试。";
     }
   } finally {
     if (current(run, abort, source)) {
@@ -347,7 +347,7 @@ async function save() {
             ? urlInput.value
             : state.value
               ? saveButton.value
-              : reloadButton.value
+              : errorTarget.value
           )?.focus();
       });
     }
@@ -380,15 +380,6 @@ onBeforeUnmount(() => {
   >
     <div class="event-heading">
       <h2>事件消息订阅设置</h2>
-      <button
-        v-if="allowed"
-        ref="reloadButton"
-        type="button"
-        :disabled="loading || busy"
-        @click="load"
-      >
-        重新读取订阅
-      </button>
     </div>
     <p v-if="!allowed" class="muted">事件订阅需要商户本人登录后查看和修改。</p>
     <template v-else>
@@ -396,7 +387,15 @@ onBeforeUnmount(() => {
         事件消息订阅仅支持易支付V2支付插件（RSA 签名验证方式）
       </p>
       <p v-if="loading" role="status">正在读取事件订阅…</p>
-      <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+      <p
+        ref="errorTarget"
+        tabindex="-1"
+        v-if="error"
+        role="alert"
+        class="alert error"
+      >
+        {{ error }}
+      </p>
       <p v-if="notice" role="status" class="alert success">{{ notice }}</p>
       <template v-if="state">
         <dl class="event-delivery-facts">

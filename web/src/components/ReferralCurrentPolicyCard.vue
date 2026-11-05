@@ -114,7 +114,6 @@ const sourceLabel = (source: string) =>
   <section class="panel current-policy" aria-label="当前邀请返现政策">
     <header>
       <h3>邀请返现介绍</h3>
-      <button :disabled="loading" @click="load">刷新当前政策</button>
     </header>
     <p v-if="loading" role="status">正在读取当前邀请政策…</p>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>

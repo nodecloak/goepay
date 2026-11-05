@@ -132,7 +132,7 @@ function current(
 ) {
   if (!active || run !== epoch || c.signal.aborted) return false;
   if (!same(source)) {
-    clear("会话已变化，请重新读取快捷登录密钥状态");
+    clear("会话已变化，请刷新页面后核对");
     return false;
   }
   return isAllowed();
@@ -188,7 +188,7 @@ async function load() {
     }
   } catch {
     if (current(run, c, source))
-      error.value = "快捷登录密钥状态读取失败，请重新读取";
+      error.value = "快捷登录密钥状态读取失败，请刷新页面后核对";
   } finally {
     if (current(run, c, source)) loading.value = false;
   }
@@ -293,8 +293,8 @@ async function save(field: Field, action: "replace" | "clear") {
       state.value = undefined;
       error.value =
         reason instanceof ApiError && reason.status === 409
-          ? "快捷登录密钥状态已变化，请重新读取并核对；不会自动重试。"
-          : "本次操作结果无法确认，请重新读取核对；不会自动重试。";
+          ? "快捷登录密钥状态已变化，请刷新页面后核对；不会自动重试。"
+          : "本次操作结果无法确认，请刷新页面后核对；不会自动重试。";
     }
   } finally {
     if (current(run, c, source)) busy.value = false;
@@ -323,14 +323,6 @@ onBeforeUnmount(() => {
   <section class="panel oauth-credentials" aria-label="快捷登录密钥">
     <div class="oauth-heading">
       <h2>各平台登录密钥</h2>
-      <button
-        v-if="allowed"
-        type="button"
-        :disabled="loading || busy"
-        @click="load"
-      >
-        重新读取快捷登录密钥状态
-      </button>
     </div>
     <p v-if="!allowed" class="muted">
       请使用超级管理员本人会话配置快捷登录密钥。

@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { test, expect, type Page } from "@playwright/test";
 import { kycConfig233, kycInfo233 } from "../tests/fixtures/kyc233";
 
@@ -392,23 +393,10 @@ test("a cached credential draft survives tab changes and requires explicit disca
     page.getByRole("button", { name: "保存实名认证配置", exact: true }),
   ).toBeDisabled();
   const panel = page.getByRole("region", { name: "实名认证配置", exact: true });
-  await panel
-    .getByRole("button", { name: "重新读取配置", exact: true })
-    .click();
-  await page
-    .getByRole("dialog", { name: "放弃未保存的设置？", exact: true })
-    .getByRole("button", { name: "继续编辑", exact: true })
-    .click();
   await expect(
-    page.getByLabel("手机号三要素AppCode", { exact: true }),
-  ).toHaveValue("synthetic-retained-draft233");
-  await panel
-    .getByRole("button", { name: "重新读取配置", exact: true })
-    .click();
-  await page
-    .getByRole("dialog", { name: "放弃未保存的设置？", exact: true })
-    .getByRole("button", { name: "放弃修改并重新读取", exact: true })
-    .click();
+    panel.getByRole("button", { name: "重新读取配置", exact: true }),
+  ).toHaveCount(0);
+  await pageReload248(page);
   await expect(page.getByText(/草稿已保留/)).toHaveCount(0);
   await expect(
     page.getByLabel("手机号三要素AppCode", { exact: true }),

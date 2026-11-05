@@ -81,7 +81,7 @@ function clear(message = "") {
 }
 function ensureContext() {
   if (!sameContext()) {
-    clear("会话已变化，请重新读取个人设置");
+    clear("会话已变化，请刷新页面后核对");
     return false;
   }
   return allowed.value;
@@ -89,7 +89,7 @@ function ensureContext() {
 function valid(run: number, c: AbortController) {
   if (run !== epoch || c.signal.aborted) return false;
   if (!sameContext()) {
-    clear("会话已变化，请重新读取个人设置");
+    clear("会话已变化，请刷新页面后核对");
     return false;
   }
   return allowed.value;
@@ -112,7 +112,7 @@ async function load() {
     state.value = parsePersonalSettings(value, mid);
     setDraft(state.value);
   } catch {
-    if (valid(run, c)) error.value = "个人设置无法确认，请重新读取";
+    if (valid(run, c)) error.value = "个人设置无法确认，请刷新页面后核对";
   } finally {
     if (valid(run, c)) loading.value = false;
   }
@@ -180,8 +180,8 @@ async function save() {
       setDraft();
       error.value =
         e instanceof ApiError && e.status === 409
-          ? "设置已变更，请重新读取并核对后保存"
-          : "保存结果无法确认，请重新读取后核对";
+          ? "设置已变更，请刷新页面后核对"
+          : "保存结果无法确认，请刷新页面后核对";
     }
   } finally {
     if (valid(run, c)) busy.value = false;
@@ -207,15 +207,6 @@ onBeforeUnmount(() => clear());
   <section class="panel personal-settings" :aria-label="title">
     <div class="personal-heading">
       <h2>{{ title }}</h2>
-      <button
-        v-if="allowed"
-        type="button"
-        data-action="reload"
-        :disabled="loading || busy"
-        @click="load"
-      >
-        重新读取
-      </button>
     </div>
     <p v-if="!allowed" class="muted">个人设置需要商户本人登录后查看和修改。</p>
     <template v-else>

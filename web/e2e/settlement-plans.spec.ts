@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { test, expect } from "@playwright/test";
 const ok = (data: unknown, status = 200) => ({
   status,
@@ -99,7 +100,8 @@ test("plan generation is separate from definition and mandatory authorization wh
     page.getByRole("alert").filter({ hasText: /尚未设置本人管理员资金密码/ }),
   ).toBeVisible();
   expect(writes).toBe(0);
-  await page.getByRole("button", { name: "重新读取计划" }).click();
+  await pageReload248(page);
+  await page.getByRole("button", { name: "查看计划 4" }).click();
   await page.getByRole("button", { name: "核对到期扫描" }).click();
   expect(scans).toBe(0);
   await page.getByRole("button", { name: "确认扫描当前到期时段" }).click();

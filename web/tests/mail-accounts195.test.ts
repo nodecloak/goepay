@@ -181,6 +181,6 @@ it("cancel clears SMTP draft and same-client session rotation prevents its submi
   await flushPromises();
   expect(writes).toEqual([]);
   expect(w.find('input[aria-label="邮箱密码"]').exists()).toBe(false);
-  expect(w.text()).toContain("重新读取");
+  expect(w.text()).toContain("刷新页面");
   w.unmount();
 });

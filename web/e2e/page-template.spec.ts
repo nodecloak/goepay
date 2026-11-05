@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { test, expect } from "@playwright/test";
 import { localRedBackgroundPNG } from "./local-test-images";
 const ok = (data: unknown, status = 200) => ({
@@ -247,7 +248,7 @@ test("template unknown response blocks repeated mutation until explicit reload a
     page.getByRole("button", { name: "检查并保存模板设置" }),
   ).toBeDisabled();
   expect(writes).toBe(1);
-  await page.getByRole("button", { name: "重新读取模板" }).click();
+  await pageReload248(page);
   await expect(
     page.getByRole("button", { name: "检查并保存模板设置" }),
   ).toBeEnabled();

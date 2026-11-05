@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import fs from "node:fs";
 import { kycConfig233 } from "../tests/fixtures/kyc233";
@@ -217,12 +218,7 @@ for (const kind of ["voice", "printing"] as const) {
         },
       },
     ]);
-    await panel
-      .getByRole("button", {
-        name: kind === "voice" ? "重新读取云喇叭配置" : "重新读取打印配置",
-        exact: true,
-      })
-      .click();
+    await pageReload248(page);
     await expect(
       panel.getByRole("button", { name: "修改" + label, exact: true }),
     ).toBeVisible();
@@ -358,9 +354,7 @@ for (const kind of ["robot", "telegram", "qqbot"] as const) {
         token_source: kind === "telegram" ? "oauth" : "",
       },
     });
-    await panel
-      .getByRole("button", { name: "重新读取" + title, exact: true })
-      .click();
+    await pageReload248(page);
     await expect(
       panel.getByRole("button", { name: "修改" + label, exact: true }),
     ).toBeVisible();
@@ -554,9 +548,7 @@ for (const area of ["admin", "merchant"] as const) {
               device_id: "new-print-private245",
             },
     });
-    await page
-      .getByRole("button", { name: "重新读取设置", exact: true })
-      .click();
+    await pageReload248(page);
     await expect(page.getByText(/new\*\*\*245/)).toBeVisible();
     await page
       .getByRole("button", { name: "清除" + label, exact: true })
@@ -692,9 +684,13 @@ for (const area of ["admin", "merchant"] as const) {
         clear_fields: [],
       },
     });
-    await page
-      .getByRole("button", { name: "重新读取设置", exact: true })
-      .click();
+    await pageReload248(page);
+    if (area === "admin") {
+      await page.getByLabel("商户 ID", { exact: true }).fill("1");
+      await page
+        .getByRole("button", { name: "读取商户设置", exact: true })
+        .click();
+    }
     await expect(
       target.getByRole("button", { name: "修改QQ Bot AppSecret", exact: true }),
     ).toBeVisible();
@@ -804,9 +800,7 @@ for (const kind of ["certificate", "ocr"] as const) {
           ? { action: "replace", value: "new-kyc-private245" }
           : { action: "keep", value: "" },
       );
-    await panel
-      .getByRole("button", { name: "重新读取配置", exact: true })
-      .click();
+    await pageReload248(page);
     await expect(
       group.getByRole("button", { name: "修改" + label, exact: true }),
     ).toBeVisible();

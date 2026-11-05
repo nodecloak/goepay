@@ -26,7 +26,7 @@ const props = defineProps<{
 }>();
 const confirmButton = ref<HTMLButtonElement>(),
   saveButton = ref<HTMLButtonElement>(),
-  reloadButton = ref<HTMLButtonElement>();
+  errorTarget = ref<HTMLElement>();
 const state = ref<MerchantAPISwitches | null>(null),
   platform = ref<PublicMerchantAccess | null>(null),
   draft = reactive({ keylogin: false, refund: false, transfer: false }),
@@ -79,7 +79,7 @@ function clear(message = "") {
 }
 function ensureContext() {
   if (!sameContext()) {
-    clear("会话已变化，请重新读取功能开关");
+    clear("会话已变化，请刷新页面后核对");
     return false;
   }
   return allowed.value;
@@ -87,7 +87,7 @@ function ensureContext() {
 function valid(run: number, c: AbortController) {
   if (run !== epoch || c.signal.aborted) return false;
   if (!sameContext()) {
-    clear("会话已变化，请重新读取功能开关");
+    clear("会话已变化，请刷新页面后核对");
     return false;
   }
   return allowed.value;
@@ -112,7 +112,8 @@ async function load() {
     platform.value = access;
     setDraft(state.value);
   } catch {
-    if (valid(run, c)) error.value = "个人或平台功能状态无法确认，请重新读取";
+    if (valid(run, c))
+      error.value = "个人或平台功能状态无法确认，请刷新页面后核对";
   } finally {
     if (valid(run, c)) loading.value = false;
   }
@@ -182,15 +183,15 @@ async function save() {
       setDraft();
       error.value =
         e instanceof ApiError && e.status === 409
-          ? "设置已变更，请重新读取并核对后保存"
-          : "保存结果无法确认，请重新读取后核对";
+          ? "设置已变更，请刷新页面后核对"
+          : "保存结果无法确认，请刷新页面后核对";
     }
   } finally {
     if (valid(run, c)) {
       busy.value = false;
       void nextTick(() => {
         if (valid(run, c))
-          (state.value ? saveButton.value : reloadButton.value)?.focus();
+          (state.value ? saveButton.value : errorTarget.value)?.focus();
       });
     }
   }
@@ -214,21 +215,19 @@ onBeforeUnmount(() => clear());
   <section class="panel api-switches" aria-label="接口与登录功能设置">
     <div class="switch-heading">
       <h2>接口与登录功能设置</h2>
-      <button
-        v-if="allowed"
-        ref="reloadButton"
-        type="button"
-        data-action="reload"
-        :disabled="busy || loading"
-        @click="load"
-      >
-        重新读取
-      </button>
     </div>
     <p v-if="!allowed" class="muted">功能开关需要商户本人登录后查看和修改。</p>
     <template v-else>
       <p v-if="loading" role="status">正在读取功能开关…</p>
-      <p v-if="error" role="alert" class="error">{{ error }}</p>
+      <p
+        ref="errorTarget"
+        tabindex="-1"
+        v-if="error"
+        role="alert"
+        class="error"
+      >
+        {{ error }}
+      </p>
       <p v-if="notice" role="status" class="notice">{{ notice }}</p>
       <p v-if="platform?.close_keylogin === 1" class="muted">
         平台已关闭密钥登录，保留您的个人选择；密码登录和原会话继续可用。

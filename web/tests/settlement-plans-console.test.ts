@@ -1,3 +1,4 @@
+import { pageReload248 } from "./helpers/page-reload248";
 import { it, expect, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { ApiClient } from "../src/api";
@@ -39,7 +40,7 @@ it("does not display a delayed run detail after selecting a different plan", asy
                 },
         ),
   );
-  const w = mount(SettlementPlansPage, {
+  let w = mount(SettlementPlansPage, {
     props: {
       client: Object.assign(new ApiClient("admin"), { request }),
       adminClass: "super",
@@ -78,7 +79,7 @@ it("keeps emergency revocation available after an uncertain scan without repeati
       ? Promise.reject(new Error("lost response"))
       : Promise.resolve({ status: 200, data: {} }),
   );
-  const w = mount(SettlementPlansPage, {
+  let w = mount(SettlementPlansPage, {
     props: {
       client: Object.assign(new ApiClient("admin"), { request, requestResult }),
       adminClass: "super",
@@ -120,7 +121,7 @@ it("does not describe a malformed HTTP200 scan response as an accepted original 
       data: { id: "9", plan_id: "4", state: "completed" },
     }),
   );
-  const w = mount(SettlementPlansPage, {
+  let w = mount(SettlementPlansPage, {
     props: {
       client: Object.assign(new ApiClient("admin"), { request, requestResult }),
       adminClass: "super",
@@ -160,7 +161,7 @@ it("does not restart a merchant read after a late save resolves after unmount", 
       ? new Promise<void>((r) => (complete = r))
       : Promise.resolve(prefs),
   );
-  const w = mount(SettlementSchedulePage, {
+  let w = mount(SettlementSchedulePage, {
     props: {
       client: Object.assign(new ApiClient("merchant"), { request }),
       ownSession: true,
@@ -191,7 +192,7 @@ it("separates plan loading, a verified empty list and read failure without offer
         resolveList = resolve;
       }),
   );
-  const w = mount(SettlementPlansPage, {
+  let w = mount(SettlementPlansPage, {
     props: {
       client: Object.assign(new ApiClient("admin"), { request }),
       adminClass: "super",
@@ -211,10 +212,7 @@ it("separates plan loading, a verified empty list and read failure without offer
   await flushPromises();
   expect(w.text()).toContain("暂无结算计划，可新建一个默认关闭的计划");
   request.mockRejectedValueOnce(new Error("读取失败"));
-  await w
-    .findAll("button")
-    .find((b) => b.text() === "刷新计划列表")!
-    .trigger("click");
+  w = await pageReload248(w);
   await flushPromises();
   expect(w.get('[role="alert"]').text()).toContain("读取失败");
   expect(w.text()).not.toContain("暂无结算计划");
@@ -224,7 +222,7 @@ it("separates plan loading, a verified empty list and read failure without offer
 it("does not show an empty plan list beside the first successfully created plan", async () => {
   const request = vi.fn().mockResolvedValue({ items: [], next_cursor: "" });
   const requestResult = vi.fn().mockResolvedValue({ status: 201, data: plan });
-  const w = mount(SettlementPlansPage, {
+  let w = mount(SettlementPlansPage, {
     props: {
       client: Object.assign(new ApiClient("admin"), { request, requestResult }),
       adminClass: "super",

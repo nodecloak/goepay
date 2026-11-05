@@ -1,3 +1,4 @@
+import { pageReload248 } from "./helpers/page-reload248";
 import { expect, it, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import SettingsPage from "../src/components/SettingsPage.vue";
@@ -20,7 +21,7 @@ it("does not call the real typed platform control an empty settings category", a
     if (path === "/settings/merchant-access") return actual.admin_closed;
     throw Error(`unexpected ${path}`);
   }) as ApiClient["request"];
-  const w = mount(SettingsPage, {
+  let w = mount(SettingsPage, {
     props: { client, adminClass: "super", ownSession: true },
   });
   await flushPromises();
@@ -50,7 +51,7 @@ it("uses the original site control and preserves the refund gate from the real H
     },
   );
   client.request = request as ApiClient["request"];
-  const w = mount(SettingsPage, {
+  let w = mount(SettingsPage, {
     props: { client, adminClass: "super", ownSession: true },
   });
   await flushPromises();
@@ -85,7 +86,7 @@ function panel(
   client.csrfToken = "original-context";
   const request = vi.fn(handler);
   client.request = request as ApiClient["request"];
-  const w = mount(Panel, {
+  let w = mount(Panel, {
     props: { client, field, adminClass: "super", ownSession: true },
     attachTo: document.body,
   });
@@ -132,7 +133,7 @@ it.each(["lost", "conflict", "wrong-hidden-state"])(
     expect(
       f.request.mock.calls.filter((c) => c[1]?.method === "PATCH"),
     ).toHaveLength(1);
-    await f.w.get("button").trigger("click");
+    f.w = await pageReload248(f.w);
     await flushPromises();
     expect(
       f.request.mock.calls.filter((c) => c[1]?.method === "PATCH"),

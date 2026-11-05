@@ -1,3 +1,4 @@
+import { pageReload248 } from "./fixtures/page-reload248";
 import { closedLoginCaptchaFixture205 } from "./fixtures/login-captcha205";
 import { publicSiteFixture191 } from "./fixtures/site191";
 import { test, expect, type Page } from "@playwright/test";
@@ -106,7 +107,7 @@ async function settings(page: Page, mode = "normal") {
   await page.goto("/admin/system/settings");
   await expect(
     page.getByRole("region", { name: "网站图片设置", exact: true }),
-  ).toContainText("品牌图片设置无法确认，请重新读取");
+  ).toContainText("品牌图片设置无法确认，请刷新页面后核对");
   return { writes, errors, reads: () => reads };
 }
 for (const width of [1440, 375])
@@ -140,7 +141,7 @@ for (const width of [1440, 375])
     await page.getByRole("tab", { name: "商户相关", exact: true }).click();
     await expect(
       page.getByRole("region", { name: "付款码支付设置", exact: true }),
-    ).toContainText("付款码支付设置无法确认，请重新读取");
+    ).toContainText("付款码支付设置无法确认，请刷新页面后核对");
     const refund = page.getByRole("region", {
       name: "开启商户自助退款",
       exact: true,
@@ -183,24 +184,11 @@ for (const mode of ["lost", "malformed"])
     await expect(panel).toContainText("保存结果无法确认");
     await expect(panel.getByRole("switch")).toHaveCount(0);
     expect(f.writes).toHaveLength(1);
-    await panel.getByRole("button", { name: "重新读取平台功能" }).click();
-    const discard = page.getByRole("dialog", {
-      name: "放弃未保存的设置？",
-      exact: true,
-    });
-    await expect(discard).toContainText("密钥登录");
+    await expect(
+      panel.getByRole("button", { name: "重新读取平台功能" }),
+    ).toHaveCount(0);
     expect(f.reads()).toBe(1);
-    await discard
-      .getByRole("button", { name: "继续编辑", exact: true })
-      .click();
-    await expect(discard).toBeHidden();
-    expect(f.reads()).toBe(1);
-    expect(f.writes).toHaveLength(1);
-    await panel.getByRole("button", { name: "重新读取平台功能" }).click();
-    await expect(discard).toContainText("密钥登录");
-    await discard
-      .getByRole("button", { name: "放弃修改并重新读取", exact: true })
-      .click();
+    await pageReload248(page);
     await expect(panel.getByRole("switch")).toBeChecked();
     expect(f.reads()).toBe(2);
     expect(f.writes).toHaveLength(1);
@@ -239,7 +227,9 @@ test("closed and unknown public key-login capability retain password entry", asy
   known = false;
   await page.reload();
   await expect(
-    page.getByText("平台登录功能状态无法确认，密码登录仍可使用。"),
+    page.getByText(
+      "平台登录功能状态无法确认，请刷新页面后核对；密码登录仍可使用。",
+    ),
   ).toBeVisible();
   await expect(page.locator('[data-login-mode="key"]')).toHaveCount(0);
   await expect(page.locator('[name="password"]')).toBeVisible();

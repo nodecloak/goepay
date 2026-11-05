@@ -179,9 +179,7 @@ for (const failure of ["conflict", "malformed"] as const)
         .getByRole("button", { name: "确定修改", exact: true })
         .click();
       await expect(f.panel.getByRole("alert")).toBeVisible();
-      await expect(
-        f.panel.getByRole("button", { name: "刷新签名方式", exact: true }),
-      ).toBeFocused();
+      await expect(f.panel.getByRole("alert")).toBeFocused();
       expect(f.writes).toHaveLength(1);
       await expect(f.panel.getByLabel("签名方式", { exact: true })).toHaveCount(
         0,

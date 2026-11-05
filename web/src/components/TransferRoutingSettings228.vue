@@ -162,7 +162,7 @@ async function load(initial = false) {
     });
     if (valid(run, c)) accept(v);
   } catch {
-    if (valid(run, c)) error.value = "转账通道配置无法读取，请重新读取";
+    if (valid(run, c)) error.value = "转账通道配置无法读取，请刷新页面后核对";
   } finally {
     if (valid(run, c)) loading.value = false;
   }
@@ -209,8 +209,8 @@ async function save() {
         e.status < 500
       );
       error.value = uncertain.value
-        ? "保存结果尚未核实，请只重新读取配置，不要重复提交"
-        : "配置已变化或通道不可用，请重新读取后确认";
+        ? "保存结果尚未核实，请只刷新页面后核对配置，不要重复提交"
+        : "配置已变化或通道不可用，请刷新页面后核对";
     }
   } finally {
     if (valid(run, c)) saving.value = false;
@@ -287,15 +287,7 @@ onBeforeUnmount(() => {
         保存转账通道
       </button>
     </template>
-    <button
-      v-if="allowed"
-      type="button"
-      class="pa-btn"
-      :disabled="loading || saving || disabled"
-      @click="load()"
-    >
-      {{ loading ? "读取中…" : "重新读取转账通道" }}
-    </button>
+
     <KitModal
       v-if="confirming"
       title="确认转账通道配置"

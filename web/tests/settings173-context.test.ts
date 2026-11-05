@@ -62,7 +62,9 @@ it("does not write a settings draft after the same client CSRF is replaced", asy
     props: { client: c, adminClass: "super", ownSession: true },
   });
   await flushPromises();
-  expect(w.text()).toContain("品牌图片设置无法确认，请重新读取");
+  expect(
+    w.findAll("button").some((b) => /重新读取|刷新设置/.test(b.text())),
+  ).toBe(false);
   await w.get('input[aria-label="网站名称"]').setValue("新站点");
   c.csrfToken = "other-session";
   await w.get("form").trigger("submit");

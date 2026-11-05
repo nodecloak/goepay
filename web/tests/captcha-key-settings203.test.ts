@@ -1,3 +1,4 @@
+import { pageReload248 } from "./helpers/page-reload248";
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
@@ -63,7 +64,7 @@ async function setup(
         : reply({ ...initial, configured: options.configured ?? false });
     }),
   );
-  const wrapper = mount(CaptchaKeySettings203, {
+  let wrapper = mount(CaptchaKeySettings203, {
     attachTo: document.body,
     props: {
       client,
@@ -97,6 +98,9 @@ describe("isolated CAPTCHA key vault settings203", () => {
     expect(f.wrapper.find('input[type="password"]').exists()).toBe(false);
     expect(f.wrapper.html()).not.toContain(initial.fingerprint);
     expect(f.calls.map((call) => call.method)).toEqual(["GET"]);
+    expect(
+      f.wrapper.findAll("button").some((b) => b.text().includes("重新读取")),
+    ).toBe(false);
   });
   it("replaces only after confirmation and immediately clears the submitted plaintext", async () => {
     const pending = deferred<Response>();
@@ -118,8 +122,8 @@ describe("isolated CAPTCHA key vault settings203", () => {
         .every((field) => field.element.value === ""),
     ).toBe(true);
     expect(
-      button(f.wrapper, "重新读取密钥状态").attributes("disabled"),
-    ).toBeDefined();
+      f.wrapper.findAll("button").some((b) => b.text() === "重新读取密钥状态"),
+    ).toBe(false);
     pending.resolve(reply({ configured: true, fingerprint: "b".repeat(64) }));
     await flushPromises();
     expect(f.wrapper.text()).toContain("验证码密钥已保存");
@@ -184,12 +188,12 @@ describe("isolated CAPTCHA key vault settings203", () => {
       await replacement(f.wrapper);
       await button(f.wrapper, "确认保存").trigger("click");
       await flushPromises();
-      expect(f.wrapper.text()).toContain("重新读取");
+      expect(f.wrapper.text()).toContain("刷新页面");
       expect(f.wrapper.find("form").exists()).toBe(false);
       expect(f.wrapper.html()).not.toContain(secret);
       expect(f.wrapper.html()).not.toContain("must-not-render203");
       expect(f.calls).toHaveLength(2);
-      await button(f.wrapper, "重新读取密钥状态").trigger("click");
+      f.wrapper = await pageReload248(f.wrapper);
       await flushPromises();
       expect(reads).toBe(2);
       expect(f.calls.filter((call) => call.method === "PATCH")).toHaveLength(1);
