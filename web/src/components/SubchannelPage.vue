@@ -1139,7 +1139,7 @@ onBeforeUnmount(() => {
         v-if="modal"
         class="modal-backdrop drawer-backdrop"
         @keydown="trap"
-        @pointerdown.self="close"
+        @click.self="close"
       >
         <section
           ref="dialog"

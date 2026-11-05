@@ -211,7 +211,7 @@ test("merchant console credentials are optional and existing login names are imm
   expect(posted).toMatchObject({ login_password: "new-strong-password" });
   expect(posted).not.toHaveProperty("login_username");
 });
-test("administrator updates omit the immutable username and blank password", async ({
+test("administrator updates omit the unchanged account and blank password", async ({
   page,
 }) => {
   let payload: Record<string, unknown> | undefined;
@@ -266,9 +266,14 @@ test("administrator updates omit the immutable username and blank password", asy
   await page.goto("/admin/system/admin-user");
   await page.getByRole("button", { name: "编辑", exact: true }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByLabel("账号", { exact: false })).toHaveCount(0);
+  await expect(dialog.getByLabel("账号", { exact: false })).toHaveValue(
+    "operator-test",
+  );
   await dialog.getByLabel("启用", { exact: true }).uncheck();
   await dialog.getByRole("button", { name: "保存", exact: true }).click();
   await expect(page.locator(".alert.success")).toContainText("修改已保存");
-  expect(payload).toEqual({ display_name: "Operator", enabled: false });
+  expect(payload).toEqual({
+    display_name: "Operator",
+    enabled: false,
+  });
 });

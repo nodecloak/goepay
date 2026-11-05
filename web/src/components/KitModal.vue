@@ -138,7 +138,7 @@ onBeforeUnmount(() => {
     <div
       class="pa-scrim pa-modal-scrim"
       :class="{ 'pa-drawer-scrim': drawer }"
-      @pointerdown.self="close"
+      @click.self="close"
     >
       <div
         ref="panel"

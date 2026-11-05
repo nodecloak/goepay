@@ -1996,6 +1996,9 @@ legend {
 .drawer-backdrop {
   place-items: stretch end;
   padding: 0;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+  z-index: 1500;
 }
 .drawer {
   width: min(100%, 500px);
@@ -2006,6 +2009,7 @@ legend {
   border-left: 1px solid var(--line);
   box-shadow: var(--shadow-modal);
   outline: none;
+  animation: pa-drawer-in 0.18s ease-out;
 }
 .drawer-head {
   display: flex;
@@ -3003,6 +3007,8 @@ button.badge.state-toggle:hover:not(:disabled) {
 .pa-drawer-scrim {
   place-items: stretch end;
   padding: 0;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
 }
 .pa-modal.pa-drawer {
   width: min(100%, var(--drawer-w, 560px));
@@ -3021,7 +3027,7 @@ button.badge.state-toggle:hover:not(:disabled) {
 }
 @keyframes pa-drawer-in {
   from {
-    transform: translateX(32px);
+    transform: translateX(100%);
     opacity: 0;
   }
 }

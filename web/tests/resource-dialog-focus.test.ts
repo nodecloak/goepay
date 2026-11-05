@@ -101,6 +101,21 @@ it("returns focus to the generic create opener after cancel", async () => {
   expect(document.activeElement).toBe(opener.element);
   expect(writes).toEqual([]);
 });
+it("closes a resource drawer on its scrim and returns focus without writing", async () => {
+  const { view, opener, writes } = await opened();
+  await view.get(".modal-backdrop").trigger("click");
+  await flushPromises();
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect(document.activeElement).toBe(opener.element);
+  expect(writes).toEqual([]);
+});
+it("keeps a resource drawer open when a field inside it is clicked", async () => {
+  const { dialog, view, writes } = await opened();
+  await dialog.get("#field-domain").trigger("click");
+  await flushPromises();
+  expect(view.find('[role="dialog"]').exists()).toBe(true);
+  expect(writes).toEqual([]);
+});
 it("keeps keyboard focus in a temporarily disabled drawer", async () => {
   const { dialog, writes } = await opened();
   for (const element of dialog.findAll("button,input,select,textarea"))

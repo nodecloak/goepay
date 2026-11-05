@@ -301,7 +301,7 @@ onBeforeUnmount(() => {
   <div
     v-if="allowed && client.area === 'admin'"
     class="modal-backdrop drawer-backdrop"
-    @pointerdown.self="close"
+    @click.self="close"
   >
     <section
       ref="modal"

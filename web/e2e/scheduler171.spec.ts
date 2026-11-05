@@ -115,6 +115,44 @@ async function setup(
   };
 }
 for (const width of [1440, 375])
+  test(`scheduler drawer outside dismissal and animation fit the viewport ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const f = await setup(page);
+    const opener = f.row.getByRole("button", { name: "配置", exact: true });
+    await opener.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    const frames = await dialog.evaluate(async (element) => {
+      element.getAnimations().forEach((animation) => {
+        animation.currentTime = 0;
+        animation.play();
+      });
+      const values: boolean[] = [];
+      for (let i = 0; i < 16; i++) {
+        await new Promise(requestAnimationFrame);
+        values.push(
+          document.documentElement.scrollWidth <= innerWidth &&
+            element.parentElement!.getBoundingClientRect().width <= innerWidth,
+        );
+      }
+      return values;
+    });
+    expect(frames.every(Boolean)).toBe(true);
+    await dialog.getByLabel("开启此任务", { exact: true }).uncheck();
+    if (width > 1000) await page.mouse.click(10, 400);
+    else await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(opener).toBeFocused();
+    await opener.click();
+    await expect(
+      dialog.getByLabel("开启此任务", { exact: true }),
+    ).toBeChecked();
+    expect(f.writes).toHaveLength(0);
+    expect(f.unexpected).toEqual([]);
+  });
+for (const width of [1440, 375])
   test(`original scheduler configuration, cancellation, real history and responsive fields ${width}`, async ({
     page,
   }, info) => {

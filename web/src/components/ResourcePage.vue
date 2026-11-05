@@ -1041,13 +1041,7 @@ const groupEditorTitle = computed(() =>
 // right drawer so the actions stay pinned and the body scrolls. The delete
 // confirmation is a short centered dialog.
 const asDrawer = computed(
-  () =>
-    !props.entry &&
-    mode.value !== null &&
-    mode.value !== "delete" &&
-    !isMerchantCreationForm.value &&
-    !isGroupEditor.value &&
-    !isPayRollCustom.value,
+  () => !props.entry && mode.value !== null && mode.value !== "delete",
 );
 // Two-column forms (merchants) and the tabbed group editor need more width;
 // other resource forms are a single label column.
@@ -1056,8 +1050,28 @@ const drawerWidth = computed(() =>
     ? "760px"
     : isGroupEditor.value
       ? "900px"
-      : "560px",
+      : isPayRollCustom.value
+        ? "860px"
+        : "560px",
 );
+function closeResourceDialog(event?: Event) {
+  if (
+    event?.defaultPrevented ||
+    props.entry ||
+    editingBusy.value ||
+    !mode.value
+  )
+    return;
+  const top = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      '[role="dialog"][aria-modal="true"]',
+    ),
+  )
+    .filter((el) => !el.closest("[inert]") && el.getClientRects().length)
+    .at(-1);
+  if (top && top !== formDialog.value) return;
+  mode.value = null;
+}
 function trapResourceFocus(event: KeyboardEvent) {
   if (props.entry || !mode.value) return;
   const root = event.currentTarget as HTMLElement;
@@ -1164,9 +1178,9 @@ const formSchema = computed<ResourceSchema | null>(() =>
                 : isPayRollDraftEditing.value && f.name === "channel_ids"
                   ? { ...f, required: false }
                   : mode.value === "edit" &&
-                      ((props.resource === "merchants" &&
-                        selected.value.login_username &&
-                        f.name === "login_username"))
+                      props.resource === "merchants" &&
+                      selected.value.login_username &&
+                      f.name === "login_username"
                     ? { ...f, read_only: true }
                     : props.resource === "merchants" &&
                         mode.value === "create" &&
@@ -2338,7 +2352,8 @@ onBeforeUnmount(resetContext);
           (asDrawer ? ' drawer-backdrop' : '') +
           (isGroupEditor ? ' group-edit-backdrop' : '')
     "
-    @keydown.esc="!entry && !editingBusy && (mode = null)"
+    @keydown.esc="closeResourceDialog"
+    @click.self="asDrawer && closeResourceDialog()"
     @keydown.tab="trapResourceFocus"
   >
     <section
@@ -2381,9 +2396,9 @@ onBeforeUnmount(resetContext);
         <h2>{{ groupEditorTitle }}</h2>
         <button
           type="button"
-          :disabled="busy"
+          :disabled="editingBusy"
           aria-label="关闭用户组编辑"
-          @click="mode = null"
+          @click="closeResourceDialog"
         >
           ×
         </button>
@@ -2414,7 +2429,7 @@ onBeforeUnmount(resetContext);
           class="resource-modal-x"
           :disabled="editingBusy"
           :aria-label="mode === 'detail' ? '关闭详情' : '关闭'"
-          @click="mode = null"
+          @click="closeResourceDialog"
         >
           ×
         </button>
@@ -2462,12 +2477,13 @@ onBeforeUnmount(resetContext);
           :id="String(selected.id)"
         />
         <div class="modal-actions">
-          <button @click="mode = null">关闭</button>
+          <button @click="closeResourceDialog">关闭</button>
         </div></template
       ><template v-else-if="mode === 'delete'"
         ><p>确认删除编号 {{ selected.id }} 的记录？此操作会立即生效。</p>
         <div class="modal-actions">
-          <button :disabled="busy" @click="mode = null">取消</button
+          <button :disabled="editingBusy" @click="closeResourceDialog">
+            取消</button
           ><button class="danger-button" :disabled="busy" @click="remove">
             {{ busy ? "正在删除…" : "确认删除" }}
           </button>
@@ -2491,7 +2507,11 @@ onBeforeUnmount(resetContext);
           @saved="payRollSaved"
         />
         <div class="modal-actions">
-          <button type="button" :disabled="editingBusy" @click="mode = null">
+          <button
+            type="button"
+            :disabled="editingBusy"
+            @click="closeResourceDialog"
+          >
             关闭
           </button>
         </div>
@@ -2509,7 +2529,9 @@ onBeforeUnmount(resetContext);
           </p></template
         >
         <p v-if="resource === 'admin-users' && mode === 'edit'" class="muted">
-          管理员账号：{{ selected.username }}。修改用户名后，该管理员需重新登录；动态验证码和资金密码继续有效。
+          管理员账号：{{
+            selected.username
+          }}。修改用户名后，该管理员需重新登录；动态验证码和资金密码继续有效。
         </p>
         <MerchantCreateFields
           v-if="isMerchantCreationForm"
@@ -2608,7 +2630,7 @@ onBeforeUnmount(resetContext);
             v-if="!entry"
             type="button"
             :disabled="editingBusy"
-            @click="mode = null"
+            @click="closeResourceDialog"
           >
             {{ isMerchantCreationForm ? "关闭" : "取消" }}</button
           ><button

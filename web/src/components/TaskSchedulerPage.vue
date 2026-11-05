@@ -544,7 +544,7 @@ onBeforeUnmount(() => {
           admin-class="super"
       /></template>
     </template>
-    <div v-if="modal" class="task-backdrop">
+    <div v-if="modal" class="task-backdrop" @click.self="close">
       <section
         ref="dialog"
         class="task-dialog"

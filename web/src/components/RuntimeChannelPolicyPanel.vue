@@ -479,7 +479,7 @@ onBeforeUnmount(() => {
     <div
       v-if="modalID"
       class="modal-backdrop drawer-backdrop"
-      @pointerdown.self="close"
+      @click.self="close"
     >
       <section
         ref="modal"

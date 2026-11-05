@@ -153,7 +153,20 @@ for (const width of [375, 1440])
     await expect(modal).toHaveCount(0);
     await expect(detail).toBeVisible();
     await expect(trigger).toBeFocused();
+    // The nested overlay closes independently; the underlying order drawer
+    // keeps its state and can still be dismissed afterwards.
+    await trigger.click();
+    await expect(modal).toBeVisible();
+    await page
+      .locator(".combined-backdrop204")
+      .click({ position: { x: 5, y: 5 } });
+    await expect(modal).toHaveCount(0);
+    await expect(detail).toBeVisible();
+    await expect(trigger).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(detail).toHaveCount(0);
     expect(f.reads).toEqual([
+      "/console/v1/merchant/orders/PARENT-204/suborders",
       "/console/v1/merchant/orders/PARENT-204/suborders",
     ]);
     expect(f.writes).toHaveLength(0);

@@ -312,7 +312,11 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <div class="modal-backdrop drawer-backdrop" @keydown.esc="close">
+  <div
+    class="modal-backdrop drawer-backdrop"
+    @keydown.esc="close"
+    @click.self="close"
+  >
     <section
       ref="dialogElement"
       tabindex="-1"

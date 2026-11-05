@@ -1391,6 +1391,9 @@ onBeforeUnmount(() => {
         ? 'workflow-application'
         : 'modal-backdrop' + (dialog === 'create' ? ' drawer-backdrop' : '')
     "
+    @click.self="
+      !application && dialog === 'create' && !busy && (dialog = null)
+    "
   >
     <section
       ref="workflowDialog"

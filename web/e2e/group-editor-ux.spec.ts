@@ -121,22 +121,24 @@ for (const width of [1280, 375])
       exact: true,
     });
     await expect(dialog.getByRole("tab")).toHaveText(["基本信息", "其他配置"]);
-    const box = await dialog.boundingBox();
-    expect(box).not.toBeNull();
-    // Match the reference's centered tabbed dialog, with its own bounded scroll
-    // area. The backdrop retains space around the dialog on a phone too.
-    const vh = page.viewportSize()!.height;
-    expect(box!.y).toBeGreaterThanOrEqual(vh * 0.03);
-    expect(box!.height).toBeLessThanOrEqual(vh * 0.92 + 1);
-    expect(
-      Math.abs(box!.x - (width - box!.x - box!.width)),
-    ).toBeLessThanOrEqual(20);
-    if (width === 1280) expect(box!.width).toBeCloseTo(1000, 0);
-    else {
-      expect(box!.width).toBeGreaterThanOrEqual(width - 40);
-      expect(box!.x).toBeGreaterThanOrEqual(19);
-      expect(box!.x + box!.width).toBeLessThanOrEqual(width - 19);
-    }
+    // Long resource forms share the order drawer: full-height and right-aligned,
+    // using the whole width on a phone while keeping content scrollable inside.
+    await expect
+      .poll(async () =>
+        dialog.evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          return (
+            Math.abs(box.right - innerWidth) < 2 &&
+            Math.abs(box.top) < 2 &&
+            Math.abs(box.height - innerHeight) < 2
+          );
+        }),
+      )
+      .toBe(true);
+    expect((await dialog.boundingBox())!.width).toBeCloseTo(
+      Math.min(width, 900),
+      0,
+    );
     await expect(
       dialog.getByRole("heading", { name: "通道费率", exact: true }),
     ).toBeVisible();
