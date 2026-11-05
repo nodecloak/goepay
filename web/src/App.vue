@@ -2428,9 +2428,29 @@ onBeforeUnmount(() => {
         <AdminLoginNameSettings245
           v-if="area === 'admin'"
           :client="client"
-          @reauthenticate="(message) => { session = null; notice = message; error = ''; }"
-        />
+          @reauthenticate="
+            (message) => {
+              session = null;
+              notice = message;
+              error = '';
+            }
+          "
+        >
+          <AccountPage
+            :key="path"
+            :client="client"
+            section="security"
+            @reauthenticate="
+              (message) => {
+                session = null;
+                notice = message || '密码已修改，请重新登录';
+                error = '';
+              }
+            "
+          />
+        </AdminLoginNameSettings245>
         <AccountPage
+          v-else
           :key="path"
           :client="client"
           :own-session="
@@ -2442,13 +2462,7 @@ onBeforeUnmount(() => {
           :merchant-id="
             session?.user.role === 'merchant' ? String(session.user.id) : ''
           "
-          :section="
-            area === 'admin'
-              ? 'security'
-              : path === '/account/api-info'
-                ? 'api-info'
-                : 'profile'
-          "
+          :section="path === '/account/api-info' ? 'api-info' : 'profile'"
           @reauthenticate="
             (message) => {
               session = null;
@@ -2457,13 +2471,23 @@ onBeforeUnmount(() => {
             }
           "
         />
-        <PaymentPasswordSettings
-          v-if="area === 'admin'"
-          :key="area + 'funds-security'"
-          :client="client"
-        />
+        <div v-if="area === 'admin'" class="account-security-protection">
+          <PaymentPasswordSettings
+            :key="area + 'funds-security'"
+            :client="client"
+          />
+          <TotpSettings
+            :key="area + 'totp'"
+            :client="client"
+            @reauthenticate="
+              session = null;
+              notice = '身份验证设置已更新，请重新登录';
+              error = '';
+            "
+          />
+        </div>
         <TotpSettings
-          v-if="path !== '/account/api-info'"
+          v-if="area !== 'admin' && path !== '/account/api-info'"
           :key="area + 'totp'"
           :client="client"
           @reauthenticate="

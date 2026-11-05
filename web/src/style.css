@@ -2384,11 +2384,11 @@ button.badge.state-toggle:hover:not(:disabled) {
   border-color: currentColor;
 }
 
-/* Admin 修改密码: login password and funds password side by side like the
-   original console, two-factor settings full width below. */
+/* Account identity and login password share the left card; funds password and
+   two-factor protection stack in the right column. */
 .account-security-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
@@ -2396,14 +2396,24 @@ button.badge.state-toggle:hover:not(:disabled) {
   min-width: 0;
   max-width: none;
 }
-.account-security-grid > :nth-child(n + 3) {
-  grid-column: 1 / -1;
+.account-security-protection {
+  display: grid;
+  gap: var(--space-4);
+}
+.account-security-protection > .account-section {
+  min-width: 0;
+  max-width: none;
 }
 .account-security-grid .account-section {
   margin-bottom: 0;
 }
-@media (max-width: 900px) {
+@media (min-width: 1200px) {
   .account-security-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .account-security-protection .account-section form > label {
     grid-template-columns: minmax(0, 1fr);
   }
 }

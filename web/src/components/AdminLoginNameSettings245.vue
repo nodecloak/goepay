@@ -214,6 +214,9 @@ onBeforeUnmount(() => {
     <p class="muted">
       修改后需使用新用户名重新登录；动态验证码和资金密码继续有效。
     </p>
+    <div v-if="$slots.default" class="admin-login-name245-security">
+      <slot />
+    </div>
     <KitModal
       v-if="editing"
       title="修改管理员用户名"
@@ -259,5 +262,51 @@ onBeforeUnmount(() => {
 }
 .admin-login-name245-row strong {
   overflow-wrap: anywhere;
+}
+.admin-login-name245-security {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--line);
+}
+.admin-login-name245-security :deep(.account-pages),
+.admin-login-name245-security :deep(.account-section) {
+  max-width: none;
+}
+.admin-login-name245-security :deep(.account-section) {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.admin-login-name245-security :deep(.account-section > h2) {
+  padding: 0;
+  margin: 0 0 var(--space-4);
+  border: 0;
+  font-size: 14px;
+}
+.admin-login-name245-security :deep(.account-kit-form) {
+  max-width: 680px;
+}
+.admin-login-name245-security
+  :deep(.account-section .account-kit-form > label.pa-field) {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  margin: 0;
+}
+.admin-login-name245-security :deep(.account-kit-form > p.muted),
+.admin-login-name245-security :deep(.account-kit-actions) {
+  margin: 0 0 0 128px;
+}
+@media (max-width: 600px) {
+  .admin-login-name245-security
+    :deep(.account-section .account-kit-form > label.pa-field) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .admin-login-name245-security :deep(.account-kit-form > p.muted),
+  .admin-login-name245-security :deep(.account-kit-actions) {
+    margin-left: 0;
+  }
 }
 </style>
