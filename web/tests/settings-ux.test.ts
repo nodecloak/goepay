@@ -125,9 +125,7 @@ it("does not present an absent switch value as an explicitly disabled feature", 
     expect(
       w.find('input[role="switch"][aria-label="开放商户注册"]').exists(),
     ).toBe(false);
-    expect(w.get('button[aria-label="开放商户注册"]').text()).toContain(
-      "未配置",
-    );
+    expect(w.get('button[aria-label="开放商户注册"]').text()).toBe("请选择");
     expect(writes).toHaveLength(0);
   } finally {
     w.unmount();

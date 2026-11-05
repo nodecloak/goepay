@@ -227,7 +227,7 @@ function switchPair(d: SettingDefinition): readonly [string, string] | null {
   return on && off ? [on.value, off.value] : null;
 }
 function isSwitch(d: SettingDefinition): boolean {
-  // Absence means the server's default applies; it is not an explicit OFF.
+  // No saved choice must remain distinct from an explicit OFF.
   return switchPair(d) !== null && values.value[d.key] !== "";
 }
 function switchOn(d: SettingDefinition): boolean {
@@ -1023,7 +1023,7 @@ onBeforeUnmount(() => {
                   v-else-if="block.definition.kind === 'select'"
                   v-model="values[block.key]!"
                   :options="block.definition.options || []"
-                  placeholder="未配置（使用系统默认）"
+                  placeholder="请选择"
                   :aria-label="block.definition.label"
                   :disabled="!writable(block.definition) || controlsBusy"
                 />
@@ -1041,7 +1041,7 @@ onBeforeUnmount(() => {
                   :aria-label="block.definition.label"
                   :disabled="!writable(block.definition) || controlsBusy"
                   :maxlength="2048"
-                  placeholder="未配置，使用系统默认"
+                  :placeholder="'请输入' + block.definition.label"
                 ></textarea>
                 <KitInput
                   v-else
@@ -1057,7 +1057,7 @@ onBeforeUnmount(() => {
                   "
                   :disabled="!writable(block.definition) || controlsBusy"
                   :maxlength="1000"
-                  placeholder="未配置，使用系统默认"
+                  :placeholder="'请输入' + block.definition.label"
                 />
                 <small v-if="block.definition.hint" class="muted">{{
                   block.definition.hint
@@ -1113,7 +1113,7 @@ onBeforeUnmount(() => {
                   fieldsFor(panelTab).filter(dirty).length
                     ? `本页有${fieldsFor(panelTab).filter(dirty).length}项未保存`
                     : "本页没有未保存修改"
-                }}。未编辑的默认项不会写入。</span
+                }}。未修改的配置项不会写入。</span
               >
             </div>
             <BusinessNoticeEvents

@@ -72,7 +72,7 @@ for (const width of [375, 1280])
       exact: true,
     });
     await expect(mode).toBeVisible();
-    await expect(mode).toHaveText("未配置（使用系统默认）");
+    await expect(mode).toHaveText("请选择");
     await mode.click();
     const listbox = page.getByRole("listbox");
     await expect(listbox.getByRole("option")).toHaveText([
@@ -82,7 +82,9 @@ for (const width of [375, 1280])
       "Telegram",
       "QQ Bot",
     ]);
-    await listbox.getByRole("option", { name: "Telegram", exact: true }).click();
+    await listbox
+      .getByRole("option", { name: "Telegram", exact: true })
+      .click();
     await expect(mode).toHaveText("Telegram");
     expect(methods).toEqual(["GET"]);
     expect(
