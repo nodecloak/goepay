@@ -57,8 +57,10 @@ try {
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(origin + "/admin/system/settings");
     await page.getByRole("tab", { name: "邮箱配置", exact: true }).click();
-    await expect(page.getByRole("tab",{name:"查看全部",exact:true})).toHaveAttribute("aria-selected","true");
-    await page.getByRole("tab",{name:"邮箱渠道配置",exact:true}).click();
+    await expect(
+      page.getByRole("tab", { name: "查看全部", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await page.getByRole("tab", { name: "邮箱渠道配置", exact: true }).click();
     await expect(
       page.getByRole("tab", { name: "邮箱渠道配置", exact: true }),
     ).toHaveAttribute("aria-selected", "true");

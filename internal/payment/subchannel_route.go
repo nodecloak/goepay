@@ -210,7 +210,9 @@ func (g ProviderFlow) withSubchannelAccountSource(ctx context.Context, tx fundsR
 	parent.child.live = g.parentLive
 	if g.parentOperator != nil {
 		origin := c.ParentID
-		if binding := g.parentBindings[c.ParentID]; binding != nil { origin = binding.account.source }
+		if binding := g.parentBindings[c.ParentID]; binding != nil {
+			origin = binding.account.source
+		}
 		parent.child.authorized = func() bool { return g.parentOperator(c.MerchantID, origin) }
 	}
 	childFlow.parentBindings = g.parentBindings
@@ -377,8 +379,12 @@ func (s *Store) checkChildFirstSendTx(ctx context.Context, tx pgx.Tx, o Order, b
 	if b == nil || b.child == nil {
 		return ErrConflict
 	}
-	if b.child.live != nil && !b.child.live() { return ErrLiveDisabled }
-	if b.child.authorized != nil && !b.child.authorized() { return ErrConflict }
+	if b.child.live != nil && !b.child.live() {
+		return ErrLiveDisabled
+	}
+	if b.child.authorized != nil && !b.child.authorized() {
+		return ErrConflict
+	}
 	c, e := s.readSubchannel(ctx, tx, tx.QueryRow(ctx, `SELECT `+childColumns+` FROM payment_subchannels WHERE id=$1 AND merchant_id=$2 FOR SHARE`, b.child.child, o.MerchantID))
 	if e != nil {
 		return e

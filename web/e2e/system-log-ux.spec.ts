@@ -73,9 +73,9 @@ for (const width of [1280, 375])
       "操作IP",
       "时间",
     ]);
-    await expect(
-      page.locator(".id-cell").filter({ hasText: big }),
-    ).toHaveCount(2);
+    await expect(page.locator(".id-cell").filter({ hasText: big })).toHaveCount(
+      2,
+    );
     await expect(
       page.getByRole("link", { name: "1", exact: true }),
     ).toHaveAttribute("href", "/admin/merchant/merchant-list?uid=1");

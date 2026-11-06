@@ -77,17 +77,31 @@ func TestParentChild189CompletePre103ChildSurvivesLaterParentAdoptionWithoutSour
 
 func TestParentChild189PreparedOriginalChildRequiresLiveOperatorAfterWholeMapReplacement(t *testing.T) {
 	f, children := subchannel168BLocal(t)
-	if err := f.s.InstallParentRuntimeAuthorization(); err != nil { t.Fatal(err) }
-	if w := f.childHTTP("POST", "", `{"merchant_id":"1","parent_id":"7","name":"original prepared child189","enabled":true,"weight":1,"min_amount":"1","max_amount":"10000","values":{"app":"original-prepared189","secret":"synthetic-only-secret"}}`); w.Code != 200 { t.Fatal("child creation", w.Code) }
-	params := compat.Params{"out_trade_no":"original-prepared189", "type":"alipay", "name":"prepared original189", "money":"1.00", "channel_id":"7", "method":"native", "clientip":"192.0.2.189"}
+	if err := f.s.InstallParentRuntimeAuthorization(); err != nil {
+		t.Fatal(err)
+	}
+	if w := f.childHTTP("POST", "", `{"merchant_id":"1","parent_id":"7","name":"original prepared child189","enabled":true,"weight":1,"min_amount":"1","max_amount":"10000","values":{"app":"original-prepared189","secret":"synthetic-only-secret"}}`); w.Code != 200 {
+		t.Fatal("child creation", w.Code)
+	}
+	params := compat.Params{"out_trade_no": "original-prepared189", "type": "alipay", "name": "prepared original189", "money": "1.00", "channel_id": "7", "method": "native", "clientip": "192.0.2.189"}
 	channel, method, err := f.s.providerRoutedRequest(t.Context(), 1, params)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	view, err := f.s.paymentIntentServer(t.Context(), 1, params["out_trade_no"], channel)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	cost, err := view.ProviderFlow.PaymentCostQuote(channel, method)
-	if err != nil { t.Fatal(err) }
-	order, err := f.s.Store.CreateOrder(t.Context(), payment.CreateOrderInput{MerchantID:1, OutTradeNo:params["out_trade_no"], Name:params["name"], Type:"alipay", Amount:100, PaymentCost:cost})
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	order, err := f.s.Store.CreateOrder(t.Context(), payment.CreateOrderInput{MerchantID: 1, OutTradeNo: params["out_trade_no"], Name: params["name"], Type: "alipay", Amount: 100, PaymentCost: cost})
+	if err != nil {
+		t.Fatal(err)
+	}
 	f.s.MerchantChannels = map[int64][]int64{}
-	if _, err = view.ProviderFlow.Submit(t.Context(), order.TradeNo, channel, method, "192.0.2.189", ""); err == nil || children.providers["original-prepared189"].sends.Load() != 0 { t.Fatal("original child bypassed current root operator", err) }
+	if _, err = view.ProviderFlow.Submit(t.Context(), order.TradeNo, channel, method, "192.0.2.189", ""); err == nil || children.providers["original-prepared189"].sends.Load() != 0 {
+		t.Fatal("original child bypassed current root operator", err)
+	}
 }

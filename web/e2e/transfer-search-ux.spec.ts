@@ -127,9 +127,9 @@ for (const area of ["admin", "merchant"] as const)
       );
       await page.getByRole("button", { name: "重置", exact: true }).click();
       await reset;
-      await expect(
-        page.getByLabel("搜索内容", { exact: true }),
-      ).toHaveValue("");
+      await expect(page.getByLabel("搜索内容", { exact: true })).toHaveValue(
+        "",
+      );
       expect(reads.at(-1)!.searchParams.has("status")).toBe(false);
       expect(writes).toBe(0);
       expect(

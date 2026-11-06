@@ -318,9 +318,7 @@ onBeforeUnmount(() => {
           >
             <option value="">请选择档案</option>
             <option v-for="p in profiles" :key="p.id" :value="p.id">
-              {{
-                p.launch_kind === "basic" ? "基础应用授权" : "指定应用授权"
-              }}
+              {{ p.launch_kind === "basic" ? "基础应用授权" : "指定应用授权" }}
               · #{{ p.id }} · 版本{{ p.revision }}
             </option>
           </select></label

@@ -76,10 +76,6 @@ it("rejects inconsistent group views", () => {
   expect(() => readPaymentDefendGroup(view("0", "", "3"), "6")).toThrow();
   expect(() => readPaymentDefendGroup(view("1", "2", "2"), "5")).toThrow();
   expect(() => readPaymentDefendGroup(view("1", "0", "3"), "5")).toThrow();
-  expect(() =>
-    readPaymentDefendGroup({ ...view(), extra: 1 }, "5"),
-  ).toThrow();
-  expect(readPaymentDefendGroup(view("1", "3", "3"), "5").pay_verify).toBe(
-    "3",
-  );
+  expect(() => readPaymentDefendGroup({ ...view(), extra: 1 }, "5")).toThrow();
+  expect(readPaymentDefendGroup(view("1", "3", "3"), "5").pay_verify).toBe("3");
 });

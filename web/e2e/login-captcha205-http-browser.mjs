@@ -600,7 +600,12 @@ try {
   expect(count("merchant", initPath)).toBe(initsBeforeKey);
   await page.waitForURL((url) => url.pathname === "/merchant/dashboard");
   expect(documentCount("merchant", "/merchant/dashboard")).toBe(2);
-  await page.getByRole("button", { name: keySnapshot.envelope.data.user.name, exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: keySnapshot.envelope.data.user.name,
+      exact: true,
+    })
+    .click();
   await expect(
     page.getByRole("menuitem", { name: "退出登录", exact: true }),
   ).toBeVisible();
@@ -704,7 +709,9 @@ try {
   expect(restored.user).toEqual(acceptedSnapshot.envelope.data.user);
   await page.waitForURL((url) => url.pathname === "/merchant/dashboard");
   expect(documentCount("merchant", "/merchant/dashboard")).toBe(3);
-  await page.getByRole("button", { name: restored.user.name, exact: true }).click();
+  await page
+    .getByRole("button", { name: restored.user.name, exact: true })
+    .click();
   await expect(
     page.getByRole("menuitem", { name: "退出登录", exact: true }),
   ).toBeVisible();
@@ -753,7 +760,12 @@ try {
     admin_class: "super",
   });
   await admin.page.waitForURL((url) => url.pathname === "/admin/dashboard");
-  await admin.page.getByRole("button", { name: adminSnapshot.envelope.data.user.name, exact: true }).click();
+  await admin.page
+    .getByRole("button", {
+      name: adminSnapshot.envelope.data.user.name,
+      exact: true,
+    })
+    .click();
   await expect(
     admin.page.getByRole("menuitem", { name: "退出登录", exact: true }),
   ).toBeVisible();

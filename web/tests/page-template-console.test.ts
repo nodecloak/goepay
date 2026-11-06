@@ -153,7 +153,6 @@ it("does not continue configuration reads after unmount or revive a stale page",
   expect(request).toHaveBeenCalledTimes(1);
 });
 
-
 it("shows each template's preview picture on its card", async () => {
   const request = vi.fn(async (path: string) =>
     path.includes("?")
@@ -220,12 +219,11 @@ it("shows each template's preview picture on its card", async () => {
   await w.get('button[aria-label="预览 默认支付页模板"]').trigger("click");
   await w.get(".template-fullpreview").trigger("keydown", { key: "Escape" });
   expect(w.find(".template-fullpreview").exists()).toBe(false);
-  expect(request.mock.calls.every((c) => !String(c[0]).includes("/select"))).toBe(
-    true,
-  );
+  expect(
+    request.mock.calls.every((c) => !String(c[0]).includes("/select")),
+  ).toBe(true);
   w.unmount();
 });
-
 
 it("opens on the 首页模板 tab with the 17 built-in home styles", async () => {
   const request = vi.fn(async (path: string) =>
@@ -326,7 +324,13 @@ it("uploads a package after a confirmation and reloads the list, running scripts
           : homeNames.map((n) => builtin(n)),
       };
     const name = path.split("/")[3];
-    return { type: "home", name, revision: uploaded ? "1" : "0", config: homeConfig(), fields: [] };
+    return {
+      type: "home",
+      name,
+      revision: uploaded ? "1" : "0",
+      config: homeConfig(),
+      fields: [],
+    };
   });
   const client = Object.assign(new ApiClient("admin"), { request });
   // The multipart upload helpers go through fetch directly, not request().
@@ -478,7 +482,13 @@ it("lists versions and blocks a repeated restore on a 409", async () => {
         items: [...homeNames.map((n) => builtin(n)), uploadItem],
       };
     const name = path.split("/")[3];
-    return { type: "home", name, revision: "5", config: homeConfig(), fields: [] };
+    return {
+      type: "home",
+      name,
+      revision: "5",
+      config: homeConfig(),
+      fields: [],
+    };
   });
   const w = mount(TemplatePage, {
     props: {
@@ -506,9 +516,9 @@ it("lists versions and blocks a repeated restore on a 409", async () => {
   ]);
   const restore = rows[1].findAll("button").find((b) => b.text() === "恢复")!;
   await restore.trigger("click");
-  await w.get(".template-versions-pane .template-confirm button.primary").trigger(
-    "click",
-  );
+  await w
+    .get(".template-versions-pane .template-confirm button.primary")
+    .trigger("click");
   await flushPromises();
   expect(w.get("[role=alert]").text()).toContain("版本已变化");
   w.unmount();

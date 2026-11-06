@@ -17,7 +17,9 @@ function toggle(event: Event) {
   emit("change", checked);
   // A parent may require confirmation before accepting the proposed value.
   // Vue need not patch an unchanged prop, so restore the actual state explicitly.
-  void nextTick(() => { input.checked = props.modelValue; });
+  void nextTick(() => {
+    input.checked = props.modelValue;
+  });
 }
 </script>
 <template>

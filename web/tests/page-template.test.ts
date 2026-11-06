@@ -93,7 +93,6 @@ it("requires all six common fields, adds only pay order switch, and preserves ex
   }
 });
 
-
 it("accepts the built-in home styles and rejects wrong counts, names and kinds", () => {
   const items = homeNames.map(builtinItem);
   const list = readTemplateList({
@@ -134,7 +133,12 @@ it("accepts the built-in home styles and rejects wrong counts, names and kinds",
   ).toThrow();
   // pay ships the two card layouts and the anime one; qrpay only the two.
   expect(() =>
-    readTemplateList({ type: "pay", revision: "0", selected: "default", items }),
+    readTemplateList({
+      type: "pay",
+      revision: "0",
+      selected: "default",
+      items,
+    }),
   ).toThrow();
   const card = (names: string[]) => names.map(builtinItem);
   expect(
@@ -178,7 +182,15 @@ it("accepts the built-in home styles and rejects wrong counts, names and kinds",
       fields: [],
     }).name,
   ).toBe("index7");
-  expect(() => readTemplateConfig({ type: "pay", name: "index7", revision: "0", config: {}, fields: [] })).toThrow();
+  expect(() =>
+    readTemplateConfig({
+      type: "pay",
+      name: "index7",
+      revision: "0",
+      config: {},
+      fields: [],
+    }),
+  ).toThrow();
 });
 
 it("accepts uploaded items beside the built-ins and validates their shape", () => {
@@ -292,9 +304,7 @@ it("reads the upload check and result strictly", () => {
   expect(() => readUploadCheck("pay", base)).toThrow();
   expect(() => readUploadCheck("home", { ...base, name: "custom" })).toThrow();
   expect(() => readUploadCheck("home", { ...base, exists: "yes" })).toThrow();
-  expect(() =>
-    readUploadCheck("home", { ...base, warnings: [1] }),
-  ).toThrow();
+  expect(() => readUploadCheck("home", { ...base, warnings: [1] })).toThrow();
   const result = readUploadResult("home", {
     type: "home",
     name: "my-style",

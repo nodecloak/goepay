@@ -13,12 +13,10 @@ it("referral170 delayed policy cannot replace a later client or merchant context
   vi.spyOn(old, "request").mockImplementation(
     () => new Promise((r) => (finish = r)) as never,
   );
-  const read = vi
-    .spyOn(current, "request")
-    .mockResolvedValue({
-      ...policies[6],
-      merchant_id: "9007199254740993",
-    } as never);
+  const read = vi.spyOn(current, "request").mockResolvedValue({
+    ...policies[6],
+    merchant_id: "9007199254740993",
+  } as never);
   const view = mount(Card, { props: { client: old, merchantID: "1" } });
   await view.setProps({ client: current, merchantID: "9007199254740993" });
   await flushPromises();

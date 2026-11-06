@@ -1,8 +1,20 @@
 package server
-import("context";"encoding/json";"fmt";"goepay/internal/identity";"goepay/internal/payment";"net/http";"net/http/httptest";"strings";"testing")
-func independentHolds185(t *testing.T,business string,dbFault bool) {
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"goepay/internal/identity"
+	"goepay/internal/payment"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
+func independentHolds185(t *testing.T, business string, dbFault bool) {
 	t.Helper()
- rotate,unknown,lostLocalResult:=business=="unfreeze-income"&&!dbFault,false,false
+	rotate, unknown, lostLocalResult := business == "unfreeze-income" && !dbFault, false, false
 	f, factory, row := subchannel168BProductLocal(t)
 	ctx := context.Background()
 	if out := f.pay(t, "authorized-refund185", "1.00", 7); out["code"] != float64(1) {
@@ -56,7 +68,11 @@ func independentHolds185(t *testing.T,business string,dbFault bool) {
 		if _, e = f.s.ProviderFlow.Query(ctx, 1, second.TradeNo); e != nil {
 			t.Fatal(e)
 		}
-		if business=="unfreeze-income"{if _,e=f.s.Store.FreezeOrderIncome(ctx,1,second.TradeNo,"second-prior-hold185",payment.IncomeHoldActor{ID:168,Name:"admin168",Class:"super"});e!=nil{t.Fatal(e)}}
+		if business == "unfreeze-income" {
+			if _, e = f.s.Store.FreezeOrderIncome(ctx, 1, second.TradeNo, "second-prior-hold185", payment.IncomeHoldActor{ID: 168, Name: "admin168", Class: "super"}); e != nil {
+				t.Fatal(e)
+			}
+		}
 		raw, _ := json.Marshal(map[string]any{"external_no": "authorized-batch185", "action": business, "reason": "local credential rotation", "items": []map[string]string{{"trade_no": o.TradeNo}, {"trade_no": second.TradeNo}}})
 		body = string(raw)
 	}
@@ -100,31 +116,84 @@ func independentHolds185(t *testing.T,business string,dbFault bool) {
 		}
 	}
 
- if rotate {w=req(target,"{\"limit\":1}",grant.Data.Authorization);if w.Code!=200{t.Fatal(w.Code,w.Body.String())};o,e=f.s.Store.Order(ctx,1,"credential-second185");if e!=nil{t.Fatal(e)}}
- if dbFault {
-  if _,e=f.p.Exec(ctx,`CREATE FUNCTION independent185_fail_hold() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'synthetic hold audit fault';END$$;CREATE TRIGGER independent185_fail_hold BEFORE INSERT ON order_income_hold_events FOR EACH ROW EXECUTE FUNCTION independent185_fail_hold()`);e!=nil{t.Fatal(e)}
- }else if business=="freeze-income"{
-  if _,e=f.s.Store.FreezeOrderIncome(ctx,1,o.TradeNo,"competing-original-hold185",payment.IncomeHoldActor{ID:168,Name:"admin168",Class:"super"});e!=nil{t.Fatal(e)}
- }else{
-  if _,e=f.s.Store.ReserveRefund(ctx,1,o.OutTradeNo,"concurrent-held-refund185",25);e!=nil{t.Fatal(e)}
- }
- w=req(target,"{\"limit\":1}",grant.Data.Authorization);if w.Code!=200{t.Fatal(w.Code,w.Body.String())}
- var got struct{Data payment.OrderBusinessBatch};if e=json.Unmarshal(w.Body.Bytes(),&got);e!=nil{t.Fatal(e)}
- t.Logf("business=%s fault=%v first=%+v",business,dbFault,got.Data.Items)
- if dbFault {
-  if got.Data.State!="attention"||got.Data.Items[0].State!="unknown"{t.Fatal("DB audit error incorrectly became definite failure",w.Body.String())}
-  if _,e=f.p.Exec(ctx,`DROP TRIGGER independent185_fail_hold ON order_income_hold_events;DROP FUNCTION independent185_fail_hold()`);e!=nil{t.Fatal(e)}
-  w=req(target,"{\"limit\":1}",grant.Data.Authorization);if w.Code!=200{t.Fatal(w.Code,w.Body.String())};if e=json.Unmarshal(w.Body.Bytes(),&got);e!=nil{t.Fatal(e)}
-  if got.Data.State!="completed"||got.Data.Items[0].State!="succeeded"{t.Fatal("original same request recovery failed",w.Body.String())}
- }else{
-  if got.Data.State!="completed"||got.Data.Items[len(got.Data.Items)-1].State!="failed"{t.Fatal("definitively unstarted stale hold action did not terminate",w.Body.String())}
-  if business=="freeze-income"{var n int;if e=f.p.QueryRow(ctx,`SELECT count(*) FROM order_income_holds WHERE request_no=$1`,"batch185-freeze-income:"+id+":1").Scan(&n);e!=nil||n!=0{t.Fatal("new batch hold exists",n,e)}}else{
-   h,err:=f.s.Store.OrderIncomeHold(ctx,1,o.TradeNo);if err!=nil||h.State!="held"||h.RefundReservedAmount!=25{t.Fatal("failed batch released original pending funding",h,err)}
-  }
- }
- if _,e=f.s.Store.CheckLedger(ctx);e!=nil{t.Fatal(e)}
+	if rotate {
+		w = req(target, "{\"limit\":1}", grant.Data.Authorization)
+		if w.Code != 200 {
+			t.Fatal(w.Code, w.Body.String())
+		}
+		o, e = f.s.Store.Order(ctx, 1, "credential-second185")
+		if e != nil {
+			t.Fatal(e)
+		}
+	}
+	if dbFault {
+		if _, e = f.p.Exec(ctx, `CREATE FUNCTION independent185_fail_hold() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'synthetic hold audit fault';END$$;CREATE TRIGGER independent185_fail_hold BEFORE INSERT ON order_income_hold_events FOR EACH ROW EXECUTE FUNCTION independent185_fail_hold()`); e != nil {
+			t.Fatal(e)
+		}
+	} else if business == "freeze-income" {
+		if _, e = f.s.Store.FreezeOrderIncome(ctx, 1, o.TradeNo, "competing-original-hold185", payment.IncomeHoldActor{ID: 168, Name: "admin168", Class: "super"}); e != nil {
+			t.Fatal(e)
+		}
+	} else {
+		if _, e = f.s.Store.ReserveRefund(ctx, 1, o.OutTradeNo, "concurrent-held-refund185", 25); e != nil {
+			t.Fatal(e)
+		}
+	}
+	w = req(target, "{\"limit\":1}", grant.Data.Authorization)
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	var got struct{ Data payment.OrderBusinessBatch }
+	if e = json.Unmarshal(w.Body.Bytes(), &got); e != nil {
+		t.Fatal(e)
+	}
+	t.Logf("business=%s fault=%v first=%+v", business, dbFault, got.Data.Items)
+	if dbFault {
+		if got.Data.State != "attention" || got.Data.Items[0].State != "unknown" {
+			t.Fatal("DB audit error incorrectly became definite failure", w.Body.String())
+		}
+		if _, e = f.p.Exec(ctx, `DROP TRIGGER independent185_fail_hold ON order_income_hold_events;DROP FUNCTION independent185_fail_hold()`); e != nil {
+			t.Fatal(e)
+		}
+		w = req(target, "{\"limit\":1}", grant.Data.Authorization)
+		if w.Code != 200 {
+			t.Fatal(w.Code, w.Body.String())
+		}
+		if e = json.Unmarshal(w.Body.Bytes(), &got); e != nil {
+			t.Fatal(e)
+		}
+		if got.Data.State != "completed" || got.Data.Items[0].State != "succeeded" {
+			t.Fatal("original same request recovery failed", w.Body.String())
+		}
+	} else {
+		if got.Data.State != "completed" || got.Data.Items[len(got.Data.Items)-1].State != "failed" {
+			t.Fatal("definitively unstarted stale hold action did not terminate", w.Body.String())
+		}
+		if business == "freeze-income" {
+			var n int
+			if e = f.p.QueryRow(ctx, `SELECT count(*) FROM order_income_holds WHERE request_no=$1`, "batch185-freeze-income:"+id+":1").Scan(&n); e != nil || n != 0 {
+				t.Fatal("new batch hold exists", n, e)
+			}
+		} else {
+			h, err := f.s.Store.OrderIncomeHold(ctx, 1, o.TradeNo)
+			if err != nil || h.State != "held" || h.RefundReservedAmount != 25 {
+				t.Fatal("failed batch released original pending funding", h, err)
+			}
+		}
+	}
+	if _, e = f.s.Store.CheckLedger(ctx); e != nil {
+		t.Fatal(e)
+	}
 }
-func TestOrderBatch185IndependentFreezeRejectedBeforeIntent(t *testing.T){independentHolds185(t,"freeze-income",false)}
-func TestOrderBatch185IndependentUnfreezeRejectedBeforeIntentPreservesOtherReserve(t *testing.T){independentHolds185(t,"unfreeze-income",false)}
-func TestOrderBatch185IndependentFreezeDBFaultKeepsUnknownAndRecoversSameRequest(t *testing.T){independentHolds185(t,"freeze-income",true)}
-func TestOrderBatch185IndependentUnfreezeDBFaultKeepsUnknownAndRecoversSameRequest(t *testing.T){independentHolds185(t,"unfreeze-income",true)}
+func TestOrderBatch185IndependentFreezeRejectedBeforeIntent(t *testing.T) {
+	independentHolds185(t, "freeze-income", false)
+}
+func TestOrderBatch185IndependentUnfreezeRejectedBeforeIntentPreservesOtherReserve(t *testing.T) {
+	independentHolds185(t, "unfreeze-income", false)
+}
+func TestOrderBatch185IndependentFreezeDBFaultKeepsUnknownAndRecoversSameRequest(t *testing.T) {
+	independentHolds185(t, "freeze-income", true)
+}
+func TestOrderBatch185IndependentUnfreezeDBFaultKeepsUnknownAndRecoversSameRequest(t *testing.T) {
+	independentHolds185(t, "unfreeze-income", true)
+}

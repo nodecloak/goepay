@@ -1,6 +1,11 @@
 import { test, expect } from "@playwright/test";
 import fs from "node:fs";
-const fixture=JSON.parse(fs.readFileSync(new URL("./subchannel168b-dashboard-fixture.json",import.meta.url),"utf8"));
+const fixture = JSON.parse(
+  fs.readFileSync(
+    new URL("./subchannel168b-dashboard-fixture.json", import.meta.url),
+    "utf8",
+  ),
+);
 for (const width of [1440, 375])
   test(`subchannel168b actual dashboard fee projection ${width}`, async ({
     page,
@@ -19,7 +24,17 @@ for (const width of [1440, 375])
           csrf_token: "synthetic168b-dashboard",
         };
       else if (u.pathname.endsWith("/dashboard")) {
-        const d = {...structuredClone(fixture.parent50),payment_channels:structuredClone(fixture.parent50.payment_channels) as {channel_id:string,type:string,fee_rate_bps:number|null,fee_source:string}[]};
+        const d = {
+          ...structuredClone(fixture.parent50),
+          payment_channels: structuredClone(
+            fixture.parent50.payment_channels,
+          ) as {
+            channel_id: string;
+            type: string;
+            fee_rate_bps: number | null;
+            fee_source: string;
+          }[],
+        };
         d.payment_channels.push(
           {
             ...d.payment_channels[0],

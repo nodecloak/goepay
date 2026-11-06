@@ -49,7 +49,10 @@ export function merchantLoginReturn205(value: unknown): string {
   }
 }
 
-export function merchantLoginEntry205(current: string, reason: "password" | "security" | "" = ""): string {
+export function merchantLoginEntry205(
+  current: string,
+  reason: "password" | "security" | "" = "",
+): string {
   return (
     "/merchant/login?return=" +
     encodeURIComponent(merchantLoginReturn205(current)) +

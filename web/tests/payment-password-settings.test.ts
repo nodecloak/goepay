@@ -46,14 +46,12 @@ it("uses own administrator login, existing funds password and required TOTP, cle
   wrapper.unmount();
 });
 it("initial setup does not request an old funds password and cancellation clears the component form", async () => {
-  const request = vi
-    .fn()
-    .mockResolvedValue({
-      configured: false,
-      enforced: false,
-      credential_epoch: 0,
-      totp_required: false,
-    });
+  const request = vi.fn().mockResolvedValue({
+    configured: false,
+    enforced: false,
+    credential_epoch: 0,
+    totp_required: false,
+  });
   const wrapper = mount(PaymentPasswordSettings, {
     props: { client: Object.assign(new ApiClient("admin"), { request }) },
   });

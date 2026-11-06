@@ -3,7 +3,15 @@ import { mount } from "@vue/test-utils";
 import DashboardOverview from "../src/components/DashboardOverview.vue";
 import fixture from "../e2e/subchannel168b-dashboard-fixture.json";
 it("renders actual current parent fees per row, with unknown kept distinct from zero", () => {
-  const data = {...structuredClone(fixture.parent50),payment_channels:structuredClone(fixture.parent50.payment_channels) as {channel_id:string,type:string,fee_rate_bps:number|null,fee_source:string}[]};
+  const data = {
+    ...structuredClone(fixture.parent50),
+    payment_channels: structuredClone(fixture.parent50.payment_channels) as {
+      channel_id: string;
+      type: string;
+      fee_rate_bps: number | null;
+      fee_source: string;
+    }[],
+  };
   data.payment_channels.push(
     {
       ...data.payment_channels[0],

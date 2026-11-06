@@ -67,9 +67,9 @@ test("original synchronous notification opens the signed merchant return after t
   });
   await expect(sync).toBeVisible();
   const labels = await detail.getByRole("button").allTextContents();
-  expect(labels.findIndex((value) => value.includes("重发商户通知"))).toBeLessThan(
-    labels.findIndex((value) => value.includes("重新通知(同步)")),
-  );
+  expect(
+    labels.findIndex((value) => value.includes("重发商户通知")),
+  ).toBeLessThan(labels.findIndex((value) => value.includes("重新通知(同步)")));
   expect(posts).toHaveLength(0);
   const opened = page.waitForEvent("popup");
   await sync.click();

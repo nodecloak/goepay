@@ -34,9 +34,15 @@ func (s *Server) channelStopConsole(w http.ResponseWriter, r *http.Request, role
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	if s.ProviderFlow == nil { response(w, 503, -1, "runtime channel catalog unavailable", nil); return true }
+	if s.ProviderFlow == nil {
+		response(w, 503, -1, "runtime channel catalog unavailable", nil)
+		return true
+	}
 	kinds, catalogErr := s.ProviderFlow.ConsoleChannelKinds(ctx)
-	if catalogErr != nil { s.fail(w, catalogErr); return true }
+	if catalogErr != nil {
+		s.fail(w, catalogErr)
+		return true
+	}
 	if len(p) == 2 && r.Method == "GET" {
 		if s.ProviderFlow == nil || len(s.ProviderFlow.Providers) > 1000 {
 			response(w, 503, -1, "runtime channel catalog unavailable", nil)

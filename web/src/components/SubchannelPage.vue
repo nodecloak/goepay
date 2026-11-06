@@ -392,7 +392,9 @@ function setupValues(d: Dialog) {
       d.row?.parentId === d.parentId &&
       d.row.fields.some((v) => v.name === f.name && v.present)
         ? "keep"
-        : d.mode === "params" && !f.required ? "clear" : "replace";
+        : d.mode === "params" && !f.required
+          ? "clear"
+          : "replace";
   }
 }
 async function open(mode: Mode, row: SubchannelRow | null = null) {
@@ -1213,7 +1215,9 @@ onBeforeUnmount(() => {
                 :key="modal.parentId + '.' + f.name"
                 class="subchannel-param"
               >
-                <span class="subchannel-param-label">{{ f.label }}{{ f.required ? ' *' : '' }}</span>
+                <span class="subchannel-param-label"
+                  >{{ f.label }}{{ f.required ? " *" : "" }}</span
+                >
                 <ConfigValueEditor
                   :model-value="modal.values[f.name] || ''"
                   @update:model-value="modal.values[f.name] = $event"
@@ -1225,8 +1229,7 @@ onBeforeUnmount(() => {
                   :secret="f.secret"
                   multiline
                   :disabled="modal.busy || modal.uncertain"
-                />
-              </div></template
+                /></div></template
             ><template
               v-if="modal.mode === 'create' || modal.mode === 'settings'"
               ><label

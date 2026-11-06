@@ -136,16 +136,14 @@ it("rejects a staged platform clear after the service is reenabled before confir
 
 it("revalidates a merchant device clear against changed mode at explicit dispatch", async () => {
   const c = new ApiClient("merchant");
-  const request = vi
-    .spyOn(c, "request")
-    .mockResolvedValue({
-      revision: "3",
-      mode: 0,
-      copies: 1,
-      voice: false,
-      device_masked: "***device",
-      device_present: true,
-    });
+  const request = vi.spyOn(c, "request").mockResolvedValue({
+    revision: "3",
+    mode: 0,
+    copies: 1,
+    voice: false,
+    device_masked: "***device",
+    device_present: true,
+  });
   const w = mount(PrintingSettingsPage, {
     props: { client: c, ownSession: true },
   });
@@ -225,16 +223,14 @@ it("keeps a rejected merchant configuration editable while wiping the private de
 
 it("refuses incomplete platform replacement before opening confirmation", async () => {
   const c = new ApiClient("admin");
-  const request = vi
-    .spyOn(c, "request")
-    .mockResolvedValue({
-      revision: "3",
-      enabled: false,
-      provider: "local_fake",
-      app_id_masked: "***app",
-      secret_present: true,
-      external_execution_available: false,
-    });
+  const request = vi.spyOn(c, "request").mockResolvedValue({
+    revision: "3",
+    enabled: false,
+    provider: "local_fake",
+    app_id_masked: "***app",
+    secret_present: true,
+    external_execution_available: false,
+  });
   const w = mount(PrintingSettingsPage, {
     props: { client: c, ownSession: true, adminClass: "super" },
   });

@@ -37,14 +37,12 @@ describe("console transport", () => {
   it("preserves server cooldown seconds without inventing a retry period", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify({ code: -1, message: "cooldown" }), {
-            status: 429,
-            headers: { "Retry-After": "60" },
-          }),
-        ),
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ code: -1, message: "cooldown" }), {
+          status: 429,
+          headers: { "Retry-After": "60" },
+        }),
+      ),
     );
     const client = new ApiClient("merchant");
     client.csrfToken = "csrf";

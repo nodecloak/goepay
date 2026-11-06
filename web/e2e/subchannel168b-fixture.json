@@ -6,9 +6,7 @@
         "fee_rate_bps": 50,
         "fee_source": "parent",
         "fee_policy": "merchant_deduct",
-        "methods": [
-          "native"
-        ],
+        "methods": ["native"],
         "account_available": true,
         "parent_available": true,
         "browser_test_available": true,
@@ -56,9 +54,7 @@
         "fee_rate_bps": 50,
         "fee_source": "parent",
         "fee_policy": "merchant_deduct",
-        "methods": [
-          "native"
-        ],
+        "methods": ["native"],
         "account_available": true,
         "parent_available": true,
         "browser_test_available": false,
@@ -113,9 +109,7 @@
         "fee_rate_bps": 50,
         "fee_source": "parent",
         "fee_policy": "merchant_deduct",
-        "methods": [
-          "native"
-        ],
+        "methods": ["native"],
         "account_available": true,
         "parent_available": true,
         "browser_test_available": true,
@@ -163,9 +157,7 @@
         "fee_rate_bps": 50,
         "fee_source": "parent",
         "fee_policy": "merchant_deduct",
-        "methods": [
-          "native"
-        ],
+        "methods": ["native"],
         "account_available": true,
         "parent_available": true,
         "browser_test_available": false,

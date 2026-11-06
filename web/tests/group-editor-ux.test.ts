@@ -86,14 +86,20 @@ it("group editor exposes original transfer permission, preserving legacy zero as
   });
   expect(w.get("input").element.value).toBe("本地组");
   expect(w.findAll('[role="tab"]')).toHaveLength(1);
-  expect(w.get<HTMLSelectElement>("#field-settle_open").element.value).toBe("3");
+  expect(w.get<HTMLSelectElement>("#field-settle_open").element.value).toBe(
+    "3",
+  );
   await w.get<HTMLSelectElement>("#field-settle_open").setValue("2");
   expect(w.emitted("change")).toEqual([["settle_open", "2"]]);
 
   expect(w.text()).toContain("代付功能");
   expect(w.text()).toContain("商户自身权限");
-  expect(w.get<HTMLSelectElement>("#field-user_transfer").element.value).toBe("0");
-  expect(w.get<HTMLSelectElement>("#field-user_transfer").text()).toContain("缺省");
+  expect(w.get<HTMLSelectElement>("#field-user_transfer").element.value).toBe(
+    "0",
+  );
+  expect(w.get<HTMLSelectElement>("#field-user_transfer").text()).toContain(
+    "缺省",
+  );
   await w.get<HTMLSelectElement>("#field-user_transfer").setValue("1");
   expect(w.emitted("change")?.at(-1)).toEqual(["user_transfer", "1"]);
   w.unmount();
@@ -120,7 +126,9 @@ it("hidden validation errors reveal their real group and keyboard navigation pre
   expect(
     w.get('[role="tab"][aria-selected="true"]').attributes("data-group"),
   ).toBe("other");
-  expect(w.get<HTMLInputElement>("#field-pay_maxmoney").element.value).toBe("90071992547409.93");
+  expect(w.get<HTMLInputElement>("#field-pay_maxmoney").element.value).toBe(
+    "90071992547409.93",
+  );
   expect(document.activeElement?.id).toBe("field-pay_maxmoney");
   await w.get('[role="tablist"]').trigger("keydown", { key: "Home" });
   expect(
@@ -164,7 +172,9 @@ it("original basic/other layout preserves unknown fields and excludes readonly f
   expect(w.find("#field-pay_minmoney").exists()).toBe(false);
   await w.get('[data-group="other"]').trigger("click");
   expect(w.get<HTMLInputElement>("#field-extra").element.value).toBe("opaque");
-  expect(w.get<HTMLInputElement>("#field-pay_minmoney").element.value).toBe("0");
+  expect(w.get<HTMLInputElement>("#field-pay_minmoney").element.value).toBe(
+    "0",
+  );
   expect(w.find("#field-created_at").exists()).toBe(false);
   w.unmount();
 });

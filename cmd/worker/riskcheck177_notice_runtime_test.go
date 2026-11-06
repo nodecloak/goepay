@@ -22,8 +22,8 @@ func TestRisk177NoticeRuntimeDefaultsOffAndRechecksLiveFlag(t *testing.T) {
 	values["GOEPAY_SMTP_HOST"] = "mail.example.invalid"
 	values["GOEPAY_SMTP_PORT"] = "465"
 	values["GOEPAY_SMTP_SECURITY"] = "implicit"
-	values["GOEPAY_SMTP_USERNAME"]="synthetic-risk177"
-	values["GOEPAY_SMTP_PASSWORD"]="synthetic-risk177-password"
+	values["GOEPAY_SMTP_USERNAME"] = "synthetic-risk177"
+	values["GOEPAY_SMTP_PASSWORD"] = "synthetic-risk177-password"
 	values["GOEPAY_SMTP_FROM"] = "risk177@example.invalid"
 	r, e = newCoreRiskNoticeRuntime(&payment.Store{}, get)
 	if e != nil {

@@ -56,4 +56,3 @@ it("rejects rounded IDs, missing route types and unsupported routing kinds witho
     readGroupPaymentRates({ sandbox: { channel: "1", type: "channel" } }),
   ).toThrow();
 });
-

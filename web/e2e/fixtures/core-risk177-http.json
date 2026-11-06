@@ -10,9 +10,7 @@
         "revision": "1",
         "rule": "auto_check_payip",
         "source_count": 1,
-        "source_order_ids": [
-          "9007199254741775"
-        ],
+        "source_order_ids": ["9007199254741775"],
         "target_id": "0",
         "until": "2026-10-31T14:07:45.379983Z"
       }

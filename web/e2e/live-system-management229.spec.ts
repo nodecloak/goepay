@@ -76,11 +76,9 @@ test.describe("real local system management workflows229", () => {
         .getByRole("checkbox", { name: "订单管理", exact: true })
         .check();
       await dialog.getByRole("button", { name: "保存", exact: true }).click();
-      const row = page
-        .getByRole("row")
-        .filter({
-          has: page.getByRole("cell", { name: username, exact: true }),
-        });
+      const row = page.getByRole("row").filter({
+        has: page.getByRole("cell", { name: username, exact: true }),
+      });
       await expect(row).toBeVisible();
       const saved = (
         await local.call("admin", "/resources/admin-users?limit=100")
@@ -212,11 +210,9 @@ test.describe("real local system management workflows229", () => {
       const key = width === 375 ? "order" : "check";
       const original = await local.call("admin", "/scheduled-tasks/" + key);
       await page.goto("/admin/system/cron");
-      const card = page
-        .locator(".job-card")
-        .filter({
-          has: page.locator(".job-key").getByText(key, { exact: true }),
-        });
+      const card = page.locator(".job-card").filter({
+        has: page.locator(".job-key").getByText(key, { exact: true }),
+      });
       await expect(card).toContainText(original.description);
       await card.getByRole("button", { name: "配置", exact: true }).click();
       const dialog = page.getByRole("dialog");

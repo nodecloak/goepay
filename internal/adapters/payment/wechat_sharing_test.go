@@ -28,7 +28,7 @@ func TestWechatChannelSharingTLSChecksEveryReceiverAndOriginalReturn(t *testing.
 			if r.Header.Get("Wechatpay-Serial") != "PUB_KEY_ID_LOCAL" {
 				t.Error("encrypted recipient did not select its exact public key serial")
 			}
-			encrypted, _ := base64.StdEncoding.DecodeString(v3Text(input, "name",512))
+			encrypted, _ := base64.StdEncoding.DecodeString(v3Text(input, "name", 512))
 			name, e := rsa.DecryptOAEP(sha1.New(), rand.Reader, platform, encrypted, nil)
 			if e != nil || string(name) != "本地商户" {
 				t.Error("recipient name is not OAEP encrypted", e)

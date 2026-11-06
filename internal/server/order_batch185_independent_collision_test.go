@@ -1,6 +1,18 @@
 package server
-import("context";"encoding/json";"fmt";"goepay/internal/identity";"goepay/internal/payment";"net/http";"net/http/httptest";"strings";"testing")
-func independentCollision185(t *testing.T, rotate, unknown bool, business string, lostLocalResult,corrupt bool) {
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"goepay/internal/identity"
+	"goepay/internal/payment"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
+func independentCollision185(t *testing.T, rotate, unknown bool, business string, lostLocalResult, corrupt bool) {
 	t.Helper()
 	f, factory, row := subchannel168BProductLocal(t)
 	ctx := context.Background()
@@ -98,24 +110,58 @@ func independentCollision185(t *testing.T, rotate, unknown bool, business string
 		}
 	}
 
- w = req(target, "{\"limit\":1}", grant.Data.Authorization)
- if w.Code != 200 {t.Fatal(w.Code,w.Body.String())}
- second,e:=f.s.Store.Order(ctx,1,"credential-second185");if e!=nil{t.Fatal(e)}
- if _,e=f.s.ProviderFlow.Refund(ctx,1,second.TradeNo,fmt.Sprintf("batch185-refund:%s:2",id),25);e!=nil{t.Fatal(e)}
- if corrupt {if _,e=f.p.Exec(ctx,`ALTER TABLE provider_refund_result_evidence DISABLE TRIGGER USER`);e!=nil{t.Fatal(e)};if _,e=f.p.Exec(ctx,`UPDATE provider_refund_result_evidence SET proof_hash=decode(repeat('00',32),'hex') WHERE refund_no=$1`,fmt.Sprintf("batch185-refund:%s:2",id));e!=nil{t.Fatal(e)};if _,e=f.p.Exec(ctx,`ALTER TABLE provider_refund_result_evidence ENABLE TRIGGER USER`);e!=nil{t.Fatal(e)}}
- w=req(target,"{\"limit\":1}",grant.Data.Authorization)
- if w.Code!=200{t.Fatal(w.Code,w.Body.String())}
- var got struct{Data payment.OrderBusinessBatch};if e=json.Unmarshal(w.Body.Bytes(),&got);e!=nil{t.Fatal(e)}
- t.Logf("after actual concurrent original single refund: state=%s items=%+v",got.Data.State,got.Data.Items)
- var batchRefunds, batchOps int
- if e=f.p.QueryRow(ctx,`SELECT (SELECT count(*) FROM refunds WHERE refund_no=$1),(SELECT count(*) FROM provider_operations op JOIN refunds r ON r.id=op.refund_id WHERE r.refund_no=$1)`,fmt.Sprintf("batch185-refund:%s:2",id)).Scan(&batchRefunds,&batchOps);e!=nil{t.Fatal(e)}
- t.Logf("second batch item rows=%d claimed_operations=%d",batchRefunds,batchOps)
- cancel:=batch185Request(f,"POST","/"+id+"/cancel",fmt.Sprintf(`{"expected_fingerprint":%q}`,got.Data.Fingerprint))
- t.Logf("cancel HTTP=%d %s",cancel.Code,cancel.Body.String())
- if corrupt && got.Data.Items[1].State!="unknown"{t.Fatal("corrupt original evidence manufactured a terminal batch result")}
- if !corrupt && got.Data.Items[1].State!="failed"{t.Fatal("verified conflicting original request did not fail the fixed selection")}
- if got.Data.Items[1].State=="succeeded"{t.Fatal("batch accepted original25 receipt as prepared100 refund success")}
+	w = req(target, "{\"limit\":1}", grant.Data.Authorization)
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	second, e := f.s.Store.Order(ctx, 1, "credential-second185")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = f.s.ProviderFlow.Refund(ctx, 1, second.TradeNo, fmt.Sprintf("batch185-refund:%s:2", id), 25); e != nil {
+		t.Fatal(e)
+	}
+	if corrupt {
+		if _, e = f.p.Exec(ctx, `ALTER TABLE provider_refund_result_evidence DISABLE TRIGGER USER`); e != nil {
+			t.Fatal(e)
+		}
+		if _, e = f.p.Exec(ctx, `UPDATE provider_refund_result_evidence SET proof_hash=decode(repeat('00',32),'hex') WHERE refund_no=$1`, fmt.Sprintf("batch185-refund:%s:2", id)); e != nil {
+			t.Fatal(e)
+		}
+		if _, e = f.p.Exec(ctx, `ALTER TABLE provider_refund_result_evidence ENABLE TRIGGER USER`); e != nil {
+			t.Fatal(e)
+		}
+	}
+	w = req(target, "{\"limit\":1}", grant.Data.Authorization)
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	var got struct{ Data payment.OrderBusinessBatch }
+	if e = json.Unmarshal(w.Body.Bytes(), &got); e != nil {
+		t.Fatal(e)
+	}
+	t.Logf("after actual concurrent original single refund: state=%s items=%+v", got.Data.State, got.Data.Items)
+	var batchRefunds, batchOps int
+	if e = f.p.QueryRow(ctx, `SELECT (SELECT count(*) FROM refunds WHERE refund_no=$1),(SELECT count(*) FROM provider_operations op JOIN refunds r ON r.id=op.refund_id WHERE r.refund_no=$1)`, fmt.Sprintf("batch185-refund:%s:2", id)).Scan(&batchRefunds, &batchOps); e != nil {
+		t.Fatal(e)
+	}
+	t.Logf("second batch item rows=%d claimed_operations=%d", batchRefunds, batchOps)
+	cancel := batch185Request(f, "POST", "/"+id+"/cancel", fmt.Sprintf(`{"expected_fingerprint":%q}`, got.Data.Fingerprint))
+	t.Logf("cancel HTTP=%d %s", cancel.Code, cancel.Body.String())
+	if corrupt && got.Data.Items[1].State != "unknown" {
+		t.Fatal("corrupt original evidence manufactured a terminal batch result")
+	}
+	if !corrupt && got.Data.Items[1].State != "failed" {
+		t.Fatal("verified conflicting original request did not fail the fixed selection")
+	}
+	if got.Data.Items[1].State == "succeeded" {
+		t.Fatal("batch accepted original25 receipt as prepared100 refund success")
+	}
 }
-func TestOrderBatch185IndependentExistingRefundMustMatchPreparedAmount(t *testing.T){independentCollision185(t,true,false,"refund",false,false)}
+func TestOrderBatch185IndependentExistingRefundMustMatchPreparedAmount(t *testing.T) {
+	independentCollision185(t, true, false, "refund", false, false)
+}
 
-func TestOrderBatch185IndependentCorruptRefundCollisionRemainsUnknown(t *testing.T){independentCollision185(t,true,false,"refund",false,true)}
+func TestOrderBatch185IndependentCorruptRefundCollisionRemainsUnknown(t *testing.T) {
+	independentCollision185(t, true, false, "refund", false, true)
+}

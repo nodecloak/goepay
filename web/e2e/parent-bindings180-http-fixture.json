@@ -1,10 +1,7 @@
 {
   "bound": {
     "account": {
-      "app_types": [
-        "1",
-        "2"
-      ],
+      "app_types": ["1", "2"],
       "appwxa": "82",
       "appwxmp": "81",
       "fields": [
@@ -274,10 +271,7 @@
         }
       },
       "plugin": "wxpay",
-      "app_types": [
-        "1",
-        "2"
-      ],
+      "app_types": ["1", "2"],
       "mode": 0,
       "fields": [
         {

@@ -550,13 +550,10 @@ test("new merchant lifecycle: group, login, signed payments, callbacks, refunds 
               fullPage: true,
             })
             .catch(() =>
-              test
-                .info()
-                .annotations.push({
-                  type: "diagnostic",
-                  description:
-                    "Final screenshot unavailable after test failure",
-                }),
+              test.info().annotations.push({
+                type: "diagnostic",
+                description: "Final screenshot unavailable after test failure",
+              }),
             );
     await Promise.all([admin.close(), merchant.close(), other.dispose()]);
   }

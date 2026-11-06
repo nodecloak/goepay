@@ -1,5 +1,17 @@
 package server
-import("context";"encoding/json";"fmt";"goepay/internal/identity";"goepay/internal/payment";"net/http";"net/http/httptest";"strings";"testing")
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"goepay/internal/identity"
+	"goepay/internal/payment"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
 func independentStale185(t *testing.T, rotate, unknown bool, business string, lostLocalResult bool) {
 	t.Helper()
 	f, factory, row := subchannel168BProductLocal(t)
@@ -98,19 +110,37 @@ func independentStale185(t *testing.T, rotate, unknown bool, business string, lo
 		}
 	}
 
- w = req(target, "{\"limit\":1}", grant.Data.Authorization)
- if w.Code != 200 {t.Fatal(w.Code,w.Body.String())}
- second,e:=f.s.Store.Order(ctx,1,"credential-second185");if e!=nil{t.Fatal(e)}
- if _,e=f.s.ProviderFlow.Refund(ctx,1,second.TradeNo,"independent-concurrent-single185",25);e!=nil{t.Fatal(e)}
- w=req(target,"{\"limit\":1}",grant.Data.Authorization)
- if w.Code!=200{t.Fatal(w.Code,w.Body.String())}
- var got struct{Data payment.OrderBusinessBatch};if e=json.Unmarshal(w.Body.Bytes(),&got);e!=nil{t.Fatal(e)}
- t.Logf("after actual concurrent original single refund: state=%s items=%+v",got.Data.State,got.Data.Items)
- var batchRefunds, batchOps int
- if e=f.p.QueryRow(ctx,`SELECT (SELECT count(*) FROM refunds WHERE refund_no=$1),(SELECT count(*) FROM provider_operations op JOIN refunds r ON r.id=op.refund_id WHERE r.refund_no=$1)`,fmt.Sprintf("batch185-refund:%s:2",id)).Scan(&batchRefunds,&batchOps);e!=nil{t.Fatal(e)}
- t.Logf("second batch item rows=%d claimed_operations=%d",batchRefunds,batchOps)
- cancel:=batch185Request(f,"POST","/"+id+"/cancel",fmt.Sprintf(`{"expected_fingerprint":%q}`,got.Data.Fingerprint))
- t.Logf("cancel HTTP=%d %s",cancel.Code,cancel.Body.String())
- if batchRefunds==0 && batchOps==0 && got.Data.State=="attention" {t.Fatal("definitive stale full-refund budget became unrecoverable unknown with no original refund or claimed operation; cancel leaves it unchanged")}
+	w = req(target, "{\"limit\":1}", grant.Data.Authorization)
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	second, e := f.s.Store.Order(ctx, 1, "credential-second185")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = f.s.ProviderFlow.Refund(ctx, 1, second.TradeNo, "independent-concurrent-single185", 25); e != nil {
+		t.Fatal(e)
+	}
+	w = req(target, "{\"limit\":1}", grant.Data.Authorization)
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	var got struct{ Data payment.OrderBusinessBatch }
+	if e = json.Unmarshal(w.Body.Bytes(), &got); e != nil {
+		t.Fatal(e)
+	}
+	t.Logf("after actual concurrent original single refund: state=%s items=%+v", got.Data.State, got.Data.Items)
+	var batchRefunds, batchOps int
+	if e = f.p.QueryRow(ctx, `SELECT (SELECT count(*) FROM refunds WHERE refund_no=$1),(SELECT count(*) FROM provider_operations op JOIN refunds r ON r.id=op.refund_id WHERE r.refund_no=$1)`, fmt.Sprintf("batch185-refund:%s:2", id)).Scan(&batchRefunds, &batchOps); e != nil {
+		t.Fatal(e)
+	}
+	t.Logf("second batch item rows=%d claimed_operations=%d", batchRefunds, batchOps)
+	cancel := batch185Request(f, "POST", "/"+id+"/cancel", fmt.Sprintf(`{"expected_fingerprint":%q}`, got.Data.Fingerprint))
+	t.Logf("cancel HTTP=%d %s", cancel.Code, cancel.Body.String())
+	if batchRefunds == 0 && batchOps == 0 && got.Data.State == "attention" {
+		t.Fatal("definitive stale full-refund budget became unrecoverable unknown with no original refund or claimed operation; cancel leaves it unchanged")
+	}
 }
-func TestOrderBatch185IndependentStaleRefundNoSideEffectTerminates(t *testing.T){independentStale185(t,true,false,"refund",false)}
+func TestOrderBatch185IndependentStaleRefundNoSideEffectTerminates(t *testing.T) {
+	independentStale185(t, true, false, "refund", false)
+}

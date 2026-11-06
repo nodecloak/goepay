@@ -118,7 +118,10 @@ for (const area of ["admin", "merchant"] as const)
       await expect(dialog).toContainText("可用余额");
       await expect(dialog).not.toContainText(entry.private_key);
       await expect(dialog).toHaveCSS("opacity", "1");
-      await expect(dialog).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+      await expect(dialog).not.toHaveCSS(
+        "background-color",
+        "rgba(0, 0, 0, 0)",
+      );
       expect(reads.length).toBe(before);
       expect(writes).toEqual([]);
       await page.screenshot({

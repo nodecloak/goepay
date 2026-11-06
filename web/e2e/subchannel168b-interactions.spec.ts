@@ -285,7 +285,9 @@ for (const width of [1440, 375]) {
     await action(page, "参数设置");
     await expect(d.locator("textarea")).toHaveCount(2);
     await expect(d.getByLabel("secret", { exact: true })).toHaveValue("");
-    await expect(d.locator(".subchannel-param .pa-select-trigger")).toHaveCount(0);
+    await expect(d.locator(".subchannel-param .pa-select-trigger")).toHaveCount(
+      0,
+    );
     await d.getByLabel("app", { exact: true }).fill("synthetic-replacement");
     await d.getByRole("button", { name: "确认保存", exact: true }).click();
     await expect(d).toHaveCount(0);

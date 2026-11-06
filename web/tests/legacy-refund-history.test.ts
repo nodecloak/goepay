@@ -5,22 +5,20 @@ import LegacyRefundHistoryPanel from "../src/components/LegacyRefundHistoryPanel
 
 it("requires an explicit admin merchant and reads historical assertions without mutation", async () => {
   const client = new ApiClient("admin");
-  const request = vi
-    .spyOn(client, "request")
-    .mockResolvedValue({
-      items: [
-        {
-          id: "1",
-          export_id: "local-export",
-          trade_no: "OLD-TRADE",
-          refund_no: "OLD-REFUND",
-          amount: "50",
-          legacy_status: "unknown",
-          verified_payment_source: false,
-        },
-      ],
-      next_cursor: "",
-    });
+  const request = vi.spyOn(client, "request").mockResolvedValue({
+    items: [
+      {
+        id: "1",
+        export_id: "local-export",
+        trade_no: "OLD-TRADE",
+        refund_no: "OLD-REFUND",
+        amount: "50",
+        legacy_status: "unknown",
+        verified_payment_source: false,
+      },
+    ],
+    next_cursor: "",
+  });
   const panel = mount(LegacyRefundHistoryPanel, {
     props: { client, ownSession: true },
   });

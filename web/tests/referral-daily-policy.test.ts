@@ -74,13 +74,11 @@ it("loads daily without converting to immediate and binds the reviewed mode to t
   w.unmount();
 });
 it("an unavailable daily capability blocks editing a daily GET rather than posting immediate", async () => {
-  const request = vi
-    .fn()
-    .mockResolvedValue({
-      ...policy,
-      mode: "daily",
-      daily_mode_available: false,
-    });
+  const request = vi.fn().mockResolvedValue({
+    ...policy,
+    mode: "daily",
+    daily_mode_available: false,
+  });
   const w = mount(ReferralPolicyPage, {
     props: {
       client: Object.assign(new ApiClient("admin"), { request }),

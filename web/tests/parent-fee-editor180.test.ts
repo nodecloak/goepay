@@ -7,21 +7,23 @@ it("reuses the complete fee editor for a controlled parent ID without a duplicat
   const c = new ApiClient("admin");
   c.csrfToken = "original";
   const id = "9007199254740993";
-  const spy = vi
-    .spyOn(c, "request")
-    .mockImplementation(async (path) => path === "/buyer-fees/parents/" + id ? { ...buyerFixture.parent, channel_id: id } : {
-      channel_id: id,
-      pay_type: "wxpay",
-      methods: ["native"],
-      configured: true,
-      rate: "99.50",
-      fee_rate_bps: 50,
-      mode: 0,
-      enabled: true,
-      revision: "1",
-      fingerprint: "a".repeat(64),
-      can_update: true,
-    });
+  const spy = vi.spyOn(c, "request").mockImplementation(async (path) =>
+    path === "/buyer-fees/parents/" + id
+      ? { ...buyerFixture.parent, channel_id: id }
+      : {
+          channel_id: id,
+          pay_type: "wxpay",
+          methods: ["native"],
+          configured: true,
+          rate: "99.50",
+          fee_rate_bps: 50,
+          mode: 0,
+          enabled: true,
+          revision: "1",
+          fingerprint: "a".repeat(64),
+          can_update: true,
+        },
+  );
   const w = mount(RuntimeChannelPolicyPanel, {
     props: { client: c, allowed: true, channelID: id } as never,
   });

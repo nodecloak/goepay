@@ -111,10 +111,7 @@ async function readyCashier202(failSecondConfiguration = false) {
     await flushPromises();
   };
   await start();
-  expect(calls).toEqual([
-    "config:ready202-round-1",
-    "scan:ready202-round-1",
-  ]);
+  expect(calls).toEqual(["config:ready202-round-1", "scan:ready202-round-1"]);
   await wrapper
     .findAll("button")
     .find((button) => button.text() === "取消扫码")!
@@ -135,11 +132,15 @@ it("a second WeChat scan configures its current round before an already-ready ca
 
   scans[0].success({ resultStr: "134567890123456789" });
   await flushPromises();
-  expect(sends.filter((send) => send.path === "/scanpay/prepare")).toHaveLength(0);
+  expect(sends.filter((send) => send.path === "/scanpay/prepare")).toHaveLength(
+    0,
+  );
   scans[1].success({ resultStr: "134567890123456789" });
   scans[1].success({ resultStr: "134567890123456789" });
   await flushPromises();
-  expect(sends.filter((send) => send.path === "/scanpay/prepare")).toHaveLength(1);
+  expect(sends.filter((send) => send.path === "/scanpay/prepare")).toHaveLength(
+    1,
+  );
   expect(sends.some((send) => send.path.endsWith("/apply"))).toBe(false);
   expect(wrapper.text()).toContain("确认收款 ¥1.00");
   expect(location.href).not.toContain("134567890123456789");
@@ -160,6 +161,8 @@ it("a rejected second configuration cannot scan using the previous ready WeChat 
   scans[0].success({ resultStr: "134567890123456789" });
   await flushPromises();
   expect(wrapper.text()).toContain("微信扫码配置未通过");
-  expect(sends.filter((send) => send.path === "/scanpay/prepare")).toHaveLength(0);
+  expect(sends.filter((send) => send.path === "/scanpay/prepare")).toHaveLength(
+    0,
+  );
   expect(sends.some((send) => send.path.endsWith("/apply"))).toBe(false);
 });

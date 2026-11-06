@@ -1,131 +1,1435 @@
 <script setup lang="ts">
-import {computed,nextTick,onBeforeUnmount,onMounted,reactive,ref,watch} from 'vue';
-import {ApiError,type ApiClient} from '../api';
-import {readParentChannel,readParentChannelList,readParentTemplates,parentChannelPath,type ParentChannel,type ParentField,type ParentTemplate} from '../parent-channels';
-import {CATALOG_PAY_TYPES,payTypeLabel} from '../pay-types';
-import {channelRetainedRate} from '../runtime-channel-policy';
-import ActionDropdown from './ActionDropdown.vue';
-import ConfigValueEditor from './ConfigValueEditor.vue';
-import KitFilterBar from './KitFilterBar.vue';
-import KitField from './KitField.vue';
-import KitInput from './KitInput.vue';
-import KitSelect from './KitSelect.vue';
-import KitSwitch from './KitSwitch.vue';
-import KitCheckbox from './KitCheckbox.vue';
-import KitStatusTag from './KitStatusTag.vue';
-import KitPagination from './KitPagination.vue';
-import KitModal from './KitModal.vue';
-import KitPayMethod from './KitPayMethod.vue';
-import KitHelpPopover from './KitHelpPopover.vue';import ShellIcon from './ShellIcon.vue';
-import ParentChannelExtra from './ParentChannelExtra.vue';
-import RuntimeChannelLimitsPanel from './RuntimeChannelLimitsPanel.vue';
-import RuntimeChannelPolicyPanel from './RuntimeChannelPolicyPanel.vue';
-import ParentChannelStatistics from './ParentChannelStatistics.vue';
-import ParentWeixinBindings from './ParentWeixinBindings.vue';
-import ParentWeixinBatch from './ParentWeixinBatch.vue';
-import ParentChannelTestPayment from './ParentChannelTestPayment.vue';
-import type {ParentWeixinDraft} from '../parent-channel-bindings';
-const props=defineProps<{client:ApiClient;allowed:boolean}>();
-const items=ref<ParentChannel[]>([]),templates=ref<ParentTemplate[]>([]),total=ref(0),loading=ref(false),busy=ref(false),error=ref(''),notice=ref(''),selected=ref<string[]>([]);
-const filters=reactive({kw:'',type:'',plugin:'',dstatus:'-1',page:1,size:20});
-const mode=ref<'edit'|'copy'|'create'|'adopt'|null>(null),target=ref<ParentChannel>(),source=ref(''),name=ref(''),rate=ref(''),appTypes=ref('1'),unknown=ref(false),dialog=ref<HTMLElement>(),refresh=ref<HTMLButtonElement>(),limitsID=ref<string>();
-const uncertainBatch=ref(false),statisticsID=ref<string>(),confirmation=ref<{action:'open'|'close'|'delete';rows:ParentChannel[]}>();
-const edits=ref<{field:ParentField;operation:'keep'|'replace'|'clear';value:string}[]>([]);
-const bindingDraft=ref<ParentWeixinDraft>();
-const weixinBatch=ref<{kind:0|1;rows:ParentChannel[]}>();
-const testRow=ref<ParentChannel>();
-const feeID=ref<string>();
-const showCost=ref(false),showLimits=ref(false),showColumns=ref(false);
-const batchItems=computed(()=>{const weixinOk=selectedWeixin.value;const rowsOk=selected.value.length>0;return [{id:'open',label:'批量开启'},{id:'close',label:'批量关闭'},{id:'delete',label:'批量删除（归档）'},...(weixinOk?[{id:'weixin-mp',label:'批量关联微信公众号',separatorBefore:true},{id:'weixin-mini',label:'批量关联微信小程序'}]:[])].filter(()=>rowsOk||weixinOk)});
-function batchAction(id:string){if(id==='open'||id==='close'||id==='delete')askBatch(id);else if(id==='weixin-mp')askWeixin(0);else if(id==='weixin-mini')askWeixin(1)}
-const selectedWeixin=computed(()=>{const rows=items.value.filter(r=>selected.value.includes(r.id));return rows.length>0&&rows.every(r=>r.configured&&r.pay_type==='wxpay'&&r.fingerprint)});
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+} from "vue";
+import { ApiError, type ApiClient } from "../api";
+import {
+  readParentChannel,
+  readParentChannelList,
+  readParentTemplates,
+  parentChannelPath,
+  type ParentChannel,
+  type ParentField,
+  type ParentTemplate,
+} from "../parent-channels";
+import { CATALOG_PAY_TYPES, payTypeLabel } from "../pay-types";
+import { channelRetainedRate } from "../runtime-channel-policy";
+import ActionDropdown from "./ActionDropdown.vue";
+import ConfigValueEditor from "./ConfigValueEditor.vue";
+import KitFilterBar from "./KitFilterBar.vue";
+import KitField from "./KitField.vue";
+import KitInput from "./KitInput.vue";
+import KitSelect from "./KitSelect.vue";
+import KitSwitch from "./KitSwitch.vue";
+import KitCheckbox from "./KitCheckbox.vue";
+import KitStatusTag from "./KitStatusTag.vue";
+import KitPagination from "./KitPagination.vue";
+import KitModal from "./KitModal.vue";
+import KitPayMethod from "./KitPayMethod.vue";
+import KitHelpPopover from "./KitHelpPopover.vue";
+import ShellIcon from "./ShellIcon.vue";
+import ParentChannelExtra from "./ParentChannelExtra.vue";
+import RuntimeChannelLimitsPanel from "./RuntimeChannelLimitsPanel.vue";
+import RuntimeChannelPolicyPanel from "./RuntimeChannelPolicyPanel.vue";
+import ParentChannelStatistics from "./ParentChannelStatistics.vue";
+import ParentWeixinBindings from "./ParentWeixinBindings.vue";
+import ParentWeixinBatch from "./ParentWeixinBatch.vue";
+import ParentChannelTestPayment from "./ParentChannelTestPayment.vue";
+import type { ParentWeixinDraft } from "../parent-channel-bindings";
+const props = defineProps<{ client: ApiClient; allowed: boolean }>();
+const items = ref<ParentChannel[]>([]),
+  templates = ref<ParentTemplate[]>([]),
+  total = ref(0),
+  loading = ref(false),
+  busy = ref(false),
+  error = ref(""),
+  notice = ref(""),
+  selected = ref<string[]>([]);
+const filters = reactive({
+  kw: "",
+  type: "",
+  plugin: "",
+  dstatus: "-1",
+  page: 1,
+  size: 20,
+});
+const mode = ref<"edit" | "copy" | "create" | "adopt" | null>(null),
+  target = ref<ParentChannel>(),
+  source = ref(""),
+  name = ref(""),
+  rate = ref(""),
+  appTypes = ref("1"),
+  unknown = ref(false),
+  dialog = ref<HTMLElement>(),
+  refresh = ref<HTMLButtonElement>(),
+  limitsID = ref<string>();
+const uncertainBatch = ref(false),
+  statisticsID = ref<string>(),
+  confirmation = ref<{
+    action: "open" | "close" | "delete";
+    rows: ParentChannel[];
+  }>();
+const edits = ref<
+  {
+    field: ParentField;
+    operation: "keep" | "replace" | "clear";
+    value: string;
+  }[]
+>([]);
+const bindingDraft = ref<ParentWeixinDraft>();
+const weixinBatch = ref<{ kind: 0 | 1; rows: ParentChannel[] }>();
+const testRow = ref<ParentChannel>();
+const feeID = ref<string>();
+const showCost = ref(false),
+  showLimits = ref(false),
+  showColumns = ref(false);
+const batchItems = computed(() => {
+  const weixinOk = selectedWeixin.value;
+  const rowsOk = selected.value.length > 0;
+  return [
+    { id: "open", label: "批量开启" },
+    { id: "close", label: "批量关闭" },
+    { id: "delete", label: "批量删除（归档）" },
+    ...(weixinOk
+      ? [
+          {
+            id: "weixin-mp",
+            label: "批量关联微信公众号",
+            separatorBefore: true,
+          },
+          { id: "weixin-mini", label: "批量关联微信小程序" },
+        ]
+      : []),
+  ].filter(() => rowsOk || weixinOk);
+});
+function batchAction(id: string) {
+  if (id === "open" || id === "close" || id === "delete") askBatch(id);
+  else if (id === "weixin-mp") askWeixin(0);
+  else if (id === "weixin-mini") askWeixin(1);
+}
+const selectedWeixin = computed(() => {
+  const rows = items.value.filter((r) => selected.value.includes(r.id));
+  return (
+    rows.length > 0 &&
+    rows.every((r) => r.configured && r.pay_type === "wxpay" && r.fingerprint)
+  );
+});
 // 支付方式 options are the original catalog; 支付插件 options are the native
 // adapters plus every ported plugin name seen in the current list/templates,
 // so the console filters accept registered plugins, not only alipay/wxpay.
-const payTypeOptions=CATALOG_PAY_TYPES;
-const pluginOptions=computed(()=>{const names=new Set<string>(['wxpay','alipay']);for(const r of items.value)if(r.plugin)names.add(r.plugin);return [...names].sort()});
-let active=true,epoch=0,controller:AbortController|undefined,opener:HTMLElement|undefined,requestID='';
-let contextClient=props.client,contextCSRF=props.client.csrfToken,contextArea=props.client.area;
-function foreground(){if(contextClient!==props.client||contextCSRF!==props.client.csrfToken||contextArea!==props.client.area||props.client.area!=='admin'||!props.allowed){reset();void load();return false}return true}
-const template=computed(()=>templates.value.find(t=>t.source_channel_id===source.value));
-const canSave=computed(()=>props.allowed&&!busy.value&&!unknown.value&&!!mode.value);
-function current(n:number,c:ApiClient,csrf:string){if(!active)return false;if(contextClient!==props.client||contextCSRF!==props.client.csrfToken||contextArea!==props.client.area||props.client.area!=='admin'||!props.allowed){foreground();return false}return n===epoch&&c===props.client&&csrf===c.csrfToken}
-function reset(){feeID.value=undefined;showCost.value=false;showLimits.value=false;testRow.value=undefined;weixinBatch.value=undefined;bindingDraft.value=undefined;confirmation.value=undefined;statisticsID.value=undefined;uncertainBatch.value=false;contextClient=props.client;contextCSRF=props.client.csrfToken;contextArea=props.client.area;++epoch;controller?.abort();mode.value=null;target.value=undefined;edits.value=[];name.value='';rate.value='';appTypes.value='1';source.value='';unknown.value=false;busy.value=false;loading.value=false;items.value=[];templates.value=[];selected.value=[];limitsID.value=undefined;error.value='';notice.value='';requestID='';opener=undefined}
-async function close(){if(busy.value||unknown.value&&(mode.value==='create'||mode.value==='copy'))return;const back=opener;mode.value=null;target.value=undefined;edits.value=[];name.value='';rate.value='';unknown.value=false;requestID='';await nextTick();if(active)(back?.isConnected?back:refresh.value)?.focus()}
-function message(e:unknown){return e instanceof Error?e.message:'父通道操作失败'}
-async function load(){if(!props.allowed||props.client.area!=='admin')return;const n=++epoch,c=props.client,csrf=c.csrfToken;controller?.abort();controller=new AbortController();loading.value=true;error.value='';selected.value=[];
- const query=new URLSearchParams();for(const [k,v]of Object.entries(filters))query.set(k,String(v));
- try{const [raw,choices]=await Promise.all([c.request('/payment-channels?'+query,{signal:controller.signal}),c.request('/payment-channels/templates',{signal:controller.signal})]);if(!current(n,c,csrf))return;const page=readParentChannelList(raw),parsed=readParentTemplates(choices);items.value=page.items;total.value=page.total;templates.value=parsed;uncertainBatch.value=false}catch(e){if(current(n,c,csrf))error.value=message(e)}finally{if(current(n,c,csrf))loading.value=false}}
-function fieldsFromTemplate(){bindingDraft.value=undefined;edits.value=(template.value?.fields||[]).map(field=>({field:{...field,present:false},operation:'replace',value:''}))}
-function remember(){bindingDraft.value=undefined;opener=document.activeElement instanceof HTMLElement?document.activeElement:undefined;error.value='';notice.value='';unknown.value=false;requestID=crypto.randomUUID().replaceAll('-','')}
-async function open(row:ParentChannel,kind:'edit'|'copy'='edit'){
- if(loading.value||busy.value||mode.value||limitsID.value||feeID.value)return;remember();const n=epoch,c=props.client,csrf=c.csrfToken;busy.value=true;
- try{const r=readParentChannel(await c.request(parentChannelPath(row.id)));if(!current(n,c,csrf))return;if(r.id!==row.id)throw new Error('父通道目标不匹配');target.value=r;source.value=r.source_channel_id||r.id;name.value=r.name+(kind==='copy'?' - 副本':'');rate.value=r.rate||'';appTypes.value=r.account?.app_types.join(',')||'1';edits.value=(r.account?.fields||[]).map(field=>({field,operation:'keep',value:field.secret?'':field.value||''}));mode.value=r.configured?kind:'adopt';await nextTick();dialog.value?.focus()}catch(e){if(current(n,c,csrf))error.value=message(e)}finally{if(current(n,c,csrf))busy.value=false}}
-function create(){if(loading.value||busy.value||mode.value)return;remember();target.value=undefined;source.value=templates.value[0]?.source_channel_id||'';name.value='';rate.value='';appTypes.value='1';mode.value='create';fieldsFromTemplate();void nextTick(()=>dialog.value?.focus())}
-function account(){const config:Record<string,unknown>={},certificates:Record<string,unknown>={};for(const edit of edits.value){if(mode.value==='create'&&!edit.value&&edit.operation==='replace')continue;const dest=edit.field.namespace==='config'?config:certificates;dest[edit.field.name]=edit.operation==='replace'?{operation:'replace',value:edit.value}:{operation:edit.operation}}return {...bindingDraft.value,app_types:appTypes.value.split(',').map(x=>x.trim()).filter(Boolean),config,certificates}}
-async function save(){if(!foreground()||!canSave.value)return;const n=epoch,c=props.client,csrf=c.csrfToken,id=target.value?.id,kind=mode.value;let body:Record<string,unknown>,path='/payment-channels',method:'POST'|'PATCH'='POST';
- try{
- if(kind==='adopt'){if(!template.value||!id)throw new Error('原注册账户授权模板不可用');path=parentChannelPath(id)+'/adopt';body={expected_source_fingerprint:template.value.fingerprint}}
- else if(kind==='edit'){if(!id||!target.value?.fingerprint)throw new Error('原版本不可用');path=parentChannelPath(id);method='PATCH';body={expected_fingerprint:target.value.fingerprint,name:name.value,account:account()};if(rate.value)body.rate=channelRetainedRate(rate.value).rate}
- else{if(!template.value||!name.value.trim()||!rate.value)throw new Error('请填写通道名称、分成比例和授权来源');body={source_channel_id:source.value,expected_source_fingerprint:template.value.fingerprint,request_id:requestID,name:name.value,rate:channelRetainedRate(rate.value).rate,mode:0,account:account()};if(kind==='copy'){body.copy_from_channel_id=id;body.expected_copy_fingerprint=target.value?.fingerprint}}
- }catch(e){error.value=message(e);return}
- busy.value=true;error.value='';try{const result=readParentChannel(await c.request(path,{method,body}));if(!current(n,c,csrf))return;if((kind==='edit'||kind==='adopt')&&result.id!==id||kind==='copy'&&(result.id===id||result.enabled!==false)||kind==='create'&&result.enabled!==false)throw new Error('保存结果与原目标不匹配');const requested=body.account as ParentWeixinDraft|undefined;if(requested?.appwxmp!==undefined&&(result.account?.appwxmp||'0')!==requested.appwxmp||requested?.appwxa!==undefined&&(result.account?.appwxa||'0')!==requested.appwxa)throw new Error('关联结果与原选择不符');busy.value=false;await close();notice.value='父通道配置已保存';await load()}catch(e){if(current(n,c,csrf)){unknown.value=!(e instanceof ApiError&&e.responseDecoded&&e.status>=400&&e.status<500);error.value=unknown.value?'结果未知：请读取原状态核对，勿重复提交。':message(e);edits.value.forEach(x=>{if(x.field.secret)x.value=''})}}finally{if(current(n,c,csrf))busy.value=false}}
-async function readOriginal(){if(!foreground()||busy.value||!unknown.value)return;const n=epoch,c=props.client,csrf=c.csrfToken,kind=mode.value;busy.value=true;try{const path=kind==='create'||kind==='copy'?'/payment-channels/requests/'+requestID:parentChannelPath(target.value!.id);const row=readParentChannel(await c.request(path));if(!current(n,c,csrf))return;if(kind!=='create'&&kind!=='copy'&&row.id!==target.value?.id)throw new Error('原目标不匹配');unknown.value=false;busy.value=false;await close();notice.value='已读到原目标 #'+row.id+'，请核对当前状态';await load()}catch(e){if(current(n,c,csrf)){if(e instanceof ApiError&&e.responseDecoded&&e.status===404&&(kind==='create'||kind==='copy')){unknown.value=false;error.value='已确认未找到原创建记录，请重新填写敏感资料后确认。'}else error.value='原结果仍无法核实，请稍后读取，勿重复提交。'}}finally{if(current(n,c,csrf))busy.value=false}}
-function askBatch(action:'open'|'close'|'delete',rows=items.value.filter(x=>selected.value.includes(x.id))){if(!foreground()||busy.value||loading.value||uncertainBatch.value||mode.value||confirmation.value||!rows.length||rows.some(r=>!r.configured||!r.fingerprint))return;remember();confirmation.value={action,rows:rows.map(x=>({...x}))};void nextTick(()=>document.querySelector<HTMLElement>('[data-parent-confirm]')?.focus())}
-async function confirmBatch(){const original=confirmation.value;if(!original)return;confirmation.value=undefined;await batch(original.action,original.rows)}
-function trap(e:KeyboardEvent){if(e.key!=='Tab')return;const scope=e.currentTarget as HTMLElement,nodes=scope.querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled])');if(!nodes.length)return;const first=nodes[0],last=nodes[nodes.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}
-async function batch(action:'open'|'close'|'delete',rows=items.value.filter(x=>selected.value.includes(x.id))){if(!foreground()||uncertainBatch.value||busy.value||loading.value||mode.value||!rows.length||rows.some(x=>!x.configured||!x.fingerprint))return;remember();const n=epoch,c=props.client,csrf=c.csrfToken;busy.value=true;try{const raw=await c.request('/payment-channels/batch',{method:'POST',body:{action,items:rows.map(x=>({id:x.id,expected_fingerprint:x.fingerprint}))}});if(!current(n,c,csrf))return;const v=raw as {action?:unknown;items?:unknown;total?:unknown};if(v.action!==action||!Array.isArray(v.items)||v.total!==rows.length)throw new Error('批量结果无法核实');const result=v.items.map(readParentChannel);if(new Set(result.map(x=>x.id)).size!==rows.length||result.some(x=>!rows.some(r=>r.id===x.id)||(action==='delete'?!x.archived:action==='open'?!x.enabled:x.enabled)))throw new Error('批量目标不匹配');notice.value='批量操作已完成';busy.value=false;await load()}catch(e){if(current(n,c,csrf)){uncertainBatch.value=!(e instanceof ApiError&&e.responseDecoded&&e.status>=400&&e.status<500);error.value=uncertainBatch.value?'结果未知：请刷新原目标核对，勿重复提交。':message(e)}}finally{if(current(n,c,csrf))busy.value=false}}
-function testPayment(row:ParentChannel){if(!foreground()||busy.value||loading.value||mode.value||weixinBatch.value||confirmation.value||testRow.value||!row.configured||!row.fingerprint)return;remember();testRow.value={...row}}
-function askWeixin(kind:0|1){if(!foreground()||busy.value||loading.value||mode.value||confirmation.value||weixinBatch.value||!selectedWeixin.value)return;remember();weixinBatch.value={kind,rows:items.value.filter(r=>selected.value.includes(r.id)).map(r=>({...r}))}}
-function doneWeixin(message:string){weixinBatch.value=undefined;notice.value=message;void load()}
-function more(row:ParentChannel){return [{id:'orders',label:'关联订单',href:'/admin/trade/order?channel_id='+row.id},{id:'transfers',label:'关联付款',href:'/admin/transfer/list?channel_id='+row.id},{id:'statistics',label:'通道统计'},{id:'fee',label:'设置费率'},...(row.configured?[{id:'copy',label:'复制通道'},{id:'advanced',label:'高级设置'}]:[])]}
-function action(id:string,row:ParentChannel){if(!foreground()||busy.value||loading.value||mode.value||limitsID.value||feeID.value||testRow.value||weixinBatch.value||confirmation.value)return;remember();if(id==='statistics')statisticsID.value=row.id;if(id==='copy')void open(row,'copy');if(id==='advanced')limitsID.value=row.id;if(id==='fee')feeID.value=row.id}
-async function closeAdvanced(){const back=opener;limitsID.value=undefined;await nextTick();(back?.isConnected?back:refresh.value)?.focus()}
-async function closeFee(){const back=opener;feeID.value=undefined;await load();await nextTick();(back?.isConnected?back:refresh.value)?.focus()}
-function feeFromEdit(){const row=target.value;if(!foreground()||!row?.configured||busy.value||unknown.value)return;mode.value=null;edits.value=[];name.value='';rate.value='';target.value=undefined;feeID.value=row.id}
+const payTypeOptions = CATALOG_PAY_TYPES;
+const pluginOptions = computed(() => {
+  const names = new Set<string>(["wxpay", "alipay"]);
+  for (const r of items.value) if (r.plugin) names.add(r.plugin);
+  return [...names].sort();
+});
+let active = true,
+  epoch = 0,
+  controller: AbortController | undefined,
+  opener: HTMLElement | undefined,
+  requestID = "";
+let contextClient = props.client,
+  contextCSRF = props.client.csrfToken,
+  contextArea = props.client.area;
+function foreground() {
+  if (
+    contextClient !== props.client ||
+    contextCSRF !== props.client.csrfToken ||
+    contextArea !== props.client.area ||
+    props.client.area !== "admin" ||
+    !props.allowed
+  ) {
+    reset();
+    void load();
+    return false;
+  }
+  return true;
+}
+const template = computed(() =>
+  templates.value.find((t) => t.source_channel_id === source.value),
+);
+const canSave = computed(
+  () => props.allowed && !busy.value && !unknown.value && !!mode.value,
+);
+function current(n: number, c: ApiClient, csrf: string) {
+  if (!active) return false;
+  if (
+    contextClient !== props.client ||
+    contextCSRF !== props.client.csrfToken ||
+    contextArea !== props.client.area ||
+    props.client.area !== "admin" ||
+    !props.allowed
+  ) {
+    foreground();
+    return false;
+  }
+  return n === epoch && c === props.client && csrf === c.csrfToken;
+}
+function reset() {
+  feeID.value = undefined;
+  showCost.value = false;
+  showLimits.value = false;
+  testRow.value = undefined;
+  weixinBatch.value = undefined;
+  bindingDraft.value = undefined;
+  confirmation.value = undefined;
+  statisticsID.value = undefined;
+  uncertainBatch.value = false;
+  contextClient = props.client;
+  contextCSRF = props.client.csrfToken;
+  contextArea = props.client.area;
+  ++epoch;
+  controller?.abort();
+  mode.value = null;
+  target.value = undefined;
+  edits.value = [];
+  name.value = "";
+  rate.value = "";
+  appTypes.value = "1";
+  source.value = "";
+  unknown.value = false;
+  busy.value = false;
+  loading.value = false;
+  items.value = [];
+  templates.value = [];
+  selected.value = [];
+  limitsID.value = undefined;
+  error.value = "";
+  notice.value = "";
+  requestID = "";
+  opener = undefined;
+}
+async function close() {
+  if (
+    busy.value ||
+    (unknown.value && (mode.value === "create" || mode.value === "copy"))
+  )
+    return;
+  const back = opener;
+  mode.value = null;
+  target.value = undefined;
+  edits.value = [];
+  name.value = "";
+  rate.value = "";
+  unknown.value = false;
+  requestID = "";
+  await nextTick();
+  if (active) (back?.isConnected ? back : refresh.value)?.focus();
+}
+function message(e: unknown) {
+  return e instanceof Error ? e.message : "父通道操作失败";
+}
+async function load() {
+  if (!props.allowed || props.client.area !== "admin") return;
+  const n = ++epoch,
+    c = props.client,
+    csrf = c.csrfToken;
+  controller?.abort();
+  controller = new AbortController();
+  loading.value = true;
+  error.value = "";
+  selected.value = [];
+  const query = new URLSearchParams();
+  for (const [k, v] of Object.entries(filters)) query.set(k, String(v));
+  try {
+    const [raw, choices] = await Promise.all([
+      c.request("/payment-channels?" + query, { signal: controller.signal }),
+      c.request("/payment-channels/templates", { signal: controller.signal }),
+    ]);
+    if (!current(n, c, csrf)) return;
+    const page = readParentChannelList(raw),
+      parsed = readParentTemplates(choices);
+    items.value = page.items;
+    total.value = page.total;
+    templates.value = parsed;
+    uncertainBatch.value = false;
+  } catch (e) {
+    if (current(n, c, csrf)) error.value = message(e);
+  } finally {
+    if (current(n, c, csrf)) loading.value = false;
+  }
+}
+function fieldsFromTemplate() {
+  bindingDraft.value = undefined;
+  edits.value = (template.value?.fields || []).map((field) => ({
+    field: { ...field, present: false },
+    operation: "replace",
+    value: "",
+  }));
+}
+function remember() {
+  bindingDraft.value = undefined;
+  opener =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : undefined;
+  error.value = "";
+  notice.value = "";
+  unknown.value = false;
+  requestID = crypto.randomUUID().replaceAll("-", "");
+}
+async function open(row: ParentChannel, kind: "edit" | "copy" = "edit") {
+  if (
+    loading.value ||
+    busy.value ||
+    mode.value ||
+    limitsID.value ||
+    feeID.value
+  )
+    return;
+  remember();
+  const n = epoch,
+    c = props.client,
+    csrf = c.csrfToken;
+  busy.value = true;
+  try {
+    const r = readParentChannel(await c.request(parentChannelPath(row.id)));
+    if (!current(n, c, csrf)) return;
+    if (r.id !== row.id) throw new Error("父通道目标不匹配");
+    target.value = r;
+    source.value = r.source_channel_id || r.id;
+    name.value = r.name + (kind === "copy" ? " - 副本" : "");
+    rate.value = r.rate || "";
+    appTypes.value = r.account?.app_types.join(",") || "1";
+    edits.value = (r.account?.fields || []).map((field) => ({
+      field,
+      operation: "keep",
+      value: field.secret ? "" : field.value || "",
+    }));
+    mode.value = r.configured ? kind : "adopt";
+    await nextTick();
+    dialog.value?.focus();
+  } catch (e) {
+    if (current(n, c, csrf)) error.value = message(e);
+  } finally {
+    if (current(n, c, csrf)) busy.value = false;
+  }
+}
+function create() {
+  if (loading.value || busy.value || mode.value) return;
+  remember();
+  target.value = undefined;
+  source.value = templates.value[0]?.source_channel_id || "";
+  name.value = "";
+  rate.value = "";
+  appTypes.value = "1";
+  mode.value = "create";
+  fieldsFromTemplate();
+  void nextTick(() => dialog.value?.focus());
+}
+function account() {
+  const config: Record<string, unknown> = {},
+    certificates: Record<string, unknown> = {};
+  for (const edit of edits.value) {
+    if (mode.value === "create" && !edit.value && edit.operation === "replace")
+      continue;
+    const dest = edit.field.namespace === "config" ? config : certificates;
+    dest[edit.field.name] =
+      edit.operation === "replace"
+        ? { operation: "replace", value: edit.value }
+        : { operation: edit.operation };
+  }
+  return {
+    ...bindingDraft.value,
+    app_types: appTypes.value
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean),
+    config,
+    certificates,
+  };
+}
+async function save() {
+  if (!foreground() || !canSave.value) return;
+  const n = epoch,
+    c = props.client,
+    csrf = c.csrfToken,
+    id = target.value?.id,
+    kind = mode.value;
+  let body: Record<string, unknown>,
+    path = "/payment-channels",
+    method: "POST" | "PATCH" = "POST";
+  try {
+    if (kind === "adopt") {
+      if (!template.value || !id) throw new Error("原注册账户授权模板不可用");
+      path = parentChannelPath(id) + "/adopt";
+      body = { expected_source_fingerprint: template.value.fingerprint };
+    } else if (kind === "edit") {
+      if (!id || !target.value?.fingerprint) throw new Error("原版本不可用");
+      path = parentChannelPath(id);
+      method = "PATCH";
+      body = {
+        expected_fingerprint: target.value.fingerprint,
+        name: name.value,
+        account: account(),
+      };
+      if (rate.value) body.rate = channelRetainedRate(rate.value).rate;
+    } else {
+      if (!template.value || !name.value.trim() || !rate.value)
+        throw new Error("请填写通道名称、分成比例和授权来源");
+      body = {
+        source_channel_id: source.value,
+        expected_source_fingerprint: template.value.fingerprint,
+        request_id: requestID,
+        name: name.value,
+        rate: channelRetainedRate(rate.value).rate,
+        mode: 0,
+        account: account(),
+      };
+      if (kind === "copy") {
+        body.copy_from_channel_id = id;
+        body.expected_copy_fingerprint = target.value?.fingerprint;
+      }
+    }
+  } catch (e) {
+    error.value = message(e);
+    return;
+  }
+  busy.value = true;
+  error.value = "";
+  try {
+    const result = readParentChannel(await c.request(path, { method, body }));
+    if (!current(n, c, csrf)) return;
+    if (
+      ((kind === "edit" || kind === "adopt") && result.id !== id) ||
+      (kind === "copy" && (result.id === id || result.enabled !== false)) ||
+      (kind === "create" && result.enabled !== false)
+    )
+      throw new Error("保存结果与原目标不匹配");
+    const requested = body.account as ParentWeixinDraft | undefined;
+    if (
+      (requested?.appwxmp !== undefined &&
+        (result.account?.appwxmp || "0") !== requested.appwxmp) ||
+      (requested?.appwxa !== undefined &&
+        (result.account?.appwxa || "0") !== requested.appwxa)
+    )
+      throw new Error("关联结果与原选择不符");
+    busy.value = false;
+    await close();
+    notice.value = "父通道配置已保存";
+    await load();
+  } catch (e) {
+    if (current(n, c, csrf)) {
+      unknown.value = !(
+        e instanceof ApiError &&
+        e.responseDecoded &&
+        e.status >= 400 &&
+        e.status < 500
+      );
+      error.value = unknown.value
+        ? "结果未知：请读取原状态核对，勿重复提交。"
+        : message(e);
+      edits.value.forEach((x) => {
+        if (x.field.secret) x.value = "";
+      });
+    }
+  } finally {
+    if (current(n, c, csrf)) busy.value = false;
+  }
+}
+async function readOriginal() {
+  if (!foreground() || busy.value || !unknown.value) return;
+  const n = epoch,
+    c = props.client,
+    csrf = c.csrfToken,
+    kind = mode.value;
+  busy.value = true;
+  try {
+    const path =
+      kind === "create" || kind === "copy"
+        ? "/payment-channels/requests/" + requestID
+        : parentChannelPath(target.value!.id);
+    const row = readParentChannel(await c.request(path));
+    if (!current(n, c, csrf)) return;
+    if (kind !== "create" && kind !== "copy" && row.id !== target.value?.id)
+      throw new Error("原目标不匹配");
+    unknown.value = false;
+    busy.value = false;
+    await close();
+    notice.value = "已读到原目标 #" + row.id + "，请核对当前状态";
+    await load();
+  } catch (e) {
+    if (current(n, c, csrf)) {
+      if (
+        e instanceof ApiError &&
+        e.responseDecoded &&
+        e.status === 404 &&
+        (kind === "create" || kind === "copy")
+      ) {
+        unknown.value = false;
+        error.value = "已确认未找到原创建记录，请重新填写敏感资料后确认。";
+      } else error.value = "原结果仍无法核实，请稍后读取，勿重复提交。";
+    }
+  } finally {
+    if (current(n, c, csrf)) busy.value = false;
+  }
+}
+function askBatch(
+  action: "open" | "close" | "delete",
+  rows = items.value.filter((x) => selected.value.includes(x.id)),
+) {
+  if (
+    !foreground() ||
+    busy.value ||
+    loading.value ||
+    uncertainBatch.value ||
+    mode.value ||
+    confirmation.value ||
+    !rows.length ||
+    rows.some((r) => !r.configured || !r.fingerprint)
+  )
+    return;
+  remember();
+  confirmation.value = { action, rows: rows.map((x) => ({ ...x })) };
+  void nextTick(() =>
+    document.querySelector<HTMLElement>("[data-parent-confirm]")?.focus(),
+  );
+}
+async function confirmBatch() {
+  const original = confirmation.value;
+  if (!original) return;
+  confirmation.value = undefined;
+  await batch(original.action, original.rows);
+}
+function trap(e: KeyboardEvent) {
+  if (e.key !== "Tab") return;
+  const scope = e.currentTarget as HTMLElement,
+    nodes = scope.querySelectorAll<HTMLElement>(
+      "button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled])",
+    );
+  if (!nodes.length) return;
+  const first = nodes[0],
+    last = nodes[nodes.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+async function batch(
+  action: "open" | "close" | "delete",
+  rows = items.value.filter((x) => selected.value.includes(x.id)),
+) {
+  if (
+    !foreground() ||
+    uncertainBatch.value ||
+    busy.value ||
+    loading.value ||
+    mode.value ||
+    !rows.length ||
+    rows.some((x) => !x.configured || !x.fingerprint)
+  )
+    return;
+  remember();
+  const n = epoch,
+    c = props.client,
+    csrf = c.csrfToken;
+  busy.value = true;
+  try {
+    const raw = await c.request("/payment-channels/batch", {
+      method: "POST",
+      body: {
+        action,
+        items: rows.map((x) => ({
+          id: x.id,
+          expected_fingerprint: x.fingerprint,
+        })),
+      },
+    });
+    if (!current(n, c, csrf)) return;
+    const v = raw as { action?: unknown; items?: unknown; total?: unknown };
+    if (
+      v.action !== action ||
+      !Array.isArray(v.items) ||
+      v.total !== rows.length
+    )
+      throw new Error("批量结果无法核实");
+    const result = v.items.map(readParentChannel);
+    if (
+      new Set(result.map((x) => x.id)).size !== rows.length ||
+      result.some(
+        (x) =>
+          !rows.some((r) => r.id === x.id) ||
+          (action === "delete"
+            ? !x.archived
+            : action === "open"
+              ? !x.enabled
+              : x.enabled),
+      )
+    )
+      throw new Error("批量目标不匹配");
+    notice.value = "批量操作已完成";
+    busy.value = false;
+    await load();
+  } catch (e) {
+    if (current(n, c, csrf)) {
+      uncertainBatch.value = !(
+        e instanceof ApiError &&
+        e.responseDecoded &&
+        e.status >= 400 &&
+        e.status < 500
+      );
+      error.value = uncertainBatch.value
+        ? "结果未知：请刷新原目标核对，勿重复提交。"
+        : message(e);
+    }
+  } finally {
+    if (current(n, c, csrf)) busy.value = false;
+  }
+}
+function testPayment(row: ParentChannel) {
+  if (
+    !foreground() ||
+    busy.value ||
+    loading.value ||
+    mode.value ||
+    weixinBatch.value ||
+    confirmation.value ||
+    testRow.value ||
+    !row.configured ||
+    !row.fingerprint
+  )
+    return;
+  remember();
+  testRow.value = { ...row };
+}
+function askWeixin(kind: 0 | 1) {
+  if (
+    !foreground() ||
+    busy.value ||
+    loading.value ||
+    mode.value ||
+    confirmation.value ||
+    weixinBatch.value ||
+    !selectedWeixin.value
+  )
+    return;
+  remember();
+  weixinBatch.value = {
+    kind,
+    rows: items.value
+      .filter((r) => selected.value.includes(r.id))
+      .map((r) => ({ ...r })),
+  };
+}
+function doneWeixin(message: string) {
+  weixinBatch.value = undefined;
+  notice.value = message;
+  void load();
+}
+function more(row: ParentChannel) {
+  return [
+    {
+      id: "orders",
+      label: "关联订单",
+      href: "/admin/trade/order?channel_id=" + row.id,
+    },
+    {
+      id: "transfers",
+      label: "关联付款",
+      href: "/admin/transfer/list?channel_id=" + row.id,
+    },
+    { id: "statistics", label: "通道统计" },
+    { id: "fee", label: "设置费率" },
+    ...(row.configured
+      ? [
+          { id: "copy", label: "复制通道" },
+          { id: "advanced", label: "高级设置" },
+        ]
+      : []),
+  ];
+}
+function action(id: string, row: ParentChannel) {
+  if (
+    !foreground() ||
+    busy.value ||
+    loading.value ||
+    mode.value ||
+    limitsID.value ||
+    feeID.value ||
+    testRow.value ||
+    weixinBatch.value ||
+    confirmation.value
+  )
+    return;
+  remember();
+  if (id === "statistics") statisticsID.value = row.id;
+  if (id === "copy") void open(row, "copy");
+  if (id === "advanced") limitsID.value = row.id;
+  if (id === "fee") feeID.value = row.id;
+}
+async function closeAdvanced() {
+  const back = opener;
+  limitsID.value = undefined;
+  await nextTick();
+  (back?.isConnected ? back : refresh.value)?.focus();
+}
+async function closeFee() {
+  const back = opener;
+  feeID.value = undefined;
+  await load();
+  await nextTick();
+  (back?.isConnected ? back : refresh.value)?.focus();
+}
+function feeFromEdit() {
+  const row = target.value;
+  if (!foreground() || !row?.configured || busy.value || unknown.value) return;
+  mode.value = null;
+  edits.value = [];
+  name.value = "";
+  rate.value = "";
+  target.value = undefined;
+  feeID.value = row.id;
+}
 
-watch(()=>[props.client,props.client.csrfToken,props.allowed,props.client.area],()=>{reset();void load()},{flush:'sync'});
-onMounted(load);onBeforeUnmount(()=>{active=false;reset()});
+watch(
+  () => [
+    props.client,
+    props.client.csrfToken,
+    props.allowed,
+    props.client.area,
+  ],
+  () => {
+    reset();
+    void load();
+  },
+  { flush: "sync" },
+);
+onMounted(load);
+onBeforeUnmount(() => {
+  active = false;
+  reset();
+});
 </script>
 <template>
- <section class="list-page-host parent-channel-page" aria-label="支付通道" @focusin.capture="foreground" @pointerdown.capture="foreground" @keydown.capture="foreground">
- <div v-if="error" class="alert error" role="alert">{{error}}</div><div v-if="notice" class="alert success" role="status">{{notice}}</div>
- <fieldset class="list-page parent-background" :disabled="!!limitsID||!!feeID||!!statisticsID||!!testRow||!!weixinBatch||!!confirmation||!!mode"><KitFilterBar :loading="loading||busy" @query="filters.page=1;load()" @reset="filters.kw='';filters.type='';filters.plugin='';filters.dstatus='-1';filters.page=1;load()"><KitField label="搜索"><KitInput v-model="filters.kw" placeholder="通道ID/名称" aria-label="ID或名称"/></KitField><KitField label="支付方式"><KitSelect v-model="filters.type" :options="[{value:'',label:'全部支付方式'},...payTypeOptions.map(t=>({value:t,label:payTypeLabel(t)}))]" aria-label="支付方式"/></KitField><KitField label="支付插件"><KitSelect v-model="filters.plugin" :options="[{value:'',label:'全部插件'},...pluginOptions.map(p=>({value:p,label:p}))]" aria-label="支付插件"/></KitField><KitField label="通道状态"><KitSelect v-model="filters.dstatus" :options="[{value:'-1',label:'全部状态'},{value:'1',label:'已开启'},{value:'0',label:'已关闭'}]" aria-label="通道状态"/></KitField></KitFilterBar>
- <section class="panel records parent-content" aria-label="支付通道列表">
- <div class="table-tools parent-batch"><button ref="refresh" type="button" class="pa-btn pa-btn--primary" :disabled="loading||busy||!!mode||!!weixinBatch||!!testRow||!!confirmation||!templates.length" @click="create">新增通道</button><ActionDropdown triggerText="批量操作" label="批量操作" :items="batchItems" :disabled="uncertainBatch||busy||loading||!!mode||!!weixinBatch||!!testRow||!!confirmation||!batchItems.length" @action="batchAction"/><span class="table-summary">共 {{total}} 条</span><div class="table-tools-end"><button type="button" class="icon-button table-refresh parent-refresh" aria-label="刷新" title="刷新" :disabled="loading||busy||!!mode" @click="load()"><ShellIcon name="refresh"/></button><button type="button" class="icon-button table-refresh parent-columns" aria-label="显示列设置" title="显示列设置" :aria-expanded="showColumns" @click="showColumns=!showColumns"><ShellIcon name="settings"/></button><KitHelpPopover label="说明" text="真实父通道账户；新增和复制默认关闭。授权来源只继承现有商户权限。"/></div></div>
- <div v-if="showColumns" class="table-tools parent-columns-panel" aria-label="显示通道列"><span>显示列：</span><KitCheckbox v-model="showCost" label="成本费率（估算）"/><KitCheckbox v-model="showLimits" label="日限额、笔数及开放时间"/></div>
-<div class="table-scroll"><table><thead><tr><th>选择</th><th>ID</th><th>显示名称</th><th>通道模式</th><th>分成比例</th><th>支付方式</th><th>支付插件</th><th v-if="showCost">成本费率（估算）</th><th v-if="showLimits">每日限额</th><th v-if="showLimits">每日限笔</th><th v-if="showLimits">开放时间</th><th>状态</th><th>操作</th></tr></thead><tbody><tr v-for="row in items" :key="row.id"><td><input v-model="selected" type="checkbox" :value="row.id" :disabled="!row.configured||busy||!!mode||!!weixinBatch||!!testRow||!!confirmation||!!confirmation" :aria-label="'选择通道 '+row.id"></td><td>{{row.id}}</td><td>{{row.name}}</td><td>代收</td><td>{{row.rate===undefined||row.rate===null?'原费率（未配置）':row.rate+'%'}}</td><td><KitPayMethod :type="row.pay_type"/></td><td>{{row.plugin}}</td><ParentChannelExtra :client="client" :allowed="allowed" :row="row" :cost="showCost" :limits="showLimits"/><td><KitSwitch v-if="row.configured" :aria-label="'支付通道 '+row.id+' 状态'" :model-value="!!row.enabled" :label="row.enabled?'已开启':'已关闭'" :disabled="uncertainBatch||busy||loading||!!mode||!!weixinBatch||!!testRow||!!confirmation" @change="(value)=>askBatch(value?'open':'close',[row])"/><KitStatusTag v-else text="原注册配置" tone="neutral"/></td><td><div class="row-actions"><button data-parent-parameters :disabled="uncertainBatch||busy||loading||!!mode||!!weixinBatch||!!testRow||!!confirmation||!!confirmation" @click="open(row)">配置密钥</button><button :disabled="uncertainBatch||busy||loading||!!mode||!!weixinBatch||!!testRow||!!confirmation||!!confirmation" @click="open(row)">编辑</button><button :disabled="uncertainBatch||busy||loading||!!mode||!!weixinBatch||!!testRow||!!confirmation||!row.configured||!row.fingerprint" @click="testPayment(row)">测试</button><button :disabled="uncertainBatch||busy||loading||!!mode||!!weixinBatch||!!testRow||!!confirmation||!row.configured" @click="askBatch('delete',[row])">删除</button><ActionDropdown :label="'通道 '+row.id+' 更多操作'" :items="more(row)" :disabled="uncertainBatch||busy||loading||!!mode||!!weixinBatch||!!testRow||!!confirmation||!!confirmation" @action="action($event,row)"/></div></td></tr></tbody></table></div>
- <KitPagination v-model:page="filters.page" v-model:page-size="filters.size" :total="total" @change="load"/>
- </section>
- </fieldset><div v-if="mode" class="pa-scrim pa-modal-scrim parent-scrim" :class="{'pa-drawer-scrim':mode!=='adopt'}" @keydown.esc.prevent="close" @click.self="close"><section ref="dialog" tabindex="-1" role="dialog" aria-modal="true" aria-label="父通道配置" class="pa-modal parent-editor" :class="{'pa-drawer':mode!=='adopt'}" @keydown="trap"><header class="pa-modal-head"><h2 class="pa-modal-title">{{mode==='create'?'新增通道':mode==='copy'?'复制通道':mode==='adopt'?'载入原注册账户':'编辑通道'}}</h2><button type="button" class="pa-icon-btn pa-icon-btn--ghost pa-modal-x" aria-label="关闭" :disabled="busy" @click="close">×</button></header>
- <form data-parent-editor class="pa-modal-body" @submit.prevent="save"><div class="pa-modal-content parent-editor-fields"><template v-if="mode==='adopt'"><p>将原注册账户封存为可管理版本；不发起支付、不改变原费率，也不补造历史订单来源。</p></template><template v-else>
- <label class="pa-field"><span class="pa-label pa-label--req">通道名称</span><input v-model="name" aria-label="通道名称" maxlength="120" required :disabled="busy||unknown"></label>
- <label class="pa-field"><span class="pa-label">分成比例（%）</span><input v-model="rate" aria-label="分成比例" placeholder="留空保持原费率" :readonly="mode==='edit'" :disabled="busy||unknown"></label>
- <div v-if="mode==='edit'" class="pa-field parent-row-extra"><span class="pa-label"></span><button type="button" class="pa-btn" :disabled="busy||unknown" @click="feeFromEdit">设置费率及收款开关</button></div>
- <label class="pa-field"><span class="pa-label">模式</span><select disabled aria-label="模式"><option>代收（直清尚无账务模型，不可启用）</option></select></label>
- <label class="pa-field"><span class="pa-label">授权来源</span><select v-model="source" aria-label="授权来源" :disabled="mode!=='create'||busy||unknown" @change="fieldsFromTemplate"><option v-for="t in templates" :key="t.source_channel_id" :value="t.source_channel_id">{{t.name}} / {{payTypeLabel(t.pay_type)}} / {{t.merchant_count}} 个原授权商户</option></select><small v-if="mode==='create'" class="field-help">新增通道从已导入的原授权通道派生，继承其商户授权与身份校验；已移植支付插件在其原授权通道导入后出现在此列表。</small></label>
- <ParentWeixinBindings v-if="(target?.pay_type||template?.pay_type)==='wxpay'" :key="source+':'+mode" :client="client" :channel-i-d="mode==='create'?source:target!.id" :source-channel-i-d="source" :initial-web="target?.account?.appwxmp" :initial-mini="target?.account?.appwxa" :binding-state="target?.account?.weixin_binding_state" :disabled="busy||unknown" @draft="bindingDraft=$event" />
- <label class="pa-field"><span class="pa-label">接口类型</span><input v-model="appTypes" aria-label="接口类型" :disabled="busy||unknown"><small class="field-help">原 apptype，多个用逗号分隔</small></label>
- <h3 v-if="edits.length" class="parent-editor-section">通道参数</h3>
-      <fieldset v-for="edit in edits" :key="edit.field.namespace+'.'+edit.field.name" class="pa-field parent-param" :disabled="busy||unknown"><legend class="pa-label">{{edit.field.label||edit.field.name}}</legend><ConfigValueEditor v-model="edit.value" v-model:operation="edit.operation" :label="edit.field.label||edit.field.name" :input-label="(edit.field.label||edit.field.name)+' 内容'" :option-label="(edit.field.label||edit.field.name)+' 选项'" :configured="edit.field.present" :current-value="edit.field.secret?undefined:edit.field.value" :secret="edit.field.secret" :multiline="edit.field.pem" :options="edit.field.options" :keep-allowed="mode!=='create'" :clear-allowed="mode!=='create'" :disabled="busy||unknown"/><small v-if="edit.field.secret||edit.field.pem||edit.field.note" class="field-help">{{edit.field.secret?(mode!=='create'&&edit.field.present?'已保存的密钥不会显示；留空不修改，输入新值后保存。':'请输入完整密钥，保存后不会回显。'):edit.field.pem?'PEM内容，不接受服务器路径':edit.field.note}}</small></fieldset>
- </template><p v-if="mode==='create'||mode==='copy'" class="muted">保存后默认关闭。成本数据仅为估算，不作为实际账单利润。</p><p v-if="unknown" role="alert" class="pa-alert pa-alert--error">结果未知，请读取原状态核对。</p><button v-if="unknown" type="button" class="pa-btn parent-read-original" :disabled="busy" @click="readOriginal">读取原结果</button></div><footer class="pa-modal-foot"><button type="button" class="pa-btn" :disabled="busy" @click="close">取消</button><button data-parent-save class="pa-btn pa-btn--primary" :class="{'pa-btn--loading':busy}" :disabled="!canSave">{{busy?'正在保存…':mode==='adopt'?'载入原注册账户配置':'保存'}}</button></footer></form></section></div>
- <div v-if="confirmation" class="pa-scrim pa-modal-scrim"><section role="dialog" aria-modal="true" aria-label="确认通道操作" class="pa-modal" @keydown="trap" @keydown.esc.prevent="confirmation=undefined"><header class="pa-modal-head"><h2 class="pa-modal-title">确认{{confirmation.action==='open'?'开启':confirmation.action==='close'?'关闭':'删除（归档）'}}通道</h2><button type="button" class="pa-icon-btn pa-icon-btn--ghost pa-modal-x" aria-label="关闭" @click="confirmation=undefined">×</button></header><div class="pa-modal-content"><p>以下原通道将以当前版本原子处理；任一项变化会拒绝整批。</p><ul><li v-for="row in confirmation.rows" :key="row.id">#{{row.id}} {{row.name}}</li></ul></div><footer class="pa-modal-foot"><button class="pa-btn" @click="confirmation=undefined">取消</button><button data-parent-confirm class="pa-btn pa-btn--primary" @click="confirmBatch">确定</button></footer></section></div>
- <RuntimeChannelPolicyPanel v-if="feeID" :key="feeID" :channel-i-d="feeID" :client="client" :allowed="allowed" @close="closeFee" @context-invalid="feeID=undefined"/>
- <ParentChannelStatistics v-if="statisticsID" :client="client" :channel-i-d="statisticsID" :allowed="allowed" @close="statisticsID=undefined"/>
- <ParentChannelTestPayment v-if="testRow" :client="client" :allowed="allowed" :channel-i-d="testRow.id" :fingerprint="testRow.fingerprint!" @close="testRow=undefined" />
- <ParentWeixinBatch v-if="weixinBatch" :client="client" :allowed="allowed" :rows="weixinBatch.rows" :kind="weixinBatch.kind" @close="weixinBatch=undefined" @done="doneWeixin" @context-invalid="reset();load()" />
- <RuntimeChannelLimitsPanel :subject-editor="true" v-if="limitsID" :client="client" :allowed="allowed" :channel-i-d="limitsID" @close="closeAdvanced" @context-invalid="limitsID=undefined"/>
- </section>
+  <section
+    class="list-page-host parent-channel-page"
+    aria-label="支付通道"
+    @focusin.capture="foreground"
+    @pointerdown.capture="foreground"
+    @keydown.capture="foreground"
+  >
+    <div v-if="error" class="alert error" role="alert">{{ error }}</div>
+    <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
+    <fieldset
+      class="list-page parent-background"
+      :disabled="
+        !!limitsID ||
+        !!feeID ||
+        !!statisticsID ||
+        !!testRow ||
+        !!weixinBatch ||
+        !!confirmation ||
+        !!mode
+      "
+    >
+      <KitFilterBar
+        :loading="loading || busy"
+        @query="
+          filters.page = 1;
+          load();
+        "
+        @reset="
+          filters.kw = '';
+          filters.type = '';
+          filters.plugin = '';
+          filters.dstatus = '-1';
+          filters.page = 1;
+          load();
+        "
+        ><KitField label="搜索"
+          ><KitInput
+            v-model="filters.kw"
+            placeholder="通道ID/名称"
+            aria-label="ID或名称" /></KitField
+        ><KitField label="支付方式"
+          ><KitSelect
+            v-model="filters.type"
+            :options="[
+              { value: '', label: '全部支付方式' },
+              ...payTypeOptions.map((t) => ({
+                value: t,
+                label: payTypeLabel(t),
+              })),
+            ]"
+            aria-label="支付方式" /></KitField
+        ><KitField label="支付插件"
+          ><KitSelect
+            v-model="filters.plugin"
+            :options="[
+              { value: '', label: '全部插件' },
+              ...pluginOptions.map((p) => ({ value: p, label: p })),
+            ]"
+            aria-label="支付插件" /></KitField
+        ><KitField label="通道状态"
+          ><KitSelect
+            v-model="filters.dstatus"
+            :options="[
+              { value: '-1', label: '全部状态' },
+              { value: '1', label: '已开启' },
+              { value: '0', label: '已关闭' },
+            ]"
+            aria-label="通道状态" /></KitField
+      ></KitFilterBar>
+      <section class="panel records parent-content" aria-label="支付通道列表">
+        <div class="table-tools parent-batch">
+          <button
+            ref="refresh"
+            type="button"
+            class="pa-btn pa-btn--primary"
+            :disabled="
+              loading ||
+              busy ||
+              !!mode ||
+              !!weixinBatch ||
+              !!testRow ||
+              !!confirmation ||
+              !templates.length
+            "
+            @click="create"
+          >
+            新增通道</button
+          ><ActionDropdown
+            triggerText="批量操作"
+            label="批量操作"
+            :items="batchItems"
+            :disabled="
+              uncertainBatch ||
+              busy ||
+              loading ||
+              !!mode ||
+              !!weixinBatch ||
+              !!testRow ||
+              !!confirmation ||
+              !batchItems.length
+            "
+            @action="batchAction"
+          /><span class="table-summary">共 {{ total }} 条</span>
+          <div class="table-tools-end">
+            <button
+              type="button"
+              class="icon-button table-refresh parent-refresh"
+              aria-label="刷新"
+              title="刷新"
+              :disabled="loading || busy || !!mode"
+              @click="load()"
+            >
+              <ShellIcon name="refresh" /></button
+            ><button
+              type="button"
+              class="icon-button table-refresh parent-columns"
+              aria-label="显示列设置"
+              title="显示列设置"
+              :aria-expanded="showColumns"
+              @click="showColumns = !showColumns"
+            >
+              <ShellIcon name="settings" /></button
+            ><KitHelpPopover
+              label="说明"
+              text="真实父通道账户；新增和复制默认关闭。授权来源只继承现有商户权限。"
+            />
+          </div>
+        </div>
+        <div
+          v-if="showColumns"
+          class="table-tools parent-columns-panel"
+          aria-label="显示通道列"
+        >
+          <span>显示列：</span
+          ><KitCheckbox
+            v-model="showCost"
+            label="成本费率（估算）"
+          /><KitCheckbox v-model="showLimits" label="日限额、笔数及开放时间" />
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>选择</th>
+                <th>ID</th>
+                <th>显示名称</th>
+                <th>通道模式</th>
+                <th>分成比例</th>
+                <th>支付方式</th>
+                <th>支付插件</th>
+                <th v-if="showCost">成本费率（估算）</th>
+                <th v-if="showLimits">每日限额</th>
+                <th v-if="showLimits">每日限笔</th>
+                <th v-if="showLimits">开放时间</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in items" :key="row.id">
+                <td>
+                  <input
+                    v-model="selected"
+                    type="checkbox"
+                    :value="row.id"
+                    :disabled="
+                      !row.configured ||
+                      busy ||
+                      !!mode ||
+                      !!weixinBatch ||
+                      !!testRow ||
+                      !!confirmation ||
+                      !!confirmation
+                    "
+                    :aria-label="'选择通道 ' + row.id"
+                  />
+                </td>
+                <td>{{ row.id }}</td>
+                <td>{{ row.name }}</td>
+                <td>代收</td>
+                <td>
+                  {{
+                    row.rate === undefined || row.rate === null
+                      ? "原费率（未配置）"
+                      : row.rate + "%"
+                  }}
+                </td>
+                <td><KitPayMethod :type="row.pay_type" /></td>
+                <td>{{ row.plugin }}</td>
+                <ParentChannelExtra
+                  :client="client"
+                  :allowed="allowed"
+                  :row="row"
+                  :cost="showCost"
+                  :limits="showLimits"
+                />
+                <td>
+                  <KitSwitch
+                    v-if="row.configured"
+                    :aria-label="'支付通道 ' + row.id + ' 状态'"
+                    :model-value="!!row.enabled"
+                    :label="row.enabled ? '已开启' : '已关闭'"
+                    :disabled="
+                      uncertainBatch ||
+                      busy ||
+                      loading ||
+                      !!mode ||
+                      !!weixinBatch ||
+                      !!testRow ||
+                      !!confirmation
+                    "
+                    @change="
+                      (value) => askBatch(value ? 'open' : 'close', [row])
+                    "
+                  /><KitStatusTag v-else text="原注册配置" tone="neutral" />
+                </td>
+                <td>
+                  <div class="row-actions">
+                    <button
+                      data-parent-parameters
+                      :disabled="
+                        uncertainBatch ||
+                        busy ||
+                        loading ||
+                        !!mode ||
+                        !!weixinBatch ||
+                        !!testRow ||
+                        !!confirmation ||
+                        !!confirmation
+                      "
+                      @click="open(row)"
+                    >
+                      配置密钥</button
+                    ><button
+                      :disabled="
+                        uncertainBatch ||
+                        busy ||
+                        loading ||
+                        !!mode ||
+                        !!weixinBatch ||
+                        !!testRow ||
+                        !!confirmation ||
+                        !!confirmation
+                      "
+                      @click="open(row)"
+                    >
+                      编辑</button
+                    ><button
+                      :disabled="
+                        uncertainBatch ||
+                        busy ||
+                        loading ||
+                        !!mode ||
+                        !!weixinBatch ||
+                        !!testRow ||
+                        !!confirmation ||
+                        !row.configured ||
+                        !row.fingerprint
+                      "
+                      @click="testPayment(row)"
+                    >
+                      测试</button
+                    ><button
+                      :disabled="
+                        uncertainBatch ||
+                        busy ||
+                        loading ||
+                        !!mode ||
+                        !!weixinBatch ||
+                        !!testRow ||
+                        !!confirmation ||
+                        !row.configured
+                      "
+                      @click="askBatch('delete', [row])"
+                    >
+                      删除</button
+                    ><ActionDropdown
+                      :label="'通道 ' + row.id + ' 更多操作'"
+                      :items="more(row)"
+                      :disabled="
+                        uncertainBatch ||
+                        busy ||
+                        loading ||
+                        !!mode ||
+                        !!weixinBatch ||
+                        !!testRow ||
+                        !!confirmation ||
+                        !!confirmation
+                      "
+                      @action="action($event, row)"
+                    />
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <KitPagination
+          v-model:page="filters.page"
+          v-model:page-size="filters.size"
+          :total="total"
+          @change="load"
+        />
+      </section>
+    </fieldset>
+    <div
+      v-if="mode"
+      class="pa-scrim pa-modal-scrim parent-scrim"
+      :class="{ 'pa-drawer-scrim': mode !== 'adopt' }"
+      @keydown.esc.prevent="close"
+      @click.self="close"
+    >
+      <section
+        ref="dialog"
+        tabindex="-1"
+        role="dialog"
+        aria-modal="true"
+        aria-label="父通道配置"
+        class="pa-modal parent-editor"
+        :class="{ 'pa-drawer': mode !== 'adopt' }"
+        @keydown="trap"
+      >
+        <header class="pa-modal-head">
+          <h2 class="pa-modal-title">
+            {{
+              mode === "create"
+                ? "新增通道"
+                : mode === "copy"
+                  ? "复制通道"
+                  : mode === "adopt"
+                    ? "载入原注册账户"
+                    : "编辑通道"
+            }}
+          </h2>
+          <button
+            type="button"
+            class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+            aria-label="关闭"
+            :disabled="busy"
+            @click="close"
+          >
+            ×
+          </button>
+        </header>
+        <form data-parent-editor class="pa-modal-body" @submit.prevent="save">
+          <div class="pa-modal-content parent-editor-fields">
+            <template v-if="mode === 'adopt'"
+              ><p>
+                将原注册账户封存为可管理版本；不发起支付、不改变原费率，也不补造历史订单来源。
+              </p></template
+            ><template v-else>
+              <label class="pa-field"
+                ><span class="pa-label pa-label--req">通道名称</span
+                ><input
+                  v-model="name"
+                  aria-label="通道名称"
+                  maxlength="120"
+                  required
+                  :disabled="busy || unknown"
+              /></label>
+              <label class="pa-field"
+                ><span class="pa-label">分成比例（%）</span
+                ><input
+                  v-model="rate"
+                  aria-label="分成比例"
+                  placeholder="留空保持原费率"
+                  :readonly="mode === 'edit'"
+                  :disabled="busy || unknown"
+              /></label>
+              <div v-if="mode === 'edit'" class="pa-field parent-row-extra">
+                <span class="pa-label"></span
+                ><button
+                  type="button"
+                  class="pa-btn"
+                  :disabled="busy || unknown"
+                  @click="feeFromEdit"
+                >
+                  设置费率及收款开关
+                </button>
+              </div>
+              <label class="pa-field"
+                ><span class="pa-label">模式</span
+                ><select disabled aria-label="模式">
+                  <option>代收（直清尚无账务模型，不可启用）</option>
+                </select></label
+              >
+              <label class="pa-field"
+                ><span class="pa-label">授权来源</span
+                ><select
+                  v-model="source"
+                  aria-label="授权来源"
+                  :disabled="mode !== 'create' || busy || unknown"
+                  @change="fieldsFromTemplate"
+                >
+                  <option
+                    v-for="t in templates"
+                    :key="t.source_channel_id"
+                    :value="t.source_channel_id"
+                  >
+                    {{ t.name }} / {{ payTypeLabel(t.pay_type) }} /
+                    {{ t.merchant_count }} 个原授权商户
+                  </option></select
+                ><small v-if="mode === 'create'" class="field-help"
+                  >新增通道从已导入的原授权通道派生，继承其商户授权与身份校验；已移植支付插件在其原授权通道导入后出现在此列表。</small
+                ></label
+              >
+              <ParentWeixinBindings
+                v-if="(target?.pay_type || template?.pay_type) === 'wxpay'"
+                :key="source + ':' + mode"
+                :client="client"
+                :channel-i-d="mode === 'create' ? source : target!.id"
+                :source-channel-i-d="source"
+                :initial-web="target?.account?.appwxmp"
+                :initial-mini="target?.account?.appwxa"
+                :binding-state="target?.account?.weixin_binding_state"
+                :disabled="busy || unknown"
+                @draft="bindingDraft = $event"
+              />
+              <label class="pa-field"
+                ><span class="pa-label">接口类型</span
+                ><input
+                  v-model="appTypes"
+                  aria-label="接口类型"
+                  :disabled="busy || unknown"
+                /><small class="field-help"
+                  >原 apptype，多个用逗号分隔</small
+                ></label
+              >
+              <h3 v-if="edits.length" class="parent-editor-section">
+                通道参数
+              </h3>
+              <fieldset
+                v-for="edit in edits"
+                :key="edit.field.namespace + '.' + edit.field.name"
+                class="pa-field parent-param"
+                :disabled="busy || unknown"
+              >
+                <legend class="pa-label">
+                  {{ edit.field.label || edit.field.name }}
+                </legend>
+                <ConfigValueEditor
+                  v-model="edit.value"
+                  v-model:operation="edit.operation"
+                  :label="edit.field.label || edit.field.name"
+                  :input-label="(edit.field.label || edit.field.name) + ' 内容'"
+                  :option-label="
+                    (edit.field.label || edit.field.name) + ' 选项'
+                  "
+                  :configured="edit.field.present"
+                  :current-value="
+                    edit.field.secret ? undefined : edit.field.value
+                  "
+                  :secret="edit.field.secret"
+                  :multiline="edit.field.pem"
+                  :options="edit.field.options"
+                  :keep-allowed="mode !== 'create'"
+                  :clear-allowed="mode !== 'create'"
+                  :disabled="busy || unknown"
+                /><small
+                  v-if="edit.field.secret || edit.field.pem || edit.field.note"
+                  class="field-help"
+                  >{{
+                    edit.field.secret
+                      ? mode !== "create" && edit.field.present
+                        ? "已保存的密钥不会显示；留空不修改，输入新值后保存。"
+                        : "请输入完整密钥，保存后不会回显。"
+                      : edit.field.pem
+                        ? "PEM内容，不接受服务器路径"
+                        : edit.field.note
+                  }}</small
+                >
+              </fieldset>
+            </template>
+            <p v-if="mode === 'create' || mode === 'copy'" class="muted">
+              保存后默认关闭。成本数据仅为估算，不作为实际账单利润。
+            </p>
+            <p v-if="unknown" role="alert" class="pa-alert pa-alert--error">
+              结果未知，请读取原状态核对。
+            </p>
+            <button
+              v-if="unknown"
+              type="button"
+              class="pa-btn parent-read-original"
+              :disabled="busy"
+              @click="readOriginal"
+            >
+              读取原结果
+            </button>
+          </div>
+          <footer class="pa-modal-foot">
+            <button
+              type="button"
+              class="pa-btn"
+              :disabled="busy"
+              @click="close"
+            >
+              取消</button
+            ><button
+              data-parent-save
+              class="pa-btn pa-btn--primary"
+              :class="{ 'pa-btn--loading': busy }"
+              :disabled="!canSave"
+            >
+              {{
+                busy
+                  ? "正在保存…"
+                  : mode === "adopt"
+                    ? "载入原注册账户配置"
+                    : "保存"
+              }}
+            </button>
+          </footer>
+        </form>
+      </section>
+    </div>
+    <div v-if="confirmation" class="pa-scrim pa-modal-scrim">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label="确认通道操作"
+        class="pa-modal"
+        @keydown="trap"
+        @keydown.esc.prevent="confirmation = undefined"
+      >
+        <header class="pa-modal-head">
+          <h2 class="pa-modal-title">
+            确认{{
+              confirmation.action === "open"
+                ? "开启"
+                : confirmation.action === "close"
+                  ? "关闭"
+                  : "删除（归档）"
+            }}通道
+          </h2>
+          <button
+            type="button"
+            class="pa-icon-btn pa-icon-btn--ghost pa-modal-x"
+            aria-label="关闭"
+            @click="confirmation = undefined"
+          >
+            ×
+          </button>
+        </header>
+        <div class="pa-modal-content">
+          <p>以下原通道将以当前版本原子处理；任一项变化会拒绝整批。</p>
+          <ul>
+            <li v-for="row in confirmation.rows" :key="row.id">
+              #{{ row.id }} {{ row.name }}
+            </li>
+          </ul>
+        </div>
+        <footer class="pa-modal-foot">
+          <button class="pa-btn" @click="confirmation = undefined">取消</button
+          ><button
+            data-parent-confirm
+            class="pa-btn pa-btn--primary"
+            @click="confirmBatch"
+          >
+            确定
+          </button>
+        </footer>
+      </section>
+    </div>
+    <RuntimeChannelPolicyPanel
+      v-if="feeID"
+      :key="feeID"
+      :channel-i-d="feeID"
+      :client="client"
+      :allowed="allowed"
+      @close="closeFee"
+      @context-invalid="feeID = undefined"
+    />
+    <ParentChannelStatistics
+      v-if="statisticsID"
+      :client="client"
+      :channel-i-d="statisticsID"
+      :allowed="allowed"
+      @close="statisticsID = undefined"
+    />
+    <ParentChannelTestPayment
+      v-if="testRow"
+      :client="client"
+      :allowed="allowed"
+      :channel-i-d="testRow.id"
+      :fingerprint="testRow.fingerprint!"
+      @close="testRow = undefined"
+    />
+    <ParentWeixinBatch
+      v-if="weixinBatch"
+      :client="client"
+      :allowed="allowed"
+      :rows="weixinBatch.rows"
+      :kind="weixinBatch.kind"
+      @close="weixinBatch = undefined"
+      @done="doneWeixin"
+      @context-invalid="
+        reset();
+        load();
+      "
+    />
+    <RuntimeChannelLimitsPanel
+      :subject-editor="true"
+      v-if="limitsID"
+      :client="client"
+      :allowed="allowed"
+      :channel-i-d="limitsID"
+      @close="closeAdvanced"
+      @context-invalid="limitsID = undefined"
+    />
+  </section>
 </template>
 <style scoped>
-.parent-background{border:0;padding:0;margin:0;min-width:0}
+.parent-background {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
 
-.parent-channel-page{min-width:0}.parent-columns-panel{gap:16px;font-size:13px;padding-top:0}.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
-.parent-channel-page .parent-background form.toolbar>input,.parent-channel-page .parent-background form.toolbar>select{width:auto;flex:1 1 150px;max-width:220px;margin:0}
-.parent-channel-page .parent-background .toolbar[aria-label]>:last-child{margin-left:0}
-.parent-channel-page .parent-background .toolbar[aria-label] label{margin:0;font-size:13px}
-.parent-pager{justify-content:flex-end;padding:0;margin-top:12px}.toolbar h3{flex:1;margin:0}.table-scroll{overflow:auto}table{width:100%;white-space:nowrap}.row-actions{display:flex;gap:6px;align-items:center}.parent-editor{--drawer-w:600px;--form-label-w:120px}.parent-editor-fields .pa-label{overflow-wrap:anywhere}.parent-editor-fields .field-help{color:var(--ink-muted);font-size:12px;line-height:1.5}.parent-editor-fields>fieldset.pa-field{margin:0;padding:0;border:0;min-width:0;row-gap:var(--space-2)}.parent-editor-fields>fieldset.pa-field>legend{float:left;padding:0}.parent-editor-fields textarea{min-height:120px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.parent-editor-section{margin:var(--space-2) 0 0;padding-top:var(--space-4);border-top:1px solid var(--line);font-size:14px;line-height:22px;font-weight:600;color:var(--ink)}.parent-row-extra>.pa-btn,.parent-read-original{justify-self:start;align-self:flex-start}.parent-param-value{color:var(--ink-muted);overflow-wrap:anywhere}@media(max-width:600px){.toolbar>*{max-width:100%}.parent-channel-page .toolbar input{width:100%}}
+.parent-channel-page {
+  min-width: 0;
+}
+.parent-columns-panel {
+  gap: 16px;
+  font-size: 13px;
+  padding-top: 0;
+}
+.toolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.parent-channel-page .parent-background form.toolbar > input,
+.parent-channel-page .parent-background form.toolbar > select {
+  width: auto;
+  flex: 1 1 150px;
+  max-width: 220px;
+  margin: 0;
+}
+.parent-channel-page .parent-background .toolbar[aria-label] > :last-child {
+  margin-left: 0;
+}
+.parent-channel-page .parent-background .toolbar[aria-label] label {
+  margin: 0;
+  font-size: 13px;
+}
+.parent-pager {
+  justify-content: flex-end;
+  padding: 0;
+  margin-top: 12px;
+}
+.toolbar h3 {
+  flex: 1;
+  margin: 0;
+}
+.table-scroll {
+  overflow: auto;
+}
+table {
+  width: 100%;
+  white-space: nowrap;
+}
+.row-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.parent-editor {
+  --drawer-w: 600px;
+  --form-label-w: 120px;
+}
+.parent-editor-fields .pa-label {
+  overflow-wrap: anywhere;
+}
+.parent-editor-fields .field-help {
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.parent-editor-fields > fieldset.pa-field {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  row-gap: var(--space-2);
+}
+.parent-editor-fields > fieldset.pa-field > legend {
+  float: left;
+  padding: 0;
+}
+.parent-editor-fields textarea {
+  min-height: 120px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.parent-editor-section {
+  margin: var(--space-2) 0 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.parent-row-extra > .pa-btn,
+.parent-read-original {
+  justify-self: start;
+  align-self: flex-start;
+}
+.parent-param-value {
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .toolbar > * {
+    max-width: 100%;
+  }
+  .parent-channel-page .toolbar input {
+    width: 100%;
+  }
+}
 </style>
-
-
-

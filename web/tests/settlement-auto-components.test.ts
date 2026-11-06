@@ -30,7 +30,9 @@ it("reads the exact parent plan fields when the real page also supplies a reacti
   const request = vi.fn().mockResolvedValue(view);
   const pagePlan = reactive({ ...plan, schedule: { frequency: "day" } });
   const client = Object.assign(new ApiClient("admin"), { request });
-  const w = mount(SettlementAutoAuthorization, { props: { client, plan: pagePlan, ownSession: true, adminClass: "super" } });
+  const w = mount(SettlementAutoAuthorization, {
+    props: { client, plan: pagePlan, ownSession: true, adminClass: "super" },
+  });
   await button(w, "读取自动付款授权").trigger("click");
   await flushPromises();
   expect(request).toHaveBeenCalledTimes(1);

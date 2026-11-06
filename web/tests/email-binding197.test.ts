@@ -94,7 +94,7 @@ it("shows original binding row and verifies old address before asking for a new 
   expect(w.find('input[autocomplete="email"]').exists()).toBe(false);
   await old.get('[data-email197="send"]').trigger("click");
   await flushPromises();
-  expect(old.get('#email197-code').attributes('aria-label')).toBe('验证码');
+  expect(old.get("#email197-code").attributes("aria-label")).toBe("验证码");
   await old.get('input[autocomplete="one-time-code"]').setValue("1234567");
   await old.get("form").trigger("submit");
   await flushPromises();

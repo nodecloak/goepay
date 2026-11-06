@@ -67,13 +67,11 @@ it("keeps unavailable profit hidden and rejects an untrusted old profit response
       .some((o) => o.text().includes("配置估计利润")),
   ).toBe(false);
   unavailable.unmount();
-  const request = vi
-    .fn()
-    .mockResolvedValue({
-      ...base,
-      basis: "profit",
-      profit_basis_available: false,
-    });
+  const request = vi.fn().mockResolvedValue({
+    ...base,
+    basis: "profit",
+    profit_basis_available: false,
+  });
   const old = mount(ReferralPolicyPage, {
     props: {
       client: Object.assign(new ApiClient("admin"), { request }),

@@ -194,8 +194,12 @@ test.describe("real local persisted operational edits", () => {
     await expect
       .poll(() => new URL(page.url()).searchParams.get("id"))
       .toBe(saved.data.id);
-    await expect(page.getByRole("status").filter({ hasText: /已保存/ })).toBeVisible();
-    await expect(page.getByLabel("风格标识", { exact: true })).toHaveValue(name);
+    await expect(
+      page.getByRole("status").filter({ hasText: /已保存/ }),
+    ).toBeVisible();
+    await expect(page.getByLabel("风格标识", { exact: true })).toHaveValue(
+      name,
+    );
     await page.reload();
     await expect(page.getByLabel("风格标识", { exact: true })).toHaveValue(
       name,

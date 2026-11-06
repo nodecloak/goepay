@@ -56,13 +56,11 @@ test("local real API migrates a SQL backup once and preserves a safe activation 
   await expect(
     page.getByRole("button", { name: "选择SQL备份", exact: true }),
   ).toBeEnabled();
-  await page
-    .getByLabel("易支付SQL备份", { exact: true })
-    .setInputFiles({
-      name: "synthetic.sql",
-      mimeType: "application/sql",
-      buffer: Buffer.from(sql),
-    });
+  await page.getByLabel("易支付SQL备份", { exact: true }).setInputFiles({
+    name: "synthetic.sql",
+    mimeType: "application/sql",
+    buffer: Buffer.from(sql),
+  });
   await page.getByRole("button", { name: "上传并预检查", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "读取当前任务状态", exact: true }),

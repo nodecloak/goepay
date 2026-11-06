@@ -20,24 +20,22 @@ const button = (w: ReturnType<typeof mount>, name: string) => {
   return found;
 };
 it("permission prevents even catalog reads and original legacy mode is never labeled disabled", async () => {
-  const request = vi
-    .fn()
-    .mockResolvedValue(
-      catalog([
-        scheduler171Task({
-          task: "notify",
-          configured: false,
-          control_mode: "legacy_managed",
-          enabled: false,
-          schedule: null,
-          params: {},
-          parameter_definitions: [],
-          revision: "0",
-          can_run: false,
-          next_run_time: null,
-        }),
-      ]),
-    );
+  const request = vi.fn().mockResolvedValue(
+    catalog([
+      scheduler171Task({
+        task: "notify",
+        configured: false,
+        control_mode: "legacy_managed",
+        enabled: false,
+        schedule: null,
+        params: {},
+        parameter_definitions: [],
+        revision: "0",
+        can_run: false,
+        next_run_time: null,
+      }),
+    ]),
+  );
   const w = mount(TaskSchedulerPage, {
     props: { client: client(request), allowed: false },
   });
