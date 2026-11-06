@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -197,17 +196,11 @@ func (s *Server) cashierPage(w http.ResponseWriter, r *http.Request, in cashierI
 		io.WriteString(w, "<p>当前没有可用的支付方式，请联系商户。</p>"+tail)
 		return
 	}
-	token := r.URL.Query().Get("t")
-	payload := r.URL.Query().Get("i")
-	io.WriteString(w, `<form method="post" action="/cashier?i=`+html.EscapeString(url.QueryEscape(payload))+`&amp;t=`+html.EscapeString(url.QueryEscape(token))+`"><fieldset><legend>支付方式</legend>`)
-	for i, t := range types {
-		checked := ""
-		if i == 0 {
-			checked = " checked"
-		}
-		io.WriteString(w, `<label><input type="radio" name="type" value="`+html.EscapeString(t.Name)+`"`+checked+`> `+html.EscapeString(t.ShowName)+`</label>`)
-	}
-	io.WriteString(w, `</fieldset><button type="submit">立即支付</button></form>`+tail)
+	renderCheckoutFragment(w, "cashier-form", struct {
+		Payload, Token string
+		Types          any
+	}{r.URL.Query().Get("i"), r.URL.Query().Get("t"), types})
+	io.WriteString(w, tail)
 }
 
 // cashierHideName reads pageordername so the cashier page follows the same

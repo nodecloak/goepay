@@ -57,7 +57,9 @@ for (const [status, code, message] of [
       "/complain/list",
       new ApiError(message, status, code),
     );
-    expect(w.get('[role="alert"]').text()).toContain(message);
+    expect(w.get('[role="alert"]').text()).toContain(
+      new ApiError(message, status, code).message,
+    );
     expect(w.text()).not.toContain("交易投诉尚未启用");
     w.unmount();
   });

@@ -19,7 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"goepay/internal/identity"
-	"goepay/internal/mailpolicy194"
+	"goepay/internal/mailpolicy"
 	"goepay/internal/payment"
 )
 
@@ -52,7 +52,7 @@ type Service struct {
 	store  *payment.Store
 	key    []byte
 	sender Sender
-	rates  *mailpolicy194.Store
+	rates  *mailpolicy.Store
 }
 type VerificationRequest struct{ Purpose, Email, Source string }
 type Challenge struct {
@@ -86,7 +86,7 @@ func New(pool *pgxpool.Pool, store *payment.Store, key []byte, sender Sender) (*
 	}
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte("goepay/public-enrollment/v1"))
-	return &Service{pool: pool, store: store, key: mac.Sum(nil), sender: sender, rates: mailpolicy194.FromMaster(pool, key)}, nil
+	return &Service{pool: pool, store: store, key: mac.Sum(nil), sender: sender, rates: mailpolicy.FromMaster(pool, key)}, nil
 }
 func (s *Service) Capabilities(ctx context.Context) (Capabilities, error) {
 	tx, e := s.pool.Begin(ctx)

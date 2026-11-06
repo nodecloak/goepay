@@ -16,7 +16,7 @@ import (
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/ledger"
 	"goepay/internal/siteinfo"
-	"goepay/internal/wxtransferlink231"
+	"goepay/internal/wxtransferlink"
 )
 
 // 商家转账（新） payee confirmation (original paypage/wxtrans.php with
@@ -27,7 +27,7 @@ import (
 var wxtransZone = time.FixedZone("Asia/Shanghai", 8*3600)
 
 func (s *Server) wxtransSign(n, t string) string {
-	return wxtransferlink231.Sign(s.CheckoutKey, n, t)
+	return wxtransferlink.Sign(s.CheckoutKey, n, t)
 }
 
 func (s *Server) wxtransBase() string {
@@ -39,7 +39,7 @@ func (s *Server) wxtransBase() string {
 
 // wxtransConfirmURL is the payee's 确认收款 link (and QR content).
 func (s *Server) wxtransConfirmURL(id int64, created time.Time) string {
-	return s.wxtransBase() + wxtransferlink231.Path(s.CheckoutKey, id, created)
+	return s.wxtransBase() + wxtransferlink.Path(s.CheckoutKey, id, created)
 }
 
 // transferConfirmURLs maps transfers still waiting for the payee (a recorded

@@ -19,7 +19,7 @@ import (
 	"time"
 
 	adapter "goepay/internal/adapters/payment"
-	"goepay/internal/captcha203"
+	"goepay/internal/captcha"
 )
 
 // Deliberately separate from the provider's callback origin and the loopback
@@ -38,7 +38,7 @@ func TestLoginCaptcha205ActualBrowserHTTPWithPrivateTLSAndPersistentSessions(t *
 				f := loginCaptcha205Local(t, "1")
 				site191Save(t, f, "captcha_version", strconv.Itoa(version))
 				v := &publicBrowserCaptcha203{issued: map[string]string{}}
-				verifier := captcha203.NewGeetestVerifier(publicBrowserCaptchaClient203(t, v))
+				verifier := captcha.NewGeetestVerifier(publicBrowserCaptchaClient203(t, v))
 				service, err := NewLoginCaptchaService205ForMaster(f.s, verifier, bytes.Repeat([]byte{205}, 32), loginBrowserOrigin205)
 				if err != nil {
 					t.Fatal(err)

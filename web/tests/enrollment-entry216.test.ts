@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, afterEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { createMemoryHistory, createRouter } from "vue-router";
 import App from "../src/App.vue";
 import PublicEnrollment from "../src/components/PublicEnrollment.vue";
 import { capturePromotionPrefill } from "../src/referral";
+import { preloadAppPages } from "./app-pages";
+
+beforeAll(preloadAppPages);
 
 const mounted: VueWrapper[] = [];
 afterEach(() => {

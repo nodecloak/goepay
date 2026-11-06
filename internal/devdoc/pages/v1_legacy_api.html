@@ -36,7 +36,7 @@
 <h2 id="api批量查询订单">api批量查询订单</h2>
 <p><code>act=orders</code>，成功 code=1、data 数组。默认 limit=20，按部署的投影配置也可为 10，最多返回 50；offset 默认 0。V1 接口允许从 1 开始的 page，但 page 与 offset 不能同传。status 允许 0—4。每项字段见<a href="/doc/merchant_orders.html#订单列表字段">订单列表字段</a>；部分投影配置附带 count（本页条数，不是订单总数）。</p>
 <h2 id="api提交订单退款">api提交订单退款</h2>
-<p><code>act=refund</code>，参数为 trade_no 或 out_trade_no、money 和建议固定的 out_refund_no。确认处理分支成功 code=0，而不是V1 查询接口的 1；未知结果可能 code=0 或 -1，须查询原退款，不能改退款单号重发。具体门控、金额上限和结果规则见<a href="/doc/pay_refund.html">退款接口</a>。api.php 没有 act=refundquery，退款查询应由允许 RSA 的商户使用 V2 接口。</p>
+<p><code>act=refund</code>，参数为 trade_no 或 out_trade_no、money 和建议固定的 out_refund_no；省略 out_refund_no 时，约 10 分钟内同一订单、同一金额的重复请求视为同一笔退款。确认处理分支成功 code=0，而不是V1 查询接口的 1；未知结果可能 code=0 或 -1，须用同一 out_refund_no 重新提交以读取原退款结果，不能改退款单号重发；上游明确拒绝时返回 code=-1、msg=refund failed 与 status=0，成功终态返回 status=1。具体门控、金额上限和结果规则见<a href="/doc/pay_refund.html">退款接口</a>。api.php 没有 act=refundquery，退款查询应由允许 RSA 的商户使用 V2 接口。</p>
 <h2 id="api关闭订单">api关闭订单</h2>
 <p><code>act=close</code>，trade_no 或 out_trade_no。确认关单返回 code=0、trade_no；失败或结果未知 code=-1，请查询原订单。已付款不能通过关闭退款。</p>
 <h2 id="api查询结算记录">api查询结算记录</h2>

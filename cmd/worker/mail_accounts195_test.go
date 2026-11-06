@@ -3,16 +3,16 @@ package main
 import (
 	"context"
 	"goepay/internal/businessnotice"
-	"goepay/internal/mailaccount195"
+	"goepay/internal/mailaccount"
 	"goepay/internal/merchantnotice"
 	"testing"
 )
 
 type closedMail195 struct{ calls int }
 
-func (s *closedMail195) ResolveSMTP(context.Context) (*mailaccount195.BoundSMTP, bool, error) {
+func (s *closedMail195) ResolveSMTP(context.Context) (*mailaccount.BoundSMTP, bool, error) {
 	s.calls++
-	return nil, true, mailaccount195.ErrSource
+	return nil, true, mailaccount.ErrSource
 }
 
 func TestMailAccounts195AllWorkerSMTPPathsDenyClosedManagedSourceInsteadOfDeploymentFallback(t *testing.T) {

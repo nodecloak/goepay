@@ -3,7 +3,7 @@ package server
 import (
 	"errors"
 	"goepay/internal/identity"
-	"goepay/internal/mailaccount195"
+	"goepay/internal/mailaccount"
 	"net/http"
 )
 
@@ -12,19 +12,19 @@ func (s *Server) mailTest195(w http.ResponseWriter, r *http.Request, session ide
 		response(w, 503, -1, "mail test unavailable", nil)
 		return true
 	}
-	store := mailaccount195.New(s.Pool, s.CheckoutKey)
-	actor := mailaccount195.Actor{User: session.User, Token: token, Delegated: session.Issuer != nil}
+	store := mailaccount.New(s.Pool, s.CheckoutKey)
+	actor := mailaccount.Actor{User: session.User, Token: token, Delegated: session.Issuer != nil}
 	fail := func(e error) {
 		switch {
 		case errors.Is(e, identity.ErrAdminSession):
 			response(w, 403, -1, "original super administrator session required", nil)
-		case errors.Is(e, mailaccount195.ErrInvalid):
+		case errors.Is(e, mailaccount.ErrInvalid):
 			response(w, 422, -1, "invalid original test email request", nil)
-		case errors.Is(e, mailaccount195.ErrTestMissing):
+		case errors.Is(e, mailaccount.ErrTestMissing):
 			response(w, 404, -1, "original test email request not found", nil)
-		case errors.Is(e, mailaccount195.ErrConflict):
+		case errors.Is(e, mailaccount.ErrConflict):
 			response(w, 409, -1, "test request or account changed; inspect original request", nil)
-		case errors.Is(e, mailaccount195.ErrTestLimited):
+		case errors.Is(e, mailaccount.ErrTestLimited):
 			response(w, 429, -1, "test email submission limit exceeded", nil)
 		default:
 			response(w, 503, -1, "test email source could not be confirmed", nil)
@@ -67,7 +67,7 @@ func (s *Server) mailTest195(w http.ResponseWriter, r *http.Request, session ide
 		response(w, 400, -1, "exact current account confirmation required", nil)
 		return true
 	}
-	v, e := store.SubmitTest(r.Context(), actor, mailaccount195.TestInput{ID: input.ID, To: input.To, Expected: input.Expected}, s.Mail195SMTPRoots)
+	v, e := store.SubmitTest(r.Context(), actor, mailaccount.TestInput{ID: input.ID, To: input.To, Expected: input.Expected}, s.Mail195SMTPRoots)
 	if e != nil {
 		fail(e)
 	} else {

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"goepay/internal/captcha203"
+	"goepay/internal/captcha"
 )
 
 func captchaAdmin203(f channel168Fixture, method, body string) *httptest.ResponseRecorder {
@@ -24,48 +24,48 @@ func captchaAdmin203(f channel168Fixture, method, body string) *httptest.Respons
 	f.s.Handler().ServeHTTP(out, request)
 	return out
 }
-func captchaKeyView203(t *testing.T, out *httptest.ResponseRecorder) captcha203.KeyView {
+func captchaKeyView203(t *testing.T, out *httptest.ResponseRecorder) captcha.KeyView {
 	t.Helper()
 	var envelope struct {
-		Code int                `json:"code"`
-		Data captcha203.KeyView `json:"data"`
+		Code int             `json:"code"`
+		Data captcha.KeyView `json:"data"`
 	}
 	if out.Code != 200 || json.Unmarshal(out.Body.Bytes(), &envelope) != nil || envelope.Code != 0 || len(envelope.Data.Fingerprint) != 64 {
 		t.Fatal("CAPTCHA key metadata unavailable", out.Code)
 	}
 	return envelope.Data
 }
-func captchaSetKey203(t *testing.T, f channel168Fixture, key string) captcha203.KeyView {
+func captchaSetKey203(t *testing.T, f channel168Fixture, key string) captcha.KeyView {
 	t.Helper()
 	view := captchaKeyView203(t, captchaAdmin203(f, "GET", ""))
-	body, _ := json.Marshal(captcha203.KeyUpdate{Action: "replace", Key: key, Expected: view.Fingerprint})
+	body, _ := json.Marshal(captcha.KeyUpdate{Action: "replace", Key: key, Expected: view.Fingerprint})
 	return captchaKeyView203(t, captchaAdmin203(f, "PATCH", string(body)))
 }
 
 type controlledCaptchaVerifier203 struct{ calls atomic.Int64 }
 
-func (v *controlledCaptchaVerifier203) Init(_ context.Context, c captcha203.Config, purpose, source string) (captcha203.Challenge, error) {
+func (v *controlledCaptchaVerifier203) Init(_ context.Context, c captcha.Config, purpose, source string) (captcha.Challenge, error) {
 	if purpose != "testpay" || source != "192.0.2.203" || c.ID != strings.Repeat("a", 32) || c.Key != strings.Repeat("b", 32) {
-		return captcha203.Challenge{}, captcha203.ErrUnavailable
+		return captcha.Challenge{}, captcha.ErrUnavailable
 	}
-	out := captcha203.Challenge{Version: c.Version, GT: c.ID, Success: 1}
+	out := captcha.Challenge{Version: c.Version, GT: c.ID, Success: 1}
 	if c.Version == 0 {
 		out.Challenge = strings.Repeat("c", 32)
 		out.NewCaptcha = true
 	}
 	return out, nil
 }
-func (v *controlledCaptchaVerifier203) Verify(_ context.Context, c captcha203.Config, issued captcha203.Challenge, p captcha203.Proof, source string) error {
+func (v *controlledCaptchaVerifier203) Verify(_ context.Context, c captcha.Config, issued captcha.Challenge, p captcha.Proof, source string) error {
 	v.calls.Add(1)
 	if source != "192.0.2.203" || issued.GT != c.ID || issued.Version != c.Version || c.Key != strings.Repeat("b", 32) {
-		return captcha203.ErrInvalid
+		return captcha.ErrInvalid
 	}
 	if c.Version == 0 {
 		if p.GeetestChallenge != issued.Challenge || p.GeetestValidate != strings.Repeat("d", 32) || p.GeetestSeccode != "controlled-seccode203" {
-			return captcha203.ErrInvalid
+			return captcha.ErrInvalid
 		}
 	} else if p.CaptchaID != c.ID || p.LotNumber != strings.Repeat("c", 32) || p.PassToken != "controlled-pass203" || p.CaptchaOutput != "controlled-output203" {
-		return captcha203.ErrInvalid
+		return captcha.ErrInvalid
 	}
 	return nil
 }
@@ -84,18 +84,18 @@ func captchaReady203(t *testing.T, version int) (channel168Fixture, *controlledC
 	f.s.PublicTestPay203 = service
 	return f, verifier
 }
-func captchaChallenge203(t *testing.T, f channel168Fixture, cookies []*http.Cookie) captcha203.Challenge {
+func captchaChallenge203(t *testing.T, f channel168Fixture, cookies []*http.Cookie) captcha.Challenge {
 	t.Helper()
 	out := publicTestPay203Request(f, "GET", "/console/v1/public/captcha?purpose=testpay", "", cookies)
 	var envelope struct {
-		Data captcha203.Challenge `json:"data"`
+		Data captcha.Challenge `json:"data"`
 	}
 	if out.Code != 200 || json.Unmarshal(out.Body.Bytes(), &envelope) != nil || len(envelope.Data.CaptchaToken) != 43 || envelope.Data.Success != 1 {
 		t.Fatal("controlled bound CAPTCHA challenge unavailable", out.Code)
 	}
 	return envelope.Data
 }
-func captchaProofBody203(init publicTestPay203Init, challenge captcha203.Challenge) string {
+func captchaProofBody203(init publicTestPay203Init, challenge captcha.Challenge) string {
 	body := map[string]string{"money": "1.23", "typeid": "700203", "csrf_token": init.CSRF, "captcha_token": challenge.CaptchaToken}
 	if challenge.Version == 0 {
 		body["geetest_challenge"] = challenge.Challenge
@@ -152,11 +152,11 @@ func TestPublicCaptcha203ActualHTTPVaultEncryptsKeyIgnoresLegacyAndRejectsStaleC
 	if strings.Contains(out.Body.String(), secret) || strings.Contains(out.Body.String(), "legacy-plaintext203") {
 		t.Fatal("key metadata exposed secret material")
 	}
-	raw, _ := json.Marshal(captcha203.KeyUpdate{Action: "clear", Expected: old.Fingerprint})
+	raw, _ := json.Marshal(captcha.KeyUpdate{Action: "clear", Expected: old.Fingerprint})
 	if out = captchaAdmin203(f, "PATCH", string(raw)); out.Code != 409 {
 		t.Fatal("stale CAPTCHA operation overwrote current secret", out.Code)
 	}
-	raw, _ = json.Marshal(captcha203.KeyUpdate{Action: "clear", Expected: current.Fingerprint})
+	raw, _ = json.Marshal(captcha.KeyUpdate{Action: "clear", Expected: current.Fingerprint})
 	if view := captchaKeyView203(t, captchaAdmin203(f, "PATCH", string(raw))); view.Configured {
 		t.Fatal("explicit credential clear left an active key")
 	}

@@ -10,16 +10,16 @@ import (
 	"time"
 
 	"goepay/internal/identity"
-	"goepay/internal/sitebrand193"
+	"goepay/internal/sitebrand"
 )
 
 func brandError193(w http.ResponseWriter, e error) {
 	switch {
 	case errors.Is(e, identity.ErrAdminSession):
 		response(w, 403, -1, "original super administrator session required", nil)
-	case errors.Is(e, sitebrand193.ErrInvalid):
+	case errors.Is(e, sitebrand.ErrInvalid):
 		response(w, 422, -1, "PNG/JPEG/GIF image below2MiB and at most one megapixel required", nil)
-	case errors.Is(e, sitebrand193.ErrConflict):
+	case errors.Is(e, sitebrand.ErrConflict):
 		response(w, 409, -1, "brand image source changed or could not be confirmed; reload first", nil)
 	default:
 		response(w, 503, -1, "brand image settings unavailable", nil)
@@ -44,8 +44,8 @@ func (s *Server) siteBrandConsole193(w http.ResponseWriter, r *http.Request, rol
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 12*time.Second)
 	defer cancel()
-	store := sitebrand193.New(s.Pool, s.CheckoutKey)
-	actor := sitebrand193.Actor{User: session.User, Token: token, Delegated: session.Issuer != nil}
+	store := sitebrand.New(s.Pool, s.CheckoutKey)
+	actor := sitebrand.Actor{User: session.User, Token: token, Delegated: session.Issuer != nil}
 	if len(parts) == 3 {
 		if r.Method != "GET" {
 			w.Header().Set("Allow", "GET")
@@ -86,7 +86,7 @@ func (s *Server) siteBrandConsole193(w http.ResponseWriter, r *http.Request, rol
 		response(w, 429, -1, "image processing busy", nil)
 		return true
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, sitebrand193.MaxInput+16384)
+	r.Body = http.MaxBytesReader(w, r.Body, sitebrand.MaxInput+16384)
 	reader, e := r.MultipartReader()
 	if e != nil {
 		response(w, 415, -1, "one multipart file required", nil)
@@ -97,9 +97,9 @@ func (s *Server) siteBrandConsole193(w http.ResponseWriter, r *http.Request, rol
 		response(w, 422, -1, "one image file required", nil)
 		return true
 	}
-	raw, e := io.ReadAll(io.LimitReader(part, sitebrand193.MaxInput))
+	raw, e := io.ReadAll(io.LimitReader(part, sitebrand.MaxInput))
 	part.Close()
-	if e != nil || len(raw) >= sitebrand193.MaxInput {
+	if e != nil || len(raw) >= sitebrand.MaxInput {
 		response(w, 413, -1, "image must be smaller than2MiB", nil)
 		return true
 	}
@@ -151,8 +151,8 @@ func (s *Server) siteBrandPublic193(w http.ResponseWriter, r *http.Request) bool
 		http.Error(w, "brand image unavailable", 503)
 		return true
 	}
-	image, e := sitebrand193.New(s.Pool, s.CheckoutKey).Public(r.Context(), slot)
-	if errors.Is(e, sitebrand193.ErrNotFound) {
+	image, e := sitebrand.New(s.Pool, s.CheckoutKey).Public(r.Context(), slot)
+	if errors.Is(e, sitebrand.ErrNotFound) {
 		http.NotFound(w, r)
 		return true
 	}

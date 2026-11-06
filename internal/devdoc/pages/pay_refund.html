@@ -16,7 +16,7 @@
 <tr><td>trade_no</td><td>二选一</td><td>平台订单号。非空时优先于 out_trade_no，且只能访问本商户订单。</td></tr>
 <tr><td>out_trade_no</td><td>二选一</td><td>商户订单号；trade_no 为空时使用。</td></tr>
 <tr><td>money</td><td>是</td><td>本次退款金额，十进制元字符串。</td></tr>
-<tr><td>out_refund_no</td><td>强烈建议</td><td>商户内唯一退款单号，最长 128 字节。省略时平台生成，但超时后更难恢复原请求。</td></tr>
+<tr><td>out_refund_no</td><td>强烈建议</td><td>商户内唯一退款单号，最长 128 字节。省略时平台按订单、金额和约 10 分钟的时间窗生成固定单号：此期间（跨窗口边界时最长约 20 分钟）同一订单、同一金额的重复请求视为同一笔退款，超时重试不会重复退款；上一笔已最终失败时会生成新单号。需要短时间内对同一订单发起多笔相同金额的退款时，请传入不同的 out_refund_no。</td></tr>
 </tbody>
 </table></div>
 <p>所有请求参数先按<a href="/doc/sign_note.html">签名规则</a>签名，再进行表单编码。字段只允许唯一标量值；重复键、数组形式及歧义参数名会被拒绝。</p>
@@ -26,7 +26,8 @@
 <li>新退款须同时满足平台用户退款开放、商户退款 API 开关、原通道退款能力、资金及原订单状态等规则。关闭权限不会把已有未知退款变成失败。</li>
 <li>累计未失败退款占用不得超过原实际支付金额；用户承担手续费等场景下，该上限不能只用订单查询的商品 money 推算。</li>
 <li>同一 out_refund_no 必须保持原订单和金额不变。重复请求不会生成新退款；未终态请求以查询恢复，不按“重新发送”理解。</li>
-<li><code>code=0</code> 不承诺退款已经成功。某些未知分支返回 code=0 与 <code>refund accepted; processing outcome requires query</code>；另一些分支返回 code=-1 与 <code>refund outcome requires query</code>，都须查询原退款。</li>
+<li><code>code=0</code> 不承诺退款已经成功。处理中或结果未知时返回 code=0 与 <code>refund accepted; processing outcome requires query</code>；无法读取原退款时返回 code=-1 与 <code>refund outcome requires query</code>，都须查询原退款。</li>
+<li>退款已到终态时同时返回 <code>status</code>：<code>status=1</code> 表示成功；上游明确拒绝时返回 code=-1、<code>msg=refund failed</code> 与 <code>status=0</code>，这是最终失败，可改用新的 out_refund_no 重新申请。重复提交同一 out_refund_no 总是返回该退款当前保存的结果。</li>
 <li>请求被拒绝时可能没有退款号；请求超时仍需按客户端已保存的 out_refund_no 核对，不能改号重退。</li>
 </ul>
 <h2 id="返回参数说明">返回参数说明</h2>
@@ -43,6 +44,8 @@
 <tr><td>trade_no</td><td>String</td><td>原平台订单号，部分异常分支可能不返回。</td></tr>
 <tr><td>money</td><td>String</td><td>本次退款金额，字段按分支出现。</td></tr>
 <tr><td>reducemoney</td><td>String</td><td>按原订单退款资金规则计算的商户承担金额，不保证等于 money。</td></tr>
+<tr><td>status</td><td>Number</td><td>仅终态返回：1 成功，0 最终失败；处理中不返回。</td></tr>
+<tr><td>refund_state</td><td>String</td><td>机器可读的退款状态：<code>processing</code> 处理中（含 code=-1 的处理中分支）、<code>succeeded</code> 成功、<code>failed</code> 最终失败。建议据此判断，不要匹配 msg 文案。</td></tr>
 </tbody>
 </table></div>
 <p class="doc-note">先检查 HTTP 状态和响应格式，再验证平台签名及 timestamp，最后读取业务字段。平台密钥可用时，正常业务错误也会签名；裸 HTTP 参数/方法错误或签名基础设施不可用时，响应可能没有签名，不能把它当作可信成功结果。</p>

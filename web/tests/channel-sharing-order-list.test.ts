@@ -281,6 +281,9 @@ it("分账回退 row action opens a per-receiver modal and posts to /returns", a
   await open(w);
   await w.get('[data-action="return"]').trigger("click");
   await flushPromises();
+  // Opening derives the intent scope with a Web Crypto digest, which Node
+  // resolves on its thread pool; submits are ignored until loading ends.
+  await vi.waitFor(() => expect(w.text()).not.toContain("正在读取原分账记录"));
   // Modal fields present and receiver prefilled.
   expect(w.find('[aria-label="分账接收方"]').exists()).toBe(true);
   expect(w.find('[aria-label="回退金额（元）"]').exists()).toBe(true);

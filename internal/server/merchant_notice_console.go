@@ -5,7 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
-	"goepay/internal/businesssms231"
+	"goepay/internal/businesssms"
 	"io"
 	"net/http"
 	"net/url"
@@ -196,7 +196,7 @@ func (s *Server) merchantNoticeConsole(w http.ResponseWriter, r *http.Request, r
 				s.fail(w, switchErr)
 				return true
 			}
-			if store, e := businesssms231.New(s.Pool, s.CheckoutKey); e == nil {
+			if store, e := businesssms.New(s.Pool, s.CheckoutKey); e == nil {
 				phone, e := store.Phone(ctx, mid)
 				if e != nil {
 					s.fail(w, e)
@@ -237,7 +237,7 @@ func (s *Server) merchantNoticeConsole(w http.ResponseWriter, r *http.Request, r
 // Business SMS needs its own bound recipient, templates and durable sender.
 // A configured verification-code gateway alone grants no notice capability.
 func (s *Server) merchantNoticeSMSActive(ctx context.Context) bool {
-	store, e := businesssms231.New(s.Pool, s.CheckoutKey)
+	store, e := businesssms.New(s.Pool, s.CheckoutKey)
 	if e != nil {
 		return false
 	}

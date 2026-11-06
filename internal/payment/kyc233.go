@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"goepay/internal/channelconfig"
-	"goepay/internal/kyc233"
+	"goepay/internal/kyc"
 )
 
 var ErrCertificationRequired = errors.New("merchant real-name certification required")
@@ -49,7 +49,7 @@ func (g ProviderFlow) ResolveKYCChannel233(ctx context.Context, tx pgx.Tx, id in
 }
 
 func (s *Store) requireCertification233Tx(ctx context.Context, tx pgx.Tx, merchant int64) error {
-	service, err := kyc233.New(s.pool, s.confirmationKey231, nil, nil, "")
+	service, err := kyc.New(s.pool, s.confirmationKey231, nil, nil, "")
 	if err != nil {
 		return err
 	}

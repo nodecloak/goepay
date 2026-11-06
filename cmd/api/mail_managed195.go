@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"goepay/internal/enrollment"
-	"goepay/internal/mailaccount195"
+	"goepay/internal/mailaccount"
 )
 
 func configuredManagedVerification195(pool *pgxpool.Pool, master []byte, getenv func(string) string) (enrollment.Sender, error) {
@@ -31,5 +31,5 @@ func configuredManagedVerification195(pool *pgxpool.Pool, master []byte, getenv 
 			return nil, e
 		}
 	}
-	return &mailaccount195.Verification{Store: mailaccount195.FromMaster(pool, master), Fallback: fallback}, nil
+	return &mailaccount.Verification{Store: mailaccount.FromMaster(pool, master), Fallback: fallback}, nil
 }

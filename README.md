@@ -43,7 +43,7 @@ GOEPAY 是使用 Go 构建的支付网关，采用 PostgreSQL 存储订单与账
 
 ### 运营管理清晰有序
 
-在统一工作台管理商户、支付通道、订单、退款、结算与报表，为管理员和商户提供各自的权限与操作范围。完整功能状态见 [功能清单](web/capabilities.json)。
+在统一工作台管理商户、支付通道、订单、退款、结算与报表，为管理员和商户提供各自的权限与操作范围。各菜单已接入的能力及与原版的差异见 [功能清单](web/capabilities.json)；目前所有菜单均标记为“部分实现”（partial），即只有清单中列出的能力已接入。
 
 易支付迁移可使用后台的 [迁移向导](docs/migration/WIZARD.md)：上传 MySQL 备份、预检查并原子导入到全新实例。核心历史与期初余额原生导入，其它原始数据加密归档；通道、旧凭据和插件不会自动启用。迁移安装请使用 `cli seed-admin` 初始化管理员，跳过会创建示例商户的 `seed-local`。
 
@@ -84,7 +84,9 @@ Compose 会先执行数据库迁移，再启动 API 与后台任务。访问入�
 
 本地初始账号为 `admin`、`merchant`，密码使用 `.env` 中的 `GOEPAY_SEED_PASSWORD`，初始商户 PID 为 `1000`。初始化命令只创建缺失账号，保留已有账号的密码与密钥。
 
-默认 Compose 使用 `simulation` 模拟通道，供本地体验和流程验证使用。接入真实支付前，需要另行配置通道凭据、商户授权范围、平台与商户 RSA 密钥，以及相应的外部执行开关。请妥善备份数据库与主密钥。
+默认 Compose 使用 `simulation` 模拟通道，供本地体验和流程验证使用，不会向支付机构发出请求。接入真实支付需要切换到 `configured` 模式，见下方“部署与迁移”。请妥善备份数据库与主密钥。
+
+Compose 为后台 Nginx 固定了专用网络地址，API 只信任它传来的客户端地址（`GOEPAY_TRUSTED_PROXY_CIDRS`）。如果在前面再加一层反向代理，请按 [可信代理说明](docs/design/trusted-proxy.md) 配置，否则所有用户会共用一个来源地址，登录限流与风控规则会被合并计算。
 
 ## 接口与接入
 
@@ -107,9 +109,13 @@ V2 接口入口如下，详细请求方法、签名规则、返回字段及错�
 
 ## 部署与迁移
 
-1. **准备部署环境**：配置 Go 服务、PostgreSQL、域名、HTTPS 和备份策略。
-2. **配置商户与通道**：设置商户凭据，并接入已开通的支付宝或微信支付产品。
-3. **验证后再切换**：在测试环境核对下单、查询、回调、退款及账务，再切换业务流量。
+完整步骤见 [生产部署指南](docs/deployment/production.md)，概要如下：
+
+1. **准备环境**：HTTPS 域名、PostgreSQL 与备份、离线保存的 `GOEPAY_MASTER_KEY`；执行 `cli migrate` 与 `cli seed-admin`。
+2. **平台签名密钥**：`cli gen-platform-key` 生成 V2 接口与通知使用的平台私钥（`GOEPAY_PLATFORM_PRIVATE_KEY_FILE`），商户在后台“API 信息”中获取对应公钥。
+3. **源通道**：按插件字段写好通道明文，用 `cli seal-channels` 加密为 `GOEPAY_CHANNEL_CONFIG_FILE`，再用 `cli check-channels` 离线校验；后台新增的通道都挂在这些源通道之下。
+4. **商户授权与开关**：设置 `GOEPAY_PROVIDER_MODE=configured`、`GOEPAY_MERCHANT_CHANNELS`，先在 `GOEPAY_ENABLE_PROVIDER_WRITES=false` 下核对配置，再开启真实写入。
+5. **验证后再切换**：在测试环境核对下单、查询、回调、退款及账务，再切换业务流量。
 
 项目提供 API、Worker、迁移 CLI 与多种后台调度进程。生产环境应按实际使用的支付产品配置服务，接口兼容范围和功能实施情况可查阅 [实施状态](docs/implementation-status.md)；历史数据迁移步骤见 [迁移说明](docs/migration/RUNBOOK.md)。
 

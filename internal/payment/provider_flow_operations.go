@@ -392,6 +392,11 @@ func (g ProviderFlow) queryRefund(ctx context.Context, merchantID int64, refundN
 	if e != nil {
 		return r, e
 	}
+	// A final refund is answered from its verified evidence, also on channels
+	// that cannot query refund results (where an operator may have closed it).
+	if r.Status == "succeeded" || r.Status == "failed" {
+		return r, nil
+	}
 	var tradeNo string
 	if e = g.Store.pool.QueryRow(ctx, "SELECT trade_no FROM orders WHERE id=$1", r.OrderID).Scan(&tradeNo); e != nil {
 		return r, e
@@ -402,9 +407,6 @@ func (g ProviderFlow) queryRefund(ctx context.Context, merchantID int64, refundN
 	}
 	if !p.Capabilities().RefundQuery {
 		return r, provider.ErrUnsupported
-	}
-	if r.Status == "succeeded" || r.Status == "failed" {
-		return r, nil
 	}
 	var id int64
 	if e = g.Store.pool.QueryRow(ctx, "SELECT id FROM provider_operations WHERE kind='refund' AND refund_id=$1", r.ID).Scan(&id); e != nil {

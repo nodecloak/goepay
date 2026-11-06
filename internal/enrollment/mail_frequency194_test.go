@@ -10,25 +10,25 @@ import (
 	"time"
 
 	"goepay/internal/identity"
-	"goepay/internal/mailpolicy194"
+	"goepay/internal/mailpolicy"
 )
 
 func TestMailFrequency194LowerThenRaiseCannotReduceConsumedDailyAttempts(t *testing.T) {
 	s, f := enrollmentFixture(t)
 	p, a := mail194Admin(t, s)
-	mail194Save(t, p, a, mailpolicy194.Values{EmailInterval: "1", IPInterval: "1", EmailDaily: "3", IPDaily: "100"})
+	mail194Save(t, p, a, mailpolicy.Values{EmailInterval: "1", IPInterval: "1", EmailDaily: "3", IPDaily: "100"})
 	for i := 0; i < 3; i++ {
 		ageSendingCooldown(t, s)
 		if _, e := s.Issue(t.Context(), VerificationRequest{Purpose: "recover", Email: "monotonic194@example.test", Source: fmt.Sprintf("192.0.2.%d", 190+i)}); e != nil {
 			t.Fatal(e)
 		}
 	}
-	mail194Save(t, p, a, mailpolicy194.Values{EmailInterval: "1", IPInterval: "1", EmailDaily: "1", IPDaily: "100"})
+	mail194Save(t, p, a, mailpolicy.Values{EmailInterval: "1", IPInterval: "1", EmailDaily: "1", IPDaily: "100"})
 	ageSendingCooldown(t, s)
 	if _, e := s.Issue(t.Context(), VerificationRequest{Purpose: "recover", Email: "monotonic194@example.test", Source: "192.0.2.193"}); !errors.Is(e, ErrLimited) {
 		t.Fatal("lower daily limit not applied", e)
 	}
-	mail194Save(t, p, a, mailpolicy194.Values{EmailInterval: "1", IPInterval: "1", EmailDaily: "3", IPDaily: "100"})
+	mail194Save(t, p, a, mailpolicy.Values{EmailInterval: "1", IPInterval: "1", EmailDaily: "3", IPDaily: "100"})
 	if _, e := s.Issue(t.Context(), VerificationRequest{Purpose: "recover", Email: "monotonic194@example.test", Source: "192.0.2.194"}); !errors.Is(e, ErrLimited) {
 		t.Fatal("lowering then raising policy reduced consumed attempts", e)
 	}
@@ -37,7 +37,7 @@ func TestMailFrequency194LowerThenRaiseCannotReduceConsumedDailyAttempts(t *test
 	}
 }
 
-func mail194Admin(t *testing.T, s *Service) (*mailpolicy194.Store, mailpolicy194.Actor) {
+func mail194Admin(t *testing.T, s *Service) (*mailpolicy.Store, mailpolicy.Actor) {
 	t.Helper()
 	if _, e := s.pool.Exec(t.Context(), `INSERT INTO console_users(username,role,subject_id,display_name,password_hash,admin_class)VALUES('mail194-admin','admin',194,'Synthetic mail admin','unused-hash','super')`); e != nil {
 		t.Fatal(e)
@@ -48,9 +48,9 @@ func mail194Admin(t *testing.T, s *Service) (*mailpolicy194.Store, mailpolicy194
 	if e != nil {
 		t.Fatal(e)
 	}
-	return mailpolicy194.FromMaster(s.pool, make([]byte, 32)), mailpolicy194.Actor{User: user, Token: token}
+	return mailpolicy.FromMaster(s.pool, make([]byte, 32)), mailpolicy.Actor{User: user, Token: token}
 }
-func mail194Save(t *testing.T, p *mailpolicy194.Store, a mailpolicy194.Actor, values mailpolicy194.Values) {
+func mail194Save(t *testing.T, p *mailpolicy.Store, a mailpolicy.Actor, values mailpolicy.Values) {
 	t.Helper()
 	state, e := p.Read(t.Context(), a)
 	if e != nil {
@@ -63,7 +63,7 @@ func mail194Save(t *testing.T, p *mailpolicy194.Store, a mailpolicy194.Actor, va
 func TestMailFrequency194ManagedIPIntervalActuallyBlocksDifferentMailboxAndPurpose(t *testing.T) {
 	s, f := enrollmentFixture(t)
 	p, a := mail194Admin(t, s)
-	mail194Save(t, p, a, mailpolicy194.Values{EmailInterval: "120", IPInterval: "120", EmailDaily: "10", IPDaily: "20"})
+	mail194Save(t, p, a, mailpolicy.Values{EmailInterval: "120", IPInterval: "120", EmailDaily: "10", IPDaily: "20"})
 	if _, e := s.Issue(t.Context(), VerificationRequest{Purpose: "recover", Email: "first194@example.test", Source: "192.0.2.194"}); e != nil {
 		t.Fatal(e)
 	}
@@ -80,12 +80,12 @@ func TestMailFrequency194SaveDoesNotResetExistingDailyBudgetOrCooldown(t *testin
 	if _, e := s.Issue(t.Context(), VerificationRequest{Purpose: "recover", Email: "budget194@example.test", Source: "192.0.2.194"}); e != nil {
 		t.Fatal(e)
 	}
-	mail194Save(t, p, a, mailpolicy194.Values{EmailInterval: "1", IPInterval: "1", EmailDaily: "1", IPDaily: "20"})
+	mail194Save(t, p, a, mailpolicy.Values{EmailInterval: "1", IPInterval: "1", EmailDaily: "1", IPDaily: "20"})
 	ageSendingCooldown(t, s)
 	if _, e := s.Issue(t.Context(), VerificationRequest{Purpose: "register", Email: "budget194@example.test", Source: "192.0.2.195"}); !errors.Is(e, ErrLimited) {
 		t.Fatal("policy takeover reset existing shared daily budget", e)
 	}
-	mail194Save(t, p, a, mailpolicy194.Values{EmailInterval: "1", IPInterval: "1", EmailDaily: "2", IPDaily: "20"})
+	mail194Save(t, p, a, mailpolicy.Values{EmailInterval: "1", IPInterval: "1", EmailDaily: "2", IPDaily: "20"})
 	// The rejected attempt has consumed the retained mailbox budget. Saving a
 	// second revision must not produce a fresh counter namespace.
 	if _, e := s.Issue(t.Context(), VerificationRequest{Purpose: "recover", Email: "budget194@example.test", Source: "192.0.2.196"}); !errors.Is(e, ErrLimited) {
@@ -98,7 +98,7 @@ func TestMailFrequency194SaveDoesNotResetExistingDailyBudgetOrCooldown(t *testin
 func TestMailFrequency194ConcurrentIPIntervalAndFailedDeliveryRemainBounded(t *testing.T) {
 	s, _ := enrollmentFixture(t)
 	p, a := mail194Admin(t, s)
-	mail194Save(t, p, a, mailpolicy194.Values{EmailInterval: "1", IPInterval: "60", EmailDaily: "10", IPDaily: "20"})
+	mail194Save(t, p, a, mailpolicy.Values{EmailInterval: "1", IPInterval: "60", EmailDaily: "10", IPDaily: "20"})
 	var sends atomic.Int32
 	s.sender = SenderFunc(func(context.Context, string, string, string) error {
 		sends.Add(1)
@@ -128,7 +128,7 @@ func TestMailFrequency194ConcurrentIPIntervalAndFailedDeliveryRemainBounded(t *t
 func TestMailFrequency194MissingManagedSourceCannotFallbackToLegacySend(t *testing.T) {
 	s, f := enrollmentFixture(t)
 	p, a := mail194Admin(t, s)
-	mail194Save(t, p, a, mailpolicy194.Values{EmailInterval: "60", IPInterval: "60", EmailDaily: "10", IPDaily: "20"})
+	mail194Save(t, p, a, mailpolicy.Values{EmailInterval: "60", IPInterval: "60", EmailDaily: "10", IPDaily: "20"})
 	if _, e := s.pool.Exec(t.Context(), `ALTER TABLE mail_rate_head194 DISABLE TRIGGER USER;DELETE FROM mail_rate_head194;ALTER TABLE mail_rate_head194 ENABLE TRIGGER USER`); e != nil {
 		t.Fatal(e)
 	}

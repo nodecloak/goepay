@@ -1,8 +1,11 @@
 import { mount, flushPromises } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
-import { expect, it, vi, afterEach } from "vitest";
+import { beforeAll, expect, it, vi, afterEach } from "vitest";
 import App from "../src/App.vue";
 import actualPlatform from "../e2e/globalaccess179-http-fixture.json";
+import { preloadAppPages } from "./app-pages";
+
+beforeAll(preloadAppPages);
 afterEach(() => vi.unstubAllGlobals());
 const mid = "9007199254740993";
 const ok = (data: unknown) =>

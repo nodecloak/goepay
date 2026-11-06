@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"goepay/internal/identity"
-	"goepay/internal/mailpolicy194"
+	"goepay/internal/mailpolicy"
 )
 
 func (s *Server) mailFrequency194(w http.ResponseWriter, r *http.Request, role string, session identity.Session, parts []string, token string) bool {
@@ -25,15 +25,15 @@ func (s *Server) mailFrequency194(w http.ResponseWriter, r *http.Request, role s
 		response(w, 503, -1, "mail frequency unavailable", nil)
 		return true
 	}
-	store := mailpolicy194.New(s.Pool, s.CheckoutKey)
-	actor := mailpolicy194.Actor{User: session.User, Token: token, Delegated: session.Issuer != nil}
+	store := mailpolicy.New(s.Pool, s.CheckoutKey)
+	actor := mailpolicy.Actor{User: session.User, Token: token, Delegated: session.Issuer != nil}
 	fail := func(e error) {
 		switch {
 		case errors.Is(e, identity.ErrAdminSession):
 			response(w, 403, -1, "original super administrator session required", nil)
-		case errors.Is(e, mailpolicy194.ErrConflict):
+		case errors.Is(e, mailpolicy.ErrConflict):
 			response(w, 409, -1, "mail frequency changed; reload before confirming", nil)
-		case errors.Is(e, mailpolicy194.ErrInvalid):
+		case errors.Is(e, mailpolicy.ErrInvalid):
 			response(w, 422, -1, "invalid mail frequency", nil)
 		default:
 			response(w, 503, -1, "mail frequency source could not be confirmed", nil)
@@ -49,7 +49,7 @@ func (s *Server) mailFrequency194(w http.ResponseWriter, r *http.Request, role s
 		}
 	case "PATCH":
 		var input struct {
-			mailpolicy194.Values
+			mailpolicy.Values
 			Expected string `json:"expected_fingerprint"`
 		}
 		if !decodeBuyerFeeInput104(w, r, &input, "mail_interval_email", "mail_interval_ip", "mail_daily_email", "mail_daily_ip", "expected_fingerprint") {

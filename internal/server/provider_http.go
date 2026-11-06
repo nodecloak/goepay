@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -8,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 	qrcode "github.com/skip2/go-qrcode"
 	provider "goepay/internal/adapters/payment"
 	"goepay/internal/backoffice"
@@ -16,7 +18,6 @@ import (
 	"goepay/internal/notification"
 	"goepay/internal/pagetemplate"
 	"goepay/internal/payment"
-	"html"
 	"io"
 	"net"
 	"net/http"
@@ -622,7 +623,7 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if purpose == "return" {
-		fmt.Fprintf(w, "<p>平台订单状态：%s</p><p>以平台异步通知或查单结果为准。</p>", html.EscapeString(order.Status))
+		renderCheckoutFragment(w, "order-status", order.Status)
 		io.WriteString(w, tail)
 		return
 	}
@@ -683,16 +684,17 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 			label = "授权二维码"
 			io.WriteString(w, "<p>授权材料仅用于买家确认冻结，实际扣款成功后才入账。</p>")
 		}
-		fmt.Fprintf(w, `<p>请使用%s扫描%s。</p><img width="320" height="320" alt="%s" src="%s"><p>%s</p>`, clientName, label, label, html.EscapeString(qrURL.String()), html.EscapeString(material))
+		renderCheckoutFragment(w, "provider-qr", struct{ Client, Label, Source, Material string }{clientName, label, qrURL.String(), material})
 		if attempt.Method == "native" {
 			s.checkoutStatusPoll239(w, r, order, nonce)
 		}
 	case "jump", "urlscheme":
-		if !s.checkoutJumpAllowed(material) {
+		href, ok := s.trustedLaunchURL(material)
+		if !ok {
 			http.Error(w, "invalid payment material", 500)
 			return
 		}
-		fmt.Fprintf(w, `<a href="%s">继续支付</a>`, html.EscapeString(material))
+		renderCheckoutFragment(w, "launch", launchLink{Href: href, Text: "继续支付"})
 	case "jsapi":
 		if order.Type == "alipay" {
 			params, _ := json.Marshal(map[string]string{"tradeNO": attempt.Material})
@@ -720,19 +722,24 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 			q := url.Values{"appId": {"20000125"}, "orderSuffix": {attempt.Material}}
 			launch = "alipays://platformapi/startApp?" + q.Encode()
 		}
-		if !s.checkoutJumpAllowed(launch) {
+		href, ok := s.trustedLaunchURL(launch)
+		if !ok {
 			http.Error(w, "invalid APP material", 500)
 			return
 		}
-		fmt.Fprintf(w, `<a href="%s">打开支付客户端</a><p>APP 支付结果以平台异步通知或查单结果为准。</p>`, html.EscapeString(launch))
+		renderCheckoutFragment(w, "launch", launchLink{Href: href, Text: "打开支付客户端", Note: "APP 支付结果以平台异步通知或查单结果为准。"})
 	case "preauth":
 		if order.Type != "alipay" {
 			http.Error(w, "invalid authorization material", 500)
 			return
 		}
 		q := url.Values{"appId": {"20000125"}, "orderSuffix": {attempt.Material}}
-		launch := "alipays://platformapi/startApp?" + q.Encode()
-		fmt.Fprintf(w, `<a href="%s">打开支付宝授权支付</a><p>授权材料不代表付款成功；授权状态与实际扣款分别核对，最终以平台查单和异步通知为准。</p>`, html.EscapeString(launch))
+		href, ok := s.trustedLaunchURL("alipays://platformapi/startApp?" + q.Encode())
+		if !ok {
+			http.Error(w, "invalid authorization material", 500)
+			return
+		}
+		renderCheckoutFragment(w, "launch", launchLink{Href: href, Text: "打开支付宝授权支付", Note: "授权材料不代表付款成功；授权状态与实际扣款分别核对，最终以平台查单和异步通知为准。"})
 	default:
 		io.WriteString(w, "<p>暂不支持该支付材料。</p>")
 	}
@@ -776,19 +783,27 @@ func (s *Server) providerOperation(w http.ResponseWriter, r *http.Request, legac
 			}
 		}
 		refund, e := s.ProviderFlow.QueryRefund(r.Context(), merchantID, refundNo)
+		if errors.Is(e, provider.ErrUnsupported) {
+			// The channel cannot query refund results: report the stored state,
+			// which stays processing until a provider result or an operator
+			// attestation closes it.
+			refund, e = s.Store.Refund(r.Context(), merchantID, refundNo)
+		}
 		if e != nil {
 			s.wire(w, legacy, nil, "refund query unavailable")
 			return
 		}
 		if refund.Status != "succeeded" && refund.Status != "failed" {
-			s.wireWithCode(w, legacy, map[string]any{"refund_no": strconv.FormatInt(refund.ID, 10), "out_refund_no": refund.RefundNo}, "refund processing", 0)
+			// code=-1 here is the documented "not final yet" branch; refund_state
+			// lets clients tell it from an error without matching msg text.
+			s.wireWithCode(w, legacy, map[string]any{"refund_no": strconv.FormatInt(refund.ID, 10), "out_refund_no": refund.RefundNo, "refund_state": refundState(refund.Status)}, "refund processing", 0)
 			return
 		}
 		status := 0
 		if refund.Status == "succeeded" {
 			status = 1
 		}
-		s.wireWithCode(w, legacy, map[string]any{"refund_no": strconv.FormatInt(refund.ID, 10), "out_refund_no": refund.RefundNo, "money": ledger.Format(refund.Amount), "reducemoney": ledger.Format(refund.MerchantAmount), "status": status}, "", 0)
+		s.wireWithCode(w, legacy, map[string]any{"refund_no": strconv.FormatInt(refund.ID, 10), "out_refund_no": refund.RefundNo, "money": ledger.Format(refund.Amount), "reducemoney": ledger.Format(refund.MerchantAmount), "status": status, "refund_state": refundState(refund.Status)}, "", 0)
 		return
 	}
 	order, e := s.lookup(r, merchantID, p)
@@ -797,8 +812,12 @@ func (s *Server) providerOperation(w http.ResponseWriter, r *http.Request, legac
 		return
 	}
 	if route == "/api/pay/close" {
+		if order.Status == "paid" {
+			s.wire(w, legacy, nil, "order already paid; close is not a refund")
+			return
+		}
 		if e := s.ProviderFlow.Close(r.Context(), merchantID, order.TradeNo); e != nil {
-			s.wire(w, legacy, nil, "close outcome requires query")
+			s.wire(w, legacy, nil, closeFailureMessage(e))
 			return
 		}
 		s.wireWithCode(w, legacy, map[string]any{"trade_no": order.TradeNo}, "", 0)
@@ -811,12 +830,10 @@ func (s *Server) providerOperation(w http.ResponseWriter, r *http.Request, legac
 	}
 	refundNo := p["out_refund_no"]
 	if refundNo == "" {
-		b := make([]byte, 16)
-		if _, e := rand.Read(b); e != nil {
+		if refundNo, e = s.unnumberedRefundNo(r.Context(), merchantID, order.TradeNo, amount, time.Now()); e != nil {
 			s.wire(w, legacy, nil, "refund unavailable")
 			return
 		}
-		refundNo = "rf" + base64.RawURLEncoding.EncodeToString(b)
 	}
 	refund, e := s.ProviderFlow.RefundFromAPI(r.Context(), merchantID, order.TradeNo, refundNo, amount)
 	if e != nil {
@@ -824,15 +841,122 @@ func (s *Server) providerOperation(w http.ResponseWriter, r *http.Request, legac
 			s.wire(w, legacy, nil, "refund request rejected")
 			return
 		}
+		// Answer from the persisted refund, never from the error alone: a
+		// definitive upstream refusal is stored as failed and an unknown send
+		// stays pending/unknown for recovery by query. A request refused before
+		// anything was sent leaves a non-final refund that was not accepted.
+		existing, lookupError := s.Store.Refund(r.Context(), merchantID, refundNo)
 		var unknown *provider.UnknownOutcome
-		if errors.As(e, &unknown) {
-			if existing, lookupError := s.Store.Refund(r.Context(), merchantID, refundNo); lookupError == nil && (existing.Status == "pending" || existing.Status == "unknown") {
-				s.wireWithCode(w, legacy, map[string]any{"refund_no": strconv.FormatInt(existing.ID, 10), "out_refund_no": existing.RefundNo, "trade_no": order.TradeNo, "money": ledger.Format(existing.Amount), "reducemoney": ledger.Format(existing.MerchantAmount), "msg": "refund accepted; processing outcome requires query"}, "", 0)
-				return
-			}
+		final := existing.Status == "succeeded" || existing.Status == "failed"
+		if lookupError != nil || existing.ID != refund.ID || !final && !errors.As(e, &unknown) {
+			s.wireWithCode(w, legacy, map[string]any{"out_refund_no": refundNo}, "refund outcome requires query", 0)
+			return
 		}
-		s.wireWithCode(w, legacy, map[string]any{"out_refund_no": refundNo}, "refund outcome requires query", 0)
-		return
+		refund = existing
 	}
-	s.wireWithCode(w, legacy, map[string]any{"refund_no": strconv.FormatInt(refund.ID, 10), "out_refund_no": refund.RefundNo, "trade_no": order.TradeNo, "money": ledger.Format(refund.Amount), "reducemoney": ledger.Format(refund.MerchantAmount)}, "", 0)
+	s.refundAPIResult(w, legacy, order.TradeNo, refund)
+}
+
+// unnumberedRefundWindow is how long retries of a refund request sent without
+// out_refund_no are recognised as the same refund.
+const unnumberedRefundWindow = 10 * time.Minute
+
+// unnumberedRefundNo numbers a refund request that carries no out_refund_no.
+// The number is derived from the merchant, order, amount and a ten-minute
+// window, so a retry after a timeout resolves to the same number and replays the
+// original refund instead of refunding twice; concurrent copies meet at the
+// same unique refund number. A retry just after a window boundary reuses the
+// previous window's live refund. A number whose refund finally failed is
+// skipped, so a new attempt after a definitive refusal is a new refund. To make
+// several equal refunds on one order quickly, callers pass distinct numbers.
+func (s *Server) unnumberedRefundNo(ctx context.Context, merchantID int64, tradeNo string, amount int64, now time.Time) (string, error) {
+	if s.Pool == nil {
+		return "", payment.ErrInvalid
+	}
+	window := now.Unix() / int64(unnumberedRefundWindow/time.Second)
+	number := func(window int64, attempt int) string {
+		sum := sha256.Sum256([]byte(fmt.Sprintf("goepay/unnumbered-refund/v1\x00%d\x00%s\x00%d\x00%d\x00%d", merchantID, tradeNo, amount, window, attempt)))
+		return "rf" + base64.RawURLEncoding.EncodeToString(sum[:16])
+	}
+	status := func(refundNo string) (string, error) {
+		var state string
+		e := s.Pool.QueryRow(ctx, "SELECT status FROM refunds WHERE merchant_id=$1 AND refund_no=$2", merchantID, refundNo).Scan(&state)
+		if errors.Is(e, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return state, e
+	}
+	const attempts = 20
+	for attempt := 0; attempt < attempts; attempt++ {
+		candidate := number(window-1, attempt)
+		state, e := status(candidate)
+		if e != nil {
+			return "", e
+		}
+		if state == "" {
+			break
+		}
+		if state != "failed" {
+			return candidate, nil
+		}
+	}
+	for attempt := 0; attempt < attempts; attempt++ {
+		candidate := number(window, attempt)
+		state, e := status(candidate)
+		if e != nil {
+			return "", e
+		}
+		if state != "failed" {
+			return candidate, nil
+		}
+	}
+	return "", payment.ErrConflict
+}
+
+// closeFailureMessage separates definitive close refusals from outcomes that
+// must be recovered by querying the original order.
+func closeFailureMessage(e error) string {
+	var unknown *provider.UnknownOutcome
+	switch {
+	case errors.As(e, &unknown):
+		return "close outcome requires query"
+	case errors.Is(e, payment.ErrState):
+		return "order already paid; close is not a refund"
+	case errors.Is(e, provider.ErrUnsupported):
+		return "close is not supported for this order's channel"
+	case errors.Is(e, payment.ErrLiveDisabled):
+		return "provider operations are disabled"
+	case errors.Is(e, payment.ErrNotFound):
+		return "order not found"
+	}
+	return "close outcome requires query"
+}
+
+// refundState is the machine-readable refund outcome: processing until the
+// provider result is final, then succeeded or failed.
+func refundState(status string) string {
+	switch status {
+	case "succeeded", "failed":
+		return status
+	}
+	return "processing"
+}
+
+// refundAPIResult reports a persisted refund by its stored state, so a replayed
+// out_refund_no repeats the original outcome. A final failure is never answered
+// with the accepted/success shape; status mirrors /api/pay/refundquery and is
+// present only for final states.
+func (s *Server) refundAPIResult(w http.ResponseWriter, legacy bool, tradeNo string, refund payment.Refund) {
+	data := map[string]any{"refund_no": strconv.FormatInt(refund.ID, 10), "out_refund_no": refund.RefundNo, "trade_no": tradeNo, "money": ledger.Format(refund.Amount), "reducemoney": ledger.Format(refund.MerchantAmount), "refund_state": refundState(refund.Status)}
+	switch refund.Status {
+	case "succeeded":
+		data["status"] = 1
+		s.wireWithCode(w, legacy, data, "", 0)
+	case "failed":
+		data["status"] = 0
+		s.wireWithCode(w, legacy, data, "refund failed", 0)
+	default:
+		data["msg"] = "refund accepted; processing outcome requires query"
+		s.wireWithCode(w, legacy, data, "", 0)
+	}
 }

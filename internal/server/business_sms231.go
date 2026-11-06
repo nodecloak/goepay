@@ -3,9 +3,9 @@ package server
 import (
 	"encoding/json"
 	"errors"
-	"goepay/internal/businesssms231"
+	"goepay/internal/businesssms"
 	"goepay/internal/identity"
-	"goepay/internal/smsgateway134"
+	"goepay/internal/smsgateway"
 	"net/http"
 )
 
@@ -22,13 +22,13 @@ func (s *Server) businessSMSSettings231(w http.ResponseWriter, r *http.Request, 
 		response(w, 400, -1, "query parameters not accepted", nil)
 		return true
 	}
-	store, e := businesssms231.New(s.Pool, s.CheckoutKey)
+	store, e := businesssms.New(s.Pool, s.CheckoutKey)
 	if e != nil {
 		response(w, 503, -1, "business SMS unavailable", nil)
 		return true
 	}
-	actor := smsgateway134.Actor{User: session.User, Token: token, Delegated: session.Issuer != nil}
-	var v businesssms231.View
+	actor := smsgateway.Actor{User: session.User, Token: token, Delegated: session.Issuer != nil}
+	var v businesssms.View
 	switch r.Method {
 	case "GET":
 		v, e = store.Read(r.Context(), actor)
@@ -54,7 +54,7 @@ func (s *Server) businessSMSSettings231(w http.ResponseWriter, r *http.Request, 
 				return true
 			}
 		}
-		var in businesssms231.Input
+		var in businesssms.Input
 		if json.Unmarshal(raw, &in) != nil {
 			response(w, 400, -1, "invalid business SMS field types", nil)
 			return true
@@ -67,9 +67,9 @@ func (s *Server) businessSMSSettings231(w http.ResponseWriter, r *http.Request, 
 	}
 	if e != nil {
 		status := 503
-		if errors.Is(e, businesssms231.ErrConflict) {
+		if errors.Is(e, businesssms.ErrConflict) {
 			status = 409
-		} else if errors.Is(e, businesssms231.ErrInvalid) {
+		} else if errors.Is(e, businesssms.ErrInvalid) {
 			status = 422
 		} else if errors.Is(e, identity.ErrAdminSession) {
 			status = 403

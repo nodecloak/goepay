@@ -14,22 +14,22 @@ import (
 	"unicode/utf8"
 
 	"goepay/internal/identity"
-	"goepay/internal/orderalias120"
+	"goepay/internal/orderalias"
 	"goepay/internal/payment"
 )
 
 // Main injects the independent bootstrap master. This constructor does not
 // enable a provider mode or modify the payment Store's keys or financial MACs.
-func NewOrderAPITradeAliasStore120ForMaster(s *Server, master []byte) (*orderalias120.Store, error) {
+func NewOrderAPITradeAliasStore120ForMaster(s *Server, master []byte) (*orderalias.Store, error) {
 	if s == nil {
-		return nil, orderalias120.ErrUnavailable
+		return nil, orderalias.ErrUnavailable
 	}
-	return orderalias120.NewStore(s.Pool, s.Store, master)
+	return orderalias.NewStore(s.Pool, s.Store, master)
 }
 
 // Compatibility fallback is only for existing fixtures with no explicit store.
 // Main supplies its bootstrap-backed store even when provider mode is disabled.
-func (s *Server) orderAPITradeAliasStore120(store *orderalias120.Store) (*orderalias120.Store, error) {
+func (s *Server) orderAPITradeAliasStore120(store *orderalias.Store) (*orderalias.Store, error) {
 	if store != nil {
 		return store, nil
 	}
@@ -38,7 +38,7 @@ func (s *Server) orderAPITradeAliasStore120(store *orderalias120.Store) (*ordera
 
 // The root dispatcher wires this helper after common persistent authentication
 // and CSRF checks. The domain still checks the persisted actor on its own tx.
-func (s *Server) orderAPITradeAliasConsole120(w http.ResponseWriter, r *http.Request, role string, session identity.Session, parts []string, token string, store *orderalias120.Store) bool {
+func (s *Server) orderAPITradeAliasConsole120(w http.ResponseWriter, r *http.Request, role string, session identity.Session, parts []string, token string, store *orderalias.Store) bool {
 	if len(parts) < 4 || parts[1] != "orders" || parts[3] != "api-trade-alias" {
 		return false
 	}
@@ -73,10 +73,10 @@ func (s *Server) orderAPITradeAliasConsole120(w http.ResponseWriter, r *http.Req
 		orderAPITradeAliasError120(w, err)
 		return true
 	}
-	actor := orderalias120.Actor{User: session.User, Token: token, CSRF: r.Header.Get("X-CSRF-Token"), Delegated: session.Issuer != nil}
+	actor := orderalias.Actor{User: session.User, Token: token, CSRF: r.Header.Get("X-CSRF-Token"), Delegated: session.Issuer != nil}
 	ctx, cancel := context.WithTimeout(r.Context(), 12*time.Second)
 	defer cancel()
-	var view orderalias120.View
+	var view orderalias.View
 	if r.Method == http.MethodGet {
 		raw, readErr := io.ReadAll(io.LimitReader(r.Body, 1))
 		if readErr != nil || len(raw) != 0 {
@@ -99,7 +99,7 @@ func (s *Server) orderAPITradeAliasConsole120(w http.ResponseWriter, r *http.Req
 	return true
 }
 
-func (s *Server) canEditOrderAPITradeAlias120(r *http.Request, role string, session identity.Session, order payment.Order, store *orderalias120.Store) bool {
+func (s *Server) canEditOrderAPITradeAlias120(r *http.Request, role string, session identity.Session, order payment.Order, store *orderalias.Store) bool {
 	if s == nil || role != "admin" || session.User.Role != "admin" || session.Issuer != nil || s.Sessions == nil || !s.Sessions.SupportsDelegation() {
 		return false
 	}
@@ -113,14 +113,14 @@ func (s *Server) canEditOrderAPITradeAlias120(r *http.Request, role string, sess
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	view, err := resolved.Read(ctx, orderalias120.Actor{User: session.User, Token: cookie.Value, Delegated: false}, order.TradeNo)
+	view, err := resolved.Read(ctx, orderalias.Actor{User: session.User, Token: cookie.Value, Delegated: false}, order.TradeNo)
 	return err == nil && view.CanUpdate && view.TradeNo == order.TradeNo && view.MerchantID == strconv.FormatInt(order.MerchantID, 10)
 }
 
-func orderAPITradeAliasInput120(w http.ResponseWriter, r *http.Request) (orderalias120.Update, bool) {
-	fail := func() (orderalias120.Update, bool) {
+func orderAPITradeAliasInput120(w http.ResponseWriter, r *http.Request) (orderalias.Update, bool) {
+	fail := func() (orderalias.Update, bool) {
 		response(w, 400, -1, "exact order alias JSON required", nil)
-		return orderalias120.Update{}, false
+		return orderalias.Update{}, false
 	}
 	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || media != "application/json" {
@@ -134,7 +134,7 @@ func orderAPITradeAliasInput120(w http.ResponseWriter, r *http.Request) (orderal
 	if err != nil {
 		return fail()
 	}
-	var input orderalias120.Update
+	var input orderalias.Update
 	if json.Unmarshal(fields["api_trade_no_alias"], &input.Alias) != nil || json.Unmarshal(fields["expected_fingerprint"], &input.ExpectedFingerprint) != nil || len(input.ExpectedFingerprint) != 64 || strings.Trim(input.ExpectedFingerprint, "0123456789abcdef") != "" {
 		return fail()
 	}
@@ -146,9 +146,9 @@ func orderAPITradeAliasError120(w http.ResponseWriter, err error) {
 		response(w, 403, -1, "original persistent administrator session required", nil)
 	case errors.Is(err, payment.ErrNotFound):
 		response(w, 404, -1, "order alias target unavailable", nil)
-	case errors.Is(err, orderalias120.ErrConflict), errors.Is(err, payment.ErrConflict), errors.Is(err, payment.ErrState):
+	case errors.Is(err, orderalias.ErrConflict), errors.Is(err, payment.ErrConflict), errors.Is(err, payment.ErrState):
 		response(w, 409, -1, "order or alias source changed; reload before saving", nil)
-	case errors.Is(err, orderalias120.ErrInvalid), errors.Is(err, payment.ErrInvalid):
+	case errors.Is(err, orderalias.ErrInvalid), errors.Is(err, payment.ErrInvalid):
 		response(w, 422, -1, "invalid independent display alias", nil)
 	default:
 		response(w, 503, -1, "independent display alias could not be confirmed", nil)

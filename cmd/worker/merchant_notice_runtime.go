@@ -9,10 +9,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"goepay/internal/adapters/adminnotice"
-	"goepay/internal/mailaccount195"
+	"goepay/internal/mailaccount"
 	"goepay/internal/mailer"
 	notice "goepay/internal/merchantnotice"
-	"goepay/internal/voiceconfig230"
+	"goepay/internal/voiceconfig"
 )
 
 var errMerchantNoticeConfiguration = errors.New("merchant notice delivery configuration unavailable")
@@ -26,7 +26,7 @@ func (r *merchantNoticeRuntime) ResolveMerchantNoticeTx231(ctx context.Context, 
 type merchantNoticeRuntime struct {
 	mailAccounts mailAccountResolver195
 	voiceConfig  interface {
-		Resolve(context.Context) (voiceconfig230.View, voiceconfig230.Credential, bool, error)
+		Resolve(context.Context) (voiceconfig.View, voiceconfig.Credential, bool, error)
 	}
 	store  *notice.Store
 	getenv func(string) string
@@ -51,11 +51,11 @@ func newMerchantNoticeRuntime(pool *pgxpool.Pool, getenv func(string) string) (*
 	if err != nil {
 		return nil, errMerchantNoticeConfiguration
 	}
-	voice, e := voiceconfig230.FromMaster(pool, key)
+	voice, e := voiceconfig.FromMaster(pool, key)
 	if e != nil {
 		return nil, e
 	}
-	return &merchantNoticeRuntime{store: store, getenv: getenv, mailAccounts: mailaccount195.FromMaster(pool, key), voiceConfig: voice}, nil
+	return &merchantNoticeRuntime{store: store, getenv: getenv, mailAccounts: mailaccount.FromMaster(pool, key), voiceConfig: voice}, nil
 }
 func (r *merchantNoticeRuntime) ResolveMerchantNotice(ctx context.Context, kind notice.Transport, a notice.Account) (notice.Sender, error) {
 	if r == nil || r.getenv == nil || ctx == nil || ctx.Err() != nil {

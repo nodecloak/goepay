@@ -1,7 +1,10 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeAll, describe, it, expect, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import App from "../src/App.vue";
+import { preloadAppPages } from "./app-pages";
+
+beforeAll(preloadAppPages);
 describe("console login", () => {
   it("authorizes the server initial admin role for the dashboard", async () => {
     vi.stubGlobal(

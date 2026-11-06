@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -61,5 +62,20 @@ func TestMigrationReentrantAndChecksumGuard(t *testing.T) {
 	}
 	if e = Migrate(ctx, pool); e == nil {
 		t.Fatal("accepted changed applied migration")
+	}
+}
+
+func TestEmbeddedChecksumsAreComputedOnce(t *testing.T) {
+	first, err := embeddedChecksums()
+	if err != nil || len(first) == 0 {
+		t.Fatal("embedded migrations unreadable", err)
+	}
+	second, err := embeddedChecksums()
+	if err != nil || reflect.ValueOf(first).UnsafePointer() != reflect.ValueOf(second).UnsafePointer() {
+		t.Fatal("readiness re-hashed the embedded migrations", err)
+	}
+	entries, _ := files.ReadDir("migrations")
+	if len(first) != len(entries) {
+		t.Fatalf("checksums cover %d of %d migrations", len(first), len(entries))
 	}
 }

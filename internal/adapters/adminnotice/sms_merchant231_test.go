@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"goepay/internal/businesssms231"
+	"goepay/internal/businesssms"
 	notice "goepay/internal/merchantnotice"
-	"goepay/internal/smsgateway134"
+	"goepay/internal/smsgateway"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -58,7 +58,7 @@ func TestBusinessSMS231PureConstructorFixedTLSAndTemplateEscaping(t *testing.T) 
 			if provider == "smsbao" {
 				template = "会员到期：{code}"
 			}
-			resolved := &businesssms231.Resolved{Snapshot: businesssms231.Snapshot{Revision: 1, Provider: provider, Template: template, Phone: "13800138000", Fingerprint: strings.Repeat("a", 64)}, Credentials: smsgateway134.Credentials{AccessKeyID: "AK", AccessKeySecret: "synthetic-secret231", AppID: "1234", AppKey: "synthetic-secret231", User: "user", Pass: "synthetic-secret231", Sign: "sign", Template: "VERIFICATION_TEMPLATE"}}
+			resolved := &businesssms.Resolved{Snapshot: businesssms.Snapshot{Revision: 1, Provider: provider, Template: template, Phone: "13800138000", Fingerprint: strings.Repeat("a", 64)}, Credentials: smsgateway.Credentials{AccessKeyID: "AK", AccessKeySecret: "synthetic-secret231", AppID: "1234", AppKey: "synthetic-secret231", User: "user", Pass: "synthetic-secret231", Sign: "sign", Template: "VERIFICATION_TEMPLATE"}}
 			input := notice.Input{Scene: "group", SiteName: "Test", At: time.Now(), Params: map[string]string{"group": param, "endtime": "2026-11-01 00:00:00"}}
 			sender, e := NewSMSMerchant231(resolved, input, client)
 			if e != nil || dials.Load() != 0 {
@@ -85,7 +85,7 @@ func TestBusinessSMS231RejectsRedirectAndNeverRetries(t *testing.T) {
 		w.Header().Set("Location", "https://api.smsbao.com/other")
 		w.WriteHeader(302)
 	}))
-	r := &businesssms231.Resolved{Snapshot: businesssms231.Snapshot{Revision: 1, Provider: "smsbao", Template: "{code}", Phone: "13800138000", Fingerprint: strings.Repeat("a", 64)}, Credentials: smsgateway134.Credentials{User: "user", Pass: "secret", Sign: "sign"}}
+	r := &businesssms.Resolved{Snapshot: businesssms.Snapshot{Revision: 1, Provider: "smsbao", Template: "{code}", Phone: "13800138000", Fingerprint: strings.Repeat("a", 64)}, Credentials: smsgateway.Credentials{User: "user", Pass: "secret", Sign: "sign"}}
 	input := notice.Input{Scene: "balance", SiteName: "Test", At: time.Now(), Params: map[string]string{"money": "0.00", "msgmoney": "10.00"}}
 	sender, e := NewSMSMerchant231(r, input, client)
 	if e != nil {

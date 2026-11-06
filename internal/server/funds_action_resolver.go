@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	adapter "goepay/internal/adapters/payment"
@@ -41,6 +42,12 @@ func fundsTarget(target string) (fundsTargetDefinition, bool) {
 			return d, false
 		}
 		return fundsTargetDefinition{guard: "order-business-batch", category: "order-business-batch", id: p[2], verb: "execute", keys: []string{"limit"}}, true
+	}
+	if len(p) == 3 && p[0] == "refunds" && p[2] == "attest-result" {
+		if _, ok := positiveFundsID(p[1]); !ok {
+			return d, false
+		}
+		return fundsTargetDefinition{guard: "refund-attestation", category: "refund-attestation", id: p[1], verb: p[2], keys: []string{"state", "provider_reference", "note"}}, true
 	}
 	if len(p) == 3 && p[0] == "channel-stops" && p[2] == "resume" {
 		if _, ok := positiveFundsID(p[1]); !ok {
@@ -272,10 +279,25 @@ func normalizeFundsBody(raw []byte, d fundsTargetDefinition) (map[string]json.Ra
 			if text != "credit" && text != "debit" {
 				return nil, nil, payment.ErrInvalid
 			}
+		case "state":
+			if text != "succeeded" && text != "failed" {
+				return nil, nil, payment.ErrInvalid
+			}
+		case "provider_reference", "note":
+			limit := 128
+			if k == "note" {
+				limit = 500
+			}
+			if strings.TrimSpace(text) == "" || utf8.RuneCountInString(text) > limit || strings.ContainsAny(text, "\x00\r\n") {
+				return nil, nil, payment.ErrInvalid
+			}
 		}
 		fields[k], _ = json.Marshal(text)
 	}
 	if d.verb == "manual-refund" && (len(fields) != 4 || fields["offline_confirmed"] == nil || fundsText(fields, "reason") == "") {
+		return nil, nil, payment.ErrInvalid
+	}
+	if d.category == "refund-attestation" && len(fields) != 3 {
 		return nil, nil, payment.ErrInvalid
 	}
 	if d.guard == "income-hold-adopt" {
@@ -383,6 +405,28 @@ func (s *Server) ResolveFundsAction(ctx context.Context, q identity.FundsQuerier
 		}
 	}
 	switch d.category {
+	case "refund-attestation":
+		id, _ := positiveFundsID(d.id)
+		var orderID, amount int64
+		var refundNo string
+		if e = q.QueryRow(ctx, "SELECT merchant_id,order_id,amount,refund_no FROM refunds WHERE id=$1", id).Scan(&mid, &orderID, &amount, &refundNo); errors.Is(e, pgx.ErrNoRows) {
+			e = payment.ErrNotFound
+		}
+		if e != nil {
+			return identity.FundsAction{}, nil, e
+		}
+		addMerchant(mid)
+		// The grant is bound to the refund and its send exactly as reviewed.
+		if snapshot["refund"], e = fundsJSONRow(ctx, q, "SELECT to_jsonb(f)-'updated_at' FROM refunds f WHERE id=$1", id); e != nil {
+			return identity.FundsAction{}, nil, e
+		}
+		if snapshot["refund_operation"], e = fundsJSONRow(ctx, q, "SELECT COALESCE((SELECT to_jsonb(p)-'updated_at' FROM provider_operations p WHERE p.refund_id=$1 AND p.kind='refund'),'null'::jsonb)", id); e != nil {
+			return identity.FundsAction{}, nil, e
+		}
+		summary["refund_id"], summary["refund_no"], summary["refund_amount"] = d.id, refundNo, ledger.Format(amount)
+		summary["attested_state"] = fundsText(fields, "state")
+		summary["provider_reference"] = fundsText(fields, "provider_reference")
+		summary["attestation_policy"] = "仅在已于支付机构后台核实该笔退款的最终结果后使用：成功即确认退款，失败则把预留资金退回商户可用余额；结论记录在案且不可更改"
 	case "channel-resume":
 		channel, _ := positiveFundsID(d.id)
 		event, _ := positiveFundsID(fundsText(fields, "expected_event_id"))
@@ -887,7 +931,7 @@ func mandatoryFundsAuthorization(d fundsTargetDefinition) bool {
 	if d.category == "order-business-batch" {
 		return true
 	}
-	return d.verb == "manual-refund" || d.category == "settlement-plan" || d.category == "settlement-auto" || d.guard == "income-hold-adopt" || d.guard == "authorization-release-remaining" || d.guard == "channel-resume"
+	return d.verb == "manual-refund" || d.category == "refund-attestation" || d.category == "settlement-plan" || d.category == "settlement-auto" || d.guard == "income-hold-adopt" || d.guard == "authorization-release-remaining" || d.guard == "channel-resume"
 }
 
 func (s *Server) protectAdminFunds(w http.ResponseWriter, r *http.Request, role string, session identity.Session, token string) (*http.Request, bool) {

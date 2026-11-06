@@ -3,7 +3,7 @@ package adminnotice
 import (
 	"context"
 	smsadapter "goepay/internal/adapters/sms"
-	"goepay/internal/businesssms231"
+	"goepay/internal/businesssms"
 	notice "goepay/internal/merchantnotice"
 	"net/http"
 	"regexp"
@@ -37,7 +37,7 @@ func (s *SMSMerchant231) ValidateNoticeRecipient(to string) error {
 
 // The constructor is pure. The resolved credential belongs to the source and
 // its permanent claim; Send never reloads a gateway, template or recipient.
-func NewSMSMerchant231(resolved *businesssms231.Resolved, in notice.Input, client *http.Client) (*SMSMerchant231, error) {
+func NewSMSMerchant231(resolved *businesssms.Resolved, in notice.Input, client *http.Client) (*SMSMerchant231, error) {
 	if resolved == nil || !resolved.Snapshot.Valid() {
 		return nil, ErrMerchantDelivery
 	}

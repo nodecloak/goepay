@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"goepay/internal/enrollment"
-	"goepay/internal/mailaccount195"
+	"goepay/internal/mailaccount"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -48,7 +48,7 @@ func email197Browser197(t *testing.T, existing bool) {
 			f.s.CheckoutKey = key[:]
 			state := mail195Data(t, mail195Request(f.channel168Fixture, "GET", "/smtp", ""))
 			mail195SaveTLS(t, f.channel168Fixture, state, peer)
-			resolver := &mailaccount195.Verification{Store: mailaccount195.FromMaster(f.p, master), RootCAs: peer.roots}
+			resolver := &mailaccount.Verification{Store: mailaccount.FromMaster(f.p, master), RootCAs: peer.roots}
 			service, e := enrollment.New(f.p, f.s.Store, master, resolver)
 			if e != nil {
 				t.Fatal(e)

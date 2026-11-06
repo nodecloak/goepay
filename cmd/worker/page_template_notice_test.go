@@ -2,7 +2,7 @@ package main
 
 import (
 	"goepay/internal/adapters/adminnotice"
-	"goepay/internal/mailaccount195"
+	"goepay/internal/mailaccount"
 	"goepay/internal/mailer"
 	"goepay/internal/templatenotice"
 	"testing"
@@ -17,11 +17,11 @@ var (
 	_ templatenotice.ChangeNoticeSender = (*adminnotice.Telegram)(nil)
 	_ templatenotice.ChangeNoticeSender = (*adminnotice.QQBot)(nil)
 	_ templatenotice.ChangeNoticeSender = (*mailer.SMTP)(nil)
-	_ templatenotice.ChangeNoticeSender = (*mailaccount195.BoundSMTP)(nil)
+	_ templatenotice.ChangeNoticeSender = (*mailaccount.BoundSMTP)(nil)
 )
 
 func TestResolvedNoticeSendersImplementChangeNoticeSender(t *testing.T) {
-	// The managed SMTP sender is a *mailaccount195.BoundSMTP, which embeds
+	// The managed SMTP sender is a *mailaccount.BoundSMTP, which embeds
 	// *mailer.SMTP and so inherits SendPageTemplateNotice by promotion. The
 	// var block above fails to compile if any transport loses the method.
 	m := noticeEnvironment76()

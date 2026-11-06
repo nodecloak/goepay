@@ -17,6 +17,7 @@ export function needsFundsAuthorization(
       target,
     ) ||
     /^\/console\/v1\/admin\/channel-stops\/[1-9]\d*\/resume$/.test(target) ||
+    /^\/console\/v1\/admin\/refunds\/[1-9]\d*\/attest-result$/.test(target) ||
     /^\/console\/v1\/admin\/orders\/[A-Za-z0-9_-]+\/(?:adopt-income-hold|release-remaining-authorization)$/.test(
       target,
     ) ||
@@ -32,6 +33,7 @@ export function isAdminFundsAction(path: string, method: string): boolean {
   return (
     /^\/orders\/business-batches\/[1-9]\d*\/execute$/.test(pathname) ||
     /^\/channel-stops\/[1-9]\d*\/resume$/.test(pathname) ||
+    /^\/refunds\/[1-9]\d*\/attest-result$/.test(pathname) ||
     /^\/settlement-plans\/[1-9]\d*\/(?:authorizations|auto-authorizations)$/.test(
       pathname,
     ) ||

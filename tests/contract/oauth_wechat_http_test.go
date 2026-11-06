@@ -93,8 +93,13 @@ func runWebOAuthWechatHTTPUsesAuthenticatedOpenIDWithoutCreditingPaymentWithOrig
 	if out["code"] != float64(1) {
 		t.Fatal(out)
 	}
+	// WeChat web authorization only works inside the WeChat app on a phone;
+	// desktop browsers get a QR code to continue there instead.
+	const wechatMobile = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.50"
 	w := httptest.NewRecorder()
-	h.ServeHTTP(w, httptest.NewRequest("GET", out["payurl"].(string), nil))
+	checkout := httptest.NewRequest("GET", out["payurl"].(string), nil)
+	checkout.Header.Set("User-Agent", wechatMobile)
+	h.ServeHTTP(w, checkout)
 	if w.Code != 302 {
 		t.Fatal(w.Code, w.Body.String())
 	}
@@ -105,6 +110,7 @@ func runWebOAuthWechatHTTPUsesAuthenticatedOpenIDWithoutCreditingPaymentWithOrig
 	callback, _ := url.Parse(authorization.Query().Get("redirect_uri"))
 	callback.RawQuery = url.Values{"state": {authorization.Query().Get("state")}, "code": {"wx-web-code"}}.Encode()
 	request := httptest.NewRequest("GET", callback.String(), nil)
+	request.Header.Set("User-Agent", wechatMobile)
 	request.AddCookie(w.Result().Cookies()[0])
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, request)

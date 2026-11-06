@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"goepay/internal/pagetemplate"
-	"goepay/internal/sitebrand193"
+	"goepay/internal/sitebrand"
 	"goepay/internal/siteinfo"
 	"log/slog"
 	"net/http"
@@ -243,8 +243,8 @@ func (s *Server) renderHome(w http.ResponseWriter, r *http.Request, cfg siteinfo
 		http.Error(w, "page appearance unavailable", 503)
 		return
 	}
-	logo, e := sitebrand193.New(s.Pool, s.CheckoutKey).Public(r.Context(), "logo")
-	if e != nil && !errors.Is(e, sitebrand193.ErrNotFound) {
+	logo, e := sitebrand.New(s.Pool, s.CheckoutKey).Public(r.Context(), "logo")
+	if e != nil && !errors.Is(e, sitebrand.ErrNotFound) {
 		http.Error(w, "website branding unavailable", 503)
 		return
 	}
@@ -305,8 +305,8 @@ type templateColors struct{ Background, Foreground string }
 // handler's CSP for the template's own style sheets, fonts and images.
 func (s *Server) pageTemplateOpen(w http.ResponseWriter, r *http.Request, kind string, p pagetemplate.Page, colors *templateColors) (string, bool) {
 	if kind == "home" && !p.Preview {
-		logo, e := sitebrand193.New(s.Pool, s.CheckoutKey).Public(r.Context(), "logo")
-		if e != nil && !errors.Is(e, sitebrand193.ErrNotFound) {
+		logo, e := sitebrand.New(s.Pool, s.CheckoutKey).Public(r.Context(), "logo")
+		if e != nil && !errors.Is(e, sitebrand.ErrNotFound) {
 			http.Error(w, "website branding unavailable", 503)
 			return "", false
 		}

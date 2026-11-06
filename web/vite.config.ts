@@ -14,5 +14,14 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // The framework changes less often than console code; keep it in its
+        // own long-cached chunk next to the on-demand page chunks.
+        manualChunks: { vendor: ["vue", "vue-router", "qrcode"] },
+      },
+    },
+  },
   test: { environment: "jsdom", include: ["tests/**/*.test.ts"] },
 });

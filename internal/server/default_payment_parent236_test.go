@@ -155,7 +155,7 @@ func TestDefaultPaymentParent236SealedReplayAndHistorySurviveClosedCurrentRoutin
 	if _, err := f.s.ProviderFlow.Refund(t.Context(), 1, queryOrder.TradeNo, "default-parent236-original-refund", 1000); err != nil {
 		t.Fatal("refund failed to use the sealed original account", err)
 	}
-	callback := map[string]string{"return_code": "SUCCESS", "result_code": "SUCCESS", "appid": "synthetic180-fresh", "mch_id": "synthetic180-fresh-mch", "out_trade_no": callbackOrder.TradeNo, "transaction_id": "WX180_" + callbackOrder.TradeNo, "total_fee": "10000", "trade_type": "NATIVE", "openid": "synthetic180-buyer"}
+	callback := map[string]string{"return_code": "SUCCESS", "result_code": "SUCCESS", "appid": "synthetic180-fresh", "mch_id": "synthetic180-fresh-mch", "out_trade_no": callbackOrder.TradeNo, "transaction_id": "W180" + callbackOrder.TradeNo, "total_fee": "10000", "trade_type": "NATIVE", "openid": "synthetic180-buyer"}
 	sendCallback := func(key string) int {
 		r := httptest.NewRequest("POST", "/callbacks/providers/"+setup.id+"/"+callbackOrder.TradeNo, bytes.NewReader(parent180SignedXML(callback, key)))
 		r.Header.Set("Content-Type", "application/xml")

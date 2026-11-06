@@ -418,7 +418,8 @@ onBeforeUnmount(() => {
       <section v-if="selected" class="case-panel">
         <h3>计划 {{ selected.id }} · 当前修订 {{ selected.revision }}</h3>
         <p v-if="selected.mode === 'balance_threshold'">
-          商户余额自动转账：余额严格大于auto_settle_money，UID倒序最多5个，关闭组不补位；按整余额申请。仅使用组费率和全局最高手续费，同日新批次保留已用额度，超过额度不拆分付款。付款通道固定transfer_alipay，仍需独立自动出款授权。
+          按余额自动结算：按商户号从大到小，每次最多选 5
+          个可用余额超过“自动结算金额”的商户，为其申请结算全部余额；所在用户组已关闭结算的商户会被跳过，名额不由其他商户补上。手续费只按用户组费率和全局手续费上限计算；同一天的新批次沿用当日已用额度，超出额度的付款不拆分。付款固定使用“支付宝转账”设置的通道，并且仍需单独授权自动出款。
         </p>
         <p>
           仅生成申请。商户范围 {{ selected.merchant_ids.join("、") }}；频率

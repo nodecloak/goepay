@@ -8,6 +8,7 @@ import (
 	"goepay/db"
 	"os"
 	"testing"
+	"time"
 )
 
 func identityTestPool(t *testing.T) *pgxpool.Pool {
@@ -75,5 +76,50 @@ func TestPersistentSessionsShareRevocationAndPasswordVersion(t *testing.T) {
 	b.RevokeUser("admin", "admin")
 	if _, ok = a.Get(token, "admin"); ok {
 		t.Fatal("revocation lost acrossinstances")
+	}
+}
+
+func TestPersistentSessionsExpireWhenIdle(t *testing.T) {
+	ctx := context.Background()
+	scoped := identityTestPool(t)
+	if _, err := scoped.Exec(ctx, "INSERT INTO console_users(username,role,subject_id,display_name,password_hash) VALUES('admin','admin',1,'Admin','testhash')"); err != nil {
+		t.Fatal(err)
+	}
+	clock := time.Date(2026, 11, 6, 9, 0, 0, 0, time.UTC)
+	s := NewPersistentSessions(scoped, false)
+	s.now = func() time.Time { return clock }
+	s.AdminIdle = 30 * time.Minute
+	u := User{Username: "admin", Role: "admin", ID: 1, Name: "Admin", AuthVersion: 1}
+	token, _, err := s.Create(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range []time.Duration{20 * time.Minute, 25 * time.Minute, 29 * time.Minute} {
+		clock = clock.Add(step)
+		if _, ok := s.Get(token, "admin"); !ok {
+			t.Fatalf("session in use ended after %s of inactivity", step)
+		}
+	}
+	clock = clock.Add(31 * time.Minute)
+	if _, ok := s.Get(token, "admin"); ok {
+		t.Fatal("idle administrator session still accepted")
+	}
+	var remaining int
+	if err = scoped.QueryRow(ctx, "SELECT count(*) FROM console_sessions").Scan(&remaining); err != nil || remaining != 0 {
+		t.Fatal("idle session was not revoked", remaining, err)
+	}
+	// Without an idle limit only the 12-hour absolute expiry applies.
+	s.AdminIdle = 0
+	token, _, err = s.Create(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock = clock.Add(11 * time.Hour)
+	if _, ok := s.Get(token, "admin"); !ok {
+		t.Fatal("session without idle limit ended early")
+	}
+	clock = clock.Add(2 * time.Hour)
+	if _, ok := s.Get(token, "admin"); ok {
+		t.Fatal("absolute expiry not enforced")
 	}
 }

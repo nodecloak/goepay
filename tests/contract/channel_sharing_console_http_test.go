@@ -241,7 +241,7 @@ func TestChannelSharingConsoleActualTLSFundsOwnershipAndOriginalQuery(t *testing
 	if _, e = s.ProviderFlow.Submit(ctx, o.TradeNo, 7, "native", "127.0.0.1", ""); e != nil {
 		t.Fatal(e)
 	}
-	transaction, _ := json.Marshal(map[string]any{"appid": "local-app", "mchid": "local-mch", "out_trade_no": o.TradeNo, "transaction_id": "WX_CONSOLE_" + o.TradeNo, "trade_state": "SUCCESS", "amount": map[string]any{"total": 100, "currency": "CNY"}, "payer": map[string]string{"openid": "local-console-buyer"}})
+	transaction, _ := json.Marshal(map[string]any{"appid": "local-app", "mchid": "local-mch", "out_trade_no": o.TradeNo, "transaction_id": "WXC" + o.TradeNo, "trade_state": "SUCCESS", "amount": map[string]any{"total": 100, "currency": "CNY"}, "payer": map[string]string{"openid": "local-console-buyer"}})
 	block, _ := aes.NewCipher(apiKey)
 	gcm, _ := cipher.NewGCM(block)
 	nonce := []byte("0123456789ab")
@@ -330,7 +330,7 @@ func TestChannelSharingConsoleActualTLSFundsOwnershipAndOriginalQuery(t *testing
 	if _, e = s.ProviderFlow.Submit(ctx, pfOrder.TradeNo, 7, "native", "127.0.0.1", ""); e != nil {
 		t.Fatal(e)
 	}
-	pfTransaction, _ := json.Marshal(map[string]any{"appid": "local-app", "mchid": "local-mch", "out_trade_no": pfOrder.TradeNo, "transaction_id": "WX_CONSOLE_" + pfOrder.TradeNo, "trade_state": "SUCCESS", "amount": map[string]any{"total": 150, "currency": "CNY"}, "payer": map[string]string{"openid": "local-console-buyer"}})
+	pfTransaction, _ := json.Marshal(map[string]any{"appid": "local-app", "mchid": "local-mch", "out_trade_no": pfOrder.TradeNo, "transaction_id": "WXC" + pfOrder.TradeNo, "trade_state": "SUCCESS", "amount": map[string]any{"total": 150, "currency": "CNY"}, "payer": map[string]string{"openid": "local-console-buyer"}})
 	pfEncrypted := gcm.Seal(nil, nonce, pfTransaction, []byte("transaction"))
 	pfCallback, _ := json.Marshal(map[string]any{"id": "CONSOLE_PF_EVENT", "event_type": "TRANSACTION.SUCCESS", "resource_type": "encrypt-resource", "resource": map[string]string{"original_type": "transaction", "algorithm": "AEAD_AES_256_GCM", "nonce": string(nonce), "associated_data": "transaction", "ciphertext": base64.StdEncoding.EncodeToString(pfEncrypted)}})
 	r = httptest.NewRequest("POST", "/callbacks/providers/7/"+pfOrder.TradeNo, bytes.NewReader(pfCallback))
@@ -371,7 +371,7 @@ func TestChannelSharingConsoleActualTLSFundsOwnershipAndOriginalQuery(t *testing
 	if _, e = s.ProviderFlow.Submit(ctx, retryOrder.TradeNo, 7, "native", "127.0.0.1", ""); e != nil {
 		t.Fatal(e)
 	}
-	retryTransaction, _ := json.Marshal(map[string]any{"appid": "local-app", "mchid": "local-mch", "out_trade_no": retryOrder.TradeNo, "transaction_id": "WX_CONSOLE_" + retryOrder.TradeNo, "trade_state": "SUCCESS", "amount": map[string]any{"total": 70, "currency": "CNY"}, "payer": map[string]string{"openid": "local-console-buyer"}})
+	retryTransaction, _ := json.Marshal(map[string]any{"appid": "local-app", "mchid": "local-mch", "out_trade_no": retryOrder.TradeNo, "transaction_id": "WXC" + retryOrder.TradeNo, "trade_state": "SUCCESS", "amount": map[string]any{"total": 70, "currency": "CNY"}, "payer": map[string]string{"openid": "local-console-buyer"}})
 	retryEncrypted := gcm.Seal(nil, nonce, retryTransaction, []byte("transaction"))
 	retryCallback, _ := json.Marshal(map[string]any{"id": "CONSOLE_PF_RETRY_EVENT", "event_type": "TRANSACTION.SUCCESS", "resource_type": "encrypt-resource", "resource": map[string]string{"original_type": "transaction", "algorithm": "AEAD_AES_256_GCM", "nonce": string(nonce), "associated_data": "transaction", "ciphertext": base64.StdEncoding.EncodeToString(retryEncrypted)}})
 	r = httptest.NewRequest("POST", "/callbacks/providers/7/"+retryOrder.TradeNo, bytes.NewReader(retryCallback))

@@ -13,6 +13,7 @@ import (
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/compat"
 	"goepay/internal/payment"
+	"html"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -76,8 +77,22 @@ func TestProviderHTTPCheckoutCallbackCommitAndToken(t *testing.T) {
 	}
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest("GET", link, nil))
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "weixin://test-qrcode") {
-		t.Fatalf("checkout %d %s", w.Code, w.Body.String())
+	// The checkout shows the provider's native code as a QR image rendered by
+	// its own signed qr.png endpoint from the stored payment material.
+	page := w.Body.String()
+	start := strings.Index(page, "/checkout/"+trade+"/qr.png?")
+	if w.Code != 200 || start < 0 {
+		t.Fatalf("checkout %d %s", w.Code, page)
+	}
+	qr := html.UnescapeString(page[start : start+strings.Index(page[start:], `"`)])
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", qr, nil))
+	if w.Code != 200 || w.Header().Get("Content-Type") != "image/png" {
+		t.Fatalf("checkout QR %d %s", w.Code, w.Header().Get("Content-Type"))
+	}
+	var material string
+	if e := pool.QueryRow(context.Background(), "SELECT a.material FROM provider_attempts a JOIN orders o ON o.id=a.order_id WHERE o.trade_no=$1", trade).Scan(&material); e != nil || material != "weixin://test-qrcode" {
+		t.Fatal("checkout material", material, e)
 	}
 	u, _ := url.Parse(link)
 	u.Path += "/return"
@@ -192,7 +207,7 @@ func TestProviderHTTPQueryRefundAndClose(t *testing.T) {
 	s, pool, merchantKey := fixture(t)
 	key := "test-only-wx-key-12345678901234567"
 	var closes atomic.Int32
-	var refundUnknown atomic.Bool
+	var refundUnknown, refundRejected atomic.Bool
 	var refundTrade atomic.Value
 	refundTrade.Store("")
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -214,6 +229,12 @@ func TestProviderHTTPQueryRefundAndClose(t *testing.T) {
 			if refundUnknown.Load() {
 				w.WriteHeader(500)
 				return
+			}
+			if refundRejected.Load() {
+				// A definitive business refusal: nothing was refunded upstream.
+				out["result_code"] = "FAIL"
+				out["err_code"] = "NOTENOUGH"
+				break
 			}
 			refundTrade.Store(in.Trade)
 			out["out_refund_no"] = in.Refund
@@ -284,6 +305,15 @@ func TestProviderHTTPQueryRefundAndClose(t *testing.T) {
 	if out["code"] != float64(0) || out["status"] != float64(1) {
 		t.Fatal("refund not reconciled", out)
 	}
+	settled := invoke("/api/pay/refund", compat.Params{"trade_no": trade, "out_refund_no": "stable-refund", "money": "0.01"})
+	if settled["code"] != float64(0) || settled["status"] != float64(1) || settled["refund_no"] != out["refund_no"] || settled["refund_state"] != "succeeded" || out["refund_state"] != "succeeded" {
+		t.Fatal("replayed succeeded refund lost its final state", settled)
+	}
+	closesBefore := closes.Load()
+	paidClose := invoke("/api/pay/close", compat.Params{"trade_no": trade})
+	if paidClose["code"] != float64(-1) || paidClose["msg"] != "order already paid; close is not a refund" || closes.Load() != closesBefore {
+		t.Fatal("closing a paid order was not refused locally", paidClose)
+	}
 	balance, _ := s.Store.Balance(context.Background(), 2)
 	if balance.Available != 100 || balance.Reserved != 0 {
 		t.Fatal(balance)
@@ -306,6 +336,41 @@ func TestProviderHTTPQueryRefundAndClose(t *testing.T) {
 	unknown := invoke("/api/pay/refund", compat.Params{"trade_no": trade, "out_refund_no": "unknown-refund", "money": "0.01"})
 	if unknown["code"] != float64(0) || unknown["refund_no"] == nil {
 		t.Fatal("persisted unknown refund not reported accepted", unknown)
+	}
+	refundUnknown.Store(false)
+	refundRejected.Store(true)
+	rejected := invoke("/api/pay/refund", compat.Params{"trade_no": trade, "out_refund_no": "rejected-refund", "money": "0.01"})
+	if rejected["code"] != float64(-1) || rejected["msg"] != "refund failed" || rejected["status"] != float64(0) || rejected["refund_state"] != "failed" || rejected["refund_no"] == nil {
+		t.Fatal("definitive refund refusal not reported as a final failure", rejected)
+	}
+	// The merchant retries with the same out_refund_no (the documented recovery
+	// path). The stored failure must be repeated, never the success shape.
+	replayed := invoke("/api/pay/refund", compat.Params{"trade_no": trade, "out_refund_no": "rejected-refund", "money": "0.01"})
+	if replayed["code"] != float64(-1) || replayed["msg"] != "refund failed" || replayed["status"] != float64(0) || replayed["refund_no"] != rejected["refund_no"] {
+		t.Fatal("replayed failed refund reported as accepted", replayed)
+	}
+	refundRejected.Store(false)
+	refunds := func() (n int) {
+		t.Helper()
+		if e := pool.QueryRow(context.Background(), "SELECT count(*) FROM refunds").Scan(&n); e != nil {
+			t.Fatal(e)
+		}
+		return n
+	}
+	// Without out_refund_no, a retry after a timeout must not refund twice.
+	before := refunds()
+	first := invoke("/api/pay/refund", compat.Params{"trade_no": trade, "money": "0.01"})
+	retry := invoke("/api/pay/refund", compat.Params{"trade_no": trade, "money": "0.01"})
+	if first["code"] != float64(0) || first["out_refund_no"] == nil || retry["out_refund_no"] != first["out_refund_no"] || retry["refund_no"] != first["refund_no"] || refunds() != before+1 {
+		t.Fatal("unnumbered refund retry created a second refund", first, retry)
+	}
+	// After a definitive refusal, an unnumbered retry is a new refund attempt.
+	refundRejected.Store(true)
+	refused := invoke("/api/pay/refund", compat.Params{"trade_no": trade, "money": "0.02"})
+	refundRejected.Store(false)
+	again := invoke("/api/pay/refund", compat.Params{"trade_no": trade, "money": "0.02"})
+	if refused["status"] != float64(0) || again["code"] != float64(0) || again["out_refund_no"] == refused["out_refund_no"] || refunds() != before+3 {
+		t.Fatal("unnumbered retry after a final failure was not a new refund", refused, again)
 	}
 	closing := create("ops-close")
 	for i := 0; i < 2; i++ {

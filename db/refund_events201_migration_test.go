@@ -17,7 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"goepay/internal/payment"
-	"goepay/internal/refundevent201"
+	"goepay/internal/refundevent"
 )
 
 const migrationRefundMerchant201 int64 = 20101
@@ -314,7 +314,7 @@ func migrationRefundOriginGuards201(t *testing.T, p *pgxpool.Pool) {
 	// Only a new post-upgrade source is signed here. No old proof is re-signed.
 	mac := hmac.New(sha256.New, make([]byte, 32))
 	mac.Write([]byte("goepay/transfer-policy-index/v1"))
-	newSources := refundevent201.New(p, mac.Sum(nil))
+	newSources := refundevent.New(p, mac.Sum(nil))
 	validTx, err := p.Begin(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -323,7 +323,7 @@ func migrationRefundOriginGuards201(t *testing.T, p *pgxpool.Pool) {
 	if _, err = validTx.Exec(ctx, `INSERT INTO refunds(id,merchant_id,order_id,refund_no,amount,event_origin201)VALUES(20104,20101,20101,'new-origin-source201',1,'platform')`); err != nil {
 		t.Fatal(err)
 	}
-	origin := refundevent201.Origin{RefundID: 20104, MerchantID: migrationRefundMerchant201, OrderID: migrationRefundOrder201, Amount: 1, ExternalNo: "new-origin-source201", Entry: "platform"}
+	origin := refundevent.Origin{RefundID: 20104, MerchantID: migrationRefundMerchant201, OrderID: migrationRefundOrder201, Amount: 1, ExternalNo: "new-origin-source201", Entry: "platform"}
 	if err = newSources.RecordOrigin(ctx, validTx, origin); err != nil {
 		t.Fatal(err)
 	}

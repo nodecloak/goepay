@@ -32,7 +32,8 @@ func (s *Sessions) createPersistent(u User) (string, string, error) {
 	}
 	ctx, cancel := sessionContext()
 	defer cancel()
-	tag, err := s.pool.Exec(ctx, "INSERT INTO console_sessions(token_hash,username,role,subject_id,csrf,expires_at,auth_version) SELECT $1,username,role,subject_id,$2,$3,auth_version FROM console_users WHERE username=$4 AND role=$5 AND subject_id=$6 AND auth_version=$7 AND enabled", tokenDigest(token), csrf, s.now().Add(12*time.Hour), u.Username, u.Role, u.ID, u.AuthVersion)
+	now := s.now()
+	tag, err := s.pool.Exec(ctx, "INSERT INTO console_sessions(token_hash,username,role,subject_id,csrf,expires_at,auth_version,last_seen_at) SELECT $1,username,role,subject_id,$2,$3,auth_version,$8 FROM console_users WHERE username=$4 AND role=$5 AND subject_id=$6 AND auth_version=$7 AND enabled", tokenDigest(token), csrf, now.Add(12*time.Hour), u.Username, u.Role, u.ID, u.AuthVersion, now)
 	if err == nil && tag.RowsAffected() != 1 {
 		err = errors.New("account unavailable")
 	}
@@ -48,9 +49,26 @@ func (s *Sessions) getPersistent(token, role string) (Session, bool) {
 	}
 	ctx, cancel := sessionContext()
 	defer cancel()
-	err := s.pool.QueryRow(ctx, `SELECT u.username,u.role,u.subject_id,u.display_name,s.csrf,s.expires_at,u.auth_version,u.admin_class FROM console_sessions s JOIN console_users u ON u.username=s.username AND u.role=s.role AND u.subject_id=s.subject_id AND u.auth_version=s.auth_version AND u.enabled WHERE s.token_hash=$1 AND s.role=$2 AND s.expires_at>$3`, tokenDigest(token), role, s.now()).Scan(&v.User.Username, &v.User.Role, &v.User.ID, &v.User.Name, &v.CSRF, &v.Expires, &v.User.AuthVersion, &v.User.AdminClass)
+	now := s.now()
+	var lastSeen *time.Time
+	err := s.pool.QueryRow(ctx, `SELECT u.username,u.role,u.subject_id,u.display_name,s.csrf,s.expires_at,u.auth_version,u.admin_class,s.last_seen_at FROM console_sessions s JOIN console_users u ON u.username=s.username AND u.role=s.role AND u.subject_id=s.subject_id AND u.auth_version=s.auth_version AND u.enabled WHERE s.token_hash=$1 AND s.role=$2 AND s.expires_at>$3`, tokenDigest(token), role, now).Scan(&v.User.Username, &v.User.Role, &v.User.ID, &v.User.Name, &v.CSRF, &v.Expires, &v.User.AuthVersion, &v.User.AdminClass, &lastSeen)
 	if err != nil {
 		return v, false
+	}
+	if idle := s.idleFor(role); idle > 0 {
+		if lastSeen != nil && now.Sub(*lastSeen) >= idle {
+			// Idle too long: end the session so a left-open console cannot be reused.
+			if _, err = s.pool.Exec(ctx, "DELETE FROM console_sessions WHERE token_hash=$1", tokenDigest(token)); err != nil {
+				slog.Error("idle session revocation failed")
+			}
+			return Session{}, false
+		}
+		// Record activity at most once a minute to keep the request path cheap.
+		if lastSeen == nil || now.Sub(*lastSeen) >= time.Minute {
+			if _, err = s.pool.Exec(ctx, "UPDATE console_sessions SET last_seen_at=$2 WHERE token_hash=$1 AND (last_seen_at IS NULL OR last_seen_at<$2)", tokenDigest(token), now); err != nil {
+				return Session{}, false
+			}
+		}
 	}
 	issuer, err := s.delegatedIssuer(ctx, token)
 	if err != nil {

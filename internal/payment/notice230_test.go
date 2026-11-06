@@ -6,7 +6,7 @@ import (
 	"goepay/internal/identity"
 	notice "goepay/internal/merchantnotice"
 	"goepay/internal/platform/jobs"
-	"goepay/internal/voiceconfig230"
+	"goepay/internal/voiceconfig"
 	"testing"
 	"time"
 )
@@ -57,19 +57,19 @@ func TestNotice230VoiceDoesNotQueueWhileDisabledOrAdoptHistoricalEvents(t *testi
 	if e != nil {
 		t.Fatal(e)
 	}
-	store, e := voiceconfig230.FromMaster(s.pool, master)
+	store, e := voiceconfig.FromMaster(s.pool, master)
 	if e != nil {
 		t.Fatal(e)
 	}
-	actor := voiceconfig230.Actor{User: user, Token: token, CSRF: csrf}
-	v, e := store.Update(ctx, actor, voiceconfig230.Input{Action: "replace", AgentID: "agent230", Secret: "secret230"})
+	actor := voiceconfig.Actor{User: user, Token: token, CSRF: csrf}
+	v, e := store.Update(ctx, actor, voiceconfig.Input{Action: "replace", AgentID: "agent230", Secret: "secret230"})
 	if e != nil {
 		t.Fatal(e)
 	}
 	set := func(enabled bool) {
 		t.Helper()
 		var e error
-		v, e = store.Update(ctx, actor, voiceconfig230.Input{ExpectedRevision: v.Revision, Enabled: enabled, Action: "keep"})
+		v, e = store.Update(ctx, actor, voiceconfig.Input{ExpectedRevision: v.Revision, Enabled: enabled, Action: "keep"})
 		if e != nil {
 			t.Fatal(e)
 		}

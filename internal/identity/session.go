@@ -37,6 +37,21 @@ type Sessions struct {
 	items  map[string]Session
 	now    func() time.Time
 	Secure bool
+	// AdminIdle and MerchantIdle end a persistent session after this long
+	// without an authenticated request, before its 12-hour absolute expiry.
+	// Zero keeps only the absolute expiry.
+	AdminIdle, MerchantIdle time.Duration
+}
+
+// idleFor is the idle limit of a console role; zero means no idle expiry.
+func (s *Sessions) idleFor(role string) time.Duration {
+	switch role {
+	case "admin":
+		return s.AdminIdle
+	case "merchant":
+		return s.MerchantIdle
+	}
+	return 0
 }
 
 func NewSessions(secure bool) *Sessions {

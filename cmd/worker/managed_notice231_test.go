@@ -4,7 +4,7 @@ import (
 	"context"
 	"goepay/internal/businessnotice"
 	"goepay/internal/merchantnotice"
-	"goepay/internal/noticeconfig231"
+	"goepay/internal/noticeconfig"
 	"testing"
 )
 
@@ -12,12 +12,12 @@ func TestManagedNotice231AccountsNeverUseEnvironmentFallback(t *testing.T) {
 	runtime := &businessNoticeRuntime{getenv: func(k string) string { return "must-not-select-environment" }}
 	cases := []struct {
 		kind merchantnotice.Transport
-		c    noticeconfig231.Credential
+		c    noticeconfig.Credential
 		to   string
 	}{
-		{merchantnotice.Robot, noticeconfig231.Credential{AppID: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=local231", Phone: "13800138231"}, "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=local231"},
-		{merchantnotice.Telegram, noticeconfig231.Credential{AppID: "-100231", Secret: "123:synthetic231"}, "-100231"},
-		{merchantnotice.QQBot, noticeconfig231.Credential{AppID: "123231", Secret: "synthetic231", Recipient: "recipient231"}, "recipient231"},
+		{merchantnotice.Robot, noticeconfig.Credential{AppID: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=local231", Phone: "13800138231"}, "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=local231"},
+		{merchantnotice.Telegram, noticeconfig.Credential{AppID: "-100231", Secret: "123:synthetic231"}, "-100231"},
+		{merchantnotice.QQBot, noticeconfig.Credential{AppID: "123231", Secret: "synthetic231", Recipient: "recipient231"}, "recipient231"},
 	}
 	for _, c := range cases {
 		route, e := runtime.ResolveBusinessNotice(context.Background(), c.kind, businessnotice.Account{Managed231: true, Credential231: c.c})
@@ -34,8 +34,8 @@ func TestManagedNotice231AccountsNeverUseEnvironmentFallback(t *testing.T) {
 }
 
 func TestManagedNotice231ScopeBindsEffectiveRevision(t *testing.T) {
-	v := noticeconfig231.View{Enabled: true, Revision: 1}
-	c := noticeconfig231.Credential{AppID: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=local231"}
+	v := noticeconfig.View{Enabled: true, Revision: 1}
+	c := noticeconfig.Credential{AppID: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=local231"}
 	one, _, e := managedFactory231(nil, "robot", v, c, "stamp-one")
 	if e != nil {
 		t.Fatal(e)

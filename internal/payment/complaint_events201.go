@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"goepay/internal/platform/jobs"
-	"goepay/internal/refundevent201"
+	"goepay/internal/refundevent"
 )
 
 // captureComplaintEvent201 appends one merchant-subscription event for a
@@ -30,7 +30,7 @@ func (s *Store) captureComplaintEvent201(ctx context.Context, tx pgx.Tx, complai
 	if err != nil {
 		return err
 	}
-	return s.refundEvents201().CaptureComplaint(ctx, tx, refundevent201.ComplaintCapture{
+	return s.refundEvents201().CaptureComplaint(ctx, tx, refundevent.ComplaintCapture{
 		ComplaintID: complaintID, MerchantID: merchantID, State: state, Content: raw,
 	})
 }
@@ -50,7 +50,7 @@ func complaintEventJSON201(value any) ([]byte, error) {
 // verifyComplaintEvent201 re-proves the event against the live complaint row:
 // the complaint must exist, be owned by the event's merchant, and still be at or
 // past the event's reported state (the local_state never moves backward).
-func (s *Store) verifyComplaintEvent201(ctx context.Context, tx pgx.Tx, event refundevent201.ComplaintEvent) error {
+func (s *Store) verifyComplaintEvent201(ctx context.Context, tx pgx.Tx, event refundevent.ComplaintEvent) error {
 	var owner *int64
 	var liveState string
 	err := tx.QueryRow(ctx, `SELECT owner_id,local_state FROM complaints133 WHERE id=$1`, event.ComplaintID).Scan(&owner, &liveState)
@@ -58,20 +58,20 @@ func (s *Store) verifyComplaintEvent201(ctx context.Context, tx pgx.Tx, event re
 		return err
 	}
 	if owner == nil || *owner != event.MerchantID {
-		return refundevent201.ErrSource
+		return refundevent.ErrSource
 	}
 	rank := map[string]int{"open": 0, "processing": 1, "done": 2}
 	live, ok1 := rank[liveState]
 	ev, ok2 := rank[event.State]
 	if !ok1 || !ok2 || live < ev {
-		return refundevent201.ErrSource
+		return refundevent.ErrSource
 	}
 	return nil
 }
 
 func (s *Store) DeliverMerchantComplaintEvent201(ctx context.Context, j jobs.Job, key *rsa.PrivateKey, client *http.Client) error {
 	if s == nil || s.pool == nil {
-		return refundevent201.ErrSource
+		return refundevent.ErrSource
 	}
 	return s.refundEvents201().DeliverComplaint(ctx, j, key, client, s.verifyComplaintEvent201)
 }

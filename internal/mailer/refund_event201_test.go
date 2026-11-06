@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"goepay/internal/refundevent201"
+	"goepay/internal/refundevent"
 )
 
 type refundEventClosedSender201 interface {
-	SendRefundEventSubscriptionClosed(context.Context, string, refundevent201.NoticeMessage) error
+	SendRefundEventSubscriptionClosed(context.Context, string, refundevent.NoticeMessage) error
 }
 
 func TestRefundEvent201ClosedNoticeUsesVerifiedTLSAndRejectsUnsealedOrInjectedMailBeforeIO(t *testing.T) {
@@ -30,7 +30,7 @@ func TestRefundEvent201ClosedNoticeUsesVerifiedTLSAndRejectsUnsealedOrInjectedMa
 			if !ok {
 				t.Fatal("configured SMTP has no sealed refund subscription closure transport")
 			}
-			message, err := refundevent201.RenderClosedNotice("本地易支付201", "https://events.example.invalid/refund?local=201", "receiver acknowledgement missing", time.Date(2026, 10, 27, 1, 2, 3, 0, time.UTC))
+			message, err := refundevent.RenderClosedNotice("本地易支付201", "https://events.example.invalid/refund?local=201", "receiver acknowledgement missing", time.Date(2026, 10, 27, 1, 2, 3, 0, time.UTC))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -38,8 +38,8 @@ func TestRefundEvent201ClosedNoticeUsesVerifiedTLSAndRejectsUnsealedOrInjectedMa
 			changed.HTML = "<script>changed201</script>"
 			for _, item := range []struct {
 				to      string
-				message refundevent201.NoticeMessage
-			}{{"local@example.test", changed}, {"local@example.test", refundevent201.NoticeMessage{}}, {"local@example.test\r\nBcc:injected@example.test", message}} {
+				message refundevent.NoticeMessage
+			}{{"local@example.test", changed}, {"local@example.test", refundevent.NoticeMessage{}}, {"local@example.test\r\nBcc:injected@example.test", message}} {
 				if err = sender.SendRefundEventSubscriptionClosed(t.Context(), item.to, item.message); err == nil {
 					t.Fatal("unsafe closure notice accepted")
 				}

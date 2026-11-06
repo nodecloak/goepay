@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"goepay/internal/businesssms231"
-	"goepay/internal/noticeconfig231"
+	"goepay/internal/businesssms"
+	"goepay/internal/noticeconfig"
 )
 
 type RequestFacts struct {
@@ -23,8 +23,8 @@ type RequestFactsReader interface {
 	BusinessNoticeRequestFacts(context.Context, pgx.Tx, int64) (RequestFacts, error)
 }
 type Store struct {
-	accounts231 *noticeconfig231.Store
-	sms231      *businesssms231.Store
+	accounts231 *noticeconfig.Store
+	sms231      *businesssms.Store
 	pool        *pgxpool.Pool
 	aead        cipher.AEAD
 	macKey      []byte
@@ -49,11 +49,11 @@ func NewStore(pool *pgxpool.Pool, key []byte, reader RequestFactsReader) (*Store
 	if err != nil {
 		return nil, ErrInvalid
 	}
-	accounts, e := noticeconfig231.FromMaster(pool, key)
+	accounts, e := noticeconfig.FromMaster(pool, key)
 	if e != nil {
 		return nil, e
 	}
-	sms, e := businesssms231.FromMaster(pool, key)
+	sms, e := businesssms.FromMaster(pool, key)
 	if e != nil {
 		return nil, e
 	}

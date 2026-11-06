@@ -1,4 +1,5 @@
 import QRCode from "qrcode";
+import { localizeServerMessage } from "./server-messages";
 export interface CollectionLayout {
   name: string;
   label: string;
@@ -315,7 +316,11 @@ export async function uploadCollectionBackground(
   if (response.status === 401) client.onUnauthorized?.();
   const out = await response.json();
   if (!response.ok || out.code !== 0)
-    throw Error(out.message || "背景图上传失败");
+    throw Error(
+      out.message
+        ? localizeServerMessage(String(out.message), response.status)
+        : "背景图上传失败",
+    );
   const a = out.data;
   if (
     !a ||

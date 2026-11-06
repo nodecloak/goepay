@@ -1,9 +1,12 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { beforeAll, afterEach, expect, it, vi } from "vitest";
 import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
 import { createMemoryHistory, createRouter } from "vue-router";
 import App from "../src/App.vue";
 import { kycInfo233 } from "./fixtures/kyc233";
 import site from "../e2e/fixtures/site191-http.json";
+import { preloadAppPages } from "./app-pages";
+
+beforeAll(preloadAppPages);
 const mounted: VueWrapper[] = [];
 const response = (data: unknown, status = 200) =>
   new Response(

@@ -9,16 +9,16 @@ import (
 	"strings"
 
 	"goepay/internal/identity"
-	"goepay/internal/refundevent201"
+	"goepay/internal/refundevent"
 )
 
 func refundEventAccountError201(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, identity.ErrOriginalMerchantSession):
 		response(w, 403, -1, "original merchant session required", nil)
-	case errors.Is(err, refundevent201.ErrConflict):
+	case errors.Is(err, refundevent.ErrConflict):
 		response(w, 409, -1, "event subscription changed; refresh before saving", nil)
-	case errors.Is(err, refundevent201.ErrInvalid):
+	case errors.Is(err, refundevent.ErrInvalid):
 		response(w, 422, -1, "invalid event URL or event types", nil)
 	default:
 		response(w, 503, -1, "event subscription could not be confirmed", nil)

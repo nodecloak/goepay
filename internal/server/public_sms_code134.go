@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"goepay/internal/smsgateway134"
-	"goepay/internal/verifycode134"
+	"goepay/internal/smsgateway"
+	"goepay/internal/verifycode"
 )
 
 // publicSMSCode134 is the SMS half of the original register / find-password /
@@ -92,15 +92,15 @@ func (s *Server) publicSMSCode134(w http.ResponseWriter, r *http.Request) bool {
 	if net.ParseIP(source) == nil {
 		source = ""
 	}
-	store := smsgateway134.New(s.Pool, s.CheckoutKey)
+	store := smsgateway.New(s.Pool, s.CheckoutKey)
 	sender, e := s.smsActiveSender(r.Context(), store)
 	if e != nil {
 		// Gateway off / unmanaged / unconfigured: inert, nothing issued.
 		response(w, 503, -1, "sms verification is not enabled", nil)
 		return true
 	}
-	codes := verifycode134.New(s.Pool)
-	e = codes.IssueWithSender(r.Context(), verifycode134.Issue{Scene: scene, Type: 1, Recipient: in.Phone, IP: source},
+	codes := verifycode.New(s.Pool)
+	e = codes.IssueWithSender(r.Context(), verifycode.Issue{Scene: scene, Type: 1, Recipient: in.Phone, IP: source},
 		func(code string) error {
 			sendCtx, cancel := context.WithTimeout(r.Context(), 12*time.Second)
 			defer cancel()
@@ -109,11 +109,11 @@ func (s *Server) publicSMSCode134(w http.ResponseWriter, r *http.Request) bool {
 	switch {
 	case e == nil:
 		response(w, 202, 0, "verification requested", nil)
-	case errors.Is(e, verifycode134.ErrTooSoon):
+	case errors.Is(e, verifycode.ErrTooSoon):
 		response(w, 429, -1, "两次发送短信之间需要相隔60秒", nil)
-	case errors.Is(e, verifycode134.ErrRecipLim):
+	case errors.Is(e, verifycode.ErrRecipLim):
 		response(w, 429, -1, "该手机号码发送次数过多", nil)
-	case errors.Is(e, verifycode134.ErrIPLim):
+	case errors.Is(e, verifycode.ErrIPLim):
 		response(w, 429, -1, "你今天发送次数过多，请稍后再试", nil)
 	default:
 		// A send failure / unconfirmed reply: nothing was persisted.

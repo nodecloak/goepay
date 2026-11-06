@@ -27,7 +27,7 @@ func TestParentChannel180ActualHTTPCallbackRestoresNewParentOriginalAccountEvenW
 		t.Fatal(w.Code)
 	}
 	f.s.ProviderFlow.AllowLive = false
-	callback := map[string]string{"return_code": "SUCCESS", "result_code": "SUCCESS", "appid": "synthetic180-fresh", "mch_id": "synthetic180-fresh-mch", "out_trade_no": order.TradeNo, "transaction_id": "WX180_" + order.TradeNo, "total_fee": "10000", "trade_type": "NATIVE", "openid": "synthetic180-buyer"}
+	callback := map[string]string{"return_code": "SUCCESS", "result_code": "SUCCESS", "appid": "synthetic180-fresh", "mch_id": "synthetic180-fresh-mch", "out_trade_no": order.TradeNo, "transaction_id": "W180" + order.TradeNo, "total_fee": "10000", "trade_type": "NATIVE", "openid": "synthetic180-buyer"}
 	send := func(key string) int {
 		r := httptest.NewRequest("POST", "/callbacks/providers/"+setup.id+"/"+order.TradeNo, bytes.NewReader(parent180SignedXML(callback, key)))
 		r.Header.Set("Content-Type", "application/xml")

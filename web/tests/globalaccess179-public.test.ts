@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { beforeAll, afterEach, expect, it, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import App from "../src/App.vue";
@@ -11,6 +11,9 @@ import {
   platformMerchantAccessBody,
   fetchPublicMerchantAccess,
 } from "../src/platform-merchant-access";
+import { preloadAppPages } from "./app-pages";
+
+beforeAll(preloadAppPages);
 afterEach(() => vi.unstubAllGlobals());
 it("shows actual platform closure on personal controls and preserves their stored values", async () => {
   vi.stubGlobal(

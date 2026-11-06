@@ -295,9 +295,9 @@ func TestParentChannel180ActualTLSAlipayAndWechatV3UseCurrentForNewAndOriginalFo
 					case "create":
 						out = map[string]any{"code_url": "weixin://wxpay/bizpayurl?pr=synthetic180-v3"}
 					case "query":
-						out = map[string]any{"appid": "parent180-app", "mchid": "parent180-mch", "out_trade_no": trade, "transaction_id": "WX180_" + trade, "trade_state": "SUCCESS", "amount": map[string]any{"total": 10000, "currency": "CNY"}, "payer": map[string]string{"openid": "synthetic180-buyer"}}
+						out = map[string]any{"appid": "parent180-app", "mchid": "parent180-mch", "out_trade_no": trade, "transaction_id": "W180" + trade, "trade_state": "SUCCESS", "amount": map[string]any{"total": 10000, "currency": "CNY"}, "payer": map[string]string{"openid": "synthetic180-buyer"}}
 					case "refund":
-						out = map[string]any{"out_trade_no": trade, "transaction_id": "WX180_" + trade, "out_refund_no": biz["out_refund_no"], "refund_id": "REFUND180", "status": "SUCCESS", "amount": map[string]any{"refund": 1000, "total": 10000, "currency": "CNY"}}
+						out = map[string]any{"out_trade_no": trade, "transaction_id": "W180" + trade, "out_refund_no": biz["out_refund_no"], "refund_id": "REFUND180", "status": "SUCCESS", "amount": map[string]any{"refund": 1000, "total": 10000, "currency": "CNY"}}
 					default:
 						bad.Add(1)
 						w.WriteHeader(404)

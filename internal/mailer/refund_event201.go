@@ -8,12 +8,12 @@ import (
 	"mime/multipart"
 	"time"
 
-	"goepay/internal/refundevent201"
+	"goepay/internal/refundevent"
 )
 
 // The durable closure claim must precede this transport. A final SMTP DATA
 // acceptance is submission to the configured server, not mailbox delivery.
-func (s *SMTP) SendRefundEventSubscriptionClosed(ctx context.Context, to string, message refundevent201.NoticeMessage) error {
+func (s *SMTP) SendRefundEventSubscriptionClosed(ctx context.Context, to string, message refundevent.NoticeMessage) error {
 	if s == nil || ctx == nil || ctx.Err() != nil || !message.Valid() || s.ValidateNoticeRecipient(to) != nil {
 		return ErrSMTP
 	}
@@ -27,4 +27,4 @@ func (s *SMTP) SendRefundEventSubscriptionClosed(ctx context.Context, to string,
 	return s.send(ctx, to, append([]byte(header), body.Bytes()...))
 }
 
-var _ refundevent201.NoticeSender = (*SMTP)(nil)
+var _ refundevent.NoticeSender = (*SMTP)(nil)

@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"goepay/internal/compat"
-	"goepay/internal/paymentdefend206"
+	"goepay/internal/paymentdefend"
 )
 
 // These providers are in-process test doubles. The first request creates only
@@ -19,7 +19,7 @@ func TestPaymentDefend206OAuthContinuationCannotBypassLaterPolicy(t *testing.T) 
 		t.Run(kind, func(t *testing.T) {
 			f, factory, _ := subchannel168BProductLocal(t)
 			var err error
-			f.s.PaymentDefend206, err = paymentdefend206.NewStore(f.p, make([]byte, 32))
+			f.s.PaymentDefend206, err = paymentdefend.NewStore(f.p, make([]byte, 32))
 			if err != nil {
 				t.Fatal(err)
 			}

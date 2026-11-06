@@ -39,10 +39,20 @@ func main() {
 }
 func run() error {
 	if len(os.Args) != 2 {
-		return fmt.Errorf("usage: cli migrate|seed-admin|seed-local|reconcile|check-channels|verify-update|build-info")
+		return fmt.Errorf("usage: cli migrate|seed-admin|seed-local|reconcile|check-channels|seal-channels|gen-platform-key|verify-update|build-info")
 	}
 	if os.Args[1] == "build-info" {
 		return json.NewEncoder(os.Stdout).Encode(systemupdate.RuntimeBuild(0))
+	}
+	if os.Args[1] == "seal-channels" {
+		key, e := masterKeyFromEnvironment()
+		if e != nil {
+			return e
+		}
+		return sealChannels(os.Stdin, os.Stdout, os.Stderr, key)
+	}
+	if os.Args[1] == "gen-platform-key" {
+		return generatePlatformKey(os.Getenv("GOEPAY_PLATFORM_PRIVATE_KEY_FILE"), os.Stdout)
 	}
 	if os.Args[1] == "check-channels" {
 		key, e := hex.DecodeString(os.Getenv("GOEPAY_MASTER_KEY"))
@@ -69,7 +79,14 @@ func run() error {
 		rows := []map[string]any{}
 		for _, id := range ids {
 			p := clients[id]
-			rows = append(rows, map[string]any{"id": id, "plugin": p.ID(), "capabilities": p.Capabilities(), "live_operations_enabled": false})
+			capabilities := p.Capabilities()
+			// Without refund query support an unknown refund outcome cannot be
+			// reconciled automatically; it stays reserved until checked upstream.
+			reconciliation := "automatic"
+			if capabilities.Refund && !capabilities.RefundQuery {
+				reconciliation = "manual"
+			}
+			rows = append(rows, map[string]any{"id": id, "plugin": p.ID(), "capabilities": capabilities, "unknown_refund_reconciliation": reconciliation, "live_operations_enabled": false})
 		}
 		return json.NewEncoder(os.Stdout).Encode(rows)
 	}
@@ -91,7 +108,14 @@ func run() error {
 			return e
 		}
 		if created {
+			// A new installation starts with merchant API-key console login off:
+			// a leaked V1 signing key must not double as a console password.
+			// Super administrators can enable it under platform settings.
+			if _, e = store.InitializePlatformMerchantAccess(ctx, identity.User{ID: 1, Username: "admin"}, "1", "1"); e != nil {
+				return fmt.Errorf("initialize merchant access defaults: %w", e)
+			}
 			fmt.Println("Migration administrator initialized; no merchant or financial data was created.")
+			fmt.Println("Merchant API-key console login is disabled by default; enable it in platform settings only if merchants need it.")
 		} else {
 			fmt.Println("Existing administrator preserved; credentials were not changed.")
 		}

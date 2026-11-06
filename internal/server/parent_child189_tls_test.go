@@ -285,22 +285,36 @@ func TestParentChild189ActualHTTPCallbackAuthenticatesOriginalChildAfterParentRo
 	setup, _, child := child189Setup(t)
 	child189Pay(t, setup.f, child["id"].(string), "child189-http-original")
 	order, err := setup.f.s.Store.Order(t.Context(), 1, "child189-http-original")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	parent180RotateOutgoing(t, setup)
 	read := parent180HTTP(setup.f, "GET", "/"+setup.id, "")
 	var state struct{ Data map[string]any }
-	if read.Code != 200 || json.Unmarshal(read.Body.Bytes(), &state) != nil { t.Fatal("current parent unavailable") }
-	body, _ := json.Marshal(map[string]any{"expected_fingerprint":state.Data["fingerprint"], "enabled":false})
-	if w := parent180HTTP(setup.f, "PATCH", "/"+setup.id, string(body)); w.Code != 200 { t.Fatal("disable failed", w.Code) }
+	if read.Code != 200 || json.Unmarshal(read.Body.Bytes(), &state) != nil {
+		t.Fatal("current parent unavailable")
+	}
+	body, _ := json.Marshal(map[string]any{"expected_fingerprint": state.Data["fingerprint"], "enabled": false})
+	if w := parent180HTTP(setup.f, "PATCH", "/"+setup.id, string(body)); w.Code != 200 {
+		t.Fatal("disable failed", w.Code)
+	}
 	setup.f.s.ProviderFlow.AllowLive = false
-	callback := map[string]string{"return_code":"SUCCESS", "result_code":"SUCCESS", "appid":"child189-A", "mch_id":"child189-merchant-A", "out_trade_no":order.TradeNo, "transaction_id":"WX180_"+order.TradeNo, "total_fee":"10000", "trade_type":"NATIVE", "openid":"synthetic189-buyer"}
+	callback := map[string]string{"return_code": "SUCCESS", "result_code": "SUCCESS", "appid": "child189-A", "mch_id": "child189-merchant-A", "out_trade_no": order.TradeNo, "transaction_id": "W180" + order.TradeNo, "total_fee": "10000", "trade_type": "NATIVE", "openid": "synthetic189-buyer"}
 	send := func(key string) int {
 		r := httptest.NewRequest("POST", "/callbacks/providers/"+setup.id+"/"+order.TradeNo, bytes.NewReader(parent180SignedXML(callback, key)))
 		r.Header.Set("Content-Type", "application/xml")
-		w := httptest.NewRecorder(); setup.f.s.Handler().ServeHTTP(w, r); return w.Code
+		w := httptest.NewRecorder()
+		setup.f.s.Handler().ServeHTTP(w, r)
+		return w.Code
 	}
-	if status := send(setup.keyB); status != 400 { t.Fatal("latest parent key authenticated original child", status) }
-	if status := send("abcdef0123456789abcdef0123456789"); status != 200 { t.Fatal("original child callback could not recover", status) }
+	if status := send(setup.keyB); status != 400 {
+		t.Fatal("latest parent key authenticated original child", status)
+	}
+	if status := send("abcdef0123456789abcdef0123456789"); status != 200 {
+		t.Fatal("original child callback could not recover", status)
+	}
 	paid, err := setup.f.s.Store.Order(t.Context(), 1, order.OutTradeNo)
-	if err != nil || paid.Status != "paid" || setup.creates.Load() != 1 || setup.bad.Load() != 0 { t.Fatal("callback did not settle original child", err, paid.Status) }
+	if err != nil || paid.Status != "paid" || setup.creates.Load() != 1 || setup.bad.Load() != 0 {
+		t.Fatal("callback did not settle original child", err, paid.Status)
+	}
 }

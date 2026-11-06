@@ -44,13 +44,24 @@ it.each([
   },
 );
 it.each([
-  [500, "original merchant session required"],
-  [403, "unrecognized server reason"],
-])("preserves unrelated server errors (%s)", (status, message) => {
-  expect(new ApiError(String(message), Number(status), -1).message).toBe(
-    message,
-  );
-});
+  [
+    500,
+    "original merchant session required",
+    "该功能需要商户本人登录，请使用商户账号登录后操作。",
+  ],
+  [
+    403,
+    "unrecognized server reason",
+    "没有权限执行此操作（unrecognized server reason）",
+  ],
+])(
+  "shows Chinese for server errors and keeps the original reason (%s)",
+  (status, message, shown) => {
+    const error = new ApiError(String(message), Number(status), -1);
+    expect(error.message).toBe(shown);
+    expect(error.serverMessage).toBe(message);
+  },
+);
 it("retains unauthorized-session invalidation independently of the owner explanation", async () => {
   vi.stubGlobal(
     "fetch",
@@ -68,7 +79,8 @@ it("retains unauthorized-session invalidation independently of the owner explana
   client.onUnauthorized = vi.fn();
   await expect(client.request("/session")).rejects.toMatchObject({
     status: 401,
-    message: "authentication required",
+    message: "请先登录",
+    serverMessage: "authentication required",
   });
   expect(client.csrfToken).toBe("");
   expect(client.onUnauthorized).toHaveBeenCalledTimes(1);

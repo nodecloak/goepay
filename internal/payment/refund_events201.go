@@ -14,11 +14,11 @@ import (
 	"goepay/internal/identity"
 	"goepay/internal/ledger"
 	"goepay/internal/platform/jobs"
-	"goepay/internal/refundevent201"
+	"goepay/internal/refundevent"
 )
 
-func (s *Store) refundEvents201() *refundevent201.Store {
-	return refundevent201.New(s.pool, s.indexKey)
+func (s *Store) refundEvents201() *refundevent.Store {
+	return refundevent.New(s.pool, s.indexKey)
 }
 
 func (s *Store) refundEventActor201(ctx context.Context, tx pgx.Tx, a MerchantRSAActor) error {
@@ -33,20 +33,20 @@ func (s *Store) refundEventActor201(ctx context.Context, tx pgx.Tx, a MerchantRS
 	if err = identity.CheckOriginalMerchantSessionTx(ctx, tx, a.User, a.Token, a.CSRF); err != nil {
 		return err
 	}
-	ready, err := refundevent201.Ready(ctx, tx)
+	ready, err := refundevent.Ready(ctx, tx)
 	if err != nil {
 		return err
 	}
 	if !ready {
-		return refundevent201.ErrSource
+		return refundevent.ErrSource
 	}
 	return nil
 }
 
-func (s *Store) MerchantRefundEventSubscription201(ctx context.Context, a MerchantRSAActor) (refundevent201.View, error) {
-	var out refundevent201.View
+func (s *Store) MerchantRefundEventSubscription201(ctx context.Context, a MerchantRSAActor) (refundevent.View, error) {
+	var out refundevent.View
 	if s == nil || s.pool == nil {
-		return out, refundevent201.ErrSource
+		return out, refundevent.ErrSource
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -62,10 +62,10 @@ func (s *Store) MerchantRefundEventSubscription201(ctx context.Context, a Mercha
 	return out, tx.Commit(ctx)
 }
 
-func (s *Store) UpdateMerchantRefundEventSubscription201(ctx context.Context, a MerchantRSAActor, endpoint string, types []string, expected string) (refundevent201.View, error) {
-	var out refundevent201.View
+func (s *Store) UpdateMerchantRefundEventSubscription201(ctx context.Context, a MerchantRSAActor, endpoint string, types []string, expected string) (refundevent.View, error) {
+	var out refundevent.View
 	if s == nil || s.pool == nil {
-		return out, refundevent201.ErrSource
+		return out, refundevent.ErrSource
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -85,7 +85,7 @@ func (s *Store) UpdateMerchantRefundEventSubscription201(ctx context.Context, a 
 }
 
 func (s *Store) insertRefundWithOrigin201(ctx context.Context, tx pgx.Tx, mid, orderID int64, no string, amount, merchantAmount, feeAmount int64, access []refundAdmission179) (Refund, error) {
-	ready, err := refundevent201.Ready(ctx, tx)
+	ready, err := refundevent.Ready(ctx, tx)
 	if err != nil {
 		return Refund{}, err
 	}
@@ -103,12 +103,12 @@ func (s *Store) insertRefundWithOrigin201(ctx context.Context, tx pgx.Tx, mid, o
 	if err != nil || !ready {
 		return r, err
 	}
-	err = s.refundEvents201().RecordOrigin(ctx, tx, refundevent201.Origin{RefundID: r.ID, MerchantID: r.MerchantID, OrderID: r.OrderID, Amount: r.Amount, ExternalNo: r.RefundNo, Entry: entry})
+	err = s.refundEvents201().RecordOrigin(ctx, tx, refundevent.Origin{RefundID: r.ID, MerchantID: r.MerchantID, OrderID: r.OrderID, Amount: r.Amount, ExternalNo: r.RefundNo, Entry: entry})
 	return r, err
 }
 
-func (s *Store) refundOrigin201(ctx context.Context, tx pgx.Tx, r Refund) (refundevent201.Origin, []byte, error) {
-	var origin refundevent201.Origin
+func (s *Store) refundOrigin201(ctx context.Context, tx pgx.Tx, r Refund) (refundevent.Origin, []byte, error) {
+	var origin refundevent.Origin
 	var entry *string
 	if err := tx.QueryRow(ctx, `SELECT event_origin201 FROM refunds WHERE id=$1`, r.ID).Scan(&entry); err != nil {
 		return origin, nil, err
@@ -119,16 +119,16 @@ func (s *Store) refundOrigin201(ctx context.Context, tx pgx.Tx, r Refund) (refun
 			return origin, nil, err
 		}
 		if exists {
-			return origin, nil, refundevent201.ErrSource
+			return origin, nil, refundevent.ErrSource
 		}
 		return origin, nil, nil
 	}
-	origin = refundevent201.Origin{RefundID: r.ID, MerchantID: r.MerchantID, OrderID: r.OrderID, Amount: r.Amount, ExternalNo: r.RefundNo, Entry: *entry}
+	origin = refundevent.Origin{RefundID: r.ID, MerchantID: r.MerchantID, OrderID: r.OrderID, Amount: r.Amount, ExternalNo: r.RefundNo, Entry: *entry}
 	return s.refundEvents201().ReadOrigin(ctx, tx, origin)
 }
 
 func (s *Store) verifyRefundOrigin201(ctx context.Context, tx pgx.Tx, r Refund) error {
-	ready, err := refundevent201.Ready(ctx, tx)
+	ready, err := refundevent.Ready(ctx, tx)
 	if err != nil || !ready {
 		return err
 	}
@@ -140,7 +140,7 @@ func (s *Store) captureRefundEvent201(ctx context.Context, tx pgx.Tx, r Refund, 
 	if p.State != "succeeded" {
 		return nil
 	}
-	ready, err := refundevent201.Ready(ctx, tx)
+	ready, err := refundevent.Ready(ctx, tx)
 	if err != nil || !ready {
 		return err
 	}
@@ -189,13 +189,13 @@ func refundEventJSON201(value any) ([]byte, error) {
 	return bytes.TrimSuffix(out.Bytes(), []byte{'\n'}), nil
 }
 
-func (s *Store) verifyRefundEvent201(ctx context.Context, tx pgx.Tx, event refundevent201.Event) error {
+func (s *Store) verifyRefundEvent201(ctx context.Context, tx pgx.Tx, event refundevent.Event) error {
 	r, err := scanRefund(tx.QueryRow(ctx, `SELECT `+refundColumns+` FROM refunds WHERE id=$1`, event.RefundID))
 	if err != nil {
 		return err
 	}
 	if r.Status != "succeeded" || r.MerchantID != event.MerchantID || r.OrderID != event.OrderID {
-		return refundevent201.ErrSource
+		return refundevent.ErrSource
 	}
 	if err = s.verifyReferralRefundEvidence(ctx, tx, r); err != nil {
 		return err
@@ -208,27 +208,27 @@ func (s *Store) verifyRefundEvent201(ctx context.Context, tx pgx.Tx, event refun
 		return err
 	}
 	if origin.Entry != "platform" || event.OriginProof != hex.EncodeToString(proof) {
-		return refundevent201.ErrSource
+		return refundevent.ErrSource
 	}
 	if err = tx.QueryRow(ctx, `SELECT proof_hash FROM provider_refund_result_evidence WHERE refund_id=$1`, r.ID).Scan(&proof); err != nil {
 		return err
 	}
 	if event.ResultProof != hex.EncodeToString(proof) {
-		return refundevent201.ErrSource
+		return refundevent.ErrSource
 	}
 	return nil
 }
 
 func (s *Store) DeliverMerchantRefundEvent201(ctx context.Context, j jobs.Job, key *rsa.PrivateKey, client *http.Client) error {
 	if s == nil || s.pool == nil {
-		return refundevent201.ErrSource
+		return refundevent.ErrSource
 	}
 	return s.refundEvents201().Deliver(ctx, j, key, client, s.verifyRefundEvent201)
 }
 
-func (s *Store) DeliverMerchantRefundEventClosedNotice201(ctx context.Context, j jobs.Job, sender refundevent201.NoticeSender) error {
+func (s *Store) DeliverMerchantRefundEventClosedNotice201(ctx context.Context, j jobs.Job, sender refundevent.NoticeSender) error {
 	if s == nil || s.pool == nil {
-		return refundevent201.ErrSource
+		return refundevent.ErrSource
 	}
 	return s.refundEvents201().DeliverClosedNotice(ctx, j, sender, s.verifyRefundEvent201)
 }

@@ -8,8 +8,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/ledger"
-	"goepay/internal/noticesource231"
-	"goepay/internal/wxtransferlink231"
+	"goepay/internal/noticesource"
+	"goepay/internal/wxtransferlink"
 	"math/big"
 	"sort"
 	"strconv"
@@ -113,7 +113,7 @@ func (s *Store) recordComplaintNotices231(ctx context.Context, tx pgx.Tx, id, ch
 	for key, value := range params {
 		params[key] = noticePreview231(value, "请前往投诉详情核对", key == "content")
 	}
-	source, inserted, e := noticesource231.Insert(ctx, child, fmt.Sprintf("complaint:%d", id), noticesource231.Facts{Kind: "complain", MerchantID: mid, ReferenceID: id, ChannelID: ch, Params: params})
+	source, inserted, e := noticesource.Insert(ctx, child, fmt.Sprintf("complaint:%d", id), noticesource.Facts{Kind: "complain", MerchantID: mid, ReferenceID: id, ChannelID: ch, Params: params})
 	if e != nil || !inserted {
 		return
 	}
@@ -184,8 +184,8 @@ func (s *Store) recordChannelLimitNotice231(ctx context.Context, tx pgx.Tx, r pa
 		reasons = append(reasons, "今日成功笔数达到限额")
 	}
 	for _, reason := range reasons {
-		f := noticesource231.Facts{Kind: "channellimit", ReferenceID: r.OrderID, ChannelID: r.Channel, PolicyRevision: policy.Revision, Day: r.Day, Reason: reason, PolicyHash: hex.EncodeToString(policy.Proof), Params: map[string]string{"name": fmt.Sprintf("支付通道 %d", r.Channel), "id": fmt.Sprint(r.Channel), "reason": reason}}
-		source, inserted, err := noticesource231.Insert(ctx, child, fmt.Sprintf("limit:%d:%s:%d:%s", r.Channel, r.Day, policy.Revision, reason), f)
+		f := noticesource.Facts{Kind: "channellimit", ReferenceID: r.OrderID, ChannelID: r.Channel, PolicyRevision: policy.Revision, Day: r.Day, Reason: reason, PolicyHash: hex.EncodeToString(policy.Proof), Params: map[string]string{"name": fmt.Sprintf("支付通道 %d", r.Channel), "id": fmt.Sprint(r.Channel), "reason": reason}}
+		source, inserted, err := noticesource.Insert(ctx, child, fmt.Sprintf("limit:%d:%s:%d:%s", r.Channel, r.Day, policy.Revision, reason), f)
 		if err != nil {
 			return
 		}
@@ -223,13 +223,13 @@ func (s *Store) recordTransferConfirmNotice231(ctx context.Context, tx pgx.Tx, i
 		return
 	}
 	sum := sha256.Sum256([]byte(pkg))
-	f := noticesource231.Facts{Kind: "wxtransfer", MerchantID: t.MerchantID, ReferenceID: id, ChannelID: t.ChannelID, Recipient: t.Account, AppID: app.ApplicationID(), PackageHash: hex.EncodeToString(sum[:]), Params: map[string]string{"money": ledger.Format(t.Amount), "time": created.In(time.FixedZone("UTC+8", 28800)).Format("2006-01-02 15:04:05"), "confirm_path": wxtransferlink231.Path(s.confirmationKey231, id, created)}}
+	f := noticesource.Facts{Kind: "wxtransfer", MerchantID: t.MerchantID, ReferenceID: id, ChannelID: t.ChannelID, Recipient: t.Account, AppID: app.ApplicationID(), PackageHash: hex.EncodeToString(sum[:]), Params: map[string]string{"money": ledger.Format(t.Amount), "time": created.In(time.FixedZone("UTC+8", 28800)).Format("2006-01-02 15:04:05"), "confirm_path": wxtransferlink.Path(s.confirmationKey231, id, created)}}
 	stamp, e := s.notice.WechatTransferReady231(ctx, child)
 	if e != nil {
 		return
 	}
 	f.Params["wx_template231"] = stamp
-	source, inserted, e := noticesource231.Insert(ctx, child, fmt.Sprintf("wxtransfer:%d", id), f)
+	source, inserted, e := noticesource.Insert(ctx, child, fmt.Sprintf("wxtransfer:%d", id), f)
 	if e != nil || !inserted {
 		return
 	}

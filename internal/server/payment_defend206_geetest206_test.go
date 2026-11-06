@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"goepay/internal/captcha203"
+	"goepay/internal/captcha"
 )
 
 // controlledGeetest206 stands in for the remote gt4 validate endpoint.
@@ -20,16 +20,16 @@ type controlledGeetest206 struct {
 	down  atomic.Bool // remote validate unknown/unavailable
 }
 
-func (v *controlledGeetest206) Init(context.Context, captcha203.Config, string, string) (captcha203.Challenge, error) {
-	return captcha203.Challenge{}, captcha203.ErrUnavailable
+func (v *controlledGeetest206) Init(context.Context, captcha.Config, string, string) (captcha.Challenge, error) {
+	return captcha.Challenge{}, captcha.ErrUnavailable
 }
-func (v *controlledGeetest206) Verify(_ context.Context, c captcha203.Config, issued captcha203.Challenge, p captcha203.Proof, _ string) error {
+func (v *controlledGeetest206) Verify(_ context.Context, c captcha.Config, issued captcha.Challenge, p captcha.Proof, _ string) error {
 	v.calls.Add(1)
 	if v.down.Load() {
-		return captcha203.ErrUnavailable
+		return captcha.ErrUnavailable
 	}
 	if c.Version != 1 || issued.GT != c.ID || c.Key != strings.Repeat("b", 32) || p.CaptchaID != c.ID || p.PassToken != "controlled-pass206" || p.CaptchaOutput != "controlled-output206" {
-		return captcha203.ErrInvalid
+		return captcha.ErrInvalid
 	}
 	return nil
 }

@@ -22,6 +22,7 @@
 <ul>
 <li>须是本商户订单且原通道支持关闭；已付款订单不能按关单退钱，预授权也不通过本接口释放。</li>
 <li>成功返回 code=0 及 trade_no；<code>close outcome requires query</code> 返回 code=-1，意味着需核对原订单，不能断定关单成功或付款失败。</li>
+<li>以下 code=-1 是确定的拒绝，无需查询：<code>order already paid; close is not a refund</code>（订单已付款，请改用退款）、<code>close is not supported for this order's channel</code>（原通道不支持关单）、<code>provider operations are disabled</code>（平台未开启真实通道操作）、<code>order not found</code>。</li>
 <li>存在并发付款和通知时，以原订单支付证据及<a href="/doc/pay_query.html">订单查询</a>为准；关单不是退款。</li>
 </ul>
 <h2 id="返回参数说明">返回参数说明</h2>

@@ -1,16 +1,244 @@
 <script setup lang="ts">
-import {computed,nextTick,onBeforeUnmount,onMounted,ref,watch} from 'vue';
-import type {ApiClient} from '../api';
-import {parentChannelPath,readParentStatistics,type ParentDay} from '../parent-channels';
-const props=defineProps<{client:ApiClient;channelID:string;allowed:boolean}>();const emit=defineEmits<{close:[]}>();
-const rows=ref<ParentDay[]>([]),error=ref(''),loading=ref(false),modal=ref<HTMLElement>();let alive=true,epoch=0,abort:AbortController|undefined;const opener=document.activeElement instanceof HTMLElement?document.activeElement:undefined;
-const money=(value:string)=>BigInt(value.replace('.',''));const max=computed(()=>rows.value.reduce((n,row)=>money(row.realmoney)>n?money(row.realmoney):n,1n));
-function height(row:ParentDay){return Number(money(row.realmoney)*100n/max.value)+'%'}
-function foreground(){if(!props.allowed){emit('close');return false}return true}
-async function load(){const n=++epoch,c=props.client,csrf=c.csrfToken,id=props.channelID;rows.value=[];error.value='';abort?.abort();if(!foreground())return;abort=new AbortController();loading.value=true;try{const raw=await c.request(parentChannelPath(id)+'/statistics',{signal:abort.signal});if(alive&&n===epoch&&c===props.client&&csrf===c.csrfToken&&id===props.channelID)rows.value=readParentStatistics(raw,id).items}catch(e){if(alive&&n===epoch)error.value=e instanceof Error?e.message:'通道统计无法核实'}finally{if(alive&&n===epoch)loading.value=false}}
-function close(){emit('close');void nextTick(()=>opener?.isConnected&&opener.focus())}
-function keyboard(e:KeyboardEvent){if(e.key==='Escape'){e.preventDefault();close()}if(e.key==='Tab'){const nodes=modal.value?.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],[tabindex="0"]');if(nodes?.length){const first=nodes[0],last=nodes[nodes.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}}}
-watch(()=>[props.client,props.client.csrfToken,props.channelID,props.allowed],()=>{rows.value=[];void load()},{flush:'sync'});onMounted(()=>{void load();modal.value?.focus()});onBeforeUnmount(()=>{alive=false;++epoch;abort?.abort();rows.value=[]});
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
+import type { ApiClient } from "../api";
+import {
+  parentChannelPath,
+  readParentStatistics,
+  type ParentDay,
+} from "../parent-channels";
+const props = defineProps<{
+  client: ApiClient;
+  channelID: string;
+  allowed: boolean;
+}>();
+const emit = defineEmits<{ close: [] }>();
+const rows = ref<ParentDay[]>([]),
+  error = ref(""),
+  loading = ref(false),
+  modal = ref<HTMLElement>();
+let alive = true,
+  epoch = 0,
+  abort: AbortController | undefined;
+const opener =
+  document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : undefined;
+const money = (value: string) => BigInt(value.replace(".", ""));
+const max = computed(() =>
+  rows.value.reduce(
+    (n, row) => (money(row.realmoney) > n ? money(row.realmoney) : n),
+    1n,
+  ),
+);
+function height(row: ParentDay) {
+  return Number((money(row.realmoney) * 100n) / max.value) + "%";
+}
+function foreground() {
+  if (!props.allowed) {
+    emit("close");
+    return false;
+  }
+  return true;
+}
+async function load() {
+  const n = ++epoch,
+    c = props.client,
+    csrf = c.csrfToken,
+    id = props.channelID;
+  rows.value = [];
+  error.value = "";
+  abort?.abort();
+  if (!foreground()) return;
+  abort = new AbortController();
+  loading.value = true;
+  try {
+    const raw = await c.request(parentChannelPath(id) + "/statistics", {
+      signal: abort.signal,
+    });
+    if (
+      alive &&
+      n === epoch &&
+      c === props.client &&
+      csrf === c.csrfToken &&
+      id === props.channelID
+    )
+      rows.value = readParentStatistics(raw, id).items;
+  } catch (e) {
+    if (alive && n === epoch)
+      error.value = e instanceof Error ? e.message : "通道统计无法核实";
+  } finally {
+    if (alive && n === epoch) loading.value = false;
+  }
+}
+function close() {
+  emit("close");
+  void nextTick(() => opener?.isConnected && opener.focus());
+}
+function keyboard(e: KeyboardEvent) {
+  if (e.key === "Escape") {
+    e.preventDefault();
+    close();
+  }
+  if (e.key === "Tab") {
+    const nodes = modal.value?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]),a[href],[tabindex="0"]',
+    );
+    if (nodes?.length) {
+      const first = nodes[0],
+        last = nodes[nodes.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }
+}
+watch(
+  () => [props.client, props.client.csrfToken, props.channelID, props.allowed],
+  () => {
+    rows.value = [];
+    void load();
+  },
+  { flush: "sync" },
+);
+onMounted(() => {
+  void load();
+  modal.value?.focus();
+});
+onBeforeUnmount(() => {
+  alive = false;
+  ++epoch;
+  abort?.abort();
+  rows.value = [];
+});
 </script>
-<template><div class="modal-backdrop drawer-backdrop" @click.self="close"><section ref="modal" role="dialog" aria-modal="true" aria-label="通道统计" tabindex="-1" class="modal modal-drawer panel parent-stats" @keydown="keyboard"><div class="toolbar"><h3>通道 #{{channelID}} 统计</h3><button type="button" class="pa-icon-btn pa-icon-btn--ghost" aria-label="关闭" @click="close">×</button></div><div v-if="error" role="alert" class="alert error">{{error}}</div><p v-if="loading">正在读取原通道记录…</p><p class="muted">支付金额按实际收款日，订单及成功率按原订单创建日，退款按退款原申请日。成本与实际利润仍未知。</p><div v-if="rows.length" class="bars" aria-label="近七日实收金额趋势"><div v-for="row in rows" :key="row.day" class="bar-group"><span>{{row.realmoney}}</span><div class="bar-space"><div class="bar" :style="{height:height(row)}"/></div><small>{{row.day.slice(5)}}</small></div></div><div class="table-scroll"><table><thead><tr><th>日期</th><th>支付金额</th><th>退款金额</th><th>利润</th><th>总订单数</th><th>成功订单数</th><th>支付成功率</th></tr></thead><tbody><tr v-for="(row,index) in rows" :key="row.day"><td>{{row.day}}{{index===6?'（今日）':index===5?'（昨日）':''}}</td><td>{{row.realmoney}}</td><td>{{row.refundmoney}}</td><td>未知</td><td>{{row.orderCount}}</td><td>{{row.successCount}}</td><td>{{row.successRate===null?'—':row.successRate+'%'}}</td></tr></tbody></table></div></section></div></template>
-<style scoped>.parent-stats{--drawer-w:760px;overflow-wrap:anywhere}.parent-stats .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px}.table-scroll{overflow:auto}table{white-space:nowrap;width:100%}.bars{display:flex;gap:10px;min-width:280px;margin:20px 0}.bar-group{flex:1;text-align:center;font-size:11px;min-width:0}.bar-space{height:140px;display:flex;align-items:flex-end;justify-content:center}.bar{background:var(--primary);width:55%;min-height:1px;border-radius:3px 3px 0 0}.bar-group span{display:block;overflow:hidden;text-overflow:ellipsis}.bar-group small{display:block;margin-top:6px}</style>
+<template>
+  <div class="modal-backdrop drawer-backdrop" @click.self="close">
+    <section
+      ref="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="通道统计"
+      tabindex="-1"
+      class="modal modal-drawer panel parent-stats"
+      @keydown="keyboard"
+    >
+      <div class="toolbar">
+        <h3>通道 #{{ channelID }} 统计</h3>
+        <button
+          type="button"
+          class="pa-icon-btn pa-icon-btn--ghost"
+          aria-label="关闭"
+          @click="close"
+        >
+          ×
+        </button>
+      </div>
+      <div v-if="error" role="alert" class="alert error">{{ error }}</div>
+      <p v-if="loading">正在读取原通道记录…</p>
+      <p class="muted">
+        支付金额按实际收款日，订单及成功率按原订单创建日，退款按退款原申请日。通道成本尚未接入，因此不显示利润。
+      </p>
+      <div v-if="rows.length" class="bars" aria-label="近七日实收金额趋势">
+        <div v-for="row in rows" :key="row.day" class="bar-group">
+          <span>{{ row.realmoney }}</span>
+          <div class="bar-space">
+            <div class="bar" :style="{ height: height(row) }" />
+          </div>
+          <small>{{ row.day.slice(5) }}</small>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>支付金额</th>
+              <th>退款金额</th>
+              <th>总订单数</th>
+              <th>成功订单数</th>
+              <th>支付成功率</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, index) in rows" :key="row.day">
+              <td>
+                {{ row.day
+                }}{{ index === 6 ? "（今日）" : index === 5 ? "（昨日）" : "" }}
+              </td>
+              <td>{{ row.realmoney }}</td>
+              <td>{{ row.refundmoney }}</td>
+              <td>{{ row.orderCount }}</td>
+              <td>{{ row.successCount }}</td>
+              <td>
+                {{ row.successRate === null ? "—" : row.successRate + "%" }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</template>
+<style scoped>
+.parent-stats {
+  --drawer-w: 760px;
+  overflow-wrap: anywhere;
+}
+.parent-stats .toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.table-scroll {
+  overflow: auto;
+}
+table {
+  white-space: nowrap;
+  width: 100%;
+}
+.bars {
+  display: flex;
+  gap: 10px;
+  min-width: 280px;
+  margin: 20px 0;
+}
+.bar-group {
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  min-width: 0;
+}
+.bar-space {
+  height: 140px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.bar {
+  background: var(--primary);
+  width: 55%;
+  min-height: 1px;
+  border-radius: 3px 3px 0 0;
+}
+.bar-group span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bar-group small {
+  display: block;
+  margin-top: 6px;
+}
+</style>

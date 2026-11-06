@@ -70,7 +70,7 @@ function readFailure(e: unknown, fallback: string) {
     e.responseDecoded &&
     e.status === 403 &&
     e.code === -1 &&
-    e.message === "complaint feature disabled";
+    e.serverMessage === "complaint feature disabled";
   error.value = featureDisabled.value
     ? ""
     : e instanceof Error

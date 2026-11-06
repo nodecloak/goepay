@@ -1,5 +1,6 @@
 import type { ApiClient } from "./api";
 import builtinTemplateData from "./data/builtin-templates.json";
+import { localizeServerMessage } from "./server-messages";
 export type TemplateKind = "home" | "pay" | "qrpay";
 export type TemplateName = string;
 export interface TemplateField {
@@ -356,7 +357,11 @@ export async function uploadTemplateImage(
   }
   const body = await response.json();
   if (!response.ok || body.code !== 0)
-    throw new Error(body.message || "图片上传失败");
+    throw new Error(
+      body.message
+        ? localizeServerMessage(String(body.message), response.status)
+        : "图片上传失败",
+    );
   const a = object(body.data);
   if (
     !assetID.test(String(a.id)) ||
@@ -620,7 +625,9 @@ async function postTemplatePackage<T>(
   }
   if (!response.ok || body.code !== 0)
     throw new TemplateUploadError(
-      body.message || "模板包上传失败",
+      body.message
+        ? localizeServerMessage(body.message, response.status)
+        : "模板包上传失败",
       response.status,
     );
   return read(body.data);

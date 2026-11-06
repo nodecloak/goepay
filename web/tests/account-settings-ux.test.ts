@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
-import { it, expect, vi } from "vitest";
+import { beforeAll, it, expect, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import App from "../src/App.vue";
+import { preloadAppPages } from "./app-pages";
+
+beforeAll(preloadAppPages);
 
 it("merchant settings links to independent notice and printing pages and retains the own-login-log entry", async () => {
   vi.stubGlobal(

@@ -9,7 +9,6 @@ import (
 	"goepay/internal/ledger"
 	"goepay/internal/pagetemplate"
 	"goepay/internal/payment"
-	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -230,9 +229,13 @@ func (s *Server) miniLaunchCheckout(w http.ResponseWriter, r *http.Request, o pa
 		return true
 	}
 	if material.MaterialType == "urlscheme" && o.Type == "alipay" {
-		fmt.Fprintf(w, `<a href="%s">打开支付宝小程序</a>`, html.EscapeString(material.Material))
+		if href, ok := s.trustedLaunchURL(material.Material); ok {
+			renderCheckoutFragment(w, "launch", launchLink{Href: href, Text: "打开支付宝小程序"})
+		} else {
+			io.WriteString(w, "<p>小程序启动材料无效，请回到商户核对订单。</p>")
+		}
 	} else {
-		fmt.Fprintf(w, "<p>请由商户客户端使用以下参数打开可信微信小程序：</p><pre>%s</pre>", html.EscapeString(material.Material))
+		renderCheckoutFragment(w, "mini-params", material.Material)
 	}
 	io.WriteString(w, "<p>启动材料不代表付款成功；请在小程序完成身份授权和支付，结果以查单或可信异步通知为准。</p>"+tail)
 	return true

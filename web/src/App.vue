@@ -7,6 +7,7 @@ import {
 } from "./platform-merchant-access";
 import {
   computed,
+  defineAsyncComponent,
   ref,
   watch,
   onBeforeUnmount,
@@ -46,6 +47,7 @@ import {
   type Area,
 } from "./menu";
 import { setAdminPermissionCatalog } from "./admin-permission-context";
+import { localizeServerMessage } from "./server-messages";
 import ConsoleShell from "./components/ConsoleShell.vue";
 import ConsoleTopBarTools from "./components/ConsoleTopBarTools.vue";
 import ToastStack from "./components/ToastStack.vue";
@@ -58,61 +60,140 @@ const loginCaptchaRef205 = ref<InstanceType<typeof LoginCaptcha205> | null>(
 import { usePublicSite191 } from "./site191";
 const { site: publicSite191, reload: reloadPublicSite191 } = usePublicSite191();
 import DataTable from "./components/DataTable.vue";
-import LedgerRecordsTable from "./components/LedgerRecordsTable.vue";
+const LedgerRecordsTable = defineAsyncComponent(
+  () => import("./components/LedgerRecordsTable.vue"),
+);
 import { proListColumns } from "./pro-console-fields";
-import ResourcePage from "./components/ResourcePage.vue";
-import AnnouncementsPage from "./components/AnnouncementsPage.vue";
-import RichContent from "./components/RichContent.vue";
+// Pages load on demand: the login screen and console shell stay in the entry
+// chunk, while each page (and admin-only code) is fetched when first shown.
+const ResourcePage = defineAsyncComponent(
+  () => import("./components/ResourcePage.vue"),
+);
+const AnnouncementsPage = defineAsyncComponent(
+  () => import("./components/AnnouncementsPage.vue"),
+);
+const RichContent = defineAsyncComponent(
+  () => import("./components/RichContent.vue"),
+);
 import {
   publicAnnouncementLayout,
   type PublicAnnouncementLayout,
 } from "./announcement-layout";
-import SubchannelPage from "./components/SubchannelPage.vue";
-import RefundSummaryDialog from "./components/RefundSummaryDialog.vue";
-import OrderSummaryDialog from "./components/OrderSummaryDialog.vue";
-import LedgerSummaryDialog from "./components/LedgerSummaryDialog.vue";
+const SubchannelPage = defineAsyncComponent(
+  () => import("./components/SubchannelPage.vue"),
+);
+const RefundSummaryDialog = defineAsyncComponent(
+  () => import("./components/RefundSummaryDialog.vue"),
+);
+const RefundAttestationDialog = defineAsyncComponent(
+  () => import("./components/RefundAttestationDialog.vue"),
+);
+const OrderSummaryDialog = defineAsyncComponent(
+  () => import("./components/OrderSummaryDialog.vue"),
+);
+const LedgerSummaryDialog = defineAsyncComponent(
+  () => import("./components/LedgerSummaryDialog.vue"),
+);
 import { resourceFor, resourceEntryFor } from "./resources";
 import { reportFor } from "./reports";
-import ReportPage from "./components/ReportPage.vue";
+const ReportPage = defineAsyncComponent(
+  () => import("./components/ReportPage.vue"),
+);
 import { workflowFor } from "./workflows";
-import WorkflowPage from "./components/WorkflowPage.vue";
-import AccountPage from "./components/AccountPage.vue";
-import AdminLoginNameSettings245 from "./components/AdminLoginNameSettings245.vue";
-import MerchantAccountSettings from "./components/MerchantAccountSettings.vue";
-import OperationsPage from "./components/OperationsPage.vue";
-import SystemUpdatePage from "./components/SystemUpdatePage.vue";
-import TaskSchedulerPage from "./components/TaskSchedulerPage.vue";
+const WorkflowPage = defineAsyncComponent(
+  () => import("./components/WorkflowPage.vue"),
+);
+const AccountPage = defineAsyncComponent(
+  () => import("./components/AccountPage.vue"),
+);
+const AdminLoginNameSettings245 = defineAsyncComponent(
+  () => import("./components/AdminLoginNameSettings245.vue"),
+);
+const MerchantAccountSettings = defineAsyncComponent(
+  () => import("./components/MerchantAccountSettings.vue"),
+);
+const OperationsPage = defineAsyncComponent(
+  () => import("./components/OperationsPage.vue"),
+);
+const SystemUpdatePage = defineAsyncComponent(
+  () => import("./components/SystemUpdatePage.vue"),
+);
+const TaskSchedulerPage = defineAsyncComponent(
+  () => import("./components/TaskSchedulerPage.vue"),
+);
 import { operationPages } from "./operations";
-import TotpSettings from "./components/TotpSettings.vue";
-import CommercePage from "./components/CommercePage.vue";
+const TotpSettings = defineAsyncComponent(
+  () => import("./components/TotpSettings.vue"),
+);
+const CommercePage = defineAsyncComponent(
+  () => import("./components/CommercePage.vue"),
+);
 import { commerceFor } from "./commerce";
 import { unavailableReasons } from "./deferred";
-import OrderDetails from "./components/OrderDetails.vue";
-import MerchantOrderActionDialog from "./components/MerchantOrderActionDialog.vue";
+const OrderDetails = defineAsyncComponent(
+  () => import("./components/OrderDetails.vue"),
+);
+const MerchantOrderActionDialog = defineAsyncComponent(
+  () => import("./components/MerchantOrderActionDialog.vue"),
+);
 import type { MerchantOrderActionID } from "./order-actions";
-import AdminOrderActionDialog from "./components/AdminOrderActionDialog.vue";
+const AdminOrderActionDialog = defineAsyncComponent(
+  () => import("./components/AdminOrderActionDialog.vue"),
+);
 import type { OrderActionID, AdminOrderMenuActionID } from "./order-actions";
 import { merchantOrderActions } from "./order-actions";
 import { refundNotice } from "./order-operations";
 import { centsMoney } from "./settlement-terms";
 import { readHeldRefundFunding } from "./refund-funding";
-import TransferPage from "./components/TransferPage.vue";
-import GroupSalesPage from "./components/GroupSalesPage.vue";
-import SettingsPage from "./components/SettingsPage.vue";
-import MerchantCertification233 from "./components/MerchantCertification233.vue";
-import MigrationWizard234 from "./components/MigrationWizard234.vue";
-import InvitationCodesPage from "./components/InvitationCodesPage.vue";
-import CollectionStylesPage from "./components/CollectionStylesPage.vue";
-import CollectionGeneratorPage from "./components/CollectionGeneratorPage.vue";
-import MerchantScanPage192 from "./components/MerchantScanPage192.vue";
-import OrderBatchControls from "./components/OrderBatchControls.vue";
-import MerchantOrderBatchControls from "./components/MerchantOrderBatchControls.vue";
+const TransferPage = defineAsyncComponent(
+  () => import("./components/TransferPage.vue"),
+);
+const GroupSalesPage = defineAsyncComponent(
+  () => import("./components/GroupSalesPage.vue"),
+);
+const SettingsPage = defineAsyncComponent(
+  () => import("./components/SettingsPage.vue"),
+);
+const MerchantCertification233 = defineAsyncComponent(
+  () => import("./components/MerchantCertification233.vue"),
+);
+const MigrationWizard234 = defineAsyncComponent(
+  () => import("./components/MigrationWizard234.vue"),
+);
+const InvitationCodesPage = defineAsyncComponent(
+  () => import("./components/InvitationCodesPage.vue"),
+);
+const CollectionStylesPage = defineAsyncComponent(
+  () => import("./components/CollectionStylesPage.vue"),
+);
+const CollectionGeneratorPage = defineAsyncComponent(
+  () => import("./components/CollectionGeneratorPage.vue"),
+);
+const MerchantScanPage192 = defineAsyncComponent(
+  () => import("./components/MerchantScanPage192.vue"),
+);
+const OrderBatchControls = defineAsyncComponent(
+  () => import("./components/OrderBatchControls.vue"),
+);
+const MerchantOrderBatchControls = defineAsyncComponent(
+  () => import("./components/MerchantOrderBatchControls.vue"),
+);
 import AutoRefreshControl from "./components/AutoRefreshControl.vue";
-import OrderBlacklistDialog from "./components/OrderBlacklistDialog.vue";
-import DashboardOverview from "./components/DashboardOverview.vue";
-import TransferBatchPage from "./components/TransferBatchPage.vue";
-import RedpackPage from "./components/RedpackPage.vue";
-import SettlementBatchesPage from "./components/SettlementBatchesPage.vue";
+const OrderBlacklistDialog = defineAsyncComponent(
+  () => import("./components/OrderBlacklistDialog.vue"),
+);
+const DashboardOverview = defineAsyncComponent(
+  () => import("./components/DashboardOverview.vue"),
+);
+const TransferBatchPage = defineAsyncComponent(
+  () => import("./components/TransferBatchPage.vue"),
+);
+const RedpackPage = defineAsyncComponent(
+  () => import("./components/RedpackPage.vue"),
+);
+const SettlementBatchesPage = defineAsyncComponent(
+  () => import("./components/SettlementBatchesPage.vue"),
+);
 import ListFilters from "./components/ListFilters.vue";
 import KitPagination from "./components/KitPagination.vue";
 import KitField from "./components/KitField.vue";
@@ -126,29 +207,71 @@ import {
   readListRouteQuery,
 } from "./list-filters";
 import { usePayTypeOptions } from "./pay-type-options";
-import PublicEnrollment from "./components/PublicEnrollment.vue";
-import PublicTestPay203 from "./components/PublicTestPay203.vue";
+const PublicEnrollment = defineAsyncComponent(
+  () => import("./components/PublicEnrollment.vue"),
+);
+const PublicTestPay = defineAsyncComponent(
+  () => import("./components/PublicTestPay.vue"),
+);
 import CsvExportButton from "./components/CsvExportButton.vue";
 import ShellIcon from "./components/ShellIcon.vue";
-import PaymentPasswordSettings from "./components/PaymentPasswordSettings.vue";
-import FundsAuthorizationModal from "./components/FundsAuthorizationModal.vue";
-import SettlementRecipientPage from "./components/SettlementRecipientPage.vue";
-import IdentityLookupPage from "./components/IdentityLookupPage.vue";
-import ChannelSharingPage from "./components/ChannelSharingPage.vue";
-import ChannelSharingRuleList from "./components/ChannelSharingRuleList.vue";
-import AdminChannelSharingRules from "./components/AdminChannelSharingRules.vue";
-import ChannelSharingOrderList from "./components/ChannelSharingOrderList.vue";
-import ReferralPage from "./components/ReferralPage.vue";
-import ReferralPolicyPage from "./components/ReferralPolicyPage.vue";
-import SettlementPlansPage from "./components/SettlementPlansPage.vue";
-import PrintingSettingsPage from "./components/PrintingSettingsPage.vue";
-import MerchantNoticeSettings from "./components/MerchantNoticeSettings.vue";
-import LegacyRefundHistoryPanel from "./components/LegacyRefundHistoryPanel.vue";
-import TemplatePage from "./components/TemplatePage.vue";
-import AppStorePage from "./components/AppStorePage.vue";
-import LocalPluginManagement from "./components/LocalPluginManagement.vue";
-import SettlementSchedulePage from "./components/SettlementSchedulePage.vue";
-import ComplaintsPage from "./components/ComplaintsPage.vue";
+const PaymentPasswordSettings = defineAsyncComponent(
+  () => import("./components/PaymentPasswordSettings.vue"),
+);
+const FundsAuthorizationModal = defineAsyncComponent(
+  () => import("./components/FundsAuthorizationModal.vue"),
+);
+const SettlementRecipientPage = defineAsyncComponent(
+  () => import("./components/SettlementRecipientPage.vue"),
+);
+const IdentityLookupPage = defineAsyncComponent(
+  () => import("./components/IdentityLookupPage.vue"),
+);
+const ChannelSharingPage = defineAsyncComponent(
+  () => import("./components/ChannelSharingPage.vue"),
+);
+const ChannelSharingRuleList = defineAsyncComponent(
+  () => import("./components/ChannelSharingRuleList.vue"),
+);
+const AdminChannelSharingRules = defineAsyncComponent(
+  () => import("./components/AdminChannelSharingRules.vue"),
+);
+const ChannelSharingOrderList = defineAsyncComponent(
+  () => import("./components/ChannelSharingOrderList.vue"),
+);
+const ReferralPage = defineAsyncComponent(
+  () => import("./components/ReferralPage.vue"),
+);
+const ReferralPolicyPage = defineAsyncComponent(
+  () => import("./components/ReferralPolicyPage.vue"),
+);
+const SettlementPlansPage = defineAsyncComponent(
+  () => import("./components/SettlementPlansPage.vue"),
+);
+const PrintingSettingsPage = defineAsyncComponent(
+  () => import("./components/PrintingSettingsPage.vue"),
+);
+const MerchantNoticeSettings = defineAsyncComponent(
+  () => import("./components/MerchantNoticeSettings.vue"),
+);
+const LegacyRefundHistoryPanel = defineAsyncComponent(
+  () => import("./components/LegacyRefundHistoryPanel.vue"),
+);
+const TemplatePage = defineAsyncComponent(
+  () => import("./components/TemplatePage.vue"),
+);
+const AppStorePage = defineAsyncComponent(
+  () => import("./components/AppStorePage.vue"),
+);
+const LocalPluginManagement = defineAsyncComponent(
+  () => import("./components/LocalPluginManagement.vue"),
+);
+const SettlementSchedulePage = defineAsyncComponent(
+  () => import("./components/SettlementSchedulePage.vue"),
+);
+const ComplaintsPage = defineAsyncComponent(
+  () => import("./components/ComplaintsPage.vue"),
+);
 import { consumePromotionPrefill } from "./referral";
 const promotionPrefill = ref(consumePromotionPrefill());
 import {
@@ -247,6 +370,8 @@ async function closeEnrollment216() {
 }
 const listFilters = ref(freshListFilters());
 const refundSummaryQuery = ref<string | null>(null);
+// Refund closed by a super administrator's provider-verified attestation.
+const refundAttestationID = ref("");
 let refundSummaryReturn: HTMLElement | undefined;
 function openRefundSummary() {
   if (
@@ -576,7 +701,7 @@ async function submitConnectComplete() {
     }
     connectError.value =
       typeof envelope?.message === "string" && envelope.message
-        ? envelope.message
+        ? localizeServerMessage(envelope.message, r.status)
         : "绑定登录未成功，请核对商户ID与密钥后重试";
   } catch {
     connectError.value = "绑定登录结果无法确认，请稍后重试";
@@ -1281,6 +1406,11 @@ async function refundRecoveryRows212(rows: Record<string, unknown>[]) {
   }));
   const context = moneyPrincipal212.value;
   if (!context) return clean;
+  if (!clean.length) {
+    // No rows to match against saved refund intents: skip the digest.
+    refundListRecoveryError212.value = "";
+    return clean;
+  }
   try {
     const principal = await fundsScope212(context);
     if (context !== moneyPrincipal212.value) return clean;
@@ -1849,7 +1979,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <PublicTestPay203
+  <PublicTestPay
     v-if="publicTestPayEntry203"
     :fallback-site-name="publicSite191?.sitename"
   />
@@ -2774,6 +2904,13 @@ onBeforeUnmount(() => {
             :columns="columns"
             :orders="kind === 'orders'"
             :refunds="kind === 'refunds'"
+            :refund-attestation="
+              kind === 'refunds' &&
+              area === 'admin' &&
+              session?.user.admin_class === 'super' &&
+              !session?.delegated_by
+            "
+            @attest-refund="refundAttestationID = String($event.id)"
             :admin-orders="kind === 'orders' && area === 'admin'"
             :merchant-orders="kind === 'orders' && area === 'merchant'"
             :selectable="kind === 'orders'"
@@ -2818,6 +2955,15 @@ onBeforeUnmount(() => {
       /><template v-else>GOEPAY · 支付运营工作台</template>
     </footer>
     <template #overlays>
+      <RefundAttestationDialog
+        v-if="refundAttestationID && authorized && kind === 'refunds'"
+        :client="client"
+        :refund-id="refundAttestationID"
+        :own-session="!!session && !session.delegated_by"
+        :admin-class="session?.user.admin_class"
+        @close="refundAttestationID = ''"
+        @updated="load"
+      />
       <RefundSummaryDialog
         v-if="refundSummaryQuery !== null && authorized && kind === 'refunds'"
         :client="client"

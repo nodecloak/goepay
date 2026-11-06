@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	connect "goepay/internal/adapters/connectlogin"
 	"goepay/internal/connectconfig"
-	"goepay/internal/connectstate135"
+	"goepay/internal/connectstate"
 	"goepay/internal/identity"
 )
 
@@ -205,7 +205,7 @@ func (s *Server) accountBindingsConnectStart(w http.ResponseWriter, r *http.Requ
 		response(w, 503, -1, "该第三方快捷登录未开启", nil)
 		return true
 	}
-	states := connectstate135.New(s.Pool)
+	states := connectstate.New(s.Pool)
 	iss, e := states.Issue(r.Context(), provider, "bind", session.User.ID)
 	if e != nil {
 		response(w, 503, -1, "无法发起绑定", nil)
@@ -265,7 +265,7 @@ func (s *Server) publicConnectLogin(w http.ResponseWriter, r *http.Request) bool
 		response(w, 503, -1, "该第三方快捷登录未开启", nil)
 		return true
 	}
-	states := connectstate135.New(s.Pool)
+	states := connectstate.New(s.Pool)
 	switch action {
 	case "start":
 		if r.Method != "GET" {
@@ -389,7 +389,7 @@ func (s *Server) connectComplete(w http.ResponseWriter, r *http.Request) bool {
 	// Consume the single-use pending-connect FIRST: a wrong/expired/replayed
 	// state does nothing (and even a correct one is spent before we try the key,
 	// so a failed key attempt cannot be retried against the same state).
-	pending, e := connectstate135.New(s.Pool).ConsumePending(r.Context(), in["state"], browser)
+	pending, e := connectstate.New(s.Pool).ConsumePending(r.Context(), in["state"], browser)
 	if e != nil {
 		response(w, 403, -1, "绑定状态无效或已失效，请重新发起", nil)
 		return true
@@ -528,7 +528,7 @@ func (s *Server) connectLoginOpenID(w http.ResponseWriter, r *http.Request, prov
 	if e != nil || !enabled || username == "" {
 		// Unknown identity — never auto-login/register. Record a single-use
 		// pending-connect and land on the login page with the original prompt.
-		pending, pe := connectstate135.New(s.Pool).IssuePending(r.Context(), provider, openid, browser)
+		pending, pe := connectstate.New(s.Pool).IssuePending(r.Context(), provider, openid, browser)
 		if pe != nil {
 			response(w, 403, -1, "请输入商户ID和密钥完成绑定和登录", nil)
 			return true

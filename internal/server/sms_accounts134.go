@@ -11,7 +11,7 @@ import (
 
 	smsadapter "goepay/internal/adapters/sms"
 	"goepay/internal/identity"
-	"goepay/internal/smsgateway134"
+	"goepay/internal/smsgateway"
 )
 
 // newTestRequestID generates a RFC4122 v4 UUID matching the request_id CHECK on
@@ -48,15 +48,15 @@ func (s *Server) smsAccounts134(w http.ResponseWriter, r *http.Request, role str
 		response(w, 503, -1, "sms gateway unavailable", nil)
 		return true
 	}
-	store := smsgateway134.New(s.Pool, s.CheckoutKey)
-	actor := smsgateway134.Actor{User: session.User, Token: token, Delegated: session.Issuer != nil}
+	store := smsgateway.New(s.Pool, s.CheckoutKey)
+	actor := smsgateway.Actor{User: session.User, Token: token, Delegated: session.Issuer != nil}
 	fail := func(e error) {
 		switch {
 		case errors.Is(e, identity.ErrAdminSession):
 			response(w, 403, -1, "original super administrator session required", nil)
-		case errors.Is(e, smsgateway134.ErrConflict):
+		case errors.Is(e, smsgateway.ErrConflict):
 			response(w, 409, -1, "sms gateway changed; reload before confirming", nil)
-		case errors.Is(e, smsgateway134.ErrInvalid):
+		case errors.Is(e, smsgateway.ErrInvalid):
 			response(w, 422, -1, "invalid sms gateway fields", nil)
 		default:
 			response(w, 503, -1, "sms gateway source could not be confirmed", nil)
@@ -102,7 +102,7 @@ func (s *Server) smsAccounts134(w http.ResponseWriter, r *http.Request, role str
 			response(w, 400, -1, "exact sms gateway fields and current confirmation required", nil)
 			return true
 		}
-		in := smsgateway134.Input{Status: *input.Status, Expected: *input.Expected}
+		in := smsgateway.Input{Status: *input.Status, Expected: *input.Expected}
 		if input.Active != nil {
 			in.Active = *input.Active
 		}
@@ -112,7 +112,7 @@ func (s *Server) smsAccounts134(w http.ResponseWriter, r *http.Request, role str
 				response(w, 400, -1, "provider credentials required", nil)
 				return true
 			}
-			c := smsgateway134.Credentials{}
+			c := smsgateway.Credentials{}
 			str := func(p *string) string {
 				if p == nil {
 					return ""
@@ -142,7 +142,7 @@ func (s *Server) smsAccounts134(w http.ResponseWriter, r *http.Request, role str
 	return true
 }
 
-func (s *Server) smsTest134(w http.ResponseWriter, r *http.Request, store *smsgateway134.Store, actor smsgateway134.Actor, session identity.Session) bool {
+func (s *Server) smsTest134(w http.ResponseWriter, r *http.Request, store *smsgateway.Store, actor smsgateway.Actor, session identity.Session) bool {
 	if r.Method != "POST" {
 		response(w, 405, -1, "method not allowed", nil)
 		return true
@@ -218,7 +218,7 @@ func (s *Server) smsTest134(w http.ResponseWriter, r *http.Request, store *smsga
 
 // smsActiveSender builds the adapter for the active provider from sealed
 // credentials, inside a short read transaction.
-func (s *Server) smsActiveSender(ctx context.Context, store *smsgateway134.Store) (smsadapter.Sender, error) {
+func (s *Server) smsActiveSender(ctx context.Context, store *smsgateway.Store) (smsadapter.Sender, error) {
 	tx, e := s.Pool.Begin(ctx)
 	if e != nil {
 		return nil, e
@@ -239,7 +239,7 @@ func (s *Server) smsActiveSender(ctx context.Context, store *smsgateway134.Store
 	case "smsbao":
 		return smsadapter.SmsBao{User: creds.User, Pass: creds.Pass, Template: creds.Template, Sign: creds.Sign}, nil
 	default:
-		return nil, smsgateway134.ErrSource
+		return nil, smsgateway.ErrSource
 	}
 }
 

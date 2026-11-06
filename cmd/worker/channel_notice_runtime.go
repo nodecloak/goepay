@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"goepay/internal/noticeconfig231"
+	"goepay/internal/noticeconfig"
 	"goepay/internal/payment"
 	"sync"
 )
@@ -63,7 +63,7 @@ func (r *channelNoticeRuntime) Resolve(ctx context.Context) (payment.ChannelNoti
 		return r.getenv(key)
 	}
 	if source, ok := r.settings.(interface {
-		NoticeAccounts231() (*noticeconfig231.Store, error)
+		NoticeAccounts231() (*noticeconfig.Store, error)
 	}); ok {
 		if kind := riskKind231(getenv("GOEPAY_ADMIN_MSGCONFIG_RISK")); kind != "" {
 			config, e := source.NoticeAccounts231()

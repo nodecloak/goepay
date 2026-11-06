@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"goepay/internal/enrollment"
-	"goepay/internal/mailaccount195"
+	"goepay/internal/mailaccount"
 )
 
 func TestMailAccounts195ActualEnrollmentUnmanagedFallbackThenDisabledOrCorruptAccountDenies(t *testing.T) {
@@ -17,7 +17,7 @@ func TestMailAccounts195ActualEnrollmentUnmanagedFallbackThenDisabledOrCorruptAc
 	key := sha256.Sum256(append([]byte("checkout-signing:"), master...))
 	f.s.CheckoutKey = key[:]
 	var fallback atomic.Int32
-	resolver := &mailaccount195.Verification{Store: mailaccount195.FromMaster(f.p, master), Fallback: enrollment.SenderFunc(func(context.Context, string, string, string) error { fallback.Add(1); return nil })}
+	resolver := &mailaccount.Verification{Store: mailaccount.FromMaster(f.p, master), Fallback: enrollment.SenderFunc(func(context.Context, string, string, string) error { fallback.Add(1); return nil })}
 	service, e := enrollment.New(f.p, f.s.Store, master, resolver)
 	if e != nil {
 		t.Fatal(e)

@@ -1,7 +1,10 @@
-import { it, expect, vi } from "vitest";
+import { beforeAll, it, expect, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import App from "../src/App.vue";
+import { preloadAppPages } from "./app-pages";
+
+beforeAll(preloadAppPages);
 it("a delayed earlier administrator dashboard cannot replace a newly authenticated merchant overview", async () => {
   let release: () => void = () => {};
   const delayed = new Promise<void>((resolve) => {

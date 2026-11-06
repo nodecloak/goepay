@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"goepay/internal/compat"
-	"goepay/internal/paymentdefend206"
+	"goepay/internal/paymentdefend"
 )
 
 // defend206Continuation prepares an OAuth (web) or mini order under the
@@ -18,7 +18,7 @@ func defend206Continuation(t *testing.T, kind, no string, configure func(channel
 	t.Helper()
 	f, factory, _ := subchannel168BProductLocal(t)
 	var err error
-	f.s.PaymentDefend206, err = paymentdefend206.NewStore(f.p, make([]byte, 32))
+	f.s.PaymentDefend206, err = paymentdefend.NewStore(f.p, make([]byte, 32))
 	if err != nil {
 		t.Fatal(err)
 	}

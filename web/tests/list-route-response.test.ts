@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
-import { it, expect, vi } from "vitest";
+import { beforeAll, it, expect, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import App from "../src/App.vue";
+import { preloadAppPages } from "./app-pages";
+
+beforeAll(preloadAppPages);
 it("a late previous merchant list cannot replace a newer query on the same route", async () => {
   let release = () => {};
+  let lateRead = false;
   const pending = new Promise<void>((resolve) => {
     release = resolve;
   });
@@ -40,7 +44,18 @@ it("a late previous merchant list cannot replace a newer query on the same route
           total: 1,
         };
       }
-      return new Response(JSON.stringify({ code: 0, data }));
+      const response = new Response(JSON.stringify({ code: 0, data }));
+      if (u.searchParams.get("merchant_id") === "1") {
+        // Record when the client has actually read the late body, so the
+        // final assertions cannot pass merely because it was still in flight.
+        const read = response.json.bind(response);
+        response.json = async () => {
+          const value = await read();
+          lateRead = true;
+          return value;
+        };
+      }
+      return response;
     }),
   );
   const router = createRouter({
@@ -53,9 +68,11 @@ it("a late previous merchant list cannot replace a newer query on the same route
   try {
     await flushPromises();
     await router.push("/admin/trade/order?uid=2");
-    await flushPromises();
-    expect(w.text()).toContain("current-order-two");
+    // Order rows pass through a Web Crypto digest, which Node resolves on its
+    // thread pool: wait for the rows instead of assuming one flush suffices.
+    await vi.waitFor(() => expect(w.text()).toContain("current-order-two"));
     release();
+    await vi.waitFor(() => expect(lateRead).toBe(true));
     await flushPromises();
     expect(w.text()).toContain("current-order-two");
     expect(w.text()).not.toContain("late-order-one");

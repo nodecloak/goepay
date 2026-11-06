@@ -9,12 +9,12 @@ import (
 	"strings"
 
 	"goepay/internal/identity"
-	"goepay/internal/paymentdefend206"
+	"goepay/internal/paymentdefend"
 )
 
 // The caller resolves/injects the protected store. This handler does not add a
 // route, discover secrets, or grant a payment execution capability.
-func (s *Server) paymentDefendSettingsConsole206(w http.ResponseWriter, r *http.Request, role string, session identity.Session, parts []string, token string, store *paymentdefend206.Store) bool {
+func (s *Server) paymentDefendSettingsConsole206(w http.ResponseWriter, r *http.Request, role string, session identity.Session, parts []string, token string, store *paymentdefend.Store) bool {
 	if len(parts) < 3 || parts[1] != "settings" || parts[2] != "payment-defend" {
 		return false
 	}
@@ -44,8 +44,8 @@ func (s *Server) paymentDefendSettingsConsole206(w http.ResponseWriter, r *http.
 		response(w, 503, -1, "payment defend policy unavailable", nil)
 		return true
 	}
-	actor := paymentdefend206.Actor{User: session.User, Token: token, CSRF: r.Header.Get("X-CSRF-Token"), Delegated: session.Issuer != nil}
-	var view paymentdefend206.View
+	actor := paymentdefend.Actor{User: session.User, Token: token, CSRF: r.Header.Get("X-CSRF-Token"), Delegated: session.Issuer != nil}
+	var view paymentdefend.View
 	var err error
 	if r.Method == http.MethodGet {
 		view, err = store.Read(r.Context(), actor)
@@ -63,9 +63,9 @@ func (s *Server) paymentDefendSettingsConsole206(w http.ResponseWriter, r *http.
 	switch {
 	case errors.Is(err, identity.ErrAdminSession):
 		response(w, 403, -1, "original persistent super administrator session required", nil)
-	case errors.Is(err, paymentdefend206.ErrConflict):
+	case errors.Is(err, paymentdefend.ErrConflict):
 		response(w, 409, -1, "payment defend source or revision changed; reload before saving", nil)
-	case errors.Is(err, paymentdefend206.ErrInvalid):
+	case errors.Is(err, paymentdefend.ErrInvalid):
 		response(w, 422, -1, "invalid payment defend policy values", nil)
 	default:
 		response(w, 503, -1, "payment defend policy could not be confirmed", nil)
@@ -73,10 +73,10 @@ func (s *Server) paymentDefendSettingsConsole206(w http.ResponseWriter, r *http.
 	return true
 }
 
-func paymentDefendInput206(w http.ResponseWriter, r *http.Request) (paymentdefend206.Update, bool) {
-	fail := func() (paymentdefend206.Update, bool) {
+func paymentDefendInput206(w http.ResponseWriter, r *http.Request) (paymentdefend.Update, bool) {
+	fail := func() (paymentdefend.Update, bool) {
 		response(w, 400, -1, "exact payment defend policy JSON required", nil)
-		return paymentdefend206.Update{}, false
+		return paymentdefend.Update{}, false
 	}
 	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || media != "application/json" {
@@ -86,19 +86,19 @@ func paymentDefendInput206(w http.ResponseWriter, r *http.Request) (paymentdefen
 	if err != nil {
 		return fail()
 	}
-	var input paymentdefend206.Update
+	var input paymentdefend.Update
 	if json.Unmarshal(outer["expected_fingerprint"], &input.ExpectedFingerprint) != nil || len(input.ExpectedFingerprint) != 64 || strings.Trim(input.ExpectedFingerprint, "0123456789abcdef") != "" {
 		return fail()
 	}
 	names := make([]string, 0, 7)
-	for name := range paymentdefend206.Defaults() {
+	for name := range paymentdefend.Defaults() {
 		names = append(names, name)
 	}
 	settings, err := coreRiskObject(json.NewDecoder(strings.NewReader(string(outer["settings"]))), names)
 	if err != nil {
 		return fail()
 	}
-	input.Settings = paymentdefend206.Settings{}
+	input.Settings = paymentdefend.Settings{}
 	for name, raw := range settings {
 		var value string
 		if json.Unmarshal(raw, &value) != nil {
@@ -111,7 +111,7 @@ func paymentDefendInput206(w http.ResponseWriter, r *http.Request) (paymentdefen
 
 // GET/PATCH /settings/payment-defend/groups/{id}: original gedit.php
 // config[pay_verify]: empty inherits, "0" off, "1" by rules, "3" forced.
-func (s *Server) paymentDefendGroupConsole206(w http.ResponseWriter, r *http.Request, session identity.Session, rawID, token string, store *paymentdefend206.Store) {
+func (s *Server) paymentDefendGroupConsole206(w http.ResponseWriter, r *http.Request, session identity.Session, rawID, token string, store *paymentdefend.Store) {
 	id, err := strconv.ParseInt(rawID, 10, 64)
 	if err != nil || id < 0 || strconv.FormatInt(id, 10) != rawID {
 		response(w, 400, -1, "invalid payment defend group", nil)
@@ -130,14 +130,14 @@ func (s *Server) paymentDefendGroupConsole206(w http.ResponseWriter, r *http.Req
 		response(w, 503, -1, "payment defend policy unavailable", nil)
 		return
 	}
-	actor := paymentdefend206.Actor{User: session.User, Token: token, CSRF: r.Header.Get("X-CSRF-Token"), Delegated: session.Issuer != nil}
-	var view paymentdefend206.GroupView
+	actor := paymentdefend.Actor{User: session.User, Token: token, CSRF: r.Header.Get("X-CSRF-Token"), Delegated: session.Issuer != nil}
+	var view paymentdefend.GroupView
 	if r.Method == http.MethodGet {
 		view, err = store.GroupRead(r.Context(), actor, id)
 	} else {
 		media, _, merr := mime.ParseMediaType(r.Header.Get("Content-Type"))
 		fields, ferr := coreRiskObject(json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)), []string{"pay_verify", "expected_fingerprint"})
-		var in paymentdefend206.GroupUpdate
+		var in paymentdefend.GroupUpdate
 		if merr != nil || media != "application/json" || ferr != nil || json.Unmarshal(fields["pay_verify"], &in.PayVerify) != nil || json.Unmarshal(fields["expected_fingerprint"], &in.ExpectedFingerprint) != nil {
 			response(w, 400, -1, "exact payment defend group JSON required", nil)
 			return
@@ -149,11 +149,11 @@ func (s *Server) paymentDefendGroupConsole206(w http.ResponseWriter, r *http.Req
 		response(w, 200, 0, "", view)
 	case errors.Is(err, identity.ErrAdminSession):
 		response(w, 403, -1, "original persistent super administrator session required", nil)
-	case errors.Is(err, paymentdefend206.ErrNotFound):
+	case errors.Is(err, paymentdefend.ErrNotFound):
 		response(w, 404, -1, "group unavailable", nil)
-	case errors.Is(err, paymentdefend206.ErrConflict):
+	case errors.Is(err, paymentdefend.ErrConflict):
 		response(w, 409, -1, "payment defend group or policy changed; reload before saving", nil)
-	case errors.Is(err, paymentdefend206.ErrInvalid):
+	case errors.Is(err, paymentdefend.ErrInvalid):
 		response(w, 422, -1, "invalid payment defend group value", nil)
 	default:
 		response(w, 503, -1, "payment defend group could not be confirmed", nil)

@@ -242,7 +242,7 @@ func parent180RuntimeReady(t *testing.T) parent180Runtime {
 		}
 		trade := fields["out_trade_no"]
 		if fields["transaction_id"] != "" {
-			trade = strings.TrimPrefix(fields["transaction_id"], "WX180_")
+			trade = strings.TrimPrefix(fields["transaction_id"], "W180")
 		}
 		if fields["partner_trade_no"] != "" {
 			trade = fields["partner_trade_no"]
@@ -402,7 +402,7 @@ func parent180RuntimeReady(t *testing.T) parent180Runtime {
 			reply["payment_time"] = "2026-10-26 12:00:00"
 		case "/pay/micropay":
 			reply["out_trade_no"] = trade
-			reply["transaction_id"] = "WX180_" + trade
+			reply["transaction_id"] = "W180" + trade
 			reply["trade_type"] = "MICROPAY"
 			reply["total_fee"] = charge
 			reply["openid"] = "synthetic180-buyer"
@@ -419,7 +419,7 @@ func parent180RuntimeReady(t *testing.T) parent180Runtime {
 				reply["trade_type"] = "MICROPAY"
 			}
 			reply["out_trade_no"] = trade
-			reply["transaction_id"] = "WX180_" + trade
+			reply["transaction_id"] = "W180" + trade
 			reply["total_fee"] = charge
 			reply["fee_type"] = "CNY"
 		case "/secapi/pay/refund":

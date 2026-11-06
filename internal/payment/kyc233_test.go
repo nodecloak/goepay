@@ -8,7 +8,7 @@ import (
 	"errors"
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/channelconfig"
-	"goepay/internal/kyc233"
+	"goepay/internal/kyc"
 	"testing"
 )
 
@@ -86,16 +86,16 @@ func TestKYC233ForcedCertificationProtectsNewOrderAndFirstProviderSend(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := kyc233.New(s.pool, s.confirmationKey231, nil, nil, "https://synthetic.invalid")
+	service, err := kyc.New(s.pool, s.confirmationKey231, nil, nil, "https://synthetic.invalid")
 	if err != nil {
 		t.Fatal(err)
 	}
-	edits := map[string]kyc233.CredentialEdit{}
-	for _, k := range kyc233.CredentialKeys() {
-		edits[k] = kyc233.CredentialEdit{Action: "keep"}
+	edits := map[string]kyc.CredentialEdit{}
+	for _, k := range kyc.CredentialKeys() {
+		edits[k] = kyc.CredentialEdit{Action: "keep"}
 	}
-	edits["cert_appcode"] = kyc233.CredentialEdit{Action: "replace", Value: "synthetic-appcode"}
-	if _, err = service.UpdateConfig(ctx, kyc233.Actor{User: admin.User, Token: admin.Token, CSRF: admin.CSRF}, kyc233.ConfigInput{Mode: 2, Force: true, Money: "0.00", ChannelID: "0", Credentials: edits}); err != nil {
+	edits["cert_appcode"] = kyc.CredentialEdit{Action: "replace", Value: "synthetic-appcode"}
+	if _, err = service.UpdateConfig(ctx, kyc.Actor{User: admin.User, Token: admin.Token, CSRF: admin.CSRF}, kyc.ConfigInput{Mode: 2, Force: true, Money: "0.00", ChannelID: "0", Credentials: edits}); err != nil {
 		t.Fatal(err)
 	}
 	// The old generic profile must never be an authenticated certification.

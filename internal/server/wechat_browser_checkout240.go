@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"html"
+	"html/template"
 	"io"
 	"net/http"
 	"net/url"
@@ -48,7 +48,7 @@ func (s *Server) originalWechatBrowser240(ctx context.Context, o payment.Order, 
 }
 
 func checkoutQRImage240(w io.Writer, source, label string) {
-	fmt.Fprintf(w, `<img width="320" height="320" alt="%s" style="display:block;width:248px;max-width:100%%;height:auto;aspect-ratio:1;margin:18px auto;box-sizing:border-box" src="%s">`, html.EscapeString(label), html.EscapeString(source))
+	renderCheckoutFragment(w, "qr-image", struct{ Source, Label string }{source, label})
 }
 
 func (s *Server) wechatContinuationQR240(w http.ResponseWriter, r *http.Request, o payment.Order, a payment.ProviderAttempt) {
@@ -94,7 +94,7 @@ func (s *Server) renderWechatBrowser240(w http.ResponseWriter, r *http.Request, 
 	} else if !mobile {
 		io.WriteString(w, `<p>请使用手机扫描二维码，继续支付原订单。</p>`)
 		s.wechatContinuationImage240(w, r)
-		fmt.Fprintf(w, `<p><a href="%s">在当前设备继续支付</a></p>`, html.EscapeString(s.alipayBrowserLaunchURL239(r, o.TradeNo)))
+		renderCheckoutFragment(w, "link", struct{ Href, Text string }{s.alipayBrowserLaunchURL239(r, o.TradeNo), "在当前设备继续支付"})
 	} else {
 		switch a.Method {
 		case "h5":
@@ -107,7 +107,7 @@ func (s *Server) renderWechatBrowser240(w http.ResponseWriter, r *http.Request, 
 					io.WriteString(w, `<p>原支付链接暂不可用，请回到商户核对订单。</p>`)
 					break
 				}
-				fmt.Fprintf(w, `<p>正在前往微信支付。未自动打开时，请点击下方按钮。</p><a href="%s">微信支付</a>`, html.EscapeString(material))
+				renderCheckoutFragment(w, "jump", struct{ Lead, Href, Text string }{"正在前往微信支付。未自动打开时，请点击下方按钮。", material, "微信支付"})
 				target, _ := json.Marshal(material)
 				fmt.Fprintf(w, `<script nonce="%s">location.assign(%s);</script>`, nonce, target)
 			}
@@ -132,7 +132,15 @@ func (s *Server) renderWechatBrowser240(w http.ResponseWriter, r *http.Request, 
 			}
 			q := url.Values{"nonceStr": {p["noncestr"]}, "package": {p["package"]}, "partnerId": {p["partnerid"]}, "prepayId": {p["prepayid"]}, "timeStamp": {p["timestamp"]}, "sign": {p["sign"]}}
 			launch := "weixin://app/" + url.PathEscape(p["appid"]) + "/pay/?" + q.Encode()
-			fmt.Fprintf(w, `<p>请回到发起订单的应用完成支付；应用未自动打开时，可尝试下方入口。</p><a href="%s">打开微信支付</a>`, html.EscapeString(launch))
+			if href, ok := s.trustedLaunchURL(launch); ok {
+				renderCheckoutFragment(w, "jump", struct {
+					Lead string
+					Href template.URL
+					Text string
+				}{"请回到发起订单的应用完成支付；应用未自动打开时，可尝试下方入口。", href, "打开微信支付"})
+			} else {
+				io.WriteString(w, `<p>原应用支付信息暂不可用，请回到商户核对订单。</p>`)
+			}
 		}
 	}
 	s.checkoutStatusPoll239(w, r, o, nonce)

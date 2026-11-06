@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"goepay/internal/identity"
-	"goepay/internal/smsgateway134"
-	"goepay/internal/verifycode134"
+	"goepay/internal/smsgateway"
+	"goepay/internal/verifycode"
 )
 
 // Third-party login providers whose binding state the merchant can see and
@@ -83,7 +83,7 @@ func (s *Server) accountBindings(w http.ResponseWriter, r *http.Request, role st
 		// whether the UI should offer "修改绑定" for mobile).
 		smsReady := false
 		if len(s.CheckoutKey) == 32 {
-			if _, e := s.smsActiveSender(r.Context(), smsgateway134.New(s.Pool, s.CheckoutKey)); e == nil {
+			if _, e := s.smsActiveSender(r.Context(), smsgateway.New(s.Pool, s.CheckoutKey)); e == nil {
 				smsReady = true
 			}
 		}
@@ -125,13 +125,13 @@ func (s *Server) accountBindings(w http.ResponseWriter, r *http.Request, role st
 			response(w, 503, -1, "短信网关不可用", nil)
 			return true
 		}
-		sender, e := s.smsActiveSender(r.Context(), smsgateway134.New(s.Pool, s.CheckoutKey))
+		sender, e := s.smsActiveSender(r.Context(), smsgateway.New(s.Pool, s.CheckoutKey))
 		if e != nil {
 			response(w, 503, -1, "短信网关未开启", nil)
 			return true
 		}
-		codes := verifycode134.New(s.Pool)
-		e = codes.IssueWithSender(r.Context(), verifycode134.Issue{UID: mid, Scene: "bind", Type: 1, Recipient: phone}, func(code string) error {
+		codes := verifycode.New(s.Pool)
+		e = codes.IssueWithSender(r.Context(), verifycode.Issue{UID: mid, Scene: "bind", Type: 1, Recipient: phone}, func(code string) error {
 			sendCtx, cancel := context.WithTimeout(r.Context(), 12*time.Second)
 			defer cancel()
 			return sender.Send(sendCtx, phone, code)
@@ -139,11 +139,11 @@ func (s *Server) accountBindings(w http.ResponseWriter, r *http.Request, role st
 		switch {
 		case e == nil:
 			response(w, 202, 0, "验证码已发送", nil)
-		case errors.Is(e, verifycode134.ErrTooSoon):
+		case errors.Is(e, verifycode.ErrTooSoon):
 			response(w, 429, -1, "两次发送短信之间需要相隔60秒", nil)
-		case errors.Is(e, verifycode134.ErrRecipLim):
+		case errors.Is(e, verifycode.ErrRecipLim):
 			response(w, 429, -1, "该手机号码发送次数过多", nil)
-		case errors.Is(e, verifycode134.ErrIPLim):
+		case errors.Is(e, verifycode.ErrIPLim):
 			response(w, 429, -1, "你今天发送次数过多，请稍后再试", nil)
 		default:
 			response(w, 503, -1, "短信发送未确认，请稍后重试", nil)
@@ -171,14 +171,14 @@ func (s *Server) accountBindings(w http.ResponseWriter, r *http.Request, role st
 			return true
 		}
 		// Verify the bind-scene SMS code, consume once.
-		codes := verifycode134.New(s.Pool)
+		codes := verifycode.New(s.Pool)
 		if e := codes.Verify(r.Context(), "bind", 1, phone, code, mid); e != nil {
 			switch {
-			case errors.Is(e, verifycode134.ErrWrong):
+			case errors.Is(e, verifycode.ErrWrong):
 				response(w, 422, -1, "验证码不正确", nil)
-			case errors.Is(e, verifycode134.ErrNoCode):
+			case errors.Is(e, verifycode.ErrNoCode):
 				response(w, 422, -1, "请重新获取验证码", nil)
-			case errors.Is(e, verifycode134.ErrExpired):
+			case errors.Is(e, verifycode.ErrExpired):
 				response(w, 422, -1, "验证码已失效，请重新获取", nil)
 			default:
 				response(w, 503, -1, "验证码校验未确认", nil)

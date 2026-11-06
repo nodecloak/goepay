@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"goepay/internal/businesssms231"
+	"goepay/internal/businesssms"
 )
 
 type paidEventSource struct {
@@ -34,11 +34,11 @@ type eventRecord struct {
 	CreatedAt                           time.Time
 }
 type eventData struct {
-	TelegramStamp231 string                   `json:",omitempty"`
-	SMS231           *businesssms231.Snapshot `json:",omitempty"`
-	Supplement       *supplementSource231     `json:",omitempty"`
-	VoiceManaged230  bool                     `json:",omitempty"`
-	VoiceRevision230 int64                    `json:",omitempty"`
+	TelegramStamp231 string                `json:",omitempty"`
+	SMS231           *businesssms.Snapshot `json:",omitempty"`
+	Supplement       *supplementSource231  `json:",omitempty"`
+	VoiceManaged230  bool                  `json:",omitempty"`
+	VoiceRevision230 int64                 `json:",omitempty"`
 	Version          int
 	Source           paidEventSource
 	Input            Input

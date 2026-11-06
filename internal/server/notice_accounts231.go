@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"goepay/internal/identity"
-	"goepay/internal/noticeconfig231"
+	"goepay/internal/noticeconfig"
 	"io"
 	"net/http"
 	"time"
@@ -23,12 +23,12 @@ func (s *Server) noticeAccounts231(w http.ResponseWriter, r *http.Request, role 
 		response(w, 400, -1, "query parameters not accepted", nil)
 		return true
 	}
-	store, e := noticeconfig231.New(s.Pool, s.CheckoutKey)
+	store, e := noticeconfig.New(s.Pool, s.CheckoutKey)
 	if e != nil {
 		response(w, 503, -1, "notification accounts unavailable", nil)
 		return true
 	}
-	a := noticeconfig231.Actor{User: session.User, Token: token, CSRF: session.CSRF}
+	a := noticeconfig.Actor{User: session.User, Token: token, CSRF: session.CSRF}
 	var out any
 	if len(parts) == 4 {
 		switch r.Method {
@@ -52,7 +52,7 @@ func (s *Server) noticeAccounts231(w http.ResponseWriter, r *http.Request, role 
 				}
 			}
 			raw, _ := json.Marshal(fields)
-			var in noticeconfig231.Input
+			var in noticeconfig.Input
 			if json.Unmarshal(raw, &in) != nil {
 				response(w, 400, -1, "invalid notification account types", nil)
 				return true
@@ -90,9 +90,9 @@ func (s *Server) noticeAccounts231(w http.ResponseWriter, r *http.Request, role 
 	}
 	if e != nil {
 		status := 503
-		if errors.Is(e, noticeconfig231.ErrInvalid) {
+		if errors.Is(e, noticeconfig.ErrInvalid) {
 			status = 422
-		} else if errors.Is(e, noticeconfig231.ErrConflict) {
+		} else if errors.Is(e, noticeconfig.ErrConflict) {
 			status = 409
 		} else if errors.Is(e, identity.ErrAdminSession) {
 			status = 403
@@ -119,7 +119,7 @@ func (s *Server) qqNoticeCallback231(w http.ResponseWriter, r *http.Request) boo
 		response(w, 400, -1, "unsupported binding scope", nil)
 		return true
 	}
-	store, e := noticeconfig231.New(s.Pool, s.CheckoutKey)
+	store, e := noticeconfig.New(s.Pool, s.CheckoutKey)
 	if e != nil {
 		response(w, 503, -1, "binding unavailable", nil)
 		return true

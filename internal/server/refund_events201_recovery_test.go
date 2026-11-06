@@ -15,7 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"goepay/internal/platform/jobs"
-	"goepay/internal/refundevent201"
+	"goepay/internal/refundevent"
 )
 
 const recoveryEndpoint201 = "https://events.example.invalid/recovery201"
@@ -94,7 +94,7 @@ func TestRefundEvent201ResultWriteFailureRecoversWithoutResendingAndCountsOnce(t
 			if err = queue.Retry(t.Context(), j, "fixed recoverable event result failure", 0); err != nil {
 				t.Fatal(err)
 			}
-			recovered, err := queue.Claim(t.Context(), []string{refundevent201.JobKind}, time.Minute)
+			recovered, err := queue.Claim(t.Context(), []string{refundevent.JobKind}, time.Minute)
 			if err != nil || recovered.ID != j.ID || recovered.Attempts != j.Attempts+1 || recovered.Token == j.Token {
 				t.Fatal("recovery did not claim original event with a fresh lease", recovered, err)
 			}
@@ -113,7 +113,7 @@ func TestRefundEvent201ResultWriteFailureRecoversWithoutResendingAndCountsOnce(t
 				t.Fatal("recovered unknown resent HTTP, missed independent failure, or changed URL", calls.Load(), state)
 			}
 			var notices, noticeJobs int
-			if err = f.p.QueryRow(t.Context(), `SELECT(SELECT count(*)FROM merchant_refund_event_closed_notices201),(SELECT count(*)FROM jobs WHERE kind=$1),(SELECT count(*)FROM merchant_refund_event_results201)`, refundevent201.NoticeJobKind).Scan(&notices, &noticeJobs, &resultCount); err != nil {
+			if err = f.p.QueryRow(t.Context(), `SELECT(SELECT count(*)FROM merchant_refund_event_closed_notices201),(SELECT count(*)FROM jobs WHERE kind=$1),(SELECT count(*)FROM merchant_refund_event_results201)`, refundevent.NoticeJobKind).Scan(&notices, &noticeJobs, &resultCount); err != nil {
 				t.Fatal(err)
 			}
 			if resultCount != priorFailures+1 {
@@ -130,7 +130,7 @@ func TestRefundEvent201ResultWriteFailureRecoversWithoutResendingAndCountsOnce(t
 			if calls.Load() != 1 || f.view(t).ConsecutiveFailures != wantFailures {
 				t.Fatal("completed recovery replay sent again or counted the same event twice", calls.Load())
 			}
-			if _, err = queue.Claim(t.Context(), []string{refundevent201.JobKind}, time.Minute); !jobs.IsEmpty(err) {
+			if _, err = queue.Claim(t.Context(), []string{refundevent.JobKind}, time.Minute); !jobs.IsEmpty(err) {
 				t.Fatal("recovered unknown scheduled another automatic event send", err)
 			}
 		})
@@ -156,7 +156,7 @@ func recoveryClosedNotice201(t *testing.T, verified bool) (*eventFixture201, job
 	if len(state.EventTypes) != 0 || state.EventURL != recoveryEndpoint201 || state.SubscriptionNotice == "" {
 		t.Fatal("ten actual independent failures did not close subscription", state)
 	}
-	job, err := (jobs.Queue{Pool: f.p}).Claim(t.Context(), []string{refundevent201.NoticeJobKind}, time.Minute)
+	job, err := (jobs.Queue{Pool: f.p}).Claim(t.Context(), []string{refundevent.NoticeJobKind}, time.Minute)
 	if !verified {
 		if !jobs.IsEmpty(err) {
 			t.Fatal("unverified profile email created a claimable closure mail job", job, err)
@@ -176,7 +176,7 @@ type recoveryNoticeSender201 struct {
 	mu       sync.Mutex
 	messages []struct {
 		to      string
-		message refundevent201.NoticeMessage
+		message refundevent.NoticeMessage
 	}
 	result error
 }
@@ -188,11 +188,11 @@ func (*recoveryNoticeSender201) ValidateNoticeRecipient(to string) error {
 	}
 	return nil
 }
-func (s *recoveryNoticeSender201) SendRefundEventSubscriptionClosed(ctx context.Context, to string, message refundevent201.NoticeMessage) error {
+func (s *recoveryNoticeSender201) SendRefundEventSubscriptionClosed(ctx context.Context, to string, message refundevent.NoticeMessage) error {
 	s.mu.Lock()
 	s.messages = append(s.messages, struct {
 		to      string
-		message refundevent201.NoticeMessage
+		message refundevent.NoticeMessage
 	}{to, message})
 	s.mu.Unlock()
 	if s.entered != nil {
@@ -298,7 +298,7 @@ func TestRefundEvent201ClosedNoticeExpiredLeaseCannotReachSMTP(t *testing.T) {
 func TestRefundEvent201UnverifiedProfileEmailNeverBecomesClosureRecipient(t *testing.T) {
 	f, _ := recoveryClosedNotice201(t, false)
 	var notices, claims, mailJobs int
-	if err := f.p.QueryRow(t.Context(), `SELECT(SELECT count(*)FROM merchant_refund_event_closed_notices201),(SELECT count(*)FROM merchant_refund_event_notice_claims201),(SELECT count(*)FROM jobs WHERE kind=$1)`, refundevent201.NoticeJobKind).Scan(&notices, &claims, &mailJobs); err != nil {
+	if err := f.p.QueryRow(t.Context(), `SELECT(SELECT count(*)FROM merchant_refund_event_closed_notices201),(SELECT count(*)FROM merchant_refund_event_notice_claims201),(SELECT count(*)FROM jobs WHERE kind=$1)`, refundevent.NoticeJobKind).Scan(&notices, &claims, &mailJobs); err != nil {
 		t.Fatal(err)
 	}
 	if notices != 1 || claims != 0 || mailJobs != 0 {

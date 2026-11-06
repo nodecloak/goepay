@@ -8,8 +8,10 @@ import (
 	"goepay/internal/channelconfig"
 	"goepay/internal/payment"
 	"goepay/internal/server"
+	"log/slog"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -85,6 +87,7 @@ func configureProviders(app *server.Server, mode string, master []byte, origin s
 	if e != nil || !startup.HasRegisteredSources() {
 		return errConfiguredProviders
 	}
+	warnUnqueryableRefunds(providers)
 	oauthEnabled := os.Getenv("GOEPAY_ENABLE_OAUTH")
 	if oauthEnabled != "" && oauthEnabled != "false" && oauthEnabled != "true" {
 		return errConfiguredProviders
@@ -186,4 +189,22 @@ func configuredAllowlist(raw string, providers map[int64]adapter.Provider) (map[
 		return nil, errConfiguredProviders
 	}
 	return result, nil
+}
+
+// warnUnqueryableRefunds names the channels that can send refunds but cannot
+// query their outcome. On these channels a refund whose upstream answer was
+// lost or ambiguous stays "unknown" with its funds reserved: the worker cannot
+// reconcile it, so operators must check it with the provider.
+func warnUnqueryableRefunds(providers map[int64]adapter.Provider) {
+	var channels []int64
+	for id, p := range providers {
+		if c := p.Capabilities(); c.Refund && !c.RefundQuery {
+			channels = append(channels, id)
+		}
+	}
+	if len(channels) == 0 {
+		return
+	}
+	sort.Slice(channels, func(i, j int) bool { return channels[i] < channels[j] })
+	slog.Warn("these channels cannot query refund outcomes; unknown refunds there stay reserved until reconciled with the provider", "channels", channels)
 }

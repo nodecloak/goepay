@@ -10,20 +10,20 @@ import (
 	"fmt"
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/businessnotice"
-	"goepay/internal/businesssms231"
+	"goepay/internal/businesssms"
 	"goepay/internal/identity"
 	"goepay/internal/merchantnotice"
-	"goepay/internal/noticeconfig231"
+	"goepay/internal/noticeconfig"
 	"goepay/internal/platform/jobs"
-	"goepay/internal/smsgateway134"
+	"goepay/internal/smsgateway"
 	"testing"
 	"time"
 )
 
 type accountsFixture231 struct {
 	store  *Store
-	config *noticeconfig231.Store
-	actor  noticeconfig231.Actor
+	config *noticeconfig.Store
+	actor  noticeconfig.Actor
 }
 
 func businessAccountsLocal231(t *testing.T, mode string) accountsFixture231 {
@@ -41,11 +41,11 @@ func businessAccountsLocal231(t *testing.T, mode string) accountsFixture231 {
 	if e != nil {
 		t.Fatal(e)
 	}
-	config, e := noticeconfig231.FromMaster(s.pool, make([]byte, 32))
+	config, e := noticeconfig.FromMaster(s.pool, make([]byte, 32))
 	if e != nil {
 		t.Fatal(e)
 	}
-	return accountsFixture231{s, config, noticeconfig231.Actor{User: u, Token: token, CSRF: csrf}}
+	return accountsFixture231{s, config, noticeconfig.Actor{User: u, Token: token, CSRF: csrf}}
 }
 func (f accountsFixture231) complaint(t *testing.T) jobs.Job {
 	t.Helper()
@@ -116,12 +116,12 @@ func (r *accountResolver231) ResolveBusinessNotice(_ context.Context, kind merch
 func TestBusinessAccounts231RobotRotationCannotAdoptOldComplaint(t *testing.T) {
 	f := businessAccountsLocal231(t, "2")
 	ctx := context.Background()
-	v, e := f.config.Update(ctx, f.actor, "robot", noticeconfig231.Input{ExpectedRevision: 0, Enabled: true, Action: "replace", AppID: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=synthetic231"})
+	v, e := f.config.Update(ctx, f.actor, "robot", noticeconfig.Input{ExpectedRevision: 0, Enabled: true, Action: "replace", AppID: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=synthetic231"})
 	if e != nil {
 		t.Fatal(e)
 	}
 	j := f.complaint(t)
-	if _, e = f.config.Update(ctx, f.actor, "robot", noticeconfig231.Input{ExpectedRevision: v.Revision, Enabled: true, Action: "keep"}); e != nil {
+	if _, e = f.config.Update(ctx, f.actor, "robot", noticeconfig.Input{ExpectedRevision: v.Revision, Enabled: true, Action: "keep"}); e != nil {
 		t.Fatal(e)
 	}
 	r := &accountResolver231{sender: &accountSender231{fixture: f, kind: merchantnotice.Robot, recipient: "unused"}, t: t}
@@ -134,7 +134,7 @@ func TestBusinessAccounts231QQBoundAppOverridesLegacyEnvironmentExpectation(t *t
 	f := businessAccountsLocal231(t, "5")
 	ctx := context.Background()
 	secret := "synthetic-qq-secret231"
-	v, e := f.config.Update(ctx, f.actor, "qqbot", noticeconfig231.Input{ExpectedRevision: 0, Enabled: true, Action: "replace", AppID: "app231", Secret: secret})
+	v, e := f.config.Update(ctx, f.actor, "qqbot", noticeconfig.Input{ExpectedRevision: 0, Enabled: true, Action: "replace", AppID: "app231", Secret: secret})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -172,24 +172,24 @@ func shaCheckout231() []byte {
 	key := sha256.Sum256(append([]byte("checkout-signing:"), make([]byte, 32)...))
 	return key[:]
 }
-func (f accountsFixture231) sms(t *testing.T) (*businesssms231.Store, businesssms231.View, noticeconfig231.View) {
+func (f accountsFixture231) sms(t *testing.T) (*businesssms.Store, businesssms.View, noticeconfig.View) {
 	t.Helper()
 	ctx := context.Background()
-	v, e := f.config.Update(ctx, f.actor, "robot", noticeconfig231.Input{ExpectedRevision: 0, Enabled: false, Action: "replace", Phone: "+8613800138000"})
+	v, e := f.config.Update(ctx, f.actor, "robot", noticeconfig.Input{ExpectedRevision: 0, Enabled: false, Action: "replace", Phone: "+8613800138000"})
 	if e != nil {
 		t.Fatal("SMS recipient required unrelated webhook", e)
 	}
 	key := shaCheckout231()
-	gateway := smsgateway134.New(f.store.pool, key)
-	actor := smsgateway134.Actor{User: f.actor.User, Token: f.actor.Token}
+	gateway := smsgateway.New(f.store.pool, key)
+	actor := smsgateway.Actor{User: f.actor.User, Token: f.actor.Token}
 	before, e := gateway.Read(ctx, actor)
 	if e != nil {
 		t.Fatal(e)
 	}
-	if _, e = gateway.Save(ctx, actor, smsgateway134.Input{Provider: "aliyun", Credentials: &smsgateway134.Credentials{AccessKeyID: "AK231", AccessKeySecret: "synthetic-sms-secret231", Sign: "Test", Template: "SMS_VERIFY"}, Active: "aliyun", Status: 1, Expected: before.Fingerprint}); e != nil {
+	if _, e = gateway.Save(ctx, actor, smsgateway.Input{Provider: "aliyun", Credentials: &smsgateway.Credentials{AccessKeyID: "AK231", AccessKeySecret: "synthetic-sms-secret231", Sign: "Test", Template: "SMS_VERIFY"}, Active: "aliyun", Status: 1, Expected: before.Fingerprint}); e != nil {
 		t.Fatal(e)
 	}
-	sms, e := businesssms231.FromMaster(f.store.pool, make([]byte, 32))
+	sms, e := businesssms.FromMaster(f.store.pool, make([]byte, 32))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -200,7 +200,7 @@ func (f accountsFixture231) sms(t *testing.T) (*businesssms231.Store, businesssm
 		}
 	}
 	templates["aliyun_complain"] = "SMS_COMPLAIN"
-	sv, e := sms.Save(ctx, actor, businesssms231.Input{ExpectedRevision: 0, Templates: templates})
+	sv, e := sms.Save(ctx, actor, businesssms.Input{ExpectedRevision: 0, Templates: templates})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -235,12 +235,12 @@ func TestBusinessAccounts231AdminSMSPhoneAndTemplateRotationsBlockOldSource(t *t
 			j := f.complaint(t)
 			ctx := context.Background()
 			if change == "phone" {
-				if _, e := f.config.Update(ctx, f.actor, "robot", noticeconfig231.Input{ExpectedRevision: v.Revision, Enabled: false, Action: "replace", Phone: "13900139000"}); e != nil {
+				if _, e := f.config.Update(ctx, f.actor, "robot", noticeconfig.Input{ExpectedRevision: v.Revision, Enabled: false, Action: "replace", Phone: "13900139000"}); e != nil {
 					t.Fatal(e)
 				}
 			} else {
 				sv.Templates["aliyun_complain"] = "SMS_OTHER"
-				if _, e := sms.Save(ctx, smsgateway134.Actor{User: f.actor.User, Token: f.actor.Token}, businesssms231.Input{ExpectedRevision: sv.Revision, Templates: sv.Templates}); e != nil {
+				if _, e := sms.Save(ctx, smsgateway.Actor{User: f.actor.User, Token: f.actor.Token}, businesssms.Input{ExpectedRevision: sv.Revision, Templates: sv.Templates}); e != nil {
 					t.Fatal(e)
 				}
 			}

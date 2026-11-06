@@ -23,6 +23,8 @@ const props = defineProps<{
   columns: { key: string; label: string }[];
   orders?: boolean;
   refunds?: boolean;
+  // Super administrators may close refunds no automatic path can finish.
+  refundAttestation?: boolean;
   adminOrders?: boolean;
   merchantOrders?: boolean;
   orderActionsDisabled?: boolean;
@@ -46,6 +48,7 @@ const emit = defineEmits<{
     action: MerchantOrderActionID,
   ];
   blacklist: [row: Record<string, unknown>, kind: "ip" | "buyer"];
+  "attest-refund": [row: Record<string, unknown>];
 }>();
 function select(row: Record<string, unknown>, checked: boolean) {
   const id = String(row.trade_no);
@@ -268,11 +271,24 @@ function refunded(row: Record<string, unknown>): boolean {
                 row.completed_at ? beijingTimestamp(row.completed_at) : "未记录"
               }}</small>
             </template>
-            <KitStatusTag
-              v-else-if="refunds && c.key === 'status'"
-              :text="refundStatus(row.status)"
-              :tone="refundTone(row.status)"
-            />
+            <template v-else-if="refunds && c.key === 'status'">
+              <KitStatusTag
+                :text="refundStatus(row.status)"
+                :tone="refundTone(row.status)"
+              />
+              <button
+                v-if="
+                  refundAttestation &&
+                  (row.status === 'pending' || row.status === 'unknown')
+                "
+                type="button"
+                class="link-button refund-attest"
+                :aria-label="'核实退款结果 ' + row.refund_no"
+                @click="emit('attest-refund', row)"
+              >
+                核实结果
+              </button>
+            </template>
             <button
               v-else-if="
                 refunds && c.key === 'trade_no' && associatedOrder(row.trade_no)

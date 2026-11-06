@@ -2,7 +2,7 @@ package server
 
 import (
 	"goepay/internal/identity"
-	"goepay/internal/kyc233"
+	"goepay/internal/kyc"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -36,10 +36,10 @@ func TestKYC233PublicReturnSurvivesLoginBoundaryWithoutCertifyingOrCharging(t *t
 	in := f.settings(t)
 	in.Mode = 3
 	in.ChannelID = "7"
-	kyc233View[kyc233.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
-	f.provider.initResult = kyc233.InitResult{Token: "synthetic-preconsult233", URL: "https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?scope=id_verify", Scan: "alipay", Status: "pending"}
-	ready := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
-	kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)))
+	kyc233View[kyc.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
+	f.provider.initResult = kyc.InitResult{Token: "synthetic-preconsult233", URL: "https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?scope=id_verify", Scan: "alipay", Status: "pending"}
+	ready := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
+	kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)))
 	callback := f.provider.lastAttempt
 	u, e := url.Parse(callback.CallbackURL)
 	if e != nil {
@@ -76,7 +76,7 @@ func TestKYC233PublicReturnSurvivesLoginBoundaryWithoutCertifyingOrCharging(t *t
 	if !strings.Contains(before.Body.String(), `"auth_code_ready":true`) || strings.Contains(before.Body.String(), "synthetic-once-code233") {
 		t.Fatal("inbox not privately resumable", before.Body.String())
 	}
-	done := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
+	done := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
 	if done.Cert != 1 || f.provider.queryCalls.Load() != 1 {
 		t.Fatal("resumed query failed or repeated provider exchange")
 	}

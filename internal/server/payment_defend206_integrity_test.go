@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"goepay/internal/payment"
-	"goepay/internal/paymentdefend206"
+	"goepay/internal/paymentdefend"
 	"goepay/internal/riskpolicy"
 )
 
@@ -109,11 +109,11 @@ func TestPaymentDefend206OldValidHeadAndWrongMasterCannotRestorePolicyAuthority(
 	if err := f.p.QueryRow(t.Context(), `SELECT to_jsonb(p)::text FROM payment_defend206_policy p`).Scan(&oldHead); err != nil {
 		t.Fatal(err)
 	}
-	wrong, err := paymentdefend206.NewStore(f.p, bytes.Repeat([]byte{2}, 32))
+	wrong, err := paymentdefend.NewStore(f.p, bytes.Repeat([]byte{2}, 32))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = wrong.Current(t.Context()); !errors.Is(err, paymentdefend206.ErrConflict) {
+	if _, err = wrong.Current(t.Context()); !errors.Is(err, paymentdefend.ErrConflict) {
 		t.Fatal("another master key accepted the original configured policy", err)
 	}
 	first.Settings["pay_verify"], first.Settings["pay_verify_type"] = "0", "0"
@@ -236,8 +236,8 @@ func TestPaymentDefend206KeylessReadOnlyProofRequiresAllAuthoritySourcesAbsent(t
 			defer tx.Rollback(t.Context())
 			ctx := t.Context()
 			if source == "empty" {
-				zero := &paymentdefend206.Store{}
-				if _, err := zero.CurrentTx(ctx, tx); !errors.Is(err, paymentdefend206.ErrUnavailable) {
+				zero := &paymentdefend.Store{}
+				if _, err := zero.CurrentTx(ctx, tx); !errors.Is(err, paymentdefend.ErrUnavailable) {
 					t.Fatal("zero-value store fabricated policy authority without a master key", err)
 				}
 			}
@@ -246,7 +246,7 @@ func TestPaymentDefend206KeylessReadOnlyProofRequiresAllAuthoritySourcesAbsent(t
 				ctx, cancel = context.WithCancel(ctx)
 				cancel()
 			}
-			err = paymentdefend206.ConfirmUnconfiguredTx(ctx, tx)
+			err = paymentdefend.ConfirmUnconfiguredTx(ctx, tx)
 			if source == "empty" {
 				if err != nil {
 					t.Fatal("real empty policy authority was not explicitly confirmed off", err)

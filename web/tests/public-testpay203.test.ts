@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, afterEach, describe, expect, it, vi } from "vitest";
 import {
   flushPromises,
   mount,
@@ -8,6 +8,9 @@ import {
 } from "@vue/test-utils";
 import { createMemoryHistory, createRouter } from "vue-router";
 import App from "../src/App.vue";
+import { preloadAppPages } from "./app-pages";
+
+beforeAll(preloadAppPages);
 
 const prefix = "/console/v1/public/testpay";
 const initial = {

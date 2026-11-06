@@ -3,7 +3,7 @@ package server
 import (
 	"errors"
 	"goepay/internal/identity"
-	"goepay/internal/mailaccount195"
+	"goepay/internal/mailaccount"
 	"net/http"
 )
 
@@ -31,15 +31,15 @@ func (s *Server) mailAccounts195(w http.ResponseWriter, r *http.Request, role st
 		response(w, 503, -1, "mail account unavailable", nil)
 		return true
 	}
-	store := mailaccount195.New(s.Pool, s.CheckoutKey)
-	actor := mailaccount195.Actor{User: session.User, Token: token, Delegated: session.Issuer != nil}
+	store := mailaccount.New(s.Pool, s.CheckoutKey)
+	actor := mailaccount.Actor{User: session.User, Token: token, Delegated: session.Issuer != nil}
 	fail := func(e error) {
 		switch {
 		case errors.Is(e, identity.ErrAdminSession):
 			response(w, 403, -1, "original super administrator session required", nil)
-		case errors.Is(e, mailaccount195.ErrConflict):
+		case errors.Is(e, mailaccount.ErrConflict):
 			response(w, 409, -1, "mail account changed; reload before confirming", nil)
-		case errors.Is(e, mailaccount195.ErrInvalid):
+		case errors.Is(e, mailaccount.ErrInvalid):
 			response(w, 422, -1, "invalid SMTP account fields", nil)
 		default:
 			response(w, 503, -1, "mail account source could not be confirmed", nil)
@@ -81,7 +81,7 @@ func (s *Server) mailAccounts195(w http.ResponseWriter, r *http.Request, role st
 			return true
 		}
 		keep := input.KeepPassword != nil && *input.KeepPassword
-		v, e := store.Save(r.Context(), actor, mailaccount195.Input{Name: *input.Name, Status: *input.Status, Config: mailaccount195.Config{Host: *input.Config.Host, Port: *input.Config.Port, Username: *input.Config.Username}, Password: input.Config.Password, KeepPassword: keep, Expected: *input.Expected})
+		v, e := store.Save(r.Context(), actor, mailaccount.Input{Name: *input.Name, Status: *input.Status, Config: mailaccount.Config{Host: *input.Config.Host, Port: *input.Config.Port, Username: *input.Config.Username}, Password: input.Config.Password, KeepPassword: keep, Expected: *input.Expected})
 		v.TestAvailable = s.Mail195TestEnabled && v.Configured && v.Status == 1
 		if e != nil {
 			fail(e)

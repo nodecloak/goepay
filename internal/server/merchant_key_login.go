@@ -18,6 +18,10 @@ func (s *Server) merchantKeyLogin(w http.ResponseWriter, r *http.Request) {
 		response(w, 400, -1, "query parameters not accepted", nil)
 		return
 	}
+	if !s.loginFromThisSite(r) {
+		response(w, 403, -1, "cross-site login refused", nil)
+		return
+	}
 	in, ok := identityJSON(w, r, "merchant_id", "api_key", "code")
 	if !ok {
 		return

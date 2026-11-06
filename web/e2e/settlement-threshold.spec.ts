@@ -86,7 +86,7 @@ for (const width of [375, 1440])
     });
     await page.goto("/admin/settle/plans");
     await page.getByRole("button", { name: "查看计划 4", exact: true }).click();
-    await expect(page.getByText(/UID倒序最多5个/)).toBeVisible();
+    await expect(page.getByText(/每次最多选 5/)).toBeVisible();
     await page
       .getByRole("button", { name: "修改计划定义", exact: true })
       .click();

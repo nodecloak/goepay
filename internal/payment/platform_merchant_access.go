@@ -210,37 +210,7 @@ func (s *Store) UpdatePlatformMerchantAccess(ctx context.Context, a MerchantCred
 	if !hmac.Equal([]byte(expected), []byte(state.Fingerprint)) {
 		return out, ErrConflict
 	}
-	for _, setting := range []struct {
-		key, value string
-		id         *int64
-	}{{"close_keylogin", closeKey, &state.closeID}, {"user_refund", refund, &state.refundID}} {
-		if *setting.id == 0 {
-			e = tx.QueryRow(ctx, `INSERT INTO backoffice_records(resource,body) VALUES('settings',jsonb_build_object('key',$1::text,'value',$2::text)) RETURNING id`, setting.key, setting.value).Scan(setting.id)
-		} else {
-			_, e = tx.Exec(ctx, `UPDATE backoffice_records SET body=jsonb_set(body,'{value}',to_jsonb($2::text)),updated_at=clock_timestamp() WHERE id=$1 AND resource='settings'`, *setting.id, setting.value)
-		}
-		if e != nil {
-			return out, e
-		}
-	}
-	if state.headID == 0 {
-		if e = tx.QueryRow(ctx, `INSERT INTO backoffice_records(resource,body) VALUES('settings',jsonb_build_object('key',$1::text,'value','{}')) RETURNING id`, platformAccessHeadKey).Scan(&state.headID); e != nil {
-			return out, e
-		}
-	}
-	head := platformAccessHead{Revision: state.head.Revision + 1, CloseID: state.closeID, RefundID: state.refundID, CloseKeyLogin: closeKey, UserRefund: refund}
-	head.Proof, e = s.platformAccessProof(state.headID, head)
-	if e != nil {
-		return out, e
-	}
-	raw, e := json.Marshal(head)
-	if e != nil {
-		return out, e
-	}
-	if _, e = tx.Exec(ctx, `UPDATE backoffice_records SET body=jsonb_build_object('key',$3::text,'value',$2::text),updated_at=clock_timestamp() WHERE id=$1 AND resource='settings'`, state.headID, string(raw), platformAccessHeadKey); e != nil {
-		return out, e
-	}
-	if _, e = tx.Exec(ctx, `INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES('admin',$1,$2,$3,$4,'platform-access-update',jsonb_build_object('close_keylogin',$5::text,'user_refund',$6::text,'revision',$7::text))`, a.User.ID, a.User.Username, platformAccessResource, state.headID, closeKey, refund, strconv.FormatInt(head.Revision, 10)); e != nil {
+	if e = s.writePlatformAccessTx(ctx, tx, &state, a.User, closeKey, refund); e != nil {
 		return out, e
 	}
 	if e = identity.CheckOriginalSuperAdminSessionTx(ctx, tx, a.User, a.SessionToken, a.Delegated); e != nil {
@@ -254,4 +224,80 @@ func (s *Store) UpdatePlatformMerchantAccess(ctx context.Context, a MerchantCred
 		return out, e
 	}
 	return state.PlatformMerchantAccess, tx.Commit(ctx)
+}
+
+// InitializePlatformMerchantAccess records the merchant access switches of a
+// new installation once, through the same integrity head and audit trail as a
+// console update, attributed to the initial super administrator. It writes
+// nothing and returns false when any switch is already stored, so an existing
+// installation keeps its behaviour.
+func (s *Store) InitializePlatformMerchantAccess(ctx context.Context, admin identity.User, closeKey, refund string) (bool, error) {
+	if !platformFlag(closeKey) || !platformFlag(refund) || admin.ID <= 0 || admin.Username == "" {
+		return false, ErrInvalid
+	}
+	tx, e := s.pool.Begin(ctx)
+	if e != nil {
+		return false, e
+	}
+	defer tx.Rollback(ctx)
+	state, e := s.platformAccessTx(ctx, tx, true)
+	if e != nil {
+		return false, e
+	}
+	if state.configured || state.headID != 0 || state.closeID != 0 || state.refundID != 0 {
+		return false, nil
+	}
+	var super bool
+	if e = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM console_users WHERE role='admin' AND username=$1 AND subject_id=$2 AND admin_class='super' AND enabled)`, admin.Username, admin.ID).Scan(&super); e != nil {
+		return false, e
+	}
+	if !super {
+		return false, ErrInvalid
+	}
+	if e = s.writePlatformAccessTx(ctx, tx, &state, admin, closeKey, refund); e != nil {
+		return false, e
+	}
+	if _, e = s.platformAccessTx(ctx, tx, true); e != nil {
+		return false, e
+	}
+	return true, tx.Commit(ctx)
+}
+
+// writePlatformAccessTx stores both switches, advances the HMAC-protected head
+// and appends the audit row whose count the head revision must match. The
+// caller holds the exclusive settings lock taken by platformAccessTx.
+func (s *Store) writePlatformAccessTx(ctx context.Context, tx pgx.Tx, state *platformAccessState, actor identity.User, closeKey, refund string) error {
+	var e error
+	for _, setting := range []struct {
+		key, value string
+		id         *int64
+	}{{"close_keylogin", closeKey, &state.closeID}, {"user_refund", refund, &state.refundID}} {
+		if *setting.id == 0 {
+			e = tx.QueryRow(ctx, `INSERT INTO backoffice_records(resource,body) VALUES('settings',jsonb_build_object('key',$1::text,'value',$2::text)) RETURNING id`, setting.key, setting.value).Scan(setting.id)
+		} else {
+			_, e = tx.Exec(ctx, `UPDATE backoffice_records SET body=jsonb_set(body,'{value}',to_jsonb($2::text)),updated_at=clock_timestamp() WHERE id=$1 AND resource='settings'`, *setting.id, setting.value)
+		}
+		if e != nil {
+			return e
+		}
+	}
+	if state.headID == 0 {
+		if e = tx.QueryRow(ctx, `INSERT INTO backoffice_records(resource,body) VALUES('settings',jsonb_build_object('key',$1::text,'value','{}')) RETURNING id`, platformAccessHeadKey).Scan(&state.headID); e != nil {
+			return e
+		}
+	}
+	head := platformAccessHead{Revision: state.head.Revision + 1, CloseID: state.closeID, RefundID: state.refundID, CloseKeyLogin: closeKey, UserRefund: refund}
+	head.Proof, e = s.platformAccessProof(state.headID, head)
+	if e != nil {
+		return e
+	}
+	raw, e := json.Marshal(head)
+	if e != nil {
+		return e
+	}
+	if _, e = tx.Exec(ctx, `UPDATE backoffice_records SET body=jsonb_build_object('key',$3::text,'value',$2::text),updated_at=clock_timestamp() WHERE id=$1 AND resource='settings'`, state.headID, string(raw), platformAccessHeadKey); e != nil {
+		return e
+	}
+	_, e = tx.Exec(ctx, `INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES('admin',$1,$2,$3,$4,'platform-access-update',jsonb_build_object('close_keylogin',$5::text,'user_refund',$6::text,'revision',$7::text))`, actor.ID, actor.Username, platformAccessResource, state.headID, closeKey, refund, strconv.FormatInt(head.Revision, 10))
+	return e
 }

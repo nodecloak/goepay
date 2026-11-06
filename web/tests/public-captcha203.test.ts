@@ -2,7 +2,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { createMemoryHistory, createRouter } from "vue-router";
-import PublicTestPay203 from "../src/components/PublicTestPay203.vue";
+import PublicTestPay from "../src/components/PublicTestPay.vue";
 const mounted: VueWrapper[] = [];
 afterEach(() => {
   for (const wrapper of mounted.splice(0)) wrapper.unmount();
@@ -105,7 +105,7 @@ async function setup(version: 0 | 1, rawProof?: Record<string, string>) {
   });
   await router.push("/test");
   await router.isReady();
-  const wrapper = mount(PublicTestPay203, {
+  const wrapper = mount(PublicTestPay, {
     attachTo: document.body,
     global: { plugins: [router] },
   });

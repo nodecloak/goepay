@@ -2,7 +2,7 @@ package server
 
 import (
 	"errors"
-	"goepay/internal/kyc233"
+	"goepay/internal/kyc"
 	"io"
 	"net/http"
 	"net/url"
@@ -93,7 +93,7 @@ func (s *Server) certificationReturn233(w http.ResponseWriter, r *http.Request) 
 	}
 	if e = service.CacheReturn(r.Context(), q.Get("attempt_id"), q.Get("state"), q.Get("auth_code")); e != nil {
 		status := 503
-		if errors.Is(e, kyc233.ErrInvalid) || errors.Is(e, kyc233.ErrConflict) {
+		if errors.Is(e, kyc.ErrInvalid) || errors.Is(e, kyc.ErrConflict) {
 			status = 400
 		}
 		certificationReturnFailure233(w, status)

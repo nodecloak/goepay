@@ -11,23 +11,23 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"goepay/internal/businesssms231"
-	"goepay/internal/voiceconfig230"
+	"goepay/internal/businesssms"
+	"goepay/internal/voiceconfig"
 )
 
 // Account is short-lived input to the internal transport constructor. Resolving
 // it must be pure: token acquisition and all network work belong to Send, after
 // the permanent delivery claim has committed. None of this data is an API view.
 type Account struct {
-	TelegramResolved                                bool                      `json:"-"`
-	TelegramToken                                   string                    `json:"-"`
-	SMS231                                          *businesssms231.Resolved  `json:"-"`
-	VoiceResolved, VoiceManaged                     bool                      `json:"-"`
-	VoiceRevision                                   int64                     `json:"-"`
-	VoiceCredential                                 voiceconfig230.Credential `json:"-"`
-	Template                                        WechatTemplateConfig      `json:"-"`
-	WXAppID, WebhookURL, QQBotAppID, QQBotAppSecret string                    `json:"-"`
-	Input                                           Input                     `json:"-"`
+	TelegramResolved                                bool                   `json:"-"`
+	TelegramToken                                   string                 `json:"-"`
+	SMS231                                          *businesssms.Resolved  `json:"-"`
+	VoiceResolved, VoiceManaged                     bool                   `json:"-"`
+	VoiceRevision                                   int64                  `json:"-"`
+	VoiceCredential                                 voiceconfig.Credential `json:"-"`
+	Template                                        WechatTemplateConfig   `json:"-"`
+	WXAppID, WebhookURL, QQBotAppID, QQBotAppSecret string                 `json:"-"`
+	Input                                           Input                  `json:"-"`
 }
 
 func (Account) String() string   { return "merchantnotice.Account(redacted)" }
@@ -205,7 +205,7 @@ func (s *Store) Deliver(ctx context.Context, jobID int64, lease string, kind Tra
 	if kind == Wechat && data.Supplement != nil && data.Input.Scene == "wxtransfer" {
 		recipient = data.Supplement.Facts.Recipient
 	}
-	var sms *businesssms231.Resolved
+	var sms *businesssms.Resolved
 	if kind == SMS {
 		if data.Version < 3 || data.SMS231 == nil || s.sms == nil {
 			return ErrState

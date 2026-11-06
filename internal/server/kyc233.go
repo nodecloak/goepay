@@ -10,17 +10,17 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	kycadapter "goepay/internal/adapters/kyc233"
+	kycadapter "goepay/internal/adapters/kyc"
 	"goepay/internal/identity"
-	"goepay/internal/kyc233"
+	"goepay/internal/kyc"
 )
 
-func (s *Server) certification233Service() (*kyc233.Service, error) {
+func (s *Server) certification233Service() (*kyc.Service, error) {
 	p := s.KYC233Provider
 	if p == nil {
 		p = kycadapter.New(nil)
 	}
-	var resolve kyc233.ChannelResolver
+	var resolve kyc.ChannelResolver
 	if s.ProviderFlow != nil {
 		resolve = s.ProviderFlow.ResolveKYCChannel233
 	}
@@ -28,7 +28,7 @@ func (s *Server) certification233Service() (*kyc233.Service, error) {
 	if s.KYC233BaseURL != "" {
 		base = s.KYC233BaseURL
 	}
-	return kyc233.New(s.Pool, s.CheckoutKey, p, resolve, base)
+	return kyc.New(s.Pool, s.CheckoutKey, p, resolve, base)
 }
 func exactKYC233Fields(fields map[string]json.RawMessage, keys ...string) bool {
 	if len(fields) != len(keys) {
@@ -61,16 +61,16 @@ func decodeKYC233(w http.ResponseWriter, r *http.Request, out any, keys ...strin
 func kyc233Error(w http.ResponseWriter, e error) {
 	status, msg := 503, "服务结果尚未确认，请读取当前状态；不要重复提交"
 	switch {
-	case errors.Is(e, kyc233.ErrInvalid):
+	case errors.Is(e, kyc.ErrInvalid):
 		status = 422
 		msg = "请检查认证方式、必填凭据、证件资料和已验证的绑定手机"
-	case errors.Is(e, kyc233.ErrConflict), errors.Is(e, pgx.ErrNoRows):
+	case errors.Is(e, kyc.ErrConflict), errors.Is(e, pgx.ErrNoRows):
 		status = 409
 		msg = "状态已变化或操作已使用，请重新读取当前状态后处理"
-	case errors.Is(e, kyc233.ErrUnavailable):
+	case errors.Is(e, kyc.ErrUnavailable):
 		status = 503
 		msg = "当前服务未开启或配置不完整，请联系管理员"
-	case errors.Is(e, kyc233.ErrInsufficient):
+	case errors.Is(e, kyc.ErrInsufficient):
 		status = 422
 		msg = "可用余额不足，认证成功前不会扣费，请充值后继续"
 	case errors.Is(e, identity.ErrAdminSession), errors.Is(e, identity.ErrOriginalMerchantSession):
@@ -100,7 +100,7 @@ func (s *Server) certification233Console(w http.ResponseWriter, r *http.Request,
 		kyc233Error(w, e)
 		return true
 	}
-	a := kyc233.Actor{User: session.User, Token: token, CSRF: session.CSRF, Delegated: session.Issuer != nil}
+	a := kyc.Actor{User: session.User, Token: token, CSRF: session.CSRF, Delegated: session.Issuer != nil}
 	var out any
 	if settings {
 		switch r.Method {
@@ -116,11 +116,11 @@ func (s *Server) certification233Console(w http.ResponseWriter, r *http.Request,
 				return true
 			}
 			var creds map[string]json.RawMessage
-			if json.Unmarshal(fields["credentials"], &creds) != nil || len(creds) != len(kyc233.CredentialKeys()) {
+			if json.Unmarshal(fields["credentials"], &creds) != nil || len(creds) != len(kyc.CredentialKeys()) {
 				response(w, 400, -1, "请明确每项凭据的保留、替换或清除操作", nil)
 				return true
 			}
-			for _, k := range kyc233.CredentialKeys() {
+			for _, k := range kyc.CredentialKeys() {
 				var item map[string]json.RawMessage
 				if json.Unmarshal(creds[k], &item) != nil || !exactKYC233Fields(item, "action", "value") {
 					response(w, 400, -1, "凭据操作字段不完整", nil)
@@ -128,7 +128,7 @@ func (s *Server) certification233Console(w http.ResponseWriter, r *http.Request,
 				}
 			}
 			raw, _ := json.Marshal(fields)
-			var in kyc233.ConfigInput
+			var in kyc.ConfigInput
 			if json.Unmarshal(raw, &in) != nil {
 				response(w, 400, -1, "配置字段类型不正确", nil)
 				return true
@@ -159,7 +159,7 @@ func (s *Server) certification233Console(w http.ResponseWriter, r *http.Request,
 			return true
 		}
 		out, e = service.Recognize(r.Context(), a, id, kind, expectedProvider, expectedRevision, raw)
-		if errors.Is(e, kyc233.ErrInvalid) {
+		if errors.Is(e, kyc.ErrInvalid) {
 			response(w, 422, -1, "图片格式、大小或证照类型不符合当前OCR服务要求", nil)
 			return true
 		}
@@ -169,13 +169,13 @@ func (s *Server) certification233Console(w http.ResponseWriter, r *http.Request,
 		} else if r.Method == "POST" {
 			switch parts[3] {
 			case "submit":
-				var in kyc233.Submission
+				var in kyc.Submission
 				if !decodeKYC233(w, r, &in, "expected_revision", "certtype", "certcardtype", "certname", "certno", "certcorpname", "certcorpno", "consent") {
 					return true
 				}
 				out, e = service.Submit(r.Context(), a, in)
 			case "geturl", "query", "reset":
-				var in kyc233.Operation
+				var in kyc.Operation
 				if !decodeKYC233(w, r, &in, "attempt_id", "state", "auth_code") {
 					return true
 				}
@@ -210,11 +210,11 @@ func (s *Server) certification233Console(w http.ResponseWriter, r *http.Request,
 func readOCR233(r *http.Request) (kind, id, expectedProvider string, expectedRevision int64, image []byte, err error) {
 	media, _, e := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if e != nil || media != "multipart/form-data" {
-		return "", "", "", 0, nil, kyc233.ErrInvalid
+		return "", "", "", 0, nil, kyc.ErrInvalid
 	}
 	reader, e := r.MultipartReader()
 	if e != nil {
-		return "", "", "", 0, nil, kyc233.ErrInvalid
+		return "", "", "", 0, nil, kyc.ErrInvalid
 	}
 	seen := map[string]bool{}
 	for {
@@ -223,22 +223,22 @@ func readOCR233(r *http.Request) (kind, id, expectedProvider string, expectedRev
 			break
 		}
 		if e != nil {
-			return "", "", "", 0, nil, kyc233.ErrInvalid
+			return "", "", "", 0, nil, kyc.ErrInvalid
 		}
 		name := part.FormName()
 		if seen[name] || (name != "image" && name != "document_type" && name != "operation_id" && name != "expected_provider" && name != "expected_revision") {
 			part.Close()
-			return "", "", "", 0, nil, kyc233.ErrInvalid
+			return "", "", "", 0, nil, kyc.ErrInvalid
 		}
 		seen[name] = true
 		limit := int64(128)
 		if name == "image" {
-			limit = kyc233.MaxImageBytes
+			limit = kyc.MaxImageBytes
 		}
 		data, e := io.ReadAll(io.LimitReader(part, limit+1))
 		part.Close()
 		if e != nil || int64(len(data)) > limit {
-			return "", "", "", 0, nil, kyc233.ErrInvalid
+			return "", "", "", 0, nil, kyc.ErrInvalid
 		}
 		switch name {
 		case "image":
@@ -252,12 +252,12 @@ func readOCR233(r *http.Request) (kind, id, expectedProvider string, expectedRev
 		case "expected_revision":
 			expectedRevision, e = strconv.ParseInt(string(data), 10, 64)
 			if e != nil || expectedRevision < 0 || strconv.FormatInt(expectedRevision, 10) != string(data) {
-				return "", "", "", 0, nil, kyc233.ErrInvalid
+				return "", "", "", 0, nil, kyc.ErrInvalid
 			}
 		}
 	}
 	if len(seen) != 5 {
-		return "", "", "", 0, nil, kyc233.ErrInvalid
+		return "", "", "", 0, nil, kyc.ErrInvalid
 	}
 	return kind, id, expectedProvider, expectedRevision, image, nil
 }

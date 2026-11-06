@@ -1,13 +1,13 @@
 package server
 
 import (
-	"goepay/internal/mailaccount195"
+	"goepay/internal/mailaccount"
 	"testing"
 )
 
 func TestMailAccounts195NoticeResolverBindsExactRevisionAndCannotRestoreDisabledFallback(t *testing.T) {
 	f := channel168Local(t)
-	store := mailaccount195.New(f.p, f.s.CheckoutKey)
+	store := mailaccount.New(f.p, f.s.CheckoutKey)
 	if sender, managed, e := store.ResolveSMTP(t.Context()); e != nil || managed || sender != nil {
 		t.Fatal("unconfigured source does not permit explicit legacy fallback", managed, e)
 	}

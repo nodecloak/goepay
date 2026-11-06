@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from "vitest";
+import { beforeAll, afterEach, expect, it, vi } from "vitest";
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { createMemoryHistory, createRouter } from "vue-router";
 import App from "../src/App.vue";
@@ -7,6 +7,9 @@ import actualPlatform from "../e2e/globalaccess179-http-fixture.json";
 import actualSession from "../e2e/merchant174-key-login-http-fixture.json";
 import actualDashboard from "../e2e/subchannel168b-dashboard-fixture.json";
 import actualSite from "../e2e/fixtures/site191-http.json";
+import { preloadAppPages } from "./app-pages";
+
+beforeAll(preloadAppPages);
 
 const metadataPath =
   "/console/v1/public/login-captcha?role=merchant&mode=password";

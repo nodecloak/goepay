@@ -12,7 +12,7 @@ import (
 
 	provider "goepay/internal/adapters/payment"
 	"goepay/internal/platform/jobs"
-	"goepay/internal/refundevent201"
+	"goepay/internal/refundevent"
 )
 
 func complaintEventJobs(t *testing.T, s *Store) int {
@@ -90,7 +90,7 @@ func TestComplaintEvent201NewComplaintDeliversOnceAndReSyncDeliversNothing(t *te
 	}
 
 	// Deliver it: the webhook posts event=complain with the complaint content.
-	j, e := (jobs.Queue{Pool: s.pool}).Claim(t.Context(), []string{refundevent201.ComplaintJobKind}, time.Minute)
+	j, e := (jobs.Queue{Pool: s.pool}).Claim(t.Context(), []string{refundevent.ComplaintJobKind}, time.Minute)
 	if e != nil {
 		t.Fatal("no claimable complaint event", e)
 	}
@@ -144,7 +144,7 @@ func TestComplaintEvent201UnsubscribedMerchantGetsNothingDelivered(t *testing.T)
 	syncComplaint(t, s, 7, "CMP-203", o.TradeNo, "PENDING")
 	// An event is still CAPTURED (so a later subscribe can begin fresh), but
 	// delivery is skipped because the merchant has no active subscription.
-	j, e := (jobs.Queue{Pool: s.pool}).Claim(t.Context(), []string{refundevent201.ComplaintJobKind}, time.Minute)
+	j, e := (jobs.Queue{Pool: s.pool}).Claim(t.Context(), []string{refundevent.ComplaintJobKind}, time.Minute)
 	if e != nil {
 		t.Fatal("expected a captured event job even without a subscription", e)
 	}

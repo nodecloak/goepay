@@ -306,7 +306,7 @@ func TestParentChannel180WeixinBindingsActualTLSOriginalWebAndMiniSDKSurviveRota
 		t.Fatal(out)
 	}
 	for _, order := range []struct{ trade, app string }{{webOrder.TradeNo, "synthetic-web-A"}, {miniOrder.TradeNo, "synthetic-mini-A"}} {
-		callback := parent180SignedXML(map[string]string{"return_code": "SUCCESS", "result_code": "SUCCESS", "appid": order.app, "mch_id": "synthetic180-fresh-mch", "nonce_str": "binding-callback", "out_trade_no": order.trade, "transaction_id": "WX180_" + order.trade, "total_fee": "10000", "fee_type": "CNY", "openid": "synthetic-openid-" + order.app}, "abcdef0123456789abcdef0123456789")
+		callback := parent180SignedXML(map[string]string{"return_code": "SUCCESS", "result_code": "SUCCESS", "appid": order.app, "mch_id": "synthetic180-fresh-mch", "nonce_str": "binding-callback", "out_trade_no": order.trade, "transaction_id": "W180" + order.trade, "total_fee": "10000", "fee_type": "CNY", "openid": "synthetic-openid-" + order.app}, "abcdef0123456789abcdef0123456789")
 		id, _ := strconv.ParseInt(setup.id, 10, 64)
 		if err = f.s.ProviderFlow.HandleNotification(ctx, id, order.trade, http.Header{}, callback); err != nil {
 			t.Fatal("original callback changed application", err)

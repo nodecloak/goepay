@@ -12,9 +12,9 @@ import (
 	"sort"
 
 	"github.com/jackc/pgx/v5"
-	"goepay/internal/captcha203"
+	"goepay/internal/captcha"
 	"goepay/internal/compat"
-	"goepay/internal/paymentdefend206"
+	"goepay/internal/paymentdefend"
 )
 
 // Platform verification fields are added by the platform's own verification
@@ -24,7 +24,7 @@ type defend206Platform struct {
 	present  bool
 	token    string
 	hasProof bool
-	proof    captcha203.Proof
+	proof    captcha.Proof
 }
 
 var defend206PlatformFields = map[string]func(*defend206Platform, string){
@@ -50,21 +50,21 @@ func takeDefend206Platform(p compat.Params) defend206Platform {
 
 var captchaID206 = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
-func (s *Server) paymentDefendCaptchaStore206() (*captcha203.Store, error) {
+func (s *Server) paymentDefendCaptchaStore206() (*captcha.Store, error) {
 	if s.PaymentDefendCaptcha206 != nil {
 		return s.PaymentDefendCaptcha206, nil
 	}
-	return captcha203.NewStore(s.Pool, s.CheckoutKey)
+	return captcha.NewStore(s.Pool, s.CheckoutKey)
 }
 
 // captchaConfig206 reads the site Geetest credentials. Create-order human
 // verification uses Geetest v4 only (as the original verify_invisible/slide
 // pages do); anything else is unavailable, never a demo id or a pass-through.
-func (s *Server) captchaConfig206(ctx context.Context, tx pgx.Tx) (captcha203.Config, error) {
+func (s *Server) captchaConfig206(ctx context.Context, tx pgx.Tx) (captcha.Config, error) {
 	values := map[string]string{"captcha_version": "", "captcha_id": ""}
 	rows, err := tx.Query(ctx, `SELECT body->>'key',body->'value' FROM backoffice_records WHERE resource='settings' AND body->>'key'=ANY($1)`, []string{"captcha_version", "captcha_id"})
 	if err != nil {
-		return captcha203.Config{}, err
+		return captcha.Config{}, err
 	}
 	seen := map[string]bool{}
 	for rows.Next() {
@@ -73,36 +73,36 @@ func (s *Server) captchaConfig206(ctx context.Context, tx pgx.Tx) (captcha203.Co
 		var v string
 		if err = rows.Scan(&k, &raw); err != nil || seen[k] || json.Unmarshal(raw, &v) != nil {
 			rows.Close()
-			return captcha203.Config{}, captcha203.ErrUnavailable
+			return captcha.Config{}, captcha.ErrUnavailable
 		}
 		seen[k] = true
 		values[k] = v
 	}
 	rows.Close()
 	if err = rows.Err(); err != nil {
-		return captcha203.Config{}, err
+		return captcha.Config{}, err
 	}
 	if values["captcha_version"] != "1" || !captchaID206.MatchString(values["captcha_id"]) || s.PaymentDefendVerifier206 == nil {
-		return captcha203.Config{}, captcha203.ErrUnavailable
+		return captcha.Config{}, captcha.ErrUnavailable
 	}
 	store, err := s.paymentDefendCaptchaStore206()
 	if err != nil {
-		return captcha203.Config{}, err
+		return captcha.Config{}, err
 	}
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock_shared(hashtextextended('captcha-credential203',203))`); err != nil {
-		return captcha203.Config{}, err
+		return captcha.Config{}, err
 	}
 	_, key, err := store.ReadTx(ctx, tx)
 	if err != nil || len(key) < 16 {
-		return captcha203.Config{}, captcha203.ErrUnavailable
+		return captcha.Config{}, captcha.ErrUnavailable
 	}
-	return captcha203.Config{Version: 1, ID: values["captcha_id"], Key: key}, nil
+	return captcha.Config{Version: 1, ID: values["captcha_id"], Key: key}, nil
 }
 
 type defend206Decision struct {
-	policy  paymentdefend206.Policy
+	policy  paymentdefend.Policy
 	kind    string // pay_verify_type when triggered
-	captcha captcha203.Config
+	captcha captcha.Config
 }
 
 // paymentDefendAdmit206 handles the browser-submit verification step before
@@ -139,7 +139,7 @@ func (s *Server) paymentDefendAdmit206(w http.ResponseWriter, r *http.Request, l
 		}
 		return false // the in-transaction guard admits or fails closed
 	}
-	c := paymentdefend206.Continue{
+	c := paymentdefend.Continue{
 		MerchantID:        merchantID,
 		OutTradeNo:        p["out_trade_no"],
 		Request:           defend206RequestIdentity(r.URL.Path, p),
@@ -163,7 +163,7 @@ func (s *Server) paymentDefendAdmit206(w http.ResponseWriter, r *http.Request, l
 	if d.kind != "0" {
 		// Authoritative remote verification, never inside a transaction. An
 		// unknown result (timeout, network, malformed) is a rejection.
-		issued := captcha203.Challenge{Version: 1, GT: d.captcha.ID, Success: 1}
+		issued := captcha.Challenge{Version: 1, GT: d.captcha.ID, Success: 1}
 		if s.PaymentDefendVerifier206.Verify(ctx, d.captcha, issued, plat.proof, peerIP) != nil {
 			return reject()
 		}

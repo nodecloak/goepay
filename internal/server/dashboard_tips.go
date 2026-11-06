@@ -7,7 +7,7 @@ import (
 	"goepay/internal/backoffice"
 	"goepay/internal/identity"
 	"goepay/internal/ledger"
-	"goepay/internal/smsgateway134"
+	"goepay/internal/smsgateway"
 )
 
 // merchantDashboardTip is one actionable health notice shown as an alert banner
@@ -120,7 +120,7 @@ func (s *Server) collectMerchantDashboardTips(r *http.Request, mid int64) ([]mer
 	}
 	st.SettlementMissing = recipient.State == "missing"
 	if len(s.CheckoutKey) == 32 {
-		if _, e := s.smsActiveSender(ctx, smsgateway134.New(s.Pool, s.CheckoutKey)); e == nil {
+		if _, e := s.smsActiveSender(ctx, smsgateway.New(s.Pool, s.CheckoutKey)); e == nil {
 			st.SMSReady = true
 		}
 	}

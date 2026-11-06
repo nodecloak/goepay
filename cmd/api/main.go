@@ -5,16 +5,17 @@ import (
 	"crypto/rsa"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"goepay/internal/backoffice"
 	"goepay/internal/bootstrap"
-	"goepay/internal/captcha203"
+	"goepay/internal/captcha"
 	"goepay/internal/compat"
 	"goepay/internal/enrollment"
 	"goepay/internal/identity"
 	"goepay/internal/merchantnotice"
 	"goepay/internal/migration"
 	"goepay/internal/ordersubject"
-	"goepay/internal/paymentdefend206"
+	"goepay/internal/paymentdefend"
 	"goepay/internal/printing"
 	"goepay/internal/server"
 	"goepay/internal/systemupdate"
@@ -22,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -79,7 +81,16 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	app := &server.Server{Pool: pool, Store: store, Sessions: identity.NewPersistentSessions(pool, os.Getenv("COOKIE_SECURE") != "false"), PlatformKey: key, Sandbox: os.Getenv("GOEPAY_SANDBOX") == "true"}
+	sessions := identity.NewPersistentSessions(pool, os.Getenv("COOKIE_SECURE") != "false")
+	if sessions.AdminIdle, e = idleMinutes("GOEPAY_ADMIN_IDLE_MINUTES", 30); e != nil {
+		slog.Error("invalid GOEPAY_ADMIN_IDLE_MINUTES; use 0 to 720")
+		os.Exit(1)
+	}
+	if sessions.MerchantIdle, e = idleMinutes("GOEPAY_MERCHANT_IDLE_MINUTES", 0); e != nil {
+		slog.Error("invalid GOEPAY_MERCHANT_IDLE_MINUTES; use 0 to 720")
+		os.Exit(1)
+	}
+	app := &server.Server{Pool: pool, Store: store, Sessions: sessions, PlatformKey: key, Sandbox: os.Getenv("GOEPAY_SANDBOX") == "true"}
 	app.Mail195TestEnabled, e = mailTestGate195(os.Getenv)
 	if e != nil {
 		slog.Error("invalid SMTP test submission configuration")
@@ -104,17 +115,17 @@ func main() {
 		slog.Error("invalid migration protection configuration")
 		os.Exit(1)
 	}
-	app.PaymentDefend206, e = paymentdefend206.NewStore(pool, seed)
+	app.PaymentDefend206, e = paymentdefend.NewStore(pool, seed)
 	if e != nil {
 		slog.Error("invalid payment verification policy protection configuration")
 		os.Exit(1)
 	}
-	app.PaymentDefendCaptcha206, e = captcha203.NewStore(pool, seed)
+	app.PaymentDefendCaptcha206, e = captcha.NewStore(pool, seed)
 	if e != nil {
 		slog.Error("invalid payment verification captcha protection configuration")
 		os.Exit(1)
 	}
-	app.PaymentDefendVerifier206 = captcha203.NewGeetestVerifier(nil)
+	app.PaymentDefendVerifier206 = captcha.NewGeetestVerifier(nil)
 	app.OrderAPITradeAlias120, e = server.NewOrderAPITradeAliasStore120ForMaster(app, seed)
 	if e != nil {
 		slog.Error("invalid order alias protection configuration")
@@ -167,12 +178,12 @@ func main() {
 	// The public test-pay page (/test) is a console page: its browser calls,
 	// Origin check and return address belong to the console origin, like the
 	// login CAPTCHA below. Single-origin installs are unchanged.
-	app.PublicTestPay203, e = server.NewPublicTestPayService203ForMaster(app, captcha203.NewGeetestVerifier(nil), seed, consoleOrigin)
+	app.PublicTestPay203, e = server.NewPublicTestPayService203ForMaster(app, captcha.NewGeetestVerifier(nil), seed, consoleOrigin)
 	if e != nil {
 		slog.Error("invalid public test payment configuration")
 		os.Exit(1)
 	}
-	app.LoginCaptcha205, e = server.NewLoginCaptchaService205ForMaster(app, captcha203.NewGeetestVerifier(nil), seed, consoleOrigin)
+	app.LoginCaptcha205, e = server.NewLoginCaptchaService205ForMaster(app, captcha.NewGeetestVerifier(nil), seed, consoleOrigin)
 	if e != nil {
 		slog.Error("invalid login CAPTCHA configuration")
 		os.Exit(1)
@@ -193,4 +204,18 @@ func main() {
 		slog.Error("server failed")
 		os.Exit(1)
 	}
+}
+
+// idleMinutes reads a console idle limit in minutes: unset uses the default,
+// 0 turns idle expiry off, and the 12-hour absolute session limit caps it.
+func idleMinutes(name string, fallback int) (time.Duration, error) {
+	raw := os.Getenv(name)
+	if raw == "" {
+		return time.Duration(fallback) * time.Minute, nil
+	}
+	n, e := strconv.Atoi(raw)
+	if e != nil || n < 0 || n > 720 || strconv.Itoa(n) != raw {
+		return 0, fmt.Errorf("invalid %s", name)
+	}
+	return time.Duration(n) * time.Minute, nil
 }

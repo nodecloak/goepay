@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
-import { it, expect, vi, afterEach } from "vitest";
+import { beforeAll, it, expect, vi, afterEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import App from "../src/App.vue";
+import { preloadAppPages } from "./app-pages";
+
+beforeAll(preloadAppPages);
 
 const mounted: Array<{ unmount(): void }> = [];
 afterEach(() => {

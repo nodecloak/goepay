@@ -15,7 +15,7 @@ import (
 
 	"goepay/internal/compat"
 	"goepay/internal/identity"
-	"goepay/internal/paymentdefend206"
+	"goepay/internal/paymentdefend"
 )
 
 const paymentDefend206Path = "/console/v1/admin/settings/payment-defend"
@@ -24,7 +24,7 @@ func paymentDefend206Fixture(t *testing.T) channel168Fixture {
 	t.Helper()
 	f := channel168Local(t)
 	var err error
-	f.s.PaymentDefend206, err = paymentdefend206.NewStore(f.p, make([]byte, 32))
+	f.s.PaymentDefend206, err = paymentdefend.NewStore(f.p, make([]byte, 32))
 	if err != nil {
 		t.Fatal(err)
 	}

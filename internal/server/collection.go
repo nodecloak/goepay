@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"goepay/internal/backoffice"
 	"goepay/internal/collectionstyle"
 	"goepay/internal/compat"
@@ -12,7 +11,6 @@ import (
 	"goepay/internal/ledger"
 	"goepay/internal/pagetemplate"
 	"goepay/internal/payment"
-	"html"
 	"io"
 	"net"
 	"net/http"
@@ -296,19 +294,21 @@ func (s *Server) collect(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	fmt.Fprintf(w, "<p>收款说明：%s</p>", html.EscapeString(c.Title))
 	fixed := ""
 	if c.Generation != nil && c.Generation.FixedAmount > 0 {
-		fixed = fmt.Sprintf(` value="%s" readonly`, ledger.Format(c.Generation.FixedAmount))
+		fixed = ledger.Format(c.Generation.FixedAmount)
 	}
-	paymentOptions := `<option value="wxpay">微信支付</option><option value="alipay">支付宝</option>`
+	options := []checkoutOption{{"wxpay", "微信支付"}, {"alipay", "支付宝"}}
 	if childRoute.kind != "" {
 		label := "支付宝"
 		if childRoute.kind == "wxpay" {
 			label = "微信支付"
 		}
-		paymentOptions = `<option value="` + childRoute.kind + `">` + label + `</option>`
+		options = []checkoutOption{{childRoute.kind, label}}
 	}
-	fmt.Fprintf(w, `<form method="post" action="%s"><input type="hidden" name="external_no" value="%s"><label>金额（元）<input name="amount" type="number" min="0.01" max="1000000" step="0.01" required%s></label><label>支付方式<select name="type">%s</select></label><button type="submit">前往支付</button></form>`, html.EscapeString(r.URL.RequestURI()), base64.RawURLEncoding.EncodeToString(nonce), fixed, paymentOptions)
+	renderCheckoutFragment(w, "collection-form", struct {
+		Title, Action, ExternalNo, FixedAmount string
+		Options                                []checkoutOption
+	}{c.Title, r.URL.RequestURI(), base64.RawURLEncoding.EncodeToString(nonce), fixed, options})
 	io.WriteString(w, tail)
 }

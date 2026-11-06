@@ -6,7 +6,6 @@ import (
 	"fmt"
 	provider "goepay/internal/adapters/payment"
 	"goepay/internal/payment"
-	"html"
 	"net"
 	"net/http"
 	"net/url"
@@ -103,7 +102,7 @@ func (s *Server) coreRiskScanCheckout(w http.ResponseWriter, r *http.Request, o 
 	}
 	if rule.Mismatch && purpose != "scan-region-continue" {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, `<!doctype html><html lang="zh-CN"><meta name="viewport" content="width=device-width,initial-scale=1"><title>支付安全提示</title><body><main><h1>支付安全提示</h1><p>扫码地区与下单地区不一致，请确认订单由本人发起，谨防陌生人代付诈骗。</p><p>订单：%s</p><a href="%s">已核对订单，继续支付</a></main></body></html>`, html.EscapeString(o.TradeNo), html.EscapeString(s.checkoutURL(o.TradeNo, "scan-region-continue")))
+		renderCheckoutFragment(w, "scan-region-warning", struct{ TradeNo, Continue string }{o.TradeNo, s.checkoutURL(o.TradeNo, "scan-region-continue")})
 		return
 	}
 	http.Redirect(w, r, a.Material, http.StatusFound)

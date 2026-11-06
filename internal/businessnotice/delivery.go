@@ -8,19 +8,19 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"goepay/internal/businesssms231"
+	"goepay/internal/businesssms"
 	"goepay/internal/merchantnotice"
-	"goepay/internal/noticeconfig231"
+	"goepay/internal/noticeconfig"
 	"time"
 )
 
 type Account struct {
-	SMS231        *businesssms231.Resolved   `json:"-"`
-	Managed231    bool                       `json:"-"`
-	Credential231 noticeconfig231.Credential `json:"-"`
-	Revision231   int64                      `json:"-"`
-	Settings      map[string]string          `json:"-"`
-	Input         merchantnotice.Input       `json:"-"`
+	SMS231        *businesssms.Resolved   `json:"-"`
+	Managed231    bool                    `json:"-"`
+	Credential231 noticeconfig.Credential `json:"-"`
+	Revision231   int64                   `json:"-"`
+	Settings      map[string]string       `json:"-"`
+	Input         merchantnotice.Input    `json:"-"`
 }
 
 func (Account) String() string   { return "businessnotice.Account(redacted)" }

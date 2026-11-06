@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -135,7 +134,7 @@ func (s *Server) renderAlipayBrowser239(w http.ResponseWriter, r *http.Request, 
 	form := strings.Replace(p.HTML, `<form `, `<form id="alipay-browser-form" target="`+target+`" `, 1)
 	io.WriteString(w, form)
 	if desktop {
-		fmt.Fprintf(w, `<p><a href="%s">在当前设备前往支付宝支付</a></p>`, html.EscapeString(s.alipayBrowserLaunchURL239(r, o.TradeNo)))
+		renderCheckoutFragment(w, "link", struct{ Href, Text string }{s.alipayBrowserLaunchURL239(r, o.TradeNo), "在当前设备前往支付宝支付"})
 	}
 	if !desktop || p.Method == "page" {
 		fmt.Fprintf(w, `<script nonce="%s">(function(){const form=document.getElementById('alipay-browser-form');if(form){HTMLFormElement.prototype.submit.call(form);}})();</script>`, nonce)

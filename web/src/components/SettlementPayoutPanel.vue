@@ -121,7 +121,7 @@ async function act(action: Action | "query") {
     detail.value = { ...detail.value!, payout };
     notice.value =
       result.status === 202
-        ? "请求结果待核实，只查询原申请和原 TF；不得重新准备或发送。"
+        ? "请求结果待核实，只查询原申请和原出款单；不得重新准备或发送。"
         : payoutStateLabel(payout.state);
     uncertain.value = result.status === 202;
     emit("changed");
@@ -162,8 +162,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <p class="muted">
-      核准不代表已出款。准备仅绑定原申请与唯一
-      TF；发送使用原收款快照和独立冻结资金，不会再次扣减可用余额。银行卡成功后保留本申请手续费，等待退票核对；原出款可持续查询。
+      核准不代表已出款。准备出款时为原申请生成唯一的出款单；发送时使用申请时的收款资料和单独冻结的资金，不会再次扣减可用余额。银行卡出款成功后，本申请的手续费继续保留，等待确认没有退票；原出款可随时查询。
     </p>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert" role="status">{{ notice }}</p>
@@ -203,7 +202,7 @@ onBeforeUnmount(() => {
       </dl>
       <template v-if="detail.payout"
         ><dl class="detail-grid">
-          <dt>原 TF</dt>
+          <dt>原出款单号</dt>
           <dd>{{ detail.payout.transfer.transfer_no }}</dd>
           <dt>固定通道</dt>
           <dd>{{ detail.payout.channel_id }}</dd>
@@ -223,12 +222,11 @@ onBeforeUnmount(() => {
             <dt>本申请仍保留费用</dt>
             <dd>{{ centsMoney(detail.payout.funding.reserved_amount) }} 元</dd>
           </template>
-          <dt>TF 金额</dt>
+          <dt>出款金额</dt>
           <dd>{{ centsMoney(detail.payout.transfer.amount) }} 元</dd>
         </dl>
         <p v-if="detail.payout.send_state === 'claimed'" class="muted">
-          已领取发送的原意图不能恢复为未发送；处理中、未知或失败均不能生成新 TF
-          重发。
+          已开始发送的出款不能恢复为未发送；处理中、结果未知或失败时都不能生成新的出款单重发。
         </p></template
       >
       <p v-else class="muted">

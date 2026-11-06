@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"goepay/internal/devdoc"
-	"goepay/internal/sitebrand193"
+	"goepay/internal/sitebrand"
 	"goepay/internal/siteinfo"
 )
 
@@ -49,8 +49,8 @@ func (s *Server) devDocSite(r *http.Request) (devdoc.Site, error) {
 		return devdoc.Site{}, err
 	}
 	site := devdoc.Site{SiteName: cfg.Name, API: docsAPIBase(s.DocsAPIOrigin)}
-	logo, err := sitebrand193.New(s.Pool, s.CheckoutKey).Public(r.Context(), "logo")
-	if err != nil && !errors.Is(err, sitebrand193.ErrNotFound) {
+	logo, err := sitebrand.New(s.Pool, s.CheckoutKey).Public(r.Context(), "logo")
+	if err != nil && !errors.Is(err, sitebrand.ErrNotFound) {
 		return devdoc.Site{}, err
 	}
 	if logo != nil {

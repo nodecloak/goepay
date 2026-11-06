@@ -6,16 +6,16 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"goepay/internal/merchantnotice"
-	"goepay/internal/noticesource231"
+	"goepay/internal/noticesource"
 )
 
-type supplementSource231 = noticesource231.Source
+type supplementSource231 = noticesource.Source
 
-func (s *Store) CaptureSupplement231(ctx context.Context, tx pgx.Tx, source noticesource231.Source) error {
+func (s *Store) CaptureSupplement231(ctx context.Context, tx pgx.Tx, source noticesource.Source) error {
 	if !s.available() || tx == nil || (source.Facts.Kind != "complain" && source.Facts.Kind != "channellimit") {
 		return ErrInvalid
 	}
-	if e := noticesource231.Verify(ctx, tx, source); e != nil {
+	if e := noticesource.Verify(ctx, tx, source); e != nil {
 		return e
 	}
 	var current string
@@ -46,7 +46,7 @@ func (s *Store) verifySupplement231(ctx context.Context, tx pgx.Tx, r eventRecor
 	if p == nil || r.RequestEventID != 0 || r.AuditID <= 0 || d.Audit != nil || d.Request != nil || p.Facts.MerchantID != r.MerchantID || p.Transaction != r.Transaction {
 		return nil, ErrConflict
 	}
-	if e := noticesource231.Verify(ctx, tx, *p); e != nil {
+	if e := noticesource.Verify(ctx, tx, *p); e != nil {
 		return nil, ErrConflict
 	}
 	expectedScene := p.Facts.Kind

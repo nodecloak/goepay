@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"goepay/internal/businesssms231"
+	"goepay/internal/businesssms"
 	"goepay/internal/merchantnotice"
 	"time"
 )
@@ -29,10 +29,10 @@ type requestSource struct {
 	Facts              RequestFacts
 }
 type eventData struct {
-	SMS231               *businesssms231.Snapshot `json:",omitempty"`
-	NoticeRevision231    map[string]int64         `json:",omitempty"`
-	NoticeFingerprint231 map[string]string        `json:",omitempty"`
-	Supplement231        *supplementSource231     `json:",omitempty"`
+	SMS231               *businesssms.Snapshot `json:",omitempty"`
+	NoticeRevision231    map[string]int64      `json:",omitempty"`
+	NoticeFingerprint231 map[string]string     `json:",omitempty"`
+	Supplement231        *supplementSource231  `json:",omitempty"`
 	Version              int
 	Audit                *auditSource
 	Request              *requestSource

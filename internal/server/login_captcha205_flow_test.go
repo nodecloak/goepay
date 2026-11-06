@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"goepay/internal/captcha203"
+	"goepay/internal/captcha"
 	"goepay/internal/identity"
 )
 
@@ -22,31 +22,31 @@ type loginVerifier205 struct {
 	unavailable bool
 }
 
-func (v *loginVerifier205) Init(_ context.Context, c captcha203.Config, purpose, source string) (captcha203.Challenge, error) {
+func (v *loginVerifier205) Init(_ context.Context, c captcha.Config, purpose, source string) (captcha.Challenge, error) {
 	if v.unavailable || purpose != "login" && purpose != "testpay" || source != "192.0.2.205" && source != "192.0.2.203" || c.ID != strings.Repeat("a", 32) || c.Key != strings.Repeat("b", 32) {
-		return captcha203.Challenge{}, captcha203.ErrUnavailable
+		return captcha.Challenge{}, captcha.ErrUnavailable
 	}
-	p := captcha203.Challenge{Version: c.Version, GT: c.ID, Success: 1}
+	p := captcha.Challenge{Version: c.Version, GT: c.ID, Success: 1}
 	if c.Version == 0 {
 		p.Challenge = strings.Repeat("c", 32)
 		p.NewCaptcha = true
 	}
 	return p, nil
 }
-func (v *loginVerifier205) Verify(_ context.Context, c captcha203.Config, issued captcha203.Challenge, p captcha203.Proof, source string) error {
+func (v *loginVerifier205) Verify(_ context.Context, c captcha.Config, issued captcha.Challenge, p captcha.Proof, source string) error {
 	v.calls.Add(1)
 	if v.unavailable {
-		return captcha203.ErrUnavailable
+		return captcha.ErrUnavailable
 	}
 	if c.Key != strings.Repeat("b", 32) || c.ID != issued.GT || c.Version != issued.Version || source != "192.0.2.205" && source != "192.0.2.203" {
-		return captcha203.ErrInvalid
+		return captcha.ErrInvalid
 	}
 	if c.Version == 0 {
 		if p.GeetestChallenge != issued.Challenge || p.GeetestValidate != strings.Repeat("d", 32) || p.GeetestSeccode != "controlled-seccode203" {
-			return captcha203.ErrInvalid
+			return captcha.ErrInvalid
 		}
 	} else if p.CaptchaID != c.ID || p.LotNumber != strings.Repeat("c", 32) || p.PassToken != "controlled-pass203" || p.CaptchaOutput != "controlled-output203" {
-		return captcha203.ErrInvalid
+		return captcha.ErrInvalid
 	}
 	return nil
 }
@@ -62,12 +62,12 @@ func loginReady205(t *testing.T, version int) (channel168Fixture, *loginVerifier
 	f.s.LoginCaptcha205 = s
 	return f, v
 }
-func loginInit205(t *testing.T, f channel168Fixture) (captcha203.Challenge, []*http.Cookie) {
+func loginInit205(t *testing.T, f channel168Fixture) (captcha.Challenge, []*http.Cookie) {
 	t.Helper()
 	out := loginCaptcha205Request(f, "POST", "/console/v1/public/login-captcha/init", map[string]string{"username": "captcha205"})
 	var envelope struct {
-		Code int                  `json:"code"`
-		Data captcha203.Challenge `json:"data"`
+		Code int               `json:"code"`
+		Data captcha.Challenge `json:"data"`
 	}
 	if out.Code != 200 || json.Unmarshal(out.Body.Bytes(), &envelope) != nil || envelope.Code != 0 || len(envelope.Data.CaptchaToken) != 43 || envelope.Data.Success != 1 {
 		t.Fatal("bound login CAPTCHA init unavailable", out.Code)
@@ -78,7 +78,7 @@ func loginInit205(t *testing.T, f channel168Fixture) (captcha203.Challenge, []*h
 	}
 	return envelope.Data, cookies
 }
-func loginBody205(c captcha203.Challenge) map[string]string {
+func loginBody205(c captcha.Challenge) map[string]string {
 	in := map[string]string{"username": "captcha205", "password": loginCaptcha205Password, "code": "", "captcha_token": c.CaptchaToken}
 	if c.Version == 0 {
 		in["geetest_challenge"] = c.Challenge

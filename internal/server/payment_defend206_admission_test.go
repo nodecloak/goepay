@@ -21,7 +21,7 @@ import (
 	"goepay/internal/compat"
 	"goepay/internal/identity"
 	"goepay/internal/payment"
-	"goepay/internal/paymentdefend206"
+	"goepay/internal/paymentdefend"
 )
 
 type defendAdmission206Fixture struct {
@@ -57,7 +57,7 @@ func defendAdmission206Local(t *testing.T, rsaMode, singleConnection bool) defen
 	if err != nil {
 		t.Fatal(err)
 	}
-	policy, err := paymentdefend206.NewStore(pool, make([]byte, 32))
+	policy, err := paymentdefend.NewStore(pool, make([]byte, 32))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -421,7 +421,7 @@ func TestPaymentDefend206MissingKeyOrDamagedConfiguredOffPolicyCannotAuthorizeNe
 			case "nil-service":
 				f.s.PaymentDefend206 = nil
 			case "zero-service":
-				f.s.PaymentDefend206 = &paymentdefend206.Store{}
+				f.s.PaymentDefend206 = &paymentdefend.Store{}
 			case "head-mac":
 				if _, err := f.observer.Exec(ctx, `ALTER TABLE payment_defend206_policy DISABLE TRIGGER USER; UPDATE payment_defend206_policy SET proof_hash=decode(repeat('00',32),'hex'); ALTER TABLE payment_defend206_policy ENABLE TRIGGER USER`); err != nil {
 					t.Fatal(err)

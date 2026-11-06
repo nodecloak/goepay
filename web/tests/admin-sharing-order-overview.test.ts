@@ -336,6 +336,11 @@ it("keeps an uncertain receiver return as one original request and only allows o
   });
   await view.findAll('[data-action="return"]')[0].trigger("click");
   await flushPromises();
+  // Opening derives the intent scope with a Web Crypto digest, which Node
+  // resolves on its thread pool; submits are ignored until loading ends.
+  await vi.waitFor(() =>
+    expect(view.text()).not.toContain("正在读取原分账记录"),
+  );
   const amount = view
     .findAll("input")
     .find((x) => x.attributes("aria-label") === "回退金额（元）");

@@ -5,11 +5,11 @@ import (
 	"crypto/sha256"
 	"errors"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"goepay/internal/businesssms231"
+	"goepay/internal/businesssms"
 	"goepay/internal/identity"
 	notice "goepay/internal/merchantnotice"
 	"goepay/internal/platform/jobs"
-	"goepay/internal/smsgateway134"
+	"goepay/internal/smsgateway"
 	"strings"
 	"testing"
 	"time"
@@ -18,10 +18,10 @@ import (
 type smsFixture231 struct {
 	notice  *notice.Store
 	pool    *pgxpool.Pool
-	sms     *businesssms231.Store
-	gateway *smsgateway134.Store
-	actor   smsgateway134.Actor
-	view    businesssms231.View
+	sms     *businesssms.Store
+	gateway *smsgateway.Store
+	actor   smsgateway.Actor
+	view    businesssms.View
 }
 
 func smsLocal231(t *testing.T) smsFixture231 {
@@ -36,17 +36,17 @@ func smsLocal231(t *testing.T) smsFixture231 {
 	if e != nil {
 		t.Fatal(e)
 	}
-	actor := smsgateway134.Actor{User: user, Token: token}
+	actor := smsgateway.Actor{User: user, Token: token}
 	key := sha256.Sum256(append([]byte("checkout-signing:"), make([]byte, 32)...))
-	gateway := smsgateway134.New(p, key[:])
+	gateway := smsgateway.New(p, key[:])
 	before, e := gateway.Read(ctx, actor)
 	if e != nil {
 		t.Fatal(e)
 	}
-	if _, e = gateway.Save(ctx, actor, smsgateway134.Input{Provider: "aliyun", Credentials: &smsgateway134.Credentials{AccessKeyID: "AK231", AccessKeySecret: "synthetic-only231", Template: "SMS_VERIFICATION", Sign: "Test"}, Active: "aliyun", Status: 1, Expected: before.Fingerprint}); e != nil {
+	if _, e = gateway.Save(ctx, actor, smsgateway.Input{Provider: "aliyun", Credentials: &smsgateway.Credentials{AccessKeyID: "AK231", AccessKeySecret: "synthetic-only231", Template: "SMS_VERIFICATION", Sign: "Test"}, Active: "aliyun", Status: 1, Expected: before.Fingerprint}); e != nil {
 		t.Fatal(e)
 	}
-	sms, e := businesssms231.New(p, key[:])
+	sms, e := businesssms.New(p, key[:])
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -59,7 +59,7 @@ func smsLocal231(t *testing.T) smsFixture231 {
 	templates["aliyun_balance"] = "SMS_BALANCE"
 	templates["aliyun_complain"] = "SMS_COMPLAIN"
 	templates["aliyun_group"] = "SMS_GROUP"
-	view, e := sms.Save(ctx, actor, businesssms231.Input{ExpectedRevision: 0, Templates: templates})
+	view, e := sms.Save(ctx, actor, businesssms.Input{ExpectedRevision: 0, Templates: templates})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -145,13 +145,13 @@ func TestBusinessSMS231RotationNeverAdoptsHistoricalSource(t *testing.T) {
 				if e != nil {
 					t.Fatal(e)
 				}
-				_, e = f.gateway.Save(ctx, f.actor, smsgateway134.Input{Provider: "aliyun", Credentials: &smsgateway134.Credentials{AccessKeyID: "AK231", AccessKeySecret: "different-secret231", Template: "SMS_VERIFICATION", Sign: "Test"}, Active: "aliyun", Status: 1, Expected: v.Fingerprint})
+				_, e = f.gateway.Save(ctx, f.actor, smsgateway.Input{Provider: "aliyun", Credentials: &smsgateway.Credentials{AccessKeyID: "AK231", AccessKeySecret: "different-secret231", Template: "SMS_VERIFICATION", Sign: "Test"}, Active: "aliyun", Status: 1, Expected: v.Fingerprint})
 				if e != nil {
 					t.Fatal(e)
 				}
 			case "template":
 				f.view.Templates["aliyun_balance"] = "SMS_NEW"
-				if _, e := f.sms.Save(ctx, f.actor, businesssms231.Input{ExpectedRevision: f.view.Revision, Templates: f.view.Templates}); e != nil {
+				if _, e := f.sms.Save(ctx, f.actor, businesssms.Input{ExpectedRevision: f.view.Revision, Templates: f.view.Templates}); e != nil {
 					t.Fatal(e)
 				}
 			case "phone":
@@ -192,12 +192,12 @@ func TestBusinessSMS231ContactPhoneDoesNotAuthorizeAndDeletedTemplateFailsClosed
 	if _, e = f.pool.Exec(ctx, `DELETE FROM business_sms_settings231`); e != nil {
 		t.Fatal(e)
 	}
-	if _, e = f.sms.Read(ctx, f.actor); !errors.Is(e, businesssms231.ErrConflict) {
+	if _, e = f.sms.Read(ctx, f.actor); !errors.Is(e, businesssms.ErrConflict) {
 		t.Fatal("deleted managed template fell back", e)
 	}
 	stale := f.view
 	stale.Templates["aliyun_balance"] = "SMS_STALE"
-	if _, e = f.sms.Save(ctx, f.actor, businesssms231.Input{ExpectedRevision: 0, Templates: stale.Templates}); e == nil || !strings.Contains(e.Error(), "changed") {
+	if _, e = f.sms.Save(ctx, f.actor, businesssms.Input{ExpectedRevision: 0, Templates: stale.Templates}); e == nil || !strings.Contains(e.Error(), "changed") {
 		t.Fatal("stale/deleted snapshot accepted", e)
 	}
 }

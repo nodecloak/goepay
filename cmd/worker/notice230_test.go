@@ -5,7 +5,7 @@ import (
 	"errors"
 	"goepay/internal/businessnotice"
 	"goepay/internal/merchantnotice"
-	"goepay/internal/voiceconfig230"
+	"goepay/internal/voiceconfig"
 	"testing"
 	"time"
 )
@@ -38,9 +38,9 @@ type voice230Source struct {
 	calls            int
 }
 
-func (s *voice230Source) Resolve(context.Context) (voiceconfig230.View, voiceconfig230.Credential, bool, error) {
+func (s *voice230Source) Resolve(context.Context) (voiceconfig.View, voiceconfig.Credential, bool, error) {
 	s.calls++
-	return voiceconfig230.View{Enabled: s.enabled}, voiceconfig230.Credential{AgentID: "managed230", Secret: "managed-secret230"}, s.managed, s.err
+	return voiceconfig.View{Enabled: s.enabled}, voiceconfig.Credential{AgentID: "managed230", Secret: "managed-secret230"}, s.managed, s.err
 }
 func TestNotice230VoiceManagedDisabledOrCorruptNeverUsesEnvironmentFallback(t *testing.T) {
 	env := map[string]string{"GOEPAY_MERCHANT_VOICE_HTTPS_ENDPOINT": "https://iot.solomo-info.com/admin/common/msgpush", "GOEPAY_MERCHANT_VOICE_AGENT_ID": "env230", "GOEPAY_MERCHANT_VOICE_SECRET": "env-secret230"}

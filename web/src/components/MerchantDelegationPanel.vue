@@ -15,7 +15,7 @@ const busy = ref(false),
   refused = ref(false),
   needsLogin = ref(false);
 function refusalMessage(e: ApiError) {
-  if (e.message === "enabled merchant login account required") {
+  if (e.serverMessage === "enabled merchant login account required") {
     needsLogin.value = true;
     return "无法代登录：商户未启用，或尚未配置可用的后台登录账号。请在商户编辑中检查商户状态并设置后台登录账号和密码；如账号已停用，请先按账号管理流程处理。";
   }

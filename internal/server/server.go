@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -22,41 +23,41 @@ import (
 	provider "goepay/internal/adapters/payment"
 	"goepay/internal/backoffice"
 	"goepay/internal/businessnotice"
-	"goepay/internal/captcha203"
+	"goepay/internal/captcha"
 	"goepay/internal/channelconfig"
 	"goepay/internal/compat"
 	"goepay/internal/identity"
-	"goepay/internal/kyc233"
+	"goepay/internal/kyc"
 	"goepay/internal/ledger"
-	"goepay/internal/logincaptcha205"
+	"goepay/internal/logincaptcha"
 	"goepay/internal/merchantnotice"
 	"goepay/internal/migration"
-	"goepay/internal/orderalias120"
+	"goepay/internal/orderalias"
 	"goepay/internal/payment"
-	"goepay/internal/paymentdefend206"
+	"goepay/internal/paymentdefend"
 	"goepay/internal/platform/httpclient"
 	"goepay/internal/printing"
-	"goepay/internal/publictestpay203"
+	"goepay/internal/publictestpay"
 	"goepay/internal/systemupdate"
 )
 
 type Server struct {
 	originalPaymentScope236 *originalPaymentScope236
-	KYC233Provider          kyc233.Provider
+	KYC233Provider          kyc.Provider
 	KYC233BaseURL           string
 	KYC233ConsoleOrigin     string
-	OrderAPITradeAlias120   *orderalias120.Store
-	PaymentDefend206        *paymentdefend206.Store
+	OrderAPITradeAlias120   *orderalias.Store
+	PaymentDefend206        *paymentdefend.Store
 	// Create-order Geetest v4 (pay_verify_type 1/2). Nil verifier = unavailable.
-	PaymentDefendCaptcha206 *captcha203.Store
+	PaymentDefendCaptcha206 *captcha.Store
 	// ProxyConnectivity overrides the 测试连通性 probe in tests.
 	ProxyConnectivity        func(context.Context, httpclient.ProxyConfig) (string, error)
-	PaymentDefendVerifier206 captcha203.Verifier
-	PublicTestPay203         *publictestpay203.Service
+	PaymentDefendVerifier206 captcha.Verifier
+	PublicTestPay203         *publictestpay.Service
 	// DocsAPIOrigin is the merchant API origin (GOEPAY_PUBLIC_ORIGIN) that the
 	// /doc/ pages print; empty shows plain paths.
 	DocsAPIOrigin      string
-	LoginCaptcha205    *logincaptcha205.Service
+	LoginCaptcha205    *logincaptcha.Service
 	Mail195TestEnabled bool
 	// Private-PKI trust supplied by the host/test harness, never HTTP input.
 	Mail195SMTPRoots  *x509.CertPool
@@ -124,7 +125,7 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		bodyLimit := int64(1 << 20)
 		if r.Method == "POST" && (r.URL.Path == "/console/v1/admin/account/ocr" || r.URL.Path == "/console/v1/merchant/account/ocr") {
-			bodyLimit = kyc233.MaxImageBytes + 8192
+			bodyLimit = kyc.MaxImageBytes + 8192
 		}
 		if r.Method == "POST" && r.URL.Path == "/console/v1/admin/collection-style-images" {
 			bodyLimit += 8192
@@ -342,49 +343,7 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if !s.auditDelegatedRequest(w, r, session) {
 		return
 	}
-	if s.migrationWizardConsole234(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.transferRoutingConsole228(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.captchaSettingsConsole203(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.proxyCredentialsConsole(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.voiceSettings230(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.certification233Console(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.noticeAccounts231(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.noticeTemplates230(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.oauthCredentialsConsole(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.adminUserSecurityConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.proxyConnectivityConsole(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.orderAPITradeAliasConsole120(w, r, role, session, parts, c.Value, s.OrderAPITradeAlias120) {
-		return
-	}
-	if s.paymentDefendSettingsConsole206(w, r, role, session, parts, c.Value, s.PaymentDefend206) {
-		return
-	}
-	if s.ssoConsole(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.fundsSecurity(w, r, role, session, parts, c.Value) {
+	if s.serveConsoleRoutes(consoleRoutesBeforeFunds, w, r, role, session, parts, c.Value) {
 		return
 	}
 	var fundsOK bool
@@ -392,228 +351,7 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 	if !fundsOK {
 		return
 	}
-	if s.applicationAuthorizationConsole(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.weixinApplicationConsole(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.IdentityProfileConsole(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.IdentityLookupConsole(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.channelSharingConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.orderIncomeConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.refundFundingConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.merchantDashboardTips(w, r, role, session, parts) {
-		return
-	}
-	if s.legacyRefundHistoryConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.combinedOrdersConsole204(w, r, role, session, parts) {
-		return
-	}
-	if s.preauthorizationObservationConsole(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.preauthorizationCaptureConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.notificationResendConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.notificationReturnConsole200(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.preauthorizationRemainingConsole(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.authorizationReleaseConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.orderBlacklistConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.orderBusinessBatchConsole(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.orderBatchControlsConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.orderAdminActions(w, r, role, session, parts) {
-		return
-	}
-	if s.membershipSalesConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.invitationCodesConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.collectionStylesConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.collectionGeneratorConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.collectionStyleImagesConsole(w, r, role, session, parts) {
-		return
-	}
-	// Before orderOperations: its GET /orders/<trade_no> would read "summary"
-	// as an order number and answer "order not found".
-	if s.orderSummary(w, r, role, session, parts) {
-		return
-	}
-	if s.orderOperations(w, r, role, session, parts) {
-		return
-	}
-	if s.transferConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.redpackConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.transferBatchConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.transferBatchImport(w, r, role, session, parts) {
-		return
-	}
-	if s.referralConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.membershipReferralConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.channelStopConsole(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.settlementAutoConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.settlementPlanConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.printingConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.merchantNoticeConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.adminMerchantSignaturePolicy(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.systemUpdateConsole(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.mailFrequency194(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.mailAccounts195(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.smsAccounts134(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.businessSMSSettings231(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.siteBrandConsole193(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.scanJSSettingsConsole202(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.merchantScanPlatform192(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.platformMerchantAccessSettings(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.buyerMinimumConsole104(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.runtimeChannelLimits(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.paymentSubchannelConsole(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.paymentParentChannels(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.runtimeChannelPolicies(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.scheduledTasks(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.adminMerchantCredentials(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.corePaymentRisk(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.businessNoticeConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.templateConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.settlementPayoutConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.settlementBatchConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.collectionLink(w, r, role, session, parts) {
-		return
-	}
-	if s.security(w, r, role, session, parts) {
-		return
-	}
-	if s.operations(w, r, role, session, parts) {
-		return
-	}
-	if s.merchantScanJS202(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.merchantScanConsole192(w, r, role, session, parts, c.Value) {
-		return
-	}
-	if s.accountBindings(w, r, role, session, parts) {
-		return
-	}
-	if s.account(w, r, role, session, parts) {
-		return
-	}
-	if s.adminMerchantLoginLog(w, r, role, session, parts) {
-		return
-	}
-	if s.refundSummary(w, r, role, session, parts) {
-		return
-	}
-	if s.payTypeOptions(w, r, role, session, parts) {
-		return
-	}
-	if s.ledgerSummary(w, r, role, session, parts) {
-		return
-	}
-	if s.reports(w, r, role, session, parts) {
-		return
-	}
-	if s.complaintsConsole(w, r, role, session, parts) {
-		return
-	}
-	if s.backoffice(w, r, role, session, parts) {
+	if s.serveConsoleRoutes(consoleRoutesAfterFunds, w, r, role, session, parts, c.Value) {
 		return
 	}
 	if action == "session" && r.Method == "GET" {
@@ -740,12 +478,48 @@ func decode(w http.ResponseWriter, r *http.Request, out any) bool {
 	}
 	return true
 }
+
+// loginFromThisSite refuses cross-site login submissions (login CSRF): another
+// site must not be able to sign a visitor's browser into an account of the
+// attacker's choosing. Browsers label such requests with Sec-Fetch-Site and
+// Origin; non-browser clients that send neither header are unaffected.
+func (s *Server) loginFromThisSite(r *http.Request) bool {
+	if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "same-origin" && site != "none" {
+		return false
+	}
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	u, e := url.Parse(origin)
+	if e != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
+		return false
+	}
+	if strings.EqualFold(u.Host, r.Host) {
+		return true
+	}
+	// A console served from its own origin posts through that origin.
+	configuredOrigins := []string{s.KYC233ConsoleOrigin, s.DocsAPIOrigin, s.LoginCaptcha205.Origin()}
+	if s.ProviderFlow != nil {
+		configuredOrigins = append(configuredOrigins, s.ProviderFlow.CallbackBaseURL)
+	}
+	for _, configured := range configuredOrigins {
+		if c, e := url.Parse(configured); e == nil && c.Host != "" && strings.EqualFold(c.Host, u.Host) && c.Scheme == u.Scheme {
+			return true
+		}
+	}
+	return false
+}
 func (s *Server) login(w http.ResponseWriter, r *http.Request, role, cookieName string) {
+	if !s.loginFromThisSite(r) {
+		response(w, 403, -1, "cross-site login refused", nil)
+		return
+	}
 	var in struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
 		Code     string `json:"code"`
-		captcha203.Proof
+		captcha.Proof
 	}
 	if !decode(w, r, &in) {
 		return
@@ -773,8 +547,8 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, role, cookieName 
 		response(w, 503, -1, "database unavailable", nil)
 		return
 	}
-	var loginCaptcha *logincaptcha205.Service
-	var captchaGrant logincaptcha205.Grant
+	var loginCaptcha *logincaptcha.Service
+	var captchaGrant logincaptcha.Grant
 	if role == "merchant" {
 		var captchaError error
 		loginCaptcha, captchaError = s.loginCaptchaService205()
@@ -861,6 +635,14 @@ func (s *Server) fail(w http.ResponseWriter, e error) {
 	case errors.Is(e, payment.ErrInvalid), errors.Is(e, payment.ErrState):
 		status = 422
 		msg = "invalid input or state"
+	case errors.Is(e, provider.ErrInvalid):
+		// The request built for the provider failed its own validation (for
+		// example a field the channel limits): a data problem, not an outage.
+		status = 422
+		msg = "invalid provider request"
+	case errors.Is(e, provider.ErrUnsupported):
+		status = 422
+		msg = "operation not supported by this channel"
 	}
 	if status == 500 {
 		s.recordRuntimeFailure(e)

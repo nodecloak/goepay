@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"goepay/internal/enrollment"
-	"goepay/internal/mailaccount195"
+	"goepay/internal/mailaccount"
 )
 
 type mail195TLS struct {
@@ -158,7 +158,7 @@ func TestMailAccounts195ActualProtectedAccountTLSAndUnknownDATAResponseNeverRetr
 			if peer.connections.Load() != 0 {
 				t.Fatal("saving account connected to SMTP")
 			}
-			resolver := &mailaccount195.Verification{Store: mailaccount195.FromMaster(f.p, master), RootCAs: peer.roots}
+			resolver := &mailaccount.Verification{Store: mailaccount.FromMaster(f.p, master), RootCAs: peer.roots}
 			service, e := enrollment.New(f.p, f.s.Store, master, resolver)
 			if e != nil {
 				t.Fatal(e)
@@ -189,7 +189,7 @@ func TestMailAccounts195PreparedAccountRemainsOriginalAfterLaterConsoleRotation(
 	f.s.CheckoutKey = key[:]
 	state := mail195Data(t, mail195Request(f, "GET", "/smtp", ""))
 	state = mail195SaveTLS(t, f, state, first)
-	resolver := &mailaccount195.Verification{Store: mailaccount195.FromMaster(f.p, master), RootCAs: first.roots}
+	resolver := &mailaccount.Verification{Store: mailaccount.FromMaster(f.p, master), RootCAs: first.roots}
 	tx, e := f.p.Begin(t.Context())
 	if e != nil {
 		t.Fatal(e)

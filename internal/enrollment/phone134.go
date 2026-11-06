@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"goepay/internal/payment"
-	"goepay/internal/verifycode134"
+	"goepay/internal/verifycode"
 )
 
 // Phone-verified enrollment (original user/reg.php and findpwd.php, VerifyCode
@@ -96,7 +96,7 @@ func (s *Service) RegisterByPhone(ctx context.Context, in RegisterPhoneInput) (R
 	if e = limit(ctx, outer, s.digest("verify-source-sms", source), 900, 100); e != nil {
 		return out, commitRejection(ctx, outer, e)
 	}
-	codes := verifycode134.New(s.pool)
+	codes := verifycode.New(s.pool)
 	// Business work + code consume in ONE inner transaction.
 	tx, e := outer.Begin(ctx)
 	if e != nil {
@@ -107,13 +107,13 @@ func (s *Service) RegisterByPhone(ctx context.Context, in RegisterPhoneInput) (R
 	// code is wrong; a wrong code is then committed (errcount persists) and the
 	// business work below never runs.
 	if e = codes.VerifyTx(ctx, tx, "reg", 1, phone, in.Code, 0); e != nil {
-		if errors.Is(e, verifycode134.ErrWrong) {
+		if errors.Is(e, verifycode.ErrWrong) {
 			if c := tx.Commit(ctx); c != nil {
 				return out, c
 			}
 			return out, commitRejection(ctx, outer, ErrCode)
 		}
-		if errors.Is(e, verifycode134.ErrNoCode) || errors.Is(e, verifycode134.ErrExpired) {
+		if errors.Is(e, verifycode.ErrNoCode) || errors.Is(e, verifycode.ErrExpired) {
 			return out, commitRejection(ctx, outer, ErrCode)
 		}
 		return out, e
@@ -236,20 +236,20 @@ func (s *Service) RecoverByPhone(ctx context.Context, in RecoverPhoneInput) erro
 	if e = limit(ctx, outer, s.digest("verify-source-sms", source), 900, 100); e != nil {
 		return commitRejection(ctx, outer, e)
 	}
-	codes := verifycode134.New(s.pool)
+	codes := verifycode.New(s.pool)
 	tx, e := outer.Begin(ctx)
 	if e != nil {
 		return e
 	}
 	defer tx.Rollback(ctx)
 	if e = codes.VerifyTx(ctx, tx, "find", 1, phone, in.Code, 0); e != nil {
-		if errors.Is(e, verifycode134.ErrWrong) {
+		if errors.Is(e, verifycode.ErrWrong) {
 			if c := tx.Commit(ctx); c != nil {
 				return c
 			}
 			return commitRejection(ctx, outer, ErrCode)
 		}
-		if errors.Is(e, verifycode134.ErrNoCode) || errors.Is(e, verifycode134.ErrExpired) {
+		if errors.Is(e, verifycode.ErrNoCode) || errors.Is(e, verifycode.ErrExpired) {
 			return commitRejection(ctx, outer, ErrCode)
 		}
 		return e

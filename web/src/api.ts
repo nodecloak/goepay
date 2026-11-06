@@ -2,6 +2,7 @@ import type { Area } from "./menu";
 import { isAdminFundsAction } from "./funds-authorization";
 import { parseMerchantKeySession } from "./merchant-api-switches";
 import { isPersonalMerchantID } from "./merchant-personal-settings";
+import { localizeServerMessage } from "./server-messages";
 export interface FundsActionRequest {
   target: string;
   body: Record<string, unknown>;
@@ -32,13 +33,9 @@ export interface Session {
   // server session endpoint; absent for admin sessions.
   merchant_features?: Record<string, boolean>;
 }
-const ownMerchantSessionErrors = new Set([
-  "original merchant session required",
-  "own merchant session required",
-  "own authenticated session required",
-  "own merchant session required for membership purchase",
-]);
 export class ApiError extends Error {
+  /** The API's original message. Program logic compares this, never `message`. */
+  readonly serverMessage: string;
   constructor(
     message: string,
     public status: number,
@@ -52,11 +49,9 @@ export class ApiError extends Error {
       reason: string;
     },
   ) {
-    super(
-      status === 403 && ownMerchantSessionErrors.has(message)
-        ? "该功能需要商户本人登录，请使用商户账号登录后操作。"
-        : message,
-    );
+    // `message` is what people read: the API's English wording translated.
+    super(localizeServerMessage(message, status, retryAfterSeconds));
+    this.serverMessage = message;
   }
 }
 export class ApiClient {

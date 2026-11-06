@@ -56,7 +56,7 @@ func TestParentBuyer190ActualChildTLSChargeCallbackAndRefundAcrossPolicyRotation
 			setMerchant(0, "")
 			setMinimum("3.00")
 			parent180RotateOutgoing(t, setup)
-			callback := map[string]string{"return_code": "SUCCESS", "result_code": "SUCCESS", "appid": "child189-A", "mch_id": "child189-merchant-A", "out_trade_no": o.TradeNo, "transaction_id": "WX180_" + o.TradeNo, "total_fee": fmt.Sprint(tc.charge + 1), "trade_type": "NATIVE", "openid": "synthetic190-buyer"}
+			callback := map[string]string{"return_code": "SUCCESS", "result_code": "SUCCESS", "appid": "child189-A", "mch_id": "child189-merchant-A", "out_trade_no": o.TradeNo, "transaction_id": "W180" + o.TradeNo, "total_fee": fmt.Sprint(tc.charge + 1), "trade_type": "NATIVE", "openid": "synthetic190-buyer"}
 			send := func() int {
 				r := httptest.NewRequest("POST", "/callbacks/providers/"+setup.id+"/"+o.TradeNo, bytes.NewReader(parent180SignedXML(callback, "abcdef0123456789abcdef0123456789")))
 				r.Header.Set("Content-Type", "application/xml")

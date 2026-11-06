@@ -7,10 +7,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"github.com/jackc/pgx/v5"
-	"goepay/internal/noticesource231"
+	"goepay/internal/noticesource"
 )
 
-type supplementSource231 = noticesource231.Source
+type supplementSource231 = noticesource.Source
 
 // The confirmation's template and channel are authorized at birth. Configuring
 // templates later cannot turn an old package into a new sending opportunity.
@@ -62,11 +62,11 @@ func renderSource231(in Input) (Message, error) {
 	}
 	return Render(in)
 }
-func (s *Store) CaptureSupplement231(ctx context.Context, tx pgx.Tx, source noticesource231.Source) error {
+func (s *Store) CaptureSupplement231(ctx context.Context, tx pgx.Tx, source noticesource.Source) error {
 	if !s.available() || tx == nil || source.Facts.MerchantID <= 0 || (source.Facts.Kind != "complain" && source.Facts.Kind != "wxtransfer") {
 		return ErrInvalid
 	}
-	if e := noticesource231.Verify(ctx, tx, source); e != nil {
+	if e := noticesource.Verify(ctx, tx, source); e != nil {
 		return e
 	}
 	var current string
@@ -96,7 +96,7 @@ func (s *Store) verifySupplement231(ctx context.Context, tx pgx.Tx, r eventRecor
 	if !hmac.Equal(a, b) {
 		return ErrConflict
 	}
-	if e := noticesource231.Verify(ctx, tx, *p); e != nil {
+	if e := noticesource.Verify(ctx, tx, *p); e != nil {
 		return ErrConflict
 	}
 	return nil

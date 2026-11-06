@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/netip"
 	"strings"
+	"sync/atomic"
+	"time"
 )
 
 type transportPeerKey struct{}
@@ -71,9 +74,36 @@ func NewTrustedProxy(raw string) (func(http.Handler) http.Handler, error) {
 				r = r.Clone(context.WithValue(r.Context(), transportPeerKey{}, original))
 				r.RemoteAddr = net.JoinHostPort(client.Unmap().String(), port)
 			} else {
+				if e == nil && parseErr == nil && (r.Header.Get("X-Real-IP") != "" || r.Header.Get("X-Forwarded-For") != "") {
+					noteUntrustedProxy(peer.Unmap(), time.Now())
+				}
 				r = r.WithContext(context.WithValue(r.Context(), transportPeerKey{}, original))
 			}
 			next.ServeHTTP(w, r)
 		})
 	}, nil
+}
+
+// A private or loopback peer that forwards X-Real-IP/X-Forwarded-For is almost
+// certainly a reverse proxy missing from GOEPAY_TRUSTED_PROXY_CIDRS. Its headers
+// stay ignored (fail closed); the hint only makes the shared source budget
+// visible, because every client behind that proxy then shares one login,
+// CAPTCHA and payment-risk identity. Public peers are clients and never logged.
+var untrustedProxyLastHint atomic.Int64
+
+var untrustedProxyHint = func(peer netip.Addr) {
+	slog.Warn("ignored client address headers from an untrusted reverse proxy; IP-based login, CAPTCHA and payment limits treat all of its clients as one source. Add this proxy to GOEPAY_TRUSTED_PROXY_CIDRS and let it overwrite X-Real-IP", "peer", peer.String())
+}
+
+func noteUntrustedProxy(peer netip.Addr, now time.Time) {
+	if !peer.IsValid() || peer.Zone() != "" || !(peer.IsPrivate() || peer.IsLoopback()) {
+		return
+	}
+	last := untrustedProxyLastHint.Load()
+	if last != 0 && now.Sub(time.Unix(0, last)) < 10*time.Minute {
+		return
+	}
+	if untrustedProxyLastHint.CompareAndSwap(last, now.UnixNano()) {
+		untrustedProxyHint(peer)
+	}
 }

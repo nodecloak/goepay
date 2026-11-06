@@ -68,8 +68,8 @@ it("reads the threshold plan, explains its original five-wallet rules and locks 
   await flushPromises();
   await w.find('[aria-label="查看计划 4"]').trigger("click");
   await flushPromises();
-  expect(w.text()).toContain("UID倒序最多5个");
-  expect(w.text()).toContain("整余额");
+  expect(w.text()).toContain("每次最多选 5");
+  expect(w.text()).toContain("结算全部余额");
   expect(w.text()).not.toContain("计划身份或模式不匹配");
   await w
     .findAll("button")

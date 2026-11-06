@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"goepay/internal/adapters/adminnotice"
 	"goepay/internal/merchantnotice"
-	"goepay/internal/noticeconfig231"
+	"goepay/internal/noticeconfig"
 	"goepay/internal/payment"
 	"goepay/internal/templatechange"
 	"time"
@@ -16,7 +16,7 @@ import (
 
 type managedNotice231 struct {
 	merchantnotice.Sender
-	config      *noticeconfig231.Store
+	config      *noticeconfig.Store
 	kind, stamp string
 }
 
@@ -55,7 +55,7 @@ func (m *managedNotice231) ValidateNoticeConfig231(ctx context.Context, tx pgx.T
 	}
 	return nil
 }
-func managedFactory231(config *noticeconfig231.Store, k string, v noticeconfig231.View, c noticeconfig231.Credential, stamp string) (payment.ChannelNoticeSender, string, error) {
+func managedFactory231(config *noticeconfig.Store, k string, v noticeconfig.View, c noticeconfig.Credential, stamp string) (payment.ChannelNoticeSender, string, error) {
 	if !v.Enabled {
 		return nil, "", errChannelNoticeConfiguration
 	}

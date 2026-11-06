@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"goepay/internal/compat"
 	"goepay/internal/payment"
-	"goepay/internal/paymentdefend206"
+	"goepay/internal/paymentdefend"
 )
 
 // defend206ContinueField carries the one-time JS-jump continue token. It is
@@ -26,9 +26,9 @@ type defend206Admission struct {
 	outTradeNo   string
 	continuation string // platform trade_no of an OAuth/mini continuation
 	clientIP     string // the original $clientip: direct peer, or signed clientip
-	consumed    bool
-	fingerprint string
-	kind        string // the pay_verify_type this request verified under
+	consumed     bool
+	fingerprint  string
+	kind         string // the pay_verify_type this request verified under
 	// The original evaluates checkPayVerifyOpen once per request. Later
 	// business writes of the same request (route, order, attempt) reuse that
 	// decision so this request's own new order cannot flip it midway.
@@ -40,7 +40,7 @@ type defend206Admission struct {
 // defend206Triggered evaluates the original checkPayVerifyOpen for one
 // merchant inside the caller's transaction, once per request and policy
 // revision. Any evaluation error fails closed.
-func (s *Server) defend206Triggered(ctx context.Context, tx pgx.Tx, policy paymentdefend206.Policy, adm *defend206Admission) (triggered, known bool, err error) {
+func (s *Server) defend206Triggered(ctx context.Context, tx pgx.Tx, policy paymentdefend.Policy, adm *defend206Admission) (triggered, known bool, err error) {
 	if adm.decided && adm.decidedFP == policy.Fingerprint {
 		return adm.triggered, true, nil
 	}
@@ -48,23 +48,23 @@ func (s *Server) defend206Triggered(ctx context.Context, tx pgx.Tx, policy payme
 	if err != nil {
 		return true, false, err
 	}
-	t := paymentdefend206.EvaluateStatic(mode, policy.Settings, adm.merchantID)
+	t := paymentdefend.EvaluateStatic(mode, policy.Settings, adm.merchantID)
 	if !t.Known {
 		if mode != "1" {
 			return true, false, nil
 		}
-		fired, err := paymentdefend206.EvaluateRulesTx(ctx, tx, policy.Settings, adm.merchantID, adm.clientIP)
+		fired, err := paymentdefend.EvaluateRulesTx(ctx, tx, policy.Settings, adm.merchantID, adm.clientIP)
 		if err != nil {
 			return true, false, err
 		}
-		t = paymentdefend206.Trigger{Triggered: fired, Known: true}
+		t = paymentdefend.Trigger{Triggered: fired, Known: true}
 	}
 	adm.decided, adm.decidedFP, adm.triggered = true, policy.Fingerprint, t.Triggered
 	return t.Triggered, true, nil
 }
 
 // defend206EffectiveMode is the effective pay_verify for the merchant.
-func (s *Server) defend206EffectiveMode(ctx context.Context, tx pgx.Tx, policy paymentdefend206.Policy, merchantID int64) (string, error) {
+func (s *Server) defend206EffectiveMode(ctx context.Context, tx pgx.Tx, policy paymentdefend.Policy, merchantID int64) (string, error) {
 	return s.PaymentDefend206.EffectiveModeTx(ctx, tx, policy, merchantID)
 }
 
@@ -75,7 +75,7 @@ func (s *Server) paymentDefendContext206(ctx context.Context, adm *defend206Admi
 			if adm != nil && adm.consumed {
 				return payment.ErrState
 			}
-			return paymentdefend206.ConfirmUnconfiguredTx(ctx, tx)
+			return paymentdefend.ConfirmUnconfiguredTx(ctx, tx)
 		}
 		policy, err := s.PaymentDefend206.CurrentTx(ctx, tx)
 		if err != nil {
@@ -148,7 +148,6 @@ var defend206JumpPage = template.Must(template.New("jump206").Parse(`<!DOCTYPE h
 </body></html>`))
 
 type defend206Field struct{ K, V string }
-
 
 // paymentDefendContinuation206 guards the final submit of an OAuth or
 // mini-program order: it resumes only an order with admission evidence.

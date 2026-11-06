@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"goepay/internal/identity"
-	"goepay/internal/voiceconfig230"
+	"goepay/internal/voiceconfig"
 	"net/http"
 )
 
@@ -21,18 +21,18 @@ func (s *Server) voiceSettings230(w http.ResponseWriter, r *http.Request, role s
 		response(w, 400, -1, "query parameters not accepted", nil)
 		return true
 	}
-	store, e := voiceconfig230.New(s.Pool, s.CheckoutKey)
+	store, e := voiceconfig.New(s.Pool, s.CheckoutKey)
 	if e != nil {
 		response(w, 503, -1, "voice configuration unavailable", nil)
 		return true
 	}
-	a := voiceconfig230.Actor{User: session.User, Token: token, CSRF: session.CSRF}
-	var out voiceconfig230.View
+	a := voiceconfig.Actor{User: session.User, Token: token, CSRF: session.CSRF}
+	var out voiceconfig.View
 	switch r.Method {
 	case "GET":
 		out, e = store.Read(r.Context(), a)
 	case "PUT":
-		var in voiceconfig230.Input
+		var in voiceconfig.Input
 		var fields map[string]json.RawMessage
 		if !decodeFundsJSON(w, r, &fields) {
 			return true
@@ -63,9 +63,9 @@ func (s *Server) voiceSettings230(w http.ResponseWriter, r *http.Request, role s
 		status := 503
 		if errors.Is(e, identity.ErrAdminSession) {
 			status = 403
-		} else if errors.Is(e, voiceconfig230.ErrInvalid) {
+		} else if errors.Is(e, voiceconfig.ErrInvalid) {
 			status = 422
-		} else if errors.Is(e, voiceconfig230.ErrConflict) {
+		} else if errors.Is(e, voiceconfig.ErrConflict) {
 			status = 409
 		}
 		response(w, status, -1, "voice configuration could not be confirmed; reload before retrying", nil)

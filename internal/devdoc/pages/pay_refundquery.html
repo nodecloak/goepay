@@ -20,7 +20,7 @@
 <p>所有请求参数先按<a href="/doc/sign_note.html">签名规则</a>签名，再进行表单编码。字段只允许唯一标量值；重复键、数组形式及歧义参数名会被拒绝。</p>
 <h2 id="处理规则">处理规则</h2>
 <ul>
-<li>只可查询属于当前商户的退款；接口调用原通道核验结果，核验不成功时返回错误说明。</li>
+<li>只可查询属于当前商户的退款；已有最终结果的退款直接返回保存的结果，其余由接口调用原通道核验。原通道不支持查询退款结果时，返回保存的处理中状态，直到机构结果或平台人工核实给出最终结果。</li>
 <li>尚未终态时实际返回 <code>code=-1</code>、<code>msg=refund processing</code>、两个退款号，不含 <code>status</code>、<code>money</code>、<code>reducemoney</code>。这不是最终失败。</li>
 <li>终态查询完成时 code=0；status=1 表示成功，status=0 表示最终失败。不要将处理中缺少 status 解读为 status=0。</li>
 </ul>
@@ -35,6 +35,7 @@
 <tr><td>sign</td><td>String</td><td>使用平台公钥验证的签名。</td></tr>
 <tr><td>refund_no / out_refund_no</td><td>String</td><td>平台退款 ID 及商户退款单号。</td></tr>
 <tr><td>status</td><td>Number</td><td>仅终态返回：1 成功，0 失败。</td></tr>
+<tr><td>refund_state</td><td>String</td><td>机器可读的退款状态：<code>processing</code> 处理中（含 code=-1 的处理中分支）、<code>succeeded</code> 成功、<code>failed</code> 最终失败。建议据此判断，不要匹配 msg 文案。</td></tr>
 <tr><td>money / reducemoney</td><td>String</td><td>仅终态返回的退款总额及商户承担金额。</td></tr>
 </tbody>
 </table></div>

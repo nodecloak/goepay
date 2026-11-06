@@ -46,3 +46,38 @@ func TestDecryptRejectsWrongMasterAndTampering(t *testing.T) {
 		t.Fatal("short master accepted")
 	}
 }
+
+func TestEncryptRoundTripsAndRefusesInvalidImports(t *testing.T) {
+	key := make([]byte, 32)
+	key[3] = 9
+	in := Import{Version: 1, Channels: []Channel{{ID: 7, Plugin: "alipay", AppTypes: []string{"1"}, Config: map[string]string{"appid": "test", "appsecret": "secret"}, Certificates: map[string]string{}}}}
+	sealed, e := Encrypt(in, key)
+	if e != nil {
+		t.Fatal(e)
+	}
+	again, e := Encrypt(in, key)
+	if e != nil || string(again) == string(sealed) {
+		t.Fatal("each sealing must use a fresh nonce")
+	}
+	out, e := Decrypt(sealed, key)
+	if e != nil || len(out.Channels) != 1 || out.Channels[0].ID != 7 || out.Channels[0].Config["appsecret"] != "secret" {
+		t.Fatalf("round trip lost the import: %v %+v", e, out)
+	}
+	other := make([]byte, 32)
+	if _, e = Decrypt(sealed, other); e == nil {
+		t.Fatal("sealed import opened with another master key")
+	}
+	for name, bad := range map[string]Import{
+		"version":        {Version: 2, Channels: in.Channels},
+		"plugin":         {Version: 1, Channels: []Channel{{ID: 1, Plugin: "nonexistent", Config: map[string]string{}}}},
+		"duplicate id":   {Version: 1, Channels: []Channel{in.Channels[0], in.Channels[0]}},
+		"missing config": {Version: 1, Channels: []Channel{{ID: 1, Plugin: "alipay"}}},
+	} {
+		if _, e = Encrypt(bad, key); e == nil {
+			t.Fatalf("%s: invalid import sealed", name)
+		}
+	}
+	if _, e = Encrypt(in, key[:16]); e == nil {
+		t.Fatal("short master key accepted")
+	}
+}

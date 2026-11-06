@@ -20,23 +20,23 @@ import (
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/channelconfig"
 	"goepay/internal/identity"
-	"goepay/internal/kyc233"
+	"goepay/internal/kyc"
 	"goepay/internal/payment"
 )
 
 type localKYC233 struct {
 	initCalls, queryCalls, ocrCalls                      atomic.Int64
-	initResult                                           kyc233.InitResult
-	queryResult                                          kyc233.QueryResult
+	initResult                                           kyc.InitResult
+	queryResult                                          kyc.QueryResult
 	initError, queryError, ocrError                      error
 	initStarted, initRelease, queryStarted, queryRelease chan struct{}
 	ocrStarted, ocrRelease                               chan struct{}
 	observedPhone                                        string
-	lastAttempt                                          kyc233.Attempt
-	lastQuery                                            kyc233.Attempt
+	lastAttempt                                          kyc.Attempt
+	lastQuery                                            kyc.Attempt
 }
 
-func (p *localKYC233) Initialize(ctx context.Context, _ kyc233.Snapshot, v kyc233.Submission, attempt kyc233.Attempt) (kyc233.InitResult, error) {
+func (p *localKYC233) Initialize(ctx context.Context, _ kyc.Snapshot, v kyc.Submission, attempt kyc.Attempt) (kyc.InitResult, error) {
 	p.initCalls.Add(1)
 	p.observedPhone = v.Phone
 	p.lastAttempt = attempt
@@ -45,12 +45,12 @@ func (p *localKYC233) Initialize(ctx context.Context, _ kyc233.Snapshot, v kyc23
 		select {
 		case <-p.initRelease:
 		case <-ctx.Done():
-			return kyc233.InitResult{}, ctx.Err()
+			return kyc.InitResult{}, ctx.Err()
 		}
 	}
 	return p.initResult, p.initError
 }
-func (p *localKYC233) Query(ctx context.Context, _ kyc233.Snapshot, attempt kyc233.Attempt) (kyc233.QueryResult, error) {
+func (p *localKYC233) Query(ctx context.Context, _ kyc.Snapshot, attempt kyc.Attempt) (kyc.QueryResult, error) {
 	p.queryCalls.Add(1)
 	p.lastQuery = attempt
 	if p.queryStarted != nil {
@@ -58,22 +58,22 @@ func (p *localKYC233) Query(ctx context.Context, _ kyc233.Snapshot, attempt kyc2
 		select {
 		case <-p.queryRelease:
 		case <-ctx.Done():
-			return kyc233.QueryResult{}, ctx.Err()
+			return kyc.QueryResult{}, ctx.Err()
 		}
 	}
 	return p.queryResult, p.queryError
 }
-func (p *localKYC233) Recognize(ctx context.Context, _ kyc233.Snapshot, _ string, _ []byte) (kyc233.OCRResult, error) {
+func (p *localKYC233) Recognize(ctx context.Context, _ kyc.Snapshot, _ string, _ []byte) (kyc.OCRResult, error) {
 	p.ocrCalls.Add(1)
 	if p.ocrStarted != nil {
 		close(p.ocrStarted)
 		select {
 		case <-p.ocrRelease:
 		case <-ctx.Done():
-			return kyc233.OCRResult{}, ctx.Err()
+			return kyc.OCRResult{}, ctx.Err()
 		}
 	}
-	return kyc233.OCRResult{Fields: map[string]string{"name": "本地模拟识别"}}, p.ocrError
+	return kyc.OCRResult{Fields: map[string]string{"name": "本地模拟识别"}}, p.ocrError
 }
 
 type kyc233Fixture struct {
@@ -93,7 +93,7 @@ func newKYC233(t *testing.T) kyc233Fixture {
 	if e != nil {
 		t.Fatal(e)
 	}
-	f.provider = &localKYC233{initResult: kyc233.InitResult{Token: "synthetic-proof-token233", URL: "https://faceid.qq.com/?token=synthetic233", Scan: "wechat", Status: "pending"}, queryResult: kyc233.QueryResult{Status: "passed"}}
+	f.provider = &localKYC233{initResult: kyc.InitResult{Token: "synthetic-proof-token233", URL: "https://faceid.qq.com/?token=synthetic233", Scan: "wechat", Status: "pending"}, queryResult: kyc.QueryResult{Status: "passed"}}
 	f.s.KYC233Provider = f.provider
 	f.s.KYC233BaseURL = "https://local.example.invalid"
 	return f
@@ -129,29 +129,29 @@ func kyc233View[T any](t *testing.T, w *httptest.ResponseRecorder) T {
 	}
 	return envelope.Data
 }
-func (f kyc233Fixture) settings(t *testing.T) kyc233.ConfigInput {
+func (f kyc233Fixture) settings(t *testing.T) kyc.ConfigInput {
 	t.Helper()
-	v := kyc233View[kyc233.ConfigView](t, f.call("GET", "admin", "/settings/certification", nil))
-	in := kyc233.ConfigInput{ExpectedRevision: v.Revision, Mode: v.Mode, ChannelID: v.ChannelID, Corporate: v.Corporate, Force: v.Force, Money: v.Money, OCRType: v.OCRType, Credentials: map[string]kyc233.CredentialEdit{}}
-	for _, k := range kyc233.CredentialKeys() {
-		in.Credentials[k] = kyc233.CredentialEdit{Action: "keep"}
+	v := kyc233View[kyc.ConfigView](t, f.call("GET", "admin", "/settings/certification", nil))
+	in := kyc.ConfigInput{ExpectedRevision: v.Revision, Mode: v.Mode, ChannelID: v.ChannelID, Corporate: v.Corporate, Force: v.Force, Money: v.Money, OCRType: v.OCRType, Credentials: map[string]kyc.CredentialEdit{}}
+	for _, k := range kyc.CredentialKeys() {
+		in.Credentials[k] = kyc.CredentialEdit{Action: "keep"}
 	}
 	return in
 }
-func (f kyc233Fixture) configure(t *testing.T, fee string) kyc233.ConfigView {
+func (f kyc233Fixture) configure(t *testing.T, fee string) kyc.ConfigView {
 	t.Helper()
 	in := f.settings(t)
 	in.Mode = 4
 	in.Money = fee
-	in.Credentials["cert_qcloudid"] = kyc233.CredentialEdit{Action: "replace", Value: "local-secret-id233"}
-	in.Credentials["cert_qcloudkey"] = kyc233.CredentialEdit{Action: "replace", Value: "local-secret-key233"}
-	in.Credentials["cert_qcloudruleid"] = kyc233.CredentialEdit{Action: "replace", Value: "local-rule233"}
-	return kyc233View[kyc233.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
+	in.Credentials["cert_qcloudid"] = kyc.CredentialEdit{Action: "replace", Value: "local-secret-id233"}
+	in.Credentials["cert_qcloudkey"] = kyc.CredentialEdit{Action: "replace", Value: "local-secret-key233"}
+	in.Credentials["cert_qcloudruleid"] = kyc.CredentialEdit{Action: "replace", Value: "local-rule233"}
+	return kyc233View[kyc.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
 }
 func submission233() map[string]any {
 	return map[string]any{"expected_revision": "1", "certtype": 0, "certcardtype": 0, "certname": "本地测试", "certno": "11010519491231002X", "certcorpname": "", "certcorpno": "", "consent": true}
 }
-func operation233(id string) kyc233.Operation { return kyc233.Operation{AttemptID: id} }
+func operation233(id string) kyc.Operation { return kyc.Operation{AttemptID: id} }
 
 func TestKYC233ConfigurationSchemasEncryptionAndAuthorization(t *testing.T) {
 	f := newKYC233(t)
@@ -229,23 +229,23 @@ func TestKYC233LocalLifecycleSuccessOnlyFeeAndIdempotency(t *testing.T) {
 	if got := f.call("POST", "merchant", "/account/certificate/submit", bad).Code; got != 422 {
 		t.Fatal("consent bypass", got)
 	}
-	ready := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
+	ready := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
 	if ready.Status != "ready" || f.provider.initCalls.Load() != 0 {
 		t.Fatal("submit initiated billable call")
 	}
-	pending := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)))
+	pending := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)))
 	if pending.Status != "pending" || pending.URL == "" {
 		t.Fatal("URL unavailable")
 	}
-	_ = kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)))
+	_ = kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)))
 	if f.provider.initCalls.Load() != 1 {
 		t.Fatal("duplicate initialization")
 	}
-	paid := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
+	paid := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
 	if paid.Cert != 1 || paid.Status != "passed" || paid.Name == "本地测试" || paid.Number == "11010519491231002X" {
 		t.Fatal("record missing or not masked")
 	}
-	_ = kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
+	_ = kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
 	if f.provider.queryCalls.Load() != 1 {
 		t.Fatal("duplicate completed query reached upstream")
 	}
@@ -269,7 +269,7 @@ func TestKYC233LocalLifecycleSuccessOnlyFeeAndIdempotency(t *testing.T) {
 func TestKYC233UnknownCancellationCrossMerchantAndConfigRotation(t *testing.T) {
 	f := newKYC233(t)
 	f.configure(t, "0.00")
-	ready := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
+	ready := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
 	if e := f.s.Store.CreateMerchant(t.Context(), payment.Merchant{ID: 2, Name: "Synthetic Other", APIKey: "local-key233"}); e != nil {
 		t.Fatal(e)
 	}
@@ -286,22 +286,22 @@ func TestKYC233UnknownCancellationCrossMerchantAndConfigRotation(t *testing.T) {
 		t.Fatal("cross-merchant attempt", got)
 	}
 	f.provider.initError = errors.New("synthetic upstream timeout containing PRIVATE_ID233")
-	unknown := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)))
+	unknown := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)))
 	if unknown.Status != "unknown" {
 		t.Fatal("timeout not durable unknown")
 	}
 	if got := f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)).Code; got != 409 || f.provider.initCalls.Load() != 1 {
 		t.Fatal("unknown initialization resubmitted")
 	}
-	_ = kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/reset", operation233(ready.AttemptID)))
+	_ = kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/reset", operation233(ready.AttemptID)))
 	f.provider.initError = nil
-	next := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
+	next := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
 	if next.AttemptID == ready.AttemptID {
 		t.Fatal("cancelled attempt reused")
 	}
 	in := f.settings(t)
 	in.Money = "0.01"
-	_ = kyc233View[kyc233.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
+	_ = kyc233View[kyc.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
 	if got := f.call("POST", "merchant", "/account/certificate/geturl", operation233(next.AttemptID)).Code; got != 409 || f.provider.initCalls.Load() != 1 {
 		t.Fatal("stale config sent identity", got)
 	}
@@ -336,9 +336,9 @@ func TestOCR233LocalUploadOneUseValidationAndNoPersistence(t *testing.T) {
 	f := newKYC233(t)
 	in := f.settings(t)
 	in.OCRType = "aliyun"
-	in.Credentials["ocr_aliyunid"] = kyc233.CredentialEdit{Action: "replace", Value: "synthetic-ocr-id233"}
-	in.Credentials["ocr_aliyunkey"] = kyc233.CredentialEdit{Action: "replace", Value: "synthetic-ocr-secret233"}
-	_ = kyc233View[kyc233.ConfigView](t, f.call("PUT", "admin", "/settings/ocr", in))
+	in.Credentials["ocr_aliyunid"] = kyc.CredentialEdit{Action: "replace", Value: "synthetic-ocr-id233"}
+	in.Credentials["ocr_aliyunkey"] = kyc.CredentialEdit{Action: "replace", Value: "synthetic-ocr-secret233"}
+	_ = kyc233View[kyc.ConfigView](t, f.call("PUT", "admin", "/settings/ocr", in))
 	var raw bytes.Buffer
 	png.Encode(&raw, image.NewRGBA(image.Rect(0, 0, 64, 64)))
 	if got := f.upload("idcard", "00000000000000000000000000000001", []byte("not image")).Code; got != 422 || f.provider.ocrCalls.Load() != 0 {
@@ -347,7 +347,7 @@ func TestOCR233LocalUploadOneUseValidationAndNoPersistence(t *testing.T) {
 	if got := f.upload("https://internal/", "00000000000000000000000000000002", raw.Bytes()).Code; got != 422 || f.provider.ocrCalls.Load() != 0 {
 		t.Fatal("invalid document reached provider", got)
 	}
-	ocr := kyc233View[kyc233.OCRResult](t, f.upload("idcard", "00000000000000000000000000000003", raw.Bytes()))
+	ocr := kyc233View[kyc.OCRResult](t, f.upload("idcard", "00000000000000000000000000000003", raw.Bytes()))
 	if ocr.Fields["name"] == "" || f.provider.ocrCalls.Load() != 1 {
 		t.Fatal("OCR result unavailable")
 	}
@@ -365,7 +365,7 @@ func TestOCR233LocalUploadOneUseValidationAndNoPersistence(t *testing.T) {
 	if e := f.p.QueryRow(t.Context(), "SELECT count(*) FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='ocr_operations233'").Scan(&columns); e != nil || columns != 4 {
 		t.Fatal("OCR source/result persisted", columns, e)
 	}
-	info := kyc233View[kyc233.Info](t, f.call("GET", "merchant", "/account/certificate/info", nil))
+	info := kyc233View[kyc.Info](t, f.call("GET", "merchant", "/account/certificate/info", nil))
 	if info.Cert != 0 {
 		t.Fatal("OCR alone certified merchant")
 	}
@@ -414,28 +414,28 @@ func TestKYC233DurableVerifiedProofRecoversFeeAfterReloginWithoutUpstreamReplay(
 			in.Mode = mode
 			in.Money = "1.00"
 			if mode == 2 {
-				in.Credentials["cert_appcode"] = kyc233.CredentialEdit{Action: "replace", Value: "local-phone-app233"}
+				in.Credentials["cert_appcode"] = kyc.CredentialEdit{Action: "replace", Value: "local-phone-app233"}
 				if _, e := f.p.Exec(t.Context(), `UPDATE merchants SET profile='{"bind_mobile":"13800138000","phone":"13900139000"}' WHERE id=1`); e != nil {
 					t.Fatal(e)
 				}
-				f.provider.initResult = kyc233.InitResult{Status: "passed", Scan: "phone"}
+				f.provider.initResult = kyc.InitResult{Status: "passed", Scan: "phone"}
 			} else {
 				f.managedAlipay(t)
 				in.ChannelID = "7"
 				f.provider.initResult.URL = "https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?scope=id_verify"
 				f.provider.initResult.Scan = "alipay"
 			}
-			_ = kyc233View[kyc233.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
-			ready := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
+			_ = kyc233View[kyc.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
+			ready := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
 			if _, e := f.s.Store.AdminAdjustBalance(t.Context(), 1, "debit", "verified233-spend", "synthetic local spend", 100, "test"); e != nil {
 				t.Fatal(e)
 			}
-			result := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)))
+			result := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)))
 			if mode == 3 {
 				if result.Status != "pending" {
 					t.Fatal("OAuth not pending")
 				}
-				wrong := kyc233.Operation{AttemptID: ready.AttemptID, State: "wrong", AuthCode: "synthetic-authcode233"}
+				wrong := kyc.Operation{AttemptID: ready.AttemptID, State: "wrong", AuthCode: "synthetic-authcode233"}
 				if got := f.call("POST", "merchant", "/account/certificate/query", wrong).Code; got != 422 || f.provider.queryCalls.Load() != 0 {
 					t.Fatal("OAuth state bypass", got)
 				}
@@ -444,7 +444,7 @@ func TestKYC233DurableVerifiedProofRecoversFeeAfterReloginWithoutUpstreamReplay(
 				if e != nil {
 					t.Fatal(e)
 				}
-				result = kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/query", kyc233.Operation{AttemptID: ready.AttemptID, State: f.provider.lastAttempt.State, AuthCode: "synthetic-authcode233"}))
+				result = kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/query", kyc.Operation{AttemptID: ready.AttemptID, State: f.provider.lastAttempt.State, AuthCode: "synthetic-authcode233"}))
 			}
 			if result.Status != "verified" || result.Cert != 0 {
 				t.Fatal("provider proof lost on fee shortage", result.Status)
@@ -465,11 +465,11 @@ func TestKYC233DurableVerifiedProofRecoversFeeAfterReloginWithoutUpstreamReplay(
 			}
 			changed := f.settings(t)
 			changed.Money = "2.00"
-			_ = kyc233View[kyc233.ConfigView](t, f.call("PUT", "admin", "/settings/certification", changed))
+			_ = kyc233View[kyc.ConfigView](t, f.call("PUT", "admin", "/settings/certification", changed))
 			if _, e = f.s.Store.AdminAdjustBalance(t.Context(), 1, "credit", "verified233-topup", "synthetic local topup", 100, "test"); e != nil {
 				t.Fatal(e)
 			}
-			done := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
+			done := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
 			if done.Cert != 1 || done.Status != "passed" || f.provider.initCalls.Load() != 1 || f.provider.queryCalls.Load() != int64(mode-2) {
 				t.Fatal("verified recovery repeated upstream", done.Status)
 			}
@@ -486,8 +486,8 @@ func TestKYC233InitializeCannotUseDisabledChannelAndDuplicateClaimsSendOnce(t *t
 	in := f.settings(t)
 	in.Mode = 1
 	in.ChannelID = "7"
-	_ = kyc233View[kyc233.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
-	ready := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
+	_ = kyc233View[kyc.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
+	ready := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
 	session, _ := f.s.Sessions.Get(f.token, "admin")
 	disabled := false
 	rate := "100"
@@ -500,7 +500,7 @@ func TestKYC233InitializeCannotUseDisabledChannelAndDuplicateClaimsSendOnce(t *t
 	// A separate explicit attempt tests concurrent claims without remote I/O.
 	f2 := newKYC233(t)
 	f2.configure(t, "0.00")
-	r := kyc233View[kyc233.Info](t, f2.call("POST", "merchant", "/account/certificate/submit", submission233()))
+	r := kyc233View[kyc.Info](t, f2.call("POST", "merchant", "/account/certificate/submit", submission233()))
 	f2.provider.initStarted = make(chan struct{})
 	f2.provider.initRelease = make(chan struct{})
 	done := make(chan *httptest.ResponseRecorder, 1)
@@ -515,7 +515,7 @@ func TestKYC233InitializeCannotUseDisabledChannelAndDuplicateClaimsSendOnce(t *t
 		t.Fatal("concurrent initialization accepted", second.Code)
 	}
 	close(f2.provider.initRelease)
-	_ = kyc233View[kyc233.Info](t, <-done)
+	_ = kyc233View[kyc.Info](t, <-done)
 	if f2.provider.initCalls.Load() != 1 {
 		t.Fatal("concurrent duplicate send")
 	}
@@ -525,9 +525,9 @@ func TestOCR233ClaimRechecksExpiryAfterWaitingConfigurationLock(t *testing.T) {
 	f := newKYC233(t)
 	in := f.settings(t)
 	in.OCRType = "aliyun"
-	in.Credentials["ocr_aliyunid"] = kyc233.CredentialEdit{Action: "replace", Value: "local-id233"}
-	in.Credentials["ocr_aliyunkey"] = kyc233.CredentialEdit{Action: "replace", Value: "local-key233"}
-	_ = kyc233View[kyc233.ConfigView](t, f.call("PUT", "admin", "/settings/ocr", in))
+	in.Credentials["ocr_aliyunid"] = kyc.CredentialEdit{Action: "replace", Value: "local-id233"}
+	in.Credentials["ocr_aliyunkey"] = kyc.CredentialEdit{Action: "replace", Value: "local-key233"}
+	_ = kyc233View[kyc.ConfigView](t, f.call("PUT", "admin", "/settings/ocr", in))
 	block, e := f.p.Begin(t.Context())
 	if e != nil {
 		t.Fatal(e)
@@ -586,13 +586,13 @@ func TestKYC233PrivateProviderProofSurvivesSessionExpiryInFlight(t *testing.T) {
 	in := f.settings(t)
 	in.Mode = 2
 	in.Money = "1.00"
-	in.Credentials["cert_appcode"] = kyc233.CredentialEdit{Action: "replace", Value: "local-phone-app233"}
-	_ = kyc233View[kyc233.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
+	in.Credentials["cert_appcode"] = kyc.CredentialEdit{Action: "replace", Value: "local-phone-app233"}
+	_ = kyc233View[kyc.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
 	if _, e := f.p.Exec(t.Context(), `UPDATE merchants SET profile='{"bind_mobile":"13800138000"}' WHERE id=1`); e != nil {
 		t.Fatal(e)
 	}
-	ready := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
-	f.provider.initResult = kyc233.InitResult{Status: "passed", Scan: "phone"}
+	ready := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
+	f.provider.initResult = kyc.InitResult{Status: "passed", Scan: "phone"}
 	f.provider.initStarted = make(chan struct{})
 	f.provider.initRelease = make(chan struct{})
 	done := make(chan *httptest.ResponseRecorder, 1)
@@ -626,7 +626,7 @@ func TestKYC233PrivateProviderProofSurvivesSessionExpiryInFlight(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	final := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
+	final := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
 	if final.Cert != 1 || f.provider.initCalls.Load() != 1 || f.provider.queryCalls.Load() != 0 {
 		t.Fatal("recovery repeated billable request")
 	}
@@ -636,14 +636,14 @@ func TestOCR233ConsentedRevisionAndProviderLimitsRejectBeforeClaim(t *testing.T)
 	f := newKYC233(t)
 	in := f.settings(t)
 	in.OCRType = "aliyun"
-	in.Credentials["ocr_aliyunid"] = kyc233.CredentialEdit{Action: "replace", Value: "local-id233"}
-	in.Credentials["ocr_aliyunkey"] = kyc233.CredentialEdit{Action: "replace", Value: "local-key233"}
-	_ = kyc233View[kyc233.ConfigView](t, f.call("PUT", "admin", "/settings/ocr", in))
+	in.Credentials["ocr_aliyunid"] = kyc.CredentialEdit{Action: "replace", Value: "local-id233"}
+	in.Credentials["ocr_aliyunkey"] = kyc.CredentialEdit{Action: "replace", Value: "local-key233"}
+	_ = kyc233View[kyc.ConfigView](t, f.call("PUT", "admin", "/settings/ocr", in))
 	changed := f.settings(t)
 	changed.OCRType = "baidu"
-	changed.Credentials["ocr_baiduid"] = kyc233.CredentialEdit{Action: "replace", Value: "local-baidu-id233"}
-	changed.Credentials["ocr_baidukey"] = kyc233.CredentialEdit{Action: "replace", Value: "local-baidu-key233"}
-	_ = kyc233View[kyc233.ConfigView](t, f.call("PUT", "admin", "/settings/ocr", changed))
+	changed.Credentials["ocr_baiduid"] = kyc.CredentialEdit{Action: "replace", Value: "local-baidu-id233"}
+	changed.Credentials["ocr_baidukey"] = kyc.CredentialEdit{Action: "replace", Value: "local-baidu-key233"}
+	_ = kyc233View[kyc.ConfigView](t, f.call("PUT", "admin", "/settings/ocr", changed))
 	var small bytes.Buffer
 	png.Encode(&small, image.NewRGBA(image.Rect(0, 0, 64, 64)))
 	if got := f.upload("idcard", "00000000000000000000000000000010", small.Bytes()).Code; got != 409 {
@@ -678,13 +678,13 @@ func TestKYC233CorporateUpgradeAndCertificationRollbackProof(t *testing.T) {
 	f.configure(t, "0.00")
 	in := f.settings(t)
 	in.Corporate = true
-	in.Credentials["cert_appcode2"] = kyc233.CredentialEdit{Action: "replace", Value: "local-company-app233"}
-	_ = kyc233View[kyc233.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
+	in.Credentials["cert_appcode2"] = kyc.CredentialEdit{Action: "replace", Value: "local-company-app233"}
+	_ = kyc233View[kyc.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
 	person := submission233()
 	person["expected_revision"] = "2"
-	ready := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/submit", person))
-	_ = kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)))
-	_ = kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
+	ready := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/submit", person))
+	_ = kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)))
+	_ = kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
 	var oldAttempt string
 	var oldType int
 	var oldAt time.Time
@@ -697,9 +697,9 @@ func TestKYC233CorporateUpgradeAndCertificationRollbackProof(t *testing.T) {
 	company["certtype"] = 1
 	company["certcorpname"] = "本地模拟公司"
 	company["certcorpno"] = "91350100M000100Y43"
-	upgrade := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/submit", company))
-	_ = kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(upgrade.AttemptID)))
-	cert := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(upgrade.AttemptID)))
+	upgrade := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/submit", company))
+	_ = kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(upgrade.AttemptID)))
+	cert := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(upgrade.AttemptID)))
 	if cert.CertType != 1 || cert.CompanyNumber == "91350100M000100Y43" {
 		t.Fatal("company upgrade missing or unmasked")
 	}
@@ -715,9 +715,9 @@ func TestOCR233OutputRechecksExpiryAfterWaitingConfigurationLock(t *testing.T) {
 	f := newKYC233(t)
 	in := f.settings(t)
 	in.OCRType = "aliyun"
-	in.Credentials["ocr_aliyunid"] = kyc233.CredentialEdit{Action: "replace", Value: "local-id233"}
-	in.Credentials["ocr_aliyunkey"] = kyc233.CredentialEdit{Action: "replace", Value: "local-key233"}
-	_ = kyc233View[kyc233.ConfigView](t, f.call("PUT", "admin", "/settings/ocr", in))
+	in.Credentials["ocr_aliyunid"] = kyc.CredentialEdit{Action: "replace", Value: "local-id233"}
+	in.Credentials["ocr_aliyunkey"] = kyc.CredentialEdit{Action: "replace", Value: "local-key233"}
+	_ = kyc233View[kyc.ConfigView](t, f.call("PUT", "admin", "/settings/ocr", in))
 	f.provider.ocrStarted = make(chan struct{})
 	f.provider.ocrRelease = make(chan struct{})
 	var raw bytes.Buffer
@@ -778,11 +778,11 @@ func TestKYC233ServerReturnInboxIsPrivateBoundAndSingleUse(t *testing.T) {
 	in := f.settings(t)
 	in.Mode = 3
 	in.ChannelID = "7"
-	_ = kyc233View[kyc233.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
+	_ = kyc233View[kyc.ConfigView](t, f.call("PUT", "admin", "/settings/certification", in))
 	f.provider.initResult.URL = "https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?scope=id_verify"
 	f.provider.initResult.Scan = "alipay"
-	ready := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
-	_ = kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)))
+	ready := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/submit", submission233()))
+	_ = kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/geturl", operation233(ready.AttemptID)))
 	if strings.Contains(f.provider.lastAttempt.CallbackURL, "state=") || !strings.Contains(f.provider.lastAttempt.CallbackURL, "/callbacks/certification233/return?attempt_id=") {
 		t.Fatal("callback duplicates OAuth state or uses SPA")
 	}
@@ -802,7 +802,7 @@ func TestKYC233ServerReturnInboxIsPrivateBoundAndSingleUse(t *testing.T) {
 	if e = service.CacheReturn(t.Context(), ready.AttemptID, state, "different-code233"); e == nil {
 		t.Fatal("callback overwrote a pending code")
 	}
-	info := kyc233View[kyc233.Info](t, f.call("GET", "merchant", "/account/certificate/info", nil))
+	info := kyc233View[kyc.Info](t, f.call("GET", "merchant", "/account/certificate/info", nil))
 	if !info.AuthCodeReady || info.AuthCodeUsed || f.provider.queryCalls.Load() != 0 {
 		t.Fatal("inbox called provider or lost ready state")
 	}
@@ -810,7 +810,7 @@ func TestKYC233ServerReturnInboxIsPrivateBoundAndSingleUse(t *testing.T) {
 	if e = f.p.QueryRow(t.Context(), "SELECT attempt_cipher FROM kyc_attempts233 WHERE id=$1", ready.AttemptID).Scan(&cipher); e != nil || bytes.Contains(cipher, []byte("synthetic-return-code233")) {
 		t.Fatal("OAuth code not encrypted", e)
 	}
-	if got := f.call("POST", "merchant", "/account/certificate/query", kyc233.Operation{AttemptID: ready.AttemptID, State: state, AuthCode: "synthetic-return-code233"}).Code; got != 422 || f.provider.queryCalls.Load() != 0 {
+	if got := f.call("POST", "merchant", "/account/certificate/query", kyc.Operation{AttemptID: ready.AttemptID, State: state, AuthCode: "synthetic-return-code233"}).Code; got != 422 || f.provider.queryCalls.Load() != 0 {
 		t.Fatal("mixed browser and server code accepted", got)
 	}
 	var err error
@@ -818,14 +818,14 @@ func TestKYC233ServerReturnInboxIsPrivateBoundAndSingleUse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	final := kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
+	final := kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
 	if final.Cert != 1 || !final.AuthCodeUsed || final.AuthCodeReady || f.provider.queryCalls.Load() != 1 || f.provider.lastQuery.AuthCode != "synthetic-return-code233" {
 		t.Fatal("inbox not consumed once after login")
 	}
 	if e = service.CacheReturn(t.Context(), ready.AttemptID, state, "synthetic-return-code233"); e == nil {
 		t.Fatal("used OAuth code revived")
 	}
-	_ = kyc233View[kyc233.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
+	_ = kyc233View[kyc.Info](t, f.call("POST", "merchant", "/account/certificate/query", operation233(ready.AttemptID)))
 	if f.provider.queryCalls.Load() != 1 {
 		t.Fatal("used callback repeated upstream query")
 	}

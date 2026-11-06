@@ -253,7 +253,7 @@ func TestWeixinApplicationManagedMiniActualTLSFirstSendAndOriginalRecoveryAfterC
 	if e != nil {
 		t.Fatal(e)
 	}
-	callback := parent180SignedXML(map[string]string{"return_code": "SUCCESS", "result_code": "SUCCESS", "appid": "synthetic-managed-mini", "mch_id": "synthetic180-fresh-mch", "nonce_str": "managed-callback", "out_trade_no": second.TradeNo, "transaction_id": "WX180_" + second.TradeNo, "total_fee": "10000", "fee_type": "CNY", "openid": "synthetic-openid-synthetic-managed-mini"}, "abcdef0123456789abcdef0123456789")
+	callback := parent180SignedXML(map[string]string{"return_code": "SUCCESS", "result_code": "SUCCESS", "appid": "synthetic-managed-mini", "mch_id": "synthetic180-fresh-mch", "nonce_str": "managed-callback", "out_trade_no": second.TradeNo, "transaction_id": "W180" + second.TradeNo, "total_fee": "10000", "fee_type": "CNY", "openid": "synthetic-openid-synthetic-managed-mini"}, "abcdef0123456789abcdef0123456789")
 	req := httptest.NewRequest("POST", "/callbacks/providers/"+setup.id+"/"+second.TradeNo, bytes.NewReader(callback))
 	req.Header.Set("Content-Type", "application/xml")
 	result := httptest.NewRecorder()

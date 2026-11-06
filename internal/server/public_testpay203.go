@@ -12,17 +12,17 @@ import (
 	"time"
 
 	"goepay/internal/backoffice"
-	"goepay/internal/captcha203"
+	"goepay/internal/captcha"
 	"goepay/internal/compat"
 	"goepay/internal/identity"
 	"goepay/internal/ledger"
 	"goepay/internal/payment"
-	"goepay/internal/publictestpay203"
+	"goepay/internal/publictestpay"
 )
 
-func NewPublicTestPayService203(s *Server, verifier captcha203.Verifier) (*publictestpay203.Service, error) {
+func NewPublicTestPayService203(s *Server, verifier captcha.Verifier) (*publictestpay.Service, error) {
 	if s == nil {
-		return nil, publictestpay203.ErrUnavailable
+		return nil, publictestpay.ErrUnavailable
 	}
 	origin := ""
 	if s.ProviderFlow != nil && s.ProviderFlow.CallbackBaseURL != "" {
@@ -30,16 +30,16 @@ func NewPublicTestPayService203(s *Server, verifier captcha203.Verifier) (*publi
 	}
 	return NewPublicTestPayService203ForMaster(s, verifier, s.CheckoutKey, origin)
 }
-func NewPublicTestPayService203ForMaster(s *Server, verifier captcha203.Verifier, master []byte, origin string) (*publictestpay203.Service, error) {
+func NewPublicTestPayService203ForMaster(s *Server, verifier captcha.Verifier, master []byte, origin string) (*publictestpay.Service, error) {
 	if s == nil {
-		return nil, publictestpay203.ErrUnavailable
+		return nil, publictestpay.ErrUnavailable
 	}
 	origin = strings.TrimRight(origin, "/")
-	return publictestpay203.New(s.Pool, s.Store, master, origin, publicTestEngine203{s: s, origin: origin}, verifier, func(remote, purpose string) bool {
+	return publictestpay.New(s.Pool, s.Store, master, origin, publicTestEngine203{s: s, origin: origin}, verifier, func(remote, purpose string) bool {
 		return s.allowCollectionAttempt(remote, "public-testpay203:"+purpose, time.Now())
 	})
 }
-func (s *Server) testPayService203() (*publictestpay203.Service, error) {
+func (s *Server) testPayService203() (*publictestpay.Service, error) {
 	if s.PublicTestPay203 != nil {
 		return s.PublicTestPay203, nil
 	}
@@ -63,10 +63,10 @@ type publicTestEngine203 struct {
 	origin string
 }
 
-func (e publicTestEngine203) Types(ctx context.Context, mid int64) ([]publictestpay203.PayType, error) {
+func (e publicTestEngine203) Types(ctx context.Context, mid int64) ([]publictestpay.PayType, error) {
 	view, err := e.s.withParentRuntime(ctx, mid, "")
 	if err != nil || view.ProviderFlow == nil || !view.ProviderFlow.AllowLive || !view.paymentExecutionWriteAllowed() && !view.ProviderFlow.LocalSimulation {
-		return nil, publictestpay203.ErrUnavailable
+		return nil, publictestpay.ErrUnavailable
 	}
 	allowed := map[string]bool{}
 	for _, id := range view.MerchantChannels[mid] {
@@ -80,7 +80,7 @@ func (e publicTestEngine203) Types(ctx context.Context, mid int64) ([]publictest
 		return nil, err
 	}
 	defer rows.Close()
-	out := []publictestpay203.PayType{}
+	out := []publictestpay.PayType{}
 	for rows.Next() {
 		var id int64
 		var raw []byte
@@ -92,10 +92,10 @@ func (e publicTestEngine203) Types(ctx context.Context, mid int64) ([]publictest
 			Type string `json:"type"`
 		}
 		if json.Unmarshal(raw, &body) != nil {
-			return nil, publictestpay203.ErrUnavailable
+			return nil, publictestpay.ErrUnavailable
 		}
 		if allowed[body.Type] && body.Name != "" && len(body.Name) <= 100 {
-			out = append(out, publictestpay203.PayType{ID: strconv.FormatInt(id, 10), Name: body.Type, ShowName: body.Name})
+			out = append(out, publictestpay.PayType{ID: strconv.FormatInt(id, 10), Name: body.Type, ShowName: body.Name})
 		}
 	}
 	if err = rows.Err(); err != nil {
@@ -120,14 +120,14 @@ func (e publicTestEngine203) Types(ctx context.Context, mid int64) ([]publictest
 		}
 		id := strconv.FormatInt(testPayCatalogTypeID+int64(i), 10)
 		if !saved && !ids[id] {
-			out = append(out, publictestpay203.PayType{ID: id, Name: t.Name, ShowName: t.ShowName})
+			out = append(out, publictestpay.PayType{ID: id, Name: t.Name, ShowName: t.ShowName})
 		}
 	}
 	// Catalog order, like the original's pre_type id order (支付宝 first);
 	// records of one type keep their id order.
 	sort.SliceStable(out, func(i, j int) bool { return payTypeCatalogIndex(out[i].Name) < payTypeCatalogIndex(out[j].Name) })
 	if len(out) > 100 {
-		return nil, publictestpay203.ErrUnavailable
+		return nil, publictestpay.ErrUnavailable
 	}
 	return out, nil
 }
@@ -145,7 +145,7 @@ func payTypeCatalogIndex(payType string) int {
 	}
 	return len(originalPayTypes)
 }
-func (e publicTestEngine203) Create(ctx context.Context, in publictestpay203.Intent, source string) (string, string, error) {
+func (e publicTestEngine203) Create(ctx context.Context, in publictestpay.Intent, source string) (string, string, error) {
 	ctx = payment.WithCoreRiskCustomerIP(ctx, source, "direct_http")
 	if err := backoffice.New(e.s.Pool, e.s.Store).CheckPayment(ctx, backoffice.PaymentContext{MerchantID: in.MerchantID, ClientIP: source}); err != nil {
 		return "", "", err
@@ -157,7 +157,7 @@ func (e publicTestEngine203) Create(ctx context.Context, in publictestpay203.Int
 	target := e.origin + "/test?ok=1&trade_no=" + url.QueryEscape(in.OutTradeNo)
 	if !validURL(target) {
 		if view.ProviderFlow == nil || !view.ProviderFlow.LocalSimulation {
-			return "", "", publictestpay203.ErrUnavailable
+			return "", "", publictestpay.ErrUnavailable
 		}
 		target = ""
 	}
@@ -167,7 +167,7 @@ func (e publicTestEngine203) Create(ctx context.Context, in publictestpay203.Int
 		return "", "", err
 	}
 	if method != "native" {
-		return "", "", publictestpay203.ErrUnavailable
+		return "", "", publictestpay.ErrUnavailable
 	}
 	view, err = view.paymentIntentServer(ctx, in.MerchantID, in.OutTradeNo, channel)
 	if err != nil {
@@ -186,7 +186,7 @@ func (e publicTestEngine203) Create(ctx context.Context, in publictestpay203.Int
 	}
 	attempt, err := view.ProviderFlow.Submit(ctx, order.TradeNo, channel, method, source, "")
 	if err != nil || attempt.State != "pending" || attempt.Material == "" {
-		return order.TradeNo, "", publictestpay203.ErrConflict
+		return order.TradeNo, "", publictestpay.ErrConflict
 	}
 	checkout, err := e.Checkout(ctx, order)
 	return order.TradeNo, checkout, err
@@ -194,7 +194,7 @@ func (e publicTestEngine203) Create(ctx context.Context, in publictestpay203.Int
 func (e publicTestEngine203) Checkout(ctx context.Context, order payment.Order) (string, error) {
 	attempt, err := e.s.Store.ProviderAttempt(ctx, order.TradeNo)
 	if err != nil || attempt.Material == "" || attempt.State != "pending" && order.Status != "paid" {
-		return "", publictestpay203.ErrConflict
+		return "", publictestpay.ErrConflict
 	}
 	target, err := url.Parse(e.s.checkoutURL(order.TradeNo, "checkout"))
 	if err != nil {
@@ -220,8 +220,8 @@ func (s *Server) captchaSettingsConsole203(w http.ResponseWriter, r *http.Reques
 		response(w, 503, -1, "CAPTCHA key settings unavailable", nil)
 		return true
 	}
-	actor := captcha203.Actor{User: session.User, Token: token, CSRF: session.CSRF, Delegated: session.Issuer != nil}
-	var out captcha203.KeyView
+	actor := captcha.Actor{User: session.User, Token: token, CSRF: session.CSRF, Delegated: session.Issuer != nil}
+	var out captcha.KeyView
 	switch r.Method {
 	case "GET":
 		out, err = service.Credentials().Read(r.Context(), actor)
@@ -230,7 +230,7 @@ func (s *Server) captchaSettingsConsole203(w http.ResponseWriter, r *http.Reques
 		if !decodeFundsJSON(w, r, &fields) {
 			return true
 		}
-		var in captcha203.KeyUpdate
+		var in captcha.KeyUpdate
 		if json.Unmarshal(fields["action"], &in.Action) != nil || json.Unmarshal(fields["expected_fingerprint"], &in.Expected) != nil || len(fields) != 2 && len(fields) != 3 {
 			response(w, 400, -1, "exact CAPTCHA key operation required", nil)
 			return true
@@ -261,9 +261,9 @@ func (s *Server) captchaSettingsConsole203(w http.ResponseWriter, r *http.Reques
 		status := 503
 		if errors.Is(err, identity.ErrAdminSession) {
 			status = 403
-		} else if errors.Is(err, captcha203.ErrConflict) {
+		} else if errors.Is(err, captcha.ErrConflict) {
 			status = 409
-		} else if errors.Is(err, captcha203.ErrInvalid) {
+		} else if errors.Is(err, captcha.ErrInvalid) {
 			status = 422
 		}
 		response(w, status, -1, "CAPTCHA key operation could not be confirmed; reload before retrying", nil)

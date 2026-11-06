@@ -118,8 +118,12 @@ func TestCommonProviderProductsExposeSDKMaterials(t *testing.T) {
 	if out["code"] != float64(1) || out["payurl"] == nil || out["pay_type"] != nil {
 		t.Fatal("legacy material contract changed", out)
 	}
+	// An APP payment launches on the phone; desktop browsers get a QR code to
+	// continue there instead.
 	w := httptest.NewRecorder()
-	s.Handler().ServeHTTP(w, httptest.NewRequest("GET", fmt.Sprint(out["payurl"]), nil))
+	launch := httptest.NewRequest("GET", fmt.Sprint(out["payurl"]), nil)
+	launch.Header.Set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148")
+	s.Handler().ServeHTTP(w, launch)
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "weixin://app/") {
 		t.Fatal("legacy APP checkout cannot launch", w.Code, w.Body.String())
 	}

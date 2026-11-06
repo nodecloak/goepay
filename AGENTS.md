@@ -22,3 +22,14 @@
   `docker system prune` or delete unrelated projects.
 - Changes to test infrastructure must not modify frozen source snapshots or
   reinterpret skipped, interrupted, or failed tests as passed.
+
+# Naming
+
+- Name packages, files and identifiers after what the code does. Do not put
+  ticket, increment or phase numbers (such as `captcha203`, `kyc233`,
+  `orderSummary245`) into package directories, import paths, file names or new
+  identifiers; record them in commit messages and plans instead.
+  `internal/naming_test.go` rejects numbered package directories and new
+  numbered Go files. Older numbered files and identifiers are renamed when
+  their code is next changed; remove a renamed file from
+  `internal/testdata/numbered-go-files.txt`, which may only shrink.

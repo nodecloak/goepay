@@ -33,7 +33,7 @@ import (
 	"time"
 
 	adapter "goepay/internal/adapters/payment"
-	"goepay/internal/captcha203"
+	"goepay/internal/captcha"
 )
 
 const publicBrowserOrigin203 = "https://pay.example.invalid"
@@ -188,7 +188,7 @@ func TestPublicTestPay203ActualBrowserHTTPWithPrivateTLSAndNoConsoleIdentity(t *
 			site191Save(t, f, "captcha_open_test", "1")
 			site191Save(t, f, "captcha_id", publicBrowserCaptchaID203)
 			site191Save(t, f, "captcha_version", strconv.Itoa(version))
-			service, err := NewPublicTestPayService203ForMaster(f.s, captcha203.NewGeetestVerifier(publicBrowserCaptchaClient203(t, v)), f.s.CheckoutKey, publicBrowserOrigin203)
+			service, err := NewPublicTestPayService203ForMaster(f.s, captcha.NewGeetestVerifier(publicBrowserCaptchaClient203(t, v)), f.s.CheckoutKey, publicBrowserOrigin203)
 			if err != nil {
 				t.Fatal(err)
 			}

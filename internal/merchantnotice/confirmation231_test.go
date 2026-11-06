@@ -1,14 +1,14 @@
 package merchantnotice
 
 import (
-	"goepay/internal/wxtransferlink231"
+	"goepay/internal/wxtransferlink"
 	"strings"
 	"testing"
 )
 
 func TestConfirmationTemplate231UsesFixedSignedRouteAndPendingWording(t *testing.T) {
 	in := templateInput80("wxtransfer")
-	in.Params["confirm_path"] = wxtransferlink231.Path(make([]byte, 32), 231, in.At)
+	in.Params["confirm_path"] = wxtransferlink.Path(make([]byte, 32), 231, in.At)
 	cfg := WechatTemplateConfig{ID: "synthetic-confirm231", ConsoleURL: "https://console.example.invalid", Fields: map[string]string{"wxnotice_tpl_wxtransfer_money": "amount1"}}
 	got, e := BuildWechatTemplate(in, cfg)
 	if e != nil || got.URL != "https://console.example.invalid"+in.Params["confirm_path"] {

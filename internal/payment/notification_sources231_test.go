@@ -8,7 +8,7 @@ import (
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/businessnotice"
 	"goepay/internal/merchantnotice"
-	"goepay/internal/noticesource231"
+	"goepay/internal/noticesource"
 	"goepay/internal/platform/jobs"
 	"net/http"
 	"strings"
@@ -226,7 +226,7 @@ func TestComplaint231AllOrdersAndAccountMustMatchBeforeMerchantNotice(t *testing
 				t.Fatal(e)
 			}
 			defer tx.Rollback(ctx)
-			if _, _, e = noticesource231.Insert(ctx, tx, fmt.Sprintf("forged:%d", id), noticesource231.Facts{Kind: "complain", ReferenceID: id, ChannelID: tc.channel}); e == nil {
+			if _, _, e = noticesource.Insert(ctx, tx, fmt.Sprintf("forged:%d", id), noticesource.Facts{Kind: "complain", ReferenceID: id, ChannelID: tc.channel}); e == nil {
 				t.Fatal("historical complaint invented a new source")
 			}
 		})

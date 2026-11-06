@@ -1,9 +1,12 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { beforeAll, afterEach, expect, it, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import App from "../src/App.vue";
 import { resolvePage } from "../src/menu";
 import MenuTree from "../src/components/MenuTree.vue";
+import { preloadAppPages } from "./app-pages";
+
+beforeAll(preloadAppPages);
 
 const wrappers: ReturnType<typeof mount>[] = [];
 afterEach(() => {

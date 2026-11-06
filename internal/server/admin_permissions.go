@@ -8,15 +8,13 @@ func adminOperationAllowed(class string, parts []string) bool {
 	if class == "super" {
 		return true
 	}
-	if class != "operator" || len(parts) < 2 {
+	if class != "operator" || len(parts) < 2 || !operatorRouteFamilies[parts[1]] {
 		return false
 	}
 	if len(parts) < 3 {
 		return true
 	}
 	switch parts[1] {
-	case "migration":
-		return false
 	case "resources", "manage":
 		switch parts[2] {
 		case "settings", "admin-users", "cron-tasks", "plugin-configs", "template-configs", "addon-configs":
@@ -95,4 +93,37 @@ func alwaysAllowedAdminFamily(family string) bool {
 		return true
 	}
 	return false
+}
+
+// operatorRouteFamilies lists the console route families (the path segment
+// after /console/v1/admin/) that an operator administrator may enter. It is
+// deliberately explicit: a family missing here is refused for operators at the
+// gate, so a newly added endpoint stays super-only until someone classifies it
+// (TestEveryConsoleRouteFamilyIsClassifiedForOperators enforces the choice).
+// Entering a family is not full access: handlers keep their own finer checks,
+// e.g. settings/*, templates and admin-users/* still require a super class.
+var operatorRouteFamilies = map[string]bool{
+	"account": true, "admin-users": true, "application-authorizations": true,
+	"business-notices": true, "buyer-fees": true, "channel-policies": true, "channel-sharing": true,
+	"channel-stops": true, "collection-codes": true, "collection-generator": true,
+	"collection-style-images": true, "collection-styles": true, "complaint-channels": true,
+	"complaint-sync-tasks": true, "complaints": true, "complaints-charts": true,
+	"complaints-image": true, "complaints-summary": true, "complaints-sync": true,
+	"complaints133": true, "dashboard": true, "identity-lookups": true,
+	"identity-profile-lookups": true, "invitation-codes": true, "key-login": true, "ledger": true,
+	"legacy-refund-history": true, "login": true, "logout": true, "manage": true,
+	"membership-referral-policies": true, "membership-sales": true, "merchants": true,
+	"operations": true, "orders": true, "pay-type-options": true, "payment-channels": true,
+	"payment-risk": true, "payment-subchannels": true, "print-jobs": true, "printing": true,
+	"redpacks": true, "referral": true, "referral-policies": true, "refunds": true, "reports": true,
+	"resources": true, "scanpay": true, "scheduled-tasks": true, "security": true, "session": true,
+	"settings": true, "settlement-batches": true, "settlement-payouts": true,
+	"settlement-plan-authorizations": true, "settlement-plan-runs": true, "settlement-plans": true,
+	"sso": true, "system-update": true, "templates": true, "transfer-batch-imports": true,
+	"transfer-batches": true, "transfers": true, "weixin-applications": true, "workflows": true,
+}
+
+// superOnlyRouteFamilies are refused for operators before any handler runs.
+var superOnlyRouteFamilies = map[string]bool{
+	"migration": true,
 }

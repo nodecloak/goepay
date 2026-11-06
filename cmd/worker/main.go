@@ -13,7 +13,7 @@ import (
 
 	"goepay/internal/bootstrap"
 	"goepay/internal/compat"
-	"goepay/internal/mailaccount195"
+	"goepay/internal/mailaccount"
 	notice "goepay/internal/merchantnotice"
 	"goepay/internal/notification"
 	"goepay/internal/platform/httpclient"
@@ -77,7 +77,7 @@ func main() {
 		slog.Error("invalid mail account protection configuration")
 		os.Exit(1)
 	}
-	mailAccounts195 := mailaccount195.FromMaster(pool, mailMaster195)
+	mailAccounts195 := mailaccount.FromMaster(pool, mailMaster195)
 	kinds = append(kinds, "merchant.refund-event-closed-notice")
 	noticeRuntime, e := newManagedChannelNoticeRuntime195(ctx, store, os.Getenv, mailAccounts195)
 	if e != nil {

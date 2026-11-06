@@ -4,6 +4,7 @@ package channelconfig
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -63,6 +64,63 @@ func Load(path string, master []byte) (Import, error) {
 	}
 	return Decrypt(b, master)
 }
+
+// Encrypt seals a plaintext channel import for GOEPAY_CHANNEL_CONFIG_FILE with
+// the same envelope Decrypt reads: AES-256-GCM under an HKDF-SHA256 key derived
+// from the master key, authenticated with the import context. The sealed bytes
+// are decrypted again before they are returned, so an import that startup
+// would refuse is never produced.
+func Encrypt(imp Import, master []byte) ([]byte, error) {
+	if len(master) != 32 {
+		return nil, ErrImport
+	}
+	plain, e := json.Marshal(imp)
+	if e != nil {
+		return nil, ErrImport
+	}
+	g, e := importCipher(master)
+	if e != nil {
+		return nil, e
+	}
+	nonce := make([]byte, g.NonceSize())
+	if _, e = rand.Read(nonce); e != nil {
+		return nil, ErrImport
+	}
+	sealed := g.Seal(nil, nonce, plain, []byte(importContext))
+	split := len(sealed) - g.Overhead()
+	encode := base64.StdEncoding.EncodeToString
+	out, e := json.Marshal(struct {
+		Version    int    `json:"version"`
+		AAD        string `json:"aad"`
+		Nonce      string `json:"nonce"`
+		Ciphertext string `json:"ciphertext"`
+		Tag        string `json:"tag"`
+	}{1, importContext, encode(nonce), encode(sealed[:split]), encode(sealed[split:])})
+	if e != nil {
+		return nil, ErrImport
+	}
+	if _, e = Decrypt(out, master); e != nil {
+		return nil, e
+	}
+	return out, nil
+}
+
+func importCipher(master []byte) (cipher.AEAD, error) {
+	key := make([]byte, 32)
+	if _, e := io.ReadFull(hkdf.New(sha256.New, master, nil, []byte(importContext)), key); e != nil {
+		return nil, ErrImport
+	}
+	block, e := aes.NewCipher(key)
+	if e != nil {
+		return nil, ErrImport
+	}
+	g, e := cipher.NewGCM(block)
+	if e != nil {
+		return nil, ErrImport
+	}
+	return g, nil
+}
+
 func Decrypt(raw, master []byte) (Import, error) {
 	var out Import
 	if len(master) != 32 || len(raw) > 4<<20 {
@@ -91,15 +149,7 @@ func Decrypt(raw, master []byte) (Import, error) {
 	if e != nil || len(tag) != 16 {
 		return out, ErrImport
 	}
-	key := make([]byte, 32)
-	if _, e = io.ReadFull(hkdf.New(sha256.New, master, nil, []byte(importContext)), key); e != nil {
-		return out, ErrImport
-	}
-	block, e := aes.NewCipher(key)
-	if e != nil {
-		return out, ErrImport
-	}
-	g, e := cipher.NewGCM(block)
+	g, e := importCipher(master)
 	if e != nil || len(nonce) != g.NonceSize() {
 		return out, ErrImport
 	}
