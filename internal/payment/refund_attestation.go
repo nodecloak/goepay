@@ -124,7 +124,11 @@ func (g ProviderFlow) refundAttestationEligibility(ctx context.Context, tx pgx.T
 		}
 		return RefundAttestationInFlight, nil, nil
 	}
-	if _, _, p, err := g.owned(ctx, r.MerchantID, t.tradeNo); err == nil && p != nil && p.Capabilities().RefundQuery {
+	_, _, p, err := g.ownedTx(ctx, tx, r.MerchantID, t.tradeNo)
+	if err != nil {
+		return "", nil, err
+	}
+	if p.Capabilities().RefundQuery {
 		return RefundAttestationAutomaticQuery, nil, nil
 	}
 	return "", []string{"succeeded", "failed"}, nil

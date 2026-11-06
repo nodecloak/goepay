@@ -77,7 +77,9 @@ func schedulerFixture(t *testing.T) (*pgxpool.Pool, *payment.Store, int64) {
 	if err = pool.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); err != nil {
 		t.Fatal(err)
 	}
-	p, err := store.CreateSettlementPlan(ctx, payment.SettlementPlanInput{Name: "Local generated application", Mode: "generate_only", MerchantIDs: []int64{mid}, Schedule: payment.SettlementScheduleSpec{Frequency: "once", AnchorAt: now.Add(-time.Minute).Truncate(time.Second)}}, admin)
+	// A due one-shot fixture must stay in today's business window. Backdating
+	// one minute makes the real scheduler correctly refuse it just after midnight.
+	p, err := store.CreateSettlementPlan(ctx, payment.SettlementPlanInput{Name: "Local generated application", Mode: "generate_only", MerchantIDs: []int64{mid}, Schedule: payment.SettlementScheduleSpec{Frequency: "once", AnchorAt: now.Truncate(time.Second)}}, admin)
 	if err != nil {
 		t.Fatal(err)
 	}

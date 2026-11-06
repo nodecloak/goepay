@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -9,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
 	qrcode "github.com/skip2/go-qrcode"
 	provider "goepay/internal/adapters/payment"
 	"goepay/internal/backoffice"
@@ -829,13 +827,10 @@ func (s *Server) providerOperation(w http.ResponseWriter, r *http.Request, legac
 		return
 	}
 	refundNo := p["out_refund_no"]
-	if refundNo == "" {
-		if refundNo, e = s.unnumberedRefundNo(r.Context(), merchantID, order.TradeNo, amount, time.Now()); e != nil {
-			s.wire(w, legacy, nil, "refund unavailable")
-			return
-		}
-	}
 	refund, e := s.ProviderFlow.RefundFromAPI(r.Context(), merchantID, order.TradeNo, refundNo, amount)
+	if refund.RefundNo != "" {
+		refundNo = refund.RefundNo
+	}
 	if e != nil {
 		if refund.ID == 0 || errors.Is(e, payment.ErrMerchantAPIAdmission) {
 			s.wire(w, legacy, nil, "refund request rejected")
@@ -855,62 +850,6 @@ func (s *Server) providerOperation(w http.ResponseWriter, r *http.Request, legac
 		refund = existing
 	}
 	s.refundAPIResult(w, legacy, order.TradeNo, refund)
-}
-
-// unnumberedRefundWindow is how long retries of a refund request sent without
-// out_refund_no are recognised as the same refund.
-const unnumberedRefundWindow = 10 * time.Minute
-
-// unnumberedRefundNo numbers a refund request that carries no out_refund_no.
-// The number is derived from the merchant, order, amount and a ten-minute
-// window, so a retry after a timeout resolves to the same number and replays the
-// original refund instead of refunding twice; concurrent copies meet at the
-// same unique refund number. A retry just after a window boundary reuses the
-// previous window's live refund. A number whose refund finally failed is
-// skipped, so a new attempt after a definitive refusal is a new refund. To make
-// several equal refunds on one order quickly, callers pass distinct numbers.
-func (s *Server) unnumberedRefundNo(ctx context.Context, merchantID int64, tradeNo string, amount int64, now time.Time) (string, error) {
-	if s.Pool == nil {
-		return "", payment.ErrInvalid
-	}
-	window := now.Unix() / int64(unnumberedRefundWindow/time.Second)
-	number := func(window int64, attempt int) string {
-		sum := sha256.Sum256([]byte(fmt.Sprintf("goepay/unnumbered-refund/v1\x00%d\x00%s\x00%d\x00%d\x00%d", merchantID, tradeNo, amount, window, attempt)))
-		return "rf" + base64.RawURLEncoding.EncodeToString(sum[:16])
-	}
-	status := func(refundNo string) (string, error) {
-		var state string
-		e := s.Pool.QueryRow(ctx, "SELECT status FROM refunds WHERE merchant_id=$1 AND refund_no=$2", merchantID, refundNo).Scan(&state)
-		if errors.Is(e, pgx.ErrNoRows) {
-			return "", nil
-		}
-		return state, e
-	}
-	const attempts = 20
-	for attempt := 0; attempt < attempts; attempt++ {
-		candidate := number(window-1, attempt)
-		state, e := status(candidate)
-		if e != nil {
-			return "", e
-		}
-		if state == "" {
-			break
-		}
-		if state != "failed" {
-			return candidate, nil
-		}
-	}
-	for attempt := 0; attempt < attempts; attempt++ {
-		candidate := number(window, attempt)
-		state, e := status(candidate)
-		if e != nil {
-			return "", e
-		}
-		if state != "failed" {
-			return candidate, nil
-		}
-	}
-	return "", payment.ErrConflict
 }
 
 // closeFailureMessage separates definitive close refusals from outcomes that

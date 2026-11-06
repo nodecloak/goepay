@@ -302,6 +302,7 @@ func (g ProviderFlow) refund(ctx context.Context, merchantID int64, tradeNo, ref
 	if e != nil {
 		return r, e
 	}
+	refundNo = r.RefundNo
 	if r.Status == "succeeded" || r.Status == "failed" {
 		return r, nil
 	}

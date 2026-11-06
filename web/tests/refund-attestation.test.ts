@@ -131,3 +131,79 @@ it("shows a recorded attestation in Beijing time and offers no new one", async (
   expect(view.text()).not.toContain("2026-11-06T09:12:33");
   expect(view.findAll('input[type="radio"]')).toHaveLength(0);
 });
+
+for (const outcome of [
+  "pending",
+  "failed",
+  "wrong-target",
+  "eligible",
+  "final",
+] as const)
+  it(`keeps an unknown outcome locked until a matching successful readback: ${outcome}`, async () => {
+    const client = new ApiClient("admin");
+    client.csrfToken = "synthetic-recovery";
+    let reads = 0,
+      writes = 0;
+    let resolveRead!: (value: unknown) => void;
+    let rejectRead!: (reason: Error) => void;
+    const pending = new Promise((resolve, reject) => {
+      resolveRead = resolve;
+      rejectRead = reject;
+    });
+    vi.spyOn(client, "request").mockImplementation(async (_path, options) => {
+      if (options?.method === "POST") {
+        writes++;
+        throw Error("controlled lost response");
+      }
+      reads++;
+      return (reads === 1 ? attestation() : await pending) as never;
+    });
+    const view = mount(RefundAttestationDialog, {
+      props: { client, refundId: "12", ownSession: true, adminClass: "super" },
+      attachTo: document.body,
+    });
+    views.push(view);
+    const button = (text: string) =>
+      view.findAll("button").find((b) => b.text() === text);
+    const locked = () => {
+      const b = button("确认并提交");
+      return !b || b.attributes("disabled") !== undefined;
+    };
+    await flushPromises();
+    await view.find('input[value="succeeded"]').setValue(true);
+    await view.find('input[maxlength="128"]').setValue("synthetic-reference");
+    await view.find("textarea").setValue("synthetic provider verification");
+    await view.find('input[type="checkbox"]').setValue(true);
+    await button("确认并提交")!.trigger("click");
+    await flushPromises();
+    expect(writes).toBe(1);
+    await button("重新读取状态")!.trigger("click");
+    expect(locked()).toBe(true);
+    expect(writes).toBe(1);
+    if (outcome === "pending") return;
+    if (outcome === "failed") rejectRead(Error("controlled offline read"));
+    else
+      resolveRead(
+        outcome === "wrong-target"
+          ? attestation({ refund_id: "13" })
+          : outcome === "final"
+            ? attestation({
+                status: "succeeded",
+                eligible: false,
+                reason: "final",
+                states: [],
+              })
+            : attestation(),
+      );
+    await flushPromises();
+    expect(locked()).toBe(true);
+    expect(writes).toBe(1);
+    if (outcome === "eligible") {
+      expect(
+        (view.find('input[type="checkbox"]').element as HTMLInputElement)
+          .checked,
+      ).toBe(false);
+      await view.find('input[type="checkbox"]').setValue(true);
+      expect(locked()).toBe(false);
+    }
+  });

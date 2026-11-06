@@ -8,10 +8,14 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	adapter "goepay/internal/adapters/payment"
 	"goepay/internal/compat"
 	"goepay/internal/identity"
+	"goepay/internal/payment"
 )
 
 // unqueryableRefunds sends refunds but, like most ported plugins, cannot query
@@ -23,7 +27,29 @@ func (unqueryableRefunds) Capabilities() adapter.Capabilities {
 }
 
 func TestRefundAttestationClosesUnqueryableRefundsWithFundsGrant(t *testing.T) {
+	testRefundAttestationHTTP(t, false)
+}
+func TestRefundAttestationSingleConnectionHTTP(t *testing.T) { testRefundAttestationHTTP(t, true) }
+func testRefundAttestationHTTP(t *testing.T, singleConnection bool) {
 	f, p, o := merchant174Runtime(t)
+	if singleConnection {
+		cfg := f.p.Config()
+		cfg.MaxConns = 1
+		single, e := pgxpool.NewWithConfig(t.Context(), cfg)
+		if e != nil {
+			t.Fatal(e)
+		}
+		t.Cleanup(single.Close)
+		store, e := payment.NewWithKey(single, make([]byte, 32))
+		if e != nil {
+			t.Fatal(e)
+		}
+		f.p = single
+		f.s.Pool = single
+		f.s.Store = store
+		f.s.ProviderFlow.Store = store
+		f.s.Sessions = identity.NewPersistentSessions(single, false)
+	}
 	ctx := context.Background()
 	s, pool := f.s, f.p
 	s.ProviderFlow.Providers[7] = unqueryableRefunds{p}
@@ -39,7 +65,9 @@ func TestRefundAttestationClosesUnqueryableRefundsWithFundsGrant(t *testing.T) {
 	}
 	request := func(method, path, body, grant string) *httptest.ResponseRecorder {
 		t.Helper()
-		r := httptest.NewRequest(method, path, strings.NewReader(body))
+		requestCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		r := httptest.NewRequest(method, path, strings.NewReader(body)).WithContext(requestCtx)
 		r.Header.Set("Content-Type", "application/json")
 		r.AddCookie(&http.Cookie{Name: "goepay_admin", Value: token})
 		r.Header.Set("X-CSRF-Token", csrf)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"time"
 )
 
 const refundColumns = "id,merchant_id,order_id,refund_no,amount,status,merchant_amount,fee_amount"
@@ -54,6 +55,9 @@ func (s *Store) ReserveRefund(ctx context.Context, merchantID int64, outTradeNo,
 	return s.reserveRefund(ctx, merchantID, outTradeNo, refundNo, amount, refundInternal179)
 }
 func (s *Store) ReserveAPIRefund(ctx context.Context, merchantID int64, outTradeNo, refundNo string, amount int64) (Refund, error) {
+	if refundNo == "" {
+		return s.reserveAutomaticAPIRefund(ctx, merchantID, outTradeNo, amount, time.Now)
+	}
 	return s.reserveRefund(ctx, merchantID, outTradeNo, refundNo, amount, refundAPI179)
 }
 func (s *Store) ReserveMerchantRefund(ctx context.Context, merchantID int64, outTradeNo, refundNo string, amount int64) (Refund, error) {

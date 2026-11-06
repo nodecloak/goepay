@@ -71,6 +71,9 @@ const canWrite = computed(
 );
 const ready = computed(
   () =>
+    !loading.value &&
+    !unknown.value &&
+    !done.value &&
     !!view.value?.eligible &&
     view.value.states.includes(state.value) &&
     reference.value.trim() !== "" &&
@@ -82,7 +85,9 @@ let alive = true;
 const previousFocus = document.activeElement as HTMLElement | null;
 
 async function load() {
+  if (busy.value || controller.signal.aborted) return;
   loading.value = true;
+  verified.value = false;
   error.value = "";
   try {
     const data = await props.client.request<AttestationView>(
@@ -92,7 +97,13 @@ async function load() {
     if (!alive || controller.signal.aborted) return;
     if (data.refund_id !== props.refundId) throw Error("退款记录无法核对");
     view.value = data;
-    if (data.states.length === 1) state.value = data.states[0];
+    state.value =
+      data.states.length === 1
+        ? data.states[0]
+        : data.states.includes(state.value)
+          ? state.value
+          : "";
+    unknown.value = false;
   } catch (e) {
     if (alive && !controller.signal.aborted)
       error.value = e instanceof Error ? e.message : "退款核实信息读取失败";
@@ -281,8 +292,8 @@ onBeforeUnmount(() => {
         ><button
           v-if="unknown"
           type="button"
-          :disabled="busy"
-          @click="((unknown = false), load())"
+          :disabled="busy || loading"
+          @click="load"
         >
           重新读取状态</button
         ><button

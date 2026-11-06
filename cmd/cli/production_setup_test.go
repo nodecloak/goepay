@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -70,7 +71,15 @@ func TestGeneratePlatformKeyNeverOverwrites(t *testing.T) {
 		t.Fatal(e)
 	}
 	info, e := os.Stat(path)
-	if e != nil || info.Mode().Perm() != 0o600 {
+	if e != nil {
+		t.Fatal(e)
+	}
+	if !info.Mode().IsRegular() {
+		t.Fatal("private key must be a regular file")
+	}
+	// Windows controls access with ACLs; os.FileMode does not expose them and
+	// reports writable files as 0666. Never infer Windows access from POSIX bits.
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 		t.Fatalf("private key file must be owner-only: %v %v", e, info.Mode())
 	}
 	written, _ := os.ReadFile(path)

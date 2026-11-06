@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-06T10:19:11.593Z",
+  "generated_at": "2026-11-06T16:05:42.254Z",
   "scope": "Source snapshot only; not a claim of complete compatibility or a replacement for test results.",
   "files": [
     {
@@ -184,7 +184,7 @@
     },
     {
       "path": "cmd/cli/production_setup_test.go",
-      "sha256": "f3c109eeb5ccc84c553b708d9d352acbf2baad108acd01c7a15808198d3dc66f"
+      "sha256": "9e8cc11d8c9e2162185f3db23259fa5fcc787629c54e265ba8de279adff8df1e"
     },
     {
       "path": "cmd/cli/seed_admin_test.go",
@@ -5243,6 +5243,14 @@
       "sha256": "c9eb3c1d2d4b6b81a78e0cae17cd510f3879cb0327cc01aaa6543bef96fe933d"
     },
     {
+      "path": "internal/payment/automatic_refund.go",
+      "sha256": "739a70b0006c6f905876652e737eb4be1d447c0553d4dc8a55f59d499f0af71c"
+    },
+    {
+      "path": "internal/payment/automatic_refund_test.go",
+      "sha256": "7bcea0d9ea01b3db9ebdd05c0fdd27ba2455ba912856cc1311e2aec4bf498244"
+    },
+    {
       "path": "internal/payment/backoffice_money.go",
       "sha256": "f46eb47305eb70a160abea674064407b4291e9594d70fb049fe1cd7586e4f6a9"
     },
@@ -6692,7 +6700,7 @@
     },
     {
       "path": "internal/payment/provider_flow_operations.go",
-      "sha256": "260f9e124be97d2fdd6afc05fbaef74cc3c68226015937cd771d85afc53828e6"
+      "sha256": "90590fbac2a9123ebfa496ca1deb19f095a8af79bbc596ad8fbaa9a2afd41990"
     },
     {
       "path": "internal/payment/provider_flow_operations_test.go",
@@ -6932,7 +6940,11 @@
     },
     {
       "path": "internal/payment/refund_attestation.go",
-      "sha256": "a86592d79f9fa4c1bc33b3fd99baf2cf122af8047e8cd58fe9a9e69aa61595a3"
+      "sha256": "e54a17a03d066692dbf707ca416c2737213813b863d2eda1746c5f8751853a0f"
+    },
+    {
+      "path": "internal/payment/refund_attestation_test.go",
+      "sha256": "f4c2c091cbcbebbca2378c6b1c06772d13c186040a98eb29bad5721abb5d8445"
     },
     {
       "path": "internal/payment/refund_events201.go",
@@ -6976,7 +6988,7 @@
     },
     {
       "path": "internal/payment/reservations.go",
-      "sha256": "d4409d9b85d06962db6ab66bc5f56bf6e138296247c600aca143da81968127be"
+      "sha256": "4b3b4ec45712a66ff33764d47c4081fd4df2d9ddb836e08fd1b51c854df8f27f"
     },
     {
       "path": "internal/payment/risk177_scheduler_integration_test.go",
@@ -9548,7 +9560,7 @@
     },
     {
       "path": "internal/server/provider_http.go",
-      "sha256": "ea1775e1f28e6590e49c3d0e2f6a7eab13abc94cced7b26a97604f237eea8e6f"
+      "sha256": "74cca41b29b25af54e530fa69898a95ff032f6a1bc25e2bfb28924cf47722804"
     },
     {
       "path": "internal/server/provider_policy_routing.go",
@@ -10200,7 +10212,7 @@
     },
     {
       "path": "internal/settlementscheduler/integration_test.go",
-      "sha256": "c02c6d39498c6a276cbfe9d6b5243df25eec6fd0b92032a54b53e6d30bd926df"
+      "sha256": "2e8354066e7f3a281f023afa4cbc0ecdc1f43432228ac70a16fa0262a60987bb"
     },
     {
       "path": "internal/settlementscheduler/runner.go",
@@ -10361,6 +10373,10 @@
     {
       "path": "scripts/phpinterop/SOURCE.json",
       "sha256": "e1586d425f10a2cc6c63b814e2edde6e2a7ef48e3d2358dd0b00e3641e1f5432"
+    },
+    {
+      "path": "scripts/phpinterop/__pycache__/prepare.cpython-312.pyc",
+      "sha256": "c0ef2dec9012b72e08c221c7ce620001aad6daeeadd96bc951c6bd60fa7159ac"
     },
     {
       "path": "scripts/phpinterop/bootstrap.php",
@@ -11048,7 +11064,7 @@
     },
     {
       "path": "tests/contract/refund_attestation_test.go",
-      "sha256": "d026782ac367f6481f6cd57bf6bcd3fb9e8964c34de8b4774a898bcf014b44b6"
+      "sha256": "c7934acca2b1eca2f3abaab0c82dc385a656e7edda6fb5946590669aab5cbf14"
     },
     {
       "path": "tests/contract/refund_columns_ux_test.go",
@@ -11057,6 +11073,10 @@
     {
       "path": "tests/contract/refund_funding_console_test.go",
       "sha256": "d7b152d763e97799c6021bd622ee0105904d541d7e2b318ee276acaab7d2d76d"
+    },
+    {
+      "path": "tests/contract/refund_idempotency_test.go",
+      "sha256": "17468b920d5f65459cc82d565f675d2db9e73db9dce5ef32f7867d102be7ef2a"
     },
     {
       "path": "tests/contract/refund_search_ux_test.go",
@@ -11901,6 +11921,10 @@
     {
       "path": "web/e2e/referral170-policy.spec.ts",
       "sha256": "c6efb5c4b9aa89c87d2a1572f482c0f35db69ed5c05edd757ca96fbab6a87ce2"
+    },
+    {
+      "path": "web/e2e/refund-attestation.spec.ts",
+      "sha256": "590e41db1c0a03ca8a09580fa14c408cdb1501b69f0a6ec252568ecc246813a6"
     },
     {
       "path": "web/e2e/refund-columns-ux.spec.ts",
@@ -12880,7 +12904,7 @@
     },
     {
       "path": "web/src/components/RefundAttestationDialog.vue",
-      "sha256": "ca26bd186f78fec5edd0193c6a8576560824fa712a0b4d22f13c7e4a89f18b64"
+      "sha256": "8cd4cf12afc6dcf29c33f9b0c018dda5e98804efbf58d6b619c5a9df5643425b"
     },
     {
       "path": "web/src/components/RefundSummaryDialog.vue",
@@ -14544,7 +14568,7 @@
     },
     {
       "path": "web/tests/refund-attestation.test.ts",
-      "sha256": "51f3913a15db5b63371a5c4f94c842384761c5fb0566dd559ad095e53afaf1c8"
+      "sha256": "4bc076dfd1128f2af781829bfc85d09679bb7979c3c6ff790c1c5a106d3f90dd"
     },
     {
       "path": "web/tests/refund-columns-ux.test.ts",
