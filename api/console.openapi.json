@@ -9496,9 +9496,9 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "十进制 ID 字符串。",
-              "pattern": "^[1-9][0-9]*$"
-            }
+              "pattern": "^(0|[1-9][0-9]{0,18})$"
+            },
+            "description": " groups资源允许规范字符串0；其它资源必须正ID。"
           }
         ],
         "responses": {
@@ -9592,7 +9592,8 @@
               }
             }
           }
-        }
+        },
+        "description": " 用户组 groups 的规范ID字符串 0 是真实、可编辑的默认组；仅 groups 接受0，其它资源保持正ID。默认组不允许删除、改编号或改资源，服务层及数据库双重保护；未知基础归属仍需明确分配确认。普通组的角色、CSRF和精确运行通道校验同样适用。"
       },
       "patch": {
         "operationId": "console_64_patch",
@@ -9625,9 +9626,9 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "十进制 ID 字符串。",
-              "pattern": "^[1-9][0-9]*$"
-            }
+              "pattern": "^(0|[1-9][0-9]{0,18})$"
+            },
+            "description": " groups资源允许规范字符串0；其它资源必须正ID。"
           },
           {
             "name": "X-CSRF-Token",
@@ -9740,7 +9741,8 @@
               }
             }
           }
-        }
+        },
+        "description": " 用户组 groups 的规范ID字符串 0 是真实、可编辑的默认组；仅 groups 接受0，其它资源保持正ID。默认组不允许删除、改编号或改资源，服务层及数据库双重保护；未知基础归属仍需明确分配确认。普通组的角色、CSRF和精确运行通道校验同样适用。"
       },
       "put": {
         "operationId": "console_65_put",
@@ -9773,9 +9775,9 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "十进制 ID 字符串。",
-              "pattern": "^[1-9][0-9]*$"
-            }
+              "pattern": "^(0|[1-9][0-9]{0,18})$"
+            },
+            "description": " groups资源允许规范字符串0；其它资源必须正ID。"
           },
           {
             "name": "X-CSRF-Token",
@@ -9888,7 +9890,8 @@
               }
             }
           }
-        }
+        },
+        "description": " 用户组 groups 的规范ID字符串 0 是真实、可编辑的默认组；仅 groups 接受0，其它资源保持正ID。默认组不允许删除、改编号或改资源，服务层及数据库双重保护；未知基础归属仍需明确分配确认。普通组的角色、CSRF和精确运行通道校验同样适用。"
       },
       "delete": {
         "operationId": "console_66_delete",
@@ -9921,9 +9924,9 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "十进制 ID 字符串。",
-              "pattern": "^[1-9][0-9]*$"
-            }
+              "pattern": "^(0|[1-9][0-9]{0,18})$"
+            },
+            "description": " groups资源允许规范字符串0；其它资源必须正ID。"
           },
           {
             "name": "X-CSRF-Token",
@@ -10026,7 +10029,8 @@
               }
             }
           }
-        }
+        },
+        "description": " 用户组 groups 的规范ID字符串 0 是真实、可编辑的默认组；仅 groups 接受0，其它资源保持正ID。默认组不允许删除、改编号或改资源，服务层及数据库双重保护；未知基础归属仍需明确分配确认。普通组的角色、CSRF和精确运行通道校验同样适用。"
       }
     },
     "/console/v1/{role}/workflows/{kind}": {
@@ -14861,14 +14865,85 @@
         "summary": "渠道分账记录统计聚合（Pro 统计）",
         "description": "按与列表相同的过滤（field/keyword/status/from/to、管理员 merchant_id）返回有界统计：count、share_amount、released_amount、success_count、fail_count。不分页。",
         "parameters": [
-          { "name": "role", "in": "path", "required": true, "schema": { "type": "string", "enum": ["admin", "merchant"] } },
-          { "name": "merchant_id", "in": "query", "schema": { "type": "string", "pattern": "^[1-9][0-9]*$" }, "description": "仅管理员必填；商户不能提供。" },
-          { "name": "field", "in": "query", "schema": { "type": "string", "enum": ["external_no", "out_no", "share_amount"] } },
-          { "name": "keyword", "in": "query", "schema": { "type": "string", "maxLength": 128 } },
-          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["unsent", "submitted", "succeeded", "failed", "cancelled"] } },
-          { "name": "rule_id", "in": "query", "schema": { "type": "string", "pattern": "^[1-9][0-9]*$" } },
-          { "name": "from", "in": "query", "schema": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" } },
-          { "name": "to", "in": "query", "schema": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" } }
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "description": "仅管理员必填；商户不能提供。"
+          },
+          {
+            "name": "field",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "external_no",
+                "out_no",
+                "share_amount"
+              ]
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "unsent",
+                "submitted",
+                "succeeded",
+                "failed",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "rule_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -14878,19 +14953,56 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "code": { "type": "integer" },
-                    "message": { "type": "string" },
-                    "data": { "$ref": "#/components/schemas/ChannelSharingOrderStats" }
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ChannelSharingOrderStats"
+                    }
                   },
-                  "required": ["code", "message", "data"],
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ],
                   "additionalProperties": false
                 }
               }
             }
           },
-          "400": { "description": "参数错误。", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Envelope" } } } },
-          "401": { "description": "未认证。", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Envelope" } } } },
-          "403": { "description": "权限拒绝。", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Envelope" } } } }
+          "400": {
+            "description": "参数错误。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "权限拒绝。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -42934,29 +43046,57 @@
     },
     "/console/v1/admin/settings/sms-channels": {
       "get": {
-        "tags": ["settings"],
-        "security": [{ "AdminSession": [] }],
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
         "parameters": [],
         "responses": {
           "200": {
             "description": "SMS网关状态：providers(aliyun/qcloud/smsbao 各 configured/template/sign/principal)、active、status、CAS fingerprint。密钥从不返回。"
           },
-          "403": { "description": "本人超级管理员或CSRF校验失败。" },
-          "503": { "description": "配置来源或密文无法确认。" }
+          "403": {
+            "description": "本人超级管理员或CSRF校验失败。"
+          },
+          "503": {
+            "description": "配置来源或密文无法确认。"
+          }
         },
         "operationId": "smsGateway134Read",
         "summary": "原短信网关(sms_api)配置"
       },
       "patch": {
-        "tags": ["settings"],
-        "security": [{ "AdminSession": [] }],
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
         "responses": {
-          "200": { "description": "保存后返回最新状态（不含密钥）。" },
-          "400": { "description": "拒绝query、缺少字段或无效确认。" },
-          "403": { "description": "本人超级管理员或CSRF校验失败。" },
-          "409": { "description": "网关版本变化，重新读取。" },
-          "422": { "description": "字段无效，或开启网关但无已配置的活动服务商。" },
-          "503": { "description": "配置来源或密文无法确认。" }
+          "200": {
+            "description": "保存后返回最新状态（不含密钥）。"
+          },
+          "400": {
+            "description": "拒绝query、缺少字段或无效确认。"
+          },
+          "403": {
+            "description": "本人超级管理员或CSRF校验失败。"
+          },
+          "409": {
+            "description": "网关版本变化，重新读取。"
+          },
+          "422": {
+            "description": "字段无效，或开启网关但无已配置的活动服务商。"
+          },
+          "503": {
+            "description": "配置来源或密文无法确认。"
+          }
         },
         "operationId": "smsGateway134Save",
         "summary": "保存短信服务商密钥/选择活动网关"
@@ -42964,15 +43104,33 @@
     },
     "/console/v1/admin/settings/sms-channels/test": {
       "post": {
-        "tags": ["settings"],
-        "security": [{ "AdminSession": [] }],
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
         "responses": {
-          "200": { "description": "测试发送受理结果：request_id/status(accepted|failed)/reason。先落库再上行，不重发。" },
-          "400": { "description": "测试手机号或当前确认无效。" },
-          "403": { "description": "本人超级管理员或CSRF校验失败。" },
-          "409": { "description": "网关版本变化，重新读取。" },
-          "422": { "description": "网关未开启或无活动服务商。" },
-          "503": { "description": "测试请求无法记录或网关不可用。" }
+          "200": {
+            "description": "测试发送受理结果：request_id/status(accepted|failed)/reason。先落库再上行，不重发。"
+          },
+          "400": {
+            "description": "测试手机号或当前确认无效。"
+          },
+          "403": {
+            "description": "本人超级管理员或CSRF校验失败。"
+          },
+          "409": {
+            "description": "网关版本变化，重新读取。"
+          },
+          "422": {
+            "description": "网关未开启或无活动服务商。"
+          },
+          "503": {
+            "description": "测试请求无法记录或网关不可用。"
+          }
         },
         "operationId": "smsGateway134Test",
         "summary": "短信网关测试发送"
@@ -45670,17 +45828,80 @@
         "summary": "交易投诉列表（provider 同步，complaints133）",
         "description": "列出 provider 同步到 complaints133 的投诉（非本地工单资源）。merchant 仅见本商户 owner 的投诉；admin 全量。受 complain_open 门控。filter: field(关联订单 trade_no/第三方单号 third_id/问题类型 category/原因 title/详情 content/电话 phone/渠道子商户号 third_mch_id/商户号 merchant_id)+q, status(open|processing|done), pay_type(wxpay|alipay)。offset 分页 page/limit，返回 items+total。",
         "parameters": [
-          { "name": "role", "in": "path", "required": true, "schema": { "type": "string", "enum": ["admin", "merchant"] } },
-          { "name": "field", "in": "query", "schema": { "type": "string" } },
-          { "name": "q", "in": "query", "schema": { "type": "string" } },
-          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["open", "processing", "done"] } },
-          { "name": "pay_type", "in": "query", "schema": { "type": "string", "enum": ["wxpay", "alipay"] } },
-          { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1 } },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100 } }
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          },
+          {
+            "name": "field",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "processing",
+                "done"
+              ]
+            }
+          },
+          {
+            "name": "pay_type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "wxpay",
+                "alipay"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "items[] + total；金额为分字符串或空（未知），状态为 open|processing|done" },
-          "403": { "description": "complain_open 关闭" }
+          "200": {
+            "description": "items[] + total；金额为分字符串或空（未知），状态为 open|processing|done"
+          },
+          "403": {
+            "description": "complain_open 关闭"
+          }
         }
       }
     },
@@ -45690,13 +45911,37 @@
         "summary": "交易投诉详情（含图片与协商历史）",
         "description": "一条 complaints133 投诉的详情，含从已验签 provider 明文体中提取的 images 与 negotiation 历史。merchant 仅限本商户 owner。受 complain_open 门控。",
         "parameters": [
-          { "name": "role", "in": "path", "required": true, "schema": { "type": "string", "enum": ["admin", "merchant"] } },
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "投诉详情 + images[] + negotiation[]" },
-          "403": { "description": "complain_open 关闭" },
-          "404": { "description": "投诉不存在或越权" }
+          "200": {
+            "description": "投诉详情 + images[] + negotiation[]"
+          },
+          "403": {
+            "description": "complain_open 关闭"
+          },
+          "404": {
+            "description": "投诉不存在或越权"
+          }
         }
       }
     },
@@ -45706,11 +45951,26 @@
         "summary": "交易投诉 今日/昨日 汇总",
         "description": "complaints133 的今日/昨日投诉总数及支付宝/微信分项（按 first_seen_at，UTC+8 业务日）。merchant 按本商户 owner 统计。受 complain_open 门控。",
         "parameters": [
-          { "name": "role", "in": "path", "required": true, "schema": { "type": "string", "enum": ["admin", "merchant"] } }
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "summary{today_count,today_alipay,today_wxpay,yesterday_*}" },
-          "403": { "description": "complain_open 关闭" }
+          "200": {
+            "description": "summary{today_count,today_alipay,today_wxpay,yesterday_*}"
+          },
+          "403": {
+            "description": "complain_open 关闭"
+          }
         }
       }
     },
@@ -45720,11 +45980,26 @@
         "summary": "投诉统计（汇总 + 商户排行榜）",
         "description": "complaints133 的 今日/昨日 汇总与按商户的投诉排行榜（今日降序，再按累计降序）。merchant 按本商户 owner。受 complain_open 门控。",
         "parameters": [
-          { "name": "role", "in": "path", "required": true, "schema": { "type": "string", "enum": ["admin", "merchant"] } }
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "summary + items[](排行榜) + columns[]" },
-          "403": { "description": "complain_open 关闭" }
+          "200": {
+            "description": "summary + items[](排行榜) + columns[]"
+          },
+          "403": {
+            "description": "complain_open 关闭"
+          }
         }
       }
     },
@@ -45734,11 +46009,26 @@
         "summary": "交易投诉 同步任务列表（admin）",
         "description": "complaint_tasks133 每渠道同步任务，join 渠道名称/支付平台：通道ID、通道名称、状态(enabled)、上次同步时间、同步状态(last_status/consecutive_failures/last_reason)、下次同步时间、获取频率(frequency 分钟 / num 条)。仅管理员；受 complain_open 门控。",
         "parameters": [
-          { "name": "role", "in": "path", "required": true, "schema": { "type": "string", "enum": ["admin", "merchant"] } }
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "items[] + total" },
-          "403": { "description": "complain_open 关闭或非管理员" }
+          "200": {
+            "description": "items[] + total"
+          },
+          "403": {
+            "description": "complain_open 关闭或非管理员"
+          }
         }
       }
     },
@@ -45748,8 +46038,26 @@
         "summary": "新建/更新某渠道的投诉同步任务（admin）",
         "description": "按 channel_id upsert 同步任务。渠道的支付平台必须支持投诉（WeChat Pay V3 / Alipay），否则 422 拒绝并给出说明。bounds: frequency 1-1440 分钟，num 1-50 条。停用保留行与失败历史；重新启用重置连续失败计数并立即安排下次。审计记录。仅管理员；受 complain_open 门控。",
         "parameters": [
-          { "name": "role", "in": "path", "required": true, "schema": { "type": "string", "enum": ["admin", "merchant"] } },
-          { "name": "channel_id", "in": "path", "required": true, "schema": { "type": "integer" } }
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          },
+          {
+            "name": "channel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
         ],
         "requestBody": {
           "required": true,
@@ -45758,22 +46066,48 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["enabled", "frequency", "num"],
+                "required": [
+                  "enabled",
+                  "frequency",
+                  "num"
+                ],
                 "properties": {
-                  "enabled": { "type": "boolean" },
-                  "frequency": { "type": "integer", "minimum": 1, "maximum": 1440, "description": "同步间隔（分钟）" },
-                  "num": { "type": "integer", "minimum": 1, "maximum": 50, "description": "每轮同步条数" }
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "frequency": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1440,
+                    "description": "同步间隔（分钟）"
+                  },
+                  "num": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "description": "每轮同步条数"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "保存后的任务视图" },
-          "400": { "description": "无效渠道或请求体" },
-          "403": { "description": "complain_open 关闭或非管理员" },
-          "404": { "description": "渠道不存在" },
-          "422": { "description": "渠道不支持投诉或 frequency/num 越界" }
+          "200": {
+            "description": "保存后的任务视图"
+          },
+          "400": {
+            "description": "无效渠道或请求体"
+          },
+          "403": {
+            "description": "complain_open 关闭或非管理员"
+          },
+          "404": {
+            "description": "渠道不存在"
+          },
+          "422": {
+            "description": "渠道不支持投诉或 frequency/num 越界"
+          }
         }
       }
     },
@@ -45783,11 +46117,26 @@
         "summary": "可投诉的支付通道（admin，自动获取选择器）",
         "description": "支付平台为 wxpay/alipay 的渠道，供投诉记录页的 自动获取 选择器使用；每项带 enabled（是否已开启同步任务）。仅管理员；受 complain_open 门控。",
         "parameters": [
-          { "name": "role", "in": "path", "required": true, "schema": { "type": "string", "enum": ["admin", "merchant"] } }
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "items[]{channel_id,name,provider,enabled}" },
-          "403": { "description": "complain_open 关闭或非管理员" }
+          "200": {
+            "description": "items[]{channel_id,name,provider,enabled}"
+          },
+          "403": {
+            "description": "complain_open 关闭或非管理员"
+          }
         }
       }
     },
@@ -45801,7 +46150,13 @@
             "name": "role",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "enum": ["admin", "merchant"] }
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
           }
         ],
         "requestBody": {
@@ -45811,21 +46166,41 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["channel_id"],
+                "required": [
+                  "channel_id"
+                ],
                 "properties": {
-                  "channel_id": { "type": "integer", "description": "支付通道ID" },
-                  "num": { "type": "integer", "minimum": 1, "maximum": 50, "description": "本轮同步条数，默认20" }
+                  "channel_id": {
+                    "type": "integer",
+                    "description": "支付通道ID"
+                  },
+                  "num": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "description": "本轮同步条数，默认20"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "已同步；返回 channel_id 与本轮 synced 条数" },
-          "400": { "description": "渠道无效" },
-          "403": { "description": "complain_open 关闭或非管理员" },
-          "502": { "description": "渠道投诉结果未能确认（待重试）" },
-          "503": { "description": "provider 不可用或功能未就绪" }
+          "200": {
+            "description": "已同步；返回 channel_id 与本轮 synced 条数"
+          },
+          "400": {
+            "description": "渠道无效"
+          },
+          "403": {
+            "description": "complain_open 关闭或非管理员"
+          },
+          "502": {
+            "description": "渠道投诉结果未能确认（待重试）"
+          },
+          "503": {
+            "description": "provider 不可用或功能未就绪"
+          }
         }
       }
     },
@@ -45839,13 +46214,21 @@
             "name": "role",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "enum": ["admin", "merchant"] }
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
           },
           {
             "name": "channel_id",
             "in": "query",
             "required": true,
-            "schema": { "type": "integer" }
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "requestBody": {
@@ -45855,19 +46238,35 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "file": { "type": "string", "format": "binary", "description": "jpg/jpeg/png/bmp，≤2MB" }
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "jpg/jpeg/png/bmp，≤2MB"
+                  }
                 },
-                "required": ["file"]
+                "required": [
+                  "file"
+                ]
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "返回 media_id" },
-          "400": { "description": "渠道无效或图片过大/格式不符" },
-          "403": { "description": "complain_open 关闭" },
-          "502": { "description": "媒体上传结果未能确认" },
-          "503": { "description": "provider 不可用" }
+          "200": {
+            "description": "返回 media_id"
+          },
+          "400": {
+            "description": "渠道无效或图片过大/格式不符"
+          },
+          "403": {
+            "description": "complain_open 关闭"
+          },
+          "502": {
+            "description": "媒体上传结果未能确认"
+          },
+          "503": {
+            "description": "provider 不可用"
+          }
         }
       }
     },
@@ -45877,8 +46276,26 @@
         "summary": "通过渠道回复投诉人",
         "description": "微信=回复用户(Response)，支付宝=留言回复(ReplySubmit)。按投诉记录所属渠道解析凭证并调用。merchant 仅限本商户投诉；受 complain_open 门控。images 为渠道媒体ID列表（可选）。",
         "parameters": [
-          { "name": "role", "in": "path", "required": true, "schema": { "type": "string", "enum": ["admin", "merchant"] } },
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
         ],
         "requestBody": {
           "required": true,
@@ -45887,22 +46304,44 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["content"],
+                "required": [
+                  "content"
+                ],
                 "properties": {
-                  "content": { "type": "string" },
-                  "images": { "type": "array", "items": { "type": "string" }, "maxItems": 10 }
+                  "content": {
+                    "type": "string"
+                  },
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 10
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "已提交" },
-          "403": { "description": "complain_open 关闭或越权" },
-          "404": { "description": "投诉不存在" },
-          "409": { "description": "渠道不匹配或忙" },
-          "422": { "description": "入参不合法" },
-          "502": { "description": "渠道结果未能确认" }
+          "200": {
+            "description": "已提交"
+          },
+          "403": {
+            "description": "complain_open 关闭或越权"
+          },
+          "404": {
+            "description": "投诉不存在"
+          },
+          "409": {
+            "description": "渠道不匹配或忙"
+          },
+          "422": {
+            "description": "入参不合法"
+          },
+          "502": {
+            "description": "渠道结果未能确认"
+          }
         }
       }
     },
@@ -45912,8 +46351,26 @@
         "summary": "通过渠道完成/处理投诉",
         "description": "微信=反馈处理完成(Complete)，支付宝=商家处理(FeedbackSubmit，需 feedback_code+content)。按投诉所属渠道解析凭证。merchant 仅限本商户；受 complain_open 门控。",
         "parameters": [
-          { "name": "role", "in": "path", "required": true, "schema": { "type": "string", "enum": ["admin", "merchant"] } },
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
         ],
         "requestBody": {
           "required": true,
@@ -45923,21 +46380,44 @@
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                  "feedback_code": { "type": "string", "description": "支付宝处理分类码" },
-                  "content": { "type": "string" },
-                  "images": { "type": "array", "items": { "type": "string" }, "maxItems": 10 }
+                  "feedback_code": {
+                    "type": "string",
+                    "description": "支付宝处理分类码"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 10
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "已提交" },
-          "403": { "description": "complain_open 关闭或越权" },
-          "404": { "description": "投诉不存在" },
-          "409": { "description": "渠道不匹配或忙" },
-          "422": { "description": "入参不合法" },
-          "502": { "description": "渠道结果未能确认" }
+          "200": {
+            "description": "已提交"
+          },
+          "403": {
+            "description": "complain_open 关闭或越权"
+          },
+          "404": {
+            "description": "投诉不存在"
+          },
+          "409": {
+            "description": "渠道不匹配或忙"
+          },
+          "422": {
+            "description": "入参不合法"
+          },
+          "502": {
+            "description": "渠道结果未能确认"
+          }
         }
       }
     },
@@ -45947,8 +46427,26 @@
         "summary": "补充投诉凭证（仅支付宝）",
         "description": "支付宝商家补充凭证(SupplementSubmit)。微信无此动作，返回不支持。merchant 仅限本商户；受 complain_open 门控。",
         "parameters": [
-          { "name": "role", "in": "path", "required": true, "schema": { "type": "string", "enum": ["admin", "merchant"] } },
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+          {
+            "name": "role",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "merchant"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
         ],
         "requestBody": {
           "required": true,
@@ -45957,22 +46455,222 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["content"],
+                "required": [
+                  "content"
+                ],
                 "properties": {
-                  "content": { "type": "string" },
-                  "images": { "type": "array", "items": { "type": "string" }, "maxItems": 10 }
+                  "content": {
+                    "type": "string"
+                  },
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 10
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "已提交" },
-          "403": { "description": "complain_open 关闭或越权" },
-          "404": { "description": "投诉不存在" },
-          "409": { "description": "该渠道不支持补充凭证" },
-          "422": { "description": "入参不合法" },
-          "502": { "description": "渠道结果未能确认" }
+          "200": {
+            "description": "已提交"
+          },
+          "403": {
+            "description": "complain_open 关闭或越权"
+          },
+          "404": {
+            "description": "投诉不存在"
+          },
+          "409": {
+            "description": "该渠道不支持补充凭证"
+          },
+          "422": {
+            "description": "入参不合法"
+          },
+          "502": {
+            "description": "渠道结果未能确认"
+          }
+        }
+      }
+    },
+    "/console/v1/admin/refunds/{id}/attestation": {
+      "get": {
+        "operationId": "adminRefundAttestationRead",
+        "tags": [
+          "refunds"
+        ],
+        "summary": "读取退款人工核实资格与记录",
+        "description": "只读。仅当退款已发送且原操作为pending/unknown、原通道不支持退款查询，或预留从未发送时eligible=true；发送中、已终态、合单退款和支持查询的通道返回eligible=false及reason。不调用支付机构。",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "退款ID。",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "no-store。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/RefundAttestationView"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "不接受查询参数。"
+          },
+          "403": {
+            "description": "不是超级管理员本人的持久会话（运营员、代登录和商户均拒绝）。"
+          },
+          "404": {
+            "description": "退款不存在。"
+          },
+          "503": {
+            "description": "核实功能或数据库不可用。"
+          }
+        }
+      }
+    },
+    "/console/v1/admin/refunds/{id}/attest-result": {
+      "post": {
+        "operationId": "adminRefundAttest",
+        "tags": [
+          "refunds"
+        ],
+        "summary": "在机构后台核实后记录退款最终结果",
+        "description": "强制资金授权：先预览并确认原请求体（state、provider_reference、note均绑定授权）。成功转入清算，失败退回商户可用余额，同时更新原发送操作、写入不可变核实记录、operator或internal来源的结果证据和后台审计，全部在同一事务内；cli reconcile复核证据。结论提交后不可更改，已终态返回409。",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "退款ID。",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "writeOnly": true
+            }
+          },
+          {
+            "name": "X-Payment-Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 43,
+              "maxLength": 43,
+              "writeOnly": true
+            },
+            "description": "针对本请求体的一次性资金授权。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundAttestation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "已记录；data为核实后的状态。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/RefundAttestationView"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "state、provider_reference和note必填，JSON不得有重复或额外字段。"
+          },
+          "403": {
+            "description": "不是超级管理员本人的持久会话（运营员、代登录和商户均拒绝）。"
+          },
+          "404": {
+            "description": "退款不存在。"
+          },
+          "409": {
+            "description": "退款当前状态不能核实（已终态、发送中、可自动查询、合单退款，或从未发送却核实为成功）。"
+          },
+          "422": {
+            "description": "核实内容无效。"
+          },
+          "428": {
+            "description": "缺少或不匹配本请求体的资金授权。"
+          },
+          "503": {
+            "description": "核实功能或数据库不可用。"
+          }
         }
       }
     }
@@ -47107,32 +47805,98 @@
         "type": "object",
         "description": "Pro 分账记录 列表行：基础订单摘要加上来自原支付声明的 订单金额/支付方式/分账规则。",
         "properties": {
-          "id": { "type": "string", "pattern": "^[1-9][0-9]*$" },
-          "external_no": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$" },
-          "out_no": { "type": "string" },
-          "state": { "type": "string" },
-          "share_amount": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$", "description": "分账金额（人民币分，各接收方金额之和）。" },
-          "order_amount": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$", "description": "订单金额（人民币分，原支付声明毛额）。" },
-          "provider": { "type": "string", "description": "支付方式（通道 provider，如 wxpay/alipay）。" },
-          "method": { "type": "string" },
-          "rule_id": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$", "description": "分账规则 id；原支付未声明规则时为 0。" },
-          "channel_id": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" },
-          "created_at": { "type": "string", "format": "date-time" }
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "external_no": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,128}$"
+          },
+          "out_no": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "share_amount": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "description": "分账金额（人民币分，各接收方金额之和）。"
+          },
+          "order_amount": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "description": "订单金额（人民币分，原支付声明毛额）。"
+          },
+          "provider": {
+            "type": "string",
+            "description": "支付方式（通道 provider，如 wxpay/alipay）。"
+          },
+          "method": {
+            "type": "string"
+          },
+          "rule_id": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "description": "分账规则 id；原支付未声明规则时为 0。"
+          },
+          "channel_id": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         },
-        "required": ["id", "external_no", "out_no", "state", "share_amount", "order_amount", "provider", "method", "rule_id", "channel_id", "created_at"],
+        "required": [
+          "id",
+          "external_no",
+          "out_no",
+          "state",
+          "share_amount",
+          "order_amount",
+          "provider",
+          "method",
+          "rule_id",
+          "channel_id",
+          "created_at"
+        ],
         "additionalProperties": false
       },
       "ChannelSharingOrderStats": {
         "type": "object",
         "description": "Pro 分账记录 统计聚合（与列表相同过滤）。",
         "properties": {
-          "count": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" },
-          "share_amount": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" },
-          "released_amount": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" },
-          "success_count": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" },
-          "fail_count": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" }
+          "count": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "share_amount": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "released_amount": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "success_count": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "fail_count": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          }
         },
-        "required": ["count", "share_amount", "released_amount", "success_count", "fail_count"],
+        "required": [
+          "count",
+          "share_amount",
+          "released_amount",
+          "success_count",
+          "fail_count"
+        ],
         "additionalProperties": false
       },
       "ChannelSharingOrderView": {
@@ -58873,6 +59637,151 @@
         },
         "required": [
           "enabled"
+        ],
+        "additionalProperties": false
+      },
+      "RefundAttestation": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "description": "支付机构侧核实到的最终结果；从未发送的预留只能为failed。",
+            "enum": [
+              "succeeded",
+              "failed"
+            ]
+          },
+          "provider_reference": {
+            "type": "string",
+            "description": "机构退款单号或查询记录编号。",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "note": {
+            "type": "string",
+            "description": "在哪里、如何核实。",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "state",
+          "provider_reference",
+          "note"
+        ],
+        "additionalProperties": false
+      },
+      "RefundAttestationView": {
+        "type": "object",
+        "properties": {
+          "refund_id": {
+            "type": "string"
+          },
+          "refund_no": {
+            "type": "string"
+          },
+          "trade_no": {
+            "type": "string"
+          },
+          "merchant_id": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string",
+            "description": "退款金额，元字符串。"
+          },
+          "status": {
+            "type": "string",
+            "description": "退款当前状态。"
+          },
+          "sent": {
+            "type": "boolean",
+            "description": "是否已发送到支付机构。"
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "原发送通道；未发送为空。"
+          },
+          "eligible": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "description": "不可核实的原因；可核实时为空。",
+            "enum": [
+              "",
+              "final",
+              "in_flight",
+              "automatic_query",
+              "combined_order"
+            ]
+          },
+          "states": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "succeeded",
+                "failed"
+              ]
+            },
+            "description": "可选的核实结果；不可核实时为空数组。"
+          },
+          "attestation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "succeeded",
+                      "failed"
+                    ]
+                  },
+                  "provider_reference": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "admin_username": {
+                    "type": "string"
+                  },
+                  "created_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "state",
+                  "provider_reference",
+                  "note",
+                  "admin_username",
+                  "created_at"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "description": "已记录的不可变核实；没有时为null。"
+          }
+        },
+        "required": [
+          "refund_id",
+          "refund_no",
+          "trade_no",
+          "merchant_id",
+          "amount",
+          "status",
+          "sent",
+          "channel_id",
+          "eligible",
+          "reason",
+          "states",
+          "attestation"
         ],
         "additionalProperties": false
       }

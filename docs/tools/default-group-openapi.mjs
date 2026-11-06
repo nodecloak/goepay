@@ -1,7 +1,8 @@
-import fs from 'node:fs';import {fileURLToPath}from'node:url';
-const file=fileURLToPath(new URL('../../api/console.openapi.json',import.meta.url)),api=JSON.parse(fs.readFileSync(file,'utf8'));
+// Groups accept the canonical ID 0 for the real, editable default group
+// (internal/backoffice/handler.go); other resources keep positive IDs.
+export function installDefaultGroupAPI({paths}) {
 let count=0;
-for(const [path,item]of Object.entries(api.paths)){
+for(const [path,item]of Object.entries(paths)){
  if(!path.includes('/resources/')||!path.endsWith('/{id}'))continue;
  for(const verb of['get','patch','put','delete']){
   const operation=item[verb];if(!operation)continue;
@@ -16,4 +17,4 @@ for(const [path,item]of Object.entries(api.paths)){
  }
 }
 if(!count)throw Error('No generic resource ID operations found; preserve API specification');
-fs.writeFileSync(file,JSON.stringify(api,null,2)+'\n');console.log(JSON.stringify({default_group_operations:count}));
+}

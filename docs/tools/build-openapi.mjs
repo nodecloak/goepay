@@ -8,7 +8,12 @@ import { installEmailBinding197API } from './email-binding197-openapi.mjs';
 import { installMerchantProfile198API } from './merchant-profile198-openapi.mjs';
 import { installOriginalCredentials199API } from './original-credentials199-openapi.mjs';
 import { installNotificationReturn200API } from './notification-return200-openapi.mjs';
-import { installRefundEvents201API } from './refund-events201-openapi.mjs';
+import { installRefundEventsAPI } from './refund-events-openapi.mjs';
+import { channelSharingRecordSchemas, installChannelSharingRecordsAPI } from './channel-sharing-records-openapi.mjs';
+import { installSmsGatewayAPI } from './sms-gateway-openapi.mjs';
+import { installComplaintsAPI } from './complaints-openapi.mjs';
+import { installRefundAttestationAPI } from './refund-attestation-openapi.mjs';
+import { installDefaultGroupAPI } from './default-group-openapi.mjs';
 import { installNativeScan202API } from './native-scan202-openapi.mjs';
 import { installPublicTestPay203API } from './public-testpay203-openapi.mjs';
 import { installCombinedOrders204API } from './combined-orders204-openapi.mjs';
@@ -138,6 +143,7 @@ schemas.ChannelSharingRuleDisable=object({merchant_id:id,expected:str('原规则
 schemas.ChannelSharingSubmit=object({merchant_id:id,trade_no:sharingNo,external_no:sharingNo},['trade_no','external_no']);
 schemas.ChannelSharingReturnSubmit=object({merchant_id:id,sharing_external_no:sharingNo,receiver_id:id,external_no:sharingNo,amount:str('本次回退金额，正整数分字符串；0.10元必须传10。',{pattern:'^[1-9][0-9]*$'})},['sharing_external_no','receiver_id','external_no','amount']);
 schemas.ChannelSharingReceiverView=object({id,merchant_id:id,channel_id:id,provider:str(),app_id:str(),product:str(),type:str(),account_masked:str(),name_masked:str(),state:str(),operation:{type:'object',description:'原绑定/解绑操作；source=reference是复用原可信关系的本地引用，不代表再次远端绑定或姓名核验。'},created_at:str(null,{format:'date-time'})},['id','merchant_id','channel_id','provider','type','account_masked','name_masked','state']);
+Object.assign(schemas,channelSharingRecordSchemas());
 schemas.ChannelSharingOrderView=object({id,order_id:id,merchant_id:id,external_no:sharingNo,out_no:str(),provider_order_no:str(),state:str(null,{enum:['unsent','claimed','pending','unknown','succeeded','failed','partial']}),completed:{type:'boolean'},funds_released:{type:'boolean'},released_amount:minor,items:{type:'array',items:object({receiver_id:id,amount:minor,state:str(null,{enum:['pending','succeeded','failed']}),provider_detail_no:str(),failure_code:str()},['receiver_id','amount','state'])},created_at:str(null,{format:'date-time'})},['id','order_id','merchant_id','external_no','state','completed','funds_released','released_amount','items']);
 schemas.ChannelSharingReturnView=object({id,sharing_id:id,order_id:id,merchant_id:id,receiver_id:id,external_no:sharingNo,out_no:str(),amount:minor,state:str(null,{enum:['unsent','claimed','unknown','pending','succeeded','failed']}),provider_return_no:str(),created_at:str(null,{format:'date-time'})},['id','sharing_id','order_id','merchant_id','receiver_id','external_no','out_no','amount','state']);
 schemas.ChannelSharingFinishView=object({id:minor,order_id:id,merchant_id:id,trade_no:sharingNo,external_no:str(),out_no:str(),provider_order_no:str(),provider_trade_no:str(),state:str(null,{enum:['eligible','unsent','claimed','pending','unknown','failed','succeeded']}),source:str(null,{enum:['finish','sharing']}),gross_amount:minor,merchant_net:minor,shared_amount:minor,expected_unsplit:minor,release_amount:minor,funds_released:{type:'boolean'},sharing:ref('ChannelSharingOrderView'),created_at:str(null,{format:'date-time'})},['id','order_id','merchant_id','trade_no','state','source','gross_amount','merchant_net','shared_amount','expected_unsplit','release_amount','funds_released']);
@@ -300,6 +306,7 @@ sharingAdd('/rules/{id}','post','CAS发布渠道分账规则新版本',{body:'Ch
 sharingAdd('/rules/{id}/disable','post','CAS禁用原规则',{body:'ChannelSharingRuleDisable',description:'只停止未来声明，不改变原支付快照；即使旧通道已移除仍可停止规则。管理员首次禁用需具体授权。'});
 sharingAdd('/payment/{trade}','get','核对原支付分账声明',{description:'返回declared、gross_amount、merchant_net及逐接收方amount，全部金额为分字符串。声明为false的订单不能事后承接分账规则。充值用途不声明分账。'});
 sharingAdd('/orders','post','按原支付声明提交唯一渠道分账',{body:'ChannelSharingSubmit',description:'只使用原接收方/金额、已验证支付回执及原订单专属净额预留；请求不接受客户端分账金额。未知409；同external_no重放只读原记录，不隐式查询或再发，新号也不能重发原订单。completed与全部成功不同，只有可信原解冻证明才funds_released。'});
+installChannelSharingRecordsAPI({paths});
 sharingAdd('/orders/{sharing_no}','get','读取原渠道分账记录',{description:'sharing_no为原商户external_no；本地读取且校验不可变意图与结果证据，不调用上游。'});
 sharingAdd('/orders/{sharing_no}/query','post','只读核对原渠道分账请求并处理可信结果',{body:'ChannelSharingOwner',description:'使用已持久化的原PS号及交易号；不消费新资金授权、不发送新的资金请求。微信显式剩余0等原证明后才释放原剩余净额；FINISHED本身不等于所有接收方成功。'});
 sharingAdd('/returns','post','从原成功接收方独立回退资金',{body:'ChannelSharingReturnSubmit',description:'要求原PS已经完整完成且原余款已可信释放。指定原成功receiver，累计非failed回退不得超过原成功额；不接受新账号，不是买家退款。支持明确微信商户接收方与显式启用的支付宝原分账回退产品；未知409保留原PR号。启用政策时管理员需回退动作授权。'});
@@ -395,16 +402,20 @@ installSite191API({paths,schemas,object,str,ref,content});
 installMerchantScan192API({paths,schemas,object,str,ref,content});
 installSiteBrand193API({paths,schemas,object,str,ref,content});
 installMailFrequency194API({paths,schemas,object,str,ref,content});
+installSmsGatewayAPI({paths});
 installMailAccounts195API({paths,schemas,object,str,ref,content});
 installEmailBinding197API({paths,schemas,object,str,ref,content});
 installMerchantProfile198API({paths,schemas,object,str,ref,content});
 installOriginalCredentials199API({paths,schemas,object,str,ref,content});
 installNotificationReturn200API({paths,schemas,object,str,ref,content});
-installRefundEvents201API({paths,schemas,object,str,ref,content});
+installRefundEventsAPI({paths,schemas,object,str,ref,content});
 installNativeScan202API({paths,schemas,object,str,ref,content});
 installPublicTestPay203API({paths,schemas,object,str,ref,content});
 installCombinedOrders204API({paths,schemas,object,str,ref,content});
 installLoginCaptcha205API({paths,schemas,object,str,ref,content});
+installComplaintsAPI({paths});
+installRefundAttestationAPI({paths,schemas,object,str,ref,content});
+installDefaultGroupAPI({paths});
 const document = {
   openapi: '3.1.0', info: { title: 'GOEPAY 已实施后台 API', version: '0.1.0', description: '用于当前 Go 双后台，不是旧 PHP 管理接口兼容声明。各资源仍须读取服务端 schema/能力；本文件不把业务插件暂缓或原版缺口标记为已完成。金额单位按具体API：通用退款/转账请求amount为元字符串；/channel-sharing全部金额及回退amount为分字符串。部分历史领域响应仍为分或整数，不得全局猜测单位。' },
   servers: [{ url: 'http://127.0.0.1:8184', description: '独立本地 simulation API；以部署交接记录的版本为准' }],

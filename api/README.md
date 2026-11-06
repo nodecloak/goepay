@@ -70,7 +70,7 @@ PF已可信失败后，原号重放仍读取原失败历史；只有重新预览
 node docs/tools/build-openapi.mjs
 ```
 
-生成脚本来自已实施路由，检查本地引用、必填路径参数及 operationId 唯一性；真实权限/资金契约由 `tests/contract` 和 PostgreSQL 测试验证。修改接口后同时更新脚本、前端调用和契约测试。资源的具体字段由同身份 `GET /console/v1/{role}/resources/{resource}/schema` 提供，禁止向客户端返回已有密码或完整 API 密钥。
+`api/console.openapi.json` 完全由该脚本生成，不要手工编辑；改接口时修改 `docs/tools` 下对应的模块后重新生成，否则下次生成会丢失手工改动。生成脚本来自已实施路由，检查本地引用、必填路径参数及 operationId 唯一性；真实权限/资金契约由 `tests/contract` 和 PostgreSQL 测试验证。修改接口后同时更新脚本、前端调用和契约测试。资源的具体字段由同身份 `GET /console/v1/{role}/resources/{resource}/schema` 提供，禁止向客户端返回已有密码或完整 API 密钥。
 
 商户消息提醒：本人会话GET/PUT `/console/v1/merchant/account/notice`；授权管理员GET/PUT `/console/v1/admin/merchants/{merchant_id}/notice`。使用原msgconfig九场景、元金额字符串、voice_order、显式targets/clear_fields及expected_profile_id比较版本。未提交的目标保留；显式清除单列；保存不发送消息。禁止代登录与query商户覆盖，写入要求CSRF。目标和凭据只返回掩码。
 
