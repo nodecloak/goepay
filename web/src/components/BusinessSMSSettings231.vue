@@ -253,7 +253,11 @@ onBeforeUnmount(() => {
             <tbody>
               <tr v-for="[p, label] in providers" :key="p">
                 <th scope="row">{{ label }}</th>
-                <td v-for="[s, title] in scenes" :key="s">
+                <td
+                  v-for="[s, title] in scenes"
+                  :key="s"
+                  :data-label="title + '模板'"
+                >
                   <input
                     v-model="draft[p + '_' + s]"
                     :aria-label="label + ' ' + title + '模板'"
@@ -306,5 +310,43 @@ onBeforeUnmount(() => {
 .business-sms231 input {
   width: 100%;
   min-width: 140px;
+}
+@media (max-width: 600px) {
+  .business-sms231 table,
+  .business-sms231 tbody {
+    display: block;
+    min-width: 0;
+  }
+  .business-sms231 thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .business-sms231 tr {
+    display: grid;
+    margin-bottom: 16px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .business-sms231 th,
+  .business-sms231 td {
+    white-space: normal;
+    text-align: left;
+    min-width: 0;
+  }
+  .business-sms231 td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 6px;
+    color: var(--ink-muted);
+  }
+  .business-sms231 input {
+    min-width: 0;
+    box-sizing: border-box;
+    min-height: 44px;
+  }
 }
 </style>

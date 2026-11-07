@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-07T02:22:43.110Z",
+  "generated_at": "2026-11-07T05:17:19.524Z",
   "scope": "Source snapshot only; not a claim of complete compatibility or a replacement for test results.",
   "files": [
     {
@@ -11783,6 +11783,10 @@
       "sha256": "6d420eb1268d5a954cdc8adf68edb91f9721c64dbbc90e8990c0ab54160941ae"
     },
     {
+      "path": "web/e2e/notification-form-layout.spec.ts",
+      "sha256": "d9fc8edcce3f8ad32f3eee8975eabe2deff30e528544b9593251738a6d348d9b"
+    },
+    {
       "path": "web/e2e/notification-resend.spec.ts",
       "sha256": "53990f57eb02a84bfdbeb51981b08d73e936d82c7b6dc8f443032a860c54f69e"
     },
@@ -12344,7 +12348,7 @@
     },
     {
       "path": "web/src/components/BusinessSMSSettings231.vue",
-      "sha256": "3a2c618b112bbcbe1c461233465646f64111be6195fa601abc51c3430c742d87"
+      "sha256": "8a0618c88e45fa49c9192d18205b2f658d32beabe3b7ca3e18bf843e8fa2e5de"
     },
     {
       "path": "web/src/components/BuyerFeeSettings104.vue",
@@ -12668,7 +12672,7 @@
     },
     {
       "path": "web/src/components/MerchantNoticeSettings.vue",
-      "sha256": "72fabed8cf227208b3e57ec17769007820af880370ac024955c606378ee0c127"
+      "sha256": "e7c72d7042c0cfa63875c6f822289c016bf9a4ba8f3570b1d5fbfc5948b84046"
     },
     {
       "path": "web/src/components/MerchantOrderActionDialog.vue",
@@ -12980,7 +12984,7 @@
     },
     {
       "path": "web/src/components/SettlementBatchesPage.vue",
-      "sha256": "22c2e96b1e26215e02f755ad37a7715068356c5e9e5e8a1981a59728e4aa95f2"
+      "sha256": "33c78732cff2a90288217abad06ac198ddaa8f3959bc7f79157e78555a7a1781"
     },
     {
       "path": "web/src/components/SettlementListFilters.vue",

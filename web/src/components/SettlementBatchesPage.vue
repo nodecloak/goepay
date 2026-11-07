@@ -597,7 +597,7 @@ onBeforeUnmount(reset);
 }
 .settlement-batches .toolbar > label {
   margin: 0;
-  flex: 1 1 160px;
+  flex: 0 1 240px;
   min-width: 0;
 }
 .settlement-batches .toolbar > label > select {

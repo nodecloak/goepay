@@ -212,7 +212,11 @@ onBeforeUnmount(() => {
       <p v-if="notice" role="status">{{ notice }}</p>
 
       <p v-if="busy" role="status">正在处理…</p>
-      <form class="console-config-form" v-if="state && config" @submit.prevent="save">
+      <form
+        class="console-config-form"
+        v-if="state && config"
+        @submit.prevent="save"
+      >
         <fieldset :disabled="busy">
           <legend>消息推送</legend>
           <p class="muted notice-matrix-help">
@@ -244,7 +248,8 @@ onBeforeUnmount(() => {
                         :checked="config[key] === 0"
                         :data-cell="key + ':0'"
                         @change="pickChannel(key, 0)"
-                    /></label>
+                      /><span class="notice-channel-name">关闭</span></label
+                    >
                   </td>
                   <td
                     v-for="cell in cellsFor(key)"
@@ -267,7 +272,8 @@ onBeforeUnmount(() => {
                         :disabled="!cell.ready && config[key] !== cell.mode"
                         :data-cell="key + ':' + cell.mode"
                         @change="pickChannel(key, cell.mode)"
-                      /><span
+                      /><span class="notice-channel-name">{{ cell.label }}</span
+                      ><span
                         v-if="!cell.ready"
                         class="notice-matrix-reason"
                         :data-reason="key + ':' + cell.mode"
@@ -362,7 +368,7 @@ onBeforeUnmount(() => {
 .notice-matrix {
   border-collapse: collapse;
   width: 100%;
-  min-width: 520px;
+  min-width: 800px;
   font-size: 13px;
 }
 .notice-matrix th,
@@ -393,6 +399,9 @@ onBeforeUnmount(() => {
   height: 16px;
   margin: 0;
 }
+.notice-channel-name {
+  display: none;
+}
 .notice-matrix-cell--off {
   background: var(--bg-muted, var(--surface-alt));
   color: var(--muted, var(--ink-muted));
@@ -422,10 +431,63 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border, var(--line));
   border-radius: 4px;
 }
-.notice-settings input,
+.notice-settings input:not([type="radio"]):not([type="checkbox"]),
 .notice-settings select {
   width: 100%;
   min-width: 0;
+}
+@media (max-width: 600px) {
+  .notice-matrix,
+  .notice-matrix tbody {
+    display: block;
+    min-width: 0;
+  }
+  .notice-matrix thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .notice-matrix tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 16px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .notice-matrix th[scope="row"] {
+    grid-column: 1 / -1;
+    white-space: normal;
+    background: var(--surface-alt);
+  }
+  .notice-matrix .notice-matrix-cell {
+    min-width: 0;
+    padding: 0;
+  }
+  .notice-matrix-cell label {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    align-content: start;
+    align-items: center;
+    min-height: 44px;
+    width: 100%;
+    padding: 10px 8px;
+    box-sizing: border-box;
+    text-align: left;
+    gap: 6px;
+  }
+  .notice-channel-name {
+    display: inline;
+    overflow-wrap: anywhere;
+  }
+  .notice-matrix-reason {
+    grid-column: 2;
+    max-width: none;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+  }
 }
 .notice-checkbox {
   display: flex;
