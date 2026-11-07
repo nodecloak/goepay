@@ -237,166 +237,157 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="panel" aria-label="订单返现政策">
-    <h2>订单返现</h2>
-    <p class="muted">
-      可选择原订单手续费或订单金额作为比例基数；两种奖励均不超过原订单平台手续费。任意成功退款撤销整笔奖励。比例0–10000
-      BPS（100
-      BPS=1%）；未启用政策不发奖，旧订单不追补。政策变更需本人管理员资金授权。
-    </p>
-    <p v-if="error" role="alert" class="alert error">{{ error }}</p>
-    <p v-if="notice" role="status">{{ notice }}</p>
-    <form class="referral-form" @submit.prevent="load">
-      <KitField label="政策范围"
-        ><KitSelect
-          v-model="scope"
-          :options="[
-            { value: 'global', label: '全局' },
-            { value: 'group', label: '用户组' },
-          ]"
-          :disabled="busy"
-          aria-label="政策范围"
-      /></KitField>
-      <KitField v-if="scope === 'group'" label="用户组 ID"
-        ><KitInput
-          v-model="group"
-          inputmode="numeric"
-          :disabled="busy"
-          :maxlength="19"
-      /></KitField>
-      <button
-        class="pa-btn pa-btn--primary"
-        :disabled="busy || loading || !permitted"
-      >
-        读取政策版本
-      </button>
-    </form>
-    <section v-if="current">
+  <div class="policy-page-grid">
+    <section class="panel console-policy-card" aria-label="订单返现政策">
+      <h2>订单返现</h2>
       <p class="muted">
-        当前修订 {{ current.revision }}。{{
-          current.revision === "0"
-            ? "尚未配置本范围政策；全局缺省不发奖，用户组未配置项继承。"
-            : "仅新订单使用本版本的有效配置，原奖励及退款来源不改写。"
-        }}
+        可选择原订单手续费或订单金额作为比例基数；两种奖励均不超过原订单平台手续费。任意成功退款撤销整笔奖励。比例0–10000
+        BPS（100
+        BPS=1%）；未启用政策不发奖，旧订单不追补。政策变更需本人管理员资金授权。
       </p>
-      <p class="muted">
-        覆盖顺序：全局 → 付款商户组 →
-        推广商户组；启用和比例空项继承，比例0是明确覆盖。存在用户组政策时，其基数明确覆盖，不继承上层基数；发奖时机也明确覆盖。
-      </p>
-      <KitField label="启用状态"
-        ><KitSelect
-          v-model="enabled"
-          :disabled="busy || confirming || uncertain"
-          :options="[
-            ...(scope === 'group' ? [{ value: 'inherit', label: '继承' }] : []),
-            { value: 'disabled', label: '关闭' },
-            { value: 'enabled', label: '启用' },
-          ]"
-          aria-label="启用状态"
-      /></KitField>
-      <KitField label="奖励基数"
-        ><KitSelect
-          :model-value="basis"
-          :disabled="busy || confirming || uncertain"
-          :options="[
-            { value: 'fee', label: '原订单平台手续费' },
-            { value: 'gross', label: '原订单金额（原手续费封顶）' },
-            ...(current.profit_basis_available === true
-              ? [{ value: 'profit', label: '配置估计利润（非实际账单）' }]
-              : []),
-          ]"
-          aria-label="奖励基数"
-          @update:model-value="basis = $event as typeof basis"
-      /></KitField>
-      <KitField label="发奖时机"
-        ><KitSelect
-          :model-value="mode"
-          :disabled="busy || confirming || uncertain"
-          :options="[
-            { value: 'immediate', label: '即时发奖' },
-            ...(current.daily_mode_available === true
-              ? [{ value: 'daily', label: '次日北京时间待发' }]
-              : []),
-          ]"
-          aria-label="发奖时机"
-          @update:model-value="mode = $event as typeof mode"
-      /></KitField>
-      <p v-if="mode === 'daily'" class="muted">
-        每笔原订单固定奖励和手续费上限，次日北京时间起等待专用调度器按日发放；此设置不代表调度器已启动。
-        不按迟到的汇总或当前用户组重新计算。退款结果未知时暂存，退款失败恢复原待发额，首次成功退款撤销整笔原奖励。
-      </p>
-      <p class="muted">
-        {{
-          basis === "gross"
-            ? "按原订单金额乘以比例，按分四舍五入，奖励不超过原订单平台手续费。"
-            : basis === "profit"
-              ? "基数按原订单手续费减去通道配置估计成本后按分四舍五入，负利润不发奖；奖励按基数与比例计算，仅使用原订单手续费。配置估计利润非实际账单，启用该奖励时缺少可信成本不能创建相关支付。"
-              : "按原订单平台手续费乘以比例，按分四舍五入，奖励不超过原订单平台手续费。"
-        }}不使用其它订单资金。
-      </p>
-      <KitField label="返现比例 BPS"
-        ><KitInput
-          v-model="rate"
-          inputmode="numeric"
-          :disabled="busy || confirming || uncertain"
-          :maxlength="5"
-          :placeholder="scope === 'group' ? '留空继承' : '0–10000'"
-      /></KitField>
-      <button
-        class="pa-btn pa-btn--primary"
-        :disabled="busy || loading || confirming || uncertain"
-        @click="review"
-      >
-        核对政策变更
-      </button>
-      <div v-if="confirming" class="alert">
-        <p>
-          确认{{ scope === "global" ? "全局" : "用户组 " + group }}政策修订
-          {{ current.revision }}，启用项
-          {{
-            enabled === "inherit"
-              ? "继承"
-              : enabled === "enabled"
-                ? "启用"
-                : "关闭"
-          }}，返现比例 {{ rate === "" ? "继承" : rate + " BPS" }}，基数{{
-            basis === "gross"
-              ? "原订单金额"
-              : basis === "profit"
-                ? "配置估计利润（非实际账单）"
-                : "原订单平台手续费"
-          }}，发奖时机{{
-            mode === "daily" ? "次日北京时间待专用调度器发放" : "即时发奖"
-          }}，按分四舍五入且奖励不超过原订单平台手续费，不使用其它订单资金。任意成功退款会撤销整笔原奖励。
-        </p>
+      <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+      <p v-if="notice" role="status">{{ notice }}</p>
+      <form class="referral-form console-config-toolbar" @submit.prevent="load">
+        <KitField label="政策范围"
+          ><KitSelect
+            v-model="scope"
+            :options="[
+              { value: 'global', label: '全局' },
+              { value: 'group', label: '用户组' },
+            ]"
+            :disabled="busy"
+            aria-label="政策范围"
+        /></KitField>
+        <KitField v-if="scope === 'group'" label="用户组 ID"
+          ><KitInput
+            v-model="group"
+            inputmode="numeric"
+            :disabled="busy"
+            :maxlength="19"
+        /></KitField>
         <button
-          :disabled="busy"
-          @click="
-            confirming = false;
-            frozen = undefined;
-          "
+          class="pa-btn pa-btn--primary"
+          :disabled="busy || loading || !permitted"
         >
-          返回编辑</button
-        ><button :disabled="busy" @click="save">确认保存并授权</button>
-      </div>
+          读取政策版本
+        </button>
+      </form>
+      <section v-if="current" class="console-config-fields">
+        <p class="muted">
+          当前修订 {{ current.revision }}。{{
+            current.revision === "0"
+              ? "尚未配置本范围政策；全局缺省不发奖，用户组未配置项继承。"
+              : "仅新订单使用本版本的有效配置，原奖励及退款来源不改写。"
+          }}
+        </p>
+        <p class="muted">
+          覆盖顺序：全局 → 付款商户组 →
+          推广商户组；启用和比例空项继承，比例0是明确覆盖。存在用户组政策时，其基数明确覆盖，不继承上层基数；发奖时机也明确覆盖。
+        </p>
+        <KitField label="启用状态"
+          ><KitSelect
+            v-model="enabled"
+            :disabled="busy || confirming || uncertain"
+            :options="[
+              ...(scope === 'group'
+                ? [{ value: 'inherit', label: '继承' }]
+                : []),
+              { value: 'disabled', label: '关闭' },
+              { value: 'enabled', label: '启用' },
+            ]"
+            aria-label="启用状态"
+        /></KitField>
+        <KitField label="奖励基数"
+          ><KitSelect
+            :model-value="basis"
+            :disabled="busy || confirming || uncertain"
+            :options="[
+              { value: 'fee', label: '原订单平台手续费' },
+              { value: 'gross', label: '原订单金额（原手续费封顶）' },
+              ...(current.profit_basis_available === true
+                ? [{ value: 'profit', label: '配置估计利润（非实际账单）' }]
+                : []),
+            ]"
+            aria-label="奖励基数"
+            @update:model-value="basis = $event as typeof basis"
+        /></KitField>
+        <KitField label="发奖时机"
+          ><KitSelect
+            :model-value="mode"
+            :disabled="busy || confirming || uncertain"
+            :options="[
+              { value: 'immediate', label: '即时发奖' },
+              ...(current.daily_mode_available === true
+                ? [{ value: 'daily', label: '次日北京时间待发' }]
+                : []),
+            ]"
+            aria-label="发奖时机"
+            @update:model-value="mode = $event as typeof mode"
+        /></KitField>
+        <p v-if="mode === 'daily'" class="muted">
+          每笔原订单固定奖励和手续费上限，次日北京时间起等待专用调度器按日发放；此设置不代表调度器已启动。
+          不按迟到的汇总或当前用户组重新计算。退款结果未知时暂存，退款失败恢复原待发额，首次成功退款撤销整笔原奖励。
+        </p>
+        <p class="muted">
+          {{
+            basis === "gross"
+              ? "按原订单金额乘以比例，按分四舍五入，奖励不超过原订单平台手续费。"
+              : basis === "profit"
+                ? "基数按原订单手续费减去通道配置估计成本后按分四舍五入，负利润不发奖；奖励按基数与比例计算，仅使用原订单手续费。配置估计利润非实际账单，启用该奖励时缺少可信成本不能创建相关支付。"
+                : "按原订单平台手续费乘以比例，按分四舍五入，奖励不超过原订单平台手续费。"
+          }}不使用其它订单资金。
+        </p>
+        <KitField label="返现比例 BPS"
+          ><KitInput
+            v-model="rate"
+            inputmode="numeric"
+            :disabled="busy || confirming || uncertain"
+            :maxlength="5"
+            :placeholder="scope === 'group' ? '留空继承' : '0–10000'"
+        /></KitField>
+        <button
+          class="pa-btn pa-btn--primary"
+          :disabled="busy || loading || confirming || uncertain"
+          @click="review"
+        >
+          核对政策变更
+        </button>
+        <div v-if="confirming" class="alert">
+          <p>
+            确认{{ scope === "global" ? "全局" : "用户组 " + group }}政策修订
+            {{ current.revision }}，启用项
+            {{
+              enabled === "inherit"
+                ? "继承"
+                : enabled === "enabled"
+                  ? "启用"
+                  : "关闭"
+            }}，返现比例 {{ rate === "" ? "继承" : rate + " BPS" }}，基数{{
+              basis === "gross"
+                ? "原订单金额"
+                : basis === "profit"
+                  ? "配置估计利润（非实际账单）"
+                  : "原订单平台手续费"
+            }}，发奖时机{{
+              mode === "daily" ? "次日北京时间待专用调度器发放" : "即时发奖"
+            }}，按分四舍五入且奖励不超过原订单平台手续费，不使用其它订单资金。任意成功退款会撤销整笔原奖励。
+          </p>
+          <button
+            :disabled="busy"
+            @click="
+              confirming = false;
+              frozen = undefined;
+            "
+          >
+            返回编辑</button
+          ><button :disabled="busy" @click="save">确认保存并授权</button>
+        </div>
+      </section>
     </section>
-  </section>
-  <MembershipReferralPolicy
-    v-if="current?.membership_referral_policy_available === true"
-    :client="client"
-    :admin-class="adminClass"
-  />
+    <MembershipReferralPolicy
+      v-if="current?.membership_referral_policy_available === true"
+      :client="client"
+      :admin-class="adminClass"
+    />
+  </div>
 </template>
-<style scoped>
-.referral-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-4);
-  margin: 16px 0;
-}
-.panel > section .pa-field {
-  margin: 12px 0;
-  max-width: 420px;
-}
-</style>

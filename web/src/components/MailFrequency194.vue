@@ -210,7 +210,7 @@ onBeforeUnmount(() => {
             state.effective.mail_daily_ip
           }}次。保存后启用下列设置，已有发送次数继续计入。
         </p>
-        <form aria-label="邮件发送频率配置" @submit.prevent="save">
+        <form class="console-config-form" aria-label="邮件发送频率配置" @submit.prevent="save">
           <div class="settings-fields">
             <div
               v-for="[key, label, max] in mailFields194"

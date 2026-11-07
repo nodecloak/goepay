@@ -235,7 +235,7 @@ onBeforeUnmount(() => clear());
       <p v-if="platform?.user_refund === 0" class="muted">
         平台已关闭商户自助退款，保留您的个人选择；原退款仍可查询和恢复。
       </p>
-      <form v-if="state" @submit.prevent="prepareSave">
+      <form class="console-config-form" v-if="state" @submit.prevent="prepareSave">
         <fieldset :disabled="busy || confirming">
           <legend class="sr-only">个人功能开关</legend>
           <label v-if="platform?.close_keylogin === 0" class="switch-row"

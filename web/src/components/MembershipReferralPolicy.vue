@@ -205,7 +205,7 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="panel" aria-label="会员推广奖励政策">
+  <section class="panel console-policy-card" aria-label="会员推广奖励政策">
     <h2>会员推广奖励政策</h2>
     <p>
       独立配置余额购买会员的推广奖励，默认关闭。预算仅来自该次实际会员购买收入；不使用普通订单手续费或其它购买资金。比例0–10000
@@ -213,7 +213,7 @@ onBeforeUnmount(() => {
     </p>
     <p v-if="error" role="alert" class="alert error">{{ error }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
-    <form @submit.prevent="load">
+    <form class="console-config-toolbar" @submit.prevent="load">
       <label
         >政策范围<select v-model="scope" :disabled="busy">
           <option value="global">全局</option>
@@ -231,7 +231,7 @@ onBeforeUnmount(() => {
         读取会员奖励政策
       </button>
     </form>
-    <section v-if="current">
+    <section v-if="current" class="console-config-fields">
       <p>
         当前修订 {{ current.revision }}。覆盖顺序：全局 → 购买前付款商户有效组 →
         推广商户有效组；空项继承，关闭及比例0为明确覆盖。

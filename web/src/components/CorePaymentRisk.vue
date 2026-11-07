@@ -350,7 +350,7 @@ onBeforeUnmount(() => {
             : "尚未指定本地地址库，请先完成配置后开启地区保护。"
         }}
       </p>
-      <form @submit.prevent="begin('save')">
+      <form class="console-config-form" @submit.prevent="begin('save')">
         <div class="risk-grid">
           <div v-for="f in fields" :key="f.key">
             <label :for="'risk177-' + f.key">{{ f.label }}</label

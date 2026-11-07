@@ -534,7 +534,7 @@ onBeforeUnmount(() => {
       <p v-if="notice" role="status">{{ notice }}</p>
 
       <p v-if="loading" role="status">正在读取配置…</p>
-      <form v-if="state" @submit.prevent="check">
+      <form class="console-config-form" v-if="state" @submit.prevent="check">
         <fieldset :disabled="editingBlocked">
           <div class="bot-row231">
             <span>{{ title }}开关</span

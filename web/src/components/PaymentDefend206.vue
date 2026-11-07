@@ -356,7 +356,7 @@ onBeforeUnmount(() => {
           {{ state.configured ? "已配置" : "尚未配置，默认关闭" }} · 修订
           {{ state.revision }}
         </p>
-        <form novalidate @submit.prevent="prepare">
+        <form class="console-config-form" novalidate @submit.prevent="prepare">
           <div class="defend-field">
             <label for="defend206-mode">创建订单人机验证</label>
             <select

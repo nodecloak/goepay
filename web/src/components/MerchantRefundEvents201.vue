@@ -429,7 +429,7 @@ onBeforeUnmount(() => {
           {{ state.subscription_notice }}
         </p>
       </template>
-      <form v-if="state" novalidate @submit.prevent="prepare('save')">
+      <form class="console-config-form" v-if="state" novalidate @submit.prevent="prepare('save')">
         <fieldset :disabled="busy || !!confirming">
           <legend class="sr-only">事件订阅</legend>
           <label class="event-url-label"

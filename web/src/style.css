@@ -1899,7 +1899,7 @@ legend {
 }
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 320px));
   align-items: end;
   gap: 12px;
 }
@@ -4144,4 +4144,155 @@ td.empty:has(.pa-empty)::before {
 }
 .pa-switch input[role="switch"]:checked::after {
   transform: translateX(16px);
+}
+/* Bounded page controls; filters, dialogs and long editors retain their layouts. */
+:where(.content)
+  :is(.panel, .records)
+  :is(select:not([multiple]), .pa-select):not(
+    :where(
+      .modal *,
+      .pa-modal *,
+      .pa-filter *,
+      .list-filter-card *,
+      .list-filter-fields *
+    )
+  ) {
+  max-inline-size: 320px;
+  min-inline-size: 0;
+}
+.pa-select-trigger > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.console-config-form:not(:where(.modal *, .pa-modal *)) {
+  max-inline-size: 960px;
+}
+.console-config-form
+  > label:not(:has(input[type="checkbox"], input[type="radio"])) {
+  max-inline-size: 640px;
+}
+.console-config-form
+  :is(
+    input[inputmode="numeric"],
+    input[inputmode="decimal"],
+    input[type="number"]
+  ),
+.console-config-fields
+  .pa-input:has(input[inputmode="numeric"], input[inputmode="decimal"]) {
+  max-inline-size: 200px;
+}
+.policy-page-grid {
+  display: grid;
+  gap: 20px;
+  max-inline-size: 1760px;
+  align-items: start;
+}
+.policy-page-grid > .panel {
+  min-width: 0;
+  margin: 0;
+}
+.console-policy-card > p,
+.console-config-fields > p {
+  max-inline-size: 100ch;
+  overflow-wrap: anywhere;
+}
+.console-config-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-block: 20px;
+}
+.console-config-toolbar > :is(.pa-field, label) {
+  margin: 0;
+}
+.console-config-toolbar .pa-select {
+  flex: 0 1 200px;
+  min-inline-size: 120px;
+}
+.console-config-toolbar .pa-input {
+  max-inline-size: 200px;
+}
+.console-config-fields > :is(.pa-field, label) {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 320px);
+  gap: 12px;
+  align-items: center;
+  margin-block: 16px;
+}
+.console-config-fields .pa-label {
+  white-space: normal;
+}
+.console-config-fields :is(.pa-select, .pa-input) {
+  width: 100%;
+}
+@media (min-width: 1200px) {
+  .policy-page-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .console-config-fields > :is(.pa-field, label) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .console-config-toolbar {
+    align-items: stretch;
+  }
+  .console-config-toolbar > :is(.pa-field, label) {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .console-config-toolbar .pa-select {
+    flex: 1;
+  }
+  .console-config-fields :is(.pa-select, .pa-input),
+  .console-config-form
+    :is(
+      input[inputmode="numeric"],
+      input[inputmode="decimal"],
+      input[type="number"]
+    ) {
+    max-inline-size: 100%;
+  }
+}
+
+.console-config-fields > label > :is(select, input),
+.console-config-toolbar > label > :is(select, input) {
+  margin: 0;
+}
+.console-config-toolbar > label:not(.pa-field) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.console-config-toolbar > label > select {
+  width: 160px;
+}
+.console-config-fields > label > input[inputmode="numeric"] {
+  max-inline-size: 200px;
+}
+@media (max-width: 600px) {
+  .console-config-toolbar > label:not(.pa-field) {
+    flex-wrap: wrap;
+  }
+  .console-config-toolbar > label > select,
+  .console-config-fields > label > select,
+  .console-config-fields > label > input {
+    width: 100%;
+    max-inline-size: 100%;
+  }
+}
+
+.pa-select .pa-menu-item {
+  height: auto;
+  min-height: 32px;
+  padding-block: 6px;
+  white-space: normal;
+}
+.console-config-form
+  .pa-input:has(input[inputmode="numeric"], input[inputmode="decimal"]) {
+  max-inline-size: 200px;
 }

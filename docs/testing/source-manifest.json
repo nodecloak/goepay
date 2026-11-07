@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-06T16:05:42.254Z",
+  "generated_at": "2026-11-07T02:22:43.110Z",
   "scope": "Source snapshot only; not a claim of complete compatibility or a replacement for test results.",
   "files": [
     {
@@ -11471,6 +11471,10 @@
       "sha256": "0bdf6b0d1fbd0fce322d0602159e6e53c2a7e4fe71c4c4aa6101ac44cda244a7"
     },
     {
+      "path": "web/e2e/form-layout.spec.ts",
+      "sha256": "9de674254efb1606b7df23bb8808ddeaf43df6f3494c158265a11224624210c4"
+    },
+    {
       "path": "web/e2e/funds-authorization.spec.ts",
       "sha256": "d0d103ffe36a7e8106484069ddedb18340c34fcdeeda0160b1e4d269b34faa3c"
     },
@@ -12344,7 +12348,7 @@
     },
     {
       "path": "web/src/components/BuyerFeeSettings104.vue",
-      "sha256": "ade9e96deff2aefeb875f42fcf56cdbed76ac882769ca1ae3eb855734362156f"
+      "sha256": "168f61e10acebb70c7a6bce41e44aff3b253f756d8d10cc828a6a88807d68b86"
     },
     {
       "path": "web/src/components/BuyerStatisticsReport.vue",
@@ -12420,7 +12424,7 @@
     },
     {
       "path": "web/src/components/CorePaymentRisk.vue",
-      "sha256": "3549cb13a5dfe52deea5f814224c55d95ac053f79ed23a84639822de4393e4ed"
+      "sha256": "42bf385da73c6376e4c02e822597d7bda3b5b86dd36db541e22a542cf3b7b43a"
     },
     {
       "path": "web/src/components/CoreRiskActions.vue",
@@ -12496,7 +12500,7 @@
     },
     {
       "path": "web/src/components/KYCSettingsPanel233.vue",
-      "sha256": "6d878fa0614e1f2b46e431dfaea648408c1dd282473c33087d34b41d8438567b"
+      "sha256": "b8dc2f40961734cd8eac783dd9e04656cfe7a9171afdc3dc77552d4df2cda7cd"
     },
     {
       "path": "web/src/components/KitCheckbox.vue",
@@ -12540,7 +12544,7 @@
     },
     {
       "path": "web/src/components/KitSelect.vue",
-      "sha256": "f45181fa9ab59f417a9dd27f749f79b04995e815bcaecc175cfb6305438e2799"
+      "sha256": "93d8c6a3ea9ab79a81c109a0c4bb8f6727a4c8614825a8899e99c5e539acbc35"
     },
     {
       "path": "web/src/components/KitStatusTag.vue",
@@ -12584,7 +12588,7 @@
     },
     {
       "path": "web/src/components/MailFrequency194.vue",
-      "sha256": "e112e15d488ea2fff568d922fc5f919686ef4ed3dbd987409766266747d0e87e"
+      "sha256": "2e7bbdc4dbc8b7e84726aa4b5fde3687b78136d609db3fa0b4220723d838655f"
     },
     {
       "path": "web/src/components/MailSettings195.vue",
@@ -12596,7 +12600,7 @@
     },
     {
       "path": "web/src/components/MembershipReferralPolicy.vue",
-      "sha256": "c1479395681de063905adb0f030687f0a7f05a5d90ed4faebb54e564b57123d1"
+      "sha256": "ac0dc8de1eb62d5d61e4098609174299c3fa038825d6dd1f27f2caf287c9b208"
     },
     {
       "path": "web/src/components/MenuTree.vue",
@@ -12604,7 +12608,7 @@
     },
     {
       "path": "web/src/components/MerchantAPISwitches.vue",
-      "sha256": "7c1e3da8916294f23c67e3f379597806191c38c6a8d2a1e6aab9b364b423089b"
+      "sha256": "e7ede8879fcbcb272f50171d9af6d0ffd6c1654d992f20149273ff4776a148cf"
     },
     {
       "path": "web/src/components/MerchantAccountSettings.vue",
@@ -12664,7 +12668,7 @@
     },
     {
       "path": "web/src/components/MerchantNoticeSettings.vue",
-      "sha256": "2942f55d0124144b1764d87e49c786aadce3df699ce9176da04909e0e278c1bd"
+      "sha256": "72fabed8cf227208b3e57ec17769007820af880370ac024955c606378ee0c127"
     },
     {
       "path": "web/src/components/MerchantOrderActionDialog.vue",
@@ -12680,7 +12684,7 @@
     },
     {
       "path": "web/src/components/MerchantPersonalSettings.vue",
-      "sha256": "af75e74c2af7af8fe01fa1e9db61dac6dcb81a552766389100cc2ecf4fd7f005"
+      "sha256": "91c928855136ee47da5eb3f85d49ca6e9e7e42e7472705606538d7ed14198062"
     },
     {
       "path": "web/src/components/MerchantRSAKeyRotation.vue",
@@ -12692,7 +12696,7 @@
     },
     {
       "path": "web/src/components/MerchantRefundEvents201.vue",
-      "sha256": "700e76b7eb0d8de4bd1fb257b0a4de01188d583a0ea7bc8cb70be47924a9d929"
+      "sha256": "c9a93bae0136e6ccc86a5b3a3e92ab9434210f71d34f0363d474d3bd2f7f7541"
     },
     {
       "path": "web/src/components/MerchantScanPage192.vue",
@@ -12712,7 +12716,7 @@
     },
     {
       "path": "web/src/components/NotificationBotSettings231.vue",
-      "sha256": "ef1ee95daeb5220817fb3241ee749262d2c72ae84dda07b7a98f96f97068e886"
+      "sha256": "ac94c0f8f8f792591a4abf1d95a8579712fd941f520a64d048cfe120b42bb32a"
     },
     {
       "path": "web/src/components/NotificationDeliveryPanel.vue",
@@ -12720,7 +12724,7 @@
     },
     {
       "path": "web/src/components/NotificationHardwareSettings230.vue",
-      "sha256": "917a3cd899e2261a766e6f07e57173b565edf4237e21e33063cc79ed43a28dfd"
+      "sha256": "f3d04b9e3083a8a939520c8ea8b973efd42c03edf55309a6051642edf92e79d4"
     },
     {
       "path": "web/src/components/NotificationReturnAction200.vue",
@@ -12732,7 +12736,7 @@
     },
     {
       "path": "web/src/components/OCRRecognition233.vue",
-      "sha256": "65001d5bf9b0f95c412f631508bfeacef0dbb67e40a634123f898c0455cc3c67"
+      "sha256": "0f5019fbb4cfdb2b01008084947a29cf7193abc50530e3b386d6622c12d674ff"
     },
     {
       "path": "web/src/components/OCRSettings233.vue",
@@ -12828,7 +12832,7 @@
     },
     {
       "path": "web/src/components/PaymentDefend206.vue",
-      "sha256": "c1431ed242aa2ddda16430954c09b9ef6483efb19430256a235e5e02ff52c750"
+      "sha256": "cb72c098a0e89ebba247e2f127e03b6ab3b2d1b3bc4c6358454226f8819e75e6"
     },
     {
       "path": "web/src/components/PaymentDefend206GroupPanel.vue",
@@ -12856,7 +12860,7 @@
     },
     {
       "path": "web/src/components/PrintingSettingsPage.vue",
-      "sha256": "e9a0236f260c6eeae9be9d7fefd962a3799879e40920b7778d926e8887c4f5f5"
+      "sha256": "a53bdb468e3be1355599c6a6f04d319ac47f4c90682854b22a4616732fa0b1a0"
     },
     {
       "path": "web/src/components/ProvinceReportLoadError.vue",
@@ -12900,7 +12904,7 @@
     },
     {
       "path": "web/src/components/ReferralPolicyPage.vue",
-      "sha256": "77c8734ebf8089734d5abb64d70ffa0cc4b859ade07981e8f1572984b3917e01"
+      "sha256": "38dca678ff0449bdf0f176e2f2f09f4d56c1aa1eb67f040056b6635e4a4c78ca"
     },
     {
       "path": "web/src/components/RefundAttestationDialog.vue",
@@ -13492,7 +13496,7 @@
     },
     {
       "path": "web/src/style.css",
-      "sha256": "088c6188824591c3bcd2c4e5577439bf463644067095c6ac00947e5bdc0c240f"
+      "sha256": "9fbc92a6e4ec70f8df6f68fd89895a9deca1c7842e3926be1dba14cb963d4eed"
     },
     {
       "path": "web/src/subchannels.ts",

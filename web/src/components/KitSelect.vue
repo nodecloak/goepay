@@ -113,7 +113,9 @@ onBeforeUnmount(() => document.removeEventListener("pointerdown", outside));
       @click="open"
       @keydown.down.prevent="!opened && open()"
     >
-      <span :class="{ 'pa-muted': modelValue === '' }">{{ current }}</span>
+      <span :title="current" :class="{ 'pa-muted': modelValue === '' }">{{
+        current
+      }}</span>
       <i class="pa-icon pa-select-chev" aria-hidden="true"></i>
     </button>
     <div

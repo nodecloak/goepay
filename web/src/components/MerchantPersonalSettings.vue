@@ -213,7 +213,7 @@ onBeforeUnmount(() => clear());
       <p v-if="loading" role="status">正在读取个人设置…</p>
       <p v-if="error" role="alert" class="error">{{ error }}</p>
       <p v-if="notice" role="status" class="notice">{{ notice }}</p>
-      <form v-if="state" @submit.prevent="save">
+      <form class="console-config-form" v-if="state" @submit.prevent="save">
         <div class="personal-fields">
           <label v-if="section !== 'settlement'"
             >联系QQ<input

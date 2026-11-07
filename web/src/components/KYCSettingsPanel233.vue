@@ -372,7 +372,7 @@ onBeforeUnmount(() => {
         本页配置可能已更新，草稿已保留。请刷新页面并核对最新配置，刷新会放弃未保存内容。
       </p>
 
-      <form v-if="state" @submit.prevent="check">
+      <form class="console-config-form" v-if="state" @submit.prevent="check">
         <fieldset :disabled="blocked || confirming">
           <template v-if="kind === 'certification'">
             <label class="kyc-row233"

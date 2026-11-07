@@ -171,7 +171,7 @@ onBeforeUnmount(() => {
       }}识别，本站不保存原图。请勿上传他人的证照；识别后请逐项核对。
     </p>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
-    <form @submit.prevent="prepare">
+    <form class="console-config-form" @submit.prevent="prepare">
       <fieldset :disabled="blocked || !!confirming">
         <label class="ocr-row233"
           ><span>证照类型</span

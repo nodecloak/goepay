@@ -240,7 +240,7 @@ onBeforeUnmount(() => {
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="notice" role="status">{{ notice }}</p>
 
-      <form v-if="loaded" @submit.prevent="check">
+      <form class="console-config-form" v-if="loaded" @submit.prevent="check">
         <fieldset :disabled="busy || confirming">
           <template v-if="admin">
             <label class="kit-row"

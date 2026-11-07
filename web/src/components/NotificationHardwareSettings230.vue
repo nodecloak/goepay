@@ -263,7 +263,7 @@ onBeforeUnmount(() => {
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="notice" role="status">{{ notice }}</p>
 
-      <form v-if="state" @submit.prevent="check">
+      <form class="console-config-form" v-if="state" @submit.prevent="check">
         <fieldset :disabled="busy || loading || confirming || disabled">
           <div class="hardware-row230">
             <span>{{ voice ? "云喇叭收款提醒开关" : "订单小票打印开关" }}</span

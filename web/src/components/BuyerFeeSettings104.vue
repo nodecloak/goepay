@@ -269,7 +269,7 @@ onBeforeUnmount(() => clear());
       <p v-if="loading" role="status">正在读取手续费设置…</p>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
       <p v-if="notice" class="notice" role="status">{{ notice }}</p>
-      <form v-if="state" @submit.prevent="save">
+      <form class="console-config-form" v-if="state" @submit.prevent="save">
         <template v-if="kind === 'merchant'">
           <div class="fee-fields104">
             <label :for="id + '-mode'"

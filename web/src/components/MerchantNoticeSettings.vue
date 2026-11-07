@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
       <p v-if="notice" role="status">{{ notice }}</p>
 
       <p v-if="busy" role="status">正在处理…</p>
-      <form v-if="state && config" @submit.prevent="save">
+      <form class="console-config-form" v-if="state && config" @submit.prevent="save">
         <fieldset :disabled="busy">
           <legend>消息推送</legend>
           <p class="muted notice-matrix-help">
