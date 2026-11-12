@@ -16,7 +16,7 @@ import (
 	"goepay/internal/payment"
 )
 
-func notificationReturnActor200(ctx context.Context, tx pgx.Tx, role string, session identity.Session, token string) error {
+func notificationReturnActor(ctx context.Context, tx pgx.Tx, role string, session identity.Session, token string) error {
 	if session.Issuer != nil || session.User.Role != role {
 		return identity.ErrOriginalMerchantSession
 	}
@@ -40,7 +40,7 @@ func notificationReturnActor200(ctx context.Context, tx pgx.Tx, role string, ses
 	return err
 }
 
-func (s *Server) notificationReturnSource200(ctx context.Context, tx pgx.Tx, role string, session identity.Session, token string, original payment.Order) (payment.Order, payment.Merchant, error) {
+func (s *Server) notificationReturnSource(ctx context.Context, tx pgx.Tx, role string, session identity.Session, token string, original payment.Order) (payment.Order, payment.Merchant, error) {
 	var order payment.Order
 	if original.ID <= 0 || original.MerchantID <= 0 || role != "admin" && original.MerchantID != session.User.ID {
 		return order, payment.Merchant{}, payment.ErrNotFound
@@ -54,7 +54,7 @@ func (s *Server) notificationReturnSource200(ctx context.Context, tx pgx.Tx, rol
 	if role == "merchant" && !merchant.Enabled {
 		return order, merchant, identity.ErrOriginalMerchantSession
 	}
-	if err = notificationReturnActor200(ctx, tx, role, session, token); err != nil {
+	if err = notificationReturnActor(ctx, tx, role, session, token); err != nil {
 		return order, merchant, err
 	}
 	err = tx.QueryRow(ctx, `SELECT id,merchant_id,trade_no,out_trade_no,name,type,amount,notify_url,return_url,param,status,version,created_at,paid_at FROM orders WHERE id=$1 AND merchant_id=$2 AND trade_no=$3 FOR SHARE`, original.ID, original.MerchantID, original.TradeNo).Scan(
@@ -80,7 +80,7 @@ func (s *Server) notificationReturnSource200(ctx context.Context, tx pgx.Tx, rol
 
 // A detail flag is only a current observation. The POST reconstructs and locks
 // the same authority and original order again before returning signed material.
-func (s *Server) canReturnNotification200(r *http.Request, role string, session identity.Session, order payment.Order) bool {
+func (s *Server) canReturnNotification(r *http.Request, role string, session identity.Session, order payment.Order) bool {
 	if s.Store == nil || s.Pool == nil || s.Sessions == nil || !s.Sessions.SupportsDelegation() || session.Issuer != nil || order.Status != "paid" || order.ReturnURL == "" {
 		return false
 	}
@@ -95,15 +95,19 @@ func (s *Server) canReturnNotification200(r *http.Request, role string, session 
 		return false
 	}
 	defer tx.Rollback(ctx)
-	current, merchant, err := s.notificationReturnSource200(ctx, tx, role, session, cookie.Value, order)
+	current, merchant, err := s.notificationReturnSource(ctx, tx, role, session, cookie.Value, order)
 	if err != nil {
 		return false
 	}
-	target, err := notification.URL(current.ReturnURL, current, merchant, s.PlatformKey, time.Now())
-	return err == nil && len(target) <= 16384 && notificationReturnActor200(ctx, tx, role, session, cookie.Value) == nil
+	hideName, err := s.Store.NotifyHideNameTx(ctx, tx)
+	if err != nil {
+		return false
+	}
+	target, err := notification.URLWithPolicy(current.ReturnURL, current, merchant, s.PlatformKey, time.Now(), hideName)
+	return err == nil && len(target) <= 16384 && notificationReturnActor(ctx, tx, role, session, cookie.Value) == nil
 }
 
-func notificationReturnError200(w http.ResponseWriter, err error) {
+func notificationReturnError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, identity.ErrOriginalMerchantSession), errors.Is(err, identity.ErrAdminSession):
 		response(w, 403, -1, "original authorized session required", nil)
@@ -117,7 +121,7 @@ func notificationReturnError200(w http.ResponseWriter, err error) {
 	}
 }
 
-func (s *Server) notificationReturnConsole200(w http.ResponseWriter, r *http.Request, role string, session identity.Session, parts []string, token string) bool {
+func (s *Server) notificationReturnConsole(w http.ResponseWriter, r *http.Request, role string, session identity.Session, parts []string, token string) bool {
 	if len(parts) != 4 || parts[1] != "orders" || parts[3] != "return-notification" {
 		return false
 	}
@@ -144,45 +148,50 @@ func (s *Server) notificationReturnConsole200(w http.ResponseWriter, r *http.Req
 		return true
 	}
 	if session.Issuer != nil {
-		notificationReturnError200(w, identity.ErrOriginalMerchantSession)
+		notificationReturnError(w, identity.ErrOriginalMerchantSession)
 		return true
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	original, err := s.Store.OrderByTradeNo(ctx, parts[2])
 	if err != nil || role != "admin" && original.MerchantID != session.User.ID {
-		notificationReturnError200(w, payment.ErrNotFound)
+		notificationReturnError(w, payment.ErrNotFound)
 		return true
 	}
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
-		notificationReturnError200(w, err)
+		notificationReturnError(w, err)
 		return true
 	}
 	defer tx.Rollback(ctx)
-	order, merchant, err := s.notificationReturnSource200(ctx, tx, role, session, token, original)
+	order, merchant, err := s.notificationReturnSource(ctx, tx, role, session, token, original)
 	if err != nil {
-		notificationReturnError200(w, err)
+		notificationReturnError(w, err)
 		return true
 	}
 	// This audit deliberately records order identity only. It neither updates
 	// notification status nor creates any delivery/provider/financial operation.
 	_, err = tx.Exec(ctx, `INSERT INTO backoffice_audit(actor_role,actor_id,actor_name,resource,resource_id,operation,changes) VALUES($1,$2,$3,'orders',$4,'return-notification',jsonb_build_object('trade_no',$5::text,'merchant_id',$6::text,'version',$7::text))`, role, session.User.ID, session.User.Username, order.ID, order.TradeNo, strconv.FormatInt(order.MerchantID, 10), order.Version)
 	if err != nil {
-		notificationReturnError200(w, err)
+		notificationReturnError(w, err)
 		return true
 	}
-	target, err := notification.URL(order.ReturnURL, order, merchant, s.PlatformKey, time.Now())
+	hideName, err := s.Store.NotifyHideNameTx(ctx, tx)
+	if err != nil {
+		notificationReturnError(w, err)
+		return true
+	}
+	target, err := notification.URLWithPolicy(order.ReturnURL, order, merchant, s.PlatformKey, time.Now(), hideName)
 	if err != nil || len(target) > 16384 {
-		notificationReturnError200(w, payment.ErrInvalid)
+		notificationReturnError(w, payment.ErrInvalid)
 		return true
 	}
-	if err = notificationReturnActor200(ctx, tx, role, session, token); err != nil {
-		notificationReturnError200(w, err)
+	if err = notificationReturnActor(ctx, tx, role, session, token); err != nil {
+		notificationReturnError(w, err)
 		return true
 	}
 	if err = tx.Commit(ctx); err != nil {
-		notificationReturnError200(w, err)
+		notificationReturnError(w, err)
 		return true
 	}
 	response(w, 200, 0, "", map[string]string{"url": target})

@@ -121,7 +121,7 @@ async function choose(event: Event) {
     if (!c.signal.aborted)
       error.value =
         e instanceof ApiError
-          ? importErrorLabel(e.message)
+          ? importErrorLabel(e.serverMessage)
           : e instanceof Error
             ? e.message
             : "文件校验失败";

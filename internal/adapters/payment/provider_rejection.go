@@ -27,7 +27,7 @@ func VerifiedProviderRejection(err error) (ProviderRejectionReceipt, bool) {
 			return ProviderRejectionReceipt{}, false
 		}
 	} else if v.provider == "wxpay" {
-		if v.authentication != "wechat_v2_md5" && v.authentication != "wechat_v2_mtls" {
+		if v.authentication != "wechat_v2_md5" && v.authentication != "wechat_v2_mtls" && v.authentication != "wechat_v3_rsa_sha256" {
 			return ProviderRejectionReceipt{}, false
 		}
 	} else {

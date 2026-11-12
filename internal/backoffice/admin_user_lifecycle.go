@@ -56,6 +56,9 @@ func (s *Service) deleteAdministrator(ctx context.Context, p Principal, id int64
 	if e != nil {
 		return e
 	}
+	if e = requireAdminAuthorityTx(ctx, tx); e != nil {
+		return e
+	}
 	// Never remove the last enabled administrator (the DB trigger separately
 	// guards the last ENABLED SUPER admin; this guards the last enabled admin of
 	// any class so the console can never be left with no one who can sign in).
@@ -75,6 +78,9 @@ func (s *Service) deleteAdministrator(ctx context.Context, p Principal, id int64
 		return ErrNotFound
 	}
 	if e = audit(ctx, tx, p, "admin-users", id, "delete", map[string]any{"username": username}); e != nil {
+		return e
+	}
+	if e = requireAdminAuthorityTx(ctx, tx); e != nil {
 		return e
 	}
 	return tx.Commit(ctx)
@@ -115,6 +121,9 @@ func (s *Service) adminSecurityReset(ctx context.Context, p Principal, id int64,
 		// Use the self-service security flows for your own account.
 		return nil, ErrForbidden
 	}
+	if e = requireAdminAuthorityTx(ctx, tx); e != nil {
+		return nil, e
+	}
 	changes := map[string]any{}
 	if in.DisableTOTP {
 		tag, e := tx.Exec(ctx, "DELETE FROM console_mfa WHERE username=$1 AND role='admin'", username)
@@ -134,6 +143,9 @@ func (s *Service) adminSecurityReset(ctx context.Context, p Principal, id int64,
 		changes["funds_credential_disabled"] = tag.RowsAffected() == 1
 	}
 	if e = audit(ctx, tx, p, "admin-users", id, "security-reset", changes); e != nil {
+		return nil, e
+	}
+	if e = requireAdminAuthorityTx(ctx, tx); e != nil {
 		return nil, e
 	}
 	if e = tx.Commit(ctx); e != nil {

@@ -2616,7 +2616,7 @@ onBeforeUnmount(resetContext);
         />
         <ResourceFields
           v-else
-          :disabled="unknownResourceCreation"
+          :disabled="editingBusy || unknownResourceCreation"
           class="form-rows"
           :fields="formSchema!.fields"
           :values="values"

@@ -527,8 +527,7 @@ func (g ProviderFlow) receiverOperation(ctx context.Context, mid, id int64, no, 
 	state := "succeeded"
 	if e != nil {
 		state = "unknown"
-		var rejected *adapter.ProviderError
-		if errors.As(e, &rejected) && (definiteProviderRejection(rejected) || rejected.Code == "SHARING_RELATION_FAIL" || rejected.Code == "NO_AUTH" || rejected.Code == "LACK_PARAMS" || rejected.Code == "APPID_MCHID_NOT_MATCH") {
+		if definiteAuthenticatedSharingRejection(e, b.Provider, action) {
 			state = "failed"
 		}
 		if state == "unknown" {

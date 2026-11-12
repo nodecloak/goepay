@@ -521,7 +521,12 @@ func (s *Server) checkout(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "merchant return unavailable", 503)
 				return
 			}
-			target, e := notification.URL(order.ReturnURL, order, merchant, s.PlatformKey, time.Now())
+			hideName, e := s.Store.NotifyHideName(r.Context())
+			if e != nil {
+				http.Error(w, "merchant return policy unavailable", 503)
+				return
+			}
+			target, e := notification.URLWithPolicy(order.ReturnURL, order, merchant, s.PlatformKey, time.Now(), hideName)
 			if e != nil {
 				http.Error(w, "merchant return signing unavailable", 503)
 				return

@@ -210,7 +210,7 @@ func TestProviderHTTPQueryRefundAndClose(t *testing.T) {
 	var refundUnknown, refundRejected atomic.Bool
 	var refundTrade atomic.Value
 	refundTrade.Store("")
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			Trade  string `xml:"out_trade_no"`
 			Refund string `xml:"out_refund_no"`

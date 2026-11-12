@@ -952,6 +952,11 @@ func (s *Server) protectAdminFunds(w http.ResponseWriter, r *http.Request, role 
 	grant := r.Header.Get("X-Payment-Authorization")
 	ambiguous := len(r.Header.Values("X-Payment-Authorization")) > 1
 	guard := func(ctx context.Context, tx pgx.Tx, kind, key string) error {
+		// The payment-password policy is optional; current account, session and
+		// menu authority are required for every first financial intent.
+		if e := requireConsoleAdminAuthorityTx(ctx, tx); e != nil {
+			return e
+		}
 		enforced, e := identity.FundsEnforcedTx(ctx, tx)
 		if e != nil {
 			return e

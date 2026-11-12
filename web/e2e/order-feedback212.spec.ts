@@ -220,7 +220,9 @@ test("uncertain freeze and failed refresh keep original error and retry intent",
     dialog.getByText("正在读取原订单…", { exact: true }),
   ).toHaveCount(0);
   await expect(
-    dialog.getByText("local detail unavailable", { exact: true }),
+    dialog.getByText("服务暂时不可用，请稍后重试（local detail unavailable）", {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     dialog.getByRole("alert").filter({ hasText: "保留原冻结请求号" }),
@@ -337,7 +339,9 @@ test("confirmed freeze with failed refresh cannot start another intent from stal
     .click();
   await expect.poll(reads).toBeGreaterThan(1);
   await expect(
-    dialog.getByText("local detail unavailable", { exact: true }),
+    dialog.getByText("服务暂时不可用，请稍后重试（local detail unavailable）", {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     dialog.getByRole("status").filter({ hasText: "已冻结" }),

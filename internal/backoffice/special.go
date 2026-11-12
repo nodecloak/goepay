@@ -287,6 +287,12 @@ func (s *Service) createAdministrator(ctx context.Context, p Principal, d defini
 		return Item{}, e
 	}
 	defer tx.Rollback(ctx)
+	if _, e = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(74973232)"); e != nil {
+		return Item{}, e
+	}
+	if e = requireAdminAuthorityTx(ctx, tx); e != nil {
+		return Item{}, e
+	}
 	var id int64
 	enabled, _ := v["enabled"].(bool)
 	permissionArg := adminPermissionArg(permissions, hasPermissions)
@@ -298,6 +304,9 @@ func (s *Service) createAdministrator(ctx context.Context, p Principal, d defini
 		v["permissions"] = permissions
 	}
 	if e = audit(ctx, tx, p, "admin-users", id, "create", v); e != nil {
+		return Item{}, e
+	}
+	if e = requireAdminAuthorityTx(ctx, tx); e != nil {
 		return Item{}, e
 	}
 	if e = tx.Commit(ctx); e != nil {
@@ -361,7 +370,7 @@ func (s *Service) updateAdministrator(ctx context.Context, p Principal, d defini
 		return Item{}, e
 	}
 	var canonical string
-	if e = tx.QueryRow(ctx, "SELECT username FROM console_users WHERE id=$1 AND role='admin'", id).Scan(&canonical); e != nil {
+	if e = tx.QueryRow(ctx, "SELECT username FROM console_users WHERE id=$1 AND role='admin' FOR UPDATE", id).Scan(&canonical); e != nil {
 		return Item{}, businessError(e)
 	}
 	if v["enabled"] == false && canonical == p.Username {
@@ -404,6 +413,9 @@ func (s *Service) updateAdministrator(ctx context.Context, p Principal, d defini
 		setPermissions = true
 		permissionArg = nil
 	}
+	if e = requireAdminAuthorityTx(ctx, tx); e != nil {
+		return Item{}, e
+	}
 	tag, e := tx.Exec(ctx, "UPDATE console_users SET display_name=$2,enabled=$3,password_hash=CASE WHEN $4::text='' THEN password_hash ELSE $4 END,admin_class=$5,permissions=CASE WHEN $7::boolean THEN $8::jsonb ELSE permissions END,login_name=NULLIF($9,username) WHERE id=$1 AND role='admin' AND auth_version=$6::bigint", id, fmt.Sprint(v["display_name"]), v["enabled"], hash, v["admin_class"], fmt.Sprint(current.Fields["auth_version"]), setPermissions, permissionArg, username)
 	if e != nil {
 		return Item{}, businessError(e)
@@ -420,6 +432,9 @@ func (s *Service) updateAdministrator(ctx context.Context, p Principal, d defini
 		v["permissions"] = permissions
 	}
 	if e = audit(ctx, tx, p, "admin-users", id, "update", v); e != nil {
+		return Item{}, e
+	}
+	if e = requireAdminAuthorityTx(ctx, tx); e != nil {
 		return Item{}, e
 	}
 	if e = tx.Commit(ctx); e != nil {

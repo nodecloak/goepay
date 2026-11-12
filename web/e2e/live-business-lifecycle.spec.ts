@@ -1,6 +1,42 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { createHash, randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
+import jsQR from "jsqr";
 import { localSandboxBase, readLocalSandboxEnv } from "./local-sandbox-env";
+
+const { PNG } = createRequire(import.meta.url)("pngjs");
+
+// Decode only a bounded, lossless local PNG. URL/order authorization happens
+// below, before any decoded target is requested. No system binary is required.
+function decodePaymentPNG(input: Buffer): string {
+  if (
+    input.length < 33 ||
+    input.length > 1024 * 1024 ||
+    !input
+      .subarray(0, 8)
+      .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) ||
+    input.readUInt32BE(8) !== 13 ||
+    input.toString("ascii", 12, 16) !== "IHDR"
+  )
+    throw new Error("A PNG of at most 1 MiB is required");
+  const width = input.readUInt32BE(16),
+    height = input.readUInt32BE(20);
+  if (width < 1 || height < 1 || width > 2048 || height > 2048)
+    throw new Error("QR image dimensions exceed the local fixture limit");
+  const image = PNG.sync.read(input, { checkCRC: true });
+  if (
+    image.width !== width ||
+    image.height !== height ||
+    image.data.length !== width * height * 4
+  )
+    throw new Error("Decoded PNG dimensions differ");
+  const decoded = jsQR(new Uint8ClampedArray(image.data), width, height, {
+    inversionAttempts: "attemptBoth",
+  });
+  if (!decoded?.data || decoded.data.length > 8192)
+    throw new Error("A bounded QR payment payload is required");
+  return decoded.data;
+}
 
 // Real HTTP, database and browser sessions; never usable against a public host.
 test("new merchant lifecycle: group, login, signed payments, callbacks, refunds and settlement", async ({
@@ -232,20 +268,60 @@ test("new merchant lifecycle: group, login, signed payments, callbacks, refunds 
           expect(payment.code, payment.msg).toBe(1);
           trades[kind!] = payment.trade_no;
           expect(new URL(payment.payurl).origin).toBe(base);
-          const checkout = await merchant.request.get(payment.payurl, {
-            maxRedirects: 0,
-          });
-          expect(checkout.ok()).toBeTruthy();
-          const simulationURL = (await checkout.text()).match(
-            /http:\/\/(?:127\.0\.0\.1|localhost):\d+\/simulation\/pay\?token=[A-Za-z0-9_.%~-]+/,
-          )?.[0];
-          expect(simulationURL).toBeTruthy();
-          const url = new URL(simulationURL!);
+          // Read each real checkout presentation: WeChat native exposes its
+          // signed PNG; the local Alipay default exposes a continuation link.
+          const checkoutPage = await merchant.newPage();
+          let simulationURL: string;
+          try {
+            const checkout = await checkoutPage.goto(payment.payurl);
+            expect(checkout?.ok()).toBeTruthy();
+            if (kind === "wxpay") {
+              const image = checkoutPage.locator('img[src*="/qr.png"]');
+              await expect(image).toBeVisible();
+              const imageURL = new URL(
+                (await image.getAttribute("src"))!,
+                base,
+              );
+              expect(imageURL.origin).toBe(base);
+              expect(imageURL.pathname).toBe(
+                `/checkout/${payment.trade_no}/qr.png`,
+              );
+              const png = await merchant.request.get(imageURL.href, {
+                maxRedirects: 0,
+              });
+              expect(png.ok()).toBeTruthy();
+              expect(png.headers()["content-type"]).toContain("image/png");
+              simulationURL = decodePaymentPNG(await png.body());
+            } else {
+              const continuation = checkoutPage.getByRole("link", {
+                name: "继续支付",
+                exact: true,
+              });
+              await expect(continuation).toBeVisible();
+              const target = await continuation.getAttribute("href");
+              expect(target).toBeTruthy();
+              simulationURL = new URL(target!, base).href;
+            }
+          } finally {
+            await checkoutPage.close();
+          }
+          // No decoded target is requested until it is scoped to this exact
+          // local simulation origin and the original order and amount.
+          const url = new URL(simulationURL);
           expect(url.origin).toBe(base);
+          expect(url.pathname).toBe("/simulation/pay");
+          expect(url.username + url.password + url.hash).toBe("");
+          expect([...url.searchParams.keys()]).toEqual(["token"]);
+          expect(url.searchParams.get("token")).toMatch(
+            /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/,
+          );
           const [encoded, mac] = url.searchParams.get("token")!.split(".");
           const record = JSON.parse(
             Buffer.from(encoded!, "base64url").toString(),
           );
+          expect(record.trade_no).toBe(payment.trade_no);
+          expect(record.amount).toBe(Number(net) + Number(fee));
+          expect(record.channel_id).toBe(kind === "wxpay" ? 2 : 1);
           const callback = `/callbacks/providers/${record.channel_id}/${payment.trade_no}`;
           const invalid = await merchant.request.post(callback, {
             data: { record: { ...record, amount: record.amount + 1 }, mac },
@@ -257,7 +333,7 @@ test("new merchant lifecycle: group, login, signed payments, callbacks, refunds 
           );
           expect(
             (
-              await merchant.request.post(simulationURL!, { maxRedirects: 0 })
+              await merchant.request.post(simulationURL, { maxRedirects: 0 })
             ).ok(),
           ).toBeTruthy();
           for (const reply of await Promise.all(

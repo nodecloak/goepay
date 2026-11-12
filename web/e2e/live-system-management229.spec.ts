@@ -228,7 +228,9 @@ test.describe("real local system management workflows229", () => {
       await expect(dialog.locator("#scheduler171-interval")).toHaveCount(0);
       const future = new Date(Date.now() + 8 * 3600000 + 3600000)
         .toISOString()
-        .slice(0, 19);
+        // datetime-local canonicalizes zero seconds away; Chromium rejects
+        // filling the noncanonical :00 form. Minute precision is sufficient.
+        .slice(0, 16);
       await dialog
         .getByLabel("执行时间（UTC+8）", { exact: true })
         .fill(future);

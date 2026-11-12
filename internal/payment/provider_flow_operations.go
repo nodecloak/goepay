@@ -61,12 +61,11 @@ func (g ProviderFlow) Query(ctx context.Context, merchantID int64, tradeNo strin
 	}
 	result, e := p.Query(ctx, query)
 	if e != nil {
-		var rejection *provider.ProviderError
 		// A freeze authorization legitimately has no payment transaction yet.
 		// Only this exact, authenticated provider rejection can use the
 		// separately verified authorization evidence; transport or signature
 		// errors never turn into a successful query.
-		if a.Method == "preauth" && authorizationErr == nil && errors.As(e, &rejection) && rejection.Code == "40004:ACQ.TRADE_NOT_EXIST" {
+		if a.Method == "preauth" && authorizationErr == nil && authorizationTradeNotFound(e, p) {
 			return provider.QueryResult{TradeNo: tradeNo, State: "AUTHORIZED", Currency: "CNY", Amount: charge104}, nil
 		}
 		return result, e
@@ -329,7 +328,7 @@ func (g ProviderFlow) refund(ctx context.Context, merchantID int64, tradeNo, ref
 			g.Store.resolveProviderRefund(ctx, id, r.ID, "failed")
 			return r, e
 		}
-		state, sendErr := g.combineRefund207(ctx, p, r.ID, plan, true)
+		state, sendErr := g.runCombineRefund(ctx, p, r.ID, plan, true)
 		if save := g.Store.resolveProviderRefund(ctx, id, r.ID, state); save != nil {
 			return r, &provider.UnknownOutcome{Operation: "persist refund result", Cause: errors.Join(sendErr, save)}
 		}
@@ -341,8 +340,7 @@ func (g ProviderFlow) refund(ctx context.Context, merchantID int64, tradeNo, ref
 	result, e := p.Refund(ctx, provider.RefundRequest{TradeNo: tradeNo, RefundNo: providerRefundNo, TotalAmount: charge104, Amount: amount})
 	if e != nil {
 		state = "unknown"
-		var rejection *provider.ProviderError
-		if errors.As(e, &rejection) && definiteProviderRejection(rejection) {
+		if definiteAuthenticatedRefundRejection(e, p) {
 			state = "failed"
 		}
 		if save := g.Store.resolveProviderRefund(ctx, id, r.ID, state); save != nil {
@@ -430,7 +428,7 @@ func (g ProviderFlow) queryRefund(ctx context.Context, merchantID int64, refundN
 		if e != nil {
 			return r, e
 		}
-		state, queryErr := g.combineRefund207(ctx, p, r.ID, plan, resume)
+		state, queryErr := g.runCombineRefund(ctx, p, r.ID, plan, resume)
 		if queryErr != nil || state == "pending" || state == "unknown" {
 			return r, queryErr
 		}

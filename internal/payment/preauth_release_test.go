@@ -98,7 +98,7 @@ func (p *releaseFlowProvider) Query(_ context.Context, r provider.QueryRequest) 
 	if p.captureClosed {
 		return provider.QueryResult{TradeNo: r.TradeNo, Amount: 125, State: "TRADE_CLOSED", Currency: "CNY"}, nil
 	}
-	return provider.QueryResult{}, &provider.ProviderError{Code: "40004:ACQ.TRADE_NOT_EXIST"}
+	return provider.QueryResult{}, preauthorizationTestQueryNotFound()
 }
 func (p *releaseFlowProvider) UnfreezeAuthorization(_ context.Context, r provider.AuthorizationRequest) (provider.AuthorizationEvent, error) {
 	p.unfreezes++

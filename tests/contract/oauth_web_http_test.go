@@ -34,7 +34,13 @@ func (x oauthContractTLSTransport) RoundTrip(r *http.Request) (*http.Response, e
 	target, _ := url.Parse(x.server.URL)
 	u.Host = target.Host
 	clone.URL = &u
-	return x.server.Client().Transport.RoundTrip(clone)
+	response, err := x.server.Client().Transport.RoundTrip(clone)
+	if response != nil {
+		// The local transport rewrites only the destination; keep the logical
+		// provider request and the real verified TLS response together.
+		response.Request = r
+	}
+	return response, err
 }
 
 func TestWebOAuthHTTPStateBrowserAndTrustedPayerSubmission(t *testing.T) {

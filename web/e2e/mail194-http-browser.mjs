@@ -84,9 +84,9 @@ try {
       .fill(width === 375 ? "18" : "17");
     await form.getByRole("button", { name: "保存", exact: true }).click();
     await expect(page.getByText("保存成功", { exact: true })).toBeVisible();
-    await page
-      .getByRole("button", { name: "重新读取邮件频率配置", exact: true })
-      .click();
+    await page.reload();
+    await page.getByRole("tab", { name: "邮箱配置", exact: true }).click();
+    await page.getByRole("tab", { name: "发送频率配置", exact: true }).click();
     await expect(
       page.getByLabel("同一邮箱每日发送次数", { exact: true }),
     ).toHaveValue("4");

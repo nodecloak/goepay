@@ -69,7 +69,7 @@ func (g ProviderFlow) ReleaseRemainingAuthorization(ctx context.Context, mid int
 		return r, e
 	}
 	closed := queryErr == nil && payment.State == "TRADE_CLOSED" && payment.TradeNo == trade && payment.Amount == charge104 && payment.Currency == "CNY"
-	if !closed && !authorizationTradeNotFound(queryErr) {
+	if !closed && !authorizationTradeNotFound(queryErr, p) {
 		return g.releasePending(ctx, mid, trade, "reversal_pending", queryErr)
 	}
 	if e = g.observationGuard(ctx, q, check, checkTx); e != nil {
@@ -98,8 +98,7 @@ func (g ProviderFlow) ReleaseRemainingAuthorization(ctx context.Context, mid int
 	}
 	_, e = v.UnfreezeAuthorization(ctx, adapter.AuthorizationRequest{TradeNo: trade, RequestNo: r.RequestNo, AuthNo: r.AuthNo, Amount: r.Amount})
 	if e != nil {
-		var rejection *adapter.ProviderError
-		if errors.As(e, &rejection) && definiteProviderRejection(rejection) {
+		if definiteAuthenticatedPreauthorizationRejection(e, p, "alipay.fund.auth.order.unfreeze") {
 			if save := g.Store.ResolveAuthorizationRelease(ctx, trade, "failed"); save != nil {
 				return r, errors.Join(e, save)
 			}

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -43,12 +44,12 @@ func (s *Server) adminUserSecurityConsole(w http.ResponseWriter, r *http.Request
 	changes, err := backoffice.New(s.Pool, s.Store).ResetAdminSecurity(r.Context(), p, id, backoffice.AdminSecurityReset{DisableTOTP: in.DisableTOTP, ResetFundsCred: in.ResetFundsCred})
 	if err != nil {
 		status := 500
-		switch err {
-		case backoffice.ErrForbidden:
+		switch {
+		case errors.Is(err, backoffice.ErrForbidden):
 			status = 403
-		case backoffice.ErrNotFound:
+		case errors.Is(err, backoffice.ErrNotFound):
 			status = 404
-		case backoffice.ErrInvalid:
+		case errors.Is(err, backoffice.ErrInvalid):
 			status = 422
 		}
 		response(w, status, -1, "admin security reset could not be completed", nil)

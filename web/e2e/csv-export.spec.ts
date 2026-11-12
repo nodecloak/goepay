@@ -59,10 +59,14 @@ test("filtered orders export includes all active filters, rejects JSON failure a
   expect((await download).suggestedFilename()).toBe("orders-filtered.csv");
   await expect(page.getByText(/50,000/)).toBeVisible();
 });
-test("transfer report server export shares date filters and cancels a pending export on filter change", async ({
+test("transfer report server export shares applied filters and cancels when a new query is submitted", async ({
   page,
 }) => {
   let exports = 0;
+  let releaseExport!: () => void;
+  const exportResponse = new Promise<void>((resolve) => {
+    releaseExport = resolve;
+  });
   await page.route("**/console/v1/**", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith("/session"))
@@ -76,7 +80,7 @@ test("transfer report server export shares date filters and cancels a pending ex
       exports++;
       expect(url.searchParams.get("from")).toBe("2026-10-01");
       expect(url.searchParams.get("to")).toBe("2026-10-22");
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      await exportResponse;
       return route
         .fulfill({
           status: 200,
@@ -99,6 +103,7 @@ test("transfer report server export shares date filters and cancels a pending ex
   await page.goto("/admin/transfer/channel-stat");
   await page.getByLabel("开始日期", { exact: true }).fill("2026-10-01");
   await page.getByLabel("结束日期", { exact: true }).fill("2026-10-22");
+  await page.getByRole("button", { name: "查询统计", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "导出本页 CSV", exact: true }),
   ).toBeEnabled();
@@ -111,7 +116,12 @@ test("transfer report server export shares date filters and cancels a pending ex
   await page.getByLabel("开始日期", { exact: true }).fill("2026-10-02");
   await expect(
     page.getByRole("button", { name: "取消导出", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "查询统计", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "取消导出", exact: true }),
   ).toHaveCount(0);
+  releaseExport();
   await page.waitForTimeout(500);
   expect(exports).toBe(1);
   expect(downloads).toBe(0);

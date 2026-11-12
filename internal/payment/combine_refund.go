@@ -164,7 +164,7 @@ func combineRefundState207(plan []combineSubRefund207) string {
 // combineRefund207 queries claimed shares, and when send is authorized claims
 // and sends each previously unclaimed share once. The durable claim precedes
 // network I/O; a crash after the claim requires querying, never another send.
-func (g ProviderFlow) combineRefund207(ctx context.Context, p provider.Provider, refundID int64, plan []combineSubRefund207, send bool) (string, error) {
+func (g ProviderFlow) runCombineRefund(ctx context.Context, p provider.Provider, refundID int64, plan []combineSubRefund207, send bool) (string, error) {
 	for i := range plan {
 		share := &plan[i]
 		if share.State == "succeeded" || share.State == "failed" {
@@ -196,8 +196,7 @@ func (g ProviderFlow) combineRefund207(ctx context.Context, p provider.Provider,
 		}
 		state := "unknown"
 		if err != nil {
-			var rejection *provider.ProviderError
-			if claimed && errors.As(err, &rejection) && definiteProviderRejection(rejection) {
+			if claimed && definiteAuthenticatedRefundRejection(err, p) {
 				state = "failed"
 			}
 		} else if result.RefundNo == share.ProviderRefundNo && result.Amount == share.Amount {

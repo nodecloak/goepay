@@ -113,8 +113,19 @@ func TestSettlementRecipientExplicitMerchantGrantCreatesInitialRecipientHTTP(t *
 
 func TestSettlementRecipientPersistentGrantMatrixAndRequestIsolationHTTP(t *testing.T) {
 	f := channel168Local(t)
-	_, mt, mc := recipientMenuOperator(t, f, "recipient-menu-manager", 186832, []string{"MerchantList"})
-	_, st, sc := recipientMenuOperator(t, f, "recipient-menu-reviewer", 186833, []string{"SettleList"})
+	manager, mt, mc := recipientMenuOperator(t, f, "recipient-menu-manager", 186832, []string{"MerchantList"})
+	reviewer, st, sc := recipientMenuOperator(t, f, "recipient-menu-reviewer", 186833, []string{"SettleList"})
+	reauthenticate := func(user identity.User) (string, string) {
+		t.Helper()
+		if err := f.p.QueryRow(t.Context(), "SELECT auth_version,permissions FROM console_users WHERE username=$1 AND role='admin'", user.Username).Scan(&user.AuthVersion, &user.Permissions); err != nil {
+			t.Fatal(err)
+		}
+		token, csrf, err := f.s.Sessions.Create(user)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return token, csrf
+	}
 	base := "/workflows/settlement-recipient"
 	for _, session := range []struct {
 		token, csrf string
@@ -186,8 +197,12 @@ func TestSettlementRecipientPersistentGrantMatrixAndRequestIsolationHTTP(t *test
 		if _, err := f.p.Exec(t.Context(), `UPDATE console_users SET permissions=$1::jsonb WHERE username='recipient-menu-reviewer'`, grants); err != nil {
 			t.Fatal(err)
 		}
+		if w := recipientMenuRequest(f, st, sc, "GET", base+"/allowed-types?group_id=0", ""); w.Code != 401 {
+			t.Error("permission change did not invalidate existing cookie", grants, w.Code)
+		}
+		st, sc = reauthenticate(reviewer)
 		if w := recipientMenuRequest(f, st, sc, "GET", base+"/allowed-types?group_id=0", ""); w.Code != 403 {
-			t.Error("persistent grant revocation did not affect existing cookie", grants, w.Code)
+			t.Error("fresh session acquired an ungranted recipient capability", grants, w.Code)
 		}
 	}
 	var groupID int64
@@ -197,6 +212,10 @@ func TestSettlementRecipientPersistentGrantMatrixAndRequestIsolationHTTP(t *test
 	if _, err := f.p.Exec(t.Context(), `UPDATE console_users SET permissions='["MerchantList","GroupList"]'::jsonb WHERE username='recipient-menu-manager'`); err != nil {
 		t.Fatal(err)
 	}
+	if w := recipientMenuRequest(f, mt, mc, "GET", "/resources/groups", ""); w.Code != 401 {
+		t.Fatal("grant expansion retained the old session", w.Code)
+	}
+	mt, mc = reauthenticate(manager)
 	recipientMenuData(t, recipientMenuRequest(f, mt, mc, "GET", "/resources/groups", ""), 200)
 	preview := recipientMenuData(t, recipientMenuRequest(f, mt, mc, "GET", fmt.Sprintf("%s/allowed-types?group_id=%d", base, groupID), ""), 200)
 	for _, typ := range preview["settlement"].([]any) {

@@ -70,7 +70,7 @@ var consoleRoutesAfterFunds = []consoleRoute{
 	{"preauthorizationObservationConsole", []string{"orders"}, withToken((*Server).preauthorizationObservationConsole)},
 	{"preauthorizationCaptureConsole", []string{"orders"}, withoutToken((*Server).preauthorizationCaptureConsole)},
 	{"notificationResendConsole", []string{"orders"}, withoutToken((*Server).notificationResendConsole)},
-	{"notificationReturnConsole200", []string{"orders"}, withToken((*Server).notificationReturnConsole200)},
+	{"notificationReturnConsole", []string{"orders"}, withToken((*Server).notificationReturnConsole)},
 	{"preauthorizationRemainingConsole", []string{"orders"}, withToken((*Server).preauthorizationRemainingConsole)},
 	{"authorizationReleaseConsole", []string{"orders"}, withoutToken((*Server).authorizationReleaseConsole)},
 	{"orderBlacklistConsole", []string{"orders"}, withoutToken((*Server).orderBlacklistConsole)},

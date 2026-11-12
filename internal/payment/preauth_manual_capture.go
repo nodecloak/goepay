@@ -88,7 +88,7 @@ func (g ProviderFlow) CapturePreauthorizationChecked(ctx context.Context, mercha
 	}
 	// Neither a timeout nor an ordinary unpaid/closed trade proves this stable
 	// payment number has never been used. Only authenticated exact not-found does.
-	if !authorizationTradeNotFound(queryErr) {
+	if !authorizationTradeNotFound(queryErr, p) {
 		if queryErr != nil {
 			return a, queryErr
 		}

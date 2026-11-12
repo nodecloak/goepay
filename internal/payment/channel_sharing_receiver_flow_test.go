@@ -30,7 +30,13 @@ func (x sharingReceiverTLSTransport) RoundTrip(r *http.Request) (*http.Response,
 	target, _ := url.Parse(x.up.URL)
 	copy.URL.Scheme = target.Scheme
 	copy.URL.Host = target.Host
-	return x.up.Client().Transport.RoundTrip(copy)
+	response, err := x.up.Client().Transport.RoundTrip(copy)
+	if response != nil {
+		// Keep the logical original request when this test-only transport
+		// routes its authenticated TLS exchange to the loopback fixture.
+		response.Request = r
+	}
+	return response, err
 }
 func sharingReceiverFlowFixture(t *testing.T, observers ...func(*http.Request, map[string]json.RawMessage)) (*Store, ProviderFlow, *atomic.Int32, *atomic.Bool) {
 	t.Helper()

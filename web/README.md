@@ -81,10 +81,14 @@ npm audit
 
 默认浏览器测试使用网络替身验证交互与失败路径，真实 Docker 测试仅在显式设置 `GOEPAY_LIVE_E2E=1` 时执行。真实测试从项目根 `.env` 读取本地 seed 密码，不输出凭据；不会重置种子密钥或更改种子密码。测试前必须应用全部迁移；项目 Compose 通过 migrate 服务自动执行，单独运行 API 镜像仍需先执行 CLI。
 
+本地支付生命周期测试直接解码收银台返回的真实 PNG。固定测试依赖为 `jsqr@1.4.0`（Apache-2.0，许可证 `node_modules/jsqr/LICENSE`，来源 `https://github.com/cozmo/jsQR`）和 `pngjs@5.0.0`（MIT，许可证 `node_modules/pngjs/LICENSE`，来源 `https://github.com/pngjs/pngjs`）；npm 下载地址与完整性哈希固定在 `package-lock.json`。标准 `npm ci` 即可安装，不需要 Python、系统二维码工具或 `.tools` 中的 decoder。这两个直接依赖只用于 Node 测试端；不会因测试导入进入产品前端。PNG 有大小、尺寸及 CRC 校验，解码后还必须核对本机 simulation 地址和原订单、金额、通道，才允许发送模拟确认请求。
+
+`live-system-settings228.spec.ts` 的旧 OAuth 凭据回归要求全新自有合成数据库：先完成迁移与本地种子，在启动 API 前用该数据库连接执行 `e2e/fixtures/legacy-oauth.sql`，再设置 `GOEPAY_LIVE_LEGACY_OAUTH_FIXTURE=1`。SQL 自行检查隔离库名前缀和未初始化的 vault；只预置合成 QQ/Telegram 配置，不应对共享、预览或生产数据库执行。该用例通过实际控件检查清除、撤销、保存和刷新，并关闭 trace 以避免记录旧凭据响应；不会跟随 OAuth 跳转或调用外部供应商。
+
 单元/组件测试覆盖菜单保留、隐藏页、角色、CSRF、金额、schema 校验、只读字段、清空可选字段、日期范围、CSV 和真实后台角色授权。浏览器测试覆盖资源完整 CRUD、批量部分失败、账户安全、TOTP、会员购买、充值不假入账与危险链接拦截，并另有真实 Docker 会话、资源持久化、报表、日志和结算审批测试。实际执行结果请以当前测试命令与项目集成报告为准。
 
 在项目根更新前端：`docker compose build web`，随后 `docker compose up -d --no-deps web`。静态构建仅包含必要前端文件，开发依赖不进入 Nginx 最终镜像。
 
 补充页 `/profitsharing/internal-orders` 提供站内分账审批；原版 `/profitsharing/internal` 规则详情可针对已支付订单申请站内分账，金额由服务端计算。两者均不表示上游渠道分账已实现。新增页能力另列于 `supplemental-capabilities.json`。任务计划和本地插件页面同时显示持久配置表单与实际运行队列/能力，保存配置不等于已经执行任务或安装代码。
 
-82 个原版页面中，74 个已接入页面标记为 `partial`，仍需逐项验收全部操作语义；渠道分账规则/记录的管理与商户四页、独立获取支付用户标识页、邀请返现页共 6 项标记为 `pending`，属于尚未实现、仍待实施的缺口。仅应用市场和实名认证两页标记为 `deferred`。订单支付 OAuth 不能替代独立获取用户标识页，站内分账也不能替代渠道分账，不能将菜单数量解释为完整功能验收通过。
+`capabilities.json` 的82项目前均为 `partial`，它是入口索引，不能替代逐项业务验收。渠道分账、独立身份查询、邀请返现和实名/OCR已有独立实现；原版隐藏语义、真实供应商联调及其他未接入插件仍需按实际证据区分，不能将菜单数量解释为全部功能通过。

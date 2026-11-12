@@ -22,22 +22,21 @@ import (
 // provider redirect is a top-level GET back to us).
 const connectLoginBrowserCookie = "goepay_connect_nonce"
 
-// providerSettingKeys maps a provider to its (enable, appid, appkey) settings
-// keys, matching epay_release admin/set.php.
-var providerSettingKeys = map[string][3]string{
-	"qq":     {"login_qq", "login_qq_appid", "login_qq_appkey"},
-	"wx":     {"login_wx", "login_appid", "login_appkey"},
-	"alipay": {"login_alipay", "login_appid", "login_appkey"},
-	// telegram uses a bot token, not appid/appkey; enable + token keys.
-	"telegram": {"login_tg", "login_tg_bot_token", "login_tg_bot_token"},
+// providerSettingKeys maps a provider to its non-secret enable/appid settings.
+// Telegram requires only its enable switch and the separately resolved token.
+var providerSettingKeys = map[string][2]string{
+	"qq":       {"login_qq", "login_qq_appid"},
+	"wx":       {"login_wx", "login_appid"},
+	"alipay":   {"login_alipay", "login_appid"},
+	"telegram": {"login_tg", ""},
 }
 
 // connectConfigField maps a provider to its connectconfig secret-store field.
 var connectConfigField = map[string]string{"qq": "qq", "wx": "wx", "alipay": "alipay", "telegram": "telegram"}
 
 // connectConfigStore builds the write-only OAuth secret store from the
-// deployment checkout key. Nil (no key / no pool) means the store is
-// unavailable and callers fall back to the legacy plaintext setting.
+// deployment checkout key. Nil (no key / no pool) means credentials cannot be
+// resolved safely, so quick login remains unavailable.
 func (s *Server) connectConfigStore() *connectconfig.Store {
 	if s.Pool == nil || len(s.CheckoutKey) < 32 {
 		return nil
@@ -50,31 +49,29 @@ func (s *Server) connectConfigStore() *connectconfig.Store {
 }
 
 // connectSecret returns a provider's secret (appkey, or the Telegram bot
-// token) from the write-only secret store, falling back to the legacy
-// plaintext setting when the store has no value for it. The secret store is
-// the primary source; the plaintext key stays readable for values set the old
-// way and for the test seams.
-func (s *Server) connectSecret(r *http.Request, provider, legacyKey string) string {
+// token). The store alone decides whether an unmigrated legacy value is still
+// eligible. A cleared slot or a vault error must never reactivate an old key.
+func (s *Server) connectSecret(r *http.Request, provider string) string {
 	if field, ok := connectConfigField[provider]; ok {
 		if store := s.connectConfigStore(); store != nil {
-			if v, e := store.Resolve(r.Context(), field); e == nil && v != "" {
+			if v, e := store.ResolveLogin(r.Context(), field); e == nil {
 				return v
 			}
 		}
 	}
-	return s.connectSetting(r, legacyKey)
+	return ""
 }
 
 // connectLoginConfig reads a provider's admin keys and whether quick login is
 // enabled for it. The enable switch and appid are plaintext settings; the
-// appkey is the write-only secret (falling back to the legacy plaintext key).
+// appkey is resolved under the vault's authority and legacy migration policy.
 // Off (missing/"0") by default.
 func (s *Server) connectLoginConfig(r *http.Request, provider string) (enabled bool, appid, appkey string) {
 	keys, ok := providerSettingKeys[provider]
 	if !ok || s.Pool == nil {
 		return false, "", ""
 	}
-	rows, e := s.Pool.Query(r.Context(), `SELECT body->>'key',COALESCE(body->>'value','') FROM backoffice_records WHERE resource='settings' AND body->>'key'=ANY($1::text[]) ORDER BY id`, []string{keys[0], keys[1], keys[2]})
+	rows, e := s.Pool.Query(r.Context(), `SELECT body->>'key',COALESCE(body->>'value','') FROM backoffice_records WHERE resource='settings' AND body->>'key'=ANY($1::text[]) ORDER BY id`, []string{keys[0], keys[1]})
 	if e != nil {
 		return false, "", ""
 	}
@@ -88,13 +85,13 @@ func (s *Server) connectLoginConfig(r *http.Request, provider string) (enabled b
 	}
 	on := m[keys[0]]
 	enabled = on != "" && on != "0"
-	appkey = s.connectSecret(r, provider, keys[2])
+	appkey = s.connectSecret(r, provider)
 	return enabled, m[keys[1]], appkey
 }
 
 func (s *Server) connectProvider(r *http.Request, provider string) (connect.Provider, bool) {
 	enabled, appid, appkey := s.connectLoginConfig(r, provider)
-	if !enabled || appid == "" || appkey == "" {
+	if !enabled || appkey == "" || (provider != "telegram" && appid == "") {
 		return nil, false
 	}
 	// callback base is the configured public origin; derived, never proxy input.
@@ -150,7 +147,7 @@ func (s *Server) connectSetting(r *http.Request, key string) string {
 // or the ConnectTokenBase test seam. Everything except `hash` and our own
 // `state` is part of the signed data-check-string.
 func (s *Server) telegramIdentity(r *http.Request, q url.Values) (string, error) {
-	token := s.connectSecret(r, "telegram", "login_tg_bot_token")
+	token := s.connectSecret(r, "telegram")
 	if s.ConnectTokenBase != nil {
 		if b := s.ConnectTokenBase["telegram"]; b != "" {
 			token = b

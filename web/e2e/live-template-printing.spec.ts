@@ -59,7 +59,7 @@ test("live Docker templates render in the protected iframe and both printing set
   await expect(
     page.getByRole("region", { name: "平台打印配置", exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("打印服务")).toBeVisible();
+  await expect(page.getByLabel("打印服务", { exact: true })).toBeVisible();
   await expect(page.locator("main")).toContainText("外部执行默认关闭");
   const platform = await page.request.get(
     "/console/v1/admin/printing/settings",

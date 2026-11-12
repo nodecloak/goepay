@@ -152,8 +152,7 @@ func (g ProviderFlow) SubmitChannelSharingReturn(ctx context.Context, mid int64,
 	result, e := p.ReturnChannelSharing(ctx, request)
 	if e != nil {
 		state := "unknown"
-		var rejection *adapter.ProviderError
-		if errors.As(e, &rejection) && definiteProviderRejection(rejection) {
+		if definiteAuthenticatedSharingRejection(e, r.Original.Payment.Provider, "return") {
 			state = "failed"
 		}
 		save := g.Store.sharingReturnFailure(ctx, r, state, actor)

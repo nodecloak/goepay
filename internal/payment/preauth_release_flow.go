@@ -7,10 +7,6 @@ import (
 	provider "goepay/internal/adapters/payment"
 )
 
-func authorizationTradeNotFound(e error) bool {
-	var rejection *provider.ProviderError
-	return errors.As(e, &rejection) && rejection.Code == "40004:ACQ.TRADE_NOT_EXIST"
-}
 func (g ProviderFlow) releasePending(ctx context.Context, merchantID int64, tradeNo, state string, cause error) (AuthorizationRelease, error) {
 	if e := g.Store.ResolveAuthorizationRelease(ctx, tradeNo, state); e != nil {
 		return AuthorizationRelease{}, errors.Join(cause, e)
@@ -84,7 +80,7 @@ func (g ProviderFlow) ReleaseAuthorization(ctx context.Context, merchantID int64
 		return r, e
 	}
 	closed := queryErr == nil && payment.State == "TRADE_CLOSED" && payment.TradeNo == tradeNo && payment.Amount == charge104 && payment.Currency == "CNY"
-	if !closed && !authorizationTradeNotFound(queryErr) {
+	if !closed && !authorizationTradeNotFound(queryErr, p) {
 		return g.releasePending(ctx, merchantID, tradeNo, "reversal_pending", queryErr)
 	}
 	frozen, e := authProvider.QueryAuthorization(ctx, provider.AuthorizationRequest{TradeNo: tradeNo, RequestNo: tradeNo, AuthNo: a.AuthNo, Amount: a.Amount})
@@ -107,8 +103,7 @@ func (g ProviderFlow) ReleaseAuthorization(ctx context.Context, merchantID int64
 	}
 	_, e = authProvider.UnfreezeAuthorization(ctx, provider.AuthorizationRequest{TradeNo: tradeNo, RequestNo: r.RequestNo, AuthNo: r.AuthNo, Amount: r.Amount})
 	if e != nil {
-		var rejection *provider.ProviderError
-		if errors.As(e, &rejection) && definiteProviderRejection(rejection) {
+		if definiteAuthenticatedPreauthorizationRejection(e, p, "alipay.fund.auth.order.unfreeze") {
 			if save := g.Store.ResolveAuthorizationRelease(ctx, tradeNo, "failed"); save != nil {
 				return r, errors.Join(e, save)
 			}

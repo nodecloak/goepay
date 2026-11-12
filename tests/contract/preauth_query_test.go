@@ -23,7 +23,7 @@ func TestPreauthQueryCanRecoverAuthorizationWithoutPaymentTrade(t *testing.T) {
 		t.Fatal(e)
 	}
 	mode := "authorized"
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 		method := r.Form.Get("method")
 		var biz map[string]any
@@ -63,7 +63,7 @@ func TestPreauthQueryCanRecoverAuthorizationWithoutPaymentTrade(t *testing.T) {
 		json.NewEncoder(w).Encode(map[string]any{field: json.RawMessage(raw), "sign": sig})
 	}))
 	defer upstream.Close()
-	ali, e := adapter.NewAlipay(adapter.AlipayConfig{AppID: "app", PrivateKey: merchant, PublicKey: &platform.PublicKey, Methods: []string{"preauth"}, GatewayURL: upstream.URL, HTTPClient: upstream.Client()})
+	ali, e := adapter.NewAlipay(adapter.AlipayConfig{AppID: "app", PrivateKey: merchant, PublicKey: &platform.PublicKey, Methods: []string{"preauth"}, HTTPClient: &http.Client{Transport: oauthContractTLSTransport{upstream, t}}})
 	if e != nil {
 		t.Fatal(e)
 	}

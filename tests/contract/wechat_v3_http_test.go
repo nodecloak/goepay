@@ -33,7 +33,13 @@ func (x v3ContractTLS) RoundTrip(r *http.Request) (*http.Response, error) {
 	target, _ := url.Parse(x.up.URL)
 	copy.URL.Scheme = target.Scheme
 	copy.URL.Host = target.Host
-	return x.up.Client().Transport.RoundTrip(copy)
+	response, err := x.up.Client().Transport.RoundTrip(copy)
+	if response != nil {
+		// Only this local fixture rewrites the transport destination. Preserve
+		// the logical provider request while retaining the real TLS response.
+		response.Request = r
+	}
+	return response, err
 }
 func v3ContractHeaders(t *testing.T, body []byte, key *rsa.PrivateKey) http.Header {
 	t.Helper()

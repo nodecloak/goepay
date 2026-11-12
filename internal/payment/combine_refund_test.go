@@ -53,14 +53,14 @@ func TestCombineRefund207ConcurrentResumeClaimsOnlyOnce(t *testing.T) {
 	}
 	d := &blockingRefund207{started: make(chan struct{}), release: make(chan struct{})}
 	result := make(chan error, 1)
-	go func() { _, e := (ProviderFlow{Store: s}).combineRefund207(ctx, d, r.ID, plan, true); result <- e }()
+	go func() { _, e := (ProviderFlow{Store: s}).runCombineRefund(ctx, d, r.ID, plan, true); result <- e }()
 	<-d.started
 	other, err := s.planCombineRefund207(ctx, r.ID, o.ID, 1000, "RF-concurrent")
 	if err != nil {
 		close(d.release)
 		t.Fatal(err)
 	}
-	_, err = (ProviderFlow{Store: s}).combineRefund207(ctx, d, r.ID, other, true)
+	_, err = (ProviderFlow{Store: s}).runCombineRefund(ctx, d, r.ID, other, true)
 	close(d.release)
 	if err != nil {
 		t.Fatal(err)
@@ -94,7 +94,7 @@ func TestCombineRefund207ClaimSurvivesCrashWithoutResending(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := &sentOnlyRefund207{combineRefundDouble207{state: "SUCCESS"}}
-	state, err := (ProviderFlow{Store: s}).combineRefund207(ctx, d, r.ID, plan, true)
+	state, err := (ProviderFlow{Store: s}).runCombineRefund(ctx, d, r.ID, plan, true)
 	if state != "unknown" || err == nil || len(d.sent) != 0 {
 		t.Fatal("ambiguous claim was resent", state, err, d.sent)
 	}
@@ -128,7 +128,7 @@ func TestCombineRefund207MigrationConservativelyClaimsHistoricalPlans(t *testing
 		t.Fatal("historical claim not backfilled", err)
 	}
 	d := &sentOnlyRefund207{combineRefundDouble207{state: "SUCCESS"}}
-	state, err := (ProviderFlow{Store: s}).combineRefund207(ctx, d, r.ID, plan, true)
+	state, err := (ProviderFlow{Store: s}).runCombineRefund(ctx, d, r.ID, plan, true)
 	if state != "unknown" || err == nil || len(d.sent) != 0 {
 		t.Fatal("historical ambiguous share resent", state, err, d.sent)
 	}
@@ -155,7 +155,7 @@ func TestCombineRefund207ResumeSendsOnlyPreviouslyUnsentShares(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := &sentOnlyRefund207{combineRefundDouble207{state: "SUCCESS", fail: map[string]error{"RF-resume-2": &provider.UnknownOutcome{Operation: "refund", Cause: provider.ErrAuthentication}}}}
-	state, err := (ProviderFlow{Store: s}).combineRefund207(ctx, d, r.ID, plan, true)
+	state, err := (ProviderFlow{Store: s}).runCombineRefund(ctx, d, r.ID, plan, true)
 	if state != "unknown" || err == nil || len(d.sent) != 2 {
 		t.Fatal(state, err, d.sent)
 	}
@@ -163,7 +163,7 @@ func TestCombineRefund207ResumeSendsOnlyPreviouslyUnsentShares(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state, err = (ProviderFlow{Store: s}).combineRefund207(ctx, d, r.ID, plan, false)
+	state, err = (ProviderFlow{Store: s}).runCombineRefund(ctx, d, r.ID, plan, false)
 	if err != nil || state != "pending" || len(d.sent) != 2 {
 		t.Fatal("query must not send or query an unsent share", state, err, d.sent, d.queried)
 	}
@@ -171,7 +171,7 @@ func TestCombineRefund207ResumeSendsOnlyPreviouslyUnsentShares(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state, err = (ProviderFlow{Store: s}).combineRefund207(ctx, d, r.ID, plan, true)
+	state, err = (ProviderFlow{Store: s}).runCombineRefund(ctx, d, r.ID, plan, true)
 	if err != nil || state != "succeeded" || len(d.sent) != 3 || d.sent[2].RefundNo != "RF-resume-3" {
 		t.Fatal("unsent share was not resumed", state, err, d.sent, d.queried)
 	}
@@ -229,7 +229,7 @@ func TestCombineRefund207SplitsAcrossSharesWithFixedNumbers(t *testing.T) {
 		t.Fatal("re-planning changed the fixed plan", again, err)
 	}
 	d := &combineRefundDouble207{state: "SUCCESS"}
-	state, err := ProviderFlow{Store: s}.combineRefund207(ctx, d, r.ID, plan, true)
+	state, err := ProviderFlow{Store: s}.runCombineRefund(ctx, d, r.ID, plan, true)
 	if err != nil || state != "succeeded" || len(d.sent) != 2 || d.sent[0].TradeNo != o.TradeNo+"1" || d.sent[0].ProviderTradeNo != "WX1" || d.sent[0].TotalAmount != 3334 || d.sent[1].Amount != 1666 {
 		t.Fatal("shares not refunded against their own sub-orders", state, err, d.sent)
 	}
@@ -260,13 +260,13 @@ func TestCombineRefund207UnknownStopsAndQuerySkipsUnsent(t *testing.T) {
 		t.Fatal(plan, err)
 	}
 	d := &combineRefundDouble207{state: "SUCCESS", fail: map[string]error{"RF9-2": &provider.UnknownOutcome{Operation: "refund", Cause: provider.ErrAuthentication}}}
-	state, err := ProviderFlow{Store: s}.combineRefund207(ctx, d, r.ID, plan, true)
+	state, err := ProviderFlow{Store: s}.runCombineRefund(ctx, d, r.ID, plan, true)
 	var unknown *provider.UnknownOutcome
 	if state != "unknown" || !errors.As(err, &unknown) || len(d.sent) != 2 {
 		t.Fatal("unknown share must stop the run without sending later shares", state, err, len(d.sent))
 	}
 	plan, _ = s.planCombineRefund207(ctx, r.ID, o.ID, 7000, "RF9")
-	state, err = ProviderFlow{Store: s}.combineRefund207(ctx, d, r.ID, plan, false)
+	state, err = ProviderFlow{Store: s}.runCombineRefund(ctx, d, r.ID, plan, false)
 	if err != nil || state != "pending" || len(d.queried) != 1 || d.queried[0].RefundNo != "RF9-2" {
 		t.Fatal("query should only query submitted shares", state, err, d.queried)
 	}

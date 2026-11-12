@@ -2,7 +2,7 @@
 import {
   ref,
   computed,
-  onMounted,
+  watch,
   onBeforeUnmount,
   defineAsyncComponent,
 } from "vue";
@@ -52,6 +52,7 @@ const from = ref(""),
   error = ref("");
 const method = ref("");
 const merchantId = ref("");
+const appliedFilters = ref({ from: "", to: "", method: "", merchantId: "" });
 // epay_pro transfer/accountStat and channelStat both offer a 付款方式 filter;
 // channelStat additionally offers a 商户号 (uid) filter. GOEPAY surfaces 付款方式
 // on the per-account and per-channel transfer reports (their handlers accept the
@@ -80,13 +81,31 @@ const merchantMatrix = computed(() =>
   ["merchants", "transfer-merchants"].includes(props.report),
 );
 let controller: AbortController | undefined;
+function applyFilters() {
+  if (!validDateRange(from.value, to.value)) {
+    controller?.abort();
+    loading.value = false;
+    items.value = [];
+    total.value = 0;
+    summary.value = null;
+    error.value = "请选择有效日期，开始日期不得晚于结束日期，日期范围最多367天";
+    return;
+  }
+  appliedFilters.value = {
+    from: from.value,
+    to: to.value,
+    method: method.value,
+    merchantId: merchantId.value,
+  };
+  page.value = 1;
+  void load();
+}
 function applyShortcut() {
   const range = reportDateRange(shortcut.value);
   if (!range) return;
   from.value = range.from;
   to.value = range.to;
-  page.value = 1;
-  load();
+  applyFilters();
 }
 function resetFilters() {
   shortcut.value = "";
@@ -94,8 +113,7 @@ function resetFilters() {
   to.value = "";
   method.value = "";
   merchantId.value = "";
-  page.value = 1;
-  load();
+  applyFilters();
 }
 function reportQuery() {
   const q = new URLSearchParams({
@@ -106,12 +124,13 @@ function reportQuery() {
     q.set("view", "overview");
     return q;
   }
-  if (from.value) q.set("from", from.value);
-  if (to.value) q.set("to", to.value);
-  if (showTransferMethodFilter.value && method.value)
-    q.set("type", method.value);
-  if (showTransferMerchantFilter.value && merchantId.value)
-    q.set("uid", merchantId.value);
+  const filters = appliedFilters.value;
+  if (filters.from) q.set("from", filters.from);
+  if (filters.to) q.set("to", filters.to);
+  if (showTransferMethodFilter.value && filters.method)
+    q.set("type", filters.method);
+  if (showTransferMerchantFilter.value && filters.merchantId)
+    q.set("uid", filters.merchantId);
   return q;
 }
 const csvPath = computed(() => {
@@ -121,36 +140,45 @@ const csvPath = computed(() => {
 });
 async function load() {
   error.value = "";
-  if (!validDateRange(from.value, to.value)) {
-    error.value = "请选择有效日期，开始日期不得晚于结束日期，日期范围最多367天";
-    return;
-  }
   controller?.abort();
   controller = new AbortController();
   const c = controller;
+  const client = props.client,
+    area = client.area,
+    csrf = client.csrfToken,
+    report = props.report;
+  const current = () =>
+    !c.signal.aborted &&
+    controller === c &&
+    props.client === client &&
+    client.area === area &&
+    client.csrfToken === csrf &&
+    props.report === report;
   loading.value = true;
   items.value = [];
+  total.value = 0;
+  summary.value = null;
   try {
     const q = reportQuery();
-    const data = await props.client.request<{
+    const data = await client.request<{
       columns: ReportColumn[];
       items: Record<string, unknown>[];
       total: number;
       summary?: Record<string, unknown>;
-    }>("/reports/" + encodeURIComponent(props.report) + "?" + q, {
+    }>("/reports/" + encodeURIComponent(report) + "?" + q, {
       signal: c.signal,
     });
-    if (!c.signal.aborted) {
-      columns.value = reportColumns(props.report, data.columns);
+    if (current()) {
+      columns.value = reportColumns(report, data.columns);
       items.value = reportRows(data.items);
       total.value = data.total;
       summary.value = data.summary || null;
     }
   } catch (e) {
-    if (!c.signal.aborted)
+    if (current())
       error.value = e instanceof Error ? e.message : "统计读取失败，请重试";
   } finally {
-    if (!c.signal.aborted) loading.value = false;
+    if (current()) loading.value = false;
   }
 }
 function download() {
@@ -160,11 +188,21 @@ function download() {
     url = URL.createObjectURL(blob),
     a = document.createElement("a");
   a.href = url;
-  a.download = `${props.report}-${from.value || "recent"}-${to.value || "today"}-page${page.value}.csv`;
+  a.download = `${props.report}-${appliedFilters.value.from || "recent"}-${appliedFilters.value.to || "today"}-page${page.value}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
-onMounted(() => {
+function resetContext() {
+  controller?.abort();
+  loading.value = false;
+  error.value = "";
+  items.value = [];
+  columns.value = [];
+  total.value = 0;
+  summary.value = null;
+  from.value = to.value = shortcut.value = method.value = merchantId.value = "";
+  appliedFilters.value = { from: "", to: "", method: "", merchantId: "" };
+  page.value = 1;
   if (props.report === "provinces") return;
   if (
     !originalStatistics.value &&
@@ -172,7 +210,12 @@ onMounted(() => {
     props.report !== "buyers"
   )
     void load();
-});
+}
+watch(
+  () => [props.client, props.client.area, props.client.csrfToken, props.report],
+  resetContext,
+  { immediate: true },
+);
 onBeforeUnmount(() => controller?.abort());
 </script>
 <template>
@@ -220,10 +263,7 @@ onBeforeUnmount(() => controller?.abort());
     </div>
     <form
       class="toolbar list-filter-card panel report-filter-kit"
-      @submit.prevent="
-        page = 1;
-        load();
-      "
+      @submit.prevent="applyFilters"
     >
       <div class="pa-filter-fields list-filters-grid">
         <template v-if="!complaintOverview">
@@ -318,7 +358,7 @@ onBeforeUnmount(() => controller?.abort());
           :client="client"
           :path="csvPath"
           :filename="`${report}-filtered.csv`"
-          :disabled="loading || !validDateRange(from, to)"
+          :disabled="loading || !!error"
         />
         <span class="table-summary"
           >共 <strong>{{ total }}</strong> 条统计</span

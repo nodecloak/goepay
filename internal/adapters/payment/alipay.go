@@ -209,6 +209,15 @@ func (a *Alipay) call(ctx context.Context, method string, biz map[string]any, wr
 		}
 		return nil, rejected
 	}
+	if (method == "alipay.trade.royalty.relation.bind" || method == "alipay.trade.royalty.relation.unbind") && text(out, "result_code") == "FAIL" {
+		// These methods can return a successful RPC envelope with an explicit
+		// relationship refusal. Preserve its signature and TLS provenance just
+		// like a non-success top-level code; callers may then safely release the
+		// pending relationship claim.
+		rejected := authenticatedProviderError("alipay", method, "SHARING_RELATION_FAIL", "alipay_rsa2", node)
+		rejected.rejection.verifiedTLS = authenticatedTLSExchange(req, res)
+		return nil, rejected
+	}
 	return out, nil
 }
 func (a *Alipay) responseFailure(operation string, write bool) error {

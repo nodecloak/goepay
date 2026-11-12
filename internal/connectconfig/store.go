@@ -32,6 +32,10 @@ var ErrConflict = errors.New("oauth credential settings changed")
 // stored columns. The field name is the console-facing identifier.
 var Fields = []string{"qq", "wx", "alipay", "telegram"}
 
+var legacySettingKeys = map[string]string{
+	"qq": "login_qq_appkey", "wx": "login_appkey", "alipay": "login_appkey", "telegram": "login_tg_bot_token",
+}
+
 func validField(f string) bool {
 	for _, k := range Fields {
 		if k == f {
@@ -106,6 +110,21 @@ func (s *Store) seal(revision int64, c slots) []byte {
 func (s *Store) fingerprint(revision int64, c slots) string {
 	return hex.EncodeToString(s.seal(revision, c))
 }
+
+// legacyFingerprint binds the revision-zero view to the effective credentials
+// that a first write will migrate. Domain separation keeps it distinct from
+// vault proofs; length prefixes make every field and value unambiguous.
+func (s *Store) legacyFingerprint(legacy map[string]string) string {
+	mac := hmac.New(sha256.New, s.key)
+	mac.Write([]byte("goepay/connectconfig/legacy-view/v1\n"))
+	for _, field := range []string{"qq", "wx", "alipay", "telegram"} {
+		value := legacy[legacySettingKeys[field]]
+		mac.Write([]byte(field + "\n" + strconv.Itoa(len(value)) + "\n"))
+		mac.Write([]byte(value))
+	}
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
 func (s *Store) encrypt(aad, value string) ([]byte, error) {
 	if value == "" {
 		return []byte{}, nil
@@ -154,6 +173,13 @@ func (s *Store) viewTx(ctx context.Context, tx pgx.Tx) (View, error) {
 	if e != nil {
 		return View{}, e
 	}
+	if revision == 0 {
+		legacy, err := legacySecretsTx(ctx, tx)
+		if err != nil {
+			return View{}, err
+		}
+		return View{QQSet: legacy[legacySettingKeys["qq"]] != "", WXSet: legacy[legacySettingKeys["wx"]] != "", AlipaySet: legacy[legacySettingKeys["alipay"]] != "", TelegramSet: legacy[legacySettingKeys["telegram"]] != "", Fingerprint: s.legacyFingerprint(legacy)}, nil
+	}
 	return View{QQSet: len(c.qq) > 0, WXSet: len(c.wx) > 0, AlipaySet: len(c.alipay) > 0, TelegramSet: len(c.tg) > 0, Fingerprint: s.fingerprint(revision, c)}, nil
 }
 
@@ -184,6 +210,9 @@ func (s *Store) Read(ctx context.Context, a Actor) (View, error) {
 		return View{}, e
 	}
 	defer tx.Rollback(ctx)
+	if _, e = tx.Exec(ctx, "SELECT pg_advisory_xact_lock_shared(hashtextextended('oauth-credential',128))"); e != nil {
+		return View{}, e
+	}
 	if e = s.actor(ctx, tx, a); e != nil {
 		return View{}, e
 	}
@@ -204,6 +233,32 @@ func validSecret(v string) bool {
 		}
 	}
 	return true
+}
+
+// legacySecretsTx reads only the old secret settings, with the same bounds as
+// explicit updates. It never coerces objects/numbers into credential strings.
+// Callers hold the OAuth credential advisory lock so first migration and login
+// resolution cannot disagree about whether the vault is authoritative.
+func legacySecretsTx(ctx context.Context, tx pgx.Tx) (map[string]string, error) {
+	rows, err := tx.Query(ctx, `SELECT body->>'key',CASE
+ WHEN jsonb_typeof(body->'value')='string' AND octet_length(body->>'value') BETWEEN 1 AND 512
+ THEN body->>'value' ELSE '' END FROM backoffice_records
+ WHERE resource='settings' AND body->>'key'=ANY($1::text[]) ORDER BY id FOR SHARE`, []string{"login_qq_appkey", "login_appkey", "login_tg_bot_token"})
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	values := map[string]string{}
+	for rows.Next() {
+		var key, value string
+		if err = rows.Scan(&key, &value); err != nil {
+			return nil, err
+		}
+		if validSecret(value) {
+			values[key] = value
+		}
+	}
+	return values, rows.Err()
 }
 
 func (s *Store) Update(ctx context.Context, a Actor, in Update) (View, error) {
@@ -235,8 +290,26 @@ func (s *Store) Update(ctx context.Context, a Actor, in Update) (View, error) {
 	if e != nil {
 		return View{}, e
 	}
-	if !hmac.Equal([]byte(in.Expected), []byte(s.fingerprint(revision, c))) {
+	expected := s.fingerprint(revision, c)
+	var legacy map[string]string
+	if revision == 0 {
+		if legacy, e = legacySecretsTx(ctx, tx); e != nil {
+			return View{}, e
+		}
+		expected = s.legacyFingerprint(legacy)
+	}
+	if !hmac.Equal([]byte(in.Expected), []byte(expected)) {
 		return View{}, ErrConflict
+	}
+	if revision == 0 {
+		// Creating this row makes every slot authoritative, including empty
+		// ones. Migrate the exact legacy snapshot checked above, preserving
+		// valid untouched credentials in the same write.
+		for field, slot := range map[string]*[]byte{"qq": &c.qq, "wx": &c.wx, "alipay": &c.alipay, "telegram": &c.tg} {
+			if *slot, e = s.encrypt(aadFor(field), legacy[legacySettingKeys[field]]); e != nil {
+				return View{}, e
+			}
+		}
 	}
 	slot := map[string]*[]byte{"qq": &c.qq, "wx": &c.wx, "alipay": &c.alipay, "telegram": &c.tg}[in.Field]
 	switch {
@@ -271,9 +344,20 @@ func (s *Store) Update(ctx context.Context, a Actor, in Update) (View, error) {
 
 // Resolve returns the decrypted secret for one provider field, for the login
 // flow only. It takes no actor: a server-internal read, never from the console.
-// An empty string means the secret is not configured here (the caller then
-// falls back to the legacy plaintext setting).
+// An empty string means the vault has no credential. Callers must not treat
+// empty slots or errors as permission to use a different credential source.
 func (s *Store) Resolve(ctx context.Context, field string) (string, error) {
+	return s.resolve(ctx, field, false)
+}
+
+// ResolveLogin permits legacy credentials only while no vault row exists.
+// Checking authority and reading legacy values share a transaction and the
+// migration lock; a first clear cannot commit between these two reads.
+func (s *Store) ResolveLogin(ctx context.Context, field string) (string, error) {
+	return s.resolve(ctx, field, true)
+}
+
+func (s *Store) resolve(ctx context.Context, field string, allowLegacy bool) (string, error) {
 	if s.pool == nil {
 		return "", ErrUnavailable
 	}
@@ -285,9 +369,21 @@ func (s *Store) Resolve(ctx context.Context, field string) (string, error) {
 		return "", e
 	}
 	defer tx.Rollback(ctx)
-	_, c, e := s.readTx(ctx, tx)
+	if allowLegacy {
+		if _, e = tx.Exec(ctx, "SELECT pg_advisory_xact_lock_shared(hashtextextended('oauth-credential',128))"); e != nil {
+			return "", e
+		}
+	}
+	revision, c, e := s.readTx(ctx, tx)
 	if e != nil {
 		return "", e
+	}
+	if allowLegacy && revision == 0 {
+		legacy, err := legacySecretsTx(ctx, tx)
+		if err != nil {
+			return "", err
+		}
+		return legacy[legacySettingKeys[field]], tx.Commit(ctx)
 	}
 	raw := map[string][]byte{"qq": c.qq, "wx": c.wx, "alipay": c.alipay, "telegram": c.tg}[field]
 	value, e := s.decrypt(aadFor(field), raw)

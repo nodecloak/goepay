@@ -20,7 +20,7 @@ type remainingProvider75 struct {
 
 func (p *remainingProvider75) Query(_ context.Context, r adapter.QueryRequest) (adapter.QueryResult, error) {
 	if p.paymentState == "" {
-		return adapter.QueryResult{}, &adapter.ProviderError{Code: "40004:ACQ.TRADE_NOT_EXIST"}
+		return adapter.QueryResult{}, preauthorizationTestQueryNotFound()
 	}
 	return adapter.QueryResult{TradeNo: r.TradeNo, Amount: p.paymentAmount, Currency: "CNY", State: p.paymentState, ProviderTradeNo: "original-payment75"}, p.paymentError
 }

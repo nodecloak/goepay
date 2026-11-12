@@ -51,8 +51,7 @@ func (g ProviderFlow) captureClaimedPreauthorization(ctx context.Context, o Orde
 	event, e := p.CaptureAuthorization(ctx, provider.AuthorizationCaptureRequest{TradeNo: o.TradeNo, AuthNo: a.AuthNo, BuyerID: a.BuyerID, Subject: subject, Amount: charge104, NotifyURL: strings.TrimRight(g.CallbackBaseURL, "/") + fmt.Sprintf("/callbacks/providers/%d/%s", a.ChannelID, o.TradeNo)})
 	if e != nil {
 		state := "unknown"
-		var rejection *provider.ProviderError
-		if errors.As(e, &rejection) && definiteProviderRejection(rejection) {
+		if definiteAuthenticatedPreauthorizationRejection(e, base, "alipay.trade.pay") {
 			state = "failed"
 		}
 		return finish(state, e)

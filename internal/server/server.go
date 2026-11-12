@@ -327,7 +327,8 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if role == "admin" {
-		if err := s.Pool.QueryRow(r.Context(), "SELECT admin_class,permissions FROM console_users WHERE username=$1 AND role='admin' AND subject_id=$2 AND enabled", session.User.Username, session.User.ID).Scan(&session.User.AdminClass, &session.User.Permissions); err != nil {
+		var accountVersion int64
+		if err := s.Pool.QueryRow(r.Context(), "SELECT admin_class,permissions,auth_version FROM console_users WHERE username=$1 AND role='admin' AND subject_id=$2 AND enabled", session.User.Username, session.User.ID).Scan(&session.User.AdminClass, &session.User.Permissions, &accountVersion); err != nil {
 			response(w, 401, -1, "account unavailable", nil)
 			return
 		}
@@ -335,6 +336,7 @@ func (s *Server) console(w http.ResponseWriter, r *http.Request) {
 			response(w, 403, -1, "super administrator required", nil)
 			return
 		}
+		r = s.withConsoleAdminAuthority(r, session, c.Value, accountVersion, parts)
 	}
 	if r.Method != "GET" && subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")), []byte(session.CSRF)) != 1 {
 		response(w, 403, -1, "invalid CSRF token", nil)

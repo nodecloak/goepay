@@ -147,7 +147,9 @@ func (c *wechatV3Client) call(ctx context.Context, method, target string, input 
 		if response.StatusCode >= 400 && response.StatusCode < 500 {
 			switch problem.Code {
 			case "PARAM_ERROR", "LACK_PARAMS", "APPID_MCHID_NOT_MATCH", "NO_AUTH":
-				return nil, &ProviderError{Code: problem.Code}
+				rejected := authenticatedProviderError("wxpay", target, problem.Code, "wechat_v3_rsa_sha256", raw)
+				rejected.rejection.verifiedTLS = authenticatedTLSExchange(request, response)
+				return nil, rejected
 			}
 		}
 		return fail(ErrAuthentication)

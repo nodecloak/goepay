@@ -194,7 +194,7 @@ func TestAdminLoginName245RejectedInputsPreserveAccountAndBudgetWrongPasswords(t
 	}
 }
 
-func TestAdminLoginName245OriginalSessionAndRestrictedOperatorBoundaries(t *testing.T) {
+func TestAdminLoginNameOriginalSessionAndRestrictedOperatorBoundaries(t *testing.T) {
 	for _, source := range []string{"merchant", "deleted-session", "memory-session", "hidden-delegation", "csrf"} {
 		t.Run(source, func(t *testing.T) {
 			role := "admin"
@@ -238,6 +238,17 @@ func TestAdminLoginName245OriginalSessionAndRestrictedOperatorBoundaries(t *test
 	f := credentials199Local(t, "admin")
 	if _, e := f.p.Exec(t.Context(), `UPDATE console_users SET permissions='[]' WHERE username=$1 AND role='admin'`, f.username); e != nil {
 		t.Fatal(e)
+	}
+	if w := loginName245Request(f, "GET", nil); w.Code != 401 {
+		t.Fatal("permission change retained the old account session", w.Code)
+	}
+	if e := f.p.QueryRow(t.Context(), "SELECT auth_version FROM console_users WHERE username=$1 AND role='admin'", f.username).Scan(&f.user.AuthVersion); e != nil {
+		t.Fatal(e)
+	}
+	var err error
+	f.token, f.csrf, err = f.s.Sessions.Create(f.user)
+	if err != nil {
+		t.Fatal(err)
 	}
 	if w := loginName245Request(f, "GET", nil); w.Code != 200 {
 		t.Fatal("restricted operator cannot read own login name", w.Code)

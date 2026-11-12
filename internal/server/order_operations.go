@@ -82,7 +82,7 @@ func (s *Server) orderOperations(w http.ResponseWriter, r *http.Request, role st
 		data["can_capture_authorization"] = s.CanCapturePreauthorization(r.Context(), order)
 		data["can_observe_authorization"] = session.Issuer == nil && s.CanObservePreauthorization(r.Context(), order)
 		data["can_resend_notification"] = order.Status == "paid" && order.NotifyURL != ""
-		data["can_return_notification"] = s.canReturnNotification200(r, role, session, order)
+		data["can_return_notification"] = s.canReturnNotification(r, role, session, order)
 		var notificationID int64
 		var notificationState string
 		var notificationAttempts int

@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { localCrudFixture } from "./local-crud-fixture";
 
+test.use({ trace: "off" });
+
 test.describe("real local system settings parity228", () => {
   test.skip(
     process.env.GOEPAY_LIVE_E2E !== "1",
@@ -40,6 +42,95 @@ test.describe("real local system settings parity228", () => {
     }) => {
       await fixture.attach(page, "admin");
       await page.setViewportSize({ width, height: 1100 });
+      if (width === 375) {
+        // The owned runner seeds these legacy slots before starting the API,
+        // with no connect_login_credentials row. No secret enters a form or
+        // screenshot; this checks the actual GET -> controls -> PATCH flow.
+        expect(process.env.GOEPAY_LIVE_LEGACY_OAUTH_FIXTURE).toBe("1");
+        const initial = await fixture.call(
+          "admin",
+          "/settings/oauth-credentials",
+        );
+        expect(initial).toMatchObject({ qq_set: true, telegram_set: true });
+        const options = async () => {
+          const response = await page.request.get(
+            "/console/v1/public/connect/options",
+            {
+              maxRedirects: 0,
+            },
+          );
+          expect(response.ok()).toBeTruthy();
+          return (await response.json()).data.providers;
+        };
+        expect(await options()).toMatchObject({ qq: true, telegram: true });
+        await page.goto("/admin/system/settings?tab=oauth");
+        const panel = page.getByRole("region", {
+          name: "快捷登录密钥",
+          exact: true,
+        });
+        const qq = panel.getByRole("group", {
+          name: "QQ互联 APPKEY配置",
+          exact: true,
+        });
+        const telegram = panel.getByRole("group", {
+          name: "Telegram Bot Token配置",
+          exact: true,
+        });
+        await expect(qq.getByText("已配置", { exact: true })).toBeVisible();
+        await expect(
+          telegram.getByText("已配置", { exact: true }),
+        ).toBeVisible();
+        await qq
+          .getByRole("button", { name: "清除QQ互联 APPKEY", exact: true })
+          .click();
+        await expect(qq.getByText("保存后清除", { exact: true })).toBeVisible();
+        await qq
+          .getByRole("button", { name: "撤销清除QQ互联 APPKEY", exact: true })
+          .click();
+        await expect(
+          panel.getByRole("button", { name: "保存QQ互联 APPKEY", exact: true }),
+        ).toHaveCount(0);
+        expect(
+          await fixture.call("admin", "/settings/oauth-credentials"),
+        ).toEqual(initial);
+        expect(await options()).toMatchObject({ qq: true, telegram: true });
+        await qq
+          .getByRole("button", { name: "清除QQ互联 APPKEY", exact: true })
+          .click();
+        await panel
+          .getByRole("button", { name: "保存QQ互联 APPKEY", exact: true })
+          .click();
+        await expect(qq.getByText("未配置", { exact: true })).toBeVisible();
+        await expect(
+          telegram.getByText("已配置", { exact: true }),
+        ).toBeVisible();
+        const cleared = await fixture.call(
+          "admin",
+          "/settings/oauth-credentials",
+        );
+        expect(cleared).toMatchObject({ qq_set: false, telegram_set: true });
+        expect(cleared.fingerprint).not.toBe(initial.fingerprint);
+        expect(JSON.stringify(cleared)).not.toContain("synthetic-legacy-");
+        expect(await options()).toMatchObject({ qq: false, telegram: true });
+        const stopped = await page.request.get(
+          "/console/v1/public/connect/qq/start",
+          {
+            maxRedirects: 0,
+          },
+        );
+        expect(stopped.status()).toBe(503);
+        expect(stopped.headers()["location"]).toBeUndefined();
+        expect(stopped.headers()["set-cookie"]).toBeUndefined();
+        await page.reload();
+        await expect(qq.getByText("未配置", { exact: true })).toBeVisible();
+        await expect(
+          telegram.getByText("已配置", { exact: true }),
+        ).toBeVisible();
+        expect(
+          await fixture.call("admin", "/settings/oauth-credentials"),
+        ).toEqual(cleared);
+        expect(await options()).toMatchObject({ qq: false, telegram: true });
+      }
       await seed("blockname", "synthetic-block228");
       await seed("user_deposit_min", "12.34");
       await seed("wxnotice_tpl_order_no", "thing1");

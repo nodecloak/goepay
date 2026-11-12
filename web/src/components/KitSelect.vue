@@ -67,6 +67,7 @@ function open() {
   });
 }
 function choose(value: string) {
+  if (props.disabled) return;
   emit("update:modelValue", value);
   emit("change", value);
   close(true);
@@ -98,6 +99,12 @@ watch(opened, (value) => {
   if (value) document.addEventListener("pointerdown", outside);
   else document.removeEventListener("pointerdown", outside);
 });
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (disabled) close();
+  },
+);
 onBeforeUnmount(() => document.removeEventListener("pointerdown", outside));
 </script>
 <template>

@@ -74,8 +74,7 @@ func (g ProviderFlow) SubmitPreauthorization(ctx context.Context, tradeNo string
 	result, e := p.Freeze(ctx, request)
 	if e != nil {
 		state := "unknown"
-		var rejection *provider.ProviderError
-		if errors.As(e, &rejection) && definiteProviderRejection(rejection) {
+		if definiteAuthenticatedPreauthorizationRejection(e, g.Providers[channelID], "alipay.fund.auth.order.voucher.create") {
 			state = "failed"
 		}
 		save := g.Store.RecordProviderAttemptResult(ctx, a.ID, state, "", "", "")

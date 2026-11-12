@@ -131,7 +131,7 @@ func TestChannelSharingRelationReferencesFailedBindDoesNotReserveAnotherOwnersDr
 		t.Fatal(e)
 	}
 	original := g.Providers[7].(*adapter.WechatV3)
-	g.Providers[7] = &sharingReceiverErrorProvider{WechatV3: original, failure: &adapter.ProviderError{Code: "NO_AUTH"}}
+	g.Providers[7] = &sharingReceiverErrorProvider{WechatV3: original, failure: authenticatedSharingBindRejection(t)}
 	if _, e = g.BindChannelSharingReceiver(ctx, 751, a.ID, "lease-bad-bind", channelSharingActor); e == nil {
 		t.Fatal("definite provider failure accepted")
 	}

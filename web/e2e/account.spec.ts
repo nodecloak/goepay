@@ -131,9 +131,11 @@ test("password confirmation blocks mismatched update then requires reauthenticat
   await page.getByRole("button", { name: "修改密码", exact: true }).click();
   await expect(page.getByRole("button", { name: "登录工作台" })).toBeVisible();
   await expect(page).toHaveURL(/\/merchant\/login\?.*reauth=password/);
-  await expect(page.getByRole("status")).toHaveText(
-    "请使用当前有效密码重新登录",
-  );
+  await expect(
+    page.getByRole("status").filter({
+      hasText: /^\s*请使用当前有效密码重新登录\s*$/,
+    }),
+  ).toHaveText("请使用当前有效密码重新登录");
   expect(changes).toBe(1);
 });
 

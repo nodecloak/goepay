@@ -157,8 +157,6 @@ internal/payment/buyer_charge190_legacy_schema.go
 internal/payment/buyer_charge190_legacy_schema_test.go
 internal/payment/channel168_history_encoding_test.go
 internal/payment/combine207_e2e_test.go
-internal/payment/combine_refund207.go
-internal/payment/combine_refund207_test.go
 internal/payment/combine_split207.go
 internal/payment/combine_split207_test.go
 internal/payment/combine_suborders207.go
@@ -253,7 +251,6 @@ internal/server/account_events201_test.go
 internal/server/account_profile198_test.go
 internal/server/admin_internal_transfer165_test.go
 internal/server/admin_login_name245.go
-internal/server/admin_login_name245_test.go
 internal/server/alipay_browser239_actual_test.go
 internal/server/alipay_browser_checkout239.go
 internal/server/alipay_browser_checkout239_test.go
@@ -293,7 +290,6 @@ internal/server/channel168c_settlement_test.go
 internal/server/channel168c_success_test.go
 internal/server/combined_orders204.go
 internal/server/combined_orders204_test.go
-internal/server/connect_login134.go
 internal/server/connect_login134_test.go
 internal/server/default_payment_channels236.go
 internal/server/default_payment_channels236_test.go
@@ -339,7 +335,6 @@ internal/server/notice_accounts231_test.go
 internal/server/notice_templates230.go
 internal/server/notice_templates230_json_test.go
 internal/server/notice_templates230_test.go
-internal/server/notification_return200.go
 internal/server/notification_return200_browser_url_test.go
 internal/server/notification_return200_merchant_test.go
 internal/server/notification_return200_test.go
