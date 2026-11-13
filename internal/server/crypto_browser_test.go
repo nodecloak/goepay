@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"goepay/internal/cryptopay"
 )
 
@@ -21,7 +22,19 @@ func TestCryptoActualBrowserConsoleCheckoutAndPolling(t *testing.T) {
 	}
 	f := email197Local(t)
 	f.s.Sandbox = true
-	f.s.Crypto = &cryptopay.Service{Pool: f.p, TokenKey: make([]byte, 32), Networks: map[string]cryptopay.NetworkConfig{"tron": {Enabled: true, FeeBPS: 50}, "ethereum": {Enabled: true, FeeBPS: 80}}}
+	f.s.Crypto = &cryptopay.Service{Pool: f.p, RequireChannels: true, TokenKey: make([]byte, 32), Networks: map[string]cryptopay.NetworkConfig{"tron": {Enabled: true, FeeBPS: 50}, "ethereum": {Enabled: true, FeeBPS: 80}}}
+	if _, err := f.p.Exec(t.Context(), `INSERT INTO backoffice_records(resource,body) VALUES('pay-types','{"type":"usdt","enabled":true}')`); err != nil {
+		t.Fatal(err)
+	}
+	ctxProof := cryptopay.WithAuthority(t.Context(), func(context.Context, pgx.Tx) error { return nil })
+	for _, c := range []struct {
+		network, key string
+		fee          int64
+	}{{"tron", "a", 50}, {"ethereum", "b", 80}} {
+		if _, err := f.s.Crypto.SaveChannel(ctxProof, cryptopay.SaveChannelInput{ActorID: 168, RequestID: strings.Repeat(c.key, 32), Name: "USDT " + c.network, Network: c.network, Enabled: true, FeeBPS: c.fee, MinAmount: "0", MaxAmount: "0", DayLimit: "0", MerchantIDs: []int64{1}, ReservedIDs: []int64{7, 8}}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for network, addresses := range map[string][]string{"tron": {"TJRabPrwbZy45sbavfcjinPJC18kjpRTv8", "TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE"}, "ethereum": {"0x1111111111111111111111111111111111111111", "0x2222222222222222222222222222222222222222"}} {
 		for _, address := range addresses {
 			if e := f.s.Crypto.AddAddress(t.Context(), network, address, "deposit"); e != nil {
@@ -95,7 +108,11 @@ func TestCryptoActualBrowserConsoleCheckoutAndPolling(t *testing.T) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "node", filepath.Join(root, "web", "e2e", "crypto-local-browser.mjs"))
 	cmd.Dir = filepath.Join(root, "web")
-	cmd.Env = append(os.Environ(), "CRYPTO_BROWSER_ORIGIN="+api.URL, "CRYPTO_BROWSER_SESSION="+f.token, "CRYPTO_BROWSER_EVIDENCE="+filepath.Join(root, ".tools", "usdt", "browser"))
+	evidence := os.Getenv("GOEPAY_CRYPTO_BROWSER_EVIDENCE")
+	if evidence == "" {
+		evidence = filepath.Join(root, ".tools", "usdt", "browser")
+	}
+	cmd.Env = append(os.Environ(), "CRYPTO_BROWSER_ORIGIN="+api.URL, "CRYPTO_BROWSER_SESSION="+f.token, "CRYPTO_BROWSER_EVIDENCE="+evidence)
 	if out, e := cmd.CombinedOutput(); e != nil {
 		t.Fatalf("local crypto browser: %v\n%s", e, out)
 	}

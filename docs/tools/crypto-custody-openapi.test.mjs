@@ -7,12 +7,13 @@ const ref=name=>({$ref:`#/components/schemas/${name}`});
 const content=schema=>({'application/json':{schema}});
 const paths={'/existing':{get:{operationId:'preserved',parameters:[]}}};
 const schemas={Envelope:object({code:{type:'integer'},message:str(),data:{}},['code','message','data']),Existing:object({value:str()})};
+schemas.RuntimeParentChannel={oneOf:[ref('Existing')]};
 const before=structuredClone({paths,schemas});
 installCryptoCustodyAPI({paths,schemas,object,str,ref,content});
 
 for(const role of ['admin','merchant']){
   const base=`/console/v1/${role}/crypto`;
-  for(const route of ['/config','/balances','/invoices','/invoices/{invoice_id}','/withdrawals','/withdrawals/by-request','/recipients'])assert.ok(paths[base+route]?.get,`missing GET ${base+route}`);
+  for(const route of ['/config','/channels','/balances','/invoices','/invoices/{invoice_id}','/withdrawals','/withdrawals/by-request','/recipients'])assert.ok(paths[base+route]?.get,`missing GET ${base+route}`);
   for(const route of ['/invoices','/withdrawals','/refunds','/held-refunds','/recipients','/withdrawals/{withdrawal_id}/cancel','/recipients/{recipient_id}/revoke'])assert.ok(paths[base+route]?.post,`missing POST ${base+route}`);
   for(const [route,methods] of Object.entries(paths).filter(([route])=>route.startsWith(base)))for(const [method,op] of Object.entries(methods)){
     assert.deepEqual(op.security,[{[role==='admin'?'AdminSession':'MerchantSession']:[]}]);
@@ -44,6 +45,22 @@ for(const name of ['CryptoWithdrawalInput','CryptoRefundInput','CryptoRecipientI
   assert.equal(schemas[name].properties.current_password.writeOnly,true);
 }
 assert.equal(schemas.CryptoInvoiceInput.required.includes('current_password'),false);
+assert.equal(schemas.CryptoInvoiceInput.properties.channel_id.$ref,'#/components/schemas/CryptoChannelID');
+for(const field of ['channel_id','channel_revision','fee_bps','fee_source','channel_snapshot'])assert.ok(schemas.CryptoInvoiceView.required.includes(field),field);
+for(const route of ['/console/v1/admin/payment-channels/crypto','/console/v1/admin/payment-channels/crypto/{channel_id}']){
+  assert.ok(paths[route]?.get);
+  for(const method of ['post','patch'])if(paths[route][method]){
+    assert.deepEqual(paths[route][method].security,[{AdminSession:[]}]);
+    assert.ok(paths[route][method].parameters.some(p=>p.name==='X-CSRF-Token'&&p.required));
+  }
+}
+assert.equal(paths['/console/v1/merchant/payment-channels/crypto'],undefined);
+assert.equal(schemas.CryptoChannelChoice.properties.merchant_ids,undefined);
+assert.ok(schemas.CryptoChannelView.required.includes('runtime_enabled'));
+assert.ok(schemas.CryptoChannelCreate.required.includes('request_id'));
+assert.ok(schemas.CryptoChannelPatch.required.includes('expected_revision'));
+assert.equal(schemas.CryptoChannelPatch.properties.private_key,undefined);
+assert.deepEqual(schemas.RuntimeParentChannel.oneOf,[ref('Existing'),ref('CryptoChannelView')]);
 assert.equal(schemas.CryptoConfigView.properties.configured?.type,'boolean');
 assert.ok(schemas.CryptoConfigView.required.includes('configured'));
 for(const role of ['admin','merchant']){

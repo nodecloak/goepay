@@ -11,6 +11,7 @@ import (
 	"goepay/internal/payment"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -42,7 +43,23 @@ func (s *Server) backoffice(w http.ResponseWriter, r *http.Request, role string,
 		return role == "merchant" || role == "admin" && adminRequestAllowed(session.User, []string{"admin", "workflows", "settlement-recipient"})
 	}
 	service.SettlementConfirmURLs = s.transferConfirmURLs
-	service.GroupRoutingChannels = s.groupPaymentChannels
+	service.GroupRoutingChannels = func() ([]backoffice.GroupPaymentChannel, error) {
+		items, err := s.groupPaymentChannels()
+		if err != nil {
+			return nil, err
+		}
+		rows, err := s.cryptoChannelList(r.Context())
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			if row.Archived {
+				continue
+			}
+			items = append(items, backoffice.GroupPaymentChannel{ID: strconv.FormatInt(row.ID, 10), Type: "usdt", Methods: []string{"native"}})
+		}
+		return items, nil
+	}
 	service.GroupChannelAllowed = func(id int64, kind string) bool {
 		return s.ProviderFlow != nil && s.ProviderFlow.Providers[id] != nil && s.ProviderFlow.Providers[id].ID() == kind && len(s.ProviderFlow.Providers[id].Capabilities().Methods) > 0
 	}

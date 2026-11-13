@@ -28,7 +28,7 @@ func TestDefaultPayment236SimulationReplayAndCashierKeepOriginalOperation(t *tes
 	in := cashierIntent{MerchantID: 1, OutTradeNo: no, Name: "synthetic item168", Money: "1.00", NotifyURL: "https://merchant.example.invalid/notify", ReturnURL: "https://merchant.example.invalid/return", ClientIP: "192.0.2.1", Version: "v1"}
 	r := httptest.NewRequest("POST", "/cashier", strings.NewReader(url.Values{"type": {"alipay"}}.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	types, e := f.s.cashierIntentTypes236(r, in)
+	types, e := f.s.cashierIntentTypes(r, in)
 	if e != nil || len(types) != 1 || types[0].Name != "alipay" {
 		t.Fatal("cashier original type was gated by current defaults", types, e)
 	}

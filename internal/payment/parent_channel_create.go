@@ -153,6 +153,18 @@ func (s *Store) CreateParentChannel(ctx context.Context, actor ParentChannelActo
 	if stored > highest {
 		highest = stored
 	}
+	var cryptoSchema bool
+	if e = tx.QueryRow(ctx, `SELECT to_regclass('crypto_channels') IS NOT NULL`).Scan(&cryptoSchema); e != nil {
+		return out, e
+	}
+	if cryptoSchema {
+		if e = tx.QueryRow(ctx, `SELECT COALESCE(max(id),0) FROM crypto_channels`).Scan(&stored); e != nil {
+			return out, e
+		}
+		if stored > highest {
+			highest = stored
+		}
+	}
 	if e = tx.QueryRow(ctx, `SELECT last_value,is_called FROM runtime_parent_channel_ids`).Scan(&last, &called); e != nil {
 		return out, e
 	}

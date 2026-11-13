@@ -146,6 +146,7 @@ export function readParentChannel(raw: unknown): ParentChannel {
     !id(v.id) ||
     !text(v.name, 120) ||
     !catalogPayType(v.pay_type) ||
+    v.pay_type === "usdt" ||
     !pluginName(v.plugin) ||
     typeof v.configured !== "boolean"
   )

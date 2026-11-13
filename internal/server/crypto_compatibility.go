@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"goepay/internal/backoffice"
 	"goepay/internal/compat"
 	"goepay/internal/cryptopay"
 	"goepay/internal/ledger"
@@ -83,7 +84,8 @@ func (s *Server) cryptoCompatibilityCreate(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	cents, e := ledger.Parse(p["money"])
-	if e != nil || cents <= 0 || p["out_trade_no"] == "" || !outTradeNoPattern.MatchString(p["out_trade_no"]) || p["method"] != "" && p["method"] != "jump" && p["method"] != "native" {
+	channelID, channelError := cryptoChannelID(p["channel_id"])
+	if e != nil || channelError != nil || p["subchannel_id"] != "" || cents <= 0 || p["out_trade_no"] == "" || !outTradeNoPattern.MatchString(p["out_trade_no"]) || p["method"] != "" && p["method"] != "jump" && p["method"] != "native" {
 		s.wire(w, legacy, nil, "invalid USDT payment request")
 		return
 	}
@@ -96,7 +98,7 @@ func (s *Server) cryptoCompatibilityCreate(w http.ResponseWriter, r *http.Reques
 		if name == "" {
 			name = "product"
 		}
-		if previous.CNYAmount != cents || previous.Network != network || previous.Name != name || previous.Param != p["param"] || previous.NotifyURL != p["notify_url"] || previous.ReturnURL != p["return_url"] || previous.Version != wireVersion(legacy) {
+		if channelID != 0 && previous.ChannelID != channelID || previous.CNYAmount != cents || previous.Network != network || previous.Name != name || previous.Param != p["param"] || previous.NotifyURL != p["notify_url"] || previous.ReturnURL != p["return_url"] || previous.Version != wireVersion(legacy) {
 			s.wire(w, legacy, nil, "USDT request conflicts with the original order")
 			return
 		}
@@ -109,7 +111,7 @@ func (s *Server) cryptoCompatibilityCreate(w http.ResponseWriter, r *http.Reques
 	}
 	amount, quoteError := CryptoQuoteCNY(cents, s.CryptoCNYPerUSDT)
 	network := p["network"]
-	if network == "" {
+	if network == "" && channelID == 0 && !s.Crypto.RequireChannels {
 		network = s.CryptoDefaultNetwork
 	}
 	if quoteError != nil {
@@ -128,8 +130,17 @@ func (s *Server) cryptoCompatibilityCreate(w http.ResponseWriter, r *http.Reques
 		}
 		return nil
 	})
-	invoice, e := s.Crypto.CreateInvoice(ctx, cryptopay.CreateInvoiceInput{MerchantID: merchant.ID, OutTradeNo: p["out_trade_no"], Network: network, Amount: amount, CNYAmount: cents, NotifyURL: p["notify_url"], ReturnURL: p["return_url"], Name: p["name"], Param: p["param"], Version: wireVersion(legacy), ExpiresIn: 15 * time.Minute})
+	ctx = s.cryptoPaymentContext(ctx, r, merchant.ID, p["name"], p["notify_url"], p["return_url"], p["clientip"], p["sub_openid"])
+	invoice, e := s.Crypto.CreateInvoice(ctx, cryptopay.CreateInvoiceInput{QuoteRate: s.CryptoCNYPerUSDT, ChannelID: channelID, MerchantID: merchant.ID, OutTradeNo: p["out_trade_no"], Network: network, Amount: amount, CNYAmount: cents, NotifyURL: p["notify_url"], ReturnURL: p["return_url"], Name: p["name"], Param: p["param"], Version: wireVersion(legacy), ExpiresIn: 15 * time.Minute})
 	if e != nil {
+		if errors.Is(e, errCryptoVerificationRequired) {
+			s.wire(w, legacy, nil, errCryptoVerificationRequired.Error())
+			return
+		}
+		if errors.Is(e, backoffice.ErrForbidden) {
+			s.wire(w, legacy, nil, paymentPolicyMessage(e))
+			return
+		}
 		s.wire(w, legacy, nil, "USDT invoice could not be created; query the original order before retrying")
 		return
 	}
@@ -138,11 +149,11 @@ func (s *Server) cryptoCompatibilityCreate(w http.ResponseWriter, r *http.Reques
 
 func (s *Server) cryptoCompatibilityPayment(w http.ResponseWriter, r *http.Request, legacy bool, invoice cryptopay.Invoice, route, origin string) {
 	checkout := origin + "/crypto/checkout/" + url.PathEscape(invoice.ID) + "?" + url.Values{"token": {invoice.CheckoutToken}}.Encode()
-	if route == "/api/pay/submit" {
+	if route == "/api/pay/submit" || route == "/cashier" {
 		http.Redirect(w, r, checkout, http.StatusFound)
 		return
 	}
-	data := map[string]any{"trade_no": "USDT" + invoice.ID, "out_trade_no": invoice.OutTradeNo, "type": "usdt", "network": invoice.Network, "usdt_amount": invoice.Amount, "money": ledger.Format(invoice.CNYAmount), "pay_type": "jump", "pay_info": checkout, "url": checkout}
+	data := map[string]any{"trade_no": "USDT" + invoice.ID, "out_trade_no": invoice.OutTradeNo, "type": "usdt", "channel_id": strconv.FormatInt(invoice.ChannelID, 10), "network": invoice.Network, "usdt_amount": invoice.Amount, "money": ledger.Format(invoice.CNYAmount), "pay_type": "jump", "pay_info": checkout, "url": checkout}
 	if legacy {
 		data["payurl"] = checkout
 	}

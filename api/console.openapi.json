@@ -35026,7 +35026,7 @@
     "/console/v1/admin/payment-channels": {
       "get": {
         "operationId": "runtimeParentChannels",
-        "summary": "分页读取真实父通道目录及原字段",
+        "summary": "分页读取支付通道（人民币与USDT）",
         "security": [
           {
             "AdminSession": []
@@ -35052,7 +35052,8 @@
               "enum": [
                 "",
                 "alipay",
-                "wxpay"
+                "wxpay",
+                "usdt"
               ]
             }
           },
@@ -35064,7 +35065,9 @@
               "enum": [
                 "",
                 "alipay",
-                "wxpay"
+                "wxpay",
+                "usdt_tron",
+                "usdt_ethereum"
               ]
             }
           },
@@ -46674,6 +46677,760 @@
         }
       }
     },
+    "/console/v1/admin/payment-channels/crypto": {
+      "get": {
+        "operationId": "crypto_channel_get_catalog",
+        "tags": [
+          "crypto-custody"
+        ],
+        "summary": "读取统一USDT通道配置",
+        "description": "仅本人super；与普通支付通道共享编号。网络创建后不可修改，限额单位为USDT，0表示不设该限额；fee_bps为扣费比例。修改必须带原expected_revision和完整字段。关闭或归档只影响新收款，不重写历史订单。部署未启用USDT时仍可管理配置，但不会启用主网、签名或广播。",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "配置读取或写入成功；不表示主网运行已启用。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CryptoChannelView"
+                          }
+                        }
+                      },
+                      "required": [
+                        "items"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON格式、字段类型或未知/重复字段无效；merchant_id必须为字符串。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "本角色登录会话无效。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF、角色、商户归属或原始本人会话校验失败；admin仅本人super，写入拒绝委派/代登录/撤销/禁用/过期会话。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "记录不存在、已无权查看或该角色没有此路由。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "原请求参数或状态冲突、收款地址未批准/冷静期未结束、已有活跃归集或已签/未知交易不可直接取消。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "金额、网络、地址、当前密码无效/未设置，或USDT可用资金不足。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "本人密码校验来源/账号预算或并发预算耗尽。",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "crypto_channel_post_catalog",
+        "tags": [
+          "crypto-custody"
+        ],
+        "summary": "创建统一USDT支付通道",
+        "description": "仅本人super；与普通支付通道共享编号。网络创建后不可修改，限额单位为USDT，0表示不设该限额；fee_bps为扣费比例。修改必须带原expected_revision和完整字段。关闭或归档只影响新收款，不重写历史订单。部署未启用USDT时仍可管理配置，但不会启用主网、签名或广播。",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "当前本角色会话返回的csrf_token。所有console写入必需。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CryptoChannelCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "配置读取或写入成功；不表示主网运行已启用。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CryptoChannelView"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON格式、字段类型或未知/重复字段无效；merchant_id必须为字符串。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "本角色登录会话无效。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF、角色、商户归属或原始本人会话校验失败；admin仅本人super，写入拒绝委派/代登录/撤销/禁用/过期会话。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "记录不存在、已无权查看或该角色没有此路由。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "原请求参数或状态冲突、收款地址未批准/冷静期未结束、已有活跃归集或已签/未知交易不可直接取消。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "金额、网络、地址、当前密码无效/未设置，或USDT可用资金不足。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "本人密码校验来源/账号预算或并发预算耗尽。",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/v1/admin/payment-channels/crypto/{channel_id}": {
+      "get": {
+        "operationId": "crypto_channel_get_detail",
+        "tags": [
+          "crypto-custody"
+        ],
+        "summary": "读取统一USDT通道配置",
+        "description": "仅本人super；与普通支付通道共享编号。网络创建后不可修改，限额单位为USDT，0表示不设该限额；fee_bps为扣费比例。修改必须带原expected_revision和完整字段。关闭或归档只影响新收款，不重写历史订单。部署未启用USDT时仍可管理配置，但不会启用主网、签名或广播。",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "channel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CryptoChannelID"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "配置读取或写入成功；不表示主网运行已启用。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CryptoChannelView"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON格式、字段类型或未知/重复字段无效；merchant_id必须为字符串。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "本角色登录会话无效。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF、角色、商户归属或原始本人会话校验失败；admin仅本人super，写入拒绝委派/代登录/撤销/禁用/过期会话。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "记录不存在、已无权查看或该角色没有此路由。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "原请求参数或状态冲突、收款地址未批准/冷静期未结束、已有活跃归集或已签/未知交易不可直接取消。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "金额、网络、地址、当前密码无效/未设置，或USDT可用资金不足。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "本人密码校验来源/账号预算或并发预算耗尽。",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "crypto_channel_patch_detail",
+        "tags": [
+          "crypto-custody"
+        ],
+        "summary": "修改USDT通道配置与商户授权",
+        "description": "仅本人super；与普通支付通道共享编号。网络创建后不可修改，限额单位为USDT，0表示不设该限额；fee_bps为扣费比例。修改必须带原expected_revision和完整字段。关闭或归档只影响新收款，不重写历史订单。部署未启用USDT时仍可管理配置，但不会启用主网、签名或广播。",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "channel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CryptoChannelID"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "当前本角色会话返回的csrf_token。所有console写入必需。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CryptoChannelPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "配置读取或写入成功；不表示主网运行已启用。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CryptoChannelView"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON格式、字段类型或未知/重复字段无效；merchant_id必须为字符串。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "本角色登录会话无效。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF、角色、商户归属或原始本人会话校验失败；admin仅本人super，写入拒绝委派/代登录/撤销/禁用/过期会话。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "记录不存在、已无权查看或该角色没有此路由。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "原请求参数或状态冲突、收款地址未批准/冷静期未结束、已有活跃归集或已签/未知交易不可直接取消。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "金额、网络、地址、当前密码无效/未设置，或USDT可用资金不足。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "本人密码校验来源/账号预算或并发预算耗尽。",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/v1/admin/crypto/channels": {
+      "get": {
+        "operationId": "crypto_admin_get_channels",
+        "tags": [
+          "crypto-custody"
+        ],
+        "summary": "读取商户当前获准使用的USDT通道",
+        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 只列可用于新收款的通道；fee_bps已应用该商户有效用户组费率。部署或支付方式关闭时返回空列表。管理员未指定商户时也返回空列表，不展示所有商户授权。响应不含merchant_ids、私钥或RPC。",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/CryptoMerchantID"
+            },
+            "description": "省略可读取全部商户记录；显式ID只读取该商户。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "no-store；本地申请/审批/取消登记成功不等于链上资金已发送、已取消或已到账。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CryptoChannelChoice"
+                          }
+                        }
+                      },
+                      "required": [
+                        "items"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON格式、字段类型或未知/重复字段无效；merchant_id必须为字符串。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "本角色登录会话无效。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF、角色、商户归属或原始本人会话校验失败；admin仅本人super，写入拒绝委派/代登录/撤销/禁用/过期会话。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "记录不存在、已无权查看或该角色没有此路由。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "原请求参数或状态冲突、收款地址未批准/冷静期未结束、已有活跃归集或已签/未知交易不可直接取消。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "金额、网络、地址、当前密码无效/未设置，或USDT可用资金不足。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "本人密码校验来源/账号预算或并发预算耗尽。",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/console/v1/admin/crypto/config": {
       "get": {
         "operationId": "crypto_admin_get_config",
@@ -46681,7 +47438,7 @@
           "crypto-custody"
         ],
         "summary": "读取USDT配置、网络启用与模拟标记",
-        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 只读能力摘要。没有私钥、RPC凭据、热钱包或签名白名单写入接口；configured=false表示服务尚未配置，其它USDT操作返回503。configured=true且enabled=false表示网络均关闭，仍可按原权限读取历史记录；关闭态不证明历史记录为空，也不授予新的资金操作权限。",
+        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 只读能力摘要。没有私钥、RPC凭据、热钱包或签名白名单写入接口；configured=false表示服务尚未配置，资金及历史查询返回503、channels返回空数组；管理员通道配置仍可管理。configured=true且enabled=false表示网络均关闭，仍可按原权限读取历史记录；关闭态不证明历史记录为空，也不授予新的资金操作权限。",
         "security": [
           {
             "AdminSession": []
@@ -46960,7 +47717,7 @@
           "crypto-custody"
         ],
         "summary": "读取USDT收款单列表",
-        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 最多最新200条；列表不返回checkout_url或token。状态来自最终链上收款证据；少付、超付和迟到款不会被自动改成可用余额。",
+        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 最多最新200条；可按原通道筛选。列表不返回checkout_url或token。状态来自最终链上收款证据；少付、超付和迟到款不会被自动改成可用余额。",
         "security": [
           {
             "AdminSession": []
@@ -46975,6 +47732,14 @@
               "$ref": "#/components/schemas/CryptoMerchantID"
             },
             "description": "省略可读取全部商户记录；显式ID只读取该商户。"
+          },
+          {
+            "name": "channel_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/CryptoChannelID"
+            }
           }
         ],
         "responses": {
@@ -47105,7 +47870,7 @@
           "crypto-custody"
         ],
         "summary": "创建原生USDT收款单",
-        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 amount是USDT数量，最多6位小数；固定15分钟有效期。此动作无需current_password。相同商户out_trade_no和相同原请求返回原单，修改原网络/金额/URL冲突；与人民币订单共享外部单号命名空间。写入不代表已付款。",
+        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 amount是USDT数量，最多6位小数；固定15分钟有效期。可明确channel_id及network，网络只能限制选择，不能覆盖通道固定网络；省略时按商户授权和有效组策略选择。所有新单检查支付方式、通道启停、授权、组规则及USDT限额。固定通道、网络、报价和费用快照。此动作无需current_password。相同商户out_trade_no和相同原请求返回原单，修改原通道/网络/金额/URL冲突；与人民币订单共享外部单号命名空间。写入不代表已付款。",
         "security": [
           {
             "AdminSession": []
@@ -48921,6 +49686,161 @@
         }
       }
     },
+    "/console/v1/merchant/crypto/channels": {
+      "get": {
+        "operationId": "crypto_merchant_get_channels",
+        "tags": [
+          "crypto-custody"
+        ],
+        "summary": "读取商户当前获准使用的USDT通道",
+        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 只列可用于新收款的通道；fee_bps已应用该商户有效用户组费率。部署或支付方式关闭时返回空列表。管理员未指定商户时也返回空列表，不展示所有商户授权。响应不含merchant_ids、私钥或RPC。",
+        "security": [
+          {
+            "MerchantSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/CryptoMerchantID"
+            },
+            "description": "省略取当前本人；显式提供只能为本人完整字符串ID。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "no-store；本地申请/审批/取消登记成功不等于链上资金已发送、已取消或已到账。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CryptoChannelChoice"
+                          }
+                        }
+                      },
+                      "required": [
+                        "items"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON格式、字段类型或未知/重复字段无效；merchant_id必须为字符串。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "本角色登录会话无效。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF、角色、商户归属或原始本人会话校验失败；admin仅本人super，写入拒绝委派/代登录/撤销/禁用/过期会话。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "记录不存在、已无权查看或该角色没有此路由。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "原请求参数或状态冲突、收款地址未批准/冷静期未结束、已有活跃归集或已签/未知交易不可直接取消。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "金额、网络、地址、当前密码无效/未设置，或USDT可用资金不足。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "本人密码校验来源/账号预算或并发预算耗尽。",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/console/v1/merchant/crypto/config": {
       "get": {
         "operationId": "crypto_merchant_get_config",
@@ -48928,7 +49848,7 @@
           "crypto-custody"
         ],
         "summary": "读取USDT配置、网络启用与模拟标记",
-        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 只读能力摘要。没有私钥、RPC凭据、热钱包或签名白名单写入接口；configured=false表示服务尚未配置，其它USDT操作返回503。configured=true且enabled=false表示网络均关闭，仍可按原权限读取历史记录；关闭态不证明历史记录为空，也不授予新的资金操作权限。",
+        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 只读能力摘要。没有私钥、RPC凭据、热钱包或签名白名单写入接口；configured=false表示服务尚未配置，资金及历史查询返回503、channels返回空数组；管理员通道配置仍可管理。configured=true且enabled=false表示网络均关闭，仍可按原权限读取历史记录；关闭态不证明历史记录为空，也不授予新的资金操作权限。",
         "security": [
           {
             "MerchantSession": []
@@ -49207,7 +50127,7 @@
           "crypto-custody"
         ],
         "summary": "读取USDT收款单列表",
-        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 最多最新200条；列表不返回checkout_url或token。状态来自最终链上收款证据；少付、超付和迟到款不会被自动改成可用余额。",
+        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 最多最新200条；可按原通道筛选。列表不返回checkout_url或token。状态来自最终链上收款证据；少付、超付和迟到款不会被自动改成可用余额。",
         "security": [
           {
             "MerchantSession": []
@@ -49222,6 +50142,14 @@
               "$ref": "#/components/schemas/CryptoMerchantID"
             },
             "description": "省略取当前本人；显式提供只能为本人完整字符串ID。"
+          },
+          {
+            "name": "channel_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/CryptoChannelID"
+            }
           }
         ],
         "responses": {
@@ -49352,7 +50280,7 @@
           "crypto-custody"
         ],
         "summary": "创建原生USDT收款单",
-        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 amount是USDT数量，最多6位小数；固定15分钟有效期。此动作无需current_password。相同商户out_trade_no和相同原请求返回原单，修改原网络/金额/URL冲突；与人民币订单共享外部单号命名空间。写入不代表已付款。",
+        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 amount是USDT数量，最多6位小数；固定15分钟有效期。可明确channel_id及network，网络只能限制选择，不能覆盖通道固定网络；省略时按商户授权和有效组策略选择。所有新单检查支付方式、通道启停、授权、组规则及USDT限额。固定通道、网络、报价和费用快照。此动作无需current_password。相同商户out_trade_no和相同原请求返回原单，修改原通道/网络/金额/URL冲突；与人民币订单共享外部单号命名空间。写入不代表已付款。",
         "security": [
           {
             "MerchantSession": []
@@ -59640,6 +60568,9 @@
           },
           {
             "$ref": "#/components/schemas/RuntimeParentChannelRegistered"
+          },
+          {
+            "$ref": "#/components/schemas/CryptoChannelView"
           }
         ]
       },
@@ -65349,11 +66280,13 @@
             "type": "string",
             "description": "可省略或空；非空须HTTPS。",
             "maxLength": 2048
+          },
+          "channel_id": {
+            "$ref": "#/components/schemas/CryptoChannelID"
           }
         },
         "required": [
           "out_trade_no",
-          "network",
           "amount"
         ],
         "additionalProperties": false
@@ -65586,6 +66519,12 @@
         ],
         "additionalProperties": false
       },
+      "CryptoChannelID": {
+        "type": "string",
+        "description": "统一支付通道的完整正int64字符串。不能使用目录资料ID或客户端自定义网络代替。",
+        "pattern": "^[1-9][0-9]*$",
+        "maxLength": 19
+      },
       "CryptoInvoiceView": {
         "type": "object",
         "properties": {
@@ -65652,6 +66591,37 @@
               "v1",
               "v2"
             ]
+          },
+          "channel_id": {
+            "type": "string",
+            "description": "完整非负int64字符串；0表示历史订单没有统一通道快照。",
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "maxLength": 19
+          },
+          "channel_revision": {
+            "type": "string",
+            "description": "完整非负int64字符串；0表示历史订单没有统一通道快照。",
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "maxLength": 19
+          },
+          "fee_bps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "fee_source": {
+            "type": "string",
+            "description": "已冻结的费用来源；legacy_network表示接入统一通道之前的历史记录。",
+            "enum": [
+              "legacy_network",
+              "channel",
+              "group"
+            ]
+          },
+          "channel_snapshot": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "创建时冻结的公开通道与组规则快照。历史记录为空对象；不包含私钥或凭据。"
           }
         },
         "required": [
@@ -65670,7 +66640,12 @@
           "cny_amount",
           "name",
           "param",
-          "version"
+          "version",
+          "channel_id",
+          "channel_revision",
+          "fee_bps",
+          "fee_source",
+          "channel_snapshot"
         ],
         "additionalProperties": false
       },
@@ -65741,6 +66716,37 @@
               "v2"
             ]
           },
+          "channel_id": {
+            "type": "string",
+            "description": "完整非负int64字符串；0表示历史订单没有统一通道快照。",
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "maxLength": 19
+          },
+          "channel_revision": {
+            "type": "string",
+            "description": "完整非负int64字符串；0表示历史订单没有统一通道快照。",
+            "pattern": "^(0|[1-9][0-9]*)$",
+            "maxLength": 19
+          },
+          "fee_bps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "fee_source": {
+            "type": "string",
+            "description": "已冻结的费用来源；legacy_network表示接入统一通道之前的历史记录。",
+            "enum": [
+              "legacy_network",
+              "channel",
+              "group"
+            ]
+          },
+          "channel_snapshot": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "创建时冻结的公开通道与组规则快照。历史记录为空对象；不包含私钥或凭据。"
+          },
           "checkout_url": {
             "type": "string",
             "description": "本次有权调用者获得的相对公开收银台URL，包含敏感token能力；不写日志或浏览器持久存储。"
@@ -65763,6 +66769,11 @@
           "name",
           "param",
           "version",
+          "channel_id",
+          "channel_revision",
+          "fee_bps",
+          "fee_source",
+          "channel_snapshot",
           "checkout_url"
         ],
         "additionalProperties": false
@@ -65911,7 +66922,7 @@
         "properties": {
           "configured": {
             "type": "boolean",
-            "description": "USDT服务是否已配置。false时仅可读取此配置摘要，其它USDT操作返回503；true且enabled=false时仍可按原权限读取历史记录。"
+            "description": "USDT服务是否已配置。false时资金及历史查询返回503，channels返回空数组；管理员仍可管理通道配置；true且enabled=false时仍可按原权限读取历史记录。"
           },
           "enabled": {
             "type": "boolean",
@@ -66013,6 +67024,266 @@
           "amount",
           "received",
           "expires_at"
+        ],
+        "additionalProperties": false
+      },
+      "CryptoChannelChoice": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CryptoChannelID"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "network": {
+            "$ref": "#/components/schemas/CryptoNetwork"
+          },
+          "fee_bps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "min_amount": {
+            "$ref": "#/components/schemas/CryptoNonnegativeAmount"
+          },
+          "max_amount": {
+            "$ref": "#/components/schemas/CryptoNonnegativeAmount"
+          },
+          "day_limit": {
+            "$ref": "#/components/schemas/CryptoNonnegativeAmount"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "network",
+          "fee_bps",
+          "min_amount",
+          "max_amount",
+          "day_limit"
+        ],
+        "additionalProperties": false
+      },
+      "CryptoChannelView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CryptoChannelID"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "network": {
+            "$ref": "#/components/schemas/CryptoNetwork"
+          },
+          "fee_bps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "min_amount": {
+            "$ref": "#/components/schemas/CryptoNonnegativeAmount"
+          },
+          "max_amount": {
+            "$ref": "#/components/schemas/CryptoNonnegativeAmount"
+          },
+          "day_limit": {
+            "$ref": "#/components/schemas/CryptoNonnegativeAmount"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/CryptoChannelID"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "merchant_ids": {
+            "type": "array",
+            "maxItems": 1000,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CryptoMerchantID"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "pay_type": {
+            "type": "string",
+            "const": "usdt"
+          },
+          "plugin": {
+            "type": "string",
+            "enum": [
+              "usdt_tron",
+              "usdt_ethereum"
+            ]
+          },
+          "configured": {
+            "type": "boolean",
+            "const": true
+          },
+          "asset": {
+            "type": "string",
+            "const": "USDT"
+          },
+          "runtime_enabled": {
+            "type": "boolean",
+            "description": "部署侧当前网络是否启用。保存通道配置不能修改该值，也不能开启签名或广播。"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "network",
+          "fee_bps",
+          "min_amount",
+          "max_amount",
+          "day_limit",
+          "revision",
+          "enabled",
+          "archived",
+          "merchant_ids",
+          "created_at",
+          "updated_at",
+          "pay_type",
+          "plugin",
+          "configured",
+          "asset",
+          "runtime_enabled"
+        ],
+        "additionalProperties": false
+      },
+      "CryptoChannelPatch": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "network": {
+            "$ref": "#/components/schemas/CryptoNetwork"
+          },
+          "fee_bps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "min_amount": {
+            "$ref": "#/components/schemas/CryptoNonnegativeAmount"
+          },
+          "max_amount": {
+            "$ref": "#/components/schemas/CryptoNonnegativeAmount"
+          },
+          "day_limit": {
+            "$ref": "#/components/schemas/CryptoNonnegativeAmount"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "merchant_ids": {
+            "type": "array",
+            "maxItems": 1000,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CryptoMerchantID"
+            }
+          },
+          "expected_revision": {
+            "$ref": "#/components/schemas/CryptoChannelID"
+          }
+        },
+        "required": [
+          "name",
+          "network",
+          "fee_bps",
+          "min_amount",
+          "max_amount",
+          "day_limit",
+          "enabled",
+          "archived",
+          "merchant_ids",
+          "expected_revision"
+        ],
+        "additionalProperties": false
+      },
+      "CryptoChannelCreate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "network": {
+            "$ref": "#/components/schemas/CryptoNetwork"
+          },
+          "fee_bps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "min_amount": {
+            "$ref": "#/components/schemas/CryptoNonnegativeAmount"
+          },
+          "max_amount": {
+            "$ref": "#/components/schemas/CryptoNonnegativeAmount"
+          },
+          "day_limit": {
+            "$ref": "#/components/schemas/CryptoNonnegativeAmount"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "merchant_ids": {
+            "type": "array",
+            "maxItems": 1000,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/CryptoMerchantID"
+            }
+          },
+          "expected_revision": {
+            "type": "string",
+            "const": "0"
+          },
+          "request_id": {
+            "type": "string",
+            "description": "本管理员稳定创建请求号，丢失响应使用同号同参数恢复；不能自动换号重试。",
+            "pattern": "^[0-9a-f]{32}$"
+          }
+        },
+        "required": [
+          "name",
+          "network",
+          "fee_bps",
+          "min_amount",
+          "max_amount",
+          "day_limit",
+          "enabled",
+          "archived",
+          "merchant_ids",
+          "expected_revision",
+          "request_id"
         ],
         "additionalProperties": false
       }

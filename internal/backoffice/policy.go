@@ -153,10 +153,31 @@ func (e PaymentRefusedError) Unwrap() error { return ErrForbidden }
 // (Pay.php:81 forceqq, :103 blockname, :124 blackmsg). Each defaults off/empty
 // so today's behaviour is unchanged when nothing is configured.
 func (s *Service) CheckPayment(ctx context.Context, p PaymentContext) error {
+	return s.checkPayment(ctx, p, nil)
+}
+
+// CheckPaymentTx applies the same business restrictions within an existing
+// collection transaction. It never opens another connection while the caller
+// holds merchant/channel locks, and does not commit the caller's transaction.
+func (s *Service) CheckPaymentTx(ctx context.Context, tx pgx.Tx, p PaymentContext) error {
+	if tx == nil {
+		return ErrInvalid
+	}
+	return s.checkPayment(ctx, p, tx)
+}
+
+func (s *Service) checkPayment(ctx context.Context, p PaymentContext, tx pgx.Tx) error {
 	if p.MerchantID <= 0 {
 		return ErrInvalid
 	}
-	rows, e := s.pool.Query(ctx, "SELECT resource,body FROM backoffice_records WHERE (resource='blacklist' AND body->>'enabled'='true') OR (resource='merchant-risk' AND owner_id=$1 AND body->>'status' IN ('blocked','restricted')) OR (resource='settings' AND body->>'key' IN ('blackmsg','blockname','blockalert','forceqq'))", p.MerchantID)
+	query := "SELECT resource,body FROM backoffice_records WHERE (resource='blacklist' AND body->>'enabled'='true') OR (resource='merchant-risk' AND owner_id=$1 AND body->>'status' IN ('blocked','restricted')) OR (resource='settings' AND body->>'key' IN ('blackmsg','blockname','blockalert','forceqq'))"
+	var rows pgx.Rows
+	var e error
+	if tx == nil {
+		rows, e = s.pool.Query(ctx, query, p.MerchantID)
+	} else {
+		rows, e = tx.Query(ctx, query+" FOR SHARE", p.MerchantID)
+	}
 	if e != nil {
 		return e
 	}
@@ -210,20 +231,39 @@ func (s *Service) CheckPayment(ctx context.Context, p PaymentContext) error {
 		}
 	}
 	if denied == "" {
-		if e := s.checkPaymentDomains(ctx, p); errors.Is(e, merchantpolicy.ErrPaymentDomain) {
+		if e := s.checkPaymentDomainsTx(ctx, tx, p); errors.Is(e, merchantpolicy.ErrPaymentDomain) {
 			denied = "callback domain is not authorized"
 		} else if e != nil {
 			return e
 		}
 	}
 	if denied != "" {
-		s.recordRisk(ctx, p, denied)
+		if tx == nil {
+			s.recordRisk(ctx, p, denied)
+		}
 		if message != "" {
 			return PaymentRefusedError{Message: message}
 		}
 		return ErrForbidden
 	}
 	return nil
+}
+
+func (s *Service) checkPaymentDomainsTx(ctx context.Context, tx pgx.Tx, p PaymentContext) error {
+	if tx == nil {
+		return s.checkPaymentDomains(ctx, p)
+	}
+	if p.NotifyURL == "" && p.ReturnURL == "" {
+		return nil
+	}
+	policy, err := merchantpolicy.ReadPaymentDomainPolicy(ctx, tx, p.MerchantID, true)
+	if err != nil {
+		return err
+	}
+	if err = policy.CheckDeadline(ctx, tx); err != nil {
+		return err
+	}
+	return policy.CheckURLs(ctx, tx, p.MerchantID, true, p.NotifyURL, p.ReturnURL)
 }
 
 func (s *Service) checkPaymentDomains(ctx context.Context, p PaymentContext) error {

@@ -25,7 +25,7 @@ func TestCryptoConfigurationRequiresExplicitNetworksAndStableSeparatedKey(t *tes
 	if e != nil {
 		t.Fatal(e)
 	}
-	if a == nil || !a.Networks["tron"].Enabled || !a.Networks["ethereum"].Enabled || a.Networks["tron"].FeeBPS != 50 || len(a.TokenKey) != 32 || !bytes.Equal(a.TokenKey, b.TokenKey) || bytes.Equal(a.TokenKey, bytes.Repeat([]byte{1}, 32)) {
+	if a == nil || !a.RequireChannels || !a.Networks["tron"].Enabled || !a.Networks["ethereum"].Enabled || a.Networks["tron"].FeeBPS != 50 || len(a.TokenKey) != 32 || !bytes.Equal(a.TokenKey, b.TokenKey) || bytes.Equal(a.TokenKey, bytes.Repeat([]byte{1}, 32)) {
 		t.Fatal("unusable or unseparated USDT configuration")
 	}
 	for _, raw := range []string{`{"tron":{"enabled":true,"fee_bps":10001}}`, `{"bsc":{"enabled":true}}`, `{"tron":{"enabled":true,"private_key":"no"}}`, `{"tron":{"enabled":true}} {}`} {

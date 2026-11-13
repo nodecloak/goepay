@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	adapter "goepay/internal/adapters/payment"
+	"goepay/internal/cryptopay"
 	"goepay/internal/identity"
 	"goepay/internal/payment"
 	"net/http"
@@ -24,9 +25,23 @@ func (s *Server) paymentParentChannels(w http.ResponseWriter, r *http.Request, r
 		response(w, 403, -1, "original super administrator session required", nil)
 		return true
 	}
-	if s.Store == nil || s.ProviderFlow == nil {
+	if s.cryptoChannelConsole(w, r, session, parts, token) {
+		return true
+	}
+	if s.Store == nil {
 		response(w, 503, -1, "runtime parent channel registry unavailable", nil)
 		return true
+	}
+	if s.ProviderFlow == nil {
+		// A site can configure custody channels before loading CNY providers.
+		// Use an empty metadata view, never fabricate an executable provider.
+		if r.Method != "GET" || len(parts) > 3 {
+			response(w, 503, -1, "runtime parent channel registry unavailable", nil)
+			return true
+		}
+		copy := *s
+		copy.ProviderFlow = &payment.ProviderFlow{Store: s.Store}
+		s = &copy
 	}
 	if len(parts) == 4 && parts[3] == "subject" {
 		s.parentChannelSubject(w, r, session, token, parts[2])
@@ -149,6 +164,19 @@ func (s *Server) paymentParentChannels(w http.ResponseWriter, r *http.Request, r
 		}
 		records[row.ID] = row
 	}
+	cryptoRows, e := s.cryptoChannelList(s.cryptoChannelContext(r.Context(), session, token))
+	if e != nil {
+		cryptoChannelError(w, e)
+		return true
+	}
+	for _, row := range cryptoRows {
+		if _, exists := records[row.ID]; exists || s.ProviderFlow.Providers[row.ID] != nil || s.ProviderFlow.ParentFactories[row.ID] != nil {
+			cryptoChannelError(w, cryptopay.ErrConflict)
+			return true
+		}
+		ids = append(ids, row.ID)
+		records[row.ID] = s.cryptoChannelView(row)
+	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	items := make([]any, 0, len(ids))
 	for _, id := range ids {
@@ -207,12 +235,12 @@ func parentChannelFilters(raw string, force bool) (parentFilters, bool) {
 			}
 			f.kw = v[0]
 		case "type":
-			if v[0] != "" && !adapter.CatalogPayType(v[0]) {
+			if v[0] != "" && v[0] != "usdt" && !adapter.CatalogPayType(v[0]) {
 				return f, false
 			}
 			f.kind = v[0]
 		case "plugin":
-			if v[0] != "" && v[0] != "wxpay" && v[0] != "alipay" {
+			if v[0] != "" && v[0] != "wxpay" && v[0] != "alipay" && v[0] != "usdt_tron" && v[0] != "usdt_ethereum" {
 				if _, ok := adapter.LookupPlugin(v[0]); !ok {
 					return f, false
 				}
@@ -241,6 +269,12 @@ func parentChannelFilters(raw string, force bool) (parentFilters, bool) {
 }
 func parentChannelFilterValues(value any) (name, kind, plugin, status string, archived bool) {
 	switch row := value.(type) {
+	case cryptoChannelView:
+		name, kind, plugin, archived = row.Name, row.PayType, row.Plugin, row.Archived
+		status = "0"
+		if row.Enabled && row.RuntimeEnabled {
+			status = "1"
+		}
 	case payment.ParentChannelView:
 		name, kind, plugin, archived = row.Name, row.PayType, row.Plugin, row.Archived
 		status = "0"

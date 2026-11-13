@@ -11,7 +11,6 @@ import {
 import { ApiError, type ApiClient } from "../api";
 import {
   readParentChannel,
-  readParentChannelList,
   readParentTemplates,
   parentChannelPath,
   type ParentChannel,
@@ -42,8 +41,16 @@ import ParentWeixinBindings from "./ParentWeixinBindings.vue";
 import ParentWeixinBatch from "./ParentWeixinBatch.vue";
 import ParentChannelTestPayment from "./ParentChannelTestPayment.vue";
 import type { ParentWeixinDraft } from "../parent-channel-bindings";
+import {
+  isCryptoChannel,
+  readPaymentChannelList,
+  cryptoNetworkLabel,
+  type CryptoChannel,
+  type PaymentChannel,
+} from "../crypto-channels";
+import CryptoChannelEditor from "./CryptoChannelEditor.vue";
 const props = defineProps<{ client: ApiClient; allowed: boolean }>();
-const items = ref<ParentChannel[]>([]),
+const items = ref<PaymentChannel[]>([]),
   templates = ref<ParentTemplate[]>([]),
   total = ref(0),
   loading = ref(false),
@@ -51,6 +58,32 @@ const items = ref<ParentChannel[]>([]),
   error = ref(""),
   notice = ref(""),
   selected = ref<string[]>([]);
+const cryptoEditor = ref<{ row?: CryptoChannel }>();
+const parentItems = computed(() =>
+  items.value.filter((row): row is ParentChannel => !isCryptoChannel(row)),
+);
+function editCrypto(row?: CryptoChannel) {
+  if (
+    !foreground() ||
+    loading.value ||
+    busy.value ||
+    mode.value ||
+    cryptoEditor.value ||
+    limitsID.value ||
+    feeID.value ||
+    statisticsID.value ||
+    testRow.value ||
+    weixinBatch.value ||
+    confirmation.value
+  )
+    return;
+  cryptoEditor.value = row ? { row } : {};
+}
+function cryptoSaved() {
+  cryptoEditor.value = undefined;
+  notice.value = "USDT 通道配置已保存";
+  void load();
+}
 const filters = reactive({
   kw: "",
   type: "",
@@ -114,7 +147,7 @@ function batchAction(id: string) {
   else if (id === "weixin-mini") askWeixin(1);
 }
 const selectedWeixin = computed(() => {
-  const rows = items.value.filter((r) => selected.value.includes(r.id));
+  const rows = parentItems.value.filter((r) => selected.value.includes(r.id));
   return (
     rows.length > 0 &&
     rows.every((r) => r.configured && r.pay_type === "wxpay" && r.fingerprint)
@@ -172,6 +205,7 @@ function current(n: number, c: ApiClient, csrf: string) {
   return n === epoch && c === props.client && csrf === c.csrfToken;
 }
 function reset() {
+  cryptoEditor.value = undefined;
   feeID.value = undefined;
   showCost.value = false;
   showLimits.value = false;
@@ -243,7 +277,7 @@ async function load() {
       c.request("/payment-channels/templates", { signal: controller.signal }),
     ]);
     if (!current(n, c, csrf)) return;
-    const page = readParentChannelList(raw),
+    const page = readPaymentChannelList(raw),
       parsed = readParentTemplates(choices);
     items.value = page.items;
     total.value = page.total;
@@ -472,7 +506,7 @@ async function readOriginal() {
 }
 function askBatch(
   action: "open" | "close" | "delete",
-  rows = items.value.filter((x) => selected.value.includes(x.id)),
+  rows = parentItems.value.filter((x) => selected.value.includes(x.id)),
 ) {
   if (
     !foreground() ||
@@ -516,7 +550,7 @@ function trap(e: KeyboardEvent) {
 }
 async function batch(
   action: "open" | "close" | "delete",
-  rows = items.value.filter((x) => selected.value.includes(x.id)),
+  rows = parentItems.value.filter((x) => selected.value.includes(x.id)),
 ) {
   if (
     !foreground() ||
@@ -615,7 +649,7 @@ function askWeixin(kind: 0 | 1) {
   remember();
   weixinBatch.value = {
     kind,
-    rows: items.value
+    rows: parentItems.value
       .filter((r) => selected.value.includes(r.id))
       .map((r) => ({ ...r })),
   };
@@ -728,7 +762,8 @@ onBeforeUnmount(() => {
         !!testRow ||
         !!weixinBatch ||
         !!confirmation ||
-        !!mode
+        !!mode ||
+        !!cryptoEditor
       "
     >
       <KitFilterBar
@@ -797,6 +832,13 @@ onBeforeUnmount(() => {
             @click="create"
           >
             新增通道</button
+          ><button
+            type="button"
+            class="pa-btn"
+            :disabled="loading || busy || !!mode || !!cryptoEditor"
+            @click="editCrypto()"
+          >
+            新增 USDT 通道</button
           ><ActionDropdown
             triggerText="批量操作"
             label="批量操作"
@@ -857,7 +899,7 @@ onBeforeUnmount(() => {
                 <th>ID</th>
                 <th>显示名称</th>
                 <th>通道模式</th>
-                <th>分成比例</th>
+                <th>分成比例 / 手续费</th>
                 <th>支付方式</th>
                 <th>支付插件</th>
                 <th v-if="showCost">成本费率（估算）</th>
@@ -876,6 +918,7 @@ onBeforeUnmount(() => {
                     type="checkbox"
                     :value="row.id"
                     :disabled="
+                      isCryptoChannel(row) ||
                       !row.configured ||
                       busy ||
                       !!mode ||
@@ -889,8 +932,17 @@ onBeforeUnmount(() => {
                 </td>
                 <td>{{ row.id }}</td>
                 <td>{{ row.name }}</td>
-                <td>代收</td>
                 <td>
+                  {{
+                    isCryptoChannel(row)
+                      ? cryptoNetworkLabel(row.network)
+                      : "代收"
+                  }}
+                </td>
+                <td v-if="isCryptoChannel(row)">
+                  手续费 {{ row.fee_bps / 100 }}%
+                </td>
+                <td v-else>
                   {{
                     row.rate === undefined || row.rate === null
                       ? "原费率（未配置）"
@@ -899,14 +951,42 @@ onBeforeUnmount(() => {
                 </td>
                 <td><KitPayMethod :type="row.pay_type" /></td>
                 <td>{{ row.plugin }}</td>
+                <template v-if="isCryptoChannel(row)"
+                  ><td v-if="showCost">—</td>
+                  <td v-if="showLimits">
+                    {{
+                      row.day_limit === "0" ? "不限制" : row.day_limit + " USDT"
+                    }}
+                  </td>
+                  <td v-if="showLimits">—</td>
+                  <td v-if="showLimits">—</td></template
+                >
                 <ParentChannelExtra
+                  v-else
                   :client="client"
                   :allowed="allowed"
                   :row="row"
                   :cost="showCost"
                   :limits="showLimits"
                 />
-                <td>
+                <td v-if="isCryptoChannel(row)">
+                  <KitStatusTag
+                    :text="
+                      row.archived
+                        ? '已归档'
+                        : row.enabled
+                          ? '允许新收款'
+                          : '新收款关闭'
+                    "
+                    :tone="row.enabled && !row.archived ? 'success' : 'neutral'"
+                  />
+                  <small
+                    v-if="!row.runtime_enabled"
+                    class="crypto-runtime-status"
+                    >主网收款关闭</small
+                  >
+                </td>
+                <td v-else>
                   <KitSwitch
                     v-if="row.configured"
                     :aria-label="'支付通道 ' + row.id + ' 状态'"
@@ -926,7 +1006,23 @@ onBeforeUnmount(() => {
                     "
                   /><KitStatusTag v-else text="原注册配置" tone="neutral" />
                 </td>
-                <td>
+                <td v-if="isCryptoChannel(row)">
+                  <div class="row-actions">
+                    <button
+                      type="button"
+                      :disabled="loading || busy || !!mode || !!cryptoEditor"
+                      @click="editCrypto(row)"
+                    >
+                      {{ row.archived ? "查看" : "编辑" }}</button
+                    ><a
+                      :href="
+                        '/admin/trade/order?type=usdt&channel_id=' + row.id
+                      "
+                      >关联订单</a
+                    >
+                  </div>
+                </td>
+                <td v-else>
                   <div class="row-actions">
                     <button
                       data-parent-parameters
@@ -1015,6 +1111,13 @@ onBeforeUnmount(() => {
         />
       </section>
     </fieldset>
+    <CryptoChannelEditor
+      v-if="cryptoEditor"
+      :client="client"
+      :row="cryptoEditor.row"
+      @close="cryptoEditor = undefined"
+      @saved="cryptoSaved"
+    />
     <div
       v-if="mode"
       class="pa-scrim pa-modal-scrim parent-scrim"
@@ -1322,6 +1425,11 @@ onBeforeUnmount(() => {
   </section>
 </template>
 <style scoped>
+.crypto-runtime-status {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--pa-text-muted, #64748b);
+}
 .parent-background {
   border: 0;
   padding: 0;

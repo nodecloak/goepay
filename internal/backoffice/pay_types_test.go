@@ -19,11 +19,11 @@ func TestPayTypesListMergesCatalogDefaultsAndRecords(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if page.Total != 7 || len(page.Items) != 7 {
-		t.Fatalf("expected the 7 original types with no record, got %d", page.Total)
+	if page.Total != 8 || len(page.Items) != 8 {
+		t.Fatalf("expected 7 original types and disabled USDT with no record, got %d", page.Total)
 	}
-	defaults := map[string]bool{"alipay": true, "wxpay": true, "qqpay": false, "bank": false, "jdpay": false, "paypal": false, "douyinpay": false}
-	gotOrder := []string{"alipay", "wxpay", "qqpay", "bank", "jdpay", "paypal", "douyinpay"}
+	defaults := map[string]bool{"alipay": true, "wxpay": true, "qqpay": false, "bank": false, "jdpay": false, "paypal": false, "douyinpay": false, "usdt": false}
+	gotOrder := []string{"alipay", "wxpay", "qqpay", "bank", "jdpay", "paypal", "douyinpay", "usdt"}
 	for i, it := range page.Items {
 		kind, _ := it.Fields["type"].(string)
 		if kind != gotOrder[i] {
@@ -50,7 +50,7 @@ func TestPayTypesListMergesCatalogDefaultsAndRecords(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if page.Total != 7 {
+	if page.Total != 8 {
 		t.Fatalf("records must not add extra catalog rows, got %d", page.Total)
 	}
 	state := map[string]struct {
@@ -83,7 +83,7 @@ func TestPayTypesListMergesCatalogDefaultsAndRecords(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if page.Total != 7 {
+	if page.Total != 8 {
 		t.Fatalf("update must not change the catalog row count, got %d", page.Total)
 	}
 	for _, it := range page.Items {
@@ -110,8 +110,8 @@ func TestPayTypesListKeepsNonCatalogRecordsAfterTheSeven(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if page.Total != 8 {
-		t.Fatalf("expected 7 originals + ecny, got %d", page.Total)
+	if page.Total != 9 {
+		t.Fatalf("expected 7 originals + USDT + ecny, got %d", page.Total)
 	}
 	last := page.Items[len(page.Items)-1]
 	if kind, _ := last.Fields["type"].(string); kind != "ecny" {

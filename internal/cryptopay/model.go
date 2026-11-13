@@ -3,6 +3,7 @@ package cryptopay
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -27,32 +28,42 @@ type Service struct {
 	Pool     *pgxpool.Pool
 	Networks map[string]NetworkConfig
 	TokenKey []byte
+	// Website collection must use channel admission. Low-level chain fixtures
+	// and historical custody tools do not create a channel implicitly.
+	RequireChannels bool
 }
 type CreateInvoiceInput struct {
 	MerchantID                                        int64
+	ChannelID                                         int64
 	OutTradeNo, Network, Amount, NotifyURL, ReturnURL string
 	CNYAmount                                         int64
 	ExpiresIn                                         time.Duration
 	Name, Param, Version                              string
+	QuoteRate                                         string
 }
 type Invoice struct {
-	ID            string    `json:"id"`
-	MerchantID    int64     `json:"merchant_id,string"`
-	OutTradeNo    string    `json:"out_trade_no"`
-	Network       string    `json:"network"`
-	Address       string    `json:"address"`
-	Amount        string    `json:"amount"`
-	Received      string    `json:"received"`
-	Fee           string    `json:"fee"`
-	State         string    `json:"state"`
-	ExpiresAt     time.Time `json:"expires_at"`
-	CheckoutToken string    `json:"-"`
-	NotifyURL     string    `json:"notify_url"`
-	ReturnURL     string    `json:"return_url"`
-	CNYAmount     int64     `json:"cny_amount,string"`
-	Name          string    `json:"name"`
-	Param         string    `json:"param"`
-	Version       string    `json:"version"`
+	ID              string          `json:"id"`
+	MerchantID      int64           `json:"merchant_id,string"`
+	OutTradeNo      string          `json:"out_trade_no"`
+	Network         string          `json:"network"`
+	Address         string          `json:"address"`
+	Amount          string          `json:"amount"`
+	Received        string          `json:"received"`
+	Fee             string          `json:"fee"`
+	State           string          `json:"state"`
+	ExpiresAt       time.Time       `json:"expires_at"`
+	CheckoutToken   string          `json:"-"`
+	NotifyURL       string          `json:"notify_url"`
+	ReturnURL       string          `json:"return_url"`
+	CNYAmount       int64           `json:"cny_amount,string"`
+	Name            string          `json:"name"`
+	Param           string          `json:"param"`
+	Version         string          `json:"version"`
+	ChannelID       int64           `json:"channel_id,string"`
+	ChannelRevision int64           `json:"channel_revision,string"`
+	FeeBPS          int64           `json:"fee_bps"`
+	FeeSource       string          `json:"fee_source"`
+	ChannelSnapshot json.RawMessage `json:"channel_snapshot"`
 }
 type Balance struct {
 	Network   string `json:"network"`
@@ -99,6 +110,20 @@ type ReconcileResult struct {
 type authorityKey struct{}
 
 func WithAuthority(ctx context.Context, guard func(context.Context, pgx.Tx) error) context.Context {
+	if prior, ok := ctx.Value(authorityKey{}).(func(context.Context, pgx.Tx) error); ok && prior != nil {
+		return context.WithValue(ctx, authorityKey{}, func(inner context.Context, tx pgx.Tx) error {
+			if e := prior(inner, tx); e != nil {
+				return e
+			}
+			if guard != nil {
+				return guard(inner, tx)
+			}
+			return nil
+		})
+	}
+	if guard == nil {
+		return ctx
+	}
 	return context.WithValue(ctx, authorityKey{}, guard)
 }
 func authorize(ctx context.Context, tx pgx.Tx) error {

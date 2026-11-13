@@ -40,7 +40,11 @@ function sanitize(data: unknown): PayTypeOption[] {
     if (!raw || typeof raw !== "object") continue;
     const value = (raw as any).value;
     const showname = (raw as any).showname;
-    if (typeof value !== "string" || !/^[a-z][a-z0-9_]{0,31}$/.test(value))
+    if (
+      typeof value !== "string" ||
+      value === "usdt" ||
+      !/^[a-z][a-z0-9_]{0,31}$/.test(value)
+    )
       continue;
     if (seen.has(value)) continue;
     seen.add(value);

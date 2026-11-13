@@ -61,6 +61,7 @@ var originalPayTypes = []struct {
 	{"jdpay", "京东支付", false},
 	{"paypal", "PayPal", false},
 	{"douyinpay", "抖音支付", false},
+	{"usdt", "USDT", false},
 }
 
 // listPayTypes returns the 支付方式 catalog the original console shows: the 7

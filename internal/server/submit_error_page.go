@@ -118,6 +118,8 @@ func (w *submitErrorWriter) failure(original []byte, reason string) (int, error)
 }
 func submitFailureMessage(reason string) (string, string) {
 	switch reason {
+	case "请通过标准支付提交入口完成支付安全验证":
+		return reason, "payment_verification_required"
 	case "商户尚未完成实名认证，暂不能发起支付":
 		return "该商户尚未完成实名认证，暂时无法收款。请联系商户先完成认证后再发起支付。", "merchant_certification_required"
 	case "payment channel not permitted":

@@ -18,6 +18,16 @@ async function reveal(w: VueWrapper, form: string) {
   };
   await w.setProps({ section: sections[form] });
   await flushPromises();
+  if (
+    form === "invoice" &&
+    w.find(".crypto-filter input[name=merchant_id]").exists() &&
+    !(
+      w.get(".crypto-filter input[name=merchant_id]")
+        .element as HTMLInputElement
+    ).value
+  ) {
+    await w.get(".crypto-filter input[name=merchant_id]").setValue("1");
+  }
   if (w.find("[data-form=" + form + "]").exists()) return;
   if (w.find("[data-cancel-form]").exists())
     await w.get("[data-cancel-form]").trigger("click");
@@ -51,6 +61,7 @@ it("keeps a late financial POST response in its original account scope", async (
           deliver = resolve;
         }) as never;
       }
+      if (path.startsWith("/crypto/channels")) return channelOptions();
       if (path === "/crypto/config") return config;
       return [];
     },
@@ -132,12 +143,27 @@ const config = {
     { network: "ethereum", enabled: true, fee_bps: 80 },
   ],
 };
+function channelOptions(networks = config.networks) {
+  return {
+    items: networks.map((n) => ({
+      id: n.network === "tron" ? "41" : "42",
+      name: "Synthetic " + n.network,
+      network: n.network,
+      fee_bps: n.fee_bps,
+      min_amount: "0",
+      max_amount: "0",
+      day_limit: "0",
+    })),
+  };
+}
 
 it.each(["merchant", "admin"] as const)(
   "initializes every blank network form for an Ethereum-only %s account",
   async (area) => {
     const c = client(area);
     c.request.mockImplementation(async (path) => {
+      if (path.startsWith("/crypto/channels"))
+        return channelOptions([config.networks[1]!]);
       if (path === "/crypto/config")
         return { enabled: true, networks: [config.networks[1]] };
       return [];
@@ -153,7 +179,7 @@ it.each(["merchant", "admin"] as const)(
       expect(
         (w.get(`[data-form=${form}] select`).element as HTMLSelectElement)
           .value,
-      ).toBe("ethereum");
+      ).toBe(form === "invoice" ? "42" : "ethereum");
     }
     expect(
       c.request.mock.calls.some((call) => call[1]?.method === "POST"),
@@ -166,6 +192,8 @@ it("does not silently change entered networks when refreshing the enabled networ
   const c = client("admin");
   let currentConfig = config;
   c.request.mockImplementation(async (path) => {
+    if (path.startsWith("/crypto/channels"))
+      return channelOptions(currentConfig.networks);
     if (path === "/crypto/config") return currentConfig;
     return [];
   });
@@ -223,6 +251,7 @@ it("recovers an uncertain original request after refresh and reads it without cr
   });
   const c = client();
   c.request.mockImplementation(async (path) => {
+    if (path.startsWith("/crypto/channels")) return channelOptions();
     if (path === "/crypto/config") return config;
     if (path.startsWith("/crypto/withdrawals/by-request"))
       throw new ApiError("not found", 404, -1);
@@ -278,6 +307,7 @@ function client(area: "merchant" | "admin" = "merchant") {
         path: string,
         options?: { method?: string; body?: unknown },
       ): Promise<unknown> => {
+        if (path.startsWith("/crypto/channels")) return channelOptions();
         if (path === "/crypto/config") return config;
         if (path.startsWith("/crypto/balances"))
           return [
@@ -319,6 +349,7 @@ it("creates a native USDT invoice without a user-supplied fee or CNY quote", asy
   const c = client();
   c.request.mockImplementation(
     async (path: string, options?: { method?: string }) => {
+      if (path.startsWith("/crypto/channels")) return channelOptions();
       if (path === "/crypto/config") return config;
       if (options?.method === "POST")
         return {
@@ -343,6 +374,7 @@ it("creates a native USDT invoice without a user-supplied fee or CNY quote", asy
       (call[1] as { method?: string })?.method === "POST",
   ) as unknown as [string, { body: Record<string, unknown> }];
   expect(post[1].body).toEqual({
+    channel_id: "41",
     out_trade_no: "merchant-order-1",
     network: "tron",
     amount: "10.123456",
@@ -359,6 +391,7 @@ it("discards delayed balances and disables mutations after the session changes",
   const c = client();
   const deliveries: ((value: unknown) => void)[] = [];
   c.request.mockImplementation(async (path) => {
+    if (path.startsWith("/crypto/channels")) return channelOptions();
     if (path === "/crypto/config") return config;
     if (path.startsWith("/crypto/balances"))
       return new Promise((resolve) => {
@@ -387,6 +420,7 @@ it.each([
   async (closed) => {
     const c = client("admin");
     c.request.mockImplementation(async (path) => {
+      if (path.startsWith("/crypto/channels")) return channelOptions();
       if (path === "/crypto/config") return closed;
       throw new ApiError(
         "USDT 收款与结算尚未启用，当前无法处理此操作",
@@ -422,6 +456,7 @@ it("waits for service configuration before reading any account history", async (
   const c = client();
   let deliver: ((value: unknown) => void) | undefined;
   c.request.mockImplementation(async (path) => {
+    if (path.startsWith("/crypto/channels")) return channelOptions();
     if (path === "/crypto/config")
       return new Promise((resolve) => {
         deliver = resolve;
@@ -448,6 +483,7 @@ it.each([true, false])(
   async (ownSession) => {
     const c = client("admin");
     c.request.mockImplementation(async (path) => {
+      if (path.startsWith("/crypto/channels")) return channelOptions();
       if (path === "/crypto/config")
         return { configured: true, enabled: false, networks: [] };
       if (path.startsWith("/crypto/balances"))
@@ -511,6 +547,7 @@ it.each(["config", "balances"])(
     c.request.mockImplementation(async (path, options) => {
       if (failing && path.split("?")[0] === "/crypto/" + failure)
         throw new ApiError("读取失败", 503, -1);
+      if (path.startsWith("/crypto/channels")) return channelOptions();
       if (path === "/crypto/config") return { configured: true, ...config };
       if (options?.method === "POST")
         return { checkout_url: "/crypto/checkout/private-original" } as never;
@@ -577,6 +614,7 @@ it("prevents a delayed configuration from reviving the previous area", async () 
   const c = client("admin");
   let deliver: ((value: unknown) => void) | undefined;
   c.request.mockImplementation(async (path) => {
+    if (path.startsWith("/crypto/channels")) return channelOptions();
     if (path === "/crypto/config") {
       if (c.area === "admin")
         return new Promise((resolve) => {
@@ -605,6 +643,7 @@ it("prevents a delayed configuration from reviving the previous area", async () 
 it("clears a reconciliation read error on a successful refresh and restores normal writes", async () => {
   const c = client("admin");
   c.request.mockImplementation(async (path) => {
+    if (path.startsWith("/crypto/channels")) return channelOptions();
     if (path === "/crypto/config") return config;
     if (path === "/crypto/reconciliation")
       throw new ApiError("对账暂不可用", 503, -1);
@@ -646,6 +685,7 @@ it("retains an uncertain financial intent through service shutdown and recovers 
   const c = client();
   let closed = true;
   c.request.mockImplementation(async (path) => {
+    if (path.startsWith("/crypto/channels")) return channelOptions();
     if (path === "/crypto/config")
       return closed
         ? { configured: false, enabled: false, networks: [] }
@@ -760,6 +800,7 @@ it.each([
   async (section, form, included, excluded, other) => {
     const c = client("admin");
     c.request.mockImplementation(async (path) => {
+      if (path.startsWith("/crypto/channels")) return channelOptions();
       if (path === "/crypto/config") return config;
       if (path.startsWith("/crypto/invoices"))
         return [
@@ -871,6 +912,7 @@ it("keeps an in-flight address application locked across pages and preserves an 
       return new Promise((_resolve, fail) => {
         reject = fail;
       }) as never;
+    if (path.startsWith("/crypto/channels")) return channelOptions();
     if (path === "/crypto/config") return config;
     return [];
   });
@@ -906,6 +948,7 @@ it("keeps an in-flight address application locked across pages and preserves an 
 it("brings the selected address approval into focus and clears it when leaving the page", async () => {
   const c = client("admin");
   c.request.mockImplementation(async (path) => {
+    if (path.startsWith("/crypto/channels")) return channelOptions();
     if (path === "/crypto/config") return config;
     if (path.startsWith("/crypto/recipients"))
       return [
@@ -950,6 +993,7 @@ it("does not reopen the original invoice or checkout after its response arrives 
       return new Promise((resolve) => {
         deliver = resolve;
       }) as never;
+    if (path.startsWith("/crypto/channels")) return channelOptions();
     if (path === "/crypto/config") return config;
     return [];
   });
@@ -1000,6 +1044,7 @@ it("sends the original authorized financial request once when its intent finishe
     invoice_id: "",
   });
   c.request.mockImplementation(async (path, options) => {
+    if (path.startsWith("/crypto/channels")) return channelOptions();
     if (path === "/crypto/config") return config;
     if (
       options?.method === "POST" ||
@@ -1065,6 +1110,7 @@ it("sends the original authorized financial request once when its intent finishe
 it("shows approved sweep records without offering unsupported cancellation or approval", async () => {
   const c = client("admin");
   c.request.mockImplementation(async (path) => {
+    if (path.startsWith("/crypto/channels")) return channelOptions();
     if (path === "/crypto/config") return config;
     if (path.startsWith("/crypto/withdrawals"))
       return [
@@ -1102,6 +1148,7 @@ it("disables draft cancellation while the original HTTP submission is pending", 
       return new Promise((_resolve, fail) => {
         reject = fail;
       });
+    if (path.startsWith("/crypto/channels")) return channelOptions();
     if (path === "/crypto/config") return config;
     return [];
   });

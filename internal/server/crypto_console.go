@@ -9,12 +9,15 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"goepay/internal/backoffice"
 	"goepay/internal/cryptopay"
 	"goepay/internal/identity"
 )
 
 func cryptoError(w http.ResponseWriter, e error) {
 	switch {
+	case errors.Is(e, errCryptoVerificationRequired):
+		response(w, 403, -1, errCryptoVerificationRequired.Error(), nil)
 	case errors.Is(e, cryptopay.ErrNotFound):
 		response(w, 404, -1, "USDT 记录不存在或无权查看", nil)
 	case errors.Is(e, cryptopay.ErrInvalid):
@@ -25,6 +28,8 @@ func cryptoError(w http.ResponseWriter, e error) {
 		response(w, 422, -1, "USDT 可用资金不足", nil)
 	case errors.Is(e, errCredentialActor199), errors.Is(e, identity.ErrFundsAuthentication):
 		response(w, 403, -1, "original active account session required", nil)
+	case errors.Is(e, backoffice.ErrForbidden):
+		response(w, 403, -1, paymentPolicyMessage(e), nil)
 	case errors.Is(e, errCurrentPassword), errors.Is(e, errCredentialUnset199):
 		response(w, 422, -1, "当前登录密码不正确或尚未设置", nil)
 	default:
@@ -116,6 +121,15 @@ func (s *Server) cryptoConsole(w http.ResponseWriter, r *http.Request, role stri
 		response(w, 200, 0, "", map[string]any{"configured": s.Crypto != nil, "enabled": enabled, "networks": networks, "simulation": s.Sandbox})
 		return true
 	}
+	if len(parts) == 3 && parts[2] == "channels" && r.Method == "GET" {
+		mid, err := cryptoMerchant(role, session, r.URL.Query().Get("merchant_id"))
+		if err != nil {
+			cryptoError(w, err)
+			return true
+		}
+		s.cryptoChannelChoices(w, r, mid)
+		return true
+	}
 	if s.Crypto == nil {
 		response(w, 503, -1, "USDT 收款与结算尚未启用，当前无法处理此操作", nil)
 		return true
@@ -131,7 +145,14 @@ func (s *Server) cryptoConsole(w http.ResponseWriter, r *http.Request, role stri
 		case len(parts) == 3 && parts[2] == "balances":
 			data, e = s.Crypto.Balances(r.Context(), mid)
 		case len(parts) == 3 && parts[2] == "invoices":
-			data, e = s.Crypto.ListInvoices(r.Context(), mid)
+			var channel int64
+			channel, e = cryptoChannelID(r.URL.Query().Get("channel_id"))
+			if e == nil && len(r.URL.Query()["channel_id"]) > 1 {
+				e = cryptopay.ErrInvalid
+			}
+			if e == nil {
+				data, e = s.Crypto.ListChannelInvoices(r.Context(), mid, channel)
+			}
 		case len(parts) == 4 && parts[2] == "invoices":
 			var invoice cryptopay.Invoice
 			invoice, e = s.Crypto.GetInvoice(r.Context(), mid, parts[3])
@@ -247,6 +268,7 @@ func (s *Server) cryptoConsole(w http.ResponseWriter, r *http.Request, role stri
 		data, e = s.Crypto.ApproveRecipient(ctx, parts[3], session.User.ID)
 	case len(parts) == 3 && parts[2] == "invoices":
 		var in struct {
+			ChannelID  string `json:"channel_id"`
 			MerchantID string `json:"merchant_id"`
 			OutTradeNo string `json:"out_trade_no"`
 			Network    string `json:"network"`
@@ -270,8 +292,15 @@ func (s *Server) cryptoConsole(w http.ResponseWriter, r *http.Request, role stri
 		if !ok {
 			return true
 		}
+		channelID, err := cryptoChannelID(in.ChannelID)
+		if err != nil {
+			cryptoError(w, err)
+			return true
+		}
+		ctx = s.cryptoUnverifiedPaymentContext(ctx, r, mid, in.OutTradeNo, "")
+		ctx = s.cryptoPaymentContext(ctx, r, mid, "USDT", in.NotifyURL, in.ReturnURL, "", "")
 		var invoice cryptopay.Invoice
-		invoice, e = s.Crypto.CreateInvoice(ctx, cryptopay.CreateInvoiceInput{MerchantID: mid, OutTradeNo: in.OutTradeNo, Network: in.Network, Amount: in.Amount, NotifyURL: in.NotifyURL, ReturnURL: in.ReturnURL, ExpiresIn: 15 * time.Minute, Name: "USDT", Version: "native"})
+		invoice, e = s.Crypto.CreateInvoice(ctx, cryptopay.CreateInvoiceInput{ChannelID: channelID, MerchantID: mid, OutTradeNo: in.OutTradeNo, Network: in.Network, Amount: in.Amount, NotifyURL: in.NotifyURL, ReturnURL: in.ReturnURL, ExpiresIn: 15 * time.Minute, Name: "USDT", Version: "native"})
 		if e == nil {
 			data = cryptoInvoiceResponse(invoice)
 		}

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"goepay/internal/backoffice"
+	"goepay/internal/compat"
 	"goepay/internal/pagetemplate"
 )
 
@@ -117,6 +118,13 @@ type cashierPayType struct{ Name, ShowName string }
 // the payer's choice.
 func (s *Server) cashierAllowedTypes(r *http.Request, mid int64) []cashierPayType {
 	out := []cashierPayType{}
+	if s.Crypto != nil && s.CryptoCNYPerUSDT != "" {
+		if _, err := NormalizeCryptoPublicOrigin(s.CryptoPublicOrigin); err == nil {
+			if channels, err := s.Crypto.AvailableChannels(r.Context(), mid, ""); err == nil && len(channels) > 0 {
+				out = append(out, cashierPayType{Name: "usdt", ShowName: "USDT"})
+			}
+		}
+	}
 	view, err := s.withParentRuntime(r.Context(), mid, "")
 	if err != nil {
 		return out
@@ -157,7 +165,7 @@ func (s *Server) cashierPublic(w http.ResponseWriter, r *http.Request) bool {
 	if r.URL.Path != "/cashier" {
 		return false
 	}
-	if s.Pool == nil || s.Store == nil || s.ProviderFlow == nil || !s.ProviderFlow.AllowLive || len(s.CheckoutKey) < 32 {
+	if s.Pool == nil || s.Store == nil || (s.ProviderFlow == nil || !s.ProviderFlow.AllowLive) && s.Crypto == nil || len(s.CheckoutKey) < 32 {
 		http.Error(w, "cashier unavailable", http.StatusServiceUnavailable)
 		return true
 	}
@@ -181,7 +189,7 @@ func (s *Server) cashierPublic(w http.ResponseWriter, r *http.Request) bool {
 // cashierPage renders the pay-type picker through the public page template with
 // Pro's look (订单名称/金额 header, a radio list of pay types, one 立即支付).
 func (s *Server) cashierPage(w http.ResponseWriter, r *http.Request, in cashierIntent) {
-	types, typeErr := s.cashierIntentTypes236(r, in)
+	types, typeErr := s.cashierIntentTypes(r, in)
 	if typeErr != nil {
 		http.Error(w, "原订单暂时无法核实，请稍后重试", http.StatusServiceUnavailable)
 		return
@@ -214,13 +222,16 @@ func (s *Server) cashierHideName(r *http.Request) string {
 // exactly once, then continues to payment exactly as a submit with that type
 // would. A replay (same out_trade_no) resumes the same order.
 func (s *Server) cashierChoose(w http.ResponseWriter, r *http.Request, in cashierIntent) {
+	if _, wrapped := w.(*submitErrorWriter); !wrapped {
+		w = &submitErrorWriter{ResponseWriter: w}
+	}
 	if e := r.ParseForm(); e != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
 		return
 	}
 	chosen := r.PostFormValue("type")
 	allowed := false
-	types, typeErr := s.cashierIntentTypes236(r, in)
+	types, typeErr := s.cashierIntentTypes(r, in)
 	if typeErr != nil {
 		http.Error(w, "原订单暂时无法核实，请稍后重试", http.StatusServiceUnavailable)
 		return
@@ -251,6 +262,16 @@ func (s *Server) cashierChoose(w http.ResponseWriter, r *http.Request, in cashie
 	}
 	if in.Buyer != "" {
 		p["sub_openid"] = in.Buyer
+	}
+	if chosen == "usdt" {
+		merchant, err := s.Store.Merchant(r.Context(), in.MerchantID)
+		if err != nil {
+			http.Error(w, "商户状态无法核实", http.StatusForbidden)
+			return
+		}
+		ctx := s.cryptoUnverifiedPaymentContext(r.Context(), r, in.MerchantID, in.OutTradeNo, in.ClientIP)
+		s.cryptoCompatibilityCreate(w, r.WithContext(ctx), in.Version == "v1", merchant, compat.Params(p), "/cashier")
+		return
 	}
 	// The /cashier request path already selects the browser redirect in
 	// providerCreate. Retain the authenticated protocol for the stored order

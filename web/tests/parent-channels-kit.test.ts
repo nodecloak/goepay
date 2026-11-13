@@ -67,7 +67,7 @@ it("renders kit filter fields, a kit switch, Pro columns and kit pagination", as
     "ID",
     "显示名称",
     "通道模式",
-    "分成比例",
+    "分成比例 / 手续费",
     "支付方式",
     "支付插件",
     "状态",

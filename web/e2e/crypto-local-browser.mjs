@@ -67,7 +67,21 @@ try {
       await form
         .locator("[name=out_trade_no]")
         .fill(`browser-${network}-${width}`);
-      await form.locator("[name=network]").selectOption(network);
+      const channelSelect = form.locator("[name=channel_id]");
+      await expect(channelSelect.locator("option")).toHaveCount(2);
+      const channelID = await channelSelect
+        .locator("option")
+        .evaluateAll(
+          (options, network) =>
+            options.find((option) =>
+              option.textContent.includes(
+                network === "tron" ? "TRON" : "Ethereum",
+              ),
+            )?.value,
+          network,
+        );
+      expect(channelID).toBeTruthy();
+      await channelSelect.selectOption(channelID);
       await form.locator("[name=amount]").fill("10.123456");
       const [created] = await Promise.all([
         page.waitForResponse(
@@ -80,6 +94,8 @@ try {
       ]);
       expect(created.status()).toBe(200);
       const payload = await created.json();
+      expect(payload.data.channel_id).toBe(channelID);
+      expect(payload.data.network).toBe(network);
       const link = page.locator("a[data-checkout]");
       await expect(link).toHaveAttribute("href", payload.data.checkout_url);
       await expect(form).toHaveCount(0);
@@ -108,17 +124,57 @@ try {
         "本地模拟",
       );
       await checkout.locator(".qr").evaluate((img) => img.decode());
+      await checkout.locator(".qr").scrollIntoViewIfNeeded();
       const rects = await checkout.evaluate(() => {
-        const qr = document.querySelector(".qr").getBoundingClientRect();
+        const image = document.querySelector(".qr");
+        const qr = image.getBoundingClientRect();
         const main = document.querySelector("main").getBoundingClientRect();
+        let clipped = false;
+        for (
+          let ancestor = image.parentElement;
+          ancestor;
+          ancestor = ancestor.parentElement
+        ) {
+          const box = ancestor.getBoundingClientRect();
+          const style = getComputedStyle(ancestor);
+          const clipsX = /auto|scroll|hidden|clip/.test(style.overflowX);
+          const clipsY = /auto|scroll|hidden|clip/.test(style.overflowY);
+          if (
+            (clipsX &&
+              (qr.left < box.left + ancestor.clientLeft - 1 ||
+                qr.right >
+                  box.left + ancestor.clientLeft + ancestor.clientWidth + 1)) ||
+            (clipsY &&
+              (qr.top < box.top + ancestor.clientTop - 1 ||
+                qr.bottom >
+                  box.top + ancestor.clientTop + ancestor.clientHeight + 1))
+          )
+            clipped = true;
+        }
         return {
           delta: Math.abs(qr.x + qr.width / 2 - main.x - main.width / 2),
+          width: qr.width,
+          height: qr.height,
+          clipped,
+          visible:
+            qr.width > 0 &&
+            qr.height > 0 &&
+            qr.left >= -1 &&
+            qr.right <= innerWidth + 1 &&
+            qr.top >= -1 &&
+            qr.bottom <= innerHeight + 1,
           overflow: document.documentElement.scrollWidth > innerWidth,
         };
       });
-      if (rects.delta > 1 || rects.overflow)
+      if (
+        rects.delta > 1 ||
+        rects.overflow ||
+        Math.abs(rects.width - rects.height) > 1 ||
+        rects.clipped ||
+        !rects.visible
+      )
         throw Error(
-          "checkout QR not centered or viewport overflows: " +
+          "checkout QR must be square, centered and fully visible without scroll clipping: " +
             JSON.stringify(rects),
         );
       await checkout.screenshot({
@@ -148,6 +204,7 @@ try {
       await expect(checkout.locator("#received")).toHaveText("10.123456");
       await checkout.close();
     }
+    let expectedRecord = `browser-ethereum-${width}`;
     if (width === 375) {
       const recipient = await context.request.post(
         origin + "/__crypto_browser/recipient",
@@ -161,6 +218,7 @@ try {
       const form = page.locator("[data-form=withdrawal]");
       await expect(form.locator("button[type=submit]")).toBeEnabled();
       const requestID = await form.locator("[name=request_id]").inputValue();
+      expectedRecord = requestID;
       await form.locator("[name=network]").selectOption("tron");
       await form
         .locator("[name=address]")
@@ -210,7 +268,13 @@ try {
       });
     }
     await page.getByRole("button", { name: "刷新记录", exact: true }).click();
-    await expect(page.getByText("支付已到账", { exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "刷新记录", exact: true }),
+    ).toBeEnabled();
+    await expect(
+      page.getByText("正在加载 USDT 账户…", { exact: true }),
+    ).toHaveCount(0);
+    await expect(page.locator(".crypto-table")).toContainText(expectedRecord);
     await page.screenshot({
       path: path.join(evidence, `console-${width}.png`),
       fullPage: true,

@@ -78,6 +78,32 @@ func (s *Service) validateGroupRoutingReferences(ctx context.Context, tx pgx.Tx,
 	}
 	for kind, policy := range info {
 		choice := policy.RoutingChoice()
+		if kind == "usdt" {
+			switch choice.Kind() {
+			case grouppolicy.Inherit, grouppolicy.Disabled, grouppolicy.First:
+			case grouppolicy.Channel:
+				var schema bool
+				if e = tx.QueryRow(ctx, `SELECT to_regclass('crypto_channels') IS NOT NULL`).Scan(&schema); e != nil {
+					return e
+				}
+				if !schema {
+					return ErrInvalid
+				}
+				var archived bool
+				if e = tx.QueryRow(ctx, `SELECT archived FROM crypto_channels WHERE id=$1 FOR SHARE`, choice.ID()).Scan(&archived); e != nil {
+					if e == pgx.ErrNoRows {
+						return ErrInvalid
+					}
+					return e
+				}
+				if archived {
+					return ErrInvalid
+				}
+			default:
+				return ErrInvalid
+			}
+			continue
+		}
 		switch choice.Kind() {
 		case grouppolicy.Subchannels, grouppolicy.Inherit, grouppolicy.Disabled, grouppolicy.Random, grouppolicy.RandomRoll, grouppolicy.Sequential, grouppolicy.First:
 		case grouppolicy.Channel:

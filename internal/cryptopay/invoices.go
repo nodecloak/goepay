@@ -79,9 +79,8 @@ func (s *Service) CreateInvoice(ctx context.Context, in CreateInvoiceInput) (Inv
 	if s == nil || len(s.TokenKey) != 32 {
 		return out, ErrUnavailable
 	}
-	cfg, ok := s.Networks[in.Network]
 	n, e := ParseAmount(in.Amount)
-	if !ok || !cfg.Enabled || e != nil || cfg.FeeBPS < 0 || cfg.FeeBPS > 10000 || in.MerchantID <= 0 || !validKey(in.OutTradeNo) || !validURL(in.NotifyURL) || !validURL(in.ReturnURL) || in.CNYAmount < 0 {
+	if e != nil || in.ChannelID < 0 || in.MerchantID <= 0 || !validKey(in.OutTradeNo) || !validURL(in.NotifyURL) || !validURL(in.ReturnURL) || in.CNYAmount < 0 {
 		return out, ErrInvalid
 	}
 	if in.ExpiresIn == 0 {
@@ -119,7 +118,7 @@ func (s *Service) CreateInvoice(ctx context.Context, in CreateInvoiceInput) (Inv
 	}
 	old, e := readInvoice(ctx, tx, "merchant_id=$1 AND out_trade_no=$2", in.MerchantID, in.OutTradeNo)
 	if e == nil {
-		if old.Network != in.Network || old.Amount != FormatAmount(n) || old.NotifyURL != in.NotifyURL || old.ReturnURL != in.ReturnURL || old.CNYAmount != in.CNYAmount || old.Name != in.Name || old.Param != in.Param || old.Version != in.Version {
+		if in.Network != "" && old.Network != in.Network || in.ChannelID > 0 && old.ChannelID != in.ChannelID || old.Amount != FormatAmount(n) || old.NotifyURL != in.NotifyURL || old.ReturnURL != in.ReturnURL || old.CNYAmount != in.CNYAmount || old.Name != in.Name || old.Param != in.Param || old.Version != in.Version {
 			return out, ErrConflict
 		}
 		old.CheckoutToken = s.token(old.ID)
@@ -127,6 +126,18 @@ func (s *Service) CreateInvoice(ctx context.Context, in CreateInvoiceInput) (Inv
 	}
 	if e != ErrNotFound {
 		return out, e
+	}
+	var route channelAdmission
+	if s.RequireChannels || in.ChannelID > 0 {
+		route, e = s.admitChannel(ctx, tx, in, n)
+		if e != nil {
+			return out, e
+		}
+		in.Network = route.channel.Network
+	}
+	cfg, ok := s.Networks[in.Network]
+	if !ok || !cfg.Enabled || cfg.FeeBPS < 0 || cfg.FeeBPS > 10000 {
+		return out, ErrInvalid
 	}
 	var address string
 	e = tx.QueryRow(ctx, "SELECT address FROM crypto_addresses WHERE network=$1 AND role='deposit' AND NOT used ORDER BY address FOR UPDATE SKIP LOCKED LIMIT 1", in.Network).Scan(&address)
@@ -139,8 +150,19 @@ func (s *Service) CreateInvoice(ctx context.Context, in CreateInvoiceInput) (Inv
 	id := randomID()
 	token := s.token(id)
 	hash := sha256.Sum256([]byte(token))
-	fee := n/10000*cfg.FeeBPS + (n%10000*cfg.FeeBPS)/10000
-	_, e = tx.Exec(ctx, `INSERT INTO crypto_invoices(id,merchant_id,out_trade_no,network,address,amount,fee,token_hash,token_cipher,notify_url,return_url,cny_amount,expires_at,name,param,version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,''::bytea,$9,$10,$11,clock_timestamp()+$12*interval '1 second',$13,$14,$15)`, id, in.MerchantID, in.OutTradeNo, in.Network, address, n, fee, hash[:], in.NotifyURL, in.ReturnURL, in.CNYAmount, int64(in.ExpiresIn.Seconds()), in.Name, in.Param, in.Version)
+	feeBPS := cfg.FeeBPS
+	var channelID, revision, sealedFee any
+	feeSource := "legacy_network"
+	snapshot := []byte(`{}`)
+	if route.channel.ID > 0 {
+		channelID, revision, sealedFee = route.channel.ID, route.channel.Revision, route.feeBPS
+		feeBPS, feeSource, snapshot = route.feeBPS, route.feeSource, route.snapshot
+	}
+	fee := n/10000*feeBPS + (n%10000*feeBPS)/10000
+	if e = currentGroupDeadline(ctx, tx, route.validUntil); e != nil {
+		return out, e
+	}
+	_, e = tx.Exec(ctx, `INSERT INTO crypto_invoices(id,merchant_id,out_trade_no,network,address,amount,fee,token_hash,token_cipher,notify_url,return_url,cny_amount,expires_at,name,param,version,channel_id,channel_revision,fee_bps,fee_source,channel_snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,$8,''::bytea,$9,$10,$11,clock_timestamp()+$12*interval '1 second',$13,$14,$15,$16,$17,$18,$19,$20)`, id, in.MerchantID, in.OutTradeNo, in.Network, address, n, fee, hash[:], in.NotifyURL, in.ReturnURL, in.CNYAmount, int64(in.ExpiresIn.Seconds()), in.Name, in.Param, in.Version, channelID, revision, sealedFee, feeSource, snapshot)
 	if e != nil {
 		return out, e
 	}
@@ -152,19 +174,28 @@ func (s *Service) CreateInvoice(ctx context.Context, in CreateInvoiceInput) (Inv
 		return out, e
 	}
 	out.CheckoutToken = token
-	return out, commit(ctx, tx)
+	// The final identity/business proof can wait on locks. Check the effective
+	// membership deadline only after that proof has returned, immediately before
+	// commit, so a policy that expired during the wait cannot admit a new invoice.
+	if e = authorize(ctx, tx); e != nil {
+		return Invoice{}, e
+	}
+	if e = currentGroupDeadline(ctx, tx, route.validUntil); e != nil {
+		return Invoice{}, e
+	}
+	return out, tx.Commit(ctx)
 }
 
 type queryer interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-const invoiceColumns = "id,merchant_id,out_trade_no,network,address,amount,received,fee,CASE WHEN state IN ('pending','underpaid') AND clock_timestamp()>expires_at THEN 'expired' ELSE state END,expires_at,notify_url,return_url,cny_amount,name,param,version"
+const invoiceColumns = "id,merchant_id,out_trade_no,network,address,amount,received,fee,CASE WHEN state IN ('pending','underpaid') AND clock_timestamp()>expires_at THEN 'expired' ELSE state END,expires_at,notify_url,return_url,cny_amount,name,param,version,COALESCE(channel_id,0),COALESCE(channel_revision,0),COALESCE(fee_bps,0),fee_source,channel_snapshot"
 
 func scanInvoice(row pgx.Row) (Invoice, error) {
 	var v Invoice
 	var a, r, f int64
-	e := row.Scan(&v.ID, &v.MerchantID, &v.OutTradeNo, &v.Network, &v.Address, &a, &r, &f, &v.State, &v.ExpiresAt, &v.NotifyURL, &v.ReturnURL, &v.CNYAmount, &v.Name, &v.Param, &v.Version)
+	e := row.Scan(&v.ID, &v.MerchantID, &v.OutTradeNo, &v.Network, &v.Address, &a, &r, &f, &v.State, &v.ExpiresAt, &v.NotifyURL, &v.ReturnURL, &v.CNYAmount, &v.Name, &v.Param, &v.Version, &v.ChannelID, &v.ChannelRevision, &v.FeeBPS, &v.FeeSource, &v.ChannelSnapshot)
 	if e == pgx.ErrNoRows {
 		return v, ErrNotFound
 	}
@@ -202,10 +233,17 @@ func (s *Service) GetCheckout(ctx context.Context, id, token string) (Invoice, e
 	return v, e
 }
 func (s *Service) ListInvoices(ctx context.Context, merchant int64) ([]Invoice, error) {
+	return s.ListChannelInvoices(ctx, merchant, 0)
+}
+
+func (s *Service) ListChannelInvoices(ctx context.Context, merchant, channelID int64) ([]Invoice, error) {
 	if s == nil || s.Pool == nil {
 		return nil, ErrUnavailable
 	}
-	rows, e := s.Pool.Query(ctx, "SELECT "+invoiceColumns+" FROM crypto_invoices WHERE ($1::bigint=0 OR merchant_id=$1) ORDER BY created_at DESC LIMIT 200", merchant)
+	if merchant < 0 || channelID < 0 {
+		return nil, ErrInvalid
+	}
+	rows, e := s.Pool.Query(ctx, "SELECT "+invoiceColumns+" FROM crypto_invoices WHERE ($1::bigint=0 OR merchant_id=$1) AND ($2::bigint=0 OR channel_id=$2) ORDER BY created_at DESC,id DESC LIMIT 200", merchant, channelID)
 	if e != nil {
 		return nil, e
 	}

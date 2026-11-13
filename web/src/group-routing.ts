@@ -42,6 +42,7 @@ export function readGroupRoutingCatalog(raw: unknown): RoutingChannel[] {
         "paypal",
         "douyinpay",
         "ecny",
+        "usdt",
       ].includes(String(item.type)) ||
       typeof item.type !== "string" ||
       !Array.isArray(item.methods) ||

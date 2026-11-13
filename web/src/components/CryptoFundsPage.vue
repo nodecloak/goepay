@@ -10,6 +10,11 @@ import {
 } from "vue";
 import { ApiClient, ApiError } from "../api";
 import type { CryptoSection } from "../menu";
+import {
+  readCryptoChannelOptions,
+  usdtUnits,
+  type CryptoChannelOption,
+} from "../crypto-channels";
 import { fundsPrincipal212, fundsScope212 } from "../funds-intent212";
 import {
   CryptoIntentStore,
@@ -23,6 +28,7 @@ const props = withDefaults(
     client: ApiClient;
     ownSession: boolean;
     section?: CryptoSection;
+    initialChannelID?: string;
   }>(),
   { section: "overview" },
 );
@@ -40,6 +46,10 @@ type Invoice = {
   address: string;
   expires_at: string;
   checkout_url?: string;
+  channel_id?: string;
+  channel_revision?: string;
+  fee_bps?: number;
+  fee_source?: string;
 };
 type Withdrawal = {
   id: string;
@@ -96,6 +106,7 @@ const merchantID = ref(""),
   } | null>(null);
 const invoice = ref({
   out_trade_no: "",
+  channel_id: "",
   network: "tron",
   amount: "",
   notify_url: "",
@@ -126,6 +137,64 @@ const refund = ref<{
 const address = ref({ network: "tron", address: "", role: "deposit" });
 const sweepRetry = ref({ network: "tron", address: "" });
 const admin = computed(() => props.client.area === "admin");
+const invoiceChannels = ref<CryptoChannelOption[]>([]),
+  channelLoading = ref(false),
+  channelError = ref(""),
+  channelScope = ref("");
+let channelEpoch = 0;
+const selectedInvoiceChannel = computed(() =>
+  invoiceChannels.value.find((row) => row.id === invoice.value.channel_id),
+);
+const canCreateInvoice = computed(
+  () =>
+    canWrite.value &&
+    !channelLoading.value &&
+    !channelError.value &&
+    channelScope.value === merchantID.value &&
+    !!selectedInvoiceChannel.value,
+);
+const visibleInvoices = computed(() =>
+  props.initialChannelID
+    ? invoices.value.filter((row) => row.channel_id === props.initialChannelID)
+    : invoices.value,
+);
+async function loadInvoiceChannels() {
+  const run = ++channelEpoch,
+    c = context(),
+    owner = merchantID.value;
+  invoiceChannels.value = [];
+  channelError.value = "";
+  channelScope.value = "";
+  if (admin.value && !/^[1-9]\d{0,18}$/.test(owner)) {
+    channelError.value = "请先填写商户 ID，以读取该商户的授权通道";
+    channelLoading.value = false;
+    return;
+  }
+  channelLoading.value = true;
+  try {
+    const query = admin.value
+      ? "?merchant_id=" + encodeURIComponent(owner)
+      : "";
+    const rows = readCryptoChannelOptions(
+      await c.client.request("/crypto/channels" + query),
+    );
+    if (!currentView(c) || run !== channelEpoch || owner !== merchantID.value)
+      return;
+    invoiceChannels.value = rows;
+    channelScope.value = owner;
+    if (
+      !invoice.value.channel_id &&
+      !invoice.value.out_trade_no &&
+      !invoice.value.amount
+    )
+      invoice.value.channel_id = rows[0]?.id || "";
+  } catch {
+    if (currentView(c) && run === channelEpoch)
+      channelError.value = "收款通道暂时无法读取，请关闭表单后重试";
+  } finally {
+    if (currentView(c) && run === channelEpoch) channelLoading.value = false;
+  }
+}
 const headings: Record<CryptoSection, { title: string; description: string }> =
   {
     overview: {
@@ -240,6 +309,9 @@ function currentView(c: ReturnType<typeof context>) {
   return current(c) && c.sectionEpoch === sectionEpoch;
 }
 function closeActions() {
+  channelEpoch++;
+  invoiceChannels.value = [];
+  channelLoading.value = false;
   activeForm.value = "";
   password.value = "";
   checkoutURL.value = "";
@@ -251,6 +323,7 @@ function closeActions() {
 function openForm(kind: FormKind) {
   closeActions();
   activeForm.value = kind;
+  if (kind === "invoice") void loadInvoiceChannels();
 }
 async function selectAction(
   kind: "approve" | "recipient-approve" | "cancel" | "revoke",
@@ -279,6 +352,7 @@ function cancelForm() {
   if (kind === "invoice")
     invoice.value = {
       out_trade_no: "",
+      channel_id: "",
       network: networks.value[0]?.network || "tron",
       amount: "",
       notify_url: "",
@@ -457,7 +531,16 @@ async function load() {
     const query = scope();
     const [b, i, w, recipientsResult] = await Promise.all([
       c.client.request<Balance[]>("/crypto/balances" + query, options),
-      c.client.request<Invoice[]>("/crypto/invoices" + query, options),
+      c.client.request<Invoice[]>(
+        "/crypto/invoices" +
+          query +
+          (props.initialChannelID
+            ? (query ? "&" : "?") +
+              "channel_id=" +
+              encodeURIComponent(props.initialChannelID)
+            : ""),
+        options,
+      ),
       c.client.request<Withdrawal[]>("/crypto/withdrawals" + query, options),
       c.client.request<Recipient[]>("/crypto/recipients" + query, options),
     ]);
@@ -524,8 +607,16 @@ async function submit(
   notice.value = "";
   try {
     if (kind === "invoice") {
+      if (!canCreateInvoice.value || !selectedInvoiceChannel.value)
+        throw new Error("请先选择当前可用的授权收款通道");
       amount(invoice.value.amount);
-      body = { ...invoice.value, ...target() };
+      const channel = selectedInvoiceChannel.value;
+      const units = usdtUnits(invoice.value.amount),
+        min = usdtUnits(channel.min_amount),
+        max = usdtUnits(channel.max_amount);
+      if (units < min || (max > 0n && units > max))
+        throw new Error("收款金额超出所选通道的单笔限额");
+      body = { ...invoice.value, network: channel.network, ...target() };
       path = "/crypto/invoices";
     } else {
       if (!password.value) throw new Error("请输入当前登录密码以确认本次操作");
@@ -704,6 +795,7 @@ watch(
     };
     invoice.value = {
       out_trade_no: "",
+      channel_id: "",
       network: "tron",
       amount: "",
       notify_url: "",
@@ -732,7 +824,7 @@ watch(
   { immediate: true },
 );
 watch(
-  () => props.section,
+  () => [props.section, props.initialChannelID],
   () => {
     sectionEpoch++;
     controller?.abort();
@@ -742,6 +834,12 @@ watch(
     if (!restoring.value) void load();
   },
 );
+watch(merchantID, () => {
+  channelEpoch++;
+  invoiceChannels.value = [];
+  invoice.value.channel_id = "";
+  if (activeForm.value === "invoice") void loadInvoiceChannels();
+});
 onBeforeUnmount(() => {
   alive = false;
   epoch++;
@@ -906,12 +1004,42 @@ onBeforeUnmount(() => {
         >
           <h3>创建 USDT 收款单</h3>
           <label
-            >网络<select v-model="invoice.network" name="network" required>
-              <option v-for="n in networks" :key="n.network" :value="n.network">
-                {{ label(n.network) }} · 费率 {{ n.fee_bps / 100 }}%
+            >支付通道<select
+              v-model="invoice.channel_id"
+              name="channel_id"
+              required
+              :disabled="channelLoading || !invoiceChannels.length"
+            >
+              <option
+                v-for="channel in invoiceChannels"
+                :key="channel.id"
+                :value="channel.id"
+              >
+                {{ channel.name }} · {{ label(channel.network) }}
               </option>
             </select></label
-          ><label
+          >
+          <p v-if="channelLoading" role="status" class="muted">
+            正在读取授权通道…
+          </p>
+          <p v-else-if="channelError" role="alert" class="muted">
+            {{ channelError }}
+          </p>
+          <p v-else-if="!invoiceChannels.length" role="status" class="muted">
+            当前没有可用的 USDT
+            通道，请联系管理员核对支付方式、商户授权、用户组和主网状态。
+          </p>
+          <p v-if="selectedInvoiceChannel" class="muted">
+            手续费 {{ selectedInvoiceChannel.fee_bps / 100 }}% · 单笔
+            {{ selectedInvoiceChannel.min_amount }} 至
+            {{
+              selectedInvoiceChannel.max_amount === "0"
+                ? "不限"
+                : selectedInvoiceChannel.max_amount
+            }}
+            USDT
+          </p>
+          <label
             >商户订单号<input
               v-model="invoice.out_trade_no"
               name="out_trade_no"
@@ -935,7 +1063,9 @@ onBeforeUnmount(() => {
               >支付后返回 URL<input v-model="invoice.return_url" type="url"
             /></label>
           </details>
-          <button type="submit" :disabled="!canWrite">创建收款单</button>
+          <button type="submit" :disabled="!canCreateInvoice">
+            创建收款单
+          </button>
           <button
             type="button"
             data-cancel-form
@@ -1307,6 +1437,9 @@ onBeforeUnmount(() => {
 
       <section v-if="section === 'invoices'" class="card">
         <h3>收款记录</h3>
+        <p v-if="initialChannelID" class="muted">
+          当前查看通道 #{{ initialChannelID }} 的收款记录
+        </p>
         <div class="crypto-table">
           <table>
             <thead>
@@ -1314,6 +1447,7 @@ onBeforeUnmount(() => {
                 <th>收款单 / 商户订单</th>
                 <th v-if="admin">商户</th>
                 <th>网络</th>
+                <th>支付通道</th>
                 <th>应付 / 已收 USDT</th>
                 <th>手续费 USDT</th>
                 <th>状态</th>
@@ -1321,12 +1455,19 @@ onBeforeUnmount(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="i in invoices" :key="i.id">
+              <tr v-for="i in visibleInvoices" :key="i.id">
                 <td>
                   {{ i.id }}<br /><small>{{ i.out_trade_no }}</small>
                 </td>
                 <td v-if="admin">{{ i.merchant_id }}</td>
                 <td>{{ label(i.network) }}</td>
+                <td>
+                  {{
+                    i.channel_id && i.channel_id !== "0"
+                      ? "#" + i.channel_id + " · 版本 " + i.channel_revision
+                      : "历史未绑定通道"
+                  }}
+                </td>
                 <td>{{ i.amount }} / {{ i.received }}</td>
                 <td>{{ i.fee }}</td>
                 <td>{{ states[i.state] || i.state }}</td>
@@ -1334,7 +1475,9 @@ onBeforeUnmount(() => {
               </tr>
             </tbody>
           </table>
-          <p v-if="!invoices.length && !loading" class="muted">暂无收款记录</p>
+          <p v-if="!visibleInvoices.length && !loading" class="muted">
+            暂无收款记录
+          </p>
         </div>
       </section>
       <section

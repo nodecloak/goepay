@@ -127,6 +127,23 @@ async function mockConsole(page: Page, role: Role, initialMode: Mode) {
                 },
               ],
       });
+    if (path.endsWith("/crypto/channels"))
+      return ok({
+        items:
+          mode === "enabled"
+            ? [
+                {
+                  id: "42",
+                  name: "Synthetic TRON channel",
+                  network: "tron",
+                  fee_bps: 50,
+                  min_amount: "0",
+                  max_amount: "0",
+                  day_limit: "0",
+                },
+              ]
+            : [],
+      });
     if (path.endsWith("/crypto/balances"))
       return ok([
         { network: "tron", available: "7.123456", reserved: "0.000001" },
@@ -465,6 +482,10 @@ for (const mode of ["config-error", "list-error"] as const) {
       const fixture = await mockConsole(page, role, "enabled");
       await fixture.open("invoices");
       const funds = page.locator(".crypto-funds");
+      if (role === "admin")
+        await funds
+          .locator('.crypto-filter input[name="merchant_id"]')
+          .fill("1000");
       await expect(funds).toContainText("synthetic-usdt-order-history");
       await expectNoFundsForms(page);
       await funds

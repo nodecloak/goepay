@@ -179,6 +179,10 @@ func main() {
 		slog.Error("invalid local provider configuration")
 		os.Exit(1)
 	}
+	if e = validateCryptoChannelNamespace(ctx, app); e != nil {
+		slog.Error("invalid shared payment channel namespace")
+		os.Exit(1)
+	}
 	if app.ProviderFlow != nil {
 		app.ProviderFlow.SubjectResolver = ordersubject.New(pool).Resolve
 	}

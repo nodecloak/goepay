@@ -129,13 +129,19 @@ func TestPayTypeCatalogOpensAndClosesRouting(t *testing.T) {
 }
 
 func TestPayTypeCatalogDefaultsMatchTheOriginalInstall(t *testing.T) {
-	want := map[string]bool{"alipay": true, "wxpay": true, "qqpay": false, "bank": false, "jdpay": false, "paypal": false, "douyinpay": false, "ecny": false, "fakepay": false}
+	want := map[string]bool{"alipay": true, "wxpay": true, "qqpay": false, "bank": false, "jdpay": false, "paypal": false, "douyinpay": false, "usdt": false, "ecny": false, "fakepay": false}
 	for kind, open := range want {
 		if payTypeDefaultOpen(kind) != open {
 			t.Fatal(kind, open)
 		}
 	}
 	for _, p := range originalPayTypes {
+		if p.Name == "usdt" {
+			if adapter.CatalogPayType(p.Name) || p.Open || p.ShowName != "USDT" {
+				t.Fatal("USDT must default closed and remain outside the CNY adapter catalog")
+			}
+			continue
+		}
 		if !adapter.CatalogPayType(p.Name) || p.ShowName == "" {
 			t.Fatal("catalog entry", p.Name)
 		}

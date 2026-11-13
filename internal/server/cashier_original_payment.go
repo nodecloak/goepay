@@ -5,15 +5,25 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
+	"goepay/internal/cryptopay"
 	"goepay/internal/payment"
 )
 
 // A valid cashier token can resume its original payment type after the new
 // collection policy closes. providerCreate still compares the entire original
 // request and restores the sealed attempt; this does not admit another order.
-func (s *Server) cashierIntentTypes236(r *http.Request, in cashierIntent) ([]cashierPayType, error) {
+func (s *Server) cashierIntentTypes(r *http.Request, in cashierIntent) ([]cashierPayType, error) {
 	if s.Pool == nil {
 		return nil, payment.ErrInvalid
+	}
+	if s.Crypto != nil {
+		_, err := s.Crypto.FindInvoice(r.Context(), in.MerchantID, "", in.OutTradeNo)
+		if err == nil {
+			return []cashierPayType{{Name: "usdt", ShowName: "USDT"}}, nil
+		}
+		if !errors.Is(err, cryptopay.ErrNotFound) {
+			return nil, err
+		}
 	}
 	var kind string
 	err := s.Pool.QueryRow(r.Context(), `SELECT o.type FROM orders o WHERE o.merchant_id=$1 AND o.out_trade_no=$2 AND EXISTS(SELECT 1 FROM provider_attempts a WHERE a.order_id=o.id) LIMIT 1`, in.MerchantID, in.OutTradeNo).Scan(&kind)

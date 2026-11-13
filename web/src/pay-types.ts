@@ -10,6 +10,7 @@ export const PAY_TYPE_LABELS: Record<string, string> = {
   paypal: "PayPal",
   douyinpay: "抖音支付",
   ecny: "数字人民币",
+  usdt: "USDT",
   sandbox: "本地模拟",
 };
 
@@ -22,10 +23,15 @@ export const CATALOG_PAY_TYPES = [
   "paypal",
   "douyinpay",
   "ecny",
+  "usdt",
 ] as const;
 
-// Types accepted by generic order/refund filters (catalog + sandbox).
-export const FILTER_PAY_TYPES = [...CATALOG_PAY_TYPES, "sandbox"] as const;
+// Existing CNY report/refund fields use integer cents. USDT has its own asset
+// order view and must not be offered to these currency-specific projections.
+export const FILTER_PAY_TYPES = [
+  ...CATALOG_PAY_TYPES.filter((type) => type !== "usdt"),
+  "sandbox",
+] as const;
 
 export function payTypeLabel(value: unknown): string {
   return PAY_TYPE_LABELS[String(value)] ?? String(value ?? "—");

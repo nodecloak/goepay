@@ -268,7 +268,6 @@ internal/server/buyer_charge104_policy_test.go
 internal/server/buyer_charge104_precision_test.go
 internal/server/buyer_charge104_projection.go
 internal/server/buyer_charge104_projection_test.go
-internal/server/cashier_default236.go
 internal/server/cashier_protocol217_test.go
 internal/server/certification_required233_test.go
 internal/server/certification_return233.go
@@ -291,7 +290,6 @@ internal/server/combined_orders204.go
 internal/server/combined_orders204_test.go
 internal/server/connect_login134_test.go
 internal/server/default_payment_channels236.go
-internal/server/default_payment_channels236_test.go
 internal/server/default_payment_parent236_test.go
 internal/server/devdoc_portal219_test.go
 internal/server/funds_json_exact187_test.go
@@ -369,7 +367,6 @@ internal/server/parentchannel180_binding_permissions_test.go
 internal/server/parentchannel180_binding_v3_launch_test.go
 internal/server/parentchannel180_bindings_input_test.go
 internal/server/parentchannel180_bindings_runtime_test.go
-internal/server/parentchannel180_browser_test.go
 internal/server/parentchannel180_callback_test.go
 internal/server/parentchannel180_lifecycle_config_test.go
 internal/server/parentchannel180_payment_test_test.go

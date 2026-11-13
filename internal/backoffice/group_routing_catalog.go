@@ -17,7 +17,7 @@ type GroupPaymentChannel struct {
 // the list is duplicated here; keep it in sync with adapter.PluginPayTypes.
 func catalogPayType(t string) bool {
 	switch t {
-	case "alipay", "wxpay", "qqpay", "bank", "jdpay", "paypal", "douyinpay", "ecny":
+	case "alipay", "wxpay", "qqpay", "bank", "jdpay", "paypal", "douyinpay", "ecny", "usdt":
 		return true
 	}
 	return false

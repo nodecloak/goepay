@@ -4296,3 +4296,22 @@ td.empty:has(.pa-empty)::before {
   .pa-input:has(input[inputmode="numeric"], input[inputmode="decimal"]) {
   max-inline-size: 200px;
 }
+/* Orders share navigation while each asset retains its own amount semantics. */
+.order-asset-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.order-asset-tabs a {
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--pa-border, #d8dee8);
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+.order-asset-tabs a[aria-current="page"] {
+  color: var(--pa-primary, #315efb);
+  border-color: currentColor;
+  background: var(--pa-primary-soft, rgba(49, 94, 251, 0.08));
+}

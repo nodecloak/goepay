@@ -7,6 +7,7 @@ export const groupPaymentTypes = [
   { key: "paypal", label: "PayPal" },
   { key: "douyinpay", label: "抖音支付" },
   { key: "ecny", label: "数字人民币" },
+  { key: "usdt", label: "USDT" },
   { key: "sandbox", label: "本地模拟支付" },
 ] as const;
 export type GroupPaymentSetting = {
@@ -68,7 +69,9 @@ export function readGroupPaymentRates(raw: unknown): Rates {
           ? type !== "roll"
           : BigInt(channel) < 0n && type !== "channel" && type !== "") ||
         (BigInt(channel) > 0n && type !== "channel" && type !== "roll") ||
-        key === "sandbox"
+        key === "sandbox" ||
+        (key === "usdt" &&
+          (type === "roll" || ["-1", "-2", "-3", "-4"].includes(channel)))
       )
         throw Error("通道配置尚不支持");
       setting.channel = channel;

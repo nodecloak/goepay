@@ -12,7 +12,7 @@ import (
 
 // Opt-in because backend unit CI need not install a browser. The local full
 // acceptance explicitly runs it with the existing project Playwright runtime.
-func TestParentChannel180ActualBrowserHTTPTestPayment(t *testing.T) {
+func TestParentChannelActualBrowserHTTPTestPayment(t *testing.T) {
 	if os.Getenv("GOEPAY_PARENT_TEST_BROWSER") != "1" {
 		t.Skip("GOEPAY_PARENT_TEST_BROWSER=1 requires local project Playwright")
 	}
@@ -27,7 +27,10 @@ func TestParentChannel180ActualBrowserHTTPTestPayment(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	artifacts := filepath.Join(root, ".tools", "parentchannel180-real-http-browser")
+	artifacts := os.Getenv("GOEPAY_PARENT_BROWSER_EVIDENCE")
+	if artifacts == "" {
+		artifacts = filepath.Join(root, ".tools", "parentchannel180-real-http-browser")
+	}
 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "node", filepath.Join(root, "web", "e2e", "parent180-test-http-browser.mjs"))

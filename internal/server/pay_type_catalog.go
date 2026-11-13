@@ -26,6 +26,7 @@ var originalPayTypes = []struct {
 	{"jdpay", "京东支付", false},
 	{"paypal", "PayPal", false},
 	{"douyinpay", "抖音支付", false},
+	{"usdt", "USDT", false},
 }
 
 func payTypeDefaultOpen(payType string) bool {

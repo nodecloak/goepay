@@ -108,7 +108,7 @@ func (info Info) CanonicalJSON() ([]byte, error) {
 // adapter.PluginPayTypes.
 func catalogKind(kind string) bool {
 	switch kind {
-	case "alipay", "wxpay", "qqpay", "bank", "jdpay", "paypal", "douyinpay", "ecny", "sandbox":
+	case "alipay", "wxpay", "qqpay", "bank", "jdpay", "paypal", "douyinpay", "ecny", "usdt", "sandbox":
 		return true
 	}
 	return false

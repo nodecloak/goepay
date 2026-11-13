@@ -177,7 +177,12 @@ function choicesFor(
     { value: "random_roll", label: "随机可用轮询组", type: kind },
     { value: "default", label: "继承系统路由", type: kind },
     ...routeOptions.value.filter((o) => o.type === kind),
-  ];
+  ].filter(
+    (option) =>
+      kind !== "usdt" ||
+      ["disabled", "first", "default"].includes(option.value) ||
+      option.value.startsWith("channel:"),
+  );
   const current = groupRouteValue(props.values.info, kind);
   if (!choices.some((o) => o.value === current))
     choices.push({
@@ -374,7 +379,8 @@ onBeforeUnmount(() => {
               {{ section.label }}
             </h3>
             <p v-if="section.name === 'payment'" class="muted">
-              统一支付费率单位为万分比。下方分成比例为商户保留的百分比，留空或0使用统一费率；仅用于新订单。通道选择不会自动发起支付。
+              统一支付费率单位为万分比。下方分成比例为商户保留的百分比，留空或0使用默认费率；USDT
+              默认费率来自原链通道。仅用于新订单，通道选择不会自动发起支付。
             </p>
             <p v-if="section.name === 'settlement'" class="muted">
               结算手续费率用于新的手动提现及普通定时申请，留空继承系统费率，0免手续费；余额阈值转账按其独立规则处理。修改组配置不会自动发起付款。

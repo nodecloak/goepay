@@ -4,7 +4,7 @@ package backoffice
 // Provider submission, package installation, and bank verification are explicit
 // separate operations; storing these records does not report those as completed.
 func init() {
-	definitions["pay-types"] = definition{title: "支付方式", description: "本地支付方式资料，不自动创建支付适配器。", fields: []Field{text("name", "展示名称", true, 100), selectField("type", "类型", "alipay", "wxpay", "qqpay", "bank", "jdpay", "paypal", "douyinpay", "ecny", "sandbox"), payTypeDeviceField(), flag("enabled", "启用资料", true)}}
+	definitions["pay-types"] = definition{title: "支付方式", description: "管理支付方式展示和新收款开关；实际收款还需要已授权且可用的支付通道。", fields: []Field{text("name", "展示名称", true, 100), selectField("type", "类型", "alipay", "wxpay", "qqpay", "bank", "jdpay", "paypal", "douyinpay", "ecny", "usdt", "sandbox"), payTypeDeviceField(), flag("enabled", "启用资料", true)}}
 	definitions["pay-rolls"] = payRollDefinition()
 	definitions["weixin-apps"] = weixinAppsDefinition()
 	definitions["onboarding-channels"] = definition{title: "进件渠道配置", description: "配置进件资料字段；向渠道提交材料需要独立已验证适配器。", fields: []Field{text("name", "渠道名称", true, 100), selectField("provider", "服务商", "alipay", "wxpay"), {Name: "form_schema", Label: "资料表单 JSON", Type: "json", Required: true, MaxLength: 20000}, flag("enabled", "启用资料", false)}}

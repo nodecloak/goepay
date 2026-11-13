@@ -124,6 +124,7 @@ export function consoleValue(
           paypal: "PayPal",
           douyinpay: "抖音支付",
           ecny: "数字人民币",
+          usdt: "USDT",
           sandbox: "本地模拟",
         } as Record<string, string>
       )[String(value)] ?? displayValue(value)

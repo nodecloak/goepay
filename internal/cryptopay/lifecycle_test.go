@@ -53,6 +53,13 @@ func testService(t *testing.T) *Service {
 	if _, e = q.Exec(t.Context(), string(raw)); e != nil {
 		t.Fatal(e)
 	}
+	raw, e = os.ReadFile(filepath.Join("..", "..", "db", "migrations", "000200_crypto_payment_channels.up.sql"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = q.Exec(t.Context(), string(raw)); e != nil {
+		t.Fatal(e)
+	}
 	return &Service{Pool: q, TokenKey: make([]byte, 32), Networks: map[string]NetworkConfig{"tron": {Enabled: true, FeeBPS: 100}, "ethereum": {Enabled: true, FeeBPS: 100}}}
 }
 

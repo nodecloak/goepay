@@ -526,7 +526,12 @@ const path = computed(
   () => "/" + route.path.split("/").slice(2).join("/") || "/dashboard",
 );
 const page = computed(() => resolvePage(area.value, path.value));
-const kind = computed(() => viewKind(area.value, path.value));
+const cryptoOrderView = computed(
+  () => path.value === "/trade/order" && route.query.type === "usdt",
+);
+const kind = computed(() =>
+  cryptoOrderView.value ? "crypto" : viewKind(area.value, path.value),
+);
 const sharingFlowOpen = ref(false);
 const sharingFlowBusy = ref(false);
 const sharingFlowContext = ref({ merchant_id: "", sharing_external_no: "" });
@@ -731,6 +736,9 @@ watch(items, () => {
 const authorized = computed(
   () =>
     !!page.value &&
+    (!cryptoOrderView.value ||
+      area.value === "merchant" ||
+      session.value?.user.admin_class === "super") &&
     pageAuthorizedFor(
       area.value,
       page.value.path,
@@ -2263,6 +2271,23 @@ onBeforeUnmount(() => {
       />
     </template>
     <main class="content">
+      <nav
+        v-if="path === '/trade/order' && authorized"
+        class="order-asset-tabs"
+        aria-label="订单资产"
+      >
+        <RouterLink
+          :to="'/' + area + '/trade/order'"
+          :aria-current="!cryptoOrderView ? 'page' : undefined"
+          >人民币订单</RouterLink
+        >
+        <RouterLink
+          v-if="area === 'merchant' || session.user.admin_class === 'super'"
+          :to="'/' + area + '/trade/order?type=usdt'"
+          :aria-current="cryptoOrderView ? 'page' : undefined"
+          >USDT 订单</RouterLink
+        >
+      </nav>
       <p
         v-if="kind === 'orders' && refundListRecoveryError212"
         role="alert"
@@ -2473,7 +2498,12 @@ onBeforeUnmount(() => {
         :key="area + ':crypto'"
         :client="client"
         :own-session="!session.delegated_by"
-        :section="cryptoSectionFor(area, path)"
+        :section="cryptoOrderView ? 'invoices' : cryptoSectionFor(area, path)"
+        :initial-channel-i-d="
+          cryptoOrderView && typeof route.query.channel_id === 'string'
+            ? route.query.channel_id
+            : undefined
+        "
       />
       <AnnouncementsPage
         v-else-if="
@@ -2793,7 +2823,9 @@ onBeforeUnmount(() => {
             :kind="kind"
             :area="area"
             :loading="loading"
-            :pay-type-options="payTypeFilterOptions"
+            :pay-type-options="
+              payTypeFilterOptions.filter((option) => option.value !== 'usdt')
+            "
             @reset="resetListFilters"
           />
         </form>
