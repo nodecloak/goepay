@@ -20,76 +20,114 @@ type channelAdmission struct {
 	validUntil time.Time
 }
 
-func channelGroup(ctx context.Context, tx pgx.Tx, mid int64, lock bool) (merchantpolicy.EffectiveGroup, grouppolicy.Info, error) {
-	var empty merchantpolicy.EffectiveGroup
+type channelGroupPolicy struct {
+	group        merchantpolicy.EffectiveGroup
+	info         grouppolicy.Info
+	routingGroup int64
+	routingInfo  grouppolicy.Info
+}
+
+func parseChannelGroupInfo(body []byte) (grouppolicy.Info, error) {
+	var fields struct {
+		Enabled *bool           `json:"enabled"`
+		Info    json.RawMessage `json:"info"`
+	}
+	if json.Unmarshal(body, &fields) != nil {
+		return nil, ErrInvalid
+	}
+	if fields.Enabled != nil && !*fields.Enabled {
+		return nil, ErrUnavailable
+	}
+	if len(fields.Info) == 0 {
+		fields.Info = json.RawMessage(`{}`)
+	}
+	info, err := grouppolicy.ParseInfo(fields.Info)
+	if err != nil {
+		return nil, ErrInvalid
+	}
+	return info, nil
+}
+
+func channelGroup(ctx context.Context, tx pgx.Tx, mid int64, lock bool) (channelGroupPolicy, error) {
+	var out channelGroupPolicy
 	suffix := ""
 	if lock {
 		suffix = " FOR SHARE"
 	}
 	rows, e := tx.Query(ctx, `SELECT body FROM backoffice_records WHERE resource='pay-types' AND body->>'type'='usdt'`+suffix)
 	if e != nil {
-		return empty, nil, e
+		return out, e
 	}
 	open := false
 	for rows.Next() {
 		var raw []byte
 		if e = rows.Scan(&raw); e != nil {
 			rows.Close()
-			return empty, nil, e
+			return out, e
 		}
 		var item struct {
 			Enabled bool `json:"enabled"`
 		}
 		if json.Unmarshal(raw, &item) != nil {
 			rows.Close()
-			return empty, nil, ErrInvalid
+			return out, ErrInvalid
 		}
 		open = open || item.Enabled
 	}
 	rows.Close()
 	if e = rows.Err(); e != nil {
-		return empty, nil, e
+		return out, e
 	}
 	if !open {
-		return empty, nil, ErrUnavailable
+		return out, ErrUnavailable
+	}
+	// Group zero is the existing system-default assignment. Lock it before
+	// higher group IDs so inheritance never reverses the effective-group lock
+	// order. Keep it locked until invoice commit, including the final proof.
+	var defaultBody []byte
+	if e = tx.QueryRow(ctx, `SELECT body FROM backoffice_records WHERE resource='groups' AND id=0`+suffix).Scan(&defaultBody); e != nil && !errors.Is(e, pgx.ErrNoRows) {
+		return out, e
 	}
 	g, e := merchantpolicy.ReadEffectiveGroup(ctx, tx, mid, lock)
 	if e != nil {
-		return g, nil, e
+		return out, e
 	}
-	var fields struct {
-		Info json.RawMessage `json:"info"`
-	}
-	if json.Unmarshal(g.Body, &fields) != nil {
-		return g, nil, ErrInvalid
-	}
-	if len(fields.Info) == 0 {
-		fields.Info = json.RawMessage(`{}`)
-	}
-	info, e := grouppolicy.ParseInfo(fields.Info)
+	info, e := parseChannelGroupInfo(g.Body)
 	if e != nil {
-		return g, nil, ErrInvalid
+		return out, e
 	}
-	switch info["usdt"].RoutingChoice().Kind() {
-	case grouppolicy.Inherit, grouppolicy.First, grouppolicy.Channel:
+	out = channelGroupPolicy{group: g, info: info, routingGroup: g.ID, routingInfo: info}
+	if info["usdt"].RoutingChoice().Kind() == grouppolicy.Inherit {
+		if g.ID == 0 || len(defaultBody) == 0 {
+			return out, ErrUnavailable
+		}
+		out.routingGroup = 0
+		out.routingInfo, e = parseChannelGroupInfo(defaultBody)
+		if e != nil {
+			return out, e
+		}
+	}
+	switch out.routingInfo["usdt"].RoutingChoice().Kind() {
+	case grouppolicy.First, grouppolicy.Channel:
+	case grouppolicy.Inherit, grouppolicy.Disabled:
+		return out, ErrUnavailable
 	default:
-		return g, nil, ErrInvalid
+		return out, ErrInvalid
 	}
-	return g, info, nil
+	return out, nil
 }
 
-func (s *Service) channelCandidates(ctx context.Context, tx pgx.Tx, mid int64, network string, explicit int64, info grouppolicy.Info, lock bool) ([]Channel, error) {
+func (s *Service) channelCandidates(ctx context.Context, tx pgx.Tx, network string, explicit int64, choice grouppolicy.Choice, lock bool) ([]Channel, error) {
 	if explicit < 0 || network != "" && network != "tron" && network != "ethereum" {
 		return nil, ErrInvalid
 	}
-	choice := info["usdt"].RoutingChoice()
 	if choice.Kind() == grouppolicy.Channel {
 		if explicit > 0 && explicit != choice.ID() {
 			return nil, ErrInvalid
 		}
 		explicit = choice.ID()
 	}
-	rows, e := tx.Query(ctx, `SELECT c.id FROM crypto_channels c JOIN crypto_channel_grants g ON g.channel_id=c.id WHERE g.merchant_id=$1 AND ($2::bigint=0 OR c.id=$2) AND ($3::text='' OR c.network=$3) ORDER BY c.id`, mid, explicit, network)
+	rows, e := tx.Query(ctx, `SELECT id FROM crypto_channels WHERE ($1::bigint=0 OR id=$1) AND ($2::text='' OR network=$2) ORDER BY id`, explicit, network)
 	if e != nil {
 		return nil, e
 	}
@@ -119,16 +157,6 @@ func (s *Service) channelCandidates(ctx context.Context, tx pgx.Tx, mid int64, n
 		if !exists || !config.Enabled {
 			continue
 		}
-		granted := false
-		for _, candidate := range c.MerchantIDs {
-			if candidate == strconv.FormatInt(mid, 10) {
-				granted = true
-				break
-			}
-		}
-		if !granted {
-			continue
-		}
 		out = append(out, c)
 	}
 	return out, nil
@@ -155,11 +183,11 @@ func (s *Service) admitChannel(ctx context.Context, tx pgx.Tx, in CreateInvoiceI
 			return out, ErrInvalid
 		}
 	}
-	g, info, e := channelGroup(ctx, tx, in.MerchantID, true)
+	policy, e := channelGroup(ctx, tx, in.MerchantID, true)
 	if e != nil {
 		return out, e
 	}
-	channels, e := s.channelCandidates(ctx, tx, in.MerchantID, in.Network, in.ChannelID, info, true)
+	channels, e := s.channelCandidates(ctx, tx, in.Network, in.ChannelID, policy.routingInfo["usdt"].RoutingChoice(), true)
 	if e != nil {
 		return out, e
 	}
@@ -191,21 +219,25 @@ func (s *Service) admitChannel(ctx context.Context, tx pgx.Tx, in CreateInvoiceI
 			}
 		}
 		fee, source := c.FeeBPS, "channel"
-		if retained, set := info["usdt"].RetainedBPS(); set {
+		if retained, set := policy.info["usdt"].RetainedBPS(); set {
 			fee, source = 10000-retained, "group"
 		}
-		canonical, e := info.CanonicalJSON()
+		canonical, e := policy.info.CanonicalJSON()
 		if e != nil {
 			return out, e
 		}
-		snapshot, e := json.Marshal(map[string]any{"channel_id": strconv.FormatInt(c.ID, 10), "revision": strconv.FormatInt(c.Revision, 10), "name": c.Name, "asset": "USDT", "network": c.Network, "fee_bps": fee, "fee_source": source, "group_id": strconv.FormatInt(g.ID, 10), "group_policy": json.RawMessage(canonical), "min_amount": c.MinAmount, "max_amount": c.MaxAmount, "day_limit": c.DayLimit, "day_basis": "UTC creation date", "quote_cny_per_usdt": in.QuoteRate})
+		routing, e := policy.routingInfo.CanonicalJSON()
 		if e != nil {
 			return out, e
 		}
-		if e = currentGroupDeadline(ctx, tx, g.ValidUntil); e != nil {
+		snapshot, e := json.Marshal(map[string]any{"channel_id": strconv.FormatInt(c.ID, 10), "revision": strconv.FormatInt(c.Revision, 10), "name": c.Name, "asset": "USDT", "network": c.Network, "fee_bps": fee, "fee_source": source, "group_id": strconv.FormatInt(policy.group.ID, 10), "group_policy": json.RawMessage(canonical), "routing_group_id": strconv.FormatInt(policy.routingGroup, 10), "routing_group_policy": json.RawMessage(routing), "min_amount": c.MinAmount, "max_amount": c.MaxAmount, "day_limit": c.DayLimit, "day_basis": "UTC creation date", "quote_cny_per_usdt": in.QuoteRate})
+		if e != nil {
 			return out, e
 		}
-		return channelAdmission{channel: c, feeBPS: fee, feeSource: source, snapshot: snapshot, validUntil: g.ValidUntil}, nil
+		if e = currentGroupDeadline(ctx, tx, policy.group.ValidUntil); e != nil {
+			return out, e
+		}
+		return channelAdmission{channel: c, feeBPS: fee, feeSource: source, snapshot: snapshot, validUntil: policy.group.ValidUntil}, nil
 	}
 	return out, ErrUnavailable
 }
@@ -232,25 +264,24 @@ func (s *Service) AvailableChannels(ctx context.Context, mid int64, network stri
 	if !enabled || pay != 1 {
 		return []Channel{}, nil
 	}
-	g, info, e := channelGroup(ctx, tx, mid, false)
+	policy, e := channelGroup(ctx, tx, mid, false)
 	if errors.Is(e, ErrUnavailable) || errors.Is(e, ErrInvalid) || errors.Is(e, merchantpolicy.ErrGroupPolicy) {
 		return []Channel{}, nil
 	}
 	if e != nil {
 		return nil, e
 	}
-	items, e := s.channelCandidates(ctx, tx, mid, network, 0, info, false)
+	items, e := s.channelCandidates(ctx, tx, network, 0, policy.routingInfo["usdt"].RoutingChoice(), false)
 	if e != nil {
 		return nil, e
 	}
-	if e = currentGroupDeadline(ctx, tx, g.ValidUntil); e != nil {
+	if e = currentGroupDeadline(ctx, tx, policy.group.ValidUntil); e != nil {
 		return []Channel{}, nil
 	}
 	for i := range items {
-		if retained, set := info["usdt"].RetainedBPS(); set {
+		if retained, set := policy.info["usdt"].RetainedBPS(); set {
 			items[i].FeeBPS = 10000 - retained
 		}
-		items[i].MerchantIDs = []string{strconv.FormatInt(mid, 10)}
 	}
 	return items, tx.Commit(ctx)
 }

@@ -166,7 +166,7 @@ async function loadInvoiceChannels() {
   channelError.value = "";
   channelScope.value = "";
   if (admin.value && !/^[1-9]\d{0,18}$/.test(owner)) {
-    channelError.value = "请先填写商户 ID，以读取该商户的授权通道";
+    channelError.value = "请先填写商户 ID，以读取该商户的可用通道";
     channelLoading.value = false;
     return;
   }
@@ -608,7 +608,7 @@ async function submit(
   try {
     if (kind === "invoice") {
       if (!canCreateInvoice.value || !selectedInvoiceChannel.value)
-        throw new Error("请先选择当前可用的授权收款通道");
+        throw new Error("请先选择当前商户可用的收款通道");
       amount(invoice.value.amount);
       const channel = selectedInvoiceChannel.value;
       const units = usdtUnits(invoice.value.amount),
@@ -1020,14 +1020,14 @@ onBeforeUnmount(() => {
             </select></label
           >
           <p v-if="channelLoading" role="status" class="muted">
-            正在读取授权通道…
+            正在读取可用通道…
           </p>
           <p v-else-if="channelError" role="alert" class="muted">
             {{ channelError }}
           </p>
           <p v-else-if="!invoiceChannels.length" role="status" class="muted">
             当前没有可用的 USDT
-            通道，请联系管理员核对支付方式、商户授权、用户组和主网状态。
+            通道，请联系管理员核对用户组通道分配、支付方式及主网状态。
           </p>
           <p v-if="selectedInvoiceChannel" class="muted">
             手续费 {{ selectedInvoiceChannel.fee_bps / 100 }}% · 单笔

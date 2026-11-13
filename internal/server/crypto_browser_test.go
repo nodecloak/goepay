@@ -23,7 +23,7 @@ func TestCryptoActualBrowserConsoleCheckoutAndPolling(t *testing.T) {
 	f := email197Local(t)
 	f.s.Sandbox = true
 	f.s.Crypto = &cryptopay.Service{Pool: f.p, RequireChannels: true, TokenKey: make([]byte, 32), Networks: map[string]cryptopay.NetworkConfig{"tron": {Enabled: true, FeeBPS: 50}, "ethereum": {Enabled: true, FeeBPS: 80}}}
-	if _, err := f.p.Exec(t.Context(), `INSERT INTO backoffice_records(resource,body) VALUES('pay-types','{"type":"usdt","enabled":true}')`); err != nil {
+	if _, err := f.p.Exec(t.Context(), `INSERT INTO backoffice_records(resource,body) VALUES('pay-types','{"type":"usdt","enabled":true}'); UPDATE backoffice_records SET body=jsonb_set(body,'{info}','{"usdt":{"channel":"-5","type":"channel"}}') WHERE resource='groups' AND id=0`); err != nil {
 		t.Fatal(err)
 	}
 	ctxProof := cryptopay.WithAuthority(t.Context(), func(context.Context, pgx.Tx) error { return nil })
@@ -31,7 +31,7 @@ func TestCryptoActualBrowserConsoleCheckoutAndPolling(t *testing.T) {
 		network, key string
 		fee          int64
 	}{{"tron", "a", 50}, {"ethereum", "b", 80}} {
-		if _, err := f.s.Crypto.SaveChannel(ctxProof, cryptopay.SaveChannelInput{ActorID: 168, RequestID: strings.Repeat(c.key, 32), Name: "USDT " + c.network, Network: c.network, Enabled: true, FeeBPS: c.fee, MinAmount: "0", MaxAmount: "0", DayLimit: "0", MerchantIDs: []int64{1}, ReservedIDs: []int64{7, 8}}); err != nil {
+		if _, err := f.s.Crypto.SaveChannel(ctxProof, cryptopay.SaveChannelInput{ActorID: 168, RequestID: strings.Repeat(c.key, 32), Name: "USDT " + c.network, Network: c.network, Enabled: true, FeeBPS: c.fee, MinAmount: "0", MaxAmount: "0", DayLimit: "0", ReservedIDs: []int64{7, 8}}); err != nil {
 			t.Fatal(err)
 		}
 	}

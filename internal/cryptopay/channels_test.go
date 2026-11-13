@@ -17,7 +17,7 @@ func channelTestService(t *testing.T) *Service {
 	_, e := s.Pool.Exec(t.Context(), `ALTER TABLE merchants ADD COLUMN base_group_id bigint NOT NULL DEFAULT 0, ADD COLUMN group_baseline_unresolved boolean NOT NULL DEFAULT false, ADD COLUMN pay integer NOT NULL DEFAULT 1;
 	CREATE TABLE memberships(merchant_id bigint PRIMARY KEY,group_id bigint,expires_at timestamptz);
 	CREATE TABLE backoffice_records(id bigint,resource text,body jsonb,PRIMARY KEY(resource,id));
-	INSERT INTO backoffice_records VALUES(0,'groups','{"enabled":true,"info":{}}'),(1,'pay-types','{"type":"usdt","enabled":true}');`)
+	INSERT INTO backoffice_records VALUES(0,'groups','{"enabled":true,"info":{"usdt":{"channel":"-5","type":"channel"}}}'),(1,'pay-types','{"type":"usdt","enabled":true}');`)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -29,19 +29,19 @@ func channelAuthority(ctx context.Context) context.Context {
 	return WithAuthority(ctx, func(context.Context, pgx.Tx) error { return nil })
 }
 
-func saveTestChannel(t *testing.T, s *Service, name, network string, merchants ...int64) Channel {
+func saveTestChannel(t *testing.T, s *Service, name, network string) Channel {
 	t.Helper()
 	digest := sha256.Sum256([]byte(name + ":" + network))
-	c, e := s.SaveChannel(channelAuthority(t.Context()), SaveChannelInput{ActorID: 1, RequestID: fmt.Sprintf("%x", digest[:16]), Name: name, Network: network, Enabled: true, FeeBPS: 100, MinAmount: "0", MaxAmount: "0", DayLimit: "0", MerchantIDs: merchants})
+	c, e := s.SaveChannel(channelAuthority(t.Context()), SaveChannelInput{ActorID: 1, RequestID: fmt.Sprintf("%x", digest[:16]), Name: name, Network: network, Enabled: true, FeeBPS: 100, MinAmount: "0", MaxAmount: "0", DayLimit: "0"})
 	if e != nil {
 		t.Fatal(e)
 	}
 	return c
 }
 
-func TestCryptoChannelsRequireExplicitGrantAndFreezeOriginalRoute(t *testing.T) {
+func TestCryptoChannelsGroupAssignmentFreezesOriginalRoute(t *testing.T) {
 	s := channelTestService(t)
-	c := saveTestChannel(t, s, "TRON collection", "tron", 1)
+	c := saveTestChannel(t, s, "TRON collection", "tron")
 	if e := s.AddAddress(t.Context(), "tron", depositOne, "deposit"); e != nil {
 		t.Fatal(e)
 	}
@@ -50,7 +50,7 @@ func TestCryptoChannelsRequireExplicitGrantAndFreezeOriginalRoute(t *testing.T) 
 	if e != nil || v.ChannelID != c.ID || v.Network != "tron" || v.ChannelRevision != 1 || v.Fee != "0.1" || v.FeeBPS != 100 || v.FeeSource != "channel" {
 		t.Fatalf("channel route %+v: %v", v, e)
 	}
-	_, e = s.SaveChannel(channelAuthority(t.Context()), SaveChannelInput{ID: c.ID, ExpectedRevision: 1, ActorID: 1, Name: c.Name, Network: c.Network, Enabled: false, FeeBPS: 500, MinAmount: "0", MaxAmount: "0", DayLimit: "0", MerchantIDs: []int64{2}})
+	_, e = s.SaveChannel(channelAuthority(t.Context()), SaveChannelInput{ID: c.ID, ExpectedRevision: 1, ActorID: 1, Name: c.Name, Network: c.Network, Enabled: false, FeeBPS: 500, MinAmount: "0", MaxAmount: "0", DayLimit: "0"})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -81,7 +81,7 @@ func TestCryptoChannelsAdmissionRejectsBeforeAddressAllocation(t *testing.T) {
 		name, sql, network      string
 		merchant, channelOffset int64
 	}{
-		{name: "ungranted", merchant: 2},
+		{name: "merchant-group-closed", merchant: 2, sql: `INSERT INTO backoffice_records VALUES(2,'groups','{"enabled":true,"info":{"usdt":{"channel":"0","type":"channel"}}}'); UPDATE merchants SET base_group_id=2 WHERE id=2`},
 		{name: "missing-channel", merchant: 1, channelOffset: 999},
 		{name: "network-mismatch", merchant: 1, network: "ethereum"},
 		{name: "pay-type-closed", merchant: 1, sql: `UPDATE backoffice_records SET body='{"type":"usdt","enabled":false}' WHERE resource='pay-types'`},
@@ -94,7 +94,7 @@ func TestCryptoChannelsAdmissionRejectsBeforeAddressAllocation(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := channelTestService(t)
-			c := saveTestChannel(t, s, "TRON collection", "tron", 1)
+			c := saveTestChannel(t, s, "TRON collection", "tron")
 			if e := s.AddAddress(t.Context(), "tron", depositOne, "deposit"); e != nil {
 				t.Fatal(e)
 			}
@@ -116,7 +116,7 @@ func TestCryptoChannelsAdmissionRejectsBeforeAddressAllocation(t *testing.T) {
 
 func TestCryptoChannelsGroupRateAndSelection(t *testing.T) {
 	s := channelTestService(t)
-	c := saveTestChannel(t, s, "TRON collection", "tron", 1)
+	c := saveTestChannel(t, s, "TRON collection", "tron")
 	if _, e := s.Pool.Exec(t.Context(), `UPDATE backoffice_records SET body=jsonb_build_object('enabled',true,'info',jsonb_build_object('usdt',jsonb_build_object('channel',$1::text,'type','channel','rate','98.50'))) WHERE resource='groups'`, fmt.Sprint(c.ID)); e != nil {
 		t.Fatal(e)
 	}
@@ -146,7 +146,7 @@ func TestCryptoChannelsGroupRateAndSelection(t *testing.T) {
 
 func TestCryptoChannelsSaveIsRevisionCheckedAndCreateIdempotent(t *testing.T) {
 	s := channelTestService(t)
-	in := SaveChannelInput{ActorID: 1, RequestID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Name: "TRON", Network: "tron", FeeBPS: 100, MinAmount: "0", MaxAmount: "0", DayLimit: "0", MerchantIDs: []int64{1}, ReservedIDs: []int64{100}}
+	in := SaveChannelInput{ActorID: 1, RequestID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Name: "TRON", Network: "tron", FeeBPS: 100, MinAmount: "0", MaxAmount: "0", DayLimit: "0", ReservedIDs: []int64{100}}
 	a, e := s.SaveChannel(channelAuthority(t.Context()), in)
 	if e != nil || a.ID <= 100 || a.Enabled {
 		t.Fatalf("create %+v %v", a, e)
@@ -180,7 +180,7 @@ func TestCryptoChannelsSaveIsRevisionCheckedAndCreateIdempotent(t *testing.T) {
 
 func TestCryptoChannelsDailyLimitSerializesConcurrentMerchants(t *testing.T) {
 	s := channelTestService(t)
-	c := saveTestChannel(t, s, "TRON collection", "tron", 1, 2)
+	c := saveTestChannel(t, s, "TRON collection", "tron")
 	if _, e := s.Pool.Exec(t.Context(), `UPDATE crypto_channels SET day_limit=10000000`); e != nil {
 		t.Fatal(e)
 	}
@@ -229,7 +229,7 @@ func TestCryptoChannelAuthorityCompositionPreservesOriginalGuard(t *testing.T) {
 
 func TestCryptoChannelsRejectIncompleteDatabaseRoute(t *testing.T) {
 	s := channelTestService(t)
-	c := saveTestChannel(t, s, "TRON collection", "tron", 1)
+	c := saveTestChannel(t, s, "TRON collection", "tron")
 	if e := s.AddAddress(t.Context(), "tron", depositOne, "deposit"); e != nil {
 		t.Fatal(e)
 	}
@@ -241,7 +241,7 @@ func TestCryptoChannelsRejectIncompleteDatabaseRoute(t *testing.T) {
 
 func TestCryptoChannelInvoiceFilterPrecedesPaginationAndPreservesTenant(t *testing.T) {
 	s := channelTestService(t)
-	c := saveTestChannel(t, s, "TRON selected", "tron", 1)
+	c := saveTestChannel(t, s, "TRON selected", "tron")
 	if e := s.AddAddress(t.Context(), "tron", depositOne, "deposit"); e != nil {
 		t.Fatal(e)
 	}
@@ -249,7 +249,7 @@ func TestCryptoChannelInvoiceFilterPrecedesPaginationAndPreservesTenant(t *testi
 	if e != nil {
 		t.Fatal(e)
 	}
-	other := saveTestChannel(t, s, "TRON alternate", "tron", 1)
+	other := saveTestChannel(t, s, "TRON alternate", "tron")
 	_, e = s.Pool.Exec(t.Context(), `INSERT INTO crypto_addresses(network,address,role,used) SELECT 'tron','synthetic-list-address-'||i,'deposit',true FROM generate_series(1,201) i;
 	INSERT INTO crypto_invoices(id,merchant_id,out_trade_no,network,address,amount,fee,token_hash,token_cipher,expires_at,channel_id,channel_revision,fee_bps,fee_source,channel_snapshot) SELECT 'synthetic-list-invoice-'||i,1,'synthetic-list-order-'||i,'tron','synthetic-list-address-'||i,1000000,0,''::bytea,''::bytea,clock_timestamp()+interval '1 hour',`+fmt.Sprint(other.ID)+`,1,0,'channel','{"synthetic":true}' FROM generate_series(1,201) i`)
 	if e != nil {
@@ -276,7 +276,7 @@ func TestCryptoChannelInvoiceFilterPrecedesPaginationAndPreservesTenant(t *testi
 
 func TestCryptoChannelMembershipDeadlineAfterFinalAuthorityWait(t *testing.T) {
 	s := channelTestService(t)
-	c := saveTestChannel(t, s, "TRON deadline", "tron", 1)
+	c := saveTestChannel(t, s, "TRON deadline", "tron")
 	if e := s.AddAddress(t.Context(), "tron", depositOne, "deposit"); e != nil {
 		t.Fatal(e)
 	}

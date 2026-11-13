@@ -79,6 +79,12 @@ func (s *Server) cryptoPaymentContext(ctx context.Context, r *http.Request, merc
 		if err := tx.QueryRow(ctx, `SELECT COALESCE(CASE WHEN jsonb_typeof(profile->'qq')='string' THEN profile->>'qq' END,'') FROM merchants WHERE id=$1 FOR UPDATE`, merchant).Scan(&qq); err != nil {
 			return err
 		}
+		// Payment policy can lock the effective group. Take the default group
+		// first so inheriting its route cannot reverse the group lock order.
+		var defaultGroup int64
+		if err := tx.QueryRow(ctx, `SELECT id FROM backoffice_records WHERE resource='groups' AND id=0 FOR SHARE`).Scan(&defaultGroup); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
 		policy := backoffice.New(s.Pool, s.Store)
 		p := backoffice.PaymentContext{MerchantID: merchant, ClientIP: peer, MerchantQQ: qq, Name: name, NotifyURL: notifyURL, ReturnURL: returnURL, Buyer: buyer}
 		if err := policy.CheckPaymentTx(ctx, tx, p); err != nil {
@@ -114,8 +120,8 @@ func (s *Server) cryptoChannelNamespace(ctx context.Context, q interface {
 	return nil
 }
 
-// Only public metadata for this merchant is returned. Grants, another
-// merchant's policy, wallet addresses and signing configuration stay private.
+// Only public metadata for this merchant is returned. Group policy, wallet
+// addresses and signing configuration stay private.
 func (s *Server) cryptoChannelChoices(w http.ResponseWriter, r *http.Request, merchant int64) {
 	items := []map[string]any{}
 	if s.Crypto != nil && merchant > 0 {

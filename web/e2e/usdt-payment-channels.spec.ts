@@ -16,7 +16,6 @@ const channel = {
   min_amount: "0.1",
   max_amount: "100",
   day_limit: "1000",
-  merchant_ids: ["1000"],
   created_at: "2026-11-13T00:00:00Z",
   updated_at: "2026-11-13T00:00:00Z",
 };
@@ -52,6 +51,8 @@ async function mock(
     const ok = (data: unknown) => route.fulfill({ json: { code: 0, data } });
     if (req.method() !== "GET") {
       const body = req.postDataJSON();
+      if (path.startsWith("/payment-channels/crypto"))
+        expect(body).not.toHaveProperty("merchant_ids");
       writes.push({ path, body });
       if (options.unknown) return route.abort();
       if (path === "/payment-channels/crypto") {
@@ -187,7 +188,6 @@ for (const width of [375, 1440]) {
     expect(state.writes[0]!.body).toMatchObject({
       fee_bps: 50,
       expected_revision: "3",
-      merchant_ids: ["1000"],
       enabled: false,
     });
     await expect(row).toContainText("主网收款关闭");
@@ -209,7 +209,8 @@ test("creates an explicitly closed Ethereum channel in the unified catalog", asy
   await editor.locator("input[name=min_amount]").fill("0.000000");
   await editor.locator("input[name=max_amount]").fill("0.00");
   await editor.locator("input[name=day_limit]").fill("0.0");
-  await editor.locator("textarea[name=merchants]").fill("1000,1001");
+  await expect(editor.locator("textarea[name=merchants]")).toHaveCount(0);
+  await expect(editor).toContainText("新增通道不会自动向所有商户开放");
   await editor.getByRole("button", { name: "保存", exact: true }).click();
   await expect(editor).toHaveCount(0);
   expect(state.writes).toHaveLength(1);

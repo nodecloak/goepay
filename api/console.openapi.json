@@ -46684,7 +46684,7 @@
           "crypto-custody"
         ],
         "summary": "读取统一USDT通道配置",
-        "description": "仅本人super；与普通支付通道共享编号。网络创建后不可修改，限额单位为USDT，0表示不设该限额；fee_bps为扣费比例。修改必须带原expected_revision和完整字段。关闭或归档只影响新收款，不重写历史订单。部署未启用USDT时仍可管理配置，但不会启用主网、签名或广播。",
+        "description": "仅本人super；与普通支付通道共享编号。网络创建后不可修改，限额单位为USDT，0表示不设该限额；fee_bps为扣费比例。修改必须带原expected_revision和完整字段。不接受merchant_ids；商户通过既有用户组分配，通道配置不保存反向授权商户名单。关闭或归档只影响新收款，不重写历史订单。部署未启用USDT时仍可管理配置，但不会启用主网、签名或广播。",
         "security": [
           {
             "AdminSession": []
@@ -46827,7 +46827,7 @@
           "crypto-custody"
         ],
         "summary": "创建统一USDT支付通道",
-        "description": "仅本人super；与普通支付通道共享编号。网络创建后不可修改，限额单位为USDT，0表示不设该限额；fee_bps为扣费比例。修改必须带原expected_revision和完整字段。关闭或归档只影响新收款，不重写历史订单。部署未启用USDT时仍可管理配置，但不会启用主网、签名或广播。",
+        "description": "仅本人super；与普通支付通道共享编号。网络创建后不可修改，限额单位为USDT，0表示不设该限额；fee_bps为扣费比例。修改必须带原expected_revision和完整字段。不接受merchant_ids；商户通过既有用户组分配，通道配置不保存反向授权商户名单。关闭或归档只影响新收款，不重写历史订单。部署未启用USDT时仍可管理配置，但不会启用主网、签名或广播。",
         "security": [
           {
             "AdminSession": []
@@ -46981,7 +46981,7 @@
           "crypto-custody"
         ],
         "summary": "读取统一USDT通道配置",
-        "description": "仅本人super；与普通支付通道共享编号。网络创建后不可修改，限额单位为USDT，0表示不设该限额；fee_bps为扣费比例。修改必须带原expected_revision和完整字段。关闭或归档只影响新收款，不重写历史订单。部署未启用USDT时仍可管理配置，但不会启用主网、签名或广播。",
+        "description": "仅本人super；与普通支付通道共享编号。网络创建后不可修改，限额单位为USDT，0表示不设该限额；fee_bps为扣费比例。修改必须带原expected_revision和完整字段。不接受merchant_ids；商户通过既有用户组分配，通道配置不保存反向授权商户名单。关闭或归档只影响新收款，不重写历史订单。部署未启用USDT时仍可管理配置，但不会启用主网、签名或广播。",
         "security": [
           {
             "AdminSession": []
@@ -47120,8 +47120,8 @@
         "tags": [
           "crypto-custody"
         ],
-        "summary": "修改USDT通道配置与商户授权",
-        "description": "仅本人super；与普通支付通道共享编号。网络创建后不可修改，限额单位为USDT，0表示不设该限额；fee_bps为扣费比例。修改必须带原expected_revision和完整字段。关闭或归档只影响新收款，不重写历史订单。部署未启用USDT时仍可管理配置，但不会启用主网、签名或广播。",
+        "summary": "修改USDT通道配置",
+        "description": "仅本人super；与普通支付通道共享编号。网络创建后不可修改，限额单位为USDT，0表示不设该限额；fee_bps为扣费比例。修改必须带原expected_revision和完整字段。不接受merchant_ids；商户通过既有用户组分配，通道配置不保存反向授权商户名单。关闭或归档只影响新收款，不重写历史订单。部署未启用USDT时仍可管理配置，但不会启用主网、签名或广播。",
         "security": [
           {
             "AdminSession": []
@@ -47283,7 +47283,7 @@
           "crypto-custody"
         ],
         "summary": "读取商户当前获准使用的USDT通道",
-        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 只列可用于新收款的通道；fee_bps已应用该商户有效用户组费率。部署或支付方式关闭时返回空列表。管理员未指定商户时也返回空列表，不展示所有商户授权。响应不含merchant_ids、私钥或RPC。",
+        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 只列该商户有效用户组分配的可收款通道：固定ID仅允许该通道，明确首个可用允许已启用池，禁用返回空；继承读取默认用户组0，默认组未配置或仍继承则为空。fee_bps优先应用当前有效用户组费率，默认组只提供路由，不覆盖当前组费率。部署或支付方式关闭时返回空列表。管理员未指定商户时也返回空列表。响应不含反向授权名单、私钥或RPC。",
         "security": [
           {
             "AdminSession": []
@@ -47870,7 +47870,7 @@
           "crypto-custody"
         ],
         "summary": "创建原生USDT收款单",
-        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 amount是USDT数量，最多6位小数；固定15分钟有效期。可明确channel_id及network，网络只能限制选择，不能覆盖通道固定网络；省略时按商户授权和有效组策略选择。所有新单检查支付方式、通道启停、授权、组规则及USDT限额。固定通道、网络、报价和费用快照。此动作无需current_password。相同商户out_trade_no和相同原请求返回原单，修改原通道/网络/金额/URL冲突；与人民币订单共享外部单号命名空间。写入不代表已付款。",
+        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 amount是USDT数量，最多6位小数；固定15分钟有效期。可明确channel_id及network，网络只能限制选择，不能覆盖通道固定网络；省略时按有效用户组分配选择，显式channel_id不能越过固定组通道或禁用策略；未分配的默认组不隐式开放已启用通道。所有新单在事务内重新检查支付方式、通道启停、当前组/默认组分配及USDT限额；撤销组分配立即影响新单。固定通道、网络、报价和费用快照。此动作无需current_password。相同商户out_trade_no和相同原请求返回原单，修改原通道/网络/金额/URL冲突；与人民币订单共享外部单号命名空间。写入不代表已付款。",
         "security": [
           {
             "AdminSession": []
@@ -49693,7 +49693,7 @@
           "crypto-custody"
         ],
         "summary": "读取商户当前获准使用的USDT通道",
-        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 只列可用于新收款的通道；fee_bps已应用该商户有效用户组费率。部署或支付方式关闭时返回空列表。管理员未指定商户时也返回空列表，不展示所有商户授权。响应不含merchant_ids、私钥或RPC。",
+        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 只列该商户有效用户组分配的可收款通道：固定ID仅允许该通道，明确首个可用允许已启用池，禁用返回空；继承读取默认用户组0，默认组未配置或仍继承则为空。fee_bps优先应用当前有效用户组费率，默认组只提供路由，不覆盖当前组费率。部署或支付方式关闭时返回空列表。管理员未指定商户时也返回空列表。响应不含反向授权名单、私钥或RPC。",
         "security": [
           {
             "MerchantSession": []
@@ -50280,7 +50280,7 @@
           "crypto-custody"
         ],
         "summary": "创建原生USDT收款单",
-        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 amount是USDT数量，最多6位小数；固定15分钟有效期。可明确channel_id及network，网络只能限制选择，不能覆盖通道固定网络；省略时按商户授权和有效组策略选择。所有新单检查支付方式、通道启停、授权、组规则及USDT限额。固定通道、网络、报价和费用快照。此动作无需current_password。相同商户out_trade_no和相同原请求返回原单，修改原通道/网络/金额/URL冲突；与人民币订单共享外部单号命名空间。写入不代表已付款。",
+        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 amount是USDT数量，最多6位小数；固定15分钟有效期。可明确channel_id及network，网络只能限制选择，不能覆盖通道固定网络；省略时按有效用户组分配选择，显式channel_id不能越过固定组通道或禁用策略；未分配的默认组不隐式开放已启用通道。所有新单在事务内重新检查支付方式、通道启停、当前组/默认组分配及USDT限额；撤销组分配立即影响新单。固定通道、网络、报价和费用快照。此动作无需current_password。相同商户out_trade_no和相同原请求返回原单，修改原通道/网络/金额/URL冲突；与人民币订单共享外部单号命名空间。写入不代表已付款。",
         "security": [
           {
             "MerchantSession": []
@@ -67104,14 +67104,6 @@
           "archived": {
             "type": "boolean"
           },
-          "merchant_ids": {
-            "type": "array",
-            "maxItems": 1000,
-            "uniqueItems": true,
-            "items": {
-              "$ref": "#/components/schemas/CryptoMerchantID"
-            }
-          },
           "created_at": {
             "type": "string",
             "format": "date-time"
@@ -67155,7 +67147,6 @@
           "revision",
           "enabled",
           "archived",
-          "merchant_ids",
           "created_at",
           "updated_at",
           "pay_type",
@@ -67197,14 +67188,6 @@
           "archived": {
             "type": "boolean"
           },
-          "merchant_ids": {
-            "type": "array",
-            "maxItems": 1000,
-            "uniqueItems": true,
-            "items": {
-              "$ref": "#/components/schemas/CryptoMerchantID"
-            }
-          },
           "expected_revision": {
             "$ref": "#/components/schemas/CryptoChannelID"
           }
@@ -67218,7 +67201,6 @@
           "day_limit",
           "enabled",
           "archived",
-          "merchant_ids",
           "expected_revision"
         ],
         "additionalProperties": false
@@ -67254,14 +67236,6 @@
           "archived": {
             "type": "boolean"
           },
-          "merchant_ids": {
-            "type": "array",
-            "maxItems": 1000,
-            "uniqueItems": true,
-            "items": {
-              "$ref": "#/components/schemas/CryptoMerchantID"
-            }
-          },
           "expected_revision": {
             "type": "string",
             "const": "0"
@@ -67281,7 +67255,6 @@
           "day_limit",
           "enabled",
           "archived",
-          "merchant_ids",
           "expected_revision",
           "request_id"
         ],

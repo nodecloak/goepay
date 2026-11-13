@@ -22,7 +22,6 @@ export const cryptoChannelFixture = {
   min_amount: "0.1",
   max_amount: "1000",
   day_limit: "2000",
-  merchant_ids: ["123"],
   created_at: "2026-11-13T00:00:00Z",
   updated_at: "2026-11-13T00:00:00Z",
 };
@@ -44,7 +43,7 @@ it("reads exact USDT identities without pretending to be a CNY parent account", 
     { plugin: "usdt_ethereum" },
     { fee_bps: 1.2 },
     { min_amount: "0.0000001" },
-    { merchant_ids: ["123", "123"] },
+    { merchant_ids: ["123"] },
     { private_key: "secret" },
   ]) {
     expect(() =>
@@ -96,20 +95,16 @@ it("validates full channel edit and preserves explicit disabled state and micro 
     min_amount: "0.000001",
     max_amount: "100",
     day_limit: "0",
-    merchants: "123, 456\n789",
   };
   expect(cryptoChannelInput(draft, "3")).toMatchObject({
     expected_revision: "3",
     fee_bps: 125,
-    merchant_ids: ["123", "456", "789"],
     enabled: false,
     min_amount: "0.000001",
   });
+  expect(cryptoChannelInput(draft, "3")).not.toHaveProperty("merchant_ids");
   expect(() =>
     cryptoChannelInput({ ...draft, min_amount: "101" }, "3"),
-  ).toThrow();
-  expect(() =>
-    cryptoChannelInput({ ...draft, merchants: "123,123" }, "3"),
   ).toThrow();
   expect(() => cryptoChannelInput({ ...draft, fee: "1.234" }, "3")).toThrow();
 });
@@ -123,7 +118,6 @@ it("normalizes decimal zero limits without rounding nonzero USDT amounts", () =>
     min_amount: "0.000000",
     max_amount: "0.00",
     day_limit: "0.0",
-    merchants: "",
   };
   expect(cryptoChannelInput(draft, "0")).toMatchObject({
     min_amount: "0",

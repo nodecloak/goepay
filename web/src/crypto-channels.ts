@@ -18,7 +18,6 @@ export interface CryptoChannel extends CryptoChannelOption {
   enabled: boolean;
   archived: boolean;
   runtime_enabled: boolean;
-  merchant_ids: string[];
   created_at: string;
   updated_at: string;
 }
@@ -93,7 +92,6 @@ export function readCryptoChannel(raw: unknown): CryptoChannel {
     "enabled",
     "archived",
     "runtime_enabled",
-    "merchant_ids",
     "created_at",
     "updated_at",
   ]);
@@ -107,9 +105,6 @@ export function readCryptoChannel(raw: unknown): CryptoChannel {
     [v.enabled, v.archived, v.runtime_enabled].some(
       (b) => typeof b !== "boolean",
     ) ||
-    !Array.isArray(v.merchant_ids) ||
-    v.merchant_ids.some((m) => !id(m)) ||
-    new Set(v.merchant_ids).size !== v.merchant_ids.length ||
     [v.created_at, v.updated_at].some(
       (t) => typeof t !== "string" || !Number.isFinite(Date.parse(t)),
     )
@@ -174,7 +169,6 @@ export interface CryptoChannelDraft {
   min_amount: string;
   max_amount: string;
   day_limit: string;
-  merchants: string;
 }
 export function cryptoChannelInput(
   draft: CryptoChannelDraft,
@@ -197,14 +191,6 @@ export function cryptoChannelInput(
     max = usdtUnits(draft.max_amount);
   const day = usdtUnits(draft.day_limit);
   if (max && min > max) throw new Error("最低收款金额不能大于最高收款金额");
-  const merchant_ids = draft.merchants.trim()
-    ? draft.merchants.trim().split(/[\s,，]+/)
-    : [];
-  if (
-    merchant_ids.some((m) => !id(m)) ||
-    new Set(merchant_ids).size !== merchant_ids.length
-  )
-    throw new Error("授权商户 ID 须为不重复的正整数");
   return {
     name: draft.name.trim(),
     network: draft.network,
@@ -214,7 +200,6 @@ export function cryptoChannelInput(
     min_amount: min === 0n ? "0" : draft.min_amount,
     max_amount: max === 0n ? "0" : draft.max_amount,
     day_limit: day === 0n ? "0" : draft.day_limit,
-    merchant_ids,
     expected_revision: revision,
   };
 }

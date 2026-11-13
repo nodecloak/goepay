@@ -19,7 +19,6 @@ const draft = reactive<CryptoChannelDraft>({
   min_amount: props.row?.min_amount || "0",
   max_amount: props.row?.max_amount || "0",
   day_limit: props.row?.day_limit || "0",
-  merchants: props.row?.merchant_ids.join(", ") || "",
 });
 const busy = ref(false),
   error = ref(""),
@@ -174,16 +173,9 @@ async function save() {
         金额最多六位小数，0 表示不限制。每日上限按 UTC
         日期累计新建收款金额，待付款订单也计入。用户组单独配置分成比例时，按用户组费率创建新单。
       </p>
-      <label class="crypto-channel-wide"
-        >授权商户 ID<textarea
-          v-model="draft.merchants"
-          name="merchants"
-          rows="3"
-          placeholder="例如：1001, 1002；可用逗号或换行分隔"
-        />
-      </label>
       <p class="muted crypto-channel-wide">
-        留空表示不授权任何商户。通道必须同时满足商户授权、用户组规则和部署状态才能收款。
+        在用户组的“通道费率”中分配 USDT
+        通道，商户使用所属用户组的配置。新增通道不会自动向所有商户开放；实际收款还须满足支付方式、通道及部署开关。
       </p>
       <label class="crypto-channel-toggle"
         ><input

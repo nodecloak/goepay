@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -18,19 +17,18 @@ import (
 )
 
 type Channel struct {
-	ID          int64     `json:"id,string"`
-	Revision    int64     `json:"revision,string"`
-	Name        string    `json:"name"`
-	Network     string    `json:"network"`
-	Enabled     bool      `json:"enabled"`
-	Archived    bool      `json:"archived"`
-	FeeBPS      int64     `json:"fee_bps"`
-	MinAmount   string    `json:"min_amount"`
-	MaxAmount   string    `json:"max_amount"`
-	DayLimit    string    `json:"day_limit"`
-	MerchantIDs []string  `json:"merchant_ids"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID        int64     `json:"id,string"`
+	Revision  int64     `json:"revision,string"`
+	Name      string    `json:"name"`
+	Network   string    `json:"network"`
+	Enabled   bool      `json:"enabled"`
+	Archived  bool      `json:"archived"`
+	FeeBPS    int64     `json:"fee_bps"`
+	MinAmount string    `json:"min_amount"`
+	MaxAmount string    `json:"max_amount"`
+	DayLimit  string    `json:"day_limit"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type SaveChannelInput struct {
@@ -38,7 +36,7 @@ type SaveChannelInput struct {
 	RequestID, Name, Network, MinAmount, MaxAmount, DayLimit string
 	Enabled, Archived                                        bool
 	FeeBPS                                                   int64
-	MerchantIDs, ReservedIDs                                 []int64
+	ReservedIDs                                              []int64
 }
 
 const channelColumns = `id,revision,name,network,enabled,archived,fee_bps,min_amount,max_amount,day_limit,created_at,updated_at`
@@ -51,7 +49,6 @@ func scanChannel(row pgx.Row) (Channel, error) {
 		return c, ErrNotFound
 	}
 	c.MinAmount, c.MaxAmount, c.DayLimit = FormatAmount(min), FormatAmount(max), FormatAmount(day)
-	c.MerchantIDs = []string{}
 	return c, e
 }
 
@@ -60,23 +57,7 @@ func readChannel(ctx context.Context, tx pgx.Tx, id int64, lock bool) (Channel, 
 	if lock {
 		suffix = " FOR UPDATE"
 	}
-	c, e := scanChannel(tx.QueryRow(ctx, "SELECT "+channelColumns+" FROM crypto_channels WHERE id=$1"+suffix, id))
-	if e != nil {
-		return c, e
-	}
-	rows, e := tx.Query(ctx, "SELECT merchant_id FROM crypto_channel_grants WHERE channel_id=$1 ORDER BY merchant_id", id)
-	if e != nil {
-		return c, e
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var mid int64
-		if e = rows.Scan(&mid); e != nil {
-			return c, e
-		}
-		c.MerchantIDs = append(c.MerchantIDs, strconv.FormatInt(mid, 10))
-	}
-	return c, rows.Err()
+	return scanChannel(tx.QueryRow(ctx, "SELECT "+channelColumns+" FROM crypto_channels WHERE id=$1"+suffix, id))
 }
 
 func (s *Service) ListChannels(ctx context.Context) ([]Channel, error) {
@@ -148,7 +129,7 @@ func (s *Service) SaveChannel(ctx context.Context, in SaveChannelInput) (Channel
 		return out, ErrInvalid
 	}
 	in.Name = strings.TrimSpace(in.Name)
-	if in.ActorID <= 0 || in.ID < 0 || in.ExpectedRevision < 0 || in.ID == 0 && in.ExpectedRevision != 0 || in.ID > 0 && in.ExpectedRevision == 0 || in.Name == "" || len(in.Name) > 120 || !utf8.ValidString(in.Name) || in.Network != "tron" && in.Network != "ethereum" || in.FeeBPS < 0 || in.FeeBPS > 10000 || in.Archived && in.Enabled || len(in.MerchantIDs) > 1000 || len(in.ReservedIDs) > 1000 {
+	if in.ActorID <= 0 || in.ID < 0 || in.ExpectedRevision < 0 || in.ID == 0 && in.ExpectedRevision != 0 || in.ID > 0 && in.ExpectedRevision == 0 || in.Name == "" || len(in.Name) > 120 || !utf8.ValidString(in.Name) || in.Network != "tron" && in.Network != "ethereum" || in.FeeBPS < 0 || in.FeeBPS > 10000 || in.Archived && in.Enabled || len(in.ReservedIDs) > 1000 {
 		return out, ErrInvalid
 	}
 	for _, c := range in.Name {
@@ -171,14 +152,6 @@ func (s *Service) SaveChannel(ctx context.Context, in SaveChannelInput) (Channel
 	if e != nil {
 		return out, ErrInvalid
 	}
-	merchants := append([]int64(nil), in.MerchantIDs...)
-	sort.Slice(merchants, func(i, j int) bool { return merchants[i] < merchants[j] })
-	for i, id := range merchants {
-		if id <= 0 || i > 0 && id == merchants[i-1] {
-			return out, ErrInvalid
-		}
-	}
-	in.MerchantIDs = merchants
 	hashInput := in
 	hashInput.ReservedIDs = nil
 	raw, e := json.Marshal(hashInput)
@@ -215,22 +188,6 @@ func (s *Service) SaveChannel(ctx context.Context, in SaveChannelInput) (Channel
 			return out, e
 		}
 	}
-	// Lock merchant rows before the channel, matching invoice admission's order.
-	rows, e := tx.Query(ctx, "SELECT id FROM merchants WHERE id=ANY($1::bigint[]) ORDER BY id FOR KEY SHARE", merchants)
-	if e != nil {
-		return out, e
-	}
-	count := 0
-	for rows.Next() {
-		count++
-	}
-	rows.Close()
-	if e = rows.Err(); e != nil {
-		return out, e
-	}
-	if count != len(merchants) {
-		return out, ErrInvalid
-	}
 	if in.ID == 0 {
 		id, e := allocateChannelID(ctx, tx, in.ReservedIDs)
 		if e != nil {
@@ -251,14 +208,6 @@ func (s *Service) SaveChannel(ctx context.Context, in SaveChannelInput) (Channel
 		}
 		_, e = tx.Exec(ctx, `UPDATE crypto_channels SET name=$2,enabled=$3,archived=$4,fee_bps=$5,min_amount=$6,max_amount=$7,day_limit=$8,revision=revision+1,updated_at=clock_timestamp() WHERE id=$1`, in.ID, in.Name, in.Enabled, in.Archived, in.FeeBPS, min, max, day)
 		if e != nil {
-			return out, e
-		}
-	}
-	if _, e = tx.Exec(ctx, "DELETE FROM crypto_channel_grants WHERE channel_id=$1", in.ID); e != nil {
-		return out, e
-	}
-	for _, mid := range merchants {
-		if _, e = tx.Exec(ctx, "INSERT INTO crypto_channel_grants(channel_id,merchant_id) VALUES($1,$2)", in.ID, mid); e != nil {
 			return out, e
 		}
 	}

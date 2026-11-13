@@ -24,7 +24,7 @@ func cryptoChannelHTTP(f channel168Fixture, method, path, raw string) *httptest.
 func TestCryptoChannelConfigurationIsUnifiedWithoutEnablingMainnet(t *testing.T) {
 	f := channel168Local(t)
 	f.s.Crypto = nil
-	body := `{"name":"USDT TRON","network":"tron","enabled":true,"archived":false,"fee_bps":75,"min_amount":"0.000001","max_amount":"100","day_limit":"200","merchant_ids":["1"],"expected_revision":"0","request_id":"aaaabbbbccccddddeeeeffff00001111"}`
+	body := `{"name":"USDT TRON","network":"tron","enabled":true,"archived":false,"fee_bps":75,"min_amount":"0.000001","max_amount":"100","day_limit":"200","expected_revision":"0","request_id":"aaaabbbbccccddddeeeeffff00001111"}`
 	w := cryptoChannelHTTP(f, "POST", "/crypto", body)
 	if w.Code != 200 {
 		t.Fatal("unified USDT configuration unavailable", w.Code, w.Body.String())
@@ -36,6 +36,9 @@ func TestCryptoChannelConfigurationIsUnifiedWithoutEnablingMainnet(t *testing.T)
 	id, ok := created.Data["id"].(string)
 	if !ok || created.Data["asset"] != "USDT" || created.Data["pay_type"] != "usdt" || created.Data["plugin"] != "usdt_tron" || created.Data["enabled"] != true || created.Data["runtime_enabled"] != false || f.s.Crypto != nil {
 		t.Fatal("configured channel activated unavailable mainnet or lost identity", created.Data)
+	}
+	if _, exists := created.Data["merchant_ids"]; exists {
+		t.Fatal("channel configuration must not expose an inverse merchant assignment list")
 	}
 	w = cryptoChannelHTTP(f, "GET", "?type=usdt&plugin=usdt_tron", "")
 	var list struct {
@@ -66,7 +69,7 @@ func TestCryptoChannelConfigurationIsUnifiedWithoutEnablingMainnet(t *testing.T)
 	if json.Unmarshal(w.Body.Bytes(), &repeated) != nil || w.Code != 200 || repeated.Data["id"] != id {
 		t.Fatal("config replay duplicated channel", w.Code, w.Body.String())
 	}
-	update := `{"name":"TRON renamed","network":"tron","enabled":false,"archived":false,"fee_bps":80,"min_amount":"0","max_amount":"100","day_limit":"200","merchant_ids":["1"],"expected_revision":"1"}`
+	update := `{"name":"TRON renamed","network":"tron","enabled":false,"archived":false,"fee_bps":80,"min_amount":"0","max_amount":"100","day_limit":"200","expected_revision":"1"}`
 	w = cryptoChannelHTTP(f, "PATCH", "/crypto/"+id, update)
 	if w.Code != 200 {
 		t.Fatal("config update", w.Code, w.Body.String())
@@ -83,8 +86,8 @@ func TestCryptoChannelConfigurationIsUnifiedWithoutEnablingMainnet(t *testing.T)
 
 func TestCryptoChannelConfigurationRejectsCSRFOperatorAndAmbiguousFields(t *testing.T) {
 	f := channel168Local(t)
-	body := `{"name":"USDT","network":"tron","enabled":false,"archived":false,"fee_bps":0,"min_amount":"0","max_amount":"0","day_limit":"0","merchant_ids":["1"],"expected_revision":"0","request_id":"bbbbccccddddeeeeffff000011112222"}`
-	for _, raw := range []string{strings.Replace(body, `"fee_bps":0`, `"fee_bps":0,"fee_bps":1`, 1), strings.Replace(body, `"fee_bps":0`, `"fee_bps":0,"private_key":"not-accepted"`, 1), strings.Replace(body, `"merchant_ids":["1"]`, `"merchant_ids":[1]`, 1), strings.Replace(body, `"enabled":false,`, "", 1), strings.Replace(body, `"enabled":false`, `"enabled":null`, 1), strings.Replace(body, `"fee_bps":0`, `"fee_bps":null`, 1)} {
+	body := `{"name":"USDT","network":"tron","enabled":false,"archived":false,"fee_bps":0,"min_amount":"0","max_amount":"0","day_limit":"0","expected_revision":"0","request_id":"bbbbccccddddeeeeffff000011112222"}`
+	for _, raw := range []string{strings.Replace(body, `"fee_bps":0`, `"fee_bps":0,"fee_bps":1`, 1), strings.Replace(body, `"fee_bps":0`, `"fee_bps":0,"private_key":"not-accepted"`, 1), strings.Replace(body, `"fee_bps":0`, `"fee_bps":0,"merchant_ids":["1"]`, 1), strings.Replace(body, `"enabled":false,`, "", 1), strings.Replace(body, `"enabled":false`, `"enabled":null`, 1), strings.Replace(body, `"fee_bps":0`, `"fee_bps":null`, 1)} {
 		w := cryptoChannelHTTP(f, "POST", "/crypto", raw)
 		if w.Code != 400 {
 			t.Fatal("ambiguous configuration accepted", w.Code, w.Body.String())
@@ -115,7 +118,7 @@ func TestCryptoChannelConfigurationRejectsCSRFOperatorAndAmbiguousFields(t *test
 
 func TestParentAndCryptoChannelIDsShareOneAllocationNamespace(t *testing.T) {
 	f, body := parent180ReadyCreate(t)
-	w := cryptoChannelHTTP(f, "POST", "/crypto", `{"name":"shared-id-crypto","network":"tron","enabled":false,"archived":false,"fee_bps":0,"min_amount":"0","max_amount":"0","day_limit":"0","merchant_ids":["1"],"expected_revision":"0","request_id":"ccccddddeeeeffff0000111122223333"}`)
+	w := cryptoChannelHTTP(f, "POST", "/crypto", `{"name":"shared-id-crypto","network":"tron","enabled":false,"archived":false,"fee_bps":0,"min_amount":"0","max_amount":"0","day_limit":"0","expected_revision":"0","request_id":"ccccddddeeeeffff0000111122223333"}`)
 	var created struct{ Data map[string]any }
 	if json.Unmarshal(w.Body.Bytes(), &created) != nil || w.Code != 200 {
 		t.Fatal("crypto setup", w.Code, w.Body.String())

@@ -31,12 +31,12 @@ func cryptoAdmissionChannels(t *testing.T, f *email197Fixture) (cryptopay.Channe
 	t.Helper()
 	f.s.Crypto.RequireChannels = true
 	f.s.Crypto.Networks["ethereum"] = cryptopay.NetworkConfig{Enabled: true}
-	if _, err := f.p.Exec(t.Context(), `INSERT INTO backoffice_records(resource,body) VALUES('pay-types','{"type":"usdt","enabled":true}'); UPDATE backoffice_records SET body=jsonb_set(body,'{info}','{"usdt":{"rate":"99.5"}}') WHERE resource='groups' AND id=0`); err != nil {
+	if _, err := f.p.Exec(t.Context(), `INSERT INTO backoffice_records(resource,body) VALUES('pay-types','{"type":"usdt","enabled":true}'); UPDATE backoffice_records SET body=jsonb_set(body,'{info}','{"usdt":{"rate":"99.5","channel":"-5","type":"channel"}}') WHERE resource='groups' AND id=0`); err != nil {
 		t.Fatal(err)
 	}
 	ctx := cryptopay.WithAuthority(t.Context(), func(context.Context, pgx.Tx) error { return nil })
 	makeChannel := func(network, key string) cryptopay.Channel {
-		v, err := f.s.Crypto.SaveChannel(ctx, cryptopay.SaveChannelInput{ActorID: 168, RequestID: strings.Repeat(key, 32), Name: "USDT " + network, Network: network, Enabled: true, FeeBPS: 100, MinAmount: "0", MaxAmount: "100", DayLimit: "1000", MerchantIDs: []int64{1}, ReservedIDs: []int64{7, 8}})
+		v, err := f.s.Crypto.SaveChannel(ctx, cryptopay.SaveChannelInput{ActorID: 168, RequestID: strings.Repeat(key, 32), Name: "USDT " + network, Network: network, Enabled: true, FeeBPS: 100, MinAmount: "0", MaxAmount: "100", DayLimit: "1000", ReservedIDs: []int64{7, 8}})
 		if err != nil {
 			t.Fatal(err)
 		}

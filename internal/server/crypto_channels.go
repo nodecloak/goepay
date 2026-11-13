@@ -59,7 +59,7 @@ func cryptoChannelError(w http.ResponseWriter, err error) {
 	case errors.Is(err, identity.ErrAdminSession):
 		response(w, 403, -1, "需要当前超级管理员本人会话", nil)
 	case errors.Is(err, cryptopay.ErrInvalid):
-		response(w, 422, -1, "请核对 USDT 通道、商户授权、费率和限额", nil)
+		response(w, 422, -1, "请核对 USDT 通道、费率和限额", nil)
 	case errors.Is(err, cryptopay.ErrConflict):
 		response(w, 409, -1, "通道配置已变化，请重新打开后确认", nil)
 	case errors.Is(err, cryptopay.ErrNotFound):
@@ -176,7 +176,7 @@ func decodeCryptoChannelInput(raw []byte, id int64) (cryptopay.SaveChannelInput,
 	if err != nil {
 		return out, err
 	}
-	required := []string{"name", "network", "enabled", "archived", "fee_bps", "min_amount", "max_amount", "day_limit", "merchant_ids", "expected_revision"}
+	required := []string{"name", "network", "enabled", "archived", "fee_bps", "min_amount", "max_amount", "day_limit", "expected_revision"}
 	if id == 0 {
 		required = append(required, "request_id")
 	}
@@ -189,38 +189,27 @@ func decodeCryptoChannelInput(raw []byte, id int64) (cryptopay.SaveChannelInput,
 		}
 	}
 	var wire struct {
-		Name             string   `json:"name"`
-		Network          string   `json:"network"`
-		Enabled          bool     `json:"enabled"`
-		Archived         bool     `json:"archived"`
-		FeeBPS           int64    `json:"fee_bps"`
-		MinAmount        string   `json:"min_amount"`
-		MaxAmount        string   `json:"max_amount"`
-		DayLimit         string   `json:"day_limit"`
-		MerchantIDs      []string `json:"merchant_ids"`
-		ExpectedRevision string   `json:"expected_revision"`
-		RequestID        string   `json:"request_id"`
+		Name             string `json:"name"`
+		Network          string `json:"network"`
+		Enabled          bool   `json:"enabled"`
+		Archived         bool   `json:"archived"`
+		FeeBPS           int64  `json:"fee_bps"`
+		MinAmount        string `json:"min_amount"`
+		MaxAmount        string `json:"max_amount"`
+		DayLimit         string `json:"day_limit"`
+		ExpectedRevision string `json:"expected_revision"`
+		RequestID        string `json:"request_id"`
 	}
 	if json.Unmarshal(raw, &wire) != nil {
 		return out, cryptopay.ErrInvalid
 	}
 	revision, err := strconv.ParseInt(wire.ExpectedRevision, 10, 64)
-	if err != nil || revision < 0 || strconv.FormatInt(revision, 10) != wire.ExpectedRevision || (id == 0) != (revision == 0) || wire.MerchantIDs == nil || len(wire.MerchantIDs) > 1000 {
+	if err != nil || revision < 0 || strconv.FormatInt(revision, 10) != wire.ExpectedRevision || (id == 0) != (revision == 0) {
 		return out, cryptopay.ErrInvalid
 	}
 	out.ExpectedRevision = revision
 	out.RequestID, out.Name, out.Network = wire.RequestID, wire.Name, wire.Network
 	out.Enabled, out.Archived, out.FeeBPS = wire.Enabled, wire.Archived, wire.FeeBPS
 	out.MinAmount, out.MaxAmount, out.DayLimit = wire.MinAmount, wire.MaxAmount, wire.DayLimit
-	out.MerchantIDs = []int64{}
-	seen := map[int64]bool{}
-	for _, rawID := range wire.MerchantIDs {
-		mid, ok := positiveFundsID(rawID)
-		if !ok || seen[mid] {
-			return out, cryptopay.ErrInvalid
-		}
-		seen[mid] = true
-		out.MerchantIDs = append(out.MerchantIDs, mid)
-	}
 	return out, nil
 }

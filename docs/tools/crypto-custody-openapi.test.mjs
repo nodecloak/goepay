@@ -56,6 +56,11 @@ for(const route of ['/console/v1/admin/payment-channels/crypto','/console/v1/adm
 }
 assert.equal(paths['/console/v1/merchant/payment-channels/crypto'],undefined);
 assert.equal(schemas.CryptoChannelChoice.properties.merchant_ids,undefined);
+for(const name of ['CryptoChannelView','CryptoChannelCreate','CryptoChannelPatch']){
+  assert.equal(schemas[name].properties.merchant_ids,undefined,`${name} must not expose an inverse merchant assignment list`);
+  assert.equal(schemas[name].required.includes('merchant_ids'),false);
+  assert.equal(schemas[name].additionalProperties,false);
+}
 assert.ok(schemas.CryptoChannelView.required.includes('runtime_enabled'));
 assert.ok(schemas.CryptoChannelCreate.required.includes('request_id'));
 assert.ok(schemas.CryptoChannelPatch.required.includes('expected_revision'));

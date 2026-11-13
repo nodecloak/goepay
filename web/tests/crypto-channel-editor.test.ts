@@ -20,7 +20,6 @@ const row = {
   min_amount: "0.1",
   max_amount: "1000",
   day_limit: "2000",
-  merchant_ids: ["123"],
   created_at: "2026-11-13T00:00:00Z",
   updated_at: "2026-11-13T00:00:00Z",
 } as const;
@@ -51,20 +50,22 @@ it("renders USDT inside payment channels with only asset appropriate actions", a
     "/admin/trade/order?type=usdt&channel_id=42",
   );
 });
-it("edits explicit fee and grants without allowing network change or enabling runtime", async () => {
+it("edits channel settings without a second merchant grant list or enabling runtime", async () => {
   const c = new ApiClient("admin");
   c.csrfToken = "original";
   const request = vi
     .spyOn(c, "request")
     .mockResolvedValue({ ...row, revision: "4" });
   w = mount(CryptoChannelEditor, {
-    props: { client: c, row: { ...row, merchant_ids: [...row.merchant_ids] } },
+    props: { client: c, row: { ...row } },
     global: { stubs: { teleport: true } },
   });
   expect(w.get('select[name="network"]').attributes("disabled")).toBeDefined();
   expect(w.text()).toContain("主网收款关闭");
   await w.get('input[name="fee"]').setValue("0.75");
-  await w.get('textarea[name="merchants"]').setValue("123,456");
+  expect(w.find('textarea[name="merchants"]').exists()).toBe(false);
+  expect(w.text()).not.toContain("授权商户 ID");
+  expect(w.text()).toContain("用户组");
   await w.get("form").trigger("submit");
   await flushPromises();
   expect(request).toHaveBeenCalledWith(
@@ -73,12 +74,12 @@ it("edits explicit fee and grants without allowing network change or enabling ru
       method: "PATCH",
       body: expect.objectContaining({
         fee_bps: 75,
-        merchant_ids: ["123", "456"],
         expected_revision: "3",
         network: "tron",
       }),
     }),
   );
+  expect(request.mock.calls[0]?.[1]?.body).not.toHaveProperty("merchant_ids");
   expect(w.emitted("saved")).toHaveLength(1);
 });
 it("locks an uncertain save and never automatically repeats it", async () => {
@@ -88,7 +89,7 @@ it("locks an uncertain save and never automatically repeats it", async () => {
     .spyOn(c, "request")
     .mockRejectedValue(new Error("connection lost"));
   w = mount(CryptoChannelEditor, {
-    props: { client: c, row: { ...row, merchant_ids: [...row.merchant_ids] } },
+    props: { client: c, row: { ...row } },
     global: { stubs: { teleport: true } },
   });
   await w.get("form").trigger("submit");
@@ -108,7 +109,6 @@ it("opens archived channels read-only and closes without sending an update", asy
         ...row,
         enabled: false,
         archived: true,
-        merchant_ids: [...row.merchant_ids],
       },
     },
     global: { stubs: { teleport: true } },
