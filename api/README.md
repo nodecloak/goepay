@@ -44,7 +44,7 @@
 
 后台成功通常是 `code=0`，兼容支付 V1/V2 的成功码与签名另见 [兼容设计](../docs/design/2026-10-23-compatibility.md)、[实际约定](../docs/design/api-conventions.md) 和 [两插件方法映射](../docs/design/two-plugin-methods.md)。不能用后台通用响应替换旧商户支付协议。
 
-通用退款、转账等请求 `amount` 使用人民币元字符串；`/channel-sharing` 专用接口的所有金额（含回退 `amount`、规则 `fixed_amount`/`minimum_amount`）均为人民币分的整数字符串，例如 0.10 元传 `"10"`，比例 `rate_bps` 为万分比。历史领域响应存在分单位和大写 Go 字段，必须按具体接口解析，不能仅凭字段名推断单位。幂等号重复只允许原身份、原订单、原金额；资金请求 `202` 或渠道分账结果未知 `409` 代表待查证。客户端不能自行生成新的业务号以逃避未知状态。
+通用退款、转账等请求 `amount` 使用人民币元字符串；独立 `/crypto` 请求的 `amount` 例外，为最多六位小数的原生 USDT 数量字符串。`/channel-sharing` 专用接口的所有金额（含回退 `amount`、规则 `fixed_amount`/`minimum_amount`）均为人民币分的整数字符串，例如 0.10 元传 `"10"`，比例 `rate_bps` 为万分比。历史领域响应存在分单位和大写 Go 字段，必须按具体接口解析，不能仅凭字段名推断单位。幂等号重复只允许原身份、原订单、原金额；资金请求 `202` 或渠道分账结果未知 `409` 代表待查证。客户端不能自行生成新的业务号以逃避未知状态。
 
 四个原渠道分账菜单使用 `/channel-sharing/channels`、`receivers`、`rules/{channel_id}`、`payment/{trade_no}`、`orders` 和 `returns` 专用接口。管理员必须明确商户，GET 用 query、POST 用 JSON；商户身份只能来自当前会话，禁止提供 `merchant_id`（包括空值或自己的编号）。列表使用 `cursor`（默认0）和 `limit`（1..100），返回 `items`、字符串 `next_cursor`，0表示没有后页。
 
@@ -106,3 +106,13 @@ Console登录与session的`user.id`统一为完整字符串，防止大商户编
 
 
 核心风控实际接口与25个全局/2个组继承字段见 OpenAPI CoreRisk* 与 docs/core-payment-risk-compatibility.md；98子通道与171同TxCheck整合见 docs/core-payment-risk-integration.md。
+
+USDT 原生收款与原币资金接口位于 `/console/v1/merchant/crypto` 和本人 super 的 `/console/v1/admin/crypto`。金额 `amount/received/fee/available/reserved` 是最多六位小数的 USDT 数量字符串（例如 `"0.000001"`），不接受 JSON number，不与人民币余额、手续费或退款混账；TRON 与 Ethereum 也分别记账。JSON body 中所有 `merchant_id` 都是完整字符串：商户省略时取本人，显式提供只能为本人；管理员创建/取消/撤销时必须明确商户。管理员余额 GET 省略商户时按网络汇总全部商户 available/reserved，不包括平台 fees/suspense，也不等于链上钱包余额。管理员按 `/withdrawals/by-request?merchant_id=...&request_id=...` 恢复原请求时必须指定商户。
+
+`GET config/balances/invoices/invoices/{invoice_id}/withdrawals/withdrawals/by-request/recipients` 只读原记录；`reconciliation` 仅 admin，检查内部 journal/账户投影，并不等同链上资产对账。`POST invoices` 创建十五分钟原生收款单；`withdrawals/refunds/held-refunds` 只申请结算、原链退款或退回少付/超付/迟到暂存款并预留，不代表链上已发送。所有 console 写入要求原始本人持久 session 与 CSRF；创建收款单之外的资金、地址登记/审批/撤销动作还必须确认本人 `current_password`，不因人民币资金确认开关关闭而跳过。`recipients` 登记后仍需 super 审批，且自登记起满二十四小时才可使用；HTTP 审批不会修改独立签名服务部署白名单。公开地址池导入也不创建私钥、不改变热钱包配置、不开放真实广播。
+
+提交或取消响应丢失后，保留同一 `request_id` 读取 `/withdrawals/by-request`。`approved/preparing/prepared/signing` 的取消只返回 `cancellation_requested=true`，隔离签名器撤销确认与原事务完成前不释放预留；`signed/broadcasting/unknown` 不能直接取消、释放或换号重发。super 的 `/crypto/sweeps/retry` 仅在本人密码确认后重新安排已有地址归集队列；活跃原出款保持冲突，不直接发送或替换未知交易。
+
+`/crypto/checkout/{invoice_id}` 及其 `/status`、`/qr` 是专用公开 token 能力路径，不是登录后台 API。必须携带原收款单 token，不依赖 console Cookie，且不能据此调用任何 console 操作；status 仅返回安全状态、USDT 数量与有效期。收银台 URL/token 不得进入日志或浏览器持久存储；响应禁止缓存并使用 no-referrer。模拟收银台明确提示勿转入真实资产。
+
+旧商户签名收款入口可以使用 `type=usdt`，但原 `money` 继续表示人民币元：服务端按显式固定 CNY/USDT 报价向上取整到最小 USDT 单位，同一外部单号只恢复原报价，不随配置变化重新报价；`usdt_amount/usdt_received` 才是原币数量。原 MD5/RSA 身份及 V1/V2 返回/通知签名语义保持，不能把原 `money` 偷换为 USDT。旧人民币退款、退款查询和关闭入口不能自动提供或猜测退款链地址，USDT 单必须走上述明确原网络、原单、受款地址审批和密码确认的原币退款申请。

@@ -11,7 +11,61 @@ import (
 	"goepay/internal/platform/jobs"
 )
 
-func TestScheduler171TransferCannotGrantFundsByEnablingCron(t *testing.T) {
+// This replay test needs one immutable financial period. A minute-frequency
+// fixture can legitimately advance to a new source while the provider flow is
+// running, especially with the race detector enabled.
+func scheduledTransferSinglePeriodRun(t *testing.T, s *Store, mid int64, prepare func()) SettlementPlanRunView {
+	t.Helper()
+	ctx := context.Background()
+	p := settlementPlanReady(t, s, mid)
+	prepare()
+	var now time.Time
+	if e := s.pool.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); e != nil {
+		t.Fatal(e)
+	}
+	in := settlementPlanInputFor(mid)
+	in.Mode = settlementThresholdMode
+	in.Schedule = SettlementScheduleSpec{Frequency: "once", AnchorAt: now.UTC().Truncate(time.Second)}
+	p, e := s.UpdateSettlementPlan(ctx, p.ID, p.Revision, in, settlementPlanAdmin)
+	if e != nil {
+		t.Fatal(e)
+	}
+	transferSetting(t, s, "auto_settle_money", "1.00")
+	transferSetting(t, s, "transfer_alipay", "7")
+	authority := settlementPlanAuthorizationInput(t, s)
+	if _, e = s.AuthorizeSettlementPlan(settlementPlanGuard(t, s), p.ID, p.Revision, authority, settlementPlanAdmin); e != nil {
+		t.Fatal(e)
+	}
+	run, e := s.CreateSettlementPlanRun(ctx, p.ID, p.Revision, settlementPlanAdmin)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return run
+}
+
+func TestScheduledTransferReplayPeriodBoundaries(t *testing.T) {
+	before := time.Date(2026, 11, 13, 4, 43, 59, 0, time.UTC)
+	after := before.Add(2 * time.Second)
+	anchor := before.Truncate(time.Minute)
+	minute := SettlementScheduleSpec{Frequency: "minute", Interval: 1, AnchorAt: anchor}
+	firstSlot, firstAt, e := dueSettlementSlot(minute, before)
+	if e != nil || firstSlot != 0 || !firstAt.Equal(anchor) {
+		t.Fatal("first minute period", firstSlot, firstAt, e)
+	}
+	nextSlot, nextAt, e := dueSettlementSlot(minute, after)
+	if e != nil || nextSlot != 1 || !nextAt.Equal(anchor.Add(time.Minute)) {
+		t.Fatal("crossing a minute must produce a different period", nextSlot, nextAt, e)
+	}
+	once := SettlementScheduleSpec{Frequency: "once", AnchorAt: anchor}
+	for _, at := range []time.Time{before, after, after.Add(time.Hour)} {
+		slot, scheduledAt, e := dueSettlementSlot(once, at)
+		if e != nil || slot != firstSlot || !scheduledAt.Equal(firstAt) {
+			t.Fatal("single-period replay changed its identity", at, slot, scheduledAt, e)
+		}
+	}
+}
+
+func TestScheduledTransferCannotGrantFundsByEnablingCron(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 	a := scheduler171Admin(t, s)
@@ -28,11 +82,11 @@ func TestScheduler171TransferCannotGrantFundsByEnablingCron(t *testing.T) {
 	}
 }
 
-func TestScheduler171TransferRunsOriginalThresholdAuthorityAndOriginalJob(t *testing.T) {
+func TestScheduledTransferRunsOriginalThresholdAuthorityAndOriginalJob(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 	a := scheduler171Admin(t, s)
-	original := thresholdPreparedRun74(t, s, 17402, func() {
+	original := scheduledTransferSinglePeriodRun(t, s, 17402, func() {
 		if _, e := s.pool.Exec(ctx, `UPDATE merchants SET profile=jsonb_set(profile,'{transfer_api_enabled}','true')WHERE id=17402`); e != nil {
 			t.Fatal(e)
 		}
@@ -98,8 +152,9 @@ func TestScheduler171TransferRunsOriginalThresholdAuthorityAndOriginalJob(t *tes
 	if e != nil || tick.Failed != 0 || provider.transfers.Load() != 1 {
 		t.Fatal("same period regenerated an intent", tick, e)
 	}
-	var requests, transfers, sources int
-	if e = s.pool.QueryRow(ctx, `SELECT(SELECT count(*)FROM ledger_requests),(SELECT count(*)FROM transfers),(SELECT count(*)FROM settlement_threshold_selections)`).Scan(&requests, &transfers, &sources); e != nil || requests != 1 || transfers != 1 || sources != 1 {
-		t.Fatal("same-period amount/source duplicated", requests, transfers, sources, e)
+	var requests, transfers, sources, runs int
+	var sourceRunID int64
+	if e = s.pool.QueryRow(ctx, `SELECT(SELECT count(*)FROM ledger_requests),(SELECT count(*)FROM transfers),(SELECT count(*)FROM settlement_threshold_selections),(SELECT count(*)FROM settlement_plan_runs),(SELECT run_id FROM settlement_threshold_selections LIMIT 1)`).Scan(&requests, &transfers, &sources, &runs, &sourceRunID); e != nil || requests != 1 || transfers != 1 || sources != 1 || runs != 1 || sourceRunID != original.ID {
+		t.Fatal("same-period amount/source duplicated or changed its original run", requests, transfers, sources, runs, sourceRunID, original.ID, e)
 	}
 }

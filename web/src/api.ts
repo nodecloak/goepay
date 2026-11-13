@@ -183,12 +183,13 @@ export class ApiClient {
           ? Number(response.headers.get("Retry-After"))
           : undefined,
         true,
-        workflowRefusalProof212(
-          response.status,
-          path,
-          options.body,
-          payload.data,
-        ),
+        cryptoRefusalProof(response.status, path, options.body, payload.data) ||
+          workflowRefusalProof212(
+            response.status,
+            path,
+            options.body,
+            payload.data,
+          ),
       );
     return { status: response.status, data: payload.data };
   }
@@ -389,6 +390,44 @@ export class ApiClient {
 
 // A decoded, request-bound console proof is narrower than an HTTP 409. Legacy
 // conflicts, malformed responses and mismatched identities remain uncertain.
+function cryptoRefusalProof(
+  status: number,
+  path: string,
+  body: unknown,
+  data: unknown,
+): ApiError["requestNotRecorded"] {
+  if (
+    status !== 409 ||
+    ![
+      "/crypto/withdrawals",
+      "/crypto/refunds",
+      "/crypto/held-refunds",
+    ].includes(path) ||
+    !body ||
+    typeof body !== "object" ||
+    !data ||
+    typeof data !== "object"
+  )
+    return;
+  const b = body as Record<string, unknown>,
+    d = data as Record<string, unknown>;
+  if (
+    d.request_not_recorded !== true ||
+    d.kind !== "crypto" ||
+    d.reason !== "conflict" ||
+    typeof d.merchant_id !== "string" ||
+    d.merchant_id !== b.merchant_id ||
+    typeof d.external_no !== "string" ||
+    d.external_no !== b.request_id
+  )
+    return;
+  return {
+    kind: "crypto",
+    merchant_id: d.merchant_id,
+    external_no: d.external_no,
+    reason: "conflict",
+  };
+}
 function workflowRefusalProof212(
   status: number,
   path: string,

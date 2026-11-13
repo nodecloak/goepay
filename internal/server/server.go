@@ -26,6 +26,7 @@ import (
 	"goepay/internal/captcha"
 	"goepay/internal/channelconfig"
 	"goepay/internal/compat"
+	"goepay/internal/cryptopay"
 	"goepay/internal/identity"
 	"goepay/internal/kyc"
 	"goepay/internal/ledger"
@@ -42,6 +43,10 @@ import (
 )
 
 type Server struct {
+	Crypto                  *cryptopay.Service
+	CryptoCNYPerUSDT        string
+	CryptoDefaultNetwork    string
+	CryptoPublicOrigin      string
 	originalPaymentScope236 *originalPaymentScope236
 	KYC233Provider          kyc.Provider
 	KYC233BaseURL           string
@@ -146,6 +151,9 @@ func (s *Server) Handler() http.Handler {
 			transportIP = TransportPeer(r)
 		}
 		r = r.WithContext(payment.WithCoreRiskRequest(r.Context(), payment.CoreRiskRequest{PeerIP: peerIP, TransportIP: transportIP, Forwarded: TransportPeer(r) != r.RemoteAddr, Source: "direct_http"}))
+		if s.cryptoCheckout(w, r) {
+			return
+		}
 		if s.collectionStyleAsset(w, r) {
 			return
 		}
@@ -751,6 +759,9 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 		s.wire(w, false, nil, "platform signing key unavailable")
 		return
 	}
+	if s.cryptoCompatibilityOperation(w, r, legacy, id, p, route) {
+		return
+	}
 	switch route {
 	case "/api/pay/create", "/api/pay/submit":
 		defendAdmission := &defend206Admission{merchantID: id, outTradeNo: p["out_trade_no"]}
@@ -806,6 +817,10 @@ func (s *Server) paymentAPI(w http.ResponseWriter, r *http.Request) {
 			defendAdmission.clientIP = clientIP // direct browser: the real peer, as providerCreate
 		}
 		if s.paymentDefendAdmit206(w, r, legacy, route, id, p, defendPlatform, defendAdmission, clientIP) {
+			return
+		}
+		if p["type"] == "usdt" {
+			s.cryptoCompatibilityCreate(w, r, legacy, m, p, route)
 			return
 		}
 		// Cashier (收银台) page flow: the original routes an empty-type page

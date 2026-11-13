@@ -10,6 +10,11 @@
 // runtime falls back to a Chinese explanation by HTTP status with the original
 // appended, so operators never see an English-only error.
 const zh: Readonly<Record<string, string>> = {
+  "QR unavailable": "二维码暂时无法生成，请稍后重试",
+  "USDT service unavailable": "USDT 收款服务暂不可用",
+  "USDT route not found": "未找到该 USDT 操作",
+  "checkout not found": "收银台不存在或访问凭据已失效",
+  "checkout unavailable": "收银台暂不可用，请稍后重试",
   "1 to 100 items required": "明细数量必须为 1–100",
   "API settings unavailable": "API 设置暂不可用",
   "API switches changed; refresh before saving":

@@ -19,6 +19,7 @@ import { installPublicTestPay203API } from './public-testpay203-openapi.mjs';
 import { installCombinedOrders204API } from './combined-orders204-openapi.mjs';
 import { installLoginCaptcha205API } from './login-captcha205-openapi.mjs';
 import { installBuyerCharge104API } from './buyer-charge104-openapi.mjs';
+import { installCryptoCustodyAPI } from './crypto-custody-openapi.mjs';
 // Documents the implemented console contract, independently of legacy PHP URLs.
 import fs from 'node:fs';
 import { installSystemUpdate183API } from './system-update183-openapi.mjs';
@@ -416,8 +417,9 @@ installLoginCaptcha205API({paths,schemas,object,str,ref,content});
 installComplaintsAPI({paths});
 installRefundAttestationAPI({paths,schemas,object,str,ref,content});
 installDefaultGroupAPI({paths});
+installCryptoCustodyAPI({paths,schemas,object,str,ref,content});
 const document = {
-  openapi: '3.1.0', info: { title: 'GOEPAY 已实施后台 API', version: '0.1.0', description: '用于当前 Go 双后台，不是旧 PHP 管理接口兼容声明。各资源仍须读取服务端 schema/能力；本文件不把业务插件暂缓或原版缺口标记为已完成。金额单位按具体API：通用退款/转账请求amount为元字符串；/channel-sharing全部金额及回退amount为分字符串。部分历史领域响应仍为分或整数，不得全局猜测单位。' },
+  openapi: '3.1.0', info: { title: 'GOEPAY 已实施后台 API', version: '0.1.0', description: '用于当前 Go 双后台，不是旧 PHP 管理接口兼容声明。各资源仍须读取服务端 schema/能力；本文件不把业务插件暂缓或原版缺口标记为已完成。金额单位按具体API：通用人民币退款/转账请求amount为元字符串；独立/crypto原生amount为最多六位小数的USDT数量字符串；/channel-sharing全部金额及回退amount为分字符串。部分历史领域响应仍为分或整数，不得全局猜测单位。公开/crypto/checkout路径只接受原收款单token能力，不是登录后台接口。' },
   servers: [{ url: 'http://127.0.0.1:8184', description: '独立本地 simulation API；以部署交接记录的版本为准' }],
   security: [{ AdminSession: [] }, { MerchantSession: [] }], paths,
   components: { schemas, securitySchemes: { AdminSession: { type: 'apiKey', in: 'cookie', name: 'goepay_admin' }, MerchantSession: { type: 'apiKey', in: 'cookie', name: 'goepay_merchant' } } },

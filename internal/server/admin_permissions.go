@@ -125,5 +125,6 @@ var operatorRouteFamilies = map[string]bool{
 
 // superOnlyRouteFamilies are refused for operators before any handler runs.
 var superOnlyRouteFamilies = map[string]bool{
+	"crypto":    true,
 	"migration": true,
 }

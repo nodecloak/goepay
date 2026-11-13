@@ -1,0 +1,138 @@
+# USDT 平台代收与原链结算
+
+本模块支持 TRON 主网原生 TRC20 USDT、Ethereum 主网原生 ERC20 USDT。平台代收后形成独立的商户 USDT 应付款，按原网络结算。人民币账户、余额、原有支付订单入账函数不参与 USDT 记账。
+
+## 程序边界
+
+| 程序/包 | 职责 | 持有资金私钥 |
+| --- | --- | --- |
+| `cmd/api` / `internal/server/crypto_*` | 本人账户验证、订单、地址、退款/结算申请及审批、公开收银台 | 否 |
+| `internal/cryptopay` | USDT 独立账本、预占、不可变分录、幂等、扫描游标、持久归集队列、回调 | 否 |
+| `internal/cryptochain` | 双链节点协议、主网/合约白名单、最终确认、真实交易编码与广播 | 否 |
+| `cmd/crypto-worker` | 双节点扫描、签名请求、原交易广播/核对、归集、回调、只读对账 | 否；只有 mTLS 身份私钥 |
+| `cmd/crypto-signer` | 独立身份/主机上的策略校验、持久签名请求和原生币费用预算 | 仅该进程的受保护密钥文件或 KeyProvider |
+| `cmd/crypto-keygen` | 在签名主机独占生成密钥文件，输出公开地址供地址池登记 | 文件只留签名主机 |
+
+当前提供可运行的单密钥隔离签名服务及 HSM 的 `KeyProvider` 接口，没有实现某个商业 HSM/MPC 供应商连接器，也不是链上多签。大额资金可归集到独立冷钱包或多人管理的钱包地址，该钱包的私钥不部署到网站或在线签名器；冷钱包补充热钱包资金由其自身受控流程完成。
+
+## 金额与状态
+
+- HTTP `amount` 为十进制 USDT 字符串，最多 6 位小数；内部以整数最小单位保存。不存在浮点金额。
+- `tron`、`ethereum` 的商户可用/预占余额分别保存，不能跨网络借用或互抵。
+- 一订单一地址；地址永久绑定原订单，过期后不重新分配。已存在 CNY 或 USDT 外部订单号不能在另一资产下再创建。
+- 仅双数据源一致的最终回执入账。TRON 使用固化块/成功执行回执；Ethereum 使用 finalized 块和成功 receipt。确认前的截图、前端成功或交易哈希不能入账。
+- 少付款持有在 suspense；补足后只入账原订单金额减平台费。多余、迟到及历史款不自动变成商户可提现余额。`held-refunds` 按原订单仍持有的额度申请退回，取消或失败不会把持有款变成可用余额。
+- 平台服务费在订单创建时固定，原币退款从商户可用余额预占，平台服务费不自动返还。全额退款需要足够商户余额。
+- TRX/ETH 的真实网络费独立记录在 `crypto_network_fees`，不会把 sun/wei 加入 USDT 金额。节点缺失实际费用时，不把它当零费用完成。
+- 资金分录不可修改；已提交 journal 不可追加；余额更新必须与分录相符，数据库提交时检查平衡。
+
+## 收款、退币与结算
+
+收银台显示网络、USDT 金额、地址、完整居中的二维码及链上最终确认状态。支持钱包扫码或复制地址手动转账；二维码不是兑换/跨链指令。手机应自行选择所示网络与 USDT，平台不会请求无限代币授权。
+
+页面显示过期后禁止继续付款，但不能据此认定此前转出的款项失败。过期状态仍每 15 秒核对原订单；按链上区块时间在有效期内发生、之后才完成最终确认的转账，仍沿用原单入账。真正逾期的到账保持待核对，不重建订单、不更换地址。只启用一种网络时，空白表单自动选择该网络；刷新配置不自动改写已经填写或正在核对的资金请求。
+
+结算/退币地址须本人密码确认申请、管理员审批并完成 24 小时冷静期。在线签名器还须单独登记目标地址白名单；网站审批不修改签名器策略。撤销地址会阻止尚未签名的出款。
+
+结算与退款先预占 USDT，再批准、准备、签名、广播及最终确认。每个外部边界之前都持久化原意图。收到签名后，worker 独立恢复公钥并验证真实交易内容，才能保存并广播；最终成功或失败需双节点一致核对。
+
+已签名、已广播或结果未知的交易不通过“取消”释放余额，也不另建替代交易。原交易继续查证。尚未签名的准备交易可申请取消；worker 必须取得签名器持久化的同请求禁止再签证明，之后才释放预占。Ethereum 只有这样释放的未签名 nonce 可重新使用，避免较低 nonce 留洞。签名器已经进入 HSM pending 或产生签名时拒绝提供未签名证明。
+
+TRON 未签名准备交易过期时可走同一取消证明流程；未知/已签名过期不能仅凭时间经过或单次查无结果自动释放。签名进程异常退出的锁文件和不确定 HSM 请求需核对原记录后处理，不删除 journal 或重置限额。
+
+归集使用持久 revision 队列，新的到账会重新排队。明确的链上失败按有限退避重试；连续 3 次失败暂停，管理员核对手续费与地址后可恢复队列。unknown 交易仍核对原交易，不创建替代归集。归集不会减少商户 USDT 应付款。
+
+出款任务每轮最多处理 100 条，以数据库持久化的上次调度时间轮转；失败或未知记录继续核对原请求，不占满后续每一轮。多个 worker 通过行锁领取本轮记录，实际交易再由钱包锁串行处理。重启不会丢失轮转进度，也不会因此释放资金或换交易号。
+
+收款地址的归集需要 TRX（TRON 的带宽/能量不足时）或 ETH（Ethereum 的 gas），热钱包退款和结算同样需要原生币。当前不自动给地址充值原生币，也不自动将冷钱包资金转回热钱包；由独立钱包管理流程补充。节点拒绝准备交易或签名策略拒绝费用时保留原资金预占；已经签名但未获得最终回执时不推断资金已退回。
+
+## 配置与启动
+
+先应用数据库迁移 `000199_crypto_custody.up.sql`。构建：
+
+```sh
+go build -o bin/api ./cmd/api
+go build -o bin/crypto-worker ./cmd/crypto-worker
+go build -o bin/crypto-signer ./cmd/crypto-signer
+go build -o bin/crypto-keygen ./cmd/crypto-keygen
+```
+
+在签名主机预建仅服务身份可访问的目录，再运行：
+
+```sh
+crypto-keygen --dir /signer-only/keys --key-id deposit-wallet
+crypto-signer --config /signer-only/signer.json
+```
+
+keygen 输出只有公开的 TRON/Ethereum 地址和 key ID。私钥文件不可覆盖，须保留权限和独立备份。签名器配置格式、mTLS 证书和策略见 [签名器说明](../../internal/cryptosigner/README.md)。每个源钱包必须明确设置 USDT 日额度、每日交易笔数、TRX/ETH 每日最高手续费预算及单笔限制；失败/未知签名请求仍占用预算。
+
+API 使用 `DATABASE_URL`、`GOEPAY_MASTER_KEY` 及可信部署配置 `GOEPAY_CRYPTO_NETWORKS`：
+
+```json
+{"tron":{"enabled":true,"fee_bps":100,"treasury_address":"填写归集钱包公开地址","hot_address":"填写结算钱包公开地址"}}
+```
+
+这是配置结构说明，示例占位地址不能启动。缺省不启用 USDT；不通过 HTTP 接收 RPC 地址、资产合约、资金私钥或密钥文件路径。地址池由管理员登记 keygen 输出的收款公开地址，私钥只配置给签名器。
+
+启用 `GOEPAY_CRYPTO_CNY_PER_USDT` 的 CNY 兼容报价时，还必须配置可信 `GOEPAY_PUBLIC_ORIGIN`，例如 `https://payments.example`；开发环境可使用 `http://127.0.0.1:8187` 等本地 loopback HTTP origin。该值不能含用户信息、查询串、fragment 或子路径。兼容创建返回的 `payurl`、`pay_info`、`url` 以及页面提交跳转均使用此绝对地址，不读取请求的 Host 或转发头；缺失或无效配置会在分配收款地址前拒绝请求。关闭新报价后，保留有效 origin 即可查询和重放既有订单，仍使用原金额、网络及地址。原生 USDT 控制台收款与 token 收银台不依赖 CNY 报价或此兼容配置。
+
+worker 使用单独 JSON 文件：
+
+```json
+{
+  "enable_broadcast": false,
+  "enable_sweeps": false,
+  "networks": {
+    "tron": {
+      "enabled": true,
+      "fee_bps": 100,
+      "primary_rpc": "https://tron-primary.example",
+      "witness_rpc": "https://tron-witness.example",
+      "start_height": 1,
+      "fee_limit": 100000000,
+      "treasury_address": "填写归集钱包公开地址",
+      "hot_address": "填写结算钱包公开地址"
+    },
+    "ethereum": {
+      "enabled": true,
+      "fee_bps": 100,
+      "primary_rpc": "https://ethereum-primary.example",
+      "witness_rpc": "https://ethereum-witness.example",
+      "start_height": 1,
+      "fee_limit": 10000000000000000,
+      "treasury_address": "填写 Ethereum 归集钱包公开地址",
+      "hot_address": "填写 Ethereum 结算钱包公开地址"
+    }
+  }
+}
+```
+
+正式配置必须填写实际独立节点和经过核对的扫描起始块；示例 `start_height: 1` 仅展示字段，不是新部署的建议起点。起始块不能晚于地址池首次使用前的安全高度。节点必须为 HTTPS；仅本地模拟允许 loopback HTTP。两地址不同不自动证明其运营者独立，部署时须选取实际独立的数据源。
+
+`fee_limit` 的单位按网络分别为 sun 和 wei；Ethereum 示例是单笔最高 0.01 ETH，不是建议手续费。适配器使用估算 gas 和 gas price 生成 EIP-155 legacy 交易，并拒绝超过该上限的准备请求；没有实现 EIP-1559 自动加速或自动替换未知交易。
+
+仅监听不需要签名服务。显式启用广播时，worker 还必须提供 `signer_url`、`client_cert`、`client_key`、`signer_ca`；这些是客户端 mTLS 凭据，不能是资金私钥。`enable_sweeps` 另外开启归集。worker 必须和 API 使用一致的网络/费用/钱包配置。
+
+```sh
+crypto-worker --config /etc/goepay/crypto-worker.json
+crypto-worker --config /etc/goepay/crypto-worker.json --once
+crypto-worker --config /etc/goepay/crypto-worker.json --audit
+```
+
+`--audit` 只读取资产账本、节点余额和扫描状态，不扫描入账、不签名、不广播。最终高度变化或存在在途交易时报告不能作为一致快照；不会自动生成“调平”分录。
+
+## 接口与兼容
+
+控制台操作位于 `/console/v1/{role}/crypto/`，使用原 Cookie/CSRF、本人会话与角色边界。接口详见 [OpenAPI](../../api/console.openapi.json) 和 [API 说明](../../api/README.md)。
+
+USDT 资金操作使用当前登录密码确认，并在业务事务内重新核对原本人持久会话、账户版本及管理员权限；代登录会话不能操作。此流程独立于人民币业务的资金口令挑战，未接入 `fundsExecutionTarget`。网站审批不能修改独立签名器的收款白名单或费用策略。前端在发送结算及退币申请前持久保存原请求号和公开输入摘要；丢失响应后只能查询该原请求，普通冲突、网络错误或查询未找到记录都不会自动换号重提。
+
+易支付兼容提交可使用 `type=usdt`。平台必须另外配置可信 `GOEPAY_CRYPTO_CNY_PER_USDT` 和 `GOEPAY_CRYPTO_DEFAULT_NETWORK` 才接受人民币报价；金额按六位 USDT 向上取整、在创建时固定。原订单重放沿用原地址、网络、金额和报价，不受新汇率或默认网络影响。查单/异步通知/签名返回保持原 `money` 的人民币语义，另带 `asset`、`network`、`crypto_amount`；不会把人民币金额记入人民币余额。
+
+原币控制台订单不把 `money` 冒充人民币；原币通知使用 `amount` 与 `asset=USDT`。支付成功通知持久重试，商户按原交易号幂等处理；坏回调也记录退避，不阻塞其他通知。
+
+旧人民币退款接口不能安全推断链上退款地址，会提示使用原链退币流程。付款交易的发送方可能是交易所或代付钱包，不能据此自动原路退币。
+
+## 本地验收边界
+
+本轮只使用现有测试 PostgreSQL、独占数据库/schema、本地 HTTP/TLS 节点和合成私钥，覆盖两链真实交易编码/签名/验签与业务组合。主网用户资产、真实钱包 App、实际节点运营、商业 HSM/MPC 和生产网络负载不属于本地模拟通过的证明范围。最终实测结果见[验收报告](../testing/usdt-custody-verification.md)。

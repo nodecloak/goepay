@@ -169,6 +169,9 @@ const CollectionStylesPage = defineAsyncComponent(
 const CollectionGeneratorPage = defineAsyncComponent(
   () => import("./components/CollectionGeneratorPage.vue"),
 );
+const CryptoFundsPage = defineAsyncComponent(
+  () => import("./components/CryptoFundsPage.vue"),
+);
 const MerchantScanPage192 = defineAsyncComponent(
   () => import("./components/MerchantScanPage192.vue"),
 );
@@ -1339,6 +1342,7 @@ async function load() {
     kind.value === "invitations" ||
     kind.value === "collection-styles" ||
     kind.value === "collection-generator" ||
+    kind.value === "crypto" ||
     kind.value === "identity-lookup" ||
     kind.value === "channel-sharing" ||
     kind.value === "referral" ||
@@ -2459,6 +2463,12 @@ onBeforeUnmount(() => {
       />
       <CollectionGeneratorPage
         v-else-if="kind === 'collection-generator'"
+        :key="area + path"
+        :client="client"
+        :own-session="!session.delegated_by"
+      />
+      <CryptoFundsPage
+        v-else-if="kind === 'crypto'"
         :key="area + path"
         :client="client"
         :own-session="!session.delegated_by"

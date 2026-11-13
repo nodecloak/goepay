@@ -218,7 +218,6 @@ internal/payment/scheduler171_settle_test.go
 internal/payment/scheduler171_sharing_test.go
 internal/payment/scheduler171_test.go
 internal/payment/scheduler171_times_test.go
-internal/payment/scheduler171_transfer_test.go
 internal/payment/scheduler178_success_date_test.go
 internal/payment/scheduler190_legacy_test.go
 internal/payment/subchannel168b_quote_compat_test.go

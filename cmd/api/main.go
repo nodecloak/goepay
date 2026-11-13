@@ -91,6 +91,14 @@ func main() {
 		os.Exit(1)
 	}
 	app := &server.Server{Pool: pool, Store: store, Sessions: sessions, PlatformKey: key, Sandbox: os.Getenv("GOEPAY_SANDBOX") == "true"}
+	app.Crypto, e = cryptoFromEnvironment(pool, os.Getenv)
+	if e == nil {
+		e = configureCryptoCompatibility(app, os.Getenv)
+	}
+	if e != nil {
+		slog.Error("invalid trusted USDT configuration")
+		os.Exit(1)
+	}
 	app.Mail195TestEnabled, e = mailTestGate195(os.Getenv)
 	if e != nil {
 		slog.Error("invalid SMTP test submission configuration")

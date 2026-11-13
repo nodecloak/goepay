@@ -51,6 +51,14 @@ export const menus: Record<Area, MenuNode[]> = {
 export const supplementalMenus: Record<Area, MenuNode[]> = {
   admin: [
     {
+      id: "CryptoFunds",
+      title: "USDT 资金管理",
+      path: "/system/crypto",
+      hidden: false,
+      roles: ["R_SUPER"],
+      children: [],
+    },
+    {
       id: "EpayMigration234",
       title: "易支付迁移",
       path: "/system/migration",
@@ -132,6 +140,14 @@ export const supplementalMenus: Record<Area, MenuNode[]> = {
     },
   ],
   merchant: [
+    {
+      id: "CryptoFunds",
+      title: "USDT 收款与结算",
+      path: "/account/crypto",
+      hidden: false,
+      roles: [],
+      children: [],
+    },
     {
       id: "MerchantNotice",
       title: "消息提醒设置",
@@ -350,6 +366,7 @@ export const resolvePage = (area: Area, path: string) =>
     (n) => n.path === path,
   );
 export type ViewKind =
+  | "crypto"
   | "dashboard"
   | "orders"
   | "refunds"
@@ -385,6 +402,11 @@ export type ViewKind =
   | "complain"
   | "unavailable";
 export function viewKind(area: Area, path: string): ViewKind {
+  if (
+    (area === "merchant" && path === "/account/crypto") ||
+    (area === "admin" && path === "/system/crypto")
+  )
+    return "crypto";
   if (area === "admin" && path === "/system/migration") return "migration";
   if (area === "merchant" && path === "/account/certificate")
     return "certification";

@@ -33,6 +33,7 @@ func withoutToken(f func(*Server, http.ResponseWriter, *http.Request, string, id
 
 // consoleRoutesBeforeFunds run before funds-action protection is attached.
 var consoleRoutesBeforeFunds = []consoleRoute{
+	{"cryptoConsole", []string{"crypto"}, withToken((*Server).cryptoConsole)},
 	{"migrationWizardConsole234", []string{"migration"}, withToken((*Server).migrationWizardConsole234)},
 	{"transferRoutingConsole228", []string{"settings"}, withToken((*Server).transferRoutingConsole228)},
 	{"captchaSettingsConsole203", []string{"settings"}, withToken((*Server).captchaSettingsConsole203)},
