@@ -113,11 +113,11 @@ func (s *Server) cryptoConsole(w http.ResponseWriter, r *http.Request, role stri
 				enabled = enabled || n.Enabled
 			}
 		}
-		response(w, 200, 0, "", map[string]any{"enabled": enabled, "networks": networks, "simulation": s.Sandbox})
+		response(w, 200, 0, "", map[string]any{"configured": s.Crypto != nil, "enabled": enabled, "networks": networks, "simulation": s.Sandbox})
 		return true
 	}
 	if s.Crypto == nil {
-		cryptoError(w, cryptopay.ErrUnavailable)
+		response(w, 503, -1, "USDT 收款与结算尚未启用，当前无法处理此操作", nil)
 		return true
 	}
 	if r.Method == "GET" {

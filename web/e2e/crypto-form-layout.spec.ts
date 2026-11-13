@@ -1,5 +1,16 @@
 import { test, expect } from "@playwright/test";
 
+test.beforeEach(async ({ context, baseURL }) => {
+  const localHosts = new Set(["localhost", "127.0.0.1"]);
+  if (!baseURL || !localHosts.has(new URL(baseURL).hostname))
+    throw Error("USDT layout checks require a loopback fixture URL");
+  await context.route("**/*", async (route) => {
+    if (!localHosts.has(new URL(route.request().url()).hostname))
+      return route.abort();
+    return route.fallback();
+  });
+});
+
 for (const area of ["admin", "merchant"] as const) {
   for (const width of [375, 1440]) {
     test(`${area} USDT configuration fields fit at ${width} without writes`, async ({
@@ -15,7 +26,10 @@ for (const area of ["admin", "merchant"] as const) {
       await page.route("**/console/v1/**", async (route) => {
         const request = route.request(),
           path = new URL(request.url()).pathname;
-        if (request.method() !== "GET") writes.push(path);
+        if (request.method() !== "GET") {
+          writes.push(path);
+          return route.abort();
+        }
         let data: unknown = { enabled: false };
         if (path.endsWith("/session"))
           data = {
@@ -55,10 +69,18 @@ for (const area of ["admin", "merchant"] as const) {
         await route.fulfill({ json: { code: 0, msg: "", data } });
       });
       await page.goto(
-        `/${area}/${area === "admin" ? "system" : "account"}/crypto`,
+        `/${area}/${area === "admin" ? "system" : "account"}/crypto/recipients`,
       );
+      await expect(page.locator(".crypto-funds")).toHaveAttribute(
+        "data-section",
+        "recipients",
+      );
+      await expect(page.locator("form[data-form]")).toHaveCount(0);
+      await page
+        .getByRole("button", { name: "申请绑定地址", exact: true })
+        .click();
       await expect(
-        page.locator("[data-form=invoice] button[type=submit]"),
+        page.locator("[data-form=recipient] button[type=submit]"),
       ).toBeEnabled();
       await expect(page.locator("[data-form=recipient] select")).toBeVisible();
       await page.addStyleTag({
@@ -74,7 +96,7 @@ for (const area of ["admin", "merchant"] as const) {
           .getBoundingClientRect();
         const controls = [
           ...document.querySelectorAll<HTMLSelectElement>(
-            ".crypto-filter select,.crypto-funds > form.card select",
+            '.crypto-filter select,.crypto-funds > form.card select,[data-form="recipient"] select',
           ),
         ].map((control) => control.getBoundingClientRect().width);
         return {

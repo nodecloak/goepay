@@ -28,7 +28,7 @@ export function installCryptoCustodyAPI({paths,schemas,object,str,ref,content}) 
   schemas.CryptoWithdrawalView=object(withdrawalProperties,Object.keys(withdrawalProperties));
   schemas.CryptoRecipientView=object({id:ref('CryptoRecordID'),merchant_id:ref('CryptoMerchantID'),network:ref('CryptoNetwork'),address:ref('CryptoAddress'),state:str(null,{enum:['requested','approved','revoked']}),usable_at:time},['id','merchant_id','network','address','state','usable_at']);
   schemas.CryptoBalanceView=object({network:ref('CryptoNetwork'),available:ref('CryptoNonnegativeAmount'),reserved:ref('CryptoNonnegativeAmount')},['network','available','reserved']);
-  schemas.CryptoConfigView=object({enabled:{type:'boolean'},networks:{type:'array',maxItems:2,items:object({network:ref('CryptoNetwork'),enabled:{type:'boolean'},fee_bps:{type:'integer',minimum:0,maximum:10000}},['network','enabled','fee_bps'])},simulation:{type:'boolean',description:'true表示模拟环境，请勿转入真实资产；不是签名或真实广播已开启的声明。'}},['enabled','networks','simulation']);
+  schemas.CryptoConfigView=object({configured:{type:'boolean',description:'USDT服务是否已配置。false时仅可读取此配置摘要，其它USDT操作返回503；true且enabled=false时仍可按原权限读取历史记录。'},enabled:{type:'boolean',description:'至少一个USDT网络已启用；false时不应发起新的收款或资金申请，不代表历史记录为空。'},networks:{type:'array',maxItems:2,items:object({network:ref('CryptoNetwork'),enabled:{type:'boolean'},fee_bps:{type:'integer',minimum:0,maximum:10000}},['network','enabled','fee_bps'])},simulation:{type:'boolean',description:'true表示模拟环境，请勿转入真实资产；不是签名或真实广播已开启的声明。'}},['configured','enabled','networks','simulation']);
   schemas.CryptoReconciliationView=object({imbalanced_journals:{type:'integer',minimum:0},balance_mismatches:{type:'integer',minimum:0},negative_balances:{type:'integer',minimum:0}},['imbalanced_journals','balance_mismatches','negative_balances']);
   schemas.CryptoCheckoutStatusView=object({state:invoiceState,amount:ref('CryptoAmount'),received:ref('CryptoNonnegativeAmount'),expires_at:time,return_url:str('仅paid/overpaid且原商户返回地址可签名时返回的完整签名URL；未付款不返回。')},['state','amount','received','expires_at']);
 
@@ -42,7 +42,7 @@ export function installCryptoCustodyAPI({paths,schemas,object,str,ref,content}) 
     '409':{description:'原请求参数或状态冲突、收款地址未批准/冷静期未结束、已有活跃归集或已签/未知交易不可直接取消。',content:content(ref('Envelope'))},
     '422':{description:'金额、网络、地址、当前密码无效/未设置，或USDT可用资金不足。',content:content(ref('Envelope'))},
     '429':{description:'本人密码校验来源/账号预算或并发预算耗尽。',headers:{'Retry-After':{schema:{type:'integer'}}},content:content(ref('Envelope'))},
-    '503':{description:'服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。',content:content(ref('Envelope'))},
+    '503':{description:'USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。',content:content(ref('Envelope'))},
   };
   const scope='USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。';
   function operation(role,route,method,summary,{body,data,description='',parameters=[]}={}){
@@ -54,7 +54,7 @@ export function installCryptoCustodyAPI({paths,schemas,object,str,ref,content}) 
   }
   const merchantQuery=(role,{required=false,balance=false}={})=>({name:'merchant_id',in:'query',required:role==='admin'&&required,schema:ref('CryptoMerchantID'),description:role==='merchant'?'省略取当前本人；显式提供只能为本人完整字符串ID。':balance?'省略按网络汇总全部商户的available/reserved，不含平台fees/suspense，不是链上钱包余额；显式ID只查询该商户。':required?'必须明确原请求所属商户的完整字符串ID。':'省略可读取全部商户记录；显式ID只读取该商户。'});
   for(const role of ['admin','merchant']){
-    operation(role,'/config','get','读取USDT网络启用与模拟标记',{data:ref('CryptoConfigView'),description:'只读公开能力摘要。没有私钥、RPC凭据、热钱包或签名白名单写入接口；配置不存在时可返回enabled=false。'});
+    operation(role,'/config','get','读取USDT配置、网络启用与模拟标记',{data:ref('CryptoConfigView'),description:'只读能力摘要。没有私钥、RPC凭据、热钱包或签名白名单写入接口；configured=false表示服务尚未配置，其它USDT操作返回503。configured=true且enabled=false表示网络均关闭，仍可按原权限读取历史记录；关闭态不证明历史记录为空，也不授予新的资金操作权限。'});
     operation(role,'/balances','get','读取独立USDT可用及预留余额',{data:{type:'array',items:ref('CryptoBalanceView')},parameters:[merchantQuery(role,{balance:true})],description:'available/reserved均为原生USDT数量字符串，最多6位小数；不转换为人民币，不代表对应热钱包可立即出款。'});
     operation(role,'/invoices','get','读取USDT收款单列表',{data:{type:'array',maxItems:200,items:ref('CryptoInvoiceView')},parameters:[merchantQuery(role)],description:'最多最新200条；列表不返回checkout_url或token。状态来自最终链上收款证据；少付、超付和迟到款不会被自动改成可用余额。'});
     operation(role,'/invoices/{invoice_id}','get','读取原USDT收款单及收银台入口',{data:ref('CryptoInvoiceCheckoutView'),parameters:[merchantQuery(role)],description:'仅有权会话可获得该收款单checkout_url；其token能力仅用于专用公开收银台路径，不授权任何console操作。'});

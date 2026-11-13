@@ -61,7 +61,7 @@ const path = computed(() => {
   if (/dashboard|home/i.test(name)) return paths.home;
   if (/trade|order|refund/i.test(name)) return paths.trade;
   if (/merchant|user|agent|invite/i.test(name)) return paths.people;
-  if (/settle|transfer|balance|money/i.test(name)) return paths.wallet;
+  if (/settle|transfer|balance|money|crypto/i.test(name)) return paths.wallet;
   if (/stat|report|ledger/i.test(name)) return paths.chart;
   if (/system|config|setting/i.test(name)) return paths.settings;
   if (/account|security/i.test(name)) return paths.shield;

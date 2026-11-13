@@ -109,6 +109,8 @@ Console登录与session的`user.id`统一为完整字符串，防止大商户编
 
 USDT 原生收款与原币资金接口位于 `/console/v1/merchant/crypto` 和本人 super 的 `/console/v1/admin/crypto`。金额 `amount/received/fee/available/reserved` 是最多六位小数的 USDT 数量字符串（例如 `"0.000001"`），不接受 JSON number，不与人民币余额、手续费或退款混账；TRON 与 Ethereum 也分别记账。JSON body 中所有 `merchant_id` 都是完整字符串：商户省略时取本人，显式提供只能为本人；管理员创建/取消/撤销时必须明确商户。管理员余额 GET 省略商户时按网络汇总全部商户 available/reserved，不包括平台 fees/suspense，也不等于链上钱包余额。管理员按 `/withdrawals/by-request?merchant_id=...&request_id=...` 恢复原请求时必须指定商户。
 
+`GET config` 返回 `configured/enabled/networks/simulation`：`configured=false` 表示服务尚未配置，此时其它 USDT 操作返回 503 并明确提示尚未启用；`configured=true, enabled=false` 表示网络均关闭，仍可按原权限读取历史记录，不代表记录为空，也不应发起新的收款或资金申请。503 本身不证明旧请求未记录。
+
 `GET config/balances/invoices/invoices/{invoice_id}/withdrawals/withdrawals/by-request/recipients` 只读原记录；`reconciliation` 仅 admin，检查内部 journal/账户投影，并不等同链上资产对账。`POST invoices` 创建十五分钟原生收款单；`withdrawals/refunds/held-refunds` 只申请结算、原链退款或退回少付/超付/迟到暂存款并预留，不代表链上已发送。所有 console 写入要求原始本人持久 session 与 CSRF；创建收款单之外的资金、地址登记/审批/撤销动作还必须确认本人 `current_password`，不因人民币资金确认开关关闭而跳过。`recipients` 登记后仍需 super 审批，且自登记起满二十四小时才可使用；HTTP 审批不会修改独立签名服务部署白名单。公开地址池导入也不创建私钥、不改变热钱包配置、不开放真实广播。
 
 提交或取消响应丢失后，保留同一 `request_id` 读取 `/withdrawals/by-request`。`approved/preparing/prepared/signing` 的取消只返回 `cancellation_requested=true`，隔离签名器撤销确认与原事务完成前不释放预留；`signed/broadcasting/unknown` 不能直接取消、释放或换号重发。super 的 `/crypto/sweeps/retry` 仅在本人密码确认后重新安排已有地址归集队列；活跃原出款保持冲突，不直接发送或替换未知交易。

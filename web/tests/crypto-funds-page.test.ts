@@ -1,13 +1,35 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { computed, ref } from "vue";
 import { webcrypto } from "node:crypto";
-import { mount, flushPromises } from "@vue/test-utils";
+import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
 import { ApiClient, ApiError } from "../src/api";
 import { fundsPrincipal212, fundsScope212 } from "../src/funds-intent212";
 import { CryptoIntentStore } from "../src/crypto-intent";
 import CryptoFundsPage from "../src/components/CryptoFundsPage.vue";
+import type { CryptoSection } from "../src/menu";
+async function reveal(w: VueWrapper, form: string) {
+  const sections: Record<string, CryptoSection> = {
+    invoice: "invoices",
+    withdrawal: "settlements",
+    refund: "refunds",
+    recipient: "recipients",
+    address: "operations",
+    "sweep-retry": "operations",
+  };
+  await w.setProps({ section: sections[form] });
+  await flushPromises();
+  if (w.find("[data-form=" + form + "]").exists()) return;
+  if (w.find("[data-cancel-form]").exists())
+    await w.get("[data-cancel-form]").trigger("click");
+  await vi.waitFor(() =>
+    expect(w.find("[data-open-form=" + form + "]").exists()).toBe(true),
+  );
+  await w.get("[data-open-form=" + form + "]").trigger("click");
+  await flushPromises();
+}
 afterEach(() => {
   localStorage.clear();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 it("keeps a late financial POST response in its original account scope", async () => {
@@ -39,6 +61,7 @@ it("keeps a late financial POST response in its original account scope", async (
       provide: { [fundsPrincipal212 as symbol]: computed(() => context.value) },
     },
   });
+  await reveal(w, "withdrawal");
   await vi.waitFor(() =>
     expect(
       w
@@ -76,6 +99,7 @@ it("keeps a late financial POST response in its original account scope", async (
     invoice_id: "",
   });
   await flushPromises();
+  await reveal(w, "withdrawal");
   expect(
     (
       w.get("[data-form=withdrawal] input[name=request_id]")
@@ -124,11 +148,13 @@ it.each(["merchant", "admin"] as const)(
     await flushPromises();
     const forms = ["invoice", "recipient", "withdrawal"];
     if (area === "admin") forms.push("address", "sweep-retry");
-    for (const form of forms)
+    for (const form of forms) {
+      await reveal(w, form);
       expect(
         (w.get(`[data-form=${form}] select`).element as HTMLSelectElement)
           .value,
       ).toBe("ethereum");
+    }
     expect(
       c.request.mock.calls.some((call) => call[1]?.method === "POST"),
     ).toBe(false);
@@ -145,14 +171,17 @@ it("does not silently change entered networks when refreshing the enabled networ
   });
   const w = mount(CryptoFundsPage, { props: { client: c, ownSession: true } });
   await flushPromises();
+  await reveal(w, "invoice");
   await w
     .get("[data-form=invoice] input[name=out_trade_no]")
     .setValue("original-tron-invoice");
   await w.get("[data-form=invoice] input[name=amount]").setValue("10");
+  await reveal(w, "withdrawal");
   await w
     .get("[data-form=withdrawal] input[name=address]")
     .setValue("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE");
   await w.get("[data-form=withdrawal] input[name=amount]").setValue("1");
+  await reveal(w, "recipient");
   await w
     .get("[data-form=recipient] input[name=recipient_address]")
     .setValue("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE");
@@ -162,11 +191,13 @@ it("does not silently change entered networks when refreshing the enabled networ
     .find((button) => button.text() === "刷新记录")!
     .trigger("click");
   await flushPromises();
-  for (const form of ["invoice", "recipient", "withdrawal"])
+  for (const form of ["invoice", "recipient", "withdrawal"]) {
+    await reveal(w, form);
     expect(
       (w.get(`[data-form=${form}] select`).element as HTMLSelectElement)
         .selectedIndex,
     ).toBe(-1);
+  }
   expect(
     (
       w.get("[data-form=withdrawal] input[name=amount]")
@@ -206,6 +237,7 @@ it("recovers an uncertain original request after refresh and reads it without cr
   await vi.waitFor(() =>
     expect(w.text()).toContain("original-pending-request"),
   );
+  await reveal(w, "withdrawal");
   expect(
     (
       w.get("[data-form=withdrawal] input[name=request_id]")
@@ -241,14 +273,19 @@ it("recovers an uncertain original request after refresh and reads it without cr
 function client(area: "merchant" | "admin" = "merchant") {
   return Object.assign(new ApiClient(area), {
     csrfToken: "original",
-    request: vi.fn(async (path: string, options?: { method?: string }) => {
-      if (path === "/crypto/config") return config;
-      if (path.startsWith("/crypto/balances"))
-        return [
-          { network: "tron", available: "1.123456", reserved: "0.000001" },
-        ];
-      return [];
-    }),
+    request: vi.fn(
+      async (
+        path: string,
+        options?: { method?: string; body?: unknown },
+      ): Promise<unknown> => {
+        if (path === "/crypto/config") return config;
+        if (path.startsWith("/crypto/balances"))
+          return [
+            { network: "tron", available: "1.123456", reserved: "0.000001" },
+          ];
+        return [];
+      },
+    ),
   });
 }
 
@@ -262,9 +299,13 @@ it("shows exact six-decimal USDT balances without platform control actions for a
   expect(w.find("[data-action=approve]").exists()).toBe(false);
   expect(w.find("[data-form=address]").exists()).toBe(false);
   expect(w.find("input[name=merchant_id]").exists()).toBe(false);
+  expect(w.find("[data-form]").exists()).toBe(false);
+  await reveal(w, "recipient");
   expect(w.find("[data-form=recipient]").exists()).toBe(true);
   expect(w.text()).toContain("24 小时");
+  await reveal(w, "refund");
   expect(w.text()).toContain("退回未入账款项");
+  await reveal(w, "withdrawal");
   expect(
     w
       .findAll("select[name=network] option")
@@ -289,6 +330,7 @@ it("creates a native USDT invoice without a user-supplied fee or CNY quote", asy
   );
   const w = mount(CryptoFundsPage, { props: { client: c, ownSession: true } });
   await flushPromises();
+  await reveal(w, "invoice");
   await w
     .get("[data-form=invoice] input[name=out_trade_no]")
     .setValue("merchant-order-1");
@@ -333,8 +375,757 @@ it("discards delayed balances and disables mutations after the session changes",
   ]);
   await flushPromises();
   expect(w.text()).not.toContain("999.000000");
+  expect(w.find("[data-form=invoice]").exists()).toBe(false);
+  w.unmount();
+});
+
+it.each([
+  { configured: false, enabled: false, networks: [] },
+  { enabled: false, networks: [] },
+])(
+  "shows an unconfigured service without querying history or exposing money forms: %j",
+  async (closed) => {
+    const c = client("admin");
+    c.request.mockImplementation(async (path) => {
+      if (path === "/crypto/config") return closed;
+      throw new ApiError(
+        "USDT 收款与结算尚未启用，当前无法处理此操作",
+        503,
+        -1,
+      );
+    });
+    const w = mount(CryptoFundsPage, {
+      props: { client: c, ownSession: true },
+    });
+    await flushPromises();
+    expect(w.get("[data-testid=crypto-service-disabled]").text()).toContain(
+      "尚未启用",
+    );
+    expect(w.find("[role=alert].error").exists()).toBe(false);
+    expect(w.find("form").exists()).toBe(false);
+    expect(w.find("input[type=password]").exists()).toBe(false);
+    expect(w.text()).not.toContain("对账");
+    expect(c.request.mock.calls.map((call) => call[0])).toEqual([
+      "/crypto/config",
+    ]);
+    await w.get(".crypto-header button").trigger("click");
+    await flushPromises();
+    expect(c.request.mock.calls.map((call) => call[0])).toEqual([
+      "/crypto/config",
+      "/crypto/config",
+    ]);
+    w.unmount();
+  },
+);
+
+it("waits for service configuration before reading any account history", async () => {
+  const c = client();
+  let deliver: ((value: unknown) => void) | undefined;
+  c.request.mockImplementation(async (path) => {
+    if (path === "/crypto/config")
+      return new Promise((resolve) => {
+        deliver = resolve;
+      }) as never;
+    return [];
+  });
+  const w = mount(CryptoFundsPage, {
+    props: { client: c, ownSession: true, section: "invoices" },
+  });
+  await flushPromises();
+  expect(c.request.mock.calls.map((call) => call[0])).toEqual([
+    "/crypto/config",
+  ]);
+  expect(w.find("[data-form=invoice]").exists()).toBe(false);
+  deliver!(config);
+  await flushPromises();
+  await reveal(w, "invoice");
+  expect(w.find("[data-form=invoice]").exists()).toBe(true);
+  w.unmount();
+});
+
+it.each([true, false])(
+  "keeps configured but paused history readable without money forms (own session %s)",
+  async (ownSession) => {
+    const c = client("admin");
+    c.request.mockImplementation(async (path) => {
+      if (path === "/crypto/config")
+        return { configured: true, enabled: false, networks: [] };
+      if (path.startsWith("/crypto/balances"))
+        return [
+          { network: "tron", available: "7.123456", reserved: "0.000001" },
+        ];
+      if (path.startsWith("/crypto/invoices"))
+        return [
+          {
+            id: "historic-invoice",
+            out_trade_no: "historic-order",
+            network: "tron",
+            amount: "7",
+            received: "7",
+            fee: "0",
+            state: "paid",
+            expires_at: "2026-01-01T00:00:00Z",
+          },
+        ];
+      return [];
+    });
+    const w = mount(CryptoFundsPage, { props: { client: c, ownSession } });
+    await flushPromises();
+    expect(w.get("[data-testid=crypto-service-readonly]").text()).toContain(
+      "已暂停",
+    );
+    expect(w.text()).toContain("7.123456");
+    await w.setProps({ section: "invoices" });
+    await flushPromises();
+    expect(w.text()).toContain("historic-order");
+    expect(w.find("[data-form]").exists()).toBe(false);
+    expect(w.find("input[type=password]").exists()).toBe(false);
+    expect(
+      c.request.mock.calls.filter((call) =>
+        /\/crypto\/(balances|invoices|withdrawals|recipients)$/.test(call[0]),
+      ),
+    ).toHaveLength(8);
+    expect(
+      c.request.mock.calls.some((call) => call[1]?.method === "POST"),
+    ).toBe(false);
+    w.unmount();
+  },
+);
+
+it("hides all money forms for a delegated session even when service is enabled", async () => {
+  const c = client();
+  const w = mount(CryptoFundsPage, { props: { client: c, ownSession: false } });
+  await flushPromises();
+  expect(w.text()).toContain("仅能查看记录");
+  expect(w.text()).toContain("1.123456");
+  expect(w.find("[data-form]").exists()).toBe(false);
+  expect(w.find("input[type=password]").exists()).toBe(false);
+  w.unmount();
+});
+
+it.each(["config", "balances"])(
+  "locks a failed %s refresh, clears stale checkout links, and restores entered drafts only after a successful read",
+  async (failure) => {
+    const c = client("admin");
+    let failing = false;
+    c.request.mockImplementation(async (path, options) => {
+      if (failing && path.split("?")[0] === "/crypto/" + failure)
+        throw new ApiError("读取失败", 503, -1);
+      if (path === "/crypto/config") return { configured: true, ...config };
+      if (options?.method === "POST")
+        return { checkout_url: "/crypto/checkout/private-original" } as never;
+      if (path.startsWith("/crypto/balances"))
+        return [{ network: "tron", available: "9.654321", reserved: "0" }];
+      return [];
+    });
+    const w = mount(CryptoFundsPage, {
+      props: { client: c, ownSession: true },
+    });
+    await reveal(w, "withdrawal");
+    const originalRequest = (
+      w.get("input[name=request_id]").element as HTMLInputElement
+    ).value;
+    await w.get("[data-form=withdrawal] input[name=amount]").setValue("2.5");
+    await w.get("input[name=current_password]").setValue("do-not-retain");
+    await reveal(w, "invoice");
+    await w.get("input[name=merchant_id]").setValue("1");
+    await w.get("input[name=out_trade_no]").setValue("preserved-order");
+    await w.get("[data-form=invoice] input[name=amount]").setValue("1");
+    await w.get("[data-form=invoice]").trigger("submit");
+    await flushPromises();
+    expect(w.find("[data-checkout]").exists()).toBe(true);
+    failing = true;
+    await w.get(".crypto-header button").trigger("click");
+    await flushPromises();
+    expect(w.find("[data-form]").exists()).toBe(false);
+    expect(w.find("input[type=password]").exists()).toBe(false);
+    expect(w.find("[data-checkout]").exists()).toBe(false);
+    expect(w.text()).not.toContain("9.654321");
+    expect(w.get("[data-testid=crypto-service-error]").text()).toContain(
+      "暂时无法读取",
+    );
+    failing = false;
+    await w.get(".crypto-header button").trigger("click");
+    await flushPromises();
+    expect(w.find("[data-form]").exists()).toBe(false);
+    await reveal(w, "invoice");
+    expect(
+      (w.get("input[name=out_trade_no]").element as HTMLInputElement).value,
+    ).toBe("preserved-order");
+    expect(
+      w.get("[data-form=invoice] button[type=submit]").attributes("disabled"),
+    ).toBeUndefined();
+    expect(w.find("[data-checkout]").exists()).toBe(false);
+    await reveal(w, "withdrawal");
+    expect(
+      (w.get("input[name=amount]").element as HTMLInputElement).value,
+    ).toBe("2.5");
+    expect(
+      (w.get("input[name=request_id]").element as HTMLInputElement).value,
+    ).toBe(originalRequest);
+    expect(
+      (w.get("input[name=current_password]").element as HTMLInputElement).value,
+    ).toBe("");
+    expect(
+      c.request.mock.calls.filter((call) => call[1]?.method === "POST"),
+    ).toHaveLength(1);
+    w.unmount();
+  },
+);
+
+it("prevents a delayed configuration from reviving the previous area", async () => {
+  const c = client("admin");
+  let deliver: ((value: unknown) => void) | undefined;
+  c.request.mockImplementation(async (path) => {
+    if (path === "/crypto/config") {
+      if (c.area === "admin")
+        return new Promise((resolve) => {
+          deliver = resolve;
+        }) as never;
+      return { configured: false, enabled: false, networks: [] };
+    }
+    return [];
+  });
+  const w = mount(CryptoFundsPage, { props: { client: c, ownSession: true } });
+  await flushPromises();
+  // ApiClient is shared by the shell; the area can change before a response settles.
+  c.area = "merchant";
+  await w.setProps({ ownSession: false });
+  deliver!(config);
+  await flushPromises();
+  expect(w.find("[data-form]").exists()).toBe(false);
+  expect(w.find("[data-testid=crypto-service-disabled]").exists()).toBe(true);
+  expect(c.request.mock.calls.map((call) => call[0])).toEqual([
+    "/crypto/config",
+    "/crypto/config",
+  ]);
+  w.unmount();
+});
+
+it("clears a reconciliation read error on a successful refresh and restores normal writes", async () => {
+  const c = client("admin");
+  c.request.mockImplementation(async (path) => {
+    if (path === "/crypto/config") return config;
+    if (path === "/crypto/reconciliation")
+      throw new ApiError("对账暂不可用", 503, -1);
+    return [];
+  });
+  const w = mount(CryptoFundsPage, { props: { client: c, ownSession: true } });
+  await w.setProps({ section: "reconciliation" });
+  await flushPromises();
+  await w
+    .findAll("button")
+    .find((button) => button.text() === "查询账本对账结果")!
+    .trigger("click");
+  await flushPromises();
+  expect(w.find("[data-form]").exists()).toBe(false);
+  await w.get(".crypto-header button").trigger("click");
+  await flushPromises();
+  expect(w.find("[role=alert].error").exists()).toBe(false);
+  await reveal(w, "invoice");
+  expect(
+    w.get("[data-form=invoice] button[type=submit]").attributes("disabled"),
+  ).toBeUndefined();
+  expect(c.request.mock.calls.some((call) => call[1]?.method === "POST")).toBe(
+    false,
+  );
+  w.unmount();
+});
+
+it("retains an uncertain financial intent through service shutdown and recovers only by reading its original request", async () => {
+  vi.stubGlobal("crypto", webcrypto);
+  const principal = { area: "merchant", id: "1", issuer: "", csrf: "original" };
+  const store = new CryptoIntentStore(await fundsScope212(principal));
+  await store.begin("/crypto/withdrawals", {
+    merchant_id: "1",
+    request_id: "preserved-unknown-request",
+    network: "tron",
+    address: "TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE",
+    amount: "2.500000",
+  });
+  const c = client();
+  let closed = true;
+  c.request.mockImplementation(async (path) => {
+    if (path === "/crypto/config")
+      return closed
+        ? { configured: false, enabled: false, networks: [] }
+        : config;
+    if (path.startsWith("/crypto/withdrawals/by-request"))
+      throw new ApiError("not found", 404, -1);
+    return [];
+  });
+  const w = mount(CryptoFundsPage, {
+    props: { client: c, ownSession: true },
+    global: {
+      provide: { [fundsPrincipal212 as symbol]: computed(() => principal) },
+    },
+  });
+  await vi.waitFor(() =>
+    expect(w.find("[data-testid=crypto-service-disabled]").exists()).toBe(true),
+  );
+  expect(w.find("[data-form]").exists()).toBe(false);
+  expect((await store.read())?.body.request_id).toBe(
+    "preserved-unknown-request",
+  );
+  expect(c.request.mock.calls.map((call) => call[0])).toEqual([
+    "/crypto/config",
+  ]);
+  closed = false;
+  await w.get(".crypto-header button").trigger("click");
+  await vi.waitFor(() =>
+    expect(
+      c.request.mock.calls.some((call) =>
+        call[0].includes("request_id=preserved-unknown-request"),
+      ),
+    ).toBe(true),
+  );
+  await reveal(w, "withdrawal");
+  expect(
+    (
+      w.get("[data-form=withdrawal] input[name=request_id]")
+        .element as HTMLInputElement
+    ).value,
+  ).toBe("preserved-unknown-request");
+  expect(
+    (
+      w.get("[data-form=withdrawal] input[name=amount]")
+        .element as HTMLInputElement
+    ).value,
+  ).toBe("2.5");
+  expect(
+    w.get("[data-form=withdrawal] button[type=submit]").attributes("disabled"),
+  ).toBeDefined();
+  expect((await store.read())?.body.request_id).toBe(
+    "preserved-unknown-request",
+  );
+  expect(c.request.mock.calls.some((call) => call[1]?.method === "POST")).toBe(
+    false,
+  );
+  w.unmount();
+});
+
+it("defaults to a compact overview with no transaction tables or money forms", async () => {
+  const w = mount(CryptoFundsPage, {
+    props: { client: client(), ownSession: true },
+  });
+  await flushPromises();
+  expect(w.get(".crypto-funds").attributes("data-section")).toBe("overview");
+  expect(w.text()).toContain("1.123456");
+  expect(w.text()).toContain("TRON");
+  expect(w.find("table").exists()).toBe(false);
+  expect(w.find("[data-form]").exists()).toBe(false);
+  expect(w.find("input[type=password]").exists()).toBe(false);
+  expect(w.find("[data-open-form]").exists()).toBe(false);
+  w.unmount();
+});
+
+it.each([
+  [
+    "invoices",
+    "invoice",
+    "invoice-order",
+    "settlement-request",
+    "refund-request",
+  ],
+  [
+    "settlements",
+    "withdrawal",
+    "settlement-request",
+    "invoice-order",
+    "refund-request",
+  ],
+  [
+    "refunds",
+    "refund",
+    "refund-request",
+    "invoice-order",
+    "settlement-request",
+  ],
+  [
+    "recipients",
+    "recipient",
+    "recipient-address",
+    "invoice-order",
+    "settlement-request",
+  ],
+  [
+    "operations",
+    "address",
+    "sweep-request",
+    "invoice-order",
+    "settlement-request",
+  ],
+] as const)(
+  "isolates the %s page and expands only its requested form",
+  async (section, form, included, excluded, other) => {
+    const c = client("admin");
+    c.request.mockImplementation(async (path) => {
+      if (path === "/crypto/config") return config;
+      if (path.startsWith("/crypto/invoices"))
+        return [
+          {
+            id: "invoice-id",
+            out_trade_no: "invoice-order",
+            network: "tron",
+            amount: "1",
+            received: "1",
+            fee: "0",
+            state: "paid",
+            expires_at: "2026-01-01T00:00:00Z",
+          },
+        ];
+      if (path.startsWith("/crypto/withdrawals"))
+        return ["settlement", "refund", "exception_refund", "sweep"].map(
+          (kind) => ({
+            id: kind,
+            merchant_id: "1",
+            request_id: `${kind === "exception_refund" ? "exception" : kind}-request`,
+            network: "tron",
+            address: "history-address",
+            amount: "1",
+            state: "requested",
+            kind,
+            tx_id: "",
+          }),
+        );
+      if (path.startsWith("/crypto/recipients"))
+        return [
+          {
+            id: "recipient-id",
+            merchant_id: "1",
+            network: "tron",
+            address: "recipient-address",
+            state: "approved",
+            usable_at: "2026-01-01T00:00:00Z",
+          },
+        ];
+      return [];
+    });
+    const w = mount(CryptoFundsPage, {
+      props: { client: c, ownSession: true, section },
+    });
+    await flushPromises();
+    expect(w.get(".crypto-funds").attributes("data-section")).toBe(section);
+    expect(w.text()).toContain(included);
+    expect(w.text()).not.toContain(excluded);
+    expect(w.text()).not.toContain(other);
+    if (section === "refunds") expect(w.text()).toContain("exception-request");
+    expect(w.find("[data-form]").exists()).toBe(false);
+    await w.get(`[data-open-form=${form}]`).trigger("click");
+    expect(
+      w.findAll("[data-form]").map((node) => node.attributes("data-form")),
+    ).toEqual([form]);
+    expect(w.find("[data-form=invoice]").exists()).toBe(section === "invoices");
+    await w.get("[data-cancel-form]").trigger("click");
+    expect(w.find("[data-form]").exists()).toBe(false);
+    expect(
+      c.request.mock.calls.some((call) => call[1]?.method === "POST"),
+    ).toBe(false);
+    w.unmount();
+  },
+);
+
+it("clears secret and selected actions on section changes while retaining the draft request ID", async () => {
+  const c = client("admin");
+  const w = mount(CryptoFundsPage, {
+    props: { client: c, ownSession: true, section: "settlements" },
+  });
+  await flushPromises();
+  await w.get("[data-open-form=withdrawal]").trigger("click");
+  const requestID = (
+    w.get("input[name=request_id]").element as HTMLInputElement
+  ).value;
+  await w.get("input[name=amount]").setValue("2.5");
+  await w.get("input[name=current_password]").setValue("private-password");
+  await w.setProps({ section: "refunds" });
+  expect(w.find("input[type=password]").exists()).toBe(false);
+  expect(w.find("[data-form=withdrawal]").exists()).toBe(false);
+  await w.setProps({ section: "settlements" });
+  await flushPromises();
+  await w.get("[data-open-form=withdrawal]").trigger("click");
+  expect(
+    (w.get("input[name=current_password]").element as HTMLInputElement).value,
+  ).toBe("");
+  expect(
+    (w.get("input[name=request_id]").element as HTMLInputElement).value,
+  ).toBe(requestID);
+  expect((w.get("input[name=amount]").element as HTMLInputElement).value).toBe(
+    "2.5",
+  );
+  await w.get("[data-cancel-form]").trigger("click");
+  await w.get("[data-open-form=withdrawal]").trigger("click");
+  expect((w.get("input[name=amount]").element as HTMLInputElement).value).toBe(
+    "",
+  );
+  expect(
+    (w.get("input[name=request_id]").element as HTMLInputElement).value,
+  ).toBe(requestID);
+  w.unmount();
+});
+
+it("keeps an in-flight address application locked across pages and preserves an unknown outcome", async () => {
+  const c = client();
+  let reject: ((error: unknown) => void) | undefined;
+  c.request.mockImplementation(async (path, options) => {
+    if (options?.method === "POST")
+      return new Promise((_resolve, fail) => {
+        reject = fail;
+      }) as never;
+    if (path === "/crypto/config") return config;
+    return [];
+  });
+  const w = mount(CryptoFundsPage, {
+    props: { client: c, ownSession: true, section: "recipients" },
+  });
+  await flushPromises();
+  await w.get("[data-open-form=recipient]").trigger("click");
+  await w
+    .get("input[name=recipient_address]")
+    .setValue("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE");
+  await w.get("input[type=password]").setValue("private-password");
+  await w.get("[data-form=recipient]").trigger("submit");
+  await flushPromises();
+  await w.setProps({ section: "invoices" });
+  await flushPromises();
+  await w.get("[data-open-form=invoice]").trigger("click");
   expect(
     w.get("[data-form=invoice] button[type=submit]").attributes("disabled"),
   ).toBeDefined();
+  reject!(new ApiError("response lost", 503, -1));
+  await flushPromises();
+  expect(w.text()).toContain("结果尚无法确认");
+  expect(
+    w.get("[data-form=invoice] button[type=submit]").attributes("disabled"),
+  ).toBeDefined();
+  expect(
+    c.request.mock.calls.filter((call) => call[1]?.method === "POST"),
+  ).toHaveLength(1);
+  w.unmount();
+});
+
+it("brings the selected address approval into focus and clears it when leaving the page", async () => {
+  const c = client("admin");
+  c.request.mockImplementation(async (path) => {
+    if (path === "/crypto/config") return config;
+    if (path.startsWith("/crypto/recipients"))
+      return [
+        {
+          id: "recipient-pending",
+          merchant_id: "9007199254740993",
+          network: "tron",
+          address: "TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE",
+          state: "requested",
+          usable_at: "2026-01-01T00:00:00Z",
+        },
+      ];
+    return [];
+  });
+  const w = mount(CryptoFundsPage, {
+    attachTo: document.body,
+    props: { client: c, ownSession: true, section: "recipients" },
+  });
+  await flushPromises();
+  await w
+    .findAll("button")
+    .find((button) => button.text() === "核对地址并审批")!
+    .trigger("click");
+  const approval = w.get("[data-confirm-action=recipient-approve]");
+  expect(document.activeElement).toBe(
+    approval.get("input[type=password]").element,
+  );
+  expect(w.text()).toContain("9007199254740993");
+  await approval.get("input[type=password]").setValue("private-password");
+  await w.setProps({ section: "invoices" });
+  await flushPromises();
+  expect(w.find("[data-confirm-action]").exists()).toBe(false);
+  expect(w.find("input[type=password]").exists()).toBe(false);
+  w.unmount();
+});
+
+it("does not reopen the original invoice or checkout after its response arrives on another page", async () => {
+  const c = client();
+  let deliver: ((value: unknown) => void) | undefined;
+  c.request.mockImplementation(async (path, options) => {
+    if (options?.method === "POST")
+      return new Promise((resolve) => {
+        deliver = resolve;
+      }) as never;
+    if (path === "/crypto/config") return config;
+    return [];
+  });
+  const w = mount(CryptoFundsPage, {
+    props: { client: c, ownSession: true, section: "invoices" },
+  });
+  await reveal(w, "invoice");
+  await w.get("input[name=out_trade_no]").setValue("original-order");
+  await w.get("input[name=amount]").setValue("1");
+  await w.get("[data-form=invoice]").trigger("submit");
+  await flushPromises();
+  await reveal(w, "refund");
+  deliver!({ checkout_url: "/crypto/checkout/old-private-link" });
+  await flushPromises();
+  expect(w.get(".crypto-funds").attributes("data-section")).toBe("refunds");
+  expect(w.find("[data-form=refund]").exists()).toBe(true);
+  expect(w.find("[data-form=invoice]").exists()).toBe(false);
+  expect(w.find("[data-checkout]").exists()).toBe(false);
+  expect(w.text()).not.toContain("收款单已创建");
+  w.unmount();
+});
+
+it("sends the original authorized financial request once when its intent finishes saving after a page change", async () => {
+  vi.stubGlobal("crypto", webcrypto);
+  const principal = { area: "merchant", id: "1", issuer: "", csrf: "original" };
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const begin = CryptoIntentStore.prototype.begin;
+  const saving = vi
+    .spyOn(CryptoIntentStore.prototype, "begin")
+    .mockImplementationOnce(async function (this: CryptoIntentStore, ...args) {
+      await gate;
+      return begin.apply(this, args);
+    });
+  const c = client();
+  let originalRequest = "";
+  const record = () => ({
+    id: "a".repeat(48),
+    merchant_id: "1",
+    request_id: originalRequest,
+    network: "tron",
+    address: "TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE",
+    amount: "2.5",
+    kind: "settlement",
+    state: "requested",
+    invoice_id: "",
+  });
+  c.request.mockImplementation(async (path, options) => {
+    if (path === "/crypto/config") return config;
+    if (
+      options?.method === "POST" ||
+      path.startsWith("/crypto/withdrawals/by-request")
+    )
+      return record();
+    return [];
+  });
+  const w = mount(CryptoFundsPage, {
+    props: { client: c, ownSession: true, section: "settlements" },
+    global: {
+      provide: { [fundsPrincipal212 as symbol]: computed(() => principal) },
+    },
+  });
+  await reveal(w, "withdrawal");
+  originalRequest = (
+    w.get("input[name=request_id]").element as HTMLInputElement
+  ).value;
+  await w
+    .get("input[name=address]")
+    .setValue("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE");
+  await w.get("input[name=amount]").setValue("2.5");
+  await w.get("input[name=current_password]").setValue("captured-password");
+  await w.get("[data-form=withdrawal]").trigger("submit");
+  expect(saving).toHaveBeenCalledOnce();
+  await w.setProps({ section: "refunds" });
+  await flushPromises();
+  release();
+  await vi.waitFor(() =>
+    expect(
+      c.request.mock.calls.filter((call) => call[1]?.method === "POST"),
+    ).toHaveLength(1),
+  );
+  const post = c.request.mock.calls.find((call) => call[1]?.method === "POST")!;
+  expect(post[0]).toBe("/crypto/withdrawals");
+  expect(post[1]?.body).toMatchObject({
+    request_id: originalRequest,
+    current_password: "captured-password",
+    amount: "2.5",
+  });
+  const store = new CryptoIntentStore(await fundsScope212(principal));
+  expect((await store.read())?.body.request_id).toBe(originalRequest);
+  expect(w.find("[data-form=withdrawal]").exists()).toBe(false);
+  await w
+    .findAll("button")
+    .find((button) => button.text() === "仅查询原请求")!
+    .trigger("click");
+  await vi.waitFor(() => expect(w.text()).toContain("已找回原请求"));
+  expect(await store.read()).toBeNull();
+  await reveal(w, "withdrawal");
+  expect(
+    (w.get("input[name=request_id]").element as HTMLInputElement).value,
+  ).toBe(originalRequest);
+  expect((w.get("input[name=amount]").element as HTMLInputElement).value).toBe(
+    "2.5",
+  );
+  expect(
+    c.request.mock.calls.filter((call) => call[1]?.method === "POST"),
+  ).toHaveLength(1);
+  w.unmount();
+});
+
+it("shows approved sweep records without offering unsupported cancellation or approval", async () => {
+  const c = client("admin");
+  c.request.mockImplementation(async (path) => {
+    if (path === "/crypto/config") return config;
+    if (path.startsWith("/crypto/withdrawals"))
+      return [
+        {
+          id: "sweep-id",
+          merchant_id: "1",
+          request_id: "sweep-request",
+          network: "tron",
+          address: "managed-address",
+          amount: "2.5",
+          kind: "sweep",
+          state: "approved",
+          tx_id: "",
+        },
+      ];
+    return [];
+  });
+  const w = mount(CryptoFundsPage, {
+    props: { client: c, ownSession: true, section: "operations" },
+  });
+  await flushPromises();
+  expect(w.text()).toContain("sweep-request");
+  expect(w.text()).not.toContain("申请核对取消");
+  expect(w.find("[data-action=approve]").exists()).toBe(false);
+  expect(w.find("[data-confirm-action]").exists()).toBe(false);
+  expect(w.find("[data-open-form=sweep-retry]").exists()).toBe(true);
+  w.unmount();
+});
+
+it("disables draft cancellation while the original HTTP submission is pending", async () => {
+  const c = client();
+  let reject!: (error: unknown) => void;
+  c.request.mockImplementation(async (path, options) => {
+    if (options?.method === "POST")
+      return new Promise((_resolve, fail) => {
+        reject = fail;
+      });
+    if (path === "/crypto/config") return config;
+    return [];
+  });
+  const w = mount(CryptoFundsPage, {
+    props: { client: c, ownSession: true, section: "invoices" },
+  });
+  await reveal(w, "invoice");
+  await w.get("input[name=out_trade_no]").setValue("pending-original-order");
+  await w.get("input[name=amount]").setValue("1");
+  await w.get("[data-form=invoice]").trigger("submit");
+  await flushPromises();
+  expect(w.get("[data-cancel-form]").attributes("disabled")).toBeDefined();
+  await w.get("[data-cancel-form]").trigger("click");
+  expect(w.find("[data-form=invoice]").exists()).toBe(true);
+  expect(
+    (w.get("input[name=out_trade_no]").element as HTMLInputElement).value,
+  ).toBe("pending-original-order");
+  reject(new ApiError("request refused", 422, -1));
+  await flushPromises();
+  expect(w.get("[data-cancel-form]").attributes("disabled")).toBeUndefined();
+  await w.get("[data-cancel-form]").trigger("click");
+  expect(w.find("[data-form=invoice]").exists()).toBe(false);
+  expect(
+    c.request.mock.calls.filter((call) => call[1]?.method === "POST"),
+  ).toHaveLength(1);
   w.unmount();
 });

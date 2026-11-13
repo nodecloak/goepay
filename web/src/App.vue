@@ -44,6 +44,7 @@ import {
   viewKind,
   navigationFor,
   pageAuthorizedFor,
+  cryptoSectionFor,
   type Area,
 } from "./menu";
 import { setAdminPermissionCatalog } from "./admin-permission-context";
@@ -2469,9 +2470,10 @@ onBeforeUnmount(() => {
       />
       <CryptoFundsPage
         v-else-if="kind === 'crypto'"
-        :key="area + path"
+        :key="area + ':crypto'"
         :client="client"
         :own-session="!session.delegated_by"
+        :section="cryptoSectionFor(area, path)"
       />
       <AnnouncementsPage
         v-else-if="

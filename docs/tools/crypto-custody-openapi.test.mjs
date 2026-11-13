@@ -44,6 +44,14 @@ for(const name of ['CryptoWithdrawalInput','CryptoRefundInput','CryptoRecipientI
   assert.equal(schemas[name].properties.current_password.writeOnly,true);
 }
 assert.equal(schemas.CryptoInvoiceInput.required.includes('current_password'),false);
+assert.equal(schemas.CryptoConfigView.properties.configured?.type,'boolean');
+assert.ok(schemas.CryptoConfigView.required.includes('configured'));
+for(const role of ['admin','merchant']){
+  const op=paths[`/console/v1/${role}/crypto/config`].get;
+  assert.match(op.description,/configured=false/);
+  assert.match(op.description,/configured=true/);
+  assert.match(op.description,/历史/);
+}
 assert.ok(schemas.CryptoWithdrawalView.required.includes('cancellation_requested'));
 assert.equal(schemas.CryptoWithdrawalView.properties.source,undefined,'wallet source is not a console response field');
 

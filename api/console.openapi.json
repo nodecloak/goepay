@@ -46680,8 +46680,8 @@
         "tags": [
           "crypto-custody"
         ],
-        "summary": "读取USDT网络启用与模拟标记",
-        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 只读公开能力摘要。没有私钥、RPC凭据、热钱包或签名白名单写入接口；配置不存在时可返回enabled=false。",
+        "summary": "读取USDT配置、网络启用与模拟标记",
+        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 只读能力摘要。没有私钥、RPC凭据、热钱包或签名白名单写入接口；configured=false表示服务尚未配置，其它USDT操作返回503。configured=true且enabled=false表示网络均关闭，仍可按原权限读取历史记录；关闭态不证明历史记录为空，也不授予新的资金操作权限。",
         "security": [
           {
             "AdminSession": []
@@ -46795,7 +46795,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -46941,7 +46941,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -47088,7 +47088,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -47249,7 +47249,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -47400,7 +47400,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -47547,7 +47547,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -47733,7 +47733,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -47884,7 +47884,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -48072,7 +48072,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -48260,7 +48260,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -48431,7 +48431,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -48577,7 +48577,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -48738,7 +48738,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -48909,7 +48909,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -48927,8 +48927,8 @@
         "tags": [
           "crypto-custody"
         ],
-        "summary": "读取USDT网络启用与模拟标记",
-        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 只读公开能力摘要。没有私钥、RPC凭据、热钱包或签名白名单写入接口；配置不存在时可返回enabled=false。",
+        "summary": "读取USDT配置、网络启用与模拟标记",
+        "description": "USDT账本与人民币账本独立。读取使用对应角色Cookie并校验归属；所有写入要求原始本人持久会话、CSRF及数据库事务内重新核验。admin仅super。标为current_password必填的动作始终确认本人当前登录密码，不受人民币资金确认开关替代。 只读能力摘要。没有私钥、RPC凭据、热钱包或签名白名单写入接口；configured=false表示服务尚未配置，其它USDT操作返回503。configured=true且enabled=false表示网络均关闭，仍可按原权限读取历史记录；关闭态不证明历史记录为空，也不授予新的资金操作权限。",
         "security": [
           {
             "MerchantSession": []
@@ -49042,7 +49042,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -49188,7 +49188,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -49335,7 +49335,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -49487,7 +49487,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -49638,7 +49638,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -49785,7 +49785,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -49962,7 +49962,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -50113,7 +50113,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -50292,7 +50292,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -50471,7 +50471,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -50633,7 +50633,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -50779,7 +50779,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -50931,7 +50931,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -51093,7 +51093,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -51226,7 +51226,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -51388,7 +51388,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -51550,7 +51550,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -51704,7 +51704,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -51858,7 +51858,7 @@
             }
           },
           "503": {
-            "description": "服务不可用或本次结果无法确认。保留原request_id查询；不得以新号重复资金请求。",
+            "description": "USDT服务尚未配置时明确提示尚未启用，当前无法处理此操作；其它服务不可用或结果无法确认时，保留原request_id查询，不得以新号重复资金请求。该状态本身不证明旧请求未记录。",
             "content": {
               "application/json": {
                 "schema": {
@@ -65909,8 +65909,13 @@
       "CryptoConfigView": {
         "type": "object",
         "properties": {
+          "configured": {
+            "type": "boolean",
+            "description": "USDT服务是否已配置。false时仅可读取此配置摘要，其它USDT操作返回503；true且enabled=false时仍可按原权限读取历史记录。"
+          },
           "enabled": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "至少一个USDT网络已启用；false时不应发起新的收款或资金申请，不代表历史记录为空。"
           },
           "networks": {
             "type": "array",
@@ -65944,6 +65949,7 @@
           }
         },
         "required": [
+          "configured",
           "enabled",
           "networks",
           "simulation"

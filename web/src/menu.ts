@@ -48,16 +48,53 @@ export const menus: Record<Area, MenuNode[]> = {
   admin: normalize(admin as RawNode[]),
   merchant: normalize(merchant as RawNode[]),
 };
+export type CryptoSection =
+  | "overview"
+  | "invoices"
+  | "settlements"
+  | "refunds"
+  | "recipients"
+  | "operations"
+  | "reconciliation";
+const cryptoSections: {
+  section: CryptoSection;
+  title: string;
+  adminOnly?: boolean;
+}[] = [
+  { section: "overview", title: "资金概览" },
+  { section: "invoices", title: "USDT 收款" },
+  { section: "settlements", title: "USDT 结算" },
+  { section: "refunds", title: "USDT 退币" },
+  { section: "recipients", title: "结算与退币地址" },
+  { section: "operations", title: "地址池与归集", adminOnly: true },
+  { section: "reconciliation", title: "账本对账", adminOnly: true },
+];
+export const cryptoPages = (area: Area): MenuNode[] =>
+  cryptoSections
+    .filter((s) => area === "admin" || !s.adminOnly)
+    .map((s) => ({
+      id: s.section === "overview" ? "CryptoFunds" : `CryptoFunds_${s.section}`,
+      title: s.title,
+      path:
+        (area === "admin" ? "/system/crypto" : "/account/crypto") +
+        (s.section === "overview" ? "" : "/" + s.section),
+      hidden: false,
+      roles: area === "admin" ? ["R_SUPER"] : [],
+      children: [],
+    }));
+export const cryptoSectionFor = (
+  area: Area,
+  path: string,
+): CryptoSection | undefined => {
+  const page = cryptoPages(area).find((p) => p.path === path);
+  if (!page) return undefined;
+  return page.id === "CryptoFunds"
+    ? "overview"
+    : (page.path.split("/").at(-1) as CryptoSection);
+};
 export const supplementalMenus: Record<Area, MenuNode[]> = {
   admin: [
-    {
-      id: "CryptoFunds",
-      title: "USDT 资金管理",
-      path: "/system/crypto",
-      hidden: false,
-      roles: ["R_SUPER"],
-      children: [],
-    },
+    ...cryptoPages("admin"),
     {
       id: "EpayMigration234",
       title: "易支付迁移",
@@ -140,14 +177,7 @@ export const supplementalMenus: Record<Area, MenuNode[]> = {
     },
   ],
   merchant: [
-    {
-      id: "CryptoFunds",
-      title: "USDT 收款与结算",
-      path: "/account/crypto",
-      hidden: false,
-      roles: [],
-      children: [],
-    },
+    ...cryptoPages("merchant"),
     {
       id: "MerchantNotice",
       title: "消息提醒设置",
@@ -190,11 +220,12 @@ export const supplementalMenus: Record<Area, MenuNode[]> = {
     },
   ],
 };
-export const navigationMenus = (area: Area) =>
-  menus[area].map((node) =>
-    supplementalMenus[area].some((extra) =>
-      extra.path.startsWith(node.path + "/"),
-    )
+export const navigationMenus = (area: Area) => {
+  const extras = supplementalMenus[area].filter(
+    (extra) => !cryptoSectionFor(area, extra.path),
+  );
+  const navigation = menus[area].map((node) =>
+    extras.some((extra) => extra.path.startsWith(node.path + "/"))
       ? {
           ...node,
           children: [
@@ -209,13 +240,21 @@ export const navigationMenus = (area: Area) =>
                   },
                 ]),
             ...node.children,
-            ...supplementalMenus[area].filter((extra) =>
-              extra.path.startsWith(node.path + "/"),
-            ),
+            ...extras.filter((extra) => extra.path.startsWith(node.path + "/")),
           ],
         }
       : node,
   );
+  navigation.splice(1, 0, {
+    id: "CryptoWorkspace",
+    title: "USDT 资金",
+    path: "/crypto-workspace",
+    hidden: false,
+    roles: area === "admin" ? ["R_SUPER"] : [],
+    children: cryptoPages(area),
+  });
+  return navigation;
+};
 export const flattenMenu = (nodes: MenuNode[]): MenuNode[] =>
   nodes.flatMap((n) => (n.children.length ? flattenMenu(n.children) : [n]));
 export const visibleMenu = (nodes: MenuNode[], role: string): MenuNode[] =>
@@ -402,11 +441,7 @@ export type ViewKind =
   | "complain"
   | "unavailable";
 export function viewKind(area: Area, path: string): ViewKind {
-  if (
-    (area === "merchant" && path === "/account/crypto") ||
-    (area === "admin" && path === "/system/crypto")
-  )
-    return "crypto";
+  if (cryptoSectionFor(area, path)) return "crypto";
   if (area === "admin" && path === "/system/migration") return "migration";
   if (area === "merchant" && path === "/account/certificate")
     return "certification";

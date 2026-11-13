@@ -4,7 +4,9 @@ import path from "node:path";
 
 const origin = process.env.CRYPTO_BROWSER_ORIGIN;
 const token = process.env.CRYPTO_BROWSER_SESSION;
-const evidence = process.env.CRYPTO_BROWSER_EVIDENCE;
+const evidence =
+  process.env.GOEPAY_CRYPTO_BROWSER_EVIDENCE ||
+  process.env.CRYPTO_BROWSER_EVIDENCE;
 if (
   !/^http:\/\/127\.0\.0\.1:\d+$/.test(origin || "") ||
   !/^[-_A-Za-z0-9]{43}$/.test(token || "") ||
@@ -44,10 +46,11 @@ try {
     ]);
     const page = await context.newPage();
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(origin + "/merchant/account/crypto");
+    await page.goto(origin + "/merchant/account/crypto/invoices");
     await expect(
-      page.locator("[data-form=invoice] button[type=submit]"),
+      page.getByRole("button", { name: "创建收款单", exact: true }),
     ).toBeEnabled();
+    await expect(page.locator("form[data-form]")).toHaveCount(0);
     await expect(
       page.getByText(
         "本地模拟环境：仅使用合成资金及本地链数据，请勿转入真实资产。",
@@ -57,6 +60,9 @@ try {
     await expect(page.locator("[data-form=address]")).toHaveCount(0);
     await expect(page.locator(".toast--danger")).toHaveCount(0);
     for (const network of ["tron", "ethereum"]) {
+      await page
+        .getByRole("button", { name: "创建收款单", exact: true })
+        .click();
       const form = page.locator("[data-form=invoice]");
       await form
         .locator("[name=out_trade_no]")
@@ -76,6 +82,7 @@ try {
       const payload = await created.json();
       const link = page.locator("a[data-checkout]");
       await expect(link).toHaveAttribute("href", payload.data.checkout_url);
+      await expect(form).toHaveCount(0);
       const checkoutURL = new URL(await link.getAttribute("href"), origin).href;
       const checkout = await context.newPage();
       checkout.on("pageerror", (e) => errors.push(e.message));
@@ -147,7 +154,10 @@ try {
         { headers: { "X-Synthetic-Control": token } },
       );
       expect(recipient.status()).toBe(204);
-      await page.getByRole("button", { name: "刷新记录", exact: true }).click();
+      await page.goto(origin + "/merchant/account/crypto/settlements");
+      await page
+        .getByRole("button", { name: "申请原链结算", exact: true })
+        .click();
       const form = page.locator("[data-form=withdrawal]");
       await expect(form.locator("button[type=submit]")).toBeEnabled();
       const requestID = await form.locator("[name=request_id]").inputValue();
@@ -178,6 +188,10 @@ try {
       await expect(
         page.getByText(new RegExp("已找回原请求 " + requestID)),
       ).toBeVisible();
+      await expect(page.locator("form[data-form]")).toHaveCount(0);
+      await page
+        .getByRole("button", { name: "申请原链结算", exact: true })
+        .click();
       await expect(
         page.locator("[data-form=withdrawal] input[name=request_id]"),
       ).toHaveValue(requestID);
