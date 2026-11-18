@@ -76,12 +76,23 @@ func configureCryptoCompatibility(app *server.Server, getenv func(string) string
 	if _, e := server.CryptoQuoteCNY(100, rate); e != nil {
 		return errors.New("invalid trusted USDT exchange rate")
 	}
-	network := getenv("GOEPAY_CRYPTO_DEFAULT_NETWORK")
-	if network == "" {
-		network = "tron"
-	}
-	if config, ok := app.Crypto.Networks[network]; !ok || !config.Enabled {
-		return errors.New("default USDT network unavailable")
+	var network string
+	if app.Crypto.RequireChannels {
+		enabled := false
+		for _, config := range app.Crypto.Networks {
+			enabled = enabled || config.Enabled
+		}
+		if !enabled {
+			return errors.New("no USDT channel network enabled")
+		}
+	} else {
+		network = getenv("GOEPAY_CRYPTO_DEFAULT_NETWORK")
+		if network == "" {
+			network = "tron"
+		}
+		if config := app.Crypto.Networks[network]; !config.Enabled {
+			return errors.New("default USDT network unavailable")
+		}
 	}
 	origin, e := server.NormalizeCryptoPublicOrigin(getenv("GOEPAY_PUBLIC_ORIGIN"))
 	if e != nil {

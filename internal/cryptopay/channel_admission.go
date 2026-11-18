@@ -117,7 +117,7 @@ func channelGroup(ctx context.Context, tx pgx.Tx, mid int64, lock bool) (channel
 	return out, nil
 }
 
-func (s *Service) channelCandidates(ctx context.Context, tx pgx.Tx, network string, explicit int64, choice grouppolicy.Choice, lock bool) ([]Channel, error) {
+func (s *Service) channelCandidates(ctx context.Context, tx pgx.Tx, network string, explicit int64, choice grouppolicy.Choice) ([]Channel, error) {
 	if explicit < 0 || network != "" && network != "tron" && network != "ethereum" {
 		return nil, ErrInvalid
 	}
@@ -127,39 +127,73 @@ func (s *Service) channelCandidates(ctx context.Context, tx pgx.Tx, network stri
 		}
 		explicit = choice.ID()
 	}
-	rows, e := tx.Query(ctx, `SELECT id FROM crypto_channels WHERE ($1::bigint=0 OR id=$1) AND ($2::text='' OR network=$2) ORDER BY id`, explicit, network)
+	rows, e := tx.Query(ctx, `SELECT `+channelColumns+` FROM crypto_channels WHERE enabled AND NOT archived AND ($1::bigint=0 OR id=$1) AND ($2::text='' OR network=$2) ORDER BY id`, explicit, network)
 	if e != nil {
 		return nil, e
 	}
-	ids := []int64{}
-	for rows.Next() {
-		var id int64
-		if e = rows.Scan(&id); e != nil {
-			rows.Close()
-			return nil, e
-		}
-		ids = append(ids, id)
-	}
-	rows.Close()
-	if e = rows.Err(); e != nil {
-		return nil, e
-	}
+	defer rows.Close()
 	out := []Channel{}
-	for _, id := range ids {
-		c, e := readChannel(ctx, tx, id, lock)
+	for rows.Next() {
+		c, e := scanChannel(rows)
 		if e != nil {
 			return nil, e
 		}
-		if !c.Enabled || c.Archived || network != "" && c.Network != network {
-			continue
+		if s.Networks[c.Network].Enabled {
+			out = append(out, c)
 		}
-		config, exists := s.Networks[c.Network]
-		if !exists || !config.Enabled {
-			continue
-		}
-		out = append(out, c)
 	}
-	return out, nil
+	return out, rows.Err()
+}
+
+func channelOrderLimits(c Channel, amount int64) (eligible bool, day int64, err error) {
+	min, err := channelLimit(c.MinAmount)
+	if err != nil {
+		return false, 0, err
+	}
+	max, err := channelLimit(c.MaxAmount)
+	if err != nil {
+		return false, 0, err
+	}
+	day, err = channelLimit(c.DayLimit)
+	if err != nil {
+		return false, 0, err
+	}
+	return amount >= min && (max == 0 || amount <= max) && (day == 0 || amount <= day), day, nil
+}
+
+func lockChannelForInvoice(ctx context.Context, tx pgx.Tx, id, amount int64) (Channel, error) {
+	// Roll back rejected candidates' locks before trying the next channel.
+	// Releasing the chosen savepoint keeps its lock through invoice commit.
+	candidate, err := tx.Begin(ctx)
+	if err != nil {
+		return Channel{}, err
+	}
+	defer candidate.Rollback(ctx)
+	c, err := readChannel(ctx, candidate, id, true)
+	if err != nil {
+		return Channel{}, err
+	}
+	eligible, day, err := channelOrderLimits(c, amount)
+	if err != nil {
+		return Channel{}, err
+	}
+	eligible = eligible && c.Enabled && !c.Archived
+	if eligible && day > 0 {
+		var used int64
+		// Read committed usage after acquiring the channel lock. Expired and
+		// pending invoices both reserve capacity on their UTC creation date.
+		if err = candidate.QueryRow(ctx, `SELECT COALESCE(sum(amount),0)::bigint FROM crypto_invoices WHERE channel_id=$1 AND created_at >= (date_trunc('day',clock_timestamp() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')`, c.ID).Scan(&used); err != nil {
+			return Channel{}, err
+		}
+		eligible = used <= day-amount
+	}
+	if !eligible {
+		if err = candidate.Rollback(ctx); err != nil {
+			return Channel{}, err
+		}
+		return Channel{}, ErrUnavailable
+	}
+	return c, candidate.Commit(ctx)
 }
 
 func currentGroupDeadline(ctx context.Context, tx pgx.Tx, until time.Time) error {
@@ -187,36 +221,24 @@ func (s *Service) admitChannel(ctx context.Context, tx pgx.Tx, in CreateInvoiceI
 	if e != nil {
 		return out, e
 	}
-	channels, e := s.channelCandidates(ctx, tx, in.Network, in.ChannelID, policy.routingInfo["usdt"].RoutingChoice(), true)
+	channels, e := s.channelCandidates(ctx, tx, in.Network, in.ChannelID, policy.routingInfo["usdt"].RoutingChoice())
 	if e != nil {
 		return out, e
 	}
-	for _, c := range channels {
-		min, e := channelLimit(c.MinAmount)
+	for _, candidate := range channels {
+		eligible, _, e := channelOrderLimits(candidate, n)
 		if e != nil {
 			return out, e
 		}
-		max, e := channelLimit(c.MaxAmount)
-		if e != nil {
-			return out, e
-		}
-		day, e := channelLimit(c.DayLimit)
-		if e != nil {
-			return out, e
-		}
-		if n < min || max > 0 && n > max {
+		if !eligible {
 			continue
 		}
-		if day > 0 {
-			var used int64
-			// Pending intents also reserve daily acceptance capacity: expiry does
-			// not prove that an already transferred deposit cannot still arrive.
-			if e = tx.QueryRow(ctx, `SELECT COALESCE(sum(amount),0)::bigint FROM crypto_invoices WHERE channel_id=$1 AND created_at >= (date_trunc('day',clock_timestamp() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')`, c.ID).Scan(&used); e != nil {
-				return out, e
-			}
-			if n > day || used > day-n {
-				continue
-			}
+		c, e := lockChannelForInvoice(ctx, tx, candidate.ID, n)
+		if errors.Is(e, ErrUnavailable) {
+			continue
+		}
+		if e != nil {
+			return out, e
 		}
 		fee, source := c.FeeBPS, "channel"
 		if retained, set := policy.info["usdt"].RetainedBPS(); set {
@@ -271,7 +293,7 @@ func (s *Service) AvailableChannels(ctx context.Context, mid int64, network stri
 	if e != nil {
 		return nil, e
 	}
-	items, e := s.channelCandidates(ctx, tx, network, 0, policy.routingInfo["usdt"].RoutingChoice(), false)
+	items, e := s.channelCandidates(ctx, tx, network, 0, policy.routingInfo["usdt"].RoutingChoice())
 	if e != nil {
 		return nil, e
 	}

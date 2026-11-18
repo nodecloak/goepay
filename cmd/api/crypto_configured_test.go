@@ -9,6 +9,34 @@ import (
 	"goepay/internal/server"
 )
 
+func TestCryptoCompatibilityEthereumOnlyUsesChannelRouting(t *testing.T) {
+	values := map[string]string{
+		"GOEPAY_CRYPTO_NETWORKS":     `{"ethereum":{"enabled":true}}`,
+		"GOEPAY_MASTER_KEY":          strings.Repeat("01", 32),
+		"GOEPAY_CRYPTO_CNY_PER_USDT": "7.2",
+		"GOEPAY_PUBLIC_ORIGIN":       "https://payments.example",
+	}
+	getenv := func(key string) string { return values[key] }
+	svc, err := cryptoFromEnvironment(nil, getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, legacyDefault := range []string{"", "tron"} {
+		values["GOEPAY_CRYPTO_DEFAULT_NETWORK"] = legacyDefault
+		app := &server.Server{Crypto: svc}
+		if err = configureCryptoCompatibility(app, getenv); err != nil {
+			t.Fatalf("Ethereum-only channel routing rejected at startup: %v", err)
+		}
+		if app.CryptoCNYPerUSDT != "7.2" || app.CryptoPublicOrigin != "https://payments.example" || app.CryptoDefaultNetwork != "" {
+			t.Fatal("invalid compatibility quote configuration")
+		}
+	}
+	svc.Networks["ethereum"] = cryptopay.NetworkConfig{Enabled: false}
+	if err = configureCryptoCompatibility(&server.Server{Crypto: svc}, getenv); err == nil {
+		t.Fatal("accepted CNY quotes with all channel networks closed")
+	}
+}
+
 func TestCryptoConfigurationRequiresExplicitNetworksAndStableSeparatedKey(t *testing.T) {
 	get := func(values map[string]string) func(string) string {
 		return func(key string) string { return values[key] }

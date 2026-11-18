@@ -339,12 +339,14 @@ func custodyService(t *testing.T, network, hot string) *cryptopay.Service {
 	if _, err = pool.Exec(ctx, `CREATE TABLE merchants(id bigint PRIMARY KEY,enabled boolean NOT NULL); INSERT INTO merchants VALUES(1,true); CREATE TABLE accounts(owner_id bigint,kind text,balance bigint); INSERT INTO accounts VALUES(1,'available',12345)`); err != nil {
 		t.Fatal(err)
 	}
-	migration, err := os.ReadFile(filepath.Join("..", "..", "db", "migrations", "000199_crypto_custody.up.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pool.Exec(ctx, string(migration)); err != nil {
-		t.Fatal(err)
+	for _, name := range []string{"000199_crypto_custody.up.sql", "000200_crypto_payment_channels.up.sql"} {
+		migration, err := os.ReadFile(filepath.Join("..", "..", "db", "migrations", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = pool.Exec(ctx, string(migration)); err != nil {
+			t.Fatalf("apply %s: %v", name, err)
+		}
 	}
 	return &cryptopay.Service{Pool: pool, TokenKey: make([]byte, 32), Networks: map[string]cryptopay.NetworkConfig{network: {Enabled: true, FeeBPS: 100, HotAddress: hot, TreasuryAddress: hot}}}
 }

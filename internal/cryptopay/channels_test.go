@@ -203,12 +203,23 @@ func TestCryptoChannelsDailyLimitSerializesConcurrentMerchants(t *testing.T) {
 	close(results)
 	success := 0
 	for e := range results {
-		if e == nil {
+		switch {
+		case e == nil:
 			success++
+		case !errors.Is(e, ErrUnavailable):
+			t.Errorf("unexpected failure competing for quota: %v", e)
 		}
 	}
 	if success != 1 {
 		t.Fatalf("quota admissions=%d", success)
+	}
+	var invoices, addresses int
+	var reserved int64
+	if e := s.Pool.QueryRow(t.Context(), `SELECT count(*), COALESCE(sum(amount),0), (SELECT count(*) FROM crypto_addresses WHERE used) FROM crypto_invoices WHERE channel_id=$1`, c.ID).Scan(&invoices, &reserved, &addresses); e != nil {
+		t.Fatal(e)
+	}
+	if invoices != 1 || reserved != 10000000 || addresses != 1 {
+		t.Fatalf("quota reservations: %d invoices, %d atomic USDT, %d addresses", invoices, reserved, addresses)
 	}
 }
 
