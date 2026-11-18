@@ -56,7 +56,7 @@ TRON 未签名准备交易过期时可走同一取消证明流程；未知/已�
 
 ## 配置与启动
 
-按迁移顺序应用 `000199_crypto_custody.up.sql` 和 `000200_crypto_payment_channels.up.sql`；不要修改已应用的迁移。迁移不会自动开启支付方式、创建授权通道或启用主网。构建：
+按顺序应用 `000199_crypto_custody.up.sql`、`000200_crypto_payment_channels.up.sql` 和 `000201_crypto_network_control.up.sql`。最后一条迁移登记 TRON 和 Ethereum 的开关，两条链均从关闭状态开始。构建：
 
 ```sh
 go build -o bin/api ./cmd/api
@@ -74,15 +74,17 @@ crypto-signer --config /signer-only/signer.json
 
 keygen 输出只有公开的 TRON/Ethereum 地址和 key ID。私钥文件不可覆盖，须保留权限和独立备份。签名器配置格式、mTLS 证书和策略见 [签名器说明](../../internal/cryptosigner/README.md)。每个源钱包必须明确设置 USDT 日额度、每日交易笔数、TRX/ETH 每日最高手续费预算及单笔限制；失败/未知签名请求仍占用预算。
 
-API 使用 `DATABASE_URL`、`GOEPAY_MASTER_KEY` 及可信部署配置 `GOEPAY_CRYPTO_NETWORKS`：
+API 使用 `DATABASE_URL` 和 `GOEPAY_MASTER_KEY`。部署者通过 `GOEPAY_CRYPTO_NETWORKS` 一次性配置网络及公开归集钱包、热钱包地址。
 
 ```json
-{"tron":{"enabled":true,"fee_bps":100,"treasury_address":"填写归集钱包公开地址","hot_address":"填写结算钱包公开地址"}}
+{"tron":{"treasury_address":"填写归集钱包公开地址","hot_address":"填写结算钱包公开地址"}}
 ```
 
-这是配置结构说明，示例占位地址不能启动。缺省不启用 USDT；不通过 HTTP 接收 RPC 地址、资产合约、资金私钥或密钥文件路径。地址池由管理员登记 keygen 输出的收款公开地址，私钥只配置给签名器。
+示例中的地址是占位符。部署配置中的网络条目用于声明已配置的网络，API 兼容旧条目中的 `enabled` 字段。网络的实际启停由管理后台控制。RPC、资产合约、资金私钥和密钥文件路径由受信任的部署配置管理。管理员在网络关闭时即可登记 keygen 输出的收款公开地址，私钥只配置给隔离签名器。
 
-网站服务强制使用通道准入。网络配置中的 `fee_bps` 仅保留给底层历史兼容调用，新建网站订单使用通道及有效用户组费率。管理员可以在网络关闭时编辑通道，但保存“启用”不能替代可信部署开关。启用收款前还需配置 USDT 支付方式、通道及用户组分配；无需逐个商户重复授权。
+超级管理员在「支付接口 → 支付通道 → USDT 网络开关」操作，每次确认当前登录密码。开启前核对两类公开钱包地址、至少一个未分配收款地址、与同一钱包配置匹配的最近 60 秒双节点监听证明。监听进度追上双节点共同确认的高度后才会产生该证明。证明过期时，新资金请求暂停。更换钱包后，管理员需关闭并重新启用，以确认新的钱包配置。系统记录操作者和启停动作，使用修订版本避免旧页面覆盖当前状态。
+
+网络启用后，建单仍检查 USDT 支付方式、通道和有效用户组分配。新单费率使用通道和有效用户组设置，旧 `fee_bps` 用于底层兼容。关闭网络会暂停新收款单、结算、退币申请和出款审批。运行中的 worker 继续确认旧单和核对原交易，已获授权的出款继续遵循 worker 原有策略。
 
 人民币兼容报价由部署者设置 `GOEPAY_CRYPTO_CNY_PER_USDT` 和绝对截止时间 `GOEPAY_CRYPTO_CNY_QUOTE_VALID_UNTIL`。截止时间使用带时区的 RFC 3339 格式，例如 `2026-11-18T12:00:00+08:00`。更新报价时一并更新汇率和截止时间，并按原部署流程重新加载 API 配置。缺少截止时间或时间已过时，系统停止创建人民币报价新单。收银台隐藏这类新单的 USDT 选项，已打开的旧页面重新提交会收到明确提示。建单事务按数据库时钟在最终授权后复核截止时间，过期时整笔回滚。
 
@@ -123,7 +125,7 @@ worker 使用单独 JSON 文件：
 
 `fee_limit` 的单位按网络分别为 sun 和 wei；Ethereum 示例是单笔最高 0.01 ETH，不是建议手续费。适配器使用估算 gas 和 gas price 生成 EIP-155 legacy 交易，并拒绝超过该上限的准备请求；没有实现 EIP-1559 自动加速或自动替换未知交易。
 
-仅监听不需要签名服务。显式启用广播时，worker 还必须提供 `signer_url`、`client_cert`、`client_key`、`signer_ca`；这些是客户端 mTLS 凭据，不能是资金私钥。`enable_sweeps` 另外开启归集。worker 必须和 API 使用一致的网络/费用/钱包配置。
+监听阶段可单独运行 worker。worker 配置中的 `enabled` 表示加入监听，其钱包地址需与 API 匹配。常驻 worker 为已同步的网络更新监听证明，单次运行和只读审计不更新证明。启用广播时，worker 还必须提供 `signer_url`、`client_cert`、`client_key`、`signer_ca` 作为客户端 mTLS 配置。`enable_sweeps` 单独控制归集。管理后台的网络开关只控制业务准入，广播和归集通过独立部署配置管理。
 
 ```sh
 crypto-worker --config /etc/goepay/crypto-worker.json

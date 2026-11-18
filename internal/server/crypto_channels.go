@@ -26,9 +26,19 @@ type cryptoChannelView struct {
 	RuntimeEnabled bool   `json:"runtime_enabled"`
 }
 
-func (s *Server) cryptoChannelView(c cryptopay.Channel) cryptoChannelView {
-	enabled := s.Crypto != nil && s.Crypto.Networks[c.Network].Enabled
-	return cryptoChannelView{Channel: c, PayType: "usdt", Plugin: "usdt_" + c.Network, Configured: true, Asset: "USDT", RuntimeEnabled: enabled}
+func cryptoChannelViewOf(c cryptopay.Channel, enabled map[string]bool) cryptoChannelView {
+	return cryptoChannelView{Channel: c, PayType: "usdt", Plugin: "usdt_" + c.Network, Configured: true, Asset: "USDT", RuntimeEnabled: enabled[c.Network]}
+}
+
+func (s *Server) cryptoChannelRuntime(ctx context.Context) map[string]bool {
+	active := make(map[string]bool, 2)
+	for _, network := range []string{"tron", "ethereum"} {
+		// The catalog can still be edited if runtime status is unavailable.
+		// Only an affirmative network proof is displayed as operational.
+		ok, err := s.Crypto.RuntimeNetworkEnabled(ctx, network)
+		active[network] = err == nil && ok
+	}
+	return active
 }
 
 func (s *Server) cryptoChannelContext(ctx context.Context, session identity.Session, token string) context.Context {
@@ -92,6 +102,10 @@ func (s *Server) cryptoChannelConsole(w http.ResponseWriter, r *http.Request, se
 	if len(parts) < 3 || parts[2] != "crypto" {
 		return false
 	}
+	if len(parts) >= 4 && parts[3] == "networks" {
+		s.cryptoNetworkConsole(w, r, session, parts[4:], token)
+		return true
+	}
 	if s.Pool == nil || s.Store == nil {
 		cryptoChannelError(w, cryptopay.ErrUnavailable)
 		return true
@@ -117,16 +131,17 @@ func (s *Server) cryptoChannelConsole(w http.ResponseWriter, r *http.Request, se
 			return true
 		}
 		items := make([]cryptoChannelView, 0, len(rows))
+		active := s.cryptoChannelRuntime(r.Context())
 		for _, row := range rows {
 			if s.ProviderFlow != nil && (s.ProviderFlow.Providers[row.ID] != nil || s.ProviderFlow.ParentFactories[row.ID] != nil) {
 				cryptoChannelError(w, cryptopay.ErrConflict)
 				return true
 			}
 			if id > 0 && row.ID == id {
-				response(w, 200, 0, "", s.cryptoChannelView(row))
+				response(w, 200, 0, "", cryptoChannelViewOf(row, active))
 				return true
 			}
-			items = append(items, s.cryptoChannelView(row))
+			items = append(items, cryptoChannelViewOf(row, active))
 		}
 		if id > 0 {
 			cryptoChannelError(w, cryptopay.ErrNotFound)
@@ -166,7 +181,7 @@ func (s *Server) cryptoChannelConsole(w http.ResponseWriter, r *http.Request, se
 		cryptoChannelError(w, err)
 		return true
 	}
-	response(w, 200, 0, "", s.cryptoChannelView(row))
+	response(w, 200, 0, "", cryptoChannelViewOf(row, s.cryptoChannelRuntime(r.Context())))
 	return true
 }
 

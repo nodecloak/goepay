@@ -169,7 +169,11 @@ it.each(["merchant", "admin"] as const)(
       return [];
     });
     const w = mount(CryptoFundsPage, {
-      props: { client: c, ownSession: true },
+      props: {
+        client: c,
+        ownSession: true,
+        adminClass: area === "admin" ? "super" : undefined,
+      },
     });
     await flushPromises();
     const forms = ["invoice", "recipient", "withdrawal"];
@@ -689,6 +693,57 @@ it("waits for service configuration before reading any account history", async (
   w.unmount();
 });
 
+it("lets the super admin provision the Ethereum address pool while mainnet is closed", async () => {
+  const c = client("admin");
+  c.request.mockImplementation(async (path) => {
+    if (path === "/crypto/config")
+      return {
+        configured: true,
+        enabled: false,
+        networks: [{ ...config.networks[1], enabled: false }],
+      };
+    return [];
+  });
+  const w = mount(CryptoFundsPage, {
+    props: {
+      client: c,
+      adminClass: "super",
+      ownSession: true,
+      section: "operations",
+    },
+  });
+  await flushPromises();
+  expect(w.find("[data-open-form=sweep-retry]").exists()).toBe(false);
+  await w.get("[data-open-form=address]").trigger("click");
+  const form = w.get("[data-form=address]");
+  expect(form.get("select").element.value).toBe("ethereum");
+  await form.get('input[autocomplete="off"]').setValue("synthetic-deposit");
+  await form.get('input[type="password"]').setValue("local-only-password");
+  await form.trigger("submit");
+  await flushPromises();
+  expect(
+    c.request.mock.calls.filter(([, options]) => options?.method === "POST"),
+  ).toEqual([
+    [
+      "/crypto/addresses",
+      {
+        method: "POST",
+        body: {
+          network: "ethereum",
+          role: "deposit",
+          address: "synthetic-deposit",
+          current_password: "local-only-password",
+        },
+      },
+    ],
+  ]);
+  expect(w.text()).toContain("受管地址已登记");
+  await w.setProps({ adminClass: "operator" });
+  await flushPromises();
+  expect(w.find("[data-open-form=address]").exists()).toBe(false);
+  w.unmount();
+});
+
 it.each([true, false])(
   "keeps configured but paused history readable without money forms (own session %s)",
   async (ownSession) => {
@@ -1054,7 +1109,7 @@ it.each([
       return [];
     });
     const w = mount(CryptoFundsPage, {
-      props: { client: c, ownSession: true, section },
+      props: { client: c, ownSession: true, adminClass: "super", section },
     });
     await flushPromises();
     expect(w.get(".crypto-funds").attributes("data-section")).toBe(section);

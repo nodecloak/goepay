@@ -255,15 +255,35 @@ const readReady = computed(() => serviceState.value === "ready");
 const showForms = computed(
   () => readReady.value && enabled.value && props.ownSession,
 );
-const canWrite = computed(
+const addressNetworks = computed(() =>
+  networkStatus.value.filter(
+    (row) => row.network === "tron" || row.network === "ethereum",
+  ),
+);
+const showAddressForm = computed(
   () =>
-    showForms.value &&
+    readReady.value &&
+    admin.value &&
+    props.adminClass === "super" &&
+    props.ownSession &&
+    props.section === "operations" &&
+    addressNetworks.value.length > 0,
+);
+const writeReady = computed(
+  () =>
     !busy.value &&
     !loading.value &&
     !restoring.value &&
     !storageError.value &&
     !pendingIntent.value &&
     !uncertain.value,
+);
+const canWrite = computed(() => showForms.value && writeReady.value);
+const canRegisterAddress = computed(
+  () =>
+    showAddressForm.value &&
+    writeReady.value &&
+    addressNetworks.value.some((n) => n.network === address.value.network),
 );
 const label = (network: string) =>
   network === "tron"
@@ -331,6 +351,7 @@ function closeActions() {
   revokeID.value = "";
 }
 function openForm(kind: FormKind) {
+  if (kind === "address" && !showAddressForm.value) return;
   closeActions();
   activeForm.value = kind;
   if (kind === "invoice") void loadInvoiceChannels();
@@ -487,13 +508,17 @@ async function recoverOriginal() {
       error.value = `原请求 ${original.body.request_id} 仍待核对：${message(e)}。不会自动更换请求号或重新提交。`;
   }
 }
-function chooseDefaultNetwork(form: { network: string }, untouched: boolean) {
+function chooseDefaultNetwork(
+  form: { network: string },
+  untouched: boolean,
+  available = networks.value,
+) {
   if (
     untouched &&
-    networks.value.length &&
-    !networks.value.some((n) => n.network === form.network)
+    available.length &&
+    !available.some((n) => n.network === form.network)
   )
-    form.network = networks.value[0]!.network;
+    form.network = available[0]!.network;
 }
 function clearReadData() {
   balances.value = [];
@@ -584,7 +609,11 @@ async function load() {
         !withdrawal.value.amount,
     );
     chooseDefaultNetwork(recipient.value, !recipient.value.address);
-    chooseDefaultNetwork(address.value, !address.value.address);
+    chooseDefaultNetwork(
+      address.value,
+      !address.value.address,
+      addressNetworks.value,
+    );
     chooseDefaultNetwork(sweepRetry.value, !sweepRetry.value.address);
   } catch (e) {
     if (currentView(c) && run === loadEpoch) {
@@ -610,7 +639,12 @@ async function submit(
     | "revoke"
     | "sweep-retry",
 ) {
-  if (!canWrite.value) return;
+  if (
+    kind === "address"
+      ? activeForm.value !== "address" || !canRegisterAddress.value
+      : !canWrite.value
+  )
+    return;
   const c = context();
   const financial = kind === "withdrawal" || kind === "refund";
   let saved: CryptoIntent | null = null;
@@ -719,7 +753,9 @@ async function submit(
     notice.value =
       kind === "invoice"
         ? "收款单已创建，请打开收银台并核对网络及金额"
-        : "申请已记录，最终结果请查看出账记录";
+        : kind === "address"
+          ? "受管地址已登记"
+          : "申请已记录，最终结果请查看出账记录";
   } catch (e) {
     if (current(c)) {
       if (currentView(c)) error.value = message(e);
@@ -966,7 +1002,10 @@ onBeforeUnmount(() => {
       <p v-if="admin && section === 'operations'" class="muted">
         商户筛选仅作用于归集记录。
       </p>
-      <div v-if="showForms && !activeForm" class="crypto-actions">
+      <div
+        v-if="(showForms || showAddressForm) && !activeForm"
+        class="crypto-actions"
+      >
         <button
           v-if="section === 'invoices'"
           type="button"
@@ -1000,7 +1039,7 @@ onBeforeUnmount(() => {
           申请绑定地址
         </button>
         <button
-          v-if="section === 'operations' && admin"
+          v-if="showAddressForm"
           type="button"
           data-open-form="address"
           @click="openForm('address')"
@@ -1008,7 +1047,7 @@ onBeforeUnmount(() => {
           登记受管地址
         </button>
         <button
-          v-if="section === 'operations' && admin"
+          v-if="showForms && section === 'operations' && admin"
           type="button"
           data-open-form="sweep-retry"
           @click="openForm('sweep-retry')"
@@ -1271,12 +1310,7 @@ onBeforeUnmount(() => {
         </form>
       </div>
       <form
-        v-if="
-          showForms &&
-          admin &&
-          section === 'operations' &&
-          activeForm === 'address'
-        "
+        v-if="showAddressForm && activeForm === 'address'"
         data-form="address"
         class="card"
         @submit.prevent="submit('address')"
@@ -1285,7 +1319,11 @@ onBeforeUnmount(() => {
         <p class="muted">仅登记地址。私钥由独立签名系统保管。</p>
         <label
           >网络<select v-model="address.network" required>
-            <option v-for="n in networks" :key="n.network" :value="n.network">
+            <option
+              v-for="n in addressNetworks"
+              :key="n.network"
+              :value="n.network"
+            >
               {{ label(n.network) }}
             </option>
           </select></label
@@ -1305,7 +1343,7 @@ onBeforeUnmount(() => {
             v-model="password"
             type="password"
             autocomplete="current-password" /></label
-        ><button type="submit" :disabled="!canWrite">登记地址</button>
+        ><button type="submit" :disabled="!canRegisterAddress">登记地址</button>
         <button
           type="button"
           data-cancel-form

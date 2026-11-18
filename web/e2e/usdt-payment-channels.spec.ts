@@ -150,6 +150,190 @@ async function mock(
   });
   return { writes, reads, errors };
 }
+
+async function mockNetworkControls(page: Page, loseReply = false) {
+  const networkPath = "/console/v1/admin/payment-channels/crypto/networks";
+  const tron = {
+    network: "tron",
+    enabled: false,
+    effective_enabled: false,
+    revision: "1",
+    wallets_configured: true,
+    deposit_address_available: true,
+    listener_ready: true,
+    ready_to_enable: true,
+  };
+  const ethereum = {
+    ...tron,
+    network: "ethereum",
+    wallets_configured: false,
+    deposit_address_available: false,
+    listener_ready: false,
+    ready_to_enable: false,
+  };
+  const reads: string[] = [];
+  const writes: unknown[] = [];
+  await page.route("**" + networkPath + "**", async (route) => {
+    const req = route.request();
+    const path = new URL(req.url()).pathname;
+    const ok = (data: unknown) => route.fulfill({ json: { code: 0, data } });
+    if (req.method() === "GET" && path === networkPath) {
+      reads.push(path);
+      return ok({ items: [tron, ethereum] });
+    }
+    expect(req.method()).toBe("PATCH");
+    expect(path).toBe(networkPath + "/tron");
+    const body = req.postDataJSON();
+    expect(body).toEqual({
+      enabled: !tron.enabled,
+      current_password: "local-only-password",
+      expected_revision: tron.revision,
+    });
+    writes.push(body);
+    tron.enabled = body.enabled;
+    tron.effective_enabled = body.enabled;
+    tron.revision = String(Number(tron.revision) + 1);
+    if (loseReply) return route.abort();
+    return ok(tron);
+  });
+  return {
+    reads,
+    writes,
+    pauseListener: () => {
+      tron.listener_ready = false;
+      tron.ready_to_enable = false;
+      tron.effective_enabled = false;
+    },
+  };
+}
+
+for (const width of [375, 1440]) {
+  test(`administrative network controls check prerequisites and explicitly toggle at ${width}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const channels = await mock(page, "admin");
+    const network = await mockNetworkControls(page);
+    await page.goto("/admin/payapi/pay-channel");
+    await page
+      .getByRole("button", { name: "USDT 网络开关", exact: true })
+      .click();
+    const panel = page.getByRole("dialog", { name: "USDT 网络开关" });
+    const eth = panel.locator('[data-network="ethereum"]');
+    await expect(eth).toContainText("钱包地址");
+    await expect(eth).toContainText("收款地址池");
+    await expect(eth).toContainText("监听服务");
+    await expect(eth.getByRole("button")).toBeDisabled();
+    const open = panel.getByRole("button", { name: "开启 TRON（TRC20）" });
+    await open.click();
+    await expect(
+      panel.getByRole("button", { name: "确认开启" }),
+    ).toBeDisabled();
+    await panel.getByRole("button", { name: "返回网络列表" }).click();
+    expect(network.writes).toHaveLength(0);
+    await open.click();
+    await panel.getByLabel("管理员登录密码").fill("local-only-password");
+    await panel.getByRole("button", { name: "确认开启" }).click();
+    await expect(panel.locator('[data-network="tron"]')).toContainText(
+      "已开启",
+    );
+    await expect(panel.locator('input[type="password"]')).toHaveCount(0);
+    network.pauseListener();
+    await panel.getByRole("button", { name: "刷新状态" }).click();
+    await expect(panel.locator('[data-network="tron"]')).toContainText(
+      "收款暂停",
+    );
+    await panel.getByRole("button", { name: "关闭 TRON（TRC20）" }).click();
+    await panel.getByLabel("管理员登录密码").fill("local-only-password");
+    await panel.getByRole("button", { name: "确认关闭" }).click();
+    await expect(panel.locator('[data-network="tron"]')).toContainText(
+      "已关闭",
+    );
+    expect(await panel.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
+      true,
+    );
+    expect(network.writes).toHaveLength(2);
+    expect(channels.writes).toHaveLength(0);
+    expect(channels.errors).toEqual([]);
+  });
+}
+
+test("an ambiguous network update is reconciled by reading without a replay", async ({
+  page,
+}) => {
+  const channels = await mock(page, "admin");
+  const network = await mockNetworkControls(page, true);
+  await page.goto("/admin/payapi/pay-channel");
+  await page
+    .getByRole("button", { name: "USDT 网络开关", exact: true })
+    .click();
+  const panel = page.getByRole("dialog", { name: "USDT 网络开关" });
+  await panel.getByRole("button", { name: "开启 TRON（TRC20）" }).click();
+  await panel.getByLabel("管理员登录密码").fill("local-only-password");
+  await panel.getByRole("button", { name: "确认开启" }).click();
+  await expect(panel).toContainText("结果尚未确认");
+  expect(network.reads).toHaveLength(1);
+  expect(network.writes).toHaveLength(1);
+  await panel.getByRole("button", { name: "刷新状态" }).click();
+  await expect(panel).toContainText("已核对当前网络状态");
+  await expect(
+    panel.getByRole("button", { name: "关闭 TRON（TRC20）" }),
+  ).toBeEnabled();
+  expect(network.reads).toHaveLength(2);
+  expect(network.writes).toHaveLength(1);
+  expect(channels.writes).toHaveLength(0);
+  expect(channels.errors).toEqual([]);
+});
+
+test("provisions a public Ethereum address without opening USDT or recovery actions", async ({
+  page,
+}) => {
+  const local = await mock(page, "admin");
+  const operations: unknown[] = [];
+  await page.route("**/console/v1/admin/crypto/config", (route) =>
+    route.fulfill({
+      json: {
+        code: 0,
+        data: {
+          configured: true,
+          enabled: false,
+          networks: [{ network: "ethereum", enabled: false, fee_bps: 100 }],
+        },
+      },
+    }),
+  );
+  await page.route("**/console/v1/admin/crypto/addresses", (route) => {
+    expect(route.request().method()).toBe("POST");
+    operations.push(route.request().postDataJSON());
+    return route.fulfill({ json: { code: 0, data: {} } });
+  });
+  await page.goto("/admin/system/crypto/operations");
+  await expect(page.getByTestId("crypto-service-readonly")).toBeVisible();
+  await expect(page.getByRole("button", { name: "恢复归集" })).toHaveCount(0);
+  await page.getByRole("button", { name: "登记受管地址" }).click();
+  const form = page.locator("[data-form=address]");
+  await expect(form.getByRole("combobox", { name: "网络" })).toHaveValue(
+    "ethereum",
+  );
+  await form.getByLabel("地址", { exact: true }).fill("synthetic-address");
+  await form
+    .getByLabel("当前登录密码", { exact: true })
+    .fill("local-only-password");
+  await form.getByRole("button", { name: "登记地址", exact: true }).click();
+  await expect(page.getByText("受管地址已登记")).toBeVisible();
+  await expect(page.getByTestId("crypto-service-readonly")).toBeVisible();
+  expect(operations).toEqual([
+    {
+      network: "ethereum",
+      role: "deposit",
+      address: "synthetic-address",
+      current_password: "local-only-password",
+    },
+  ]);
+  expect(local.writes).toHaveLength(0);
+  expect(local.errors).toEqual([]);
+});
+
 for (const width of [375, 1440]) {
   test(`USDT channels edit and cancel fit ${width} with mainnet closed`, async ({
     page,

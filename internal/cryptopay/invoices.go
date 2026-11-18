@@ -53,6 +53,15 @@ func (s *Service) AddAddress(ctx context.Context, network, address, role string)
 	if e != nil || a != address || role != "deposit" && role != "treasury" && role != "hot" {
 		return ErrInvalid
 	}
+	if s == nil {
+		return ErrUnavailable
+	}
+	if s.ManageNetworks {
+		cfg := s.Networks[network]
+		if !cfg.Enabled || role == "deposit" && (a == cfg.HotAddress || a == cfg.TreasuryAddress) {
+			return ErrInvalid
+		}
+	}
 	tx, e := s.begin(ctx)
 	if e != nil {
 		return e
@@ -147,8 +156,17 @@ func (s *Service) CreateInvoice(ctx context.Context, in CreateInvoiceInput) (Inv
 	if !ok || !cfg.Enabled || cfg.FeeBPS < 0 || cfg.FeeBPS > 10000 {
 		return out, ErrInvalid
 	}
+	var hot, treasury string
+	if s.ManageNetworks {
+		if route.channel.ID == 0 {
+			if e = s.requireNetworkEnabled(ctx, tx, in.Network, true); e != nil {
+				return out, e
+			}
+		}
+		hot, treasury = cfg.HotAddress, cfg.TreasuryAddress
+	}
 	var address string
-	e = tx.QueryRow(ctx, "SELECT address FROM crypto_addresses WHERE network=$1 AND role='deposit' AND NOT used ORDER BY address FOR UPDATE SKIP LOCKED LIMIT 1", in.Network).Scan(&address)
+	e = tx.QueryRow(ctx, "SELECT address FROM crypto_addresses WHERE network=$1 AND role='deposit' AND NOT used AND address<>$2 AND address<>$3 ORDER BY address FOR UPDATE SKIP LOCKED LIMIT 1", in.Network, hot, treasury).Scan(&address)
 	if e == pgx.ErrNoRows {
 		return out, ErrUnavailable
 	}
@@ -193,6 +211,11 @@ func (s *Service) CreateInvoice(ctx context.Context, in CreateInvoiceInput) (Inv
 	}
 	if e = checkQuoteDeadline(ctx, tx, in); e != nil {
 		return Invoice{}, e
+	}
+	if s.ManageNetworks {
+		if e = s.requireNetworkEnabled(ctx, tx, in.Network, false); e != nil {
+			return Invoice{}, e
+		}
 	}
 	return out, tx.Commit(ctx)
 }

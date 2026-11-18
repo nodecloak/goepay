@@ -111,6 +111,10 @@ USDT 原生收款与原币资金接口位于 `/console/v1/merchant/crypto` 和�
 
 USDT 收款通道与支付宝、微信通道共同列在 `GET /console/v1/admin/payment-channels`，USDT 行具有 `asset=USDT`、`pay_type=usdt` 和固定网络 `tron/ethereum`，采用独立 DTO，不能调用人民币通道账户、统计、测试支付或退款操作。仅本人 super 可通过 `/payment-channels/crypto` 创建、通过 `/payment-channels/crypto/{channel_id}` 读取或 PATCH 配置。创建携带 32 位小写 hex `request_id` 与 `expected_revision="0"`；修改携带原修订和完整字段。费率 `fee_bps` 是扣费比例；`min_amount/max_amount/day_limit` 是最多六位小数的 USDT 字符串，`"0"` 表示不设对应限额。新增及编辑不再接受 `merchant_ids`，通道配置不保存反向授权商户名单；商户通过既有用户组入口分配。配置写入不接收私钥、RPC 或合约，不会开启部署侧主网、签名及广播；`enabled` 与只读的 `runtime_enabled` 分别展示配置开关和部署网络状态。
 
+超级管理员本人可通过 `GET /console/v1/admin/payment-channels/crypto/networks` 查看两条网络的启用状态与条件。`enabled` 表示保存的开关，`effective_enabled` 表示网络仍满足钱包审批和监听服务的接单条件。钱包配置变更后需要先关闭，再按新配置确认开启。接口返回钱包、未分配收款地址、监听服务的布尔检查结果和当前修订。
+
+`PATCH /console/v1/admin/payment-channels/crypto/networks/{network}` 精确提交 `enabled`、字符串 `expected_revision` 和本人 `current_password`，同时携带本会话的 `X-CSRF-Token`。开启时在同一数据库事务重新核对三项条件。关闭立即影响新收款单，已生效的收款单继续按原网络和地址核对。修订冲突或开启条件不满足时返回 409。结果不确定时，重新读取当前网络状态再确认。签名和广播继续由独立部署配置控制。
+
 `GET config` 返回 `configured/enabled/networks/simulation`：`configured=false` 表示服务尚未配置，资金与历史查询返回 503 并明确提示尚未启用，`GET channels` 返回空选择列表；管理员仍可管理通道配置。`configured=true, enabled=false` 表示网络均关闭，仍可按原权限读取历史记录，不代表记录为空，也不应发起新的收款或资金申请。503 本身不证明旧请求未记录。`networks.fee_bps` 是历史网络配置，不是该商户新单的生效费率。
 
 `GET /console/v1/{role}/crypto/channels` 返回该商户当前可用通道的安全选择项 `{items:[{id,name,network,fee_bps,min_amount,max_amount,day_limit}]}`；费率已经应用有效用户组规则，响应不包含反向授权名单。商户只能查询本人；管理员选择 `merchant_id` 后查询，未选择则返回空数组。支付方式、网络、通道关闭或有效用户组未分配时不提供可用项。新收款可提交 `channel_id`，可选 `network` 只能缩小选择范围，不能覆盖通道固定网络；错误通道或跨链组合明确拒绝。用户组支持继承、禁用、首个可用和固定通道：固定通道只允许该ID，明确首个可用授权已启用USDT通道池，禁用返回空；继承读取默认用户组0的路由，0未配置或仍为继承则没有可用通道。默认组路由不覆盖当前组费率。每次新建收款单在事务内重新核验组分配，切组或撤销立即影响新单，原单重放保留原路由。暂不支持 USDT 轮询组或子通道。

@@ -169,13 +169,14 @@ func (s *Server) paymentParentChannels(w http.ResponseWriter, r *http.Request, r
 		cryptoChannelError(w, e)
 		return true
 	}
+	activeCrypto := s.cryptoChannelRuntime(r.Context())
 	for _, row := range cryptoRows {
 		if _, exists := records[row.ID]; exists || s.ProviderFlow.Providers[row.ID] != nil || s.ProviderFlow.ParentFactories[row.ID] != nil {
 			cryptoChannelError(w, cryptopay.ErrConflict)
 			return true
 		}
 		ids = append(ids, row.ID)
-		records[row.ID] = s.cryptoChannelView(row)
+		records[row.ID] = cryptoChannelViewOf(row, activeCrypto)
 	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	items := make([]any, 0, len(ids))

@@ -47276,6 +47276,314 @@
         }
       }
     },
+    "/console/v1/admin/payment-channels/crypto/networks": {
+      "get": {
+        "operationId": "crypto_network_controls_get",
+        "tags": [
+          "crypto-custody"
+        ],
+        "summary": "读取USDT网络开关和启用检查",
+        "description": "超级管理员本人会话。返回 TRON 和 Ethereum 两个网络的当前状态和布尔检查项，钱包和监听服务未配置时也可查询。",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "当前网络开关和启用检查结果。",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "minItems": 2,
+                          "maxItems": 2,
+                          "items": {
+                            "$ref": "#/components/schemas/CryptoNetworkControlView"
+                          }
+                        }
+                      },
+                      "required": [
+                        "items"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "网络配置接口不接受查询参数。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "本角色登录会话无效。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF、角色、商户归属或原始本人会话校验失败；admin仅本人super，写入拒绝委派/代登录/撤销/禁用/过期会话。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "只接受 GET。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "暂时无法读取网络状态。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/console/v1/admin/payment-channels/crypto/networks/{network}": {
+      "patch": {
+        "operationId": "crypto_network_controls_patch",
+        "tags": [
+          "crypto-custody"
+        ],
+        "summary": "开启或关闭USDT网络接单",
+        "description": "超级管理员本人会话。提交当前登录密码、目标状态和已读取的修订。开启时在同一事务核对钱包、地址池和监听服务。停用停止创建新收款单，已有收款单仍可核对。签名和广播分别由其部署配置控制。",
+        "security": [
+          {
+            "AdminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "network",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CryptoNetwork"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "当前本角色会话返回的csrf_token。所有console写入必需。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CryptoNetworkControlPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "网络开关更新后的状态。",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "const": 0
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CryptoNetworkControlView"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "查询参数或 JSON 字段无效。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "本角色登录会话无效。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF、角色、商户归属或原始本人会话校验失败；admin仅本人super，写入拒绝委派/代登录/撤销/禁用/过期会话。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "网络不存在。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "只接受 PATCH。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "修订已变或启用检查尚未通过。请重新读取状态。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "请求须使用 application/json。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "当前登录密码不正确或尚未设置。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "本人密码校验来源/账号预算或并发预算耗尽。",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "网络开关结果暂时无法确认。请重新读取状态后再操作。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/console/v1/admin/crypto/channels": {
       "get": {
         "operationId": "crypto_admin_get_channels",
@@ -67247,7 +67555,7 @@
           },
           "runtime_enabled": {
             "type": "boolean",
-            "description": "部署侧当前网络是否启用。保存通道配置不能修改该值，也不能开启签名或广播。"
+            "description": "当前网络接单开关是否有效。实际建单还须通过地址池及通道路由检查。网络开关使用单独的配置接口。"
           }
         },
         "required": [
@@ -67532,6 +67840,83 @@
           "archived",
           "expected_revision",
           "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "CryptoNetworkRevision": {
+        "type": "string",
+        "description": "正int64十进制字符串。网络开关初始修订为1，按已读取的修订提交。",
+        "pattern": "^[1-9][0-9]*$",
+        "maxLength": 19
+      },
+      "CryptoNetworkControlView": {
+        "type": "object",
+        "properties": {
+          "network": {
+            "$ref": "#/components/schemas/CryptoNetwork"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "超级管理员保存在数据库中的网络接单开关。"
+          },
+          "effective_enabled": {
+            "type": "boolean",
+            "description": "接单开关已开启，钱包配置仍与批准时一致，监听服务仍满足准入条件。"
+          },
+          "revision": {
+            "$ref": "#/components/schemas/CryptoNetworkRevision"
+          },
+          "wallets_configured": {
+            "type": "boolean",
+            "description": "该网络的热钱包与归集钱包公开地址已配置并通过格式检查。"
+          },
+          "deposit_address_available": {
+            "type": "boolean",
+            "description": "该网络尚有未分配的收款地址。"
+          },
+          "listener_ready": {
+            "type": "boolean",
+            "description": "匹配钱包配置的监听服务已提交近期的双节点检查结果。"
+          },
+          "ready_to_enable": {
+            "type": "boolean",
+            "description": "钱包、地址池和监听条件均满足开启检查。"
+          }
+        },
+        "required": [
+          "network",
+          "enabled",
+          "effective_enabled",
+          "revision",
+          "wallets_configured",
+          "deposit_address_available",
+          "listener_ready",
+          "ready_to_enable"
+        ],
+        "additionalProperties": false
+      },
+      "CryptoNetworkControlPatch": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "expected_revision": {
+            "$ref": "#/components/schemas/CryptoNetworkRevision"
+          },
+          "current_password": {
+            "type": "string",
+            "description": "当前原始登录账号本人的登录密码，仅本次确认使用；不是商户API密钥或管理员独立资金密码。不得放入URL、日志、审计或浏览器持久存储。",
+            "format": "password",
+            "writeOnly": true,
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        },
+        "required": [
+          "enabled",
+          "expected_revision",
+          "current_password"
         ],
         "additionalProperties": false
       }

@@ -67,6 +67,11 @@ func (s *Service) requestOutgoing(ctx context.Context, in WithdrawalInput, kind,
 	if e != ErrNotFound {
 		return out, e
 	}
+	if s.ManageNetworks {
+		if e = s.requireNetworkEnabled(ctx, tx, in.Network, true); e != nil {
+			return out, e
+		}
+	}
 	var allowed bool
 	e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM crypto_recipients WHERE merchant_id=$1 AND network=$2 AND address=$3 AND state='approved' AND usable_at<=clock_timestamp())", in.MerchantID, in.Network, a).Scan(&allowed)
 	if e != nil {
@@ -132,7 +137,7 @@ func (s *Service) requestOutgoing(ctx context.Context, in WithdrawalInput, kind,
 	if e != nil {
 		return out, e
 	}
-	return out, commit(ctx, tx)
+	return out, s.commitNetworkOperation(ctx, tx, in.Network)
 }
 func (s *Service) ListWithdrawals(ctx context.Context, merchant int64) ([]Withdrawal, error) {
 	if s == nil || s.Pool == nil {
@@ -182,6 +187,11 @@ func (s *Service) ApproveWithdrawal(ctx context.Context, id string, actor int64)
 	if out.State != "requested" {
 		return out, ErrConflict
 	}
+	if s.ManageNetworks {
+		if e = s.requireNetworkEnabled(ctx, tx, out.Network, true); e != nil {
+			return out, e
+		}
+	}
 	if _, e = tx.Exec(ctx, "UPDATE crypto_withdrawals SET state='approved',approved_by=$2 WHERE id=$1", id, actor); e != nil {
 		return out, e
 	}
@@ -190,7 +200,7 @@ func (s *Service) ApproveWithdrawal(ctx context.Context, id string, actor int64)
 	}
 	out.State = "approved"
 	out.ApprovedBy = actor
-	return out, commit(ctx, tx)
+	return out, s.commitNetworkOperation(ctx, tx, out.Network)
 }
 func (s *Service) CancelWithdrawal(ctx context.Context, merchant int64, id string) (Withdrawal, error) {
 	tx, e := s.begin(ctx)

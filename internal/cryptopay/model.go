@@ -32,6 +32,9 @@ type Service struct {
 	// Website collection must use channel admission. Low-level chain fixtures
 	// and historical custody tools do not create a channel implicitly.
 	RequireChannels bool
+	// ManageNetworks makes the database switch and a recent listener proof
+	// mandatory for new USDT operations on the website.
+	ManageNetworks bool
 }
 type CreateInvoiceInput struct {
 	MerchantID                                        int64

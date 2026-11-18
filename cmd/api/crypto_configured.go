@@ -42,7 +42,10 @@ func cryptoFromEnvironment(pool *pgxpool.Pool, getenv func(string) string) (*cry
 	}
 	h := hmac.New(sha256.New, key)
 	h.Write([]byte("GOEPAY/crypto-token-key/v1"))
-	svc := &cryptopay.Service{Pool: pool, TokenKey: h.Sum(nil), Networks: make(map[string]cryptopay.NetworkConfig), RequireChannels: true}
+	svc := &cryptopay.Service{
+		Pool: pool, TokenKey: h.Sum(nil), Networks: make(map[string]cryptopay.NetworkConfig),
+		RequireChannels: true, ManageNetworks: true,
+	}
 	for network, config := range settings {
 		if network != "tron" && network != "ethereum" || config.FeeBPS < 0 || config.FeeBPS > 10000 {
 			return nil, errors.New("unsupported USDT network or fee")
@@ -55,7 +58,9 @@ func cryptoFromEnvironment(pool *pgxpool.Pool, getenv func(string) string) (*cry
 				}
 			}
 		}
-		svc.Networks[network] = cryptopay.NetworkConfig{Enabled: config.Enabled, FeeBPS: config.FeeBPS, TreasuryAddress: config.Treasury, HotAddress: config.Hot}
+		// An entry provisions a network. The legacy enabled field remains
+		// accepted, but website admission uses the audited database switch.
+		svc.Networks[network] = cryptopay.NetworkConfig{Enabled: true, FeeBPS: config.FeeBPS, TreasuryAddress: config.Treasury, HotAddress: config.Hot}
 	}
 	return svc, nil
 }

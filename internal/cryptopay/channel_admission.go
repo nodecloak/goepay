@@ -142,7 +142,27 @@ func (s *Service) channelCandidates(ctx context.Context, tx pgx.Tx, network stri
 			out = append(out, c)
 		}
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil || !s.ManageNetworks {
+		return out, err
+	}
+	// Check each chain once. Admission locks and rechecks only the candidate
+	// it may commit, so an unavailable chain cannot block another candidate.
+	enabled := make(map[string]bool, 2)
+	ready := out[:0]
+	for _, channel := range out {
+		active, checked := enabled[channel.Network]
+		if !checked {
+			active, e = s.networkEnabled(ctx, tx, channel.Network, false)
+			if e != nil {
+				return nil, e
+			}
+			enabled[channel.Network] = active
+		}
+		if active {
+			ready = append(ready, channel)
+		}
+	}
+	return ready, nil
 }
 
 func channelOrderLimits(c Channel, amount int64) (eligible bool, day int64, err error) {
@@ -161,7 +181,7 @@ func channelOrderLimits(c Channel, amount int64) (eligible bool, day int64, err 
 	return amount >= min && (max == 0 || amount <= max) && (day == 0 || amount <= day), day, nil
 }
 
-func lockChannelForInvoice(ctx context.Context, tx pgx.Tx, id, amount int64) (Channel, error) {
+func (s *Service) lockChannelForInvoice(ctx context.Context, tx pgx.Tx, id, amount int64) (Channel, error) {
 	// Roll back rejected candidates' locks before trying the next channel.
 	// Releasing the chosen savepoint keeps its lock through invoice commit.
 	candidate, err := tx.Begin(ctx)
@@ -193,6 +213,12 @@ func lockChannelForInvoice(ctx context.Context, tx pgx.Tx, id, amount int64) (Ch
 			   AND created_at >= utc.day_start
 			   AND created_at < utc.day_start + interval '24 hours'
 		`, c.ID, day-amount).Scan(&eligible); err != nil {
+			return Channel{}, err
+		}
+	}
+	if eligible && s.ManageNetworks {
+		eligible, err = s.networkEnabled(ctx, candidate, c.Network, true)
+		if err != nil {
 			return Channel{}, err
 		}
 	}
@@ -237,7 +263,7 @@ func (s *Service) admitChannel(ctx context.Context, tx pgx.Tx, in CreateInvoiceI
 		if !eligible {
 			continue
 		}
-		c, e := lockChannelForInvoice(ctx, tx, candidate.ID, n)
+		c, e := s.lockChannelForInvoice(ctx, tx, candidate.ID, n)
 		if errors.Is(e, ErrUnavailable) {
 			continue
 		}

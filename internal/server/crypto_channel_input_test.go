@@ -27,7 +27,7 @@ func TestCryptoChannelInputUsesGroupAssignmentWithoutMerchantGrantList(t *testin
 	if _, err := decodeCryptoChannelInput([]byte(strings.Replace(create, `"fee_bps":75`, `"fee_bps":null`, 1)), 0); err == nil {
 		t.Fatalf("null fee must not clear the existing fee: %v", err)
 	}
-	encoded, err := json.Marshal((&Server{}).cryptoChannelView(cryptopay.Channel{ID: 31, Network: "tron"}))
+	encoded, err := json.Marshal(cryptoChannelViewOf(cryptopay.Channel{ID: 31, Network: "tron"}, nil))
 	if err != nil || strings.Contains(string(encoded), "merchant_ids") {
 		t.Fatalf("channel DTO still exposes the removed inverse assignment list: %s, %v", encoded, err)
 	}

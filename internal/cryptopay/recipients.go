@@ -50,12 +50,17 @@ func (s *Service) RequestRecipient(ctx context.Context, merchant int64, network,
 	if e != ErrNotFound {
 		return r, e
 	}
+	if s.ManageNetworks {
+		if e = s.requireNetworkEnabled(ctx, tx, network, true); e != nil {
+			return r, e
+		}
+	}
 	id := randomID()
 	r, e = scanRecipient(tx.QueryRow(ctx, "INSERT INTO crypto_recipients(id,merchant_id,network,address) VALUES($1,$2,$3,$4) RETURNING "+recipientColumns, id, merchant, network, a))
 	if e != nil {
 		return r, e
 	}
-	return r, commit(ctx, tx)
+	return r, s.commitNetworkOperation(ctx, tx, network)
 }
 func (s *Service) ListRecipients(ctx context.Context, merchant int64) ([]Recipient, error) {
 	if s == nil || s.Pool == nil {

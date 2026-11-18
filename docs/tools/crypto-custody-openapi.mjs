@@ -60,7 +60,7 @@ export function installCryptoCustodyAPI({paths,schemas,object,str,ref,content}) 
   const merchantQuery=(role,{required=false,balance=false}={})=>({name:'merchant_id',in:'query',required:role==='admin'&&required,schema:ref('CryptoMerchantID'),description:role==='merchant'?'省略取当前本人；显式提供只能为本人完整字符串ID。':balance?'省略按网络汇总全部商户的available/reserved，不含平台fees/suspense，不是链上钱包余额；显式ID只查询该商户。':required?'必须明确原请求所属商户的完整字符串ID。':'省略可读取全部商户记录；显式ID只读取该商户。'});
   const channelChoice={id:ref('CryptoChannelID'),name:str(null,{minLength:1,maxLength:120}),network:ref('CryptoNetwork'),fee_bps:{type:'integer',minimum:0,maximum:10000},min_amount:ref('CryptoNonnegativeAmount'),max_amount:ref('CryptoNonnegativeAmount'),day_limit:ref('CryptoNonnegativeAmount')};
   schemas.CryptoChannelChoice=object(channelChoice,Object.keys(channelChoice));
-  const channelView={...channelChoice,revision:ref('CryptoChannelID'),enabled:{type:'boolean'},archived:{type:'boolean'},created_at:time,updated_at:time,pay_type:{type:'string',const:'usdt'},plugin:{type:'string',enum:['usdt_tron','usdt_ethereum']},configured:{type:'boolean',const:true},asset:{type:'string',const:'USDT'},runtime_enabled:{type:'boolean',description:'部署侧当前网络是否启用。保存通道配置不能修改该值，也不能开启签名或广播。'}};
+  const channelView={...channelChoice,revision:ref('CryptoChannelID'),enabled:{type:'boolean'},archived:{type:'boolean'},created_at:time,updated_at:time,pay_type:{type:'string',const:'usdt'},plugin:{type:'string',enum:['usdt_tron','usdt_ethereum']},configured:{type:'boolean',const:true},asset:{type:'string',const:'USDT'},runtime_enabled:{type:'boolean',description:'当前网络接单开关是否有效。实际建单还须通过地址池及通道路由检查。网络开关使用单独的配置接口。'}};
   schemas.CryptoChannelView=object(channelView,Object.keys(channelView));
   const poolCount={type:'integer',minimum:0,maximum:Number.MAX_SAFE_INTEGER};
   const depositPool={
@@ -95,6 +95,53 @@ export function installCryptoCustodyAPI({paths,schemas,object,str,ref,content}) 
   const channelOp=(method,detail,body)=>({operationId:`crypto_channel_${method}_${detail?'detail':'catalog'}`,tags:['crypto-custody'],summary:method==='get'?'读取统一USDT通道配置':detail?'修改USDT通道配置':'创建统一USDT支付通道',description:'仅本人super；与普通支付通道共享编号。网络创建后不可修改，限额单位为USDT，0表示不设该限额；fee_bps为扣费比例。修改必须带原expected_revision和完整字段。不接受merchant_ids；商户通过既有用户组分配，通道配置不保存反向授权商户名单。关闭或归档只影响新收款，不重写历史订单。部署未启用USDT时仍可管理配置，但不会启用主网、签名或广播。',security:[{AdminSession:[]}],parameters:[...(detail?[{name:'channel_id',in:'path',required:true,schema:ref('CryptoChannelID')}]:[]),...(method!=='get'?[csrf]:[])],...(body?{requestBody:{required:true,content:content(ref(body))}}:{}),responses:{'200':{description:'配置读取或写入成功；不表示主网运行已启用。',content:content(envelope(method==='get'&&!detail?object({items:{type:'array',items:ref('CryptoChannelView')}},['items']):ref('CryptoChannelView')))},...structuredClone(errors)}});
   paths[channelsBase]={get:channelOp('get',false),post:channelOp('post',false,'CryptoChannelCreate')};
   paths[channelsBase+'/{channel_id}']={get:channelOp('get',true),patch:channelOp('patch',true,'CryptoChannelPatch')};
+  schemas.CryptoNetworkRevision=str('正int64十进制字符串。网络开关初始修订为1，按已读取的修订提交。',{pattern:'^[1-9][0-9]*$',maxLength:19});
+  const networkControl={
+    network:ref('CryptoNetwork'),
+    enabled:{type:'boolean',description:'超级管理员保存在数据库中的网络接单开关。'},
+    effective_enabled:{type:'boolean',description:'接单开关已开启，钱包配置仍与批准时一致，监听服务仍满足准入条件。'},
+    revision:ref('CryptoNetworkRevision'),
+    wallets_configured:{type:'boolean',description:'该网络的热钱包与归集钱包公开地址已配置并通过格式检查。'},
+    deposit_address_available:{type:'boolean',description:'该网络尚有未分配的收款地址。'},
+    listener_ready:{type:'boolean',description:'匹配钱包配置的监听服务已提交近期的双节点检查结果。'},
+    ready_to_enable:{type:'boolean',description:'钱包、地址池和监听条件均满足开启检查。'},
+  };
+  schemas.CryptoNetworkControlView=object(networkControl,Object.keys(networkControl));
+  schemas.CryptoNetworkControlPatch=object({enabled:{type:'boolean'},expected_revision:ref('CryptoNetworkRevision'),current_password:password},['enabled','expected_revision','current_password']);
+  const networkBase=channelsBase+'/networks';
+  const networkResponse=(data,description)=>({description,headers:{'Cache-Control':{schema:{type:'string',const:'no-store'}}},content:content(envelope(data))});
+  const networkError=description=>({description,content:content(ref('Envelope'))});
+  const networkReadErrors={
+    '400':networkError('网络配置接口不接受查询参数。'),
+    '401':errors['401'],
+    '403':errors['403'],
+    '405':networkError('只接受 GET。'),
+    '503':networkError('暂时无法读取网络状态。'),
+  };
+  paths[networkBase]={get:{
+    operationId:'crypto_network_controls_get',tags:['crypto-custody'],summary:'读取USDT网络开关和启用检查',
+    description:'超级管理员本人会话。返回 TRON 和 Ethereum 两个网络的当前状态和布尔检查项，钱包和监听服务未配置时也可查询。',
+    security:[{AdminSession:[]}],parameters:[],
+    responses:{'200':networkResponse(object({items:{type:'array',minItems:2,maxItems:2,items:ref('CryptoNetworkControlView')}},['items']),'当前网络开关和启用检查结果。'),...networkReadErrors},
+  }};
+  paths[networkBase+'/{network}']={patch:{
+    operationId:'crypto_network_controls_patch',tags:['crypto-custody'],summary:'开启或关闭USDT网络接单',
+    description:'超级管理员本人会话。提交当前登录密码、目标状态和已读取的修订。开启时在同一事务核对钱包、地址池和监听服务。停用停止创建新收款单，已有收款单仍可核对。签名和广播分别由其部署配置控制。',
+    security:[{AdminSession:[]}],parameters:[{name:'network',in:'path',required:true,schema:ref('CryptoNetwork')},csrf],
+    requestBody:{required:true,content:content(ref('CryptoNetworkControlPatch'))},
+    responses:{
+      '200':networkResponse(ref('CryptoNetworkControlView'),'网络开关更新后的状态。'),
+      ...networkReadErrors,
+      '400':networkError('查询参数或 JSON 字段无效。'),
+      '404':networkError('网络不存在。'),
+      '405':networkError('只接受 PATCH。'),
+      '409':networkError('修订已变或启用检查尚未通过。请重新读取状态。'),
+      '415':networkError('请求须使用 application/json。'),
+      '422':networkError('当前登录密码不正确或尚未设置。'),
+      '429':errors['429'],
+      '503':networkError('网络开关结果暂时无法确认。请重新读取状态后再操作。'),
+    },
+  }};
   // Extend the shared list/detail union, leaving CNY create/mutation contracts intact.
   if(schemas.RuntimeParentChannel?.oneOf&&!schemas.RuntimeParentChannel.oneOf.some(v=>v.$ref===ref('CryptoChannelView').$ref))schemas.RuntimeParentChannel.oneOf.push(ref('CryptoChannelView'));
   const commonChannels=paths['/console/v1/admin/payment-channels']?.get;

@@ -139,7 +139,10 @@ func (s *Service) depositPoolUsage(ctx context.Context, tx pgx.Tx) ([]DepositPoo
 	for _, name := range []string{"tron", "ethereum"} {
 		pool := byNetwork[name]
 		pool.Network = name
-		pool.Enabled = s.Networks[name].Enabled
+		pool.Enabled, err = s.networkEnabled(ctx, tx, name, false)
+		if err != nil {
+			return nil, err
+		}
 		pools = append(pools, pool)
 	}
 	return pools, nil

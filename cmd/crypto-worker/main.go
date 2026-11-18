@@ -128,6 +128,7 @@ func run(ctx context.Context, c config, once, auditOnly bool) error {
 	svc := &cryptopay.Service{Pool: pool, TokenKey: h.Sum(nil), Networks: map[string]cryptopay.NetworkConfig{}}
 	scanner := &cryptopay.Scanner{Service: svc, Primary: map[string]cryptochain.Adapter{}, Witness: map[string]cryptochain.Adapter{}, StartHeight: map[string]uint64{}}
 	executor := &cryptopay.Executor{Service: svc, Adapters: scanner.Primary, Witness: scanner.Witness, FeeLimits: map[string]uint64{}}
+	listenerFingerprints := make(map[string]string, len(c.Networks))
 	for name, n := range c.Networks {
 		if n.HotAddress != "" {
 			n.HotAddress, e = cryptochain.NormalizeAddress(cryptochain.Chain(name), n.HotAddress)
@@ -142,6 +143,14 @@ func run(ctx context.Context, c config, once, auditOnly bool) error {
 			}
 		}
 		svc.Networks[name] = n.NetworkConfig
+		if n.Enabled && !auditOnly && !once {
+			fingerprint, err := cryptopay.ListenerFingerprint(name, n.NetworkConfig)
+			if err != nil {
+				slog.Warn("USDT listener wallet configuration incomplete", "network", name)
+			} else {
+				listenerFingerprints[name] = fingerprint
+			}
+		}
 		scanner.StartHeight[name] = n.StartHeight
 		executor.FeeLimits[name] = n.FeeLimit
 		primary := cryptochain.Config{Endpoint: n.PrimaryRPC, Headers: n.PrimaryHeaders, AllowBroadcast: c.EnableBroadcast}
@@ -221,7 +230,7 @@ func run(ctx context.Context, c config, once, auditOnly bool) error {
 			if !n.Enabled {
 				continue
 			}
-			if e = scanner.Scan(ctx, name); e != nil {
+			if e = scanListener(ctx, scanner, name, listenerFingerprints[name]); e != nil {
 				slog.Warn("USDT scanner paused", "network", name)
 				iterationError = true
 				continue

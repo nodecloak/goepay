@@ -49,6 +49,7 @@ import {
   type PaymentChannel,
 } from "../crypto-channels";
 import CryptoChannelEditor from "./CryptoChannelEditor.vue";
+import CryptoNetworkControls from "./CryptoNetworkControls.vue";
 const props = defineProps<{ client: ApiClient; allowed: boolean }>();
 const items = ref<PaymentChannel[]>([]),
   templates = ref<ParentTemplate[]>([]),
@@ -59,25 +60,19 @@ const items = ref<PaymentChannel[]>([]),
   notice = ref(""),
   selected = ref<string[]>([]);
 const cryptoEditor = ref<{ row?: CryptoChannel }>();
+const networkControls = ref(false);
 const parentItems = computed(() =>
   items.value.filter((row): row is ParentChannel => !isCryptoChannel(row)),
 );
 function editCrypto(row?: CryptoChannel) {
-  if (
-    !foreground() ||
-    loading.value ||
-    busy.value ||
-    mode.value ||
-    cryptoEditor.value ||
-    limitsID.value ||
-    feeID.value ||
-    statisticsID.value ||
-    testRow.value ||
-    weixinBatch.value ||
-    confirmation.value
-  )
+  if (!foreground() || loading.value || busy.value || channelDialogOpen.value)
     return;
   cryptoEditor.value = row ? { row } : {};
+}
+function openNetworkControls() {
+  if (!foreground() || loading.value || busy.value || channelDialogOpen.value)
+    return;
+  networkControls.value = true;
 }
 function cryptoSaved() {
   cryptoEditor.value = undefined;
@@ -119,6 +114,20 @@ const bindingDraft = ref<ParentWeixinDraft>();
 const weixinBatch = ref<{ kind: 0 | 1; rows: ParentChannel[] }>();
 const testRow = ref<ParentChannel>();
 const feeID = ref<string>();
+const channelDialogOpen = computed(
+  () =>
+    !!(
+      limitsID.value ||
+      feeID.value ||
+      statisticsID.value ||
+      testRow.value ||
+      weixinBatch.value ||
+      confirmation.value ||
+      mode.value ||
+      cryptoEditor.value ||
+      networkControls.value
+    ),
+);
 const showCost = ref(false),
   showLimits = ref(false),
   showColumns = ref(false);
@@ -206,6 +215,7 @@ function current(n: number, c: ApiClient, csrf: string) {
 }
 function reset() {
   cryptoEditor.value = undefined;
+  networkControls.value = false;
   feeID.value = undefined;
   showCost.value = false;
   showLimits.value = false;
@@ -753,19 +763,7 @@ onBeforeUnmount(() => {
   >
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
-    <fieldset
-      class="list-page parent-background"
-      :disabled="
-        !!limitsID ||
-        !!feeID ||
-        !!statisticsID ||
-        !!testRow ||
-        !!weixinBatch ||
-        !!confirmation ||
-        !!mode ||
-        !!cryptoEditor
-      "
-    >
+    <fieldset class="list-page parent-background" :disabled="channelDialogOpen">
       <KitFilterBar
         :loading="loading || busy"
         @query="
@@ -839,6 +837,15 @@ onBeforeUnmount(() => {
             @click="editCrypto()"
           >
             新增 USDT 通道</button
+          ><button
+            v-if="allowed && client.area === 'admin'"
+            type="button"
+            class="pa-btn"
+            data-crypto-network-controls
+            :disabled="loading || busy || channelDialogOpen"
+            @click="openNetworkControls"
+          >
+            USDT 网络开关</button
           ><ActionDropdown
             triggerText="批量操作"
             label="批量操作"
@@ -1117,6 +1124,12 @@ onBeforeUnmount(() => {
       :row="cryptoEditor.row"
       @close="cryptoEditor = undefined"
       @saved="cryptoSaved"
+    />
+    <CryptoNetworkControls
+      v-if="networkControls"
+      :client="client"
+      @close="networkControls = false"
+      @changed="load"
     />
     <div
       v-if="mode"

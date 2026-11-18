@@ -109,13 +109,14 @@ func (s *Server) cryptoConsole(w http.ResponseWriter, r *http.Request, role stri
 		if s.Crypto != nil {
 			for _, name := range []string{"tron", "ethereum"} {
 				if n, ok := s.Crypto.Networks[name]; ok {
-					networks = append(networks, map[string]any{"network": name, "enabled": n.Enabled, "fee_bps": n.FeeBPS})
+					active, err := s.Crypto.RuntimeNetworkEnabled(r.Context(), name)
+					if err != nil {
+						cryptoError(w, err)
+						return true
+					}
+					enabled = enabled || active
+					networks = append(networks, map[string]any{"network": name, "enabled": active, "fee_bps": n.FeeBPS})
 				}
-			}
-		}
-		if s.Crypto != nil {
-			for _, n := range s.Crypto.Networks {
-				enabled = enabled || n.Enabled
 			}
 		}
 		response(w, 200, 0, "", map[string]any{"configured": s.Crypto != nil, "enabled": enabled, "networks": networks, "simulation": s.Sandbox})

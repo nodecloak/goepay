@@ -27,6 +27,7 @@ func (s *Server) cryptoMonitoring(w http.ResponseWriter, r *http.Request, sessio
 	service := cryptopay.Service{Pool: s.Pool}
 	if s.Crypto != nil {
 		service.Networks = s.Crypto.Networks
+		service.ManageNetworks = s.Crypto.ManageNetworks
 	}
 	out, err := service.Monitoring(s.cryptoChannelContext(r.Context(), session, token))
 	switch {

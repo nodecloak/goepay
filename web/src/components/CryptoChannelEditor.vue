@@ -113,10 +113,10 @@ async function save() {
       class="crypto-channel-note"
       role="status"
     >
-      主网收款关闭。这里保存通道配置，不能开启部署端的收款、签名或广播服务。
+      主网收款关闭。请在支付通道页的「USDT 网络开关」核对状态。
     </p>
     <p v-if="!row" class="crypto-channel-note">
-      实际收款还受部署开关控制；保存配置不会启动签名或广播服务。
+      实际收款取决于网络开关、通道状态及商户配置。
     </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <fieldset

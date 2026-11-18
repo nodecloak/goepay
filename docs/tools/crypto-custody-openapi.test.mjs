@@ -62,6 +62,21 @@ for(const route of ['/console/v1/admin/payment-channels/crypto','/console/v1/adm
   }
 }
 assert.equal(paths['/console/v1/merchant/payment-channels/crypto'],undefined);
+const networkControls='/console/v1/admin/payment-channels/crypto/networks';
+const networkChange=paths[networkControls+'/{network}']?.patch;
+assert.deepEqual(Object.keys(paths[networkControls]??{}),['get']);
+assert.deepEqual(paths[networkControls].get.parameters,[]);
+assert.deepEqual(paths[networkControls].get.security,[{AdminSession:[]}]);
+assert.deepEqual(networkChange?.security,[{AdminSession:[]}]);
+assert.ok(networkChange.parameters.some(p=>p.name==='X-CSRF-Token'&&p.required));
+assert.ok(networkChange.parameters.some(p=>p.name==='network'&&p.schema.$ref===ref('CryptoNetwork').$ref));
+assert.ok(networkChange.responses['409'],'missing guarded activation conflict');
+assert.equal(paths['/console/v1/merchant/payment-channels/crypto/networks'],undefined);
+assert.deepEqual(schemas.CryptoNetworkControlView.required,['network','enabled','effective_enabled','revision','wallets_configured','deposit_address_available','listener_ready','ready_to_enable']);
+assert.deepEqual(schemas.CryptoNetworkControlPatch.required,['enabled','expected_revision','current_password']);
+assert.equal(schemas.CryptoNetworkControlPatch.properties.current_password.writeOnly,true);
+assert.equal(schemas.CryptoNetworkControlPatch.additionalProperties,false);
+for(const field of ['current_password','wallet','treasury_address','private_key','rpc_url','fingerprint'])assert.equal(schemas.CryptoNetworkControlView.properties[field],undefined);
 assert.equal(schemas.CryptoChannelChoice.properties.merchant_ids,undefined);
 for(const name of ['CryptoChannelView','CryptoChannelCreate','CryptoChannelPatch']){
   assert.equal(schemas[name].properties.merchant_ids,undefined,`${name} must not expose an inverse merchant assignment list`);

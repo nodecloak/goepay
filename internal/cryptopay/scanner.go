@@ -8,6 +8,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"time"
 )
 
 type Scanner struct {
@@ -18,6 +19,18 @@ type Scanner struct {
 }
 
 func (s *Scanner) Scan(ctx context.Context, network string) error {
+	return s.scan(ctx, network, nil)
+}
+
+// ScanForReadiness returns the database time at which the listener finished
+// proving a caught-up canonical cursor. A healthy partial scan has no proof.
+func (s *Scanner) ScanForReadiness(ctx context.Context, network string) (time.Time, error) {
+	var checkedAt time.Time
+	err := s.scan(ctx, network, &checkedAt)
+	return checkedAt, err
+}
+
+func (s *Scanner) scan(ctx context.Context, network string, checkedAt *time.Time) error {
 	if s.Service == nil || s.Service.Pool == nil {
 		return ErrUnavailable
 	}
@@ -77,8 +90,8 @@ func (s *Scanner) Scan(ctx context.Context, network string) error {
 	if e != nil {
 		return e
 	}
-	end := min(ah, bh)
-	if end > math.MaxInt64 {
+	finalized := min(ah, bh)
+	if finalized > math.MaxInt64 {
 		return ErrInvalid
 	}
 	limit := s.MaxBlocks
@@ -88,7 +101,8 @@ func (s *Scanner) Scan(ctx context.Context, network string) error {
 	if limit > 1000 {
 		return ErrInvalid
 	}
-	end = min(end, height+limit)
+	end := min(finalized, height+limit)
+	cursorHash := previous
 	for next := height + 1; next <= end; next++ {
 		h, e := a.CanonicalBlockHash(ctx, next)
 		if e != nil {
@@ -138,6 +152,15 @@ func (s *Scanner) Scan(ctx context.Context, network string) error {
 		}
 		if _, e = conn.Exec(ctx, "INSERT INTO crypto_scan_cursors(network,height,block_hash) VALUES($1,$2,$3) ON CONFLICT(network) DO UPDATE SET height=EXCLUDED.height,block_hash=EXCLUDED.block_hash", network, int64(next), h); e != nil {
 			return e
+		}
+		cursorHash = h
+	}
+	if checkedAt != nil && end == finalized && end >= height && end >= start && cursorHash != "" {
+		// Capture the proof time before releasing the scan lock. Delayed
+		// publishers can safely compare this timestamp against newer proofs.
+		var observed time.Time
+		if err := conn.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&observed); err == nil {
+			*checkedAt = observed
 		}
 	}
 	return nil
