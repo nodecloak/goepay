@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"goepay/internal/cryptochain"
@@ -63,6 +64,7 @@ func configureCryptoCompatibility(app *server.Server, getenv func(string) string
 	rate := getenv("GOEPAY_CRYPTO_CNY_PER_USDT")
 	if rate == "" {
 		app.CryptoCNYPerUSDT = ""
+		app.CryptoQuoteValidUntil = time.Time{}
 		app.CryptoDefaultNetwork = ""
 		app.CryptoPublicOrigin = ""
 		if origin, e := server.NormalizeCryptoPublicOrigin(getenv("GOEPAY_PUBLIC_ORIGIN")); e == nil {
@@ -75,6 +77,14 @@ func configureCryptoCompatibility(app *server.Server, getenv func(string) string
 	}
 	if _, e := server.CryptoQuoteCNY(100, rate); e != nil {
 		return errors.New("invalid trusted USDT exchange rate")
+	}
+	var validUntil time.Time
+	if raw := getenv("GOEPAY_CRYPTO_CNY_QUOTE_VALID_UNTIL"); raw != "" {
+		parsed, err := time.Parse(time.RFC3339, raw)
+		if err != nil || parsed.IsZero() {
+			return errors.New("USDT quote deadline must be an RFC3339 timestamp with a time zone")
+		}
+		validUntil = parsed.UTC()
 	}
 	var network string
 	if app.Crypto.RequireChannels {
@@ -99,6 +109,7 @@ func configureCryptoCompatibility(app *server.Server, getenv func(string) string
 		return errors.New("quoted USDT requires a trusted public origin")
 	}
 	app.CryptoCNYPerUSDT = rate
+	app.CryptoQuoteValidUntil = validUntil
 	app.CryptoDefaultNetwork = network
 	app.CryptoPublicOrigin = origin
 	return nil

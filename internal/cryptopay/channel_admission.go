@@ -179,13 +179,22 @@ func lockChannelForInvoice(ctx context.Context, tx pgx.Tx, id, amount int64) (Ch
 	}
 	eligible = eligible && c.Enabled && !c.Archived
 	if eligible && day > 0 {
-		var used int64
 		// Read committed usage after acquiring the channel lock. Expired and
 		// pending invoices both reserve capacity on their UTC creation date.
-		if err = candidate.QueryRow(ctx, `SELECT COALESCE(sum(amount),0)::bigint FROM crypto_invoices WHERE channel_id=$1 AND created_at >= (date_trunc('day',clock_timestamp() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')`, c.ID).Scan(&used); err != nil {
+		// Keep the sum numeric: usage from a previously unlimited channel
+		// may exceed int64 before a new limit is configured.
+		if err = candidate.QueryRow(ctx, `
+			SELECT COALESCE(sum(amount),0) <= $2::bigint
+			  FROM crypto_invoices
+			 CROSS JOIN (
+				SELECT date_trunc('day',statement_timestamp() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS day_start
+			 ) utc
+			 WHERE channel_id=$1
+			   AND created_at >= utc.day_start
+			   AND created_at < utc.day_start + interval '24 hours'
+		`, c.ID, day-amount).Scan(&eligible); err != nil {
 			return Channel{}, err
 		}
-		eligible = used <= day-amount
 	}
 	if !eligible {
 		if err = candidate.Rollback(ctx); err != nil {
@@ -212,11 +221,6 @@ func currentGroupDeadline(ctx context.Context, tx pgx.Tx, until time.Time) error
 
 func (s *Service) admitChannel(ctx context.Context, tx pgx.Tx, in CreateInvoiceInput, n int64) (channelAdmission, error) {
 	var out channelAdmission
-	if in.QuoteRate != "" {
-		if _, e := ParseAmount(in.QuoteRate); e != nil || in.CNYAmount == 0 {
-			return out, ErrInvalid
-		}
-	}
 	policy, e := channelGroup(ctx, tx, in.MerchantID, true)
 	if e != nil {
 		return out, e
@@ -252,7 +256,18 @@ func (s *Service) admitChannel(ctx context.Context, tx pgx.Tx, in CreateInvoiceI
 		if e != nil {
 			return out, e
 		}
-		snapshot, e := json.Marshal(map[string]any{"channel_id": strconv.FormatInt(c.ID, 10), "revision": strconv.FormatInt(c.Revision, 10), "name": c.Name, "asset": "USDT", "network": c.Network, "fee_bps": fee, "fee_source": source, "group_id": strconv.FormatInt(policy.group.ID, 10), "group_policy": json.RawMessage(canonical), "routing_group_id": strconv.FormatInt(policy.routingGroup, 10), "routing_group_policy": json.RawMessage(routing), "min_amount": c.MinAmount, "max_amount": c.MaxAmount, "day_limit": c.DayLimit, "day_basis": "UTC creation date", "quote_cny_per_usdt": in.QuoteRate})
+		fields := map[string]any{
+			"channel_id": strconv.FormatInt(c.ID, 10), "revision": strconv.FormatInt(c.Revision, 10),
+			"name": c.Name, "asset": "USDT", "network": c.Network, "fee_bps": fee, "fee_source": source,
+			"group_id": strconv.FormatInt(policy.group.ID, 10), "group_policy": json.RawMessage(canonical),
+			"routing_group_id": strconv.FormatInt(policy.routingGroup, 10), "routing_group_policy": json.RawMessage(routing),
+			"min_amount": c.MinAmount, "max_amount": c.MaxAmount, "day_limit": c.DayLimit,
+			"day_basis": "UTC creation date", "quote_cny_per_usdt": in.QuoteRate,
+		}
+		if in.QuoteRate != "" {
+			fields["quote_valid_until"] = in.QuoteValidUntil.UTC()
+		}
+		snapshot, e := json.Marshal(fields)
 		if e != nil {
 			return out, e
 		}

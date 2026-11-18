@@ -19,6 +19,12 @@ import (
 	"goepay/internal/payment"
 )
 
+const cryptoQuoteUnavailable = "USDT CNY quote expired or unavailable"
+
+func (s *Server) cryptoQuoteOpen(now time.Time) bool {
+	return s.Crypto != nil && s.CryptoCNYPerUSDT != "" && now.Before(s.CryptoQuoteValidUntil)
+}
+
 // CNY stays an integer number of cents throughout. Round the USDT quote upward
 // to one millionth so a quoted payment never underfunds the original price.
 func CryptoQuoteCNY(cents int64, rate string) (string, error) {
@@ -109,6 +115,10 @@ func (s *Server) cryptoCompatibilityCreate(w http.ResponseWriter, r *http.Reques
 		s.wire(w, legacy, nil, "USDT order namespace unavailable")
 		return
 	}
+	if !s.cryptoQuoteOpen(time.Now()) {
+		s.wire(w, legacy, nil, cryptoQuoteUnavailable)
+		return
+	}
 	amount, quoteError := CryptoQuoteCNY(cents, s.CryptoCNYPerUSDT)
 	network := p["network"]
 	if network == "" && channelID == 0 && !s.Crypto.RequireChannels {
@@ -131,8 +141,17 @@ func (s *Server) cryptoCompatibilityCreate(w http.ResponseWriter, r *http.Reques
 		return nil
 	})
 	ctx = s.cryptoPaymentContext(ctx, r, merchant.ID, p["name"], p["notify_url"], p["return_url"], p["clientip"], p["sub_openid"])
-	invoice, e := s.Crypto.CreateInvoice(ctx, cryptopay.CreateInvoiceInput{QuoteRate: s.CryptoCNYPerUSDT, ChannelID: channelID, MerchantID: merchant.ID, OutTradeNo: p["out_trade_no"], Network: network, Amount: amount, CNYAmount: cents, NotifyURL: p["notify_url"], ReturnURL: p["return_url"], Name: p["name"], Param: p["param"], Version: wireVersion(legacy), ExpiresIn: 15 * time.Minute})
+	invoice, e := s.Crypto.CreateInvoice(ctx, cryptopay.CreateInvoiceInput{
+		QuoteRate: s.CryptoCNYPerUSDT, QuoteValidUntil: s.CryptoQuoteValidUntil, ChannelID: channelID,
+		MerchantID: merchant.ID, OutTradeNo: p["out_trade_no"], Network: network, Amount: amount, CNYAmount: cents,
+		NotifyURL: p["notify_url"], ReturnURL: p["return_url"], Name: p["name"], Param: p["param"],
+		Version: wireVersion(legacy), ExpiresIn: 15 * time.Minute,
+	})
 	if e != nil {
+		if errors.Is(e, cryptopay.ErrQuoteExpired) {
+			s.wire(w, legacy, nil, cryptoQuoteUnavailable)
+			return
+		}
 		if errors.Is(e, errCryptoVerificationRequired) {
 			s.wire(w, legacy, nil, errCryptoVerificationRequired.Error())
 			return

@@ -118,7 +118,7 @@ type cashierPayType struct{ Name, ShowName string }
 // the payer's choice.
 func (s *Server) cashierAllowedTypes(r *http.Request, mid int64) []cashierPayType {
 	out := []cashierPayType{}
-	if s.Crypto != nil && s.CryptoCNYPerUSDT != "" {
+	if s.cryptoQuoteOpen(time.Now()) {
 		if _, err := NormalizeCryptoPublicOrigin(s.CryptoPublicOrigin); err == nil {
 			if channels, err := s.Crypto.AvailableChannels(r.Context(), mid, ""); err == nil && len(channels) > 0 {
 				out = append(out, cashierPayType{Name: "usdt", ShowName: "USDT"})
@@ -243,6 +243,10 @@ func (s *Server) cashierChoose(w http.ResponseWriter, r *http.Request, in cashie
 		}
 	}
 	if !allowed {
+		if chosen == "usdt" && s.Crypto != nil && !s.cryptoQuoteOpen(time.Now()) {
+			http.Error(w, cryptoQuoteUnavailable, http.StatusBadRequest)
+			return
+		}
 		http.Error(w, "支付方式(type)不存在", http.StatusBadRequest)
 		return
 	}

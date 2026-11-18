@@ -8,8 +8,9 @@ import {
   toRaw,
   watch,
 } from "vue";
-import { ApiClient, ApiError } from "../api";
+import { ApiClient, ApiError, type User } from "../api";
 import type { CryptoSection } from "../menu";
+import CryptoOperationsMonitor from "./CryptoOperationsMonitor.vue";
 import {
   readCryptoChannelOptions,
   usdtUnits,
@@ -27,6 +28,7 @@ const props = withDefaults(
   defineProps<{
     client: ApiClient;
     ownSession: boolean;
+    adminClass?: User["admin_class"];
     section?: CryptoSection;
     initialChannelID?: string;
   }>(),
@@ -137,6 +139,14 @@ const refund = ref<{
 const address = ref({ network: "tron", address: "", role: "deposit" });
 const sweepRetry = ref({ network: "tron", address: "" });
 const admin = computed(() => props.client.area === "admin");
+const showMonitoring = computed(
+  () =>
+    admin.value &&
+    props.adminClass === "super" &&
+    props.ownSession &&
+    props.section === "operations",
+);
+const monitoringRefresh = ref(0);
 const invoiceChannels = ref<CryptoChannelOption[]>([]),
   channelLoading = ref(false),
   channelError = ref(""),
@@ -219,7 +229,7 @@ const headings: Record<CryptoSection, { title: string; description: string }> =
     },
     operations: {
       title: "地址池与归集",
-      description: "登记受管地址，查看归集记录并核对需要恢复的归集。",
+      description: "查看通道日额度、收款地址余量与归集记录。",
     },
     reconciliation: {
       title: "USDT 账本对账",
@@ -500,6 +510,10 @@ function clearReadData() {
   revokeID.value = "";
   notice.value = "";
 }
+function refresh() {
+  monitoringRefresh.value++;
+  return load();
+}
 async function load() {
   controller?.abort();
   controller = new AbortController();
@@ -698,6 +712,7 @@ async function submit(
     revokeID.value = "";
     approveID.value = "";
     approveRecipientID.value = "";
+    if (kind === "address") monitoringRefresh.value++;
     await load();
     if (!currentView(c) || !readReady.value) return;
     if (showForms.value) checkoutURL.value = result?.checkout_url || "";
@@ -857,7 +872,7 @@ onBeforeUnmount(() => {
           {{ headings[section].description }}
         </p>
       </div>
-      <button type="button" :disabled="loading || busy" @click="load">
+      <button type="button" :disabled="loading || busy" @click="refresh">
         刷新记录
       </button>
     </header>
@@ -928,6 +943,12 @@ onBeforeUnmount(() => {
     >
       USDT 收款与结算已暂停，历史记录仍可查看，当前无法发起新的资金操作。
     </p>
+    <CryptoOperationsMonitor
+      v-if="showMonitoring"
+      :key="principal?.id"
+      :client="client"
+      :refresh="monitoringRefresh"
+    />
     <template v-if="readReady">
       <form
         v-if="admin && section !== 'reconciliation'"
@@ -943,7 +964,7 @@ onBeforeUnmount(() => {
         ><button type="submit" :disabled="loading || busy">查询</button>
       </form>
       <p v-if="admin && section === 'operations'" class="muted">
-        商户筛选仅作用于归集记录；受管地址登记与归集恢复由平台统一管理。
+        商户筛选仅作用于归集记录。
       </p>
       <div v-if="showForms && !activeForm" class="crypto-actions">
         <button

@@ -130,6 +130,14 @@ func (s *Server) cryptoConsole(w http.ResponseWriter, r *http.Request, role stri
 		s.cryptoChannelChoices(w, r, mid)
 		return true
 	}
+	if len(parts) == 3 && parts[2] == "monitoring" {
+		if role != "admin" {
+			response(w, 404, -1, "USDT route not found", nil)
+			return true
+		}
+		s.cryptoMonitoring(w, r, session, token)
+		return true
+	}
 	if s.Crypto == nil {
 		response(w, 503, -1, "USDT 收款与结算尚未启用，当前无法处理此操作", nil)
 		return true

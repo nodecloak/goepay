@@ -2497,6 +2497,7 @@ onBeforeUnmount(() => {
         v-else-if="kind === 'crypto'"
         :key="area + ':crypto'"
         :client="client"
+        :admin-class="session.user.admin_class"
         :own-session="!session.delegated_by"
         :section="cryptoOrderView ? 'invoices' : cryptoSectionFor(area, path)"
         :initial-channel-i-d="

@@ -42,6 +42,47 @@ const layouts = [
   { width: 375, theme: "dark" },
   { width: 1440, theme: "light" },
 ] as const;
+const monitoring = {
+  as_of: "2026-11-18T02:03:04Z",
+  window_start: "2026-11-18T00:00:00Z",
+  window_end: "2026-11-19T00:00:00Z",
+  networks: [
+    {
+      network: "tron",
+      enabled: false,
+      deposit_total: 2,
+      deposit_used: 2,
+      deposit_available: 0,
+    },
+    {
+      network: "ethereum",
+      enabled: false,
+      deposit_total: 12,
+      deposit_used: 7,
+      deposit_available: 5,
+    },
+  ],
+  channels: [
+    {
+      id: "42",
+      name: "桌面与窄屏的 USDT 收款通道".repeat(4),
+      network: "tron",
+      enabled: true,
+      archived: false,
+      day_limit: "10",
+      day_used: "10.000001",
+      day_remaining: "0",
+      day_usage_by_state: {
+        pending: "6.000001",
+        underpaid: "0",
+        paid: "0",
+        overpaid: "0",
+        expired: "4",
+        late: "0",
+      },
+    },
+  ],
+};
 
 test.beforeEach(async ({ context, baseURL }) => {
   const localHosts = new Set(["localhost", "127.0.0.1"]);
@@ -127,6 +168,7 @@ async function mockConsole(page: Page, role: Role, initialMode: Mode) {
                 },
               ],
       });
+    if (path.endsWith("/crypto/monitoring")) return ok(monitoring);
     if (path.endsWith("/crypto/channels"))
       return ok({
         items:
@@ -314,13 +356,56 @@ for (const role of ["admin", "merchant"] as const) {
       expect(
         fixture.cryptoReads
           .slice(disabledSectionReads)
-          .every((path) => path.endsWith("/crypto/config")),
+          .every(
+            (path) =>
+              path.endsWith("/crypto/config") ||
+              (role === "admin" && path.endsWith("/crypto/monitoring")),
+          ),
       ).toBe(true);
       await expectNoOverflow(page);
       expect(fixture.writes).toEqual([]);
       expect(fixture.errors).toEqual([]);
     });
   }
+}
+
+for (const layout of layouts) {
+  test(`admin USDT capacity is readable while closed at ${layout.width} ${layout.theme}`, async ({
+    page,
+  }, testInfo) => {
+    await useLayout(page, layout);
+    const fixture = await mockConsole(page, "admin", "disabled");
+    await fixture.open("operations");
+    await expect(page.getByTestId("crypto-service-disabled")).toBeVisible();
+    const capacity = page.getByTestId("crypto-monitoring");
+    const tron = capacity.locator("[data-network=tron]");
+    const ethereum = capacity.locator("[data-network=ethereum]");
+    await expect(tron).toContainText("地址池余量耗尽");
+    await expect(ethereum.locator("dd").last()).toHaveText("5");
+    await expect(capacity).toContainText("2026-11-19 00:00:00 UTC");
+    const channel = capacity.locator('[data-channel="42"]');
+    await expect(channel).toContainText("当日额度用完");
+    await expect(channel).toContainText("网络已关闭");
+    await expect(channel.locator("details")).not.toHaveAttribute("open", "");
+    await channel.locator("summary").click();
+    await expect(channel.locator("details")).toHaveAttribute("open", "");
+    await expect(channel.locator("details")).toContainText("6.000001 USDT");
+    await expect(channel.locator("details")).toContainText("已过期");
+    await expectNoOverflow(page);
+    await expectNoFundsForms(page);
+    await page.screenshot({
+      path: testInfo.outputPath(`usdt-monitoring-${layout.width}.png`),
+      fullPage: true,
+      animations: "disabled",
+    });
+    await page.getByRole("button", { name: "刷新记录", exact: true }).click();
+    await expect(capacity).toContainText("当日额度用完");
+    expect(
+      fixture.cryptoReads.filter((path) => path.endsWith("/crypto/monitoring")),
+    ).toHaveLength(2);
+    expect(fixture.writes).toEqual([]);
+    expect(fixture.errors).toEqual([]);
+  });
 }
 
 for (const role of ["admin", "merchant"] as const) {

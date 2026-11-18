@@ -16,6 +16,7 @@ var (
 	ErrConflict     = errors.New("crypto request conflict")
 	ErrInsufficient = errors.New("insufficient crypto balance")
 	ErrUnavailable  = errors.New("crypto service unavailable")
+	ErrQuoteExpired = errors.New("USDT quote expired")
 )
 
 type NetworkConfig struct {
@@ -40,6 +41,7 @@ type CreateInvoiceInput struct {
 	ExpiresIn                                         time.Duration
 	Name, Param, Version                              string
 	QuoteRate                                         string
+	QuoteValidUntil                                   time.Time
 }
 type Invoice struct {
 	ID              string          `json:"id"`

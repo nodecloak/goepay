@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 
 	"goepay/internal/cryptopay"
 	"goepay/internal/server"
@@ -11,10 +12,11 @@ import (
 
 func TestCryptoCompatibilityEthereumOnlyUsesChannelRouting(t *testing.T) {
 	values := map[string]string{
-		"GOEPAY_CRYPTO_NETWORKS":     `{"ethereum":{"enabled":true}}`,
-		"GOEPAY_MASTER_KEY":          strings.Repeat("01", 32),
-		"GOEPAY_CRYPTO_CNY_PER_USDT": "7.2",
-		"GOEPAY_PUBLIC_ORIGIN":       "https://payments.example",
+		"GOEPAY_CRYPTO_NETWORKS":              `{"ethereum":{"enabled":true}}`,
+		"GOEPAY_MASTER_KEY":                   strings.Repeat("01", 32),
+		"GOEPAY_CRYPTO_CNY_PER_USDT":          "7.2",
+		"GOEPAY_CRYPTO_CNY_QUOTE_VALID_UNTIL": "2026-11-18T12:00:00+08:00",
+		"GOEPAY_PUBLIC_ORIGIN":                "https://payments.example",
 	}
 	getenv := func(key string) string { return values[key] }
 	svc, err := cryptoFromEnvironment(nil, getenv)
@@ -29,6 +31,9 @@ func TestCryptoCompatibilityEthereumOnlyUsesChannelRouting(t *testing.T) {
 		}
 		if app.CryptoCNYPerUSDT != "7.2" || app.CryptoPublicOrigin != "https://payments.example" || app.CryptoDefaultNetwork != "" {
 			t.Fatal("invalid compatibility quote configuration")
+		}
+		if got := app.CryptoQuoteValidUntil.Format(time.RFC3339); got != "2026-11-18T04:00:00Z" {
+			t.Fatal("absolute quote deadline was not normalized", got)
 		}
 	}
 	svc.Networks["ethereum"] = cryptopay.NetworkConfig{Enabled: false}
@@ -122,5 +127,17 @@ func TestCryptoCompatibilityRetainsTrustedOriginWhenNewQuotesAreDisabled(t *test
 	}
 	if app.CryptoPublicOrigin != "https://payments.example" || app.CryptoCNYPerUSDT != "" {
 		t.Fatal("disabling new quotes lost the origin needed to replay existing invoices", app.CryptoPublicOrigin)
+	}
+}
+
+func TestCryptoCompatibilityRejectsMalformedTrustedQuoteDeadline(t *testing.T) {
+	values := map[string]string{
+		"GOEPAY_CRYPTO_CNY_PER_USDT":          "7.2",
+		"GOEPAY_CRYPTO_CNY_QUOTE_VALID_UNTIL": "2026-11-18T12:00:00",
+		"GOEPAY_PUBLIC_ORIGIN":                "https://payments.example",
+	}
+	app := &server.Server{Crypto: &cryptopay.Service{Networks: map[string]cryptopay.NetworkConfig{"tron": {Enabled: true}}}}
+	if err := configureCryptoCompatibility(app, func(key string) string { return values[key] }); err == nil {
+		t.Fatal("accepted quote deadline without a time zone")
 	}
 }

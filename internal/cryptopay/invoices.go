@@ -127,6 +127,14 @@ func (s *Service) CreateInvoice(ctx context.Context, in CreateInvoiceInput) (Inv
 	if e != ErrNotFound {
 		return out, e
 	}
+	if in.QuoteRate != "" {
+		if _, e = ParseAmount(in.QuoteRate); e != nil || in.CNYAmount == 0 {
+			return out, ErrInvalid
+		}
+		if e = checkQuoteDeadline(ctx, tx, in); e != nil {
+			return out, e
+		}
+	}
 	var route channelAdmission
 	if s.RequireChannels || in.ChannelID > 0 {
 		route, e = s.admitChannel(ctx, tx, in, n)
@@ -183,7 +191,29 @@ func (s *Service) CreateInvoice(ctx context.Context, in CreateInvoiceInput) (Inv
 	if e = currentGroupDeadline(ctx, tx, route.validUntil); e != nil {
 		return Invoice{}, e
 	}
+	if e = checkQuoteDeadline(ctx, tx, in); e != nil {
+		return Invoice{}, e
+	}
 	return out, tx.Commit(ctx)
+}
+
+// PostgreSQL's wall clock advances while an invoice waits for a lock or proof.
+// The transaction start time would allow an already expired quote to commit.
+func checkQuoteDeadline(ctx context.Context, tx pgx.Tx, in CreateInvoiceInput) error {
+	if in.QuoteRate == "" {
+		return nil
+	}
+	if in.QuoteValidUntil.IsZero() {
+		return ErrQuoteExpired
+	}
+	var open bool
+	if err := tx.QueryRow(ctx, "SELECT clock_timestamp() < $1::timestamptz", in.QuoteValidUntil).Scan(&open); err != nil {
+		return err
+	}
+	if !open {
+		return ErrQuoteExpired
+	}
+	return nil
 }
 
 type queryer interface {

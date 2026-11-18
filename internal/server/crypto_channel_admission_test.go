@@ -21,6 +21,7 @@ func cryptoAdmissionFixture(t *testing.T) *email197Fixture {
 	f := email197Local(t)
 	f.s.Crypto = &cryptopay.Service{Pool: f.p, TokenKey: make([]byte, 32), Networks: map[string]cryptopay.NetworkConfig{"tron": {Enabled: true}}}
 	f.s.CryptoCNYPerUSDT, f.s.CryptoDefaultNetwork, f.s.CryptoPublicOrigin = "7.2", "tron", "https://payments.example"
+	f.s.CryptoQuoteValidUntil = time.Now().Add(time.Hour)
 	if err := f.s.Crypto.AddAddress(t.Context(), "tron", "TJRabPrwbZy45sbavfcjinPJC18kjpRTv8", "deposit"); err != nil {
 		t.Fatal(err)
 	}

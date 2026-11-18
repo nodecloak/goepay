@@ -223,6 +223,40 @@ func TestCryptoChannelsDailyLimitSerializesConcurrentMerchants(t *testing.T) {
 	}
 }
 
+func TestCryptoDailyLimitHandlesLargePreviouslyUnlimitedUsage(t *testing.T) {
+	s := channelTestService(t)
+	channel := saveTestChannel(t, s, "previously unlimited", "tron")
+	if _, err := s.Pool.Exec(t.Context(), `
+		INSERT INTO crypto_addresses(network,address,role,used)
+			SELECT 'tron','large-usage-'||i,'deposit',true FROM generate_series(1,1025) i;
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Pool.Exec(t.Context(), `
+		INSERT INTO crypto_invoices(id,merchant_id,out_trade_no,network,address,amount,fee,token_hash,token_cipher,expires_at,channel_id,channel_revision,fee_bps,fee_source,channel_snapshot)
+			SELECT address,1,address,'tron',address,9000000000000000,0,''::bytea,''::bytea,clock_timestamp()+interval '1 hour',$1,1,0,'channel','{"synthetic":true}'
+			FROM crypto_addresses WHERE used
+	`, channel.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Pool.Exec(t.Context(), "UPDATE crypto_channels SET day_limit=10000000 WHERE id=$1", channel.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddAddress(t.Context(), "tron", depositOne, "deposit"); err != nil {
+		t.Fatal(err)
+	}
+	_, err := s.CreateInvoice(t.Context(), CreateInvoiceInput{MerchantID: 2, ChannelID: channel.ID, OutTradeNo: "after-limit-reduction", Amount: "1"})
+	if !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("large prior volume must exhaust the limit: %v", err)
+	}
+	if _, err = s.Pool.Exec(t.Context(), "UPDATE crypto_invoices SET created_at=(date_trunc('day',clock_timestamp() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')+interval '24 hours'"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.CreateInvoice(t.Context(), CreateInvoiceInput{MerchantID: 2, ChannelID: channel.ID, OutTradeNo: "after-limit-reduction", Amount: "1"}); err != nil {
+		t.Fatalf("invoices created at the next UTC midnight used today's quota: %v", err)
+	}
+}
+
 func TestCryptoChannelAuthorityCompositionPreservesOriginalGuard(t *testing.T) {
 	order := []string{}
 	ctx := WithAuthority(t.Context(), func(context.Context, pgx.Tx) error { order = append(order, "session"); return nil })

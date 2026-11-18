@@ -124,6 +124,8 @@ func submitFailureMessage(reason string) (string, string) {
 		return "该商户尚未完成实名认证，暂时无法收款。请联系商户先完成认证后再发起支付。", "merchant_certification_required"
 	case "payment channel not permitted":
 		return "该商户暂未开通当前支付通道，或当前支付方式不可用。请联系商户检查通道配置。", "channel_unavailable"
+	case cryptoQuoteUnavailable:
+		return "USDT 人民币报价暂不可用。请返回商户页面选择其他支付方式，或稍后重新发起。", "usdt_quote_unavailable"
 	case "支付方式(type)不存在":
 		return "当前支付方式暂不可用，请返回商户页面选择其他支付方式。", "payment_type_unavailable"
 	case "merchant unavailable":

@@ -305,7 +305,7 @@ function client(area: "merchant" | "admin" = "merchant") {
     request: vi.fn(
       async (
         path: string,
-        options?: { method?: string; body?: unknown },
+        options?: { method?: string; body?: unknown; signal?: AbortSignal },
       ): Promise<unknown> => {
         if (path.startsWith("/crypto/channels")) return channelOptions();
         if (path === "/crypto/config") return config;
@@ -318,6 +318,217 @@ function client(area: "merchant" | "admin" = "merchant") {
     ),
   });
 }
+
+const monitoringFixture = {
+  as_of: "2026-11-18T05:06:07.123456Z",
+  window_start: "2026-11-18T00:00:00Z",
+  window_end: "2026-11-19T00:00:00Z",
+  networks: [
+    {
+      network: "tron",
+      enabled: false,
+      deposit_total: 12,
+      deposit_used: 7,
+      deposit_available: 5,
+    },
+    {
+      network: "ethereum",
+      enabled: false,
+      deposit_total: 0,
+      deposit_used: 0,
+      deposit_available: 0,
+    },
+  ],
+  channels: [
+    {
+      id: "42",
+      name: "TRON 生产前复核",
+      network: "tron",
+      enabled: true,
+      archived: false,
+      day_limit: "10",
+      day_used: "7.123456",
+      day_remaining: "2.876544",
+      day_usage_by_state: {
+        pending: "3.123456",
+        underpaid: "0",
+        paid: "0",
+        overpaid: "0",
+        expired: "4",
+        late: "0",
+      },
+    },
+    {
+      id: "43",
+      name: "Ethereum 无额度限制",
+      network: "ethereum",
+      enabled: false,
+      archived: false,
+      day_limit: "0",
+      day_used: "0",
+      day_remaining: null,
+      day_usage_by_state: {
+        pending: "0",
+        underpaid: "0",
+        paid: "0",
+        overpaid: "0",
+        expired: "0",
+        late: "0",
+      },
+    },
+  ],
+};
+
+it("shows exact platform capacity on the operations page with the runtime disabled", async () => {
+  const c = client("admin");
+  c.request.mockImplementation(async (path) => {
+    if (path === "/crypto/monitoring") return monitoringFixture;
+    return { configured: false, enabled: false, networks: [] };
+  });
+  const w = mount(CryptoFundsPage, {
+    props: {
+      client: c,
+      ownSession: true,
+      adminClass: "super",
+      section: "operations",
+    },
+  });
+  await flushPromises();
+  expect(w.find("[data-testid=crypto-service-disabled]").exists()).toBe(true);
+  const monitor = w.get("[data-testid=crypto-monitoring]");
+  expect(monitor.text()).toContain("2026-11-19 00:00:00 UTC");
+  expect(monitor.get("[data-network=tron]").text()).toContain("网络已关闭");
+  expect(monitor.get("[data-network=tron]").text()).toMatch(/未分配\s*5/);
+  expect(monitor.get("[data-network=ethereum]").text()).toContain("尚未登记");
+  const channel = monitor.get('[data-channel="42"]');
+  expect(channel.text()).toContain("7.123456 USDT");
+  expect(channel.text()).toContain("2.876544 USDT");
+  expect(channel.text()).toMatch(/待付款\s*3\.123456/);
+  expect(channel.text()).toMatch(/已过期\s*4/);
+  expect(monitor.get('[data-channel="43"]').text()).toContain("不限");
+  expect(w.find("[data-open-form=address]").exists()).toBe(false);
+  expect(c.request.mock.calls.map(([path]) => path).sort()).toEqual([
+    "/crypto/config",
+    "/crypto/monitoring",
+  ]);
+  w.unmount();
+});
+
+it("discards stale capacity on refresh failure and recovers an empty monitoring view", async () => {
+  const c = client("admin");
+  let reply: unknown = monitoringFixture;
+  c.request.mockImplementation(async (path) => {
+    if (path === "/crypto/config") return config;
+    if (path === "/crypto/monitoring") {
+      if (reply instanceof Error) throw reply;
+      return reply;
+    }
+    return [];
+  });
+  const w = mount(CryptoFundsPage, {
+    props: {
+      client: c,
+      ownSession: true,
+      adminClass: "super",
+      section: "operations",
+    },
+  });
+  await flushPromises();
+  const refresh = () =>
+    w
+      .findAll("button")
+      .find((b) => b.text() === "刷新记录")!
+      .trigger("click");
+  expect(w.find('[data-channel="42"]').exists()).toBe(true);
+  reply = new ApiError("unavailable", 503, -1);
+  await refresh();
+  await flushPromises();
+  const monitor = w.get("[data-testid=crypto-monitoring]");
+  expect(monitor.get("[role=alert]").text()).toContain("监控数据暂时无法读取");
+  expect(monitor.find('[data-channel="42"]').exists()).toBe(false);
+  expect(w.find("[data-open-form=address]").exists()).toBe(true);
+  reply = {
+    ...monitoringFixture,
+    channels: [{ ...monitoringFixture.channels[0], day_remaining: "12" }],
+  };
+  await refresh();
+  await flushPromises();
+  expect(monitor.get("[role=alert]").text()).toContain("监控数据暂时无法读取");
+  expect(monitor.find('[data-channel="42"]').exists()).toBe(false);
+  reply = { ...monitoringFixture, channels: [] };
+  await refresh();
+  await flushPromises();
+  expect(monitor.text()).toContain("暂无 USDT 通道");
+  expect(monitor.find("[role=alert]").exists()).toBe(false);
+  expect(c.request.mock.calls.some(([, options]) => options?.method)).toBe(
+    false,
+  );
+  w.unmount();
+});
+
+it("discards the previous session's pending monitoring response", async () => {
+  const original = client("admin");
+  let signal: AbortSignal | undefined;
+  let complete!: (value: unknown) => void;
+  const pending = new Promise<unknown>((resolve) => (complete = resolve));
+  original.request.mockImplementation(async (path, options) => {
+    if (path === "/crypto/monitoring") {
+      signal = options?.signal;
+      return pending;
+    }
+    if (path === "/crypto/config") return config;
+    return [];
+  });
+  const w = mount(CryptoFundsPage, {
+    props: {
+      client: original,
+      ownSession: true,
+      adminClass: "super",
+      section: "operations",
+    },
+  });
+  await flushPromises();
+  expect(signal?.aborted).toBe(false);
+
+  const next = client("admin");
+  next.csrfToken = "next-session";
+  next.request.mockImplementation(async (path) => {
+    if (path === "/crypto/config") return config;
+    if (path === "/crypto/monitoring")
+      return { ...monitoringFixture, channels: [] };
+    return [];
+  });
+  await w.setProps({ client: next });
+  await flushPromises();
+  expect(signal?.aborted).toBe(true);
+  complete(monitoringFixture);
+  await flushPromises();
+  const monitor = w.get("[data-testid=crypto-monitoring]");
+  expect(monitor.text()).toContain("暂无 USDT 通道");
+  expect(monitor.find('[data-channel="42"]').exists()).toBe(false);
+  w.unmount();
+});
+
+it.each([
+  ["merchant", undefined, true, "operations"],
+  ["admin", "operator", true, "operations"],
+  ["admin", "super", false, "operations"],
+  ["admin", "super", true, "overview"],
+] as const)(
+  "restricts monitoring to the platform operations scope (%s %s %s %s)",
+  async (area, adminClass, ownSession, section) => {
+    const c = client(area);
+    const w = mount(CryptoFundsPage, {
+      props: { client: c, ownSession, adminClass, section },
+    });
+    await flushPromises();
+    expect(w.find("[data-testid=crypto-monitoring]").exists()).toBe(false);
+    expect(
+      c.request.mock.calls.some(([path]) => path === "/crypto/monitoring"),
+    ).toBe(false);
+    w.unmount();
+  },
+);
 
 it("shows exact six-decimal USDT balances without platform control actions for a merchant", async () => {
   const c = client();

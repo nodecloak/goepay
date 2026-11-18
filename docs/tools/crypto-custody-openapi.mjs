@@ -62,6 +62,31 @@ export function installCryptoCustodyAPI({paths,schemas,object,str,ref,content}) 
   schemas.CryptoChannelChoice=object(channelChoice,Object.keys(channelChoice));
   const channelView={...channelChoice,revision:ref('CryptoChannelID'),enabled:{type:'boolean'},archived:{type:'boolean'},created_at:time,updated_at:time,pay_type:{type:'string',const:'usdt'},plugin:{type:'string',enum:['usdt_tron','usdt_ethereum']},configured:{type:'boolean',const:true},asset:{type:'string',const:'USDT'},runtime_enabled:{type:'boolean',description:'部署侧当前网络是否启用。保存通道配置不能修改该值，也不能开启签名或广播。'}};
   schemas.CryptoChannelView=object(channelView,Object.keys(channelView));
+  const poolCount={type:'integer',minimum:0,maximum:Number.MAX_SAFE_INTEGER};
+  const depositPool={
+    network:ref('CryptoNetwork'),
+    enabled:{type:'boolean',description:'部署侧收款网络是否启用。关闭时仍展示当前数据库库存。'},
+    deposit_total:poolCount,
+    deposit_used:{...poolCount,description:'已绑定原订单的收款地址数。订单过期也保持绑定。'},
+    deposit_available:{...poolCount,description:'尚未分配的收款地址数。'},
+  };
+  schemas.CryptoDepositPoolUsage=object(depositPool,Object.keys(depositPool));
+  const usageByState=Object.fromEntries(invoiceState.enum.map(state=>[state,ref('CryptoNonnegativeAmount')]));
+  const dayUsage={
+    id:ref('CryptoChannelID'),name:channelChoice.name,network:ref('CryptoNetwork'),
+    enabled:{type:'boolean'},archived:{type:'boolean'},
+    day_limit:ref('CryptoNonnegativeAmount'),
+    day_used:{...ref('CryptoNonnegativeAmount'),description:'当前 UTC 创建日占用的 USDT 数量，按订单原额累计。'},
+    day_remaining:{anyOf:[ref('CryptoNonnegativeAmount'),{type:'null'}],description:'限额减占用，超出时为0。不限额时为null。'},
+    day_usage_by_state:object(usageByState,Object.keys(usageByState)),
+  };
+  schemas.CryptoChannelDayUsage=object(dayUsage,Object.keys(dayUsage));
+  const monitoring={
+    as_of:time,window_start:time,window_end:time,
+    networks:{type:'array',minItems:2,maxItems:2,items:ref('CryptoDepositPoolUsage')},
+    channels:{type:'array',maxItems:1000,items:ref('CryptoChannelDayUsage')},
+  };
+  schemas.CryptoMonitoringView=object(monitoring,Object.keys(monitoring));
   const {id:_channelID,...editableChannel}=channelChoice;
   const channelInput={...editableChannel,enabled:{type:'boolean'},archived:{type:'boolean'},expected_revision:ref('CryptoChannelID')};
   schemas.CryptoChannelPatch=object(channelInput,Object.keys(channelInput));
@@ -98,6 +123,16 @@ export function installCryptoCustodyAPI({paths,schemas,object,str,ref,content}) 
     operation(role,'/recipients/{recipient_id}/revoke','post','撤销所属商户USDT收款地址',{body:'CryptoOwnerPasswordInput',description:'撤销后阻止尚未签名的出款准入；不能撤回已签名或已广播交易，也不会自动释放其预留。'});
   }
   operation('admin','/reconciliation','get','核对独立USDT账本内部一致性',{data:ref('CryptoReconciliationView'),description:'只读journal平衡、账户分录投影与异常负余额计数。零异常不等于链上钱包资产已对账；不生成补账或发起出款。'});
+  operation('admin','/monitoring','get','查看USDT通道日额度与地址池余量',{data:ref('CryptoMonitoringView'),description:'仅本人超级管理员。以数据库时间读取 UTC 创建日的限额、订单原额占用和状态拆分，未付款及过期订单仍占用创建日额度。每条链都返回收款地址库存，网络关闭时也可核查。响应只返回通道资料与聚合数据。'});
+  const monitoringResponses=paths['/console/v1/admin/crypto/monitoring'].get.responses;
+  monitoringResponses['200'].description='Cache-Control: no-store；当前数据库的同一快照。';
+  monitoringResponses['200'].headers={'Cache-Control':{schema:{type:'string',const:'no-store'}}};
+  monitoringResponses['400'].description='不接受查询参数。';
+  monitoringResponses['405']={description:'只接受 GET。',content:content(ref('Envelope'))};
+  monitoringResponses['503'].description='数据库暂不可读、缺少相关迁移或通道目录超过上限。';
+  delete monitoringResponses['409'];
+  delete monitoringResponses['422'];
+  delete monitoringResponses['429'];
   operation('admin','/withdrawals/{withdrawal_id}/approve','post','super批准原USDT出款申请',{body:'CryptoPasswordInput',data:ref('CryptoWithdrawalView'),description:'从requested批准原不可变申请；并不立即签名或广播，不允许替换金额、网络、地址或业务号。'});
   operation('admin','/recipients/{recipient_id}/approve','post','super批准原USDT收款地址',{body:'CryptoPasswordInput',data:ref('CryptoRecipientView'),description:'仅批准原地址；登记24小时冷静期照常生效。此审批不更新隔离签名服务独立部署白名单。'});
   operation('admin','/addresses','post','导入公开USDT地址用途',{body:'CryptoAddressInput',description:'仅导入公开地址池元数据，要求规范地址。不会创建钱包私钥、改变worker热钱包配置、开通真实广播或授予签名器权限。'});

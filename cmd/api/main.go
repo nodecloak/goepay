@@ -96,8 +96,11 @@ func main() {
 		e = configureCryptoCompatibility(app, os.Getenv)
 	}
 	if e != nil {
-		slog.Error("invalid trusted USDT configuration")
+		slog.Error("invalid trusted USDT configuration", "error", e)
 		os.Exit(1)
+	}
+	if app.CryptoCNYPerUSDT != "" && !time.Now().Before(app.CryptoQuoteValidUntil) {
+		slog.Warn("USDT CNY quotes are closed", "valid_until_env", "GOEPAY_CRYPTO_CNY_QUOTE_VALID_UNTIL")
 	}
 	app.Mail195TestEnabled, e = mailTestGate195(os.Getenv)
 	if e != nil {

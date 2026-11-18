@@ -45,6 +45,7 @@ import (
 type Server struct {
 	Crypto                  *cryptopay.Service
 	CryptoCNYPerUSDT        string
+	CryptoQuoteValidUntil   time.Time
 	CryptoDefaultNetwork    string
 	CryptoPublicOrigin      string
 	originalPaymentScope236 *originalPaymentScope236

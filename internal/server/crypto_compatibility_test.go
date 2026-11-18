@@ -46,6 +46,7 @@ func TestCryptoCompatibilityKeepsTheSignedCNYPriceAndNeverUsesTheCNYLedger(t *te
 	}
 	// Quote settings are supplied by trusted deployment configuration.
 	f.s.CryptoCNYPerUSDT = "7.2"
+	f.s.CryptoQuoteValidUntil = time.Now().Add(time.Hour)
 	f.s.CryptoDefaultNetwork = "tron"
 	f.s.CryptoPublicOrigin = "https://payments.example"
 	p := compat.Params{"pid": "1", "type": "usdt", "out_trade_no": "compat-usdt", "name": "USD invoice", "money": "72.00", "notify_url": "https://merchant.example/notify", "return_url": "https://merchant.example/return", "param": "original-param", "sign_type": "MD5"}
@@ -127,6 +128,7 @@ func TestCryptoCompatibilityPublicOriginBeforeAllocationAndAbsoluteLinks(t *test
 	f := email197Local(t)
 	f.s.Crypto = &cryptopay.Service{Pool: f.p, TokenKey: make([]byte, 32), Networks: map[string]cryptopay.NetworkConfig{"ethereum": {Enabled: true}}}
 	f.s.CryptoCNYPerUSDT = "7.2"
+	f.s.CryptoQuoteValidUntil = time.Now().Add(time.Hour)
 	f.s.CryptoDefaultNetwork = "ethereum"
 	for _, address := range []string{"0x1111111111111111111111111111111111111111", "0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"} {
 		if e := f.s.Crypto.AddAddress(t.Context(), "ethereum", address, "deposit"); e != nil {

@@ -21,10 +21,17 @@ for(const role of ['admin','merchant']){
   }
   assert.ok(paths[base+'/withdrawals/by-request'].get.parameters.some(p=>p.name==='request_id'&&p.required));
 }
-for(const route of ['/reconciliation','/addresses','/withdrawals/{withdrawal_id}/approve','/recipients/{recipient_id}/approve','/sweeps/retry']){
+for(const route of ['/monitoring','/reconciliation','/addresses','/withdrawals/{withdrawal_id}/approve','/recipients/{recipient_id}/approve','/sweeps/retry']){
   assert.ok(paths['/console/v1/admin/crypto'+route]);
   assert.equal(paths['/console/v1/merchant/crypto'+route],undefined,`invented merchant authority ${route}`);
 }
+const monitor=paths['/console/v1/admin/crypto/monitoring'];
+assert.deepEqual(Object.keys(monitor),['get']);
+assert.deepEqual(monitor.get.parameters,[]);
+const monitoringSchema=schemas.CryptoMonitoringView;
+assert.deepEqual(monitoringSchema.required,['as_of','window_start','window_end','networks','channels']);
+assert.deepEqual(schemas.CryptoChannelDayUsage.properties.day_remaining.anyOf,[ref('CryptoNonnegativeAmount'),{type:'null'}]);
+assert.equal(schemas.CryptoDepositPoolUsage.properties.address,undefined);
 for(const suffix of ['','/status','/qr']){
   const op=paths['/crypto/checkout/{invoice_id}'+suffix]?.get;
   assert.ok(op,`missing token checkout ${suffix}`);
