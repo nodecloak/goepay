@@ -17,6 +17,16 @@ async function mockConsole(
     throw Error("Loopback fixture only");
   const foreign: string[] = [],
     posts: string[] = [];
+  let authenticated = !login;
+  const session = {
+    user: {
+      id: area === "admin" ? "1" : "1000",
+      name: area === "admin" ? "平台管理员" : "演示商户",
+      role: area,
+      admin_class: "super",
+    },
+    csrf_token: "synthetic-shell-csrf",
+  };
   await page.context().route("**/*", (route) => {
     if (new URL(route.request().url()).origin === origin)
       return route.continue();
@@ -26,23 +36,22 @@ async function mockConsole(
   await page.route("**/console/v1/**", (route) => {
     const path = new URL(route.request().url()).pathname;
     if (route.request().method() !== "GET") posts.push(path);
+    if (
+      path === `/console/v1/${area}/login` &&
+      route.request().method() === "POST"
+    ) {
+      authenticated = true;
+      return route.fulfill(ok(session));
+    }
     if (path.endsWith("/session"))
       return route.fulfill(
-        login
+        !authenticated
           ? {
               status: 401,
               contentType: "application/json",
               body: JSON.stringify({ code: 401, message: "请登录" }),
             }
-          : ok({
-              user: {
-                id: area === "admin" ? "1" : "1000",
-                name: area === "admin" ? "平台管理员" : "演示商户",
-                role: area,
-                admin_class: "super",
-              },
-              csrf_token: "synthetic-shell-csrf",
-            }),
+          : ok(session),
       );
     if (path.endsWith("/dashboard"))
       return route.fulfill(
@@ -57,6 +66,36 @@ async function mockConsole(
   });
   return { foreign, posts };
 }
+
+for (const area of ["admin", "merchant"] as const)
+  test(`authenticated ${area} console root opens the dashboard`, async ({
+    page,
+    baseURL,
+  }) => {
+    const observed = await mockConsole(page, baseURL, area);
+    for (const suffix of ["", "/"] as const) {
+      await page.goto(`/${area}${suffix}?entry=bookmark#console`);
+      await expect(page.locator(".stat")).toHaveCount(4, { timeout: 3000 });
+      await expect(page).toHaveURL(`/${area}/dashboard?entry=bookmark#console`);
+    }
+    expect(observed.foreign).toEqual([]);
+    expect(observed.posts).toEqual([]);
+  });
+
+test("an administrator can log in from the console root and see the dashboard", async ({
+  page,
+  baseURL,
+}) => {
+  const observed = await mockConsole(page, baseURL, "admin", true);
+  await page.goto("/admin");
+  await page.getByLabel("用户名", { exact: true }).fill("local-admin");
+  await page.getByLabel("密码", { exact: true }).fill("synthetic-password");
+  await page.getByRole("button", { name: "登录工作台", exact: true }).click();
+  await expect(page.locator(".stat")).toHaveCount(4, { timeout: 3000 });
+  await expect(page).toHaveURL("/admin/dashboard");
+  expect(observed.foreign).toEqual([]);
+  expect(observed.posts).toEqual(["/console/v1/admin/login"]);
+});
 
 test("Pro admin shell folds, tracks tabs and keeps route navigation available on375px", async ({
   page,

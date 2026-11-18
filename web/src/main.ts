@@ -11,7 +11,11 @@ applyTheme(storedTheme());
 capturePromotionPrefill();
 const router = createRouter({
   history: createWebHistory(),
-  routes: [{ path: "/:pathMatch(.*)*", component: { template: "<span />" } }],
+  routes: [
+    { path: "/admin", redirect: "/admin/dashboard" },
+    { path: "/merchant", redirect: "/merchant/dashboard" },
+    { path: "/:pathMatch(.*)*", component: { template: "<span />" } },
+  ],
 });
 installDocumentBoundary202(router);
 const app = createApp(App).use(router);
