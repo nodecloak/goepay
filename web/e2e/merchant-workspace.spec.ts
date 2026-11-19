@@ -12,6 +12,13 @@ const record = {
   name: "本地进件资料",
   status: "pending",
 };
+const onboardingFields = [
+  { name: "business_name", label: "经营名称", max_length: 200, required: true },
+  { name: "contact_name", label: "联系人", max_length: 100, required: true },
+  { name: "contact_phone", label: "联系电话", max_length: 40, required: true },
+  { name: "channel_id", label: "进件渠道 ID", max_length: 19, required: true },
+  { name: "remark", label: "备注", max_length: 2000 },
+].map((field) => ({ ...field, type: "string" }));
 type MenuPage = { path: string; title: string };
 type MenuNode = {
   path: string;
@@ -196,16 +203,18 @@ async function fixture(page: Page, baseURL: string | undefined) {
     )
       data = {
         title: path.includes("/domains/") ? "授权域名" : "商户进件",
-        fields: [
-          { name: "domain", label: "域名", type: "string" },
-          { name: "name", label: "名称", type: "string", required: true },
-          {
-            name: "status",
-            label: "审核状态",
-            type: "string",
-            read_only: true,
-          },
-        ],
+        fields: path.includes("/onboarding-applications/")
+          ? onboardingFields
+          : [
+              { name: "domain", label: "域名", type: "string" },
+              { name: "name", label: "名称", type: "string", required: true },
+              {
+                name: "status",
+                label: "审核状态",
+                type: "string",
+                read_only: true,
+              },
+            ],
         permissions: { create: true, update: true, delete: false },
       };
     else if (
@@ -254,6 +263,33 @@ for (const [width, theme] of [
       expect(calls.faults).toEqual([]);
       expect(calls.foreign).toEqual([]);
       expect(calls.writes).toEqual([]);
+      if (
+        path === "/applyments/create" ||
+        path.startsWith("/applyments/form")
+      ) {
+        const form = main.locator("form");
+        const bounds = await Promise.all(
+          onboardingFields.map(async ({ label }) => {
+            const control = form.getByLabel(label, { exact: true });
+            await expect(control).toBeVisible();
+            return (await control.boundingBox())!;
+          }),
+        );
+        const [business, contact, phone, channel, remark] = bounds;
+        expect(bounds.map(({ x }) => x)).toEqual(bounds.map(() => business.x));
+        if (width > 600) {
+          expect(business.width).toBeLessThanOrEqual(640);
+          expect(remark.width).toBe(business.width);
+          expect(contact.width).toBeLessThan(business.width);
+          expect(phone.width).toBeLessThanOrEqual(240);
+          expect(channel.width).toBe(phone.width);
+        } else {
+          expect(business.width).toBeGreaterThan(250);
+          expect(bounds.map(({ width }) => width)).toEqual(
+            bounds.map(() => business.width),
+          );
+        }
+      }
       if (
         [
           "/dashboard",

@@ -2398,7 +2398,14 @@ onBeforeUnmount(resetContext);
     v-if="mode && schema"
     :class="
       entry
-        ? 'resource-entry'
+        ? [
+            'resource-entry',
+            {
+              'merchant-onboarding-entry':
+                client.area === 'merchant' &&
+                resource === 'onboarding-applications',
+            },
+          ]
         : 'modal-backdrop' +
           (asDrawer ? ' drawer-backdrop' : '') +
           (isGroupEditor ? ' group-edit-backdrop' : '')
@@ -2738,6 +2745,22 @@ onBeforeUnmount(resetContext);
   </div>
 </template>
 <style scoped>
+.merchant-onboarding-entry > .resource-entry-form {
+  max-inline-size: 680px;
+}
+.merchant-onboarding-entry .resource-description {
+  padding: 0;
+  margin-block-end: var(--space-4);
+}
+@media (min-width: 601px) {
+  .merchant-onboarding-entry :deep(input[id="field-contact_name"]) {
+    max-inline-size: 320px;
+  }
+  .merchant-onboarding-entry
+    :deep(:is(input[id="field-contact_phone"], input[id="field-channel_id"])) {
+    max-inline-size: 200px;
+  }
+}
 .modal.resource-modal.pay-roll-modal:not(.modal-drawer) {
   width: min(860px, 100%);
   max-height: 92dvh;
