@@ -1187,7 +1187,6 @@ onBeforeUnmount(() => {
 }
 .template-card.is-current {
   border-color: var(--primary);
-  box-shadow: 0 0 0 1px var(--primary);
 }
 .template-card-pick {
   display: flex;

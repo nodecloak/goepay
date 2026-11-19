@@ -721,13 +721,15 @@ onBeforeUnmount(() => {
 .migration234-success {
   padding: 16px;
   border: 1px solid var(--line);
-  border-left: 3px solid var(--warning);
   border-radius: 5px;
   display: grid;
   gap: 10px;
 }
+.migration234-warning {
+  background: var(--warning-soft);
+}
 .migration234-success {
-  border-left-color: var(--success);
+  background: var(--success-soft);
 }
 .migration234-totals {
   margin: 0;

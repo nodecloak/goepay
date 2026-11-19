@@ -1320,7 +1320,6 @@ onBeforeUnmount(closeDetail);
 .complain-feature-state {
   max-width: 46rem;
   margin-inline-end: auto;
-  border-inline-start: 3px solid var(--warning);
 }
 .complain-feature-state h2 {
   margin-top: 0;

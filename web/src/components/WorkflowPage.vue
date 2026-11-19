@@ -1742,7 +1742,7 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 .merchant-workflow-form .workflow-fee-preview {
-  border-inline-start: 3px solid var(--warning-text);
+  background: var(--warning-soft);
 }
 .merchant-workflow-form .workflow-fee-preview p:first-child {
   margin-top: 0;

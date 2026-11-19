@@ -441,7 +441,7 @@ onBeforeUnmount(() => {
 }
 .batch-confirm {
   margin-block: var(--space-3);
-  border-inline-start: 3px solid var(--warning-text);
+  background: var(--warning-soft);
 }
 .batch-confirm p {
   margin-top: 0;

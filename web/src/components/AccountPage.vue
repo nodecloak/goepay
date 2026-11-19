@@ -823,9 +823,6 @@ onBeforeUnmount(() => {
   border: 0;
   font-size: 16px;
 }
-.api-account-grid .api-connection {
-  border-top: 2px solid var(--primary);
-}
 .api-secret-mask,
 .api-public-keys pre {
   padding: var(--space-3);

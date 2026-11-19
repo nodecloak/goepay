@@ -1,21 +1,46 @@
-body:has(.workspace[data-area="merchant"]) {
-  --bg-page: #101827;
-  --bg-sidebar: #142033;
-  --bg-card: #19263b;
-  --bg-raised: #1e2e46;
-  --bg-hover: #22344e;
-  --line: #2c3d57;
-  --line-control: #5b6d88;
-  --ink: #eff4fc;
-  --ink-muted: #afbdd2;
-  --primary-soft: #233962;
-  --primary-text: #adc6ff;
+/* Theme the body so overlays teleported outside the workspace inherit it. */
+body:has(.workspace[data-area="merchant"]),
+[data-theme="dark"] body:has(.login-layout[data-area="merchant"]) {
   --chart-grid: var(--line);
   --chart-axis: var(--line-control);
   --paper: var(--bg-card);
   --nav: var(--bg-sidebar);
   --muted: var(--ink-muted);
   --accent: var(--primary-text);
+}
+
+[data-theme="dark"]
+  body:has(:is(.workspace, .login-layout)[data-area="merchant"]) {
+  --bg-page: #141518;
+  --bg-sidebar: #191b20;
+  --bg-card: #1e2127;
+  --bg-raised: #282c34;
+  --bg-hover: #2d323b;
+  --line: #373c46;
+  --line-control: #788394;
+  --ink: #edf0f4;
+  --ink-muted: #aab4c2;
+  --primary: #4567c8;
+  --primary-hover: #3c5ab4;
+  --primary-soft: #2a354e;
+  --primary-text: #b1c4ff;
+  --focus: #a7baff;
+  --success: #247858;
+  --success-text: #62d1ae;
+  --success-soft: #20352f;
+  --warning-text: #efc77a;
+  --warning-soft: #3c3020;
+  --danger: #c04454;
+  --danger-text: #ffa2aa;
+  --danger-soft: #412930;
+  --chart-1: #7e9df3;
+  --chart-2: #5ccdae;
+  --chart-total: var(--ink);
+  --on-chart: var(--bg-page);
+  --merchant-balance-bg: #252e42;
+  --merchant-balance-border: #3d4962;
+  --merchant-balance-icon-bg: #35425e;
+  --merchant-balance-ink: var(--ink);
 }
 
 [data-theme="light"] body:has(.workspace[data-area="merchant"]) {
@@ -48,8 +73,13 @@ body:has(.workspace[data-area="merchant"]) {
 }
 
 .workspace[data-area="merchant"] .menu a[aria-current="page"] {
-  box-shadow: inset 3px 0 var(--primary);
   font-weight: 600;
+}
+
+[data-theme="dark"] .workspace[data-area="merchant"] .order-asset-tabs {
+  --pa-border: var(--line-control);
+  --pa-primary: var(--primary-text);
+  --pa-primary-soft: var(--primary-soft);
 }
 
 .workspace[data-area="merchant"] .merchant-docs-link {
@@ -164,6 +194,16 @@ body:has(.workspace[data-area="merchant"]) {
   display: block;
   margin: 0;
   color: #c8d9f5;
+}
+
+[data-theme="dark"] .login-layout[data-area="merchant"] .login-intro {
+  background: var(--bg-raised);
+}
+
+[data-theme="dark"]
+  .login-layout[data-area="merchant"]
+  .merchant-login-brand-label {
+  color: var(--ink-muted);
 }
 
 .login-layout[data-area="merchant"] .login-panel h1 {

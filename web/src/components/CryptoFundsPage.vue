@@ -1826,9 +1826,6 @@ onBeforeUnmount(() => {
 .crypto-merchant .crypto-description {
   margin: 0;
 }
-.crypto-merchant .crypto-service-state {
-  border-inline-start: 3px solid var(--warning, var(--line));
-}
 .crypto-merchant .crypto-primary,
 .crypto-merchant .crypto-forms button[type="submit"] {
   border-color: var(--primary);

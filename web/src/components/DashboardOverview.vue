@@ -946,18 +946,18 @@ const quickLinks = computed<{ label: string; path: string; icon?: string }[]>(
   font-weight: 500;
 }
 .merchant-dashboard .merchant-balance-card {
-  background: #173d70;
-  border-color: #365b91;
-  color: #eff6ff;
+  background: var(--merchant-balance-bg, #173d70);
+  border-color: var(--merchant-balance-border, #365b91);
+  color: var(--merchant-balance-ink, #eff6ff);
 }
 .merchant-dashboard .merchant-balance-card :is(p, strong, b, .stat-icon) {
-  color: #eff6ff;
+  color: var(--merchant-balance-ink, #eff6ff);
 }
 .merchant-dashboard .stat.merchant-balance-card .card-sub b {
-  color: #eff6ff;
+  color: var(--merchant-balance-ink, #eff6ff);
 }
 .merchant-dashboard .merchant-balance-card .stat-icon {
-  background: #34578a;
+  background: var(--merchant-balance-icon-bg, #34578a);
 }
 .merchant-balance-frozen {
   margin: var(--space-1) 0 0;

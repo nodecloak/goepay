@@ -822,7 +822,6 @@ onBeforeUnmount(() => {
   color: var(--muted);
 }
 .certification-steps233 li.current {
-  box-shadow: inset 0 0 0 1px var(--primary-text);
   background: var(--primary-soft);
   color: var(--primary-text);
   font-weight: 600;

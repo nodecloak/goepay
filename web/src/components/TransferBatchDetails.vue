@@ -283,7 +283,7 @@ onBeforeUnmount(() => controller?.abort());
 }
 .merchant-batch-details .batch-detail-confirm {
   margin-top: var(--space-3);
-  border-inline-start: 3px solid var(--warning-text);
+  background: var(--warning-soft);
 }
 .merchant-batch-details .batch-detail-confirm h3 {
   margin-top: 0;

@@ -423,7 +423,6 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
 }
 .notice-settings--merchant .notice-matrix-cell:has(input:checked) {
-  box-shadow: inset 0 0 0 1px var(--primary-text);
   background: var(--primary-soft);
 }
 .notice-matrix-reason {

@@ -545,7 +545,6 @@ select {
 .app-binding {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-left: 3px solid var(--accent);
   background: var(--bg-raised);
   padding: 16px;
   gap: 16px;

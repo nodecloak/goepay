@@ -414,9 +414,6 @@ const visibleRows = computed(() =>
   background: var(--bg-card);
   min-width: 0;
 }
-.daily-summary > div:first-child {
-  border-top: 2px solid var(--primary);
-}
 .daily-summary dt {
   color: var(--ink-muted);
   font-size: 13px;
