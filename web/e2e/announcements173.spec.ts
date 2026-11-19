@@ -379,15 +379,16 @@ test("a failed create is not blindly repeated and needs explicit refresh", async
   const input = page.getByRole("textbox", { name: "公告内容", exact: true });
   await input.fill("未知结果173");
   await page.getByRole("button", { name: "添加", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("刷新核对");
+  await expect(page.getByRole("alert")).toContainText("刷新页面核对");
   await expect(
     page.getByRole("button", { name: "添加", exact: true }),
   ).toBeDisabled();
   expect(f.writes).toHaveLength(1);
   await expect(input).toHaveText("未知结果173");
+  await page.reload();
   await page
-    .getByRole("region", { name: "添加公告", exact: true })
-    .getByRole("button", { name: "刷新核对公告", exact: true })
+    .getByRole("button", { name: "添加公告", exact: true })
+    .first()
     .click();
   await expect(
     page.getByRole("button", { name: "添加", exact: true }),

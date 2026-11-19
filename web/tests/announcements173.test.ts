@@ -189,7 +189,7 @@ it("blocks duplicate and uncertain writes until an explicit refresh", async () =
   await flushPromises();
   await w.get("form").trigger("submit");
   expect(request.mock.calls.filter((x) => x[1]?.method)).toHaveLength(1);
-  expect(w.text()).toContain("刷新核对");
+  expect(w.text()).toContain("刷新页面核对");
   expect(w.get("[contenteditable]").text()).toBe("公告");
   w.unmount();
 });

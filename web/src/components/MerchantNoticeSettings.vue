@@ -169,12 +169,12 @@ async function save() {
   }
 }
 function selectMerchant() {
+  if (busy.value || selectedID.value === inputID.value) return;
   if (!validID(inputID.value)) {
     error.value = "请输入有效的商户 ID";
     return;
   }
-  if (selectedID.value === inputID.value) void load();
-  else selectedID.value = inputID.value;
+  selectedID.value = inputID.value;
 }
 watch(
   () => props.merchantID,
@@ -201,14 +201,20 @@ onBeforeUnmount(() => {
       请使用本人会话；管理员需要商户管理权限。
     </p>
     <template v-else>
-      <div v-if="admin && !merchantID" class="notice-owner">
+      <form
+        v-if="admin && !merchantID"
+        class="notice-owner"
+        @submit.prevent="selectMerchant"
+      >
         <label
           >商户 ID<input
             v-model="inputID"
             inputmode="numeric"
             autocomplete="off" /></label
-        ><button :disabled="busy" @click="selectMerchant">读取商户设置</button>
-      </div>
+        ><button type="submit" :disabled="busy || selectedID === inputID">
+          查询商户设置
+        </button>
+      </form>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
 

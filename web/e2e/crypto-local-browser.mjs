@@ -267,13 +267,7 @@ try {
         animations: "disabled",
       });
     }
-    await page.getByRole("button", { name: "刷新记录", exact: true }).click();
-    await expect(
-      page.getByRole("button", { name: "刷新记录", exact: true }),
-    ).toBeEnabled();
-    await expect(
-      page.getByText("正在加载 USDT 账户…", { exact: true }),
-    ).toHaveCount(0);
+    await page.reload();
     await expect(page.locator(".crypto-table")).toContainText(expectedRecord);
     await page.screenshot({
       path: path.join(evidence, `console-${width}.png`),

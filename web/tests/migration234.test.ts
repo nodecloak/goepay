@@ -268,16 +268,14 @@ describe("migration234 wizard interactions", () => {
         await flushPromises();
       }
       expect(f.wrapper.get('[role="alert"]').text()).toBe(
-        "迁移繁忙或暂存次数、空间达到上限，请先读取迁移记录；持续出现请联系管理员处理暂存。",
+        "迁移繁忙或暂存次数、空间达到上限，请刷新页面查看迁移记录；持续出现请联系管理员处理暂存。",
       );
       expect(f.wrapper.text()).not.toContain(
         "private server connection and secret",
       );
       expect(
-        button(f.wrapper, "读取迁移记录").attributes("disabled"),
-      ).toBeUndefined();
-      await button(f.wrapper, "读取迁移记录").trigger("click");
-      await flushPromises();
+        f.wrapper.findAll("button").some((b) => b.text() === "读取迁移记录"),
+      ).toBe(false);
       expect(f.calls.filter((x) => x.path.endsWith("/" + kind))).toHaveLength(
         1,
       );

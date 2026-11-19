@@ -98,6 +98,7 @@ const account = ref(""),
   customRelation = ref("");
 watch(busy, (value) => emit("busy", value), { flush: "sync" });
 const rule = ref<Rule>(),
+  ruleLoaded = ref(false),
   methods = ref<string[]>([]),
   minimum = ref("0"),
   ruleItems = ref<RuleItem[]>([]);
@@ -207,6 +208,7 @@ function reset() {
 watch(() => [props.client, props.area, merchant.value], reset);
 watch(selected, () => {
   clearPrivate();
+  ruleLoaded.value = false;
   rule.value = undefined;
   ruleItems.value = [];
   methods.value = selectedChannel.value?.methods.slice() || [];
@@ -215,6 +217,7 @@ watch(selected, () => {
     selectedChannel.value?.provider === "alipay" ? "userId" : "MERCHANT_ID";
   relation.value = isV2Single.value ? "SERVICE_PROVIDER" : "PARTNER";
   confirmation.value = undefined;
+  if (selected.value && props.page === "receiver") void loadRule();
 });
 watch(trade, () => {
   declaration.value = undefined;
@@ -562,6 +565,7 @@ async function loadRule() {
       if (e instanceof ApiError && e.status === 404) {
         if (v === epoch) {
           rule.value = undefined;
+          ruleLoaded.value = true;
           notice.value = "该通道尚未配置规则，新版本从 0 开始";
         }
         return;
@@ -582,6 +586,7 @@ async function loadRule() {
     minimum.value = result.minimum_amount;
     methods.value = result.methods.slice();
     ruleItems.value = result.items.map((i: RuleItem) => ({ ...i }));
+    ruleLoaded.value = true;
   });
 }
 function addItem() {
@@ -599,7 +604,7 @@ function addItem() {
 async function saveRule(disable = false) {
   const channel = selected.value,
     expected = rule.value?.id || "0";
-  if (!channel) return;
+  if (!channel || !ruleLoaded.value) return;
   const payload = disable
     ? { ...ownerBody(), expected }
     : {
@@ -921,12 +926,15 @@ onMounted(async () => {
     <p v-if="initialExternalNo" class="table-note">
       原分账请求：<span class="pa-order-no">{{ initialExternalNo }}</span>
     </p>
-    <form class="sharing-toolbar" @submit.prevent="load">
-      <label v-if="area === 'admin'"
+    <form
+      v-if="area === 'admin' && !initialMerchantId"
+      class="sharing-toolbar"
+      @submit.prevent="load"
+    >
+      <label
         >商户 ID<input
           v-model="merchant"
           aria-label="商户 ID"
-          :disabled="!!initialMerchantId"
           inputmode="numeric"
           autocomplete="off"
       /></label>
@@ -934,6 +942,9 @@ onMounted(async () => {
         {{ busy ? "处理中…" : "读取分账数据" }}
       </button>
     </form>
+    <p v-else-if="area === 'admin'" class="muted">
+      商户 ID {{ initialMerchantId }}
+    </p>
     <p v-if="error" role="alert" class="error">{{ error }}</p>
     <p v-if="notice" role="status" class="success">{{ notice }}</p>
     <p v-if="reason" role="status">{{ reason }}</p>
@@ -1077,9 +1088,6 @@ onMounted(async () => {
           使用上方选择的通道。比例为万分比：100 表示
           1%；固定金额以分填写。接收方必须已绑定。
         </p>
-        <button :disabled="busy || !selected" @click="loadRule">
-          读取当前规则
-        </button>
         <p v-if="rule" class="full">
           当前版本 {{ rule.revision }} · {{ rule.enabled ? "启用" : "禁用" }}
         </p>
@@ -1135,7 +1143,11 @@ onMounted(async () => {
         ><button
           class="primary"
           :disabled="
-            busy || !ready || !selected || !ruleItems.length || !methods.length
+            busy ||
+            !ready ||
+            !ruleLoaded ||
+            !ruleItems.length ||
+            !methods.length
           "
           @click="saveRule()"
         >

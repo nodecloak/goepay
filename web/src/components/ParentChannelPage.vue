@@ -865,16 +865,7 @@ onBeforeUnmount(() => {
           <div class="table-tools-end">
             <button
               type="button"
-              class="icon-button table-refresh parent-refresh"
-              aria-label="刷新"
-              title="刷新"
-              :disabled="loading || busy || !!mode"
-              @click="load()"
-            >
-              <ShellIcon name="refresh" /></button
-            ><button
-              type="button"
-              class="icon-button table-refresh parent-columns"
+              class="icon-button parent-columns"
               aria-label="显示列设置"
               title="显示列设置"
               :aria-expanded="showColumns"

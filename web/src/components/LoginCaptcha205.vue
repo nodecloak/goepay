@@ -10,9 +10,8 @@ const props = withDefaults(
     active?: boolean;
     username?: string;
     contextKey?: unknown;
-    disabled?: boolean;
   }>(),
-  { active: false, username: "", disabled: false },
+  { active: false, username: "" },
 );
 const enabled = ref<boolean>(),
   loading = ref(false),
@@ -61,15 +60,15 @@ async function request(
     try {
       envelope = await response.json();
     } catch {
-      throw Error("验证码响应无法核对，请重新读取");
+      throw Error("验证码响应无法核对，请刷新页面重试");
     }
     if (!envelope || typeof envelope !== "object" || Array.isArray(envelope))
-      throw Error("验证码响应无法核对，请重新读取");
+      throw Error("验证码响应无法核对，请刷新页面重试");
     const value = envelope as Record<string, unknown>;
     if (!response.ok || value.code !== 0)
       throw Error(
         response.status === 409
-          ? "验证码配置已变化，请重新核对"
+          ? "验证码配置已变化，请刷新页面重试"
           : "验证码服务不可用，请稍后重试",
       );
     return value.data;
@@ -117,7 +116,7 @@ async function reload() {
       run === metadataEpoch &&
       !controller.signal.aborted
     )
-      error.value = "登录验证码设置无法读取，请重新核对后登录";
+      error.value = "登录验证码设置无法读取，请刷新页面重试";
   } finally {
     if (alive && run === metadataEpoch && !controller.signal.aborted)
       loading.value = false;
@@ -196,7 +195,7 @@ onBeforeUnmount(() => {
   metadataEpoch++;
   metadata?.abort();
 });
-defineExpose({ verify, invalidate, reload });
+defineExpose({ verify, invalidate });
 </script>
 
 <template>
@@ -217,7 +216,7 @@ defineExpose({ verify, invalidate, reload });
               ? "登录时需要完成人机验证"
               : enabled === false
                 ? "当前登录无需人机验证"
-                : "请核对登录验证码设置"
+                : "登录验证码设置暂不可用"
       }}
     </p>
     <p
@@ -229,13 +228,6 @@ defineExpose({ verify, invalidate, reload });
     >
       {{ error }}
     </p>
-    <button
-      type="button"
-      :disabled="disabled || loading || verifying"
-      @click="reload"
-    >
-      重新核对验证码
-    </button>
   </div>
 </template>
 
@@ -250,25 +242,6 @@ defineExpose({ verify, invalidate, reload });
 .login-captcha205 p {
   margin: 0;
   overflow-wrap: anywhere;
-}
-.login-captcha205 button {
-  justify-self: start;
-  max-width: 100%;
-  min-height: 2.75rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid currentColor;
-  border-radius: 0.375rem;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-.login-captcha205 button:focus-visible {
-  outline: 2px solid var(--color-primary, var(--focus));
-  outline-offset: 3px;
-}
-.login-captcha205 button:disabled {
-  cursor: default;
-  opacity: 0.55;
 }
 .login-captcha205-error {
   color: var(--color-danger, var(--danger-text));

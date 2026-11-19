@@ -212,14 +212,19 @@ it("keeps an uncertain POST blocked until an explicit successful read without au
   expect(request).toHaveBeenCalledTimes(2);
   expect(action(wrapper, "核对政策变更").attributes("disabled")).toBeDefined();
   expect(wrapper.text()).toContain("不会自动重复提交");
-  await wrapper.find("form").trigger("submit");
+  const props = wrapper.props();
+  expect(
+    wrapper.findAll("button").some((b) => b.text() === "读取政策版本"),
+  ).toBe(false);
+  wrapper.unmount();
+  const reopened = mount(ReferralPolicyPage, { props });
   await flushPromises();
   expect(
     request.mock.calls.filter(([, o]) => o?.method === "POST"),
   ).toHaveLength(1);
   expect(request).toHaveBeenCalledTimes(3);
   expect(
-    action(wrapper, "核对政策变更").attributes("disabled"),
+    action(reopened, "核对政策变更").attributes("disabled"),
   ).toBeUndefined();
-  wrapper.unmount();
+  reopened.unmount();
 });

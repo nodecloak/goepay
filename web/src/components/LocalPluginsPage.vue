@@ -33,10 +33,7 @@ const pageRows = computed(() =>
 );
 watch([type, applied], () => (page.value = 1));
 const emit = defineEmits<{ loaded: [] }>();
-let catalogPending = false;
-async function reloadCatalog() {
-  if (catalogPending) return;
-  catalogPending = true;
+async function loadCatalog() {
   loading.value = true;
   error.value = "";
   selected.value = null;
@@ -49,14 +46,13 @@ async function reloadCatalog() {
   } catch {
     items.value = [];
     page.value = 1;
-    error.value = "插件列表读取失败，请重试刷新列表";
+    error.value = "插件列表读取失败，请刷新页面重试";
   } finally {
-    catalogPending = false;
     loading.value = false;
     emit("loaded");
   }
 }
-onMounted(reloadCatalog);
+onMounted(loadCatalog);
 function reset() {
   query.value = "";
   applied.value = "";
@@ -89,16 +85,6 @@ function reset() {
             @click="type = t[0]"
           >
             {{ t[1] }}
-          </button>
-        </div>
-        <div class="table-tools-end">
-          <button
-            type="button"
-            class="pa-btn"
-            :disabled="loading"
-            @click="reloadCatalog"
-          >
-            <ShellIcon name="refresh" />刷新本地插件列表
           </button>
         </div>
       </div>

@@ -218,10 +218,10 @@ it("does not silently change entered networks when refreshing the enabled networ
     .get("[data-form=recipient] input[name=recipient_address]")
     .setValue("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE");
   currentConfig = { enabled: true, networks: [config.networks[1]!] };
-  await w
-    .findAll("button")
-    .find((button) => button.text() === "刷新记录")!
-    .trigger("click");
+  expect(
+    w.findAll("button").some((button) => button.text() === "刷新记录"),
+  ).toBe(false);
+  await w.setProps({ section: "overview" });
   await flushPromises();
   for (const form of ["invoice", "recipient", "withdrawal"]) {
     await reveal(w, form);
@@ -438,32 +438,36 @@ it("discards stale capacity on refresh failure and recovers an empty monitoring 
     },
   });
   await flushPromises();
-  const refresh = () =>
-    w
-      .findAll("button")
-      .find((b) => b.text() === "刷新记录")!
-      .trigger("click");
+  const reopen = async () => {
+    await w.setProps({ section: "invoices" });
+    await flushPromises();
+    await w.setProps({ section: "operations" });
+  };
   expect(w.find('[data-channel="42"]').exists()).toBe(true);
   reply = new ApiError("unavailable", 503, -1);
-  await refresh();
+  await reopen();
   await flushPromises();
-  const monitor = w.get("[data-testid=crypto-monitoring]");
-  expect(monitor.get("[role=alert]").text()).toContain("监控数据暂时无法读取");
-  expect(monitor.find('[data-channel="42"]').exists()).toBe(false);
+  const monitor = () => w.get("[data-testid=crypto-monitoring]");
+  expect(monitor().get("[role=alert]").text()).toContain(
+    "监控数据暂时无法读取",
+  );
+  expect(monitor().find('[data-channel="42"]').exists()).toBe(false);
   expect(w.find("[data-open-form=address]").exists()).toBe(true);
   reply = {
     ...monitoringFixture,
     channels: [{ ...monitoringFixture.channels[0], day_remaining: "12" }],
   };
-  await refresh();
+  await reopen();
   await flushPromises();
-  expect(monitor.get("[role=alert]").text()).toContain("监控数据暂时无法读取");
-  expect(monitor.find('[data-channel="42"]').exists()).toBe(false);
+  expect(monitor().get("[role=alert]").text()).toContain(
+    "监控数据暂时无法读取",
+  );
+  expect(monitor().find('[data-channel="42"]').exists()).toBe(false);
   reply = { ...monitoringFixture, channels: [] };
-  await refresh();
+  await reopen();
   await flushPromises();
-  expect(monitor.text()).toContain("暂无 USDT 通道");
-  expect(monitor.find("[role=alert]").exists()).toBe(false);
+  expect(monitor().text()).toContain("暂无 USDT 通道");
+  expect(monitor().find("[role=alert]").exists()).toBe(false);
   expect(c.request.mock.calls.some(([, options]) => options?.method)).toBe(
     false,
   );
@@ -657,7 +661,7 @@ it.each([
     expect(c.request.mock.calls.map((call) => call[0])).toEqual([
       "/crypto/config",
     ]);
-    await w.get(".crypto-header button").trigger("click");
+    await w.setProps({ section: "invoices" });
     await flushPromises();
     expect(c.request.mock.calls.map((call) => call[0])).toEqual([
       "/crypto/config",
@@ -838,7 +842,7 @@ it.each(["config", "balances"])(
     await flushPromises();
     expect(w.find("[data-checkout]").exists()).toBe(true);
     failing = true;
-    await w.get(".crypto-header button").trigger("click");
+    await w.setProps({ section: "overview" });
     await flushPromises();
     expect(w.find("[data-form]").exists()).toBe(false);
     expect(w.find("input[type=password]").exists()).toBe(false);
@@ -848,7 +852,7 @@ it.each(["config", "balances"])(
       "暂时无法读取",
     );
     failing = false;
-    await w.get(".crypto-header button").trigger("click");
+    await w.setProps({ section: "invoices" });
     await flushPromises();
     expect(w.find("[data-form]").exists()).toBe(false);
     await reveal(w, "invoice");
@@ -924,7 +928,7 @@ it("clears a reconciliation read error on a successful refresh and restores norm
     .trigger("click");
   await flushPromises();
   expect(w.find("[data-form]").exists()).toBe(false);
-  await w.get(".crypto-header button").trigger("click");
+  await w.setProps({ section: "overview" });
   await flushPromises();
   expect(w.find("[role=alert].error").exists()).toBe(false);
   await reveal(w, "invoice");
@@ -977,7 +981,7 @@ it("retains an uncertain financial intent through service shutdown and recovers 
     "/crypto/config",
   ]);
   closed = false;
-  await w.get(".crypto-header button").trigger("click");
+  await w.setProps({ section: "settlements" });
   await vi.waitFor(() =>
     expect(
       c.request.mock.calls.some((call) =>

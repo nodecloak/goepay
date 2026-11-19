@@ -65,7 +65,6 @@ const selected = ref<NetworkControl>();
 const uncertain = ref<NetworkControl>();
 const password = ref("");
 const passwordInput = ref<HTMLInputElement>();
-const refreshButton = ref<HTMLButtonElement>();
 const controls = ref<HTMLElement>();
 const loading = ref(false);
 const saving = ref(false);
@@ -196,7 +195,13 @@ async function submit() {
     selected.value = undefined;
     notice.value = `${cryptoNetworkLabel(row.network)}${row.enabled ? "已开启" : "已关闭"}`;
     emit("changed");
-    void nextTick(() => refreshButton.value?.focus({ preventScroll: true }));
+    void nextTick(() =>
+      controls.value
+        ?.querySelector<HTMLButtonElement>(
+          `[data-network="${original.network}"] button`,
+        )
+        ?.focus({ preventScroll: true }),
+    );
   } catch (reason) {
     if (!current() || request !== controller) return;
     const rejected =
@@ -274,19 +279,19 @@ onBeforeUnmount(() => {
       </template>
       <template v-else>
         <p v-if="uncertain" class="alert error" role="alert">
-          操作结果尚未确认。请刷新状态核对，勿重复提交。
+          操作结果尚未确认。请核对原操作结果，勿重复提交。
         </p>
         <div class="network-controls-header">
           <p class="muted">按网络检查钱包、收款地址池和监听服务。</p>
           <button
-            ref="refreshButton"
+            v-if="uncertain || (!loading && !rows.length && error)"
             type="button"
             class="pa-btn"
             data-crypto-network-refresh
             :disabled="loading || saving"
             @click="refresh"
           >
-            刷新状态
+            {{ uncertain ? "核对原操作结果" : "重试" }}
           </button>
         </div>
         <p v-if="loading" role="status">正在核对网络状态…</p>

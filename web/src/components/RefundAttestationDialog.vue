@@ -295,7 +295,7 @@ onBeforeUnmount(() => {
           :disabled="busy || loading"
           @click="load"
         >
-          重新读取状态</button
+          核对原退款结果</button
         ><button
           v-if="view?.eligible && !done && !unknown"
           type="button"

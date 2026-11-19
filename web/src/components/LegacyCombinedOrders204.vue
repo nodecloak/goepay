@@ -245,9 +245,6 @@ onBeforeUnmount(() => {
         </p>
         <div v-if="error" role="alert" class="alert error">
           <p>{{ error }}</p>
-          <button type="button" :disabled="loading" @click="load">
-            重新读取子订单
-          </button>
         </div>
         <template v-if="data">
           <div

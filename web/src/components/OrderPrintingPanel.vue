@@ -198,7 +198,9 @@ onBeforeUnmount(() => {
     <h3>订单打印收据</h3>
     <p v-if="!owner" class="muted">打印由商户本人会话管理。</p>
     <template v-else>
-      <button :disabled="busy" @click="load">查看或刷新打印收据</button>
+      <button v-if="!loaded" :disabled="busy" @click="load">
+        查看打印收据
+      </button>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="notice" role="status">{{ notice }}</p>
       <template v-if="receipt && loaded">

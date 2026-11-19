@@ -59,6 +59,9 @@ watch(
   reset,
   { flush: "sync" },
 );
+watch(scope, (selected) => {
+  if (selected === "global" && permitted.value) void load();
+});
 async function load() {
   if (!active || busy.value) return;
   if (!permitted.value) {
@@ -192,8 +195,7 @@ async function save() {
     if (!active || c.signal.aborted || currentEpoch !== epoch) return;
     uncertain.value = true;
     error.value = e instanceof Error ? e.message : "政策保存结果未知";
-    notice.value =
-      "请重新读取原政策版本，核对后再决定是否修改；不会自动重复提交。";
+    notice.value = "请刷新页面并核对原政策，再决定是否修改；不会自动重复提交。";
   } finally {
     if (active && currentEpoch === epoch) busy.value = false;
   }
@@ -213,7 +215,10 @@ onBeforeUnmount(() => {
     </p>
     <p v-if="error" role="alert" class="alert error">{{ error }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
-    <form class="console-config-toolbar" @submit.prevent="load">
+    <form
+      class="console-config-toolbar"
+      @submit.prevent="scope === 'group' && !current && !uncertain && load()"
+    >
       <label
         >政策范围<select v-model="scope" :disabled="busy">
           <option value="global">全局</option>
@@ -227,8 +232,11 @@ onBeforeUnmount(() => {
           maxlength="19"
           :disabled="busy"
       /></label>
-      <button :disabled="busy || loading || !permitted">
-        读取会员奖励政策
+      <button
+        v-if="scope === 'group' && !current && !uncertain"
+        :disabled="busy || loading || !permitted"
+      >
+        查询用户组政策
       </button>
     </form>
     <section v-if="current" class="console-config-fields">

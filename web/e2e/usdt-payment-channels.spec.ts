@@ -239,7 +239,14 @@ for (const width of [375, 1440]) {
     );
     await expect(panel.locator('input[type="password"]')).toHaveCount(0);
     network.pauseListener();
-    await panel.getByRole("button", { name: "刷新状态" }).click();
+    await expect(panel.getByRole("button", { name: "刷新状态" })).toHaveCount(
+      0,
+    );
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "USDT 网络开关", exact: true })
+      .click();
     await expect(panel.locator('[data-network="tron"]')).toContainText(
       "收款暂停",
     );
@@ -274,7 +281,9 @@ test("an ambiguous network update is reconciled by reading without a replay", as
   await expect(panel).toContainText("结果尚未确认");
   expect(network.reads).toHaveLength(1);
   expect(network.writes).toHaveLength(1);
-  await panel.getByRole("button", { name: "刷新状态" }).click();
+  await panel
+    .getByRole("button", { name: "核对原操作结果", exact: true })
+    .click();
   await expect(panel).toContainText("已核对当前网络状态");
   await expect(
     panel.getByRole("button", { name: "关闭 TRON（TRC20）" }),

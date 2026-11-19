@@ -107,7 +107,7 @@ describe("list page layout", () => {
     const tools = w.get(".pay-type-page .table-tools");
     expect(tools.text()).toContain("新增");
     expect(tools.text()).toContain("系统共有2个支付方式");
-    expect(tools.get(".table-tools-end").text()).toContain("刷新");
+    expect(tools.text()).not.toContain("刷新");
     // Both pay-type rows render with the kit status switch (writable admin).
     const rows = w.findAll("tbody tr");
     expect(rows).toHaveLength(2);

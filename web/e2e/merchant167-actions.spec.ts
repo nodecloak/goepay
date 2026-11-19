@@ -209,7 +209,7 @@ for (const width of [1440, 375])
     await menu.getByRole("menuitem", { name: "打印小票", exact: true }).click();
     dialog = page.getByRole("dialog", { name: "打印小票", exact: true });
     await dialog
-      .getByRole("button", { name: "查看或刷新打印收据", exact: true })
+      .getByRole("button", { name: "查看打印收据", exact: true })
       .click();
     await expect(dialog).toContainText("只显示已核实支付收据");
     expect(writes.filter((v) => v.path.endsWith("/print-jobs"))).toHaveLength(

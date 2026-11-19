@@ -68,6 +68,12 @@ it("shows read-only original notification outcomes and pages without retrying de
   expect(w.text()).toContain("通知记录");
   expect(w.text()).toContain("LOCAL80");
   expect(w.text()).toContain("已受理");
+  expect(
+    w
+      .find(".notice-events")
+      .findAll("button")
+      .map((b) => b.text()),
+  ).toEqual(["加载更多记录"]);
   const more = w.findAll("button").find((b) => b.text() === "加载更多记录");
   expect(more).toBeDefined();
   await more!.trigger("click");

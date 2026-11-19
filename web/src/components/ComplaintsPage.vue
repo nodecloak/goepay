@@ -618,21 +618,12 @@ onBeforeUnmount(closeDetail);
       <p v-if="!canConfigure || area !== 'admin'" class="muted">
         如需使用，请联系平台管理员。
       </p>
-      <div class="toolbar-actions">
+      <div v-if="canConfigure && area === 'admin'" class="toolbar-actions">
         <a
-          v-if="canConfigure && area === 'admin'"
           class="pa-btn pa-btn--primary"
           href="/admin/system/settings?tab=complaint"
           >前往投诉设置</a
         >
-        <button
-          type="button"
-          class="pa-btn"
-          :disabled="loading"
-          @click="reload"
-        >
-          重新检查功能状态
-        </button>
       </div>
     </section>
   </div>
@@ -729,15 +720,6 @@ onBeforeUnmount(closeDetail);
           <h2 v-if="area === 'merchant'" class="complain-table-title">
             投诉记录
           </h2>
-          <button
-            type="button"
-            class="pa-btn"
-            data-action="refresh"
-            :disabled="loading"
-            @click="reload"
-          >
-            获取最新数据
-          </button>
           <button
             type="button"
             class="pa-btn"
@@ -904,17 +886,6 @@ onBeforeUnmount(closeDetail);
           <h3 id="complain-rank-title" class="complain-table-title">
             投诉数据统计&排行榜
           </h3>
-          <div class="table-tools-end">
-            <button
-              type="button"
-              class="pa-btn"
-              data-action="reload"
-              :disabled="loading"
-              @click="reload"
-            >
-              <ShellIcon name="refresh" />刷新
-            </button>
-          </div>
         </div>
         <div class="table-scroll">
           <table class="pa-table">
@@ -982,17 +953,6 @@ onBeforeUnmount(closeDetail);
           >
             批量删除{{ selectedTasks.size ? `（${selectedTasks.size}）` : "" }}
           </button>
-          <div class="table-tools-end">
-            <button
-              type="button"
-              class="pa-btn"
-              data-action="reload"
-              :disabled="loading || taskBusy"
-              @click="reload"
-            >
-              <ShellIcon name="refresh" />刷新
-            </button>
-          </div>
         </div>
         <div class="table-scroll">
           <table class="pa-table">

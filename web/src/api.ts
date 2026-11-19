@@ -164,7 +164,7 @@ export class ApiClient {
       );
     }
     if (keyLogin && requestCSRF !== this.csrfToken)
-      throw new Error("登录上下文已变化，请重新检查登录状态");
+      throw new Error("登录状态已变化，请刷新页面。");
     if (
       response.status === 401 &&
       requestArea === this.area &&
@@ -353,7 +353,7 @@ export class ApiClient {
       area !== this.area ||
       csrf !== this.csrfToken
     )
-      throw Error("登录上下文已变化，请重新检查登录状态");
+      throw Error("登录状态已变化，请刷新页面。");
     this.csrfToken = s.csrf_token;
     return s;
   }
@@ -381,7 +381,7 @@ export class ApiClient {
       signal,
     });
     if (stamp !== this.csrfToken || this.area !== "merchant")
-      throw new Error("登录上下文已变化，请重新检查登录状态");
+      throw new Error("登录状态已变化，请刷新页面。");
     const s = parseMerchantKeySession(value, merchantID);
     this.csrfToken = s.csrf_token;
     return s;

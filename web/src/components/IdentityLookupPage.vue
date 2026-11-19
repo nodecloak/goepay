@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import QRCode from "qrcode";
 import type { ApiClient } from "../api";
 import type { Area } from "../menu";
@@ -134,6 +134,7 @@ function reset(clearChannels = false) {
   clearMaterial();
   error.value = "";
   if (clearChannels) {
+    resolvedMerchant.value = "";
     channels.value = [];
     available.value = false;
     reason.value = "";
@@ -141,14 +142,20 @@ function reset(clearChannels = false) {
   }
 }
 watch(tab, () => {
+  // All provider tabs use the same initial merchant channel list.
+  if (props.area === "merchant" && !resolvedMerchant.value) return;
   selected.value = "";
   reset();
 });
 watch(
-  () => [props.client, props.area, merchant.value],
-  () => reset(true),
+  () => [props.client, props.client.csrfToken, props.area, merchant.value],
+  () => {
+    reset(true);
+    if (props.area === "merchant") void capabilities();
+  },
+  { immediate: true, flush: "sync" },
 );
-watch(selected, () => reset());
+watch(selected, () => reset(), { flush: "sync" });
 function parseChannel(v: any): Channel {
   if (
     !v ||
@@ -336,9 +343,6 @@ const timer = setInterval(() => {
     clearMaterial();
   }
 }, 1000);
-onMounted(() => {
-  if (props.area === "merchant") void capabilities();
-});
 onBeforeUnmount(() => {
   clearInterval(timer);
   reset(true);
@@ -392,6 +396,7 @@ onBeforeUnmount(() => {
             autocomplete="off"
         /></label>
         <button
+          v-if="area === 'admin'"
           class="pa-btn"
           data-action="capabilities"
           :disabled="busy"

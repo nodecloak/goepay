@@ -130,7 +130,7 @@ async function act(action: Action | "query") {
   } catch (e) {
     if (current === epoch && !signal?.aborted) {
       uncertain.value = true;
-      error.value = `${e instanceof Error ? e.message : "处理结果未知"}。请刷新原申请核对；不会自动重发。`;
+      error.value = `${e instanceof Error ? e.message : "处理结果未知"}。请核对原申请；不会自动重发。`;
     }
   } finally {
     if (current === epoch || current + 1 === epoch) busy.value = false;
@@ -157,7 +157,8 @@ onBeforeUnmount(() => {
     <div class="toolbar">
       <h3>结算出款 · 申请 {{ requestId }}</h3>
       <div class="toolbar-actions">
-        <button :disabled="loading || busy" @click="load">刷新原申请</button
+        <button v-if="uncertain" :disabled="loading || busy" @click="load">
+          核对原申请</button
         ><button :disabled="busy" @click="emit('close')">关闭出款详情</button>
       </div>
     </div>

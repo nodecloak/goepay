@@ -72,14 +72,16 @@ it("clears stale choices after read failure and never retries a rejected restora
   expect(
     w.findAll("button").filter((b) => b.text() === "确认恢复"),
   ).toHaveLength(0);
-  await w
-    .findAll("button")
-    .find((b) => b.text() === "刷新状态")!
-    .trigger("click");
+  expect(w.findAll("button").some((b) => b.text() === "刷新状态")).toBe(false);
+  w.unmount();
+  const reopened = mount(ChannelStopPanel, { props: { client } });
   await flushPromises();
   expect(request).toHaveBeenCalledTimes(3);
-  expect(w.text()).not.toContain(stopped.channel_id);
-  w.unmount();
+  expect(
+    request.mock.calls.filter(([, opt]) => opt?.method === "POST"),
+  ).toHaveLength(1);
+  expect(reopened.text()).not.toContain(stopped.channel_id);
+  reopened.unmount();
 });
 
 it("rejects numeric or contradictory status IDs before offering a restore action", async () => {

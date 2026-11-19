@@ -64,7 +64,7 @@ for (const [status, code, message] of [
     w.unmount();
   });
 
-it("a successful availability retry restores the real complaint controls", async () => {
+it("reopening the page after the feature is enabled restores the real complaint controls", async () => {
   let disabled = true;
   const client = new ApiClient("admin");
   client.request = async (path: string) => {
@@ -75,16 +75,19 @@ it("a successful availability retry restores the real complaint controls", async
         : { items: [], summary: {} }
     ) as never;
   };
-  const w = mount(ComplaintsPage, {
-    props: { client, area: "admin", path: "/complain/list" },
-  });
+  const open = () =>
+    mount(ComplaintsPage, {
+      props: { client, area: "admin", path: "/complain/list" },
+    });
+  let w = open();
   await flushPromises();
   disabled = false;
   const retry = w
     .findAll("button")
     .find((b) => b.text() === "重新检查功能状态");
-  expect(retry).toBeDefined();
-  await retry!.trigger("click");
+  expect(retry).toBeUndefined();
+  w.unmount();
+  w = open();
   await flushPromises();
   expect(w.text()).not.toContain("交易投诉尚未启用");
   expect(w.find('[aria-label="搜索内容"]').exists()).toBe(true);

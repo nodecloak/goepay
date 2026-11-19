@@ -147,15 +147,13 @@ for (const mode of ["lost", "malformed"])
     const f = await fixture(page, mode);
     const initialSessionReads = f.getSessions();
     await page.getByRole("button", { name: "登录工作台", exact: true }).click();
-    await expect(page.getByRole("alert")).toContainText("重新检查登录状态");
+    await expect(page.getByRole("alert")).toContainText("请刷新页面");
     await expect(page.getByLabel("商户密钥", { exact: true })).toHaveValue("");
     await expect(
       page.getByRole("button", { name: "登录工作台", exact: true }),
     ).toBeDisabled();
     expect(f.writes).toHaveLength(1);
-    await page
-      .getByRole("button", { name: "重新检查登录状态", exact: true })
-      .click();
+    await page.reload();
     await expect(page).toHaveURL(/\/merchant\/dashboard$/);
     await page
       .getByRole("button", { name: "本地密钥商户", exact: true })

@@ -32,7 +32,7 @@ const items = ref<CoreRiskAction[]>([]),
   notice = ref(""),
   target = ref<CoreRiskAction>(),
   page = ref(1),
-  refresh = ref<HTMLButtonElement>(),
+  heading = ref<HTMLHeadingElement>(),
   dialog = ref<HTMLElement>();
 const pages = computed(() => Math.max(1, Math.ceil(items.value.length / 20))),
   visible = computed(() =>
@@ -62,7 +62,7 @@ function reset() {
 function context() {
   if (client === toRaw(props.client) && csrf === client.csrfToken) return true;
   reset();
-  error.value = "会话已变化，请刷新阻断记录后重新核对。";
+  error.value = "会话已变化，请刷新页面后重新核对。";
   return false;
 }
 function valid(stamp: number, c: AbortController) {
@@ -120,7 +120,7 @@ async function cancel() {
   target.value = undefined;
   await nextTick();
   if (opener?.isConnected) opener.focus();
-  else refresh.value?.focus();
+  else heading.value?.focus();
 }
 async function release() {
   if (
@@ -161,7 +161,7 @@ async function release() {
       "此项风控限制已解除；账户、支付权限和通道的其它关闭状态继续生效。";
     target.value = undefined;
     await nextTick();
-    refresh.value?.focus();
+    heading.value?.focus();
   } catch (e) {
     if (valid(stamp, c)) {
       target.value = undefined;
@@ -169,7 +169,7 @@ async function release() {
       error.value =
         e instanceof ApiError && e.status === 409
           ? "阻断记录或策略已变化，请刷新后重新核对。"
-          : "解除结果无法确认，请刷新列表核对；不会自动重复解除。";
+          : "解除结果无法确认，请刷新页面核对；不会自动重复解除。";
     }
   } finally {
     if (valid(stamp, c)) {
@@ -212,8 +212,11 @@ watch(
     props.policyFingerprint,
   ],
   () => {
+    const sameSession =
+      client === toRaw(props.client) && csrf === client.csrfToken;
     reset();
-    error.value = "会话或策略已变化，请刷新阻断记录。";
+    if (sameSession && props.allowed) void load();
+    else error.value = "会话或权限已变化，请刷新页面后核对。";
   },
 );
 onMounted(load);
@@ -227,14 +230,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="risk-actions" aria-label="风控阻断记录">
     <div class="toolbar">
-      <h3>风控阻断记录</h3>
-      <button
-        ref="refresh"
-        :disabled="busy || loading || !allowed"
-        @click="load"
-      >
-        刷新阻断记录
-      </button>
+      <h3 ref="heading" tabindex="-1">风控阻断记录</h3>
     </div>
     <p>
       自动检查开关控制后续检测。已有阻断按期限继续生效，解除仅针对选中的一项风控原因。

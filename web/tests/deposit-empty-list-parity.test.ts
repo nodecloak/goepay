@@ -63,7 +63,7 @@ it("shows the deposit API's exact yuan amount without treating it as minor units
   }
 });
 
-it("retains recharge headers when empty and renders its exact yuan after refresh", async () => {
+it("retains recharge headers when empty and renders exact yuan after changing the page size", async () => {
   const client = new ApiClient("merchant");
   const request = vi
     .spyOn(client, "request")
@@ -93,11 +93,15 @@ it("retains recharge headers when empty and renders its exact yuan after refresh
       ],
       total: 1,
     });
+    await view.get('[aria-label="每页条数"]').trigger("click");
     await view
-      .findAll("button")
-      .find((b) => b.text() === "刷新")!
+      .findAll('[role="option"]')
+      .find((option) => option.text() === "50 条/页")!
       .trigger("click");
     await flushPromises();
+    expect(request.mock.calls.map(([path]) => path)).toContain(
+      "/workflows/recharges?page=1&limit=50",
+    );
     expect(view.find("tbody").text()).toContain("1,234.56");
     expect(view.find("tbody").text()).toContain("已支付");
   } finally {

@@ -258,6 +258,15 @@ async function setup(options: Options = {}) {
     metadataReads: () => calls.filter((call) => call.path === metadataPath),
   };
 }
+async function reloadLogin(f: Awaited<ReturnType<typeof setup>>) {
+  const path = f.router.currentRoute.value.fullPath;
+  mounted.splice(mounted.indexOf(f.wrapper), 1);
+  f.wrapper.unmount();
+  await f.router.push(path);
+  f.wrapper = mount(App, { attachTo: document.body, global: { plugins: [f.router] } });
+  mounted.push(f.wrapper);
+  await flushPromises();
+}
 function captchaPanel(wrapper: VueWrapper) {
   expect(
     wrapper.find('[aria-label="登录验证码"]').exists(),
@@ -462,15 +471,14 @@ it("205 App unknown password login result blocks a new proof/write until read-on
   sdk.success();
   await flushPromises();
   expect(f.credentialPosts()).toHaveLength(1);
-  expect(f.wrapper.find('[data-action="check-login"]').exists()).toBe(true);
+  expect(f.wrapper.get('[role="alert"]').text()).toContain("请刷新页面");
   expect(
     f.wrapper.get('form button[type="submit"]').attributes("disabled"),
   ).toBeDefined();
   await submit(f.wrapper);
   expect(f.credentialPosts()).toHaveLength(1);
   expect(f.initPosts()).toHaveLength(1);
-  await f.wrapper.get('[data-action="check-login"]').trigger("click");
-  await flushPromises();
+  await reloadLogin(f);
   expect(
     f.calls.filter((call) => call.path === "/console/v1/merchant/session"),
   ).toHaveLength(2);
@@ -499,12 +507,11 @@ it("205 App retains existing unknown key-login session recovery without requesti
     .setValue(actualSession.merchant_id);
   await f.wrapper.get('[name="api_key"]').setValue("synthetic-key205");
   await submit(f.wrapper);
-  expect(f.wrapper.find('[data-action="check-login"]').exists()).toBe(true);
+  expect(f.wrapper.get('[role="alert"]').text()).toContain("请刷新页面");
   expect(f.initPosts()).toEqual([]);
   await submit(f.wrapper);
   expect(f.credentialPosts()).toHaveLength(1);
-  await f.wrapper.get('[data-action="check-login"]').trigger("click");
-  await flushPromises();
+  await reloadLogin(f);
   expect(
     f.calls.filter((call) => call.path === "/console/v1/merchant/session"),
   ).toHaveLength(2);

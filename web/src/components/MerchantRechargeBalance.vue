@@ -46,7 +46,7 @@ async function load() {
     balance.value = value;
   } catch {
     if (sameContext())
-      error.value = "余额读取失败，请重新读取。充值记录仍可正常查看。";
+      error.value = "余额读取失败，请刷新页面重试。充值记录仍可正常查看。";
   } finally {
     if (active && current === epoch) loading.value = false;
   }
@@ -67,22 +67,12 @@ onBeforeUnmount(() => {
     class="panel account-section recharge-account-balance"
     aria-label="充值账户余额"
   >
-    <div class="recharge-balance-bar">
-      <dl>
-        <dt>当前余额（元）</dt>
-        <dd :class="{ 'balance-ready': balance !== null }" aria-live="polite">
-          {{ balance ?? (loading ? "读取中…" : "暂不可用") }}
-        </dd>
-      </dl>
-      <button
-        type="button"
-        class="soft-button"
-        :disabled="loading"
-        @click="load"
-      >
-        {{ error ? "重新读取余额" : "刷新余额" }}
-      </button>
-    </div>
+    <dl>
+      <dt>当前余额（元）</dt>
+      <dd :class="{ 'balance-ready': balance !== null }" aria-live="polite">
+        {{ balance ?? (loading ? "读取中…" : "暂不可用") }}
+      </dd>
+    </dl>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
   </section>
 </template>
@@ -101,16 +91,8 @@ onBeforeUnmount(() => {
   font-weight: 650;
   line-height: 1.15;
 }
-.recharge-balance-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-}
-.recharge-balance-bar dl {
+.recharge-account-balance dl {
   margin: 0;
-  min-width: 0;
 }
 .recharge-account-balance > .alert {
   margin: var(--space-4) 0 0;

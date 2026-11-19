@@ -137,7 +137,7 @@ onBeforeUnmount(() => controller?.abort());
             ? "仅允许重新排队支付通知和结果核实任务，不重新提交支付、退款或转账。"
             : "只显示有权访问的运行记录。"
         }}</span
-        ><button :disabled="loading" @click="load">刷新</button>
+        >
       </div>
       <div v-if="loading" class="loading-row" role="status">
         正在读取运行信息…

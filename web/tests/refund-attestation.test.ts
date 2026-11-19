@@ -177,7 +177,7 @@ for (const outcome of [
     await button("确认并提交")!.trigger("click");
     await flushPromises();
     expect(writes).toBe(1);
-    await button("重新读取状态")!.trigger("click");
+    await button("核对原退款结果")!.trigger("click");
     expect(locked()).toBe(true);
     expect(writes).toBe(1);
     if (outcome === "pending") return;

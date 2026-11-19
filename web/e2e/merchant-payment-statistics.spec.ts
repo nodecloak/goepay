@@ -108,7 +108,8 @@ for (const width of [1280, 375]) {
     await expect(dialog.locator("tfoot")).toContainText("¥1.00");
     await expect(dialog.locator("tfoot")).toContainText("50.00%");
     invalid = true;
-    await dialog.getByRole("button", { name: "刷新统计", exact: true }).click();
+    await page.keyboard.press("Escape");
+    await f.open();
     await expect(dialog.getByRole("alert")).toContainText(
       "商户统计响应格式无效",
     );
@@ -174,7 +175,8 @@ for (const width of [1280, 375]) {
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("table")).toBeVisible();
     block = true;
-    await dialog.getByRole("button", { name: "刷新统计", exact: true }).click();
+    await page.keyboard.press("Escape");
+    await f.open();
     await started;
     await expect(
       dialog.getByRole("button", { name: "关闭统计", exact: true }),

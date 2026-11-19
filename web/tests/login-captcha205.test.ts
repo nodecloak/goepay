@@ -6,7 +6,6 @@ import LoginCaptcha205 from "../src/components/LoginCaptcha205.vue";
 type Gate = {
   verify(): Promise<Record<string, string>>;
   invalidate(): void;
-  reload(): Promise<void>;
 };
 const mounted: VueWrapper[] = [];
 const id = "a".repeat(32),
@@ -129,6 +128,7 @@ it("205 disabled metadata preserves password login without CAPTCHA or a TestPay 
     "/console/v1/public/login-captcha?role=merchant&mode=password",
   );
   expect(wrapper.text()).toContain("无需人机验证");
+  expect(wrapper.find("button").exists()).toBe(false);
 });
 it.each([
   null,
@@ -143,6 +143,8 @@ it.each([
   await expect(gate(wrapper).verify()).rejects.toThrow();
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(wrapper.find('[role="alert"]').exists()).toBe(true);
+  expect(wrapper.get('[role="alert"]').text()).toContain("刷新页面");
+  expect(wrapper.find("button").exists()).toBe(false);
 });
 it.each([0, 1] as const)(
   "205 V%s verifies the bound username and emits only native fields plus wrapper without storage",
@@ -278,7 +280,7 @@ it("205 unmount cancels the widget and ignores its late success", async () => {
   await rejected;
   expect(sdk.widget.destroy).toHaveBeenCalled();
 });
-it("205 init conflict requires explicit action and never retries automatically", async () => {
+it("reloads only login metadata when reopening after a challenge conflict", async () => {
   const fetch = vi.fn(async (path: string) =>
     response(
       path.endsWith("/init") ? null : { enabled: true },
@@ -291,10 +293,15 @@ it("205 init conflict requires explicit action and never retries automatically",
   await expect(gate(wrapper).verify()).rejects.toThrow("配置已变化");
   await flushPromises();
   expect(fetch).toHaveBeenCalledTimes(2);
-  expect(wrapper.get("button").attributes("type")).toBe("button");
-  await wrapper.get("button").trigger("click");
+  expect(wrapper.find("button").exists()).toBe(false);
+  expect(wrapper.get('[role="alert"]').text()).toContain("刷新页面");
+  mounted.pop()!.unmount();
+  start();
   await flushPromises();
   expect(fetch).toHaveBeenCalledTimes(3);
+  expect(fetch.mock.calls[2]?.[0]).toBe(
+    "/console/v1/public/login-captcha?role=merchant&mode=password",
+  );
 });
 it("205 CSP or SDK load failure stays closed and removes the fixed official script", async () => {
   vi.stubGlobal(

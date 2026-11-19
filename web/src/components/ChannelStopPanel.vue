@@ -137,7 +137,7 @@ async function restore() {
       updated.blocked ||
       BigInt(updated.revision) !== BigInt(row.revision) + 1n
     )
-      throw new Error("恢复结果待核对，请刷新状态");
+      throw new Error("恢复结果待核对，请刷新页面");
     items.value = items.value.map((x) =>
       x.channel_id === row.channel_id ? updated : x,
     );
@@ -145,7 +145,7 @@ async function restore() {
   } catch (e) {
     if (own === epoch) {
       error.value =
-        e instanceof Error ? e.message : "恢复结果待核对，请刷新状态";
+        e instanceof Error ? e.message : "恢复结果待核对，请刷新页面";
       items.value = [];
     }
   } finally {
@@ -185,9 +185,6 @@ onBeforeUnmount(() => {
         text="付款异常自动停用后，请先核对原转账和通道配置，再恢复新请求。此处显示实际运行通道，修改下方通道资料不会解除停用。"
       />
       <span class="channel-stop-tools">
-        <button type="button" :disabled="loading || busy" @click="load">
-          刷新状态
-        </button>
         <button
           type="button"
           :aria-expanded="open"

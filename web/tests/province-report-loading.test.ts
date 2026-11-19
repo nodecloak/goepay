@@ -69,7 +69,7 @@ it("shows visible loading feedback while the province chunk is pending and repla
   w.unmount();
 });
 
-it("shows a retry control after chunk rejection without retrying imports or business requests automatically", async () => {
+it("explains how to reload a failed report without retrying imports or business requests automatically", async () => {
   let reject!: (error: Error) => void;
   state.load.mockImplementation(
     () =>
@@ -100,9 +100,7 @@ it("shows a retry control after chunk rejection without retrying imports or busi
   expect(state.load).toHaveBeenCalledTimes(1);
   expect(request).not.toHaveBeenCalled();
   expect(reload).not.toHaveBeenCalled();
-  await w.get("button").trigger("click");
-  expect(reload).toHaveBeenCalledTimes(1);
-  expect(request).not.toHaveBeenCalled();
-  expect(state.load).toHaveBeenCalledTimes(1);
+  expect(w.get('[role="alert"]').text()).toContain("重新加载页面");
+  expect(w.find("button").exists()).toBe(false);
   w.unmount();
 });

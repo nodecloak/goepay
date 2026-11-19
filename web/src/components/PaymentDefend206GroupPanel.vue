@@ -147,13 +147,7 @@ onBeforeUnmount(() => {
     <h3>其他配置 · 创建订单人机验证</h3>
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
-    <button
-      type="button"
-      :disabled="busy || loading || disabled || !allowed"
-      @click="load"
-    >
-      刷新人机验证配置
-    </button>
+
     <p v-if="loading" role="status">正在读取人机验证配置…</p>
     <template v-if="value"
       ><label

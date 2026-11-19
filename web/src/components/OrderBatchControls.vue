@@ -146,6 +146,7 @@ async function show() {
 function close() {
   if (busy.value) return;
   open.value = false;
+  if (failed.value) emit("updated");
   if (!unknown.value) {
     pending.value = null;
     remember();
@@ -209,7 +210,7 @@ async function execute() {
       failed.value = true;
       error.value =
         e.status === 409
-          ? "订单已更新，本批操作未提交；请重新读取并选择订单"
+          ? "订单已更新，本批操作未提交。关闭后请重新选择订单"
           : e.message;
     } else {
       unknown.value = true;
@@ -361,15 +362,7 @@ onBeforeUnmount(() => {
           <button :disabled="busy" @click="close">
             {{ unknown ? "关闭并保留原请求" : "关闭" }}</button
           ><button
-            v-if="failed"
-            @click="
-              close();
-              emit('updated');
-            "
-          >
-            重新读取列表</button
-          ><button
-            v-else-if="!done"
+            v-if="!failed && !done"
             class="primary"
             :disabled="
               busy || !canWrite || (!unknown && (!reason.trim() || !ack))

@@ -51,7 +51,7 @@ watch(
   >
     <h3>USDT 容量监控</h3>
     <p v-if="failed" role="alert" class="monitor-alert">
-      监控数据暂时无法读取，请刷新记录。
+      监控数据暂时无法读取，请刷新页面。
     </p>
     <p v-else-if="!snapshot" role="status" class="muted">正在读取容量监控…</p>
     <template v-else>

@@ -28,12 +28,16 @@ it("opens the operation panel on the exact row merchant without requiring a seco
   });
   try {
     await flushPromises();
-    expect(request.mock.calls[0]?.[0]).toContain(
-      "merchant_id=9007199254740993",
-    );
-    expect(
-      view.get('input[aria-label="商户 ID"]').attributes("disabled"),
-    ).toBeDefined();
+    expect(view.text()).toContain("商户 ID 9007199254740993");
+    expect(view.find('input[aria-label="商户 ID"]').exists()).toBe(false);
+    expect(view.find("form.sharing-toolbar").exists()).toBe(false);
+    const targets = request.mock.calls.map(([path]) => path).sort();
+    expect(targets).toEqual([
+      "/channel-sharing/channels?merchant_id=9007199254740993",
+      "/channel-sharing/finishes?merchant_id=9007199254740993&limit=100",
+      "/channel-sharing/orders?merchant_id=9007199254740993&limit=20",
+      "/channel-sharing/returns?merchant_id=9007199254740993&limit=20",
+    ]);
     expect(view.text()).toContain("original-sharing");
     expect(
       request.mock.calls.every(([, o]) => !o?.method || o.method === "GET"),

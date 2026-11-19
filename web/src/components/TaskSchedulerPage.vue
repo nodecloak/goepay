@@ -55,7 +55,7 @@ const draft = ref<ScheduledDraft>({
   before = ref("0"),
   previous = ref<string[]>([]);
 const dialog = ref<HTMLElement>(),
-  refresh = ref<HTMLButtonElement>(),
+  section = ref<HTMLElement>(),
   legacyOpen = ref(false),
   queueOpen = ref(false);
 let active = true,
@@ -95,8 +95,8 @@ function ensure() {
   )
     return true;
   reset();
-  catalogError.value = "会话已变更，请刷新任务列表后重新核对。";
-  void nextTick(() => refresh.value?.focus());
+  catalogError.value = "会话已变更，请刷新页面后重新核对。";
+  void nextTick(() => section.value?.focus());
   return false;
 }
 function begin() {
@@ -190,7 +190,6 @@ async function fresh() {
   detailError.value = "";
   target.value = undefined;
   confirmation.value = undefined;
-  uncertain.value = false;
   notice.value = "";
   runScheduled.value = false;
   try {
@@ -202,10 +201,12 @@ async function fresh() {
     if (!valid(current, c)) return false;
     if (value.task !== currentKey) throw Error("target mismatch");
     target.value = value;
+    uncertain.value = false;
     initializeDraft(value);
     return true;
   } catch {
-    if (valid(current, c)) detailError.value = "任务详情读取失败，请刷新核对。";
+    if (valid(current, c))
+      detailError.value = "任务详情读取失败，请关闭后重新打开。";
     return false;
   } finally {
     if (valid(current, c)) {
@@ -352,8 +353,8 @@ async function save() {
       confirmation.value = undefined;
       detailError.value =
         error instanceof ApiError && error.status === 409
-          ? "资料已变更，请刷新核对后重新确认。"
-          : "保存结果尚未确认，请刷新核对；不会自动再次提交。";
+          ? "资料已变更，请核对原任务结果后重新确认。"
+          : "保存结果尚未确认，请核对原任务结果；不会自动再次提交。";
     }
   } finally {
     if (valid(current, c)) {
@@ -387,8 +388,8 @@ async function run() {
       uncertain.value = true;
       detailError.value =
         error instanceof ApiError && error.status === 409
-          ? "任务状态已变更，请刷新核对执行记录后重新确认。"
-          : "安排结果尚未确认，请刷新核对执行记录；不会自动再次安排。";
+          ? "任务状态已变更，请核对原任务执行记录后重新确认。"
+          : "安排结果尚未确认，请核对原任务执行记录；不会自动再次安排。";
     }
   } finally {
     if (valid(current, c)) {
@@ -461,7 +462,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="task-scheduler" aria-label="计划任务">
+  <section
+    ref="section"
+    tabindex="-1"
+    class="task-scheduler"
+    aria-label="计划任务"
+  >
     <p v-if="!permitted" role="status">
       仅本人原超级管理员会话可以核对和配置计划任务。
     </p>
@@ -470,9 +476,6 @@ onBeforeUnmount(() => {
         <p>
           时间均为 UTC+8。立即运行只安排一次待执行任务，完成结果以执行记录为准。
         </p>
-        <button ref="refresh" :disabled="loading || !!modal" @click="load">
-          <ShellIcon name="refresh" />刷新任务列表
-        </button>
       </div>
       <p class="muted">
         未接管的任务仍由原 worker
@@ -749,8 +752,12 @@ onBeforeUnmount(() => {
           >
         </template>
         <footer>
-          <button :disabled="busy || detailLoading" @click="refreshDetail">
-            刷新核对</button
+          <button
+            v-if="uncertain"
+            :disabled="busy || detailLoading"
+            @click="refreshDetail"
+          >
+            核对原任务结果</button
           ><button
             v-if="!confirmation && modal === 'config'"
             :disabled="busy"

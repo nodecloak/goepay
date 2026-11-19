@@ -3862,8 +3862,7 @@ th {
   cursor: not-allowed;
 }
 
-/* Refresh icon at the right end of the list table tools. */
-.table-tools .table-refresh {
+.table-tools .parent-columns {
   width: var(--control-h);
   height: var(--control-h);
   min-height: var(--control-h);
@@ -3871,11 +3870,11 @@ th {
   border: 1px solid var(--line);
   background: var(--bg-card);
 }
-.table-tools .table-refresh:hover {
+.table-tools .parent-columns:hover {
   background: var(--bg-hover);
   color: var(--ink);
 }
-.table-tools .table-refresh .shell-icon {
+.table-tools .parent-columns .shell-icon {
   width: 16px;
   height: 16px;
 }

@@ -76,7 +76,7 @@ for (const area of ["admin", "merchant"] as const)
       );
       if (area === "admin") {
         await page.getByLabel("商户 ID", { exact: true }).fill("1000");
-        await page.getByRole("button", { name: "读取商户设置" }).click();
+        await page.getByRole("button", { name: "查询商户设置" }).click();
       }
       await expect(page.getByLabel("订单金额提醒门槛（元）")).toHaveValue(
         "10.00",
@@ -87,6 +87,14 @@ for (const area of ["admin", "merchant"] as const)
       await expect(
         page.getByRole("region", { name: "通知记录", exact: true }),
       ).toContainText("待核实");
+      if (area === "admin") {
+        await expect(
+          page.getByRole("button", { name: "查询商户设置", exact: true }),
+        ).toBeDisabled();
+        expect(reads.filter((path) => path.endsWith("/notice"))).toHaveLength(
+          1,
+        );
+      }
       await page.getByLabel("订单支付成功 Telegram", { exact: true }).check();
       await page
         .locator('[data-target-action="telegram_uid"]')

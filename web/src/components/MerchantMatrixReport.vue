@@ -276,18 +276,6 @@ onBeforeUnmount(() => controller?.abort());
         <span class="table-summary"
           >共 <strong>{{ total }}</strong> 个商户</span
         >
-        <div class="table-tools-end">
-          <button
-            type="button"
-            class="icon-button table-refresh"
-            :aria-label="loading ? '正在更新…' : '刷新数据'"
-            :title="loading ? '正在更新…' : '刷新数据'"
-            :disabled="loading"
-            @click="load"
-          >
-            <ShellIcon name="refresh" />
-          </button>
-        </div>
       </div>
       <div v-if="loading" class="loading-row" role="status">正在汇总统计…</div>
       <div v-else-if="!error && summary" class="table-scroll">

@@ -3,10 +3,11 @@ import { afterEach, expect, it, vi } from "vitest";
 import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
 import { ApiClient } from "../src/api";
 import CommercePage from "../src/components/CommercePage.vue";
+import { pageReload248 } from "./helpers/page-reload248";
 
 const views: VueWrapper[] = [];
 afterEach(() => {
-  views.splice(0).forEach((view) => view.unmount());
+  for (const view of views.splice(0)) if (view.exists()) view.unmount();
   vi.restoreAllMocks();
 });
 function fixture(
@@ -134,9 +135,10 @@ it.each(["deposits", "memberships"] as const)(
     );
   },
 );
-it("clears the old displayed balance while an explicit refresh is pending", async () => {
+it("shows the loading state instead of the previous balance when reopening the recharge page", async () => {
   const { view, request } = fixture();
   await flushPromises();
+  expect(view.get('[aria-label="充值账户余额"] dd').text()).toBe("99.00");
   let resolve!: (value: unknown) => void;
   request.mockImplementation(
     (path) =>
@@ -146,8 +148,9 @@ it("clears the old displayed balance while an explicit refresh is pending", asyn
           })
         : Promise.resolve({ items: [], total: 0 })) as never,
   );
-  const card = view.get('[aria-label="充值账户余额"]');
-  await card.get("button").trigger("click");
+  const reopened = await pageReload248(view);
+  const card = reopened.get('[aria-label="充值账户余额"]');
+  expect(card.find("button").exists()).toBe(false);
   expect(card.get("dd").text()).toBe("读取中…");
   expect(card.text()).not.toContain("99.00");
   resolve({ available_money: "22.34" });

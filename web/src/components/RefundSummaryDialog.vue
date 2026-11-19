@@ -37,7 +37,7 @@ function summary(value: unknown): Record<string, string> {
   for (const suffix of ["Count", "Money"]) {
     const n = (key: string) => BigInt(result[key]!.replace(".", ""));
     if (n("success" + suffix) + n("pending" + suffix) > n("total" + suffix))
-      throw Error("退款统计总计与状态明细不一致，请重试读取");
+      throw Error("退款统计总计与状态明细不一致");
   }
   return result;
 }
@@ -60,7 +60,7 @@ async function load() {
     data.value = summary(value);
   } catch (e) {
     if (serial === epoch && !c.signal.aborted)
-      error.value = e instanceof Error ? e.message : "退款统计读取失败，请重试";
+      error.value = e instanceof Error ? e.message : "退款统计读取失败";
   } finally {
     if (serial === epoch) loading.value = false;
   }
@@ -126,7 +126,9 @@ onBeforeUnmount(() => {
       </div>
       <p class="muted">统计当前筛选条件下的全部退款记录，不受列表分页限制。</p>
       <p v-if="loading" role="status">正在读取退款统计…</p>
-      <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+      <p v-if="error" role="alert" class="alert error">
+        {{ error }}<br />可关闭后重新打开统计。
+      </p>
       <dl v-if="data" class="refund-summary-grid">
         <div v-for="f in fields" :key="f.key">
           <dt>{{ f.label }}</dt>
@@ -137,9 +139,7 @@ onBeforeUnmount(() => {
         处理中包含退款中及待核实记录；失败记录计入筛选总计，不计入成功金额。
       </p>
       <div class="modal-actions">
-        <button v-if="error" type="button" :disabled="loading" @click="load">
-          重试读取退款统计</button
-        ><button type="button" class="primary" @click="emit('close')">
+        <button type="button" class="primary" @click="emit('close')">
           关闭
         </button>
       </div>

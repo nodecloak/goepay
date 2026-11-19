@@ -94,7 +94,7 @@ it("merchant167 printing opens the existing protected panel without sending a pr
   });
   await flushPromises();
   expect(view.text()).toContain("订单打印收据");
-  expect(view.text()).toContain("查看或刷新打印收据");
+  expect(view.text()).toContain("查看打印收据");
   expect(send).not.toHaveBeenCalled();
   view.unmount();
 });
@@ -133,7 +133,7 @@ it("merchant167 keeps the print dialog and original request while a print respon
   const button = (text: string) =>
     view.findAll("button").find((b) => b.text() === text)!;
   await flushPromises();
-  await button("查看或刷新打印收据").trigger("click");
+  await button("查看打印收据").trigger("click");
   await flushPromises();
   await button("创建手工打印请求").trigger("click");
   await button("确认创建打印请求").trigger("click");

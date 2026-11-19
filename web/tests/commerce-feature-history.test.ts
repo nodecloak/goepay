@@ -109,16 +109,17 @@ it("keeps purchase history readable and withdraws stale offers when the membersh
         total: 1,
       } as never;
     });
-  const w = mount(CommercePage, {
-    props: { client, kind: "memberships", area: "merchant" },
-  });
+  const open = () =>
+    mount(CommercePage, {
+      props: { client, kind: "memberships", area: "merchant" },
+    });
+  let w = open();
   await flushPromises();
   expect(w.text()).toContain("上次报价");
   failCatalog = true;
-  await w
-    .findAll("button")
-    .find((b) => b.text() === "刷新")!
-    .trigger("click");
+  expect(w.findAll("button").some((b) => b.text() === "刷新")).toBe(false);
+  w.unmount();
+  w = open();
   await flushPromises();
   expect(w.text()).toContain("已购记录");
   expect(w.text()).toContain("会员目录暂不可用");

@@ -87,7 +87,7 @@ onBeforeUnmount(() => {
       ><p class="muted">
         “已受理”表示消息服务接受请求；“待核实”表示结果尚未确认。
       </p>
-      <button :disabled="busy" @click="load()">刷新提醒记录</button>
+
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
       <p v-if="busy" role="status">正在读取提醒记录…</p>
       <p v-else-if="!items.length && !error">暂无提醒记录</p>

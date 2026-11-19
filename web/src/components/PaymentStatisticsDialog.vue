@@ -207,9 +207,6 @@ onBeforeUnmount(() => {
           kind === "group" ? "按当前有效用户组统计，" : ""
         }}日期为北京时间订单创建日。金额为已支付订单原金额，数量为全部订单，成功率为已支付笔数／全部笔数。
       </p>
-      <button type="button" :disabled="loading || !allowed" @click="load">
-        刷新统计
-      </button>
       <p v-if="loading" role="status">正在读取统计…</p>
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
       <div

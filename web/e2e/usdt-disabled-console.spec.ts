@@ -305,7 +305,7 @@ async function expectSection(page: Page, section: Section) {
 
 for (const role of ["admin", "merchant"] as const) {
   for (const layout of layouts) {
-    test(`${role} disabled USDT is closed and can refresh at ${layout.width} ${layout.theme} without writes`, async ({
+    test(`${role} disabled USDT is closed on page reload at ${layout.width} ${layout.theme} without writes`, async ({
       page,
     }) => {
       await useLayout(page, layout);
@@ -325,7 +325,7 @@ for (const role of ["admin", "merchant"] as const) {
       expect(fixture.cryptoReads).toEqual([
         `/console/v1/${fixture.area}/crypto/config`,
       ]);
-      await page.getByRole("button", { name: "刷新记录", exact: true }).click();
+      await page.reload();
       await expect(page.getByTestId("crypto-service-disabled")).toBeVisible();
       expect(fixture.cryptoReads).toEqual([
         `/console/v1/${fixture.area}/crypto/config`,
@@ -333,7 +333,7 @@ for (const role of ["admin", "merchant"] as const) {
       ]);
 
       fixture.setMode("enabled");
-      await page.getByRole("button", { name: "刷新记录", exact: true }).click();
+      await page.reload();
       await expect(page.locator(".crypto-funds")).toContainText("7.123456");
       await expect(page.getByTestId("crypto-service-disabled")).toHaveCount(0);
       await expectSection(page, "overview");
@@ -398,7 +398,7 @@ for (const layout of layouts) {
       fullPage: true,
       animations: "disabled",
     });
-    await page.getByRole("button", { name: "刷新记录", exact: true }).click();
+    await page.reload();
     await expect(capacity).toContainText("当日额度用完");
     expect(
       fixture.cryptoReads.filter((path) => path.endsWith("/crypto/monitoring")),
@@ -580,7 +580,7 @@ for (const mode of ["config-error", "list-error"] as const) {
         page.locator('[data-form="invoice"] button[type="submit"]'),
       ).toBeEnabled();
       fixture.setMode(mode);
-      await page.getByRole("button", { name: "刷新记录", exact: true }).click();
+      await page.reload();
       await expect(page.getByTestId("crypto-service-error")).toContainText(
         "USDT 记录暂时无法读取",
       );
@@ -588,7 +588,7 @@ for (const mode of ["config-error", "list-error"] as const) {
       await expect(funds).not.toContainText("7.123456");
       await expectNoFundsForms(page);
       fixture.setMode("enabled");
-      await page.getByRole("button", { name: "刷新记录", exact: true }).click();
+      await page.reload();
       await expect(funds).toContainText("synthetic-usdt-order-history");
       await expect(page.getByTestId("crypto-service-error")).toHaveCount(0);
       await expectNoFundsForms(page);

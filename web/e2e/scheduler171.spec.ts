@@ -241,12 +241,14 @@ test("CAS conflict requires explicit fresh read and never repeats the request", 
   await dialog.getByLabel("开启此任务", { exact: true }).uncheck();
   await dialog.getByRole("button", { name: "核对配置", exact: true }).click();
   await dialog.getByRole("button", { name: "确认保存", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toContainText("刷新核对");
+  await expect(dialog.getByRole("alert")).toContainText("核对原任务结果");
   await expect(
     dialog.getByRole("button", { name: "核对配置", exact: true }),
   ).toBeDisabled();
   expect(f.writes).toHaveLength(1);
-  await dialog.getByRole("button", { name: "刷新核对", exact: true }).click();
+  await dialog
+    .getByRole("button", { name: "核对原任务结果", exact: true })
+    .click();
   await expect(dialog.getByLabel("开启此任务", { exact: true })).toBeChecked();
   expect(f.writes).toHaveLength(1);
   expect(f.unexpected).toEqual([]);

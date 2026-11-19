@@ -262,72 +262,70 @@ onBeforeUnmount(() => controller?.abort());
       </section>
     </div>
     <form
+      v-if="!complaintOverview"
       class="toolbar list-filter-card panel report-filter-kit"
       @submit.prevent="applyFilters"
     >
       <div class="pa-filter-fields list-filters-grid">
-        <template v-if="!complaintOverview">
-          <KitField label="快捷范围">
-            <KitSelect
-              v-model="shortcut"
-              :options="[
-                { value: '', label: '自定义日期' },
-                { value: 'today', label: '今天' },
-                { value: 'yesterday', label: '昨天' },
-                { value: 'last7', label: '最近7天' },
-                { value: 'last30', label: '最近30天' },
-              ]"
-              aria-label="统计日期快捷范围"
-              @change="applyShortcut"
-            />
-          </KitField>
-          <KitField label="开始日期">
-            <input
-              v-model="from"
-              type="date"
-              aria-label="开始日期"
-              @input="shortcut = ''"
-            />
-          </KitField>
-          <KitField label="结束日期">
-            <input
-              v-model="to"
-              type="date"
-              aria-label="结束日期"
-              @input="shortcut = ''"
-            />
-          </KitField>
-          <KitField v-if="showTransferMethodFilter" label="付款方式">
-            <KitSelect
-              v-model="method"
-              :options="[
-                { value: '', label: '全部方式' },
-                { value: 'alipay', label: '支付宝' },
-                { value: 'wxpay', label: '微信' },
-                { value: 'qqpay', label: 'QQ钱包' },
-                { value: 'bank', label: '银行卡' },
-              ]"
-              aria-label="付款方式"
-            />
-          </KitField>
-          <KitField v-if="showTransferMerchantFilter" label="商户号">
-            <input
-              v-model="merchantId"
-              type="text"
-              inputmode="numeric"
-              placeholder="全部商户"
-              aria-label="商户号"
-              @input="
-                merchantId = merchantId.replace(/[^0-9]/g, '');
-                shortcut = '';
-              "
-            />
-          </KitField>
-        </template>
+        <KitField label="快捷范围">
+          <KitSelect
+            v-model="shortcut"
+            :options="[
+              { value: '', label: '自定义日期' },
+              { value: 'today', label: '今天' },
+              { value: 'yesterday', label: '昨天' },
+              { value: 'last7', label: '最近7天' },
+              { value: 'last30', label: '最近30天' },
+            ]"
+            aria-label="统计日期快捷范围"
+            @change="applyShortcut"
+          />
+        </KitField>
+        <KitField label="开始日期">
+          <input
+            v-model="from"
+            type="date"
+            aria-label="开始日期"
+            @input="shortcut = ''"
+          />
+        </KitField>
+        <KitField label="结束日期">
+          <input
+            v-model="to"
+            type="date"
+            aria-label="结束日期"
+            @input="shortcut = ''"
+          />
+        </KitField>
+        <KitField v-if="showTransferMethodFilter" label="付款方式">
+          <KitSelect
+            v-model="method"
+            :options="[
+              { value: '', label: '全部方式' },
+              { value: 'alipay', label: '支付宝' },
+              { value: 'wxpay', label: '微信' },
+              { value: 'qqpay', label: 'QQ钱包' },
+              { value: 'bank', label: '银行卡' },
+            ]"
+            aria-label="付款方式"
+          />
+        </KitField>
+        <KitField v-if="showTransferMerchantFilter" label="商户号">
+          <input
+            v-model="merchantId"
+            type="text"
+            inputmode="numeric"
+            placeholder="全部商户"
+            aria-label="商户号"
+            @input="
+              merchantId = merchantId.replace(/[^0-9]/g, '');
+              shortcut = '';
+            "
+          />
+        </KitField>
       </div>
       <div class="pa-filter-actions">
         <button
-          v-if="!complaintOverview"
           type="button"
           class="pa-btn"
           :disabled="loading"
@@ -340,7 +338,7 @@ onBeforeUnmount(() => controller?.abort());
           class="pa-btn pa-btn--primary"
           :disabled="loading"
         >
-          {{ complaintOverview ? "刷新统计" : "查询统计" }}
+          查询统计
         </button>
       </div>
     </form>
@@ -364,16 +362,6 @@ onBeforeUnmount(() => controller?.abort());
           >共 <strong>{{ total }}</strong> 条统计</span
         >
         <div class="table-tools-end">
-          <button
-            type="button"
-            class="icon-button table-refresh"
-            :aria-label="loading ? '正在更新…' : '刷新数据'"
-            :title="loading ? '正在更新…' : '刷新数据'"
-            :disabled="loading"
-            @click="load"
-          >
-            <ShellIcon name="refresh" />
-          </button>
           <KitHelpPopover :text="reportNote" />
         </div>
       </div>

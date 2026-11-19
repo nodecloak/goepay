@@ -239,8 +239,8 @@ onBeforeUnmount(() => {
         确定保存
       </button>
     </div>
-    <button data-subject-read :disabled="busy" @click="load">
-      {{ busy ? "正在核对…" : "读取原通道标题状态" }}
+    <button v-if="unknown" data-subject-read :disabled="busy" @click="load">
+      {{ busy ? "正在核对…" : "核对原通道修改结果" }}
     </button>
   </section>
 </template>

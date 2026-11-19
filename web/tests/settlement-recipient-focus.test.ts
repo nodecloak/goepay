@@ -98,7 +98,7 @@ it("focuses the readback action after an unknown save without repeating the POST
   await save(view);
   expect(view.text()).toContain("保存结果尚未确认");
   expect(button(view, "修改收款资料").attributes("disabled")).toBeDefined();
-  expect(document.activeElement).toBe(button(view, "刷新收款版本").element);
+  expect(document.activeElement).toBe(button(view, "核对收款版本").element);
   expect(
     request.mock.calls.filter(([, options]) => options?.method === "POST"),
   ).toHaveLength(1);
@@ -117,7 +117,7 @@ it("focuses the read-only refresh action when a conflict's readback fails", asyn
   await save(view);
   expect(view.text()).toContain("synthetic readback failure");
   expect(button(view, "修改收款资料").attributes("disabled")).toBeDefined();
-  expect(document.activeElement).toBe(button(view, "刷新收款版本").element);
+  expect(document.activeElement).toBe(button(view, "重试").element);
   expect(
     request.mock.calls.filter(([, options]) => options?.method === "POST"),
   ).toHaveLength(1);

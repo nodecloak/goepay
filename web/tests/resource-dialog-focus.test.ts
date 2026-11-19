@@ -132,7 +132,7 @@ it("keeps keyboard focus in a temporarily disabled drawer", async () => {
   expect(document.activeElement).toBe(panel);
   expect(writes).toEqual([]);
 });
-it("uses a current toolbar control if a refreshed list replaced the opener", async () => {
+it("focuses the records panel if a refreshed list replaced the opener", async () => {
   const { dialog, opener, view, writes } = await opened();
   opener.element.remove();
   const cancel = dialog
@@ -142,7 +142,7 @@ it("uses a current toolbar control if a refreshed list replaced the opener", asy
   await cancel.trigger("click");
   await flushPromises();
   expect(document.activeElement).toBe(
-    view.get("[data-resource-refresh]").element,
+    view.get(".panel.records").element,
   );
   expect(writes).toEqual([]);
 });

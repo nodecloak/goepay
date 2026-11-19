@@ -111,17 +111,13 @@ it("keeps an unknown toggle on its original owner/version and reconciles without
     ),
   ).toBe(true);
 });
-it("invalid owner links cannot become a global overview by clicking refresh", async () => {
+it("invalid owner links cannot become a global overview on entry", async () => {
   const { view, request } = await setup(
     undefined,
     "/admin/profitsharing/receiver?merchant_id=",
   );
   expect(request).not.toHaveBeenCalled();
-  await view
-    .findAll("button")
-    .find((b) => b.text() === "刷新")!
-    .trigger("click");
-  await flushPromises();
+  expect(view.findAll("button").some((b) => b.text() === "刷新")).toBe(false);
   expect(request).not.toHaveBeenCalled();
 });
 it("a raw session change cannot restore old rule rows or leave a permanent loading state", async () => {
@@ -138,7 +134,7 @@ it("a raw session change cannot restore old rule rows or leave a permanent loadi
   expect(
     view
       .findAll("button")
-      .find((b) => b.text() === "刷新")!
+      .find((b) => b.text() === "查询")!
       .attributes("disabled"),
   ).toBeUndefined();
 });

@@ -153,13 +153,7 @@ onBeforeUnmount(() => {
     </p>
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
-    <button
-      type="button"
-      :disabled="busy || loading || disabled || !allowed"
-      @click="load"
-    >
-      刷新用户组风控
-    </button>
+
     <p v-if="loading" role="status">正在读取用户组风控…</p>
     <template v-if="value"
       ><label

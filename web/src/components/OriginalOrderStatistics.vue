@@ -16,7 +16,6 @@ import {
 } from "../original-order-statistics";
 import { usePayTypeOptions } from "../pay-type-options";
 import CsvExportButton from "./CsvExportButton.vue";
-import ShellIcon from "./ShellIcon.vue";
 import KitHelpPopover from "./KitHelpPopover.vue";
 import KitField from "./KitField.vue";
 import KitInput from "./KitInput.vue";
@@ -266,16 +265,6 @@ const visibleRows = computed(() =>
           >共 <strong>{{ items.length }}</strong> 条记录</span
         >
         <div class="table-tools-end">
-          <button
-            type="button"
-            class="icon-button table-refresh"
-            :aria-label="loading ? '正在更新…' : '刷新数据'"
-            :title="loading ? '正在更新…' : '刷新数据'"
-            :disabled="loading"
-            @click="load"
-          >
-            <ShellIcon name="refresh" />
-          </button>
           <KitHelpPopover>
             <p class="table-note">
               按北京时间的订单创建日期统计{{

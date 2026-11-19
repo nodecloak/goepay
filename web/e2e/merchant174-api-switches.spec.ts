@@ -116,10 +116,43 @@ for (const width of [1440, 375])
     page,
   }, info) => {
     await page.setViewportSize({ width, height: 1000 });
+    await page.addInitScript(
+      (theme) => {
+        localStorage.setItem("goepay-console-theme", theme);
+      },
+      width === 375 ? "dark" : "light",
+    );
     const f = await fixture(page);
     await expect(
       f.panel.getByRole("checkbox", { name: "开启密钥登录" }),
     ).toBeChecked();
+    const thumbs = await f.panel.getByRole("checkbox").evaluateAll((inputs) =>
+      inputs.map((input) => {
+        const thumb = getComputedStyle(input, "::after");
+        const size = parseFloat(thumb.width);
+        const top = parseFloat(thumb.top);
+        const left = parseFloat(thumb.left);
+        const edge = (input as HTMLInputElement).checked
+          ? input.clientWidth - left - size
+          : left;
+        return {
+          background: thumb.backgroundColor,
+          border: thumb.borderBottomWidth,
+          transform: thumb.transform,
+          centered:
+            Math.abs(edge - top) < 1 &&
+            Math.abs(input.clientHeight - size - 2 * top) < 1,
+        };
+      }),
+    );
+    expect(thumbs).toEqual(
+      Array(3).fill({
+        background: "rgb(255, 255, 255)",
+        border: "0px",
+        transform: "none",
+        centered: true,
+      }),
+    );
     await expect(f.panel).toContainText("仍需管理员");
     await change(f.panel);
     await f.panel

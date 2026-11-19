@@ -78,8 +78,11 @@ watch(
     props.plan.last_authorization_id,
     props.plan.merchant_ids.join(","),
   ],
-  reset,
-  { flush: "sync" },
+  () => {
+    reset();
+    void load();
+  },
+  { immediate: true, flush: "sync" },
 );
 async function load() {
   if (!active || !permitted.value || busy.value) return;
@@ -237,13 +240,13 @@ onBeforeUnmount(() => {
     <p>
       原计划授权仅生成申请。自动付款另行绑定原生成授权、收款配置与每商户通道；本页面不会启动执行器或发送付款。
     </p>
-    <button :disabled="loading || busy" @click="load">读取自动付款授权</button>
+    <button v-if="uncertain" :disabled="loading || busy" @click="load">
+      核对原自动付款授权
+    </button>
     <p v-if="loading" role="status">正在读取原自动出款授权…</p>
     <p v-if="error" role="alert" class="alert error">{{ error }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
-    <p v-if="uncertain" role="status">
-      请先重新读取授权状态再进行新的授权；请勿重复提交。
-    </p>
+    <p v-if="uncertain" role="status">请先核对原自动付款授权；请勿重复提交。</p>
     <template v-if="current">
       <p>
         原自动授权 {{ current.id }} ·

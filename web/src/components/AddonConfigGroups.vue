@@ -24,7 +24,6 @@ const props = defineProps<{
 }>();
 defineEmits<{
   create: [];
-  refresh: [];
   open: [action: "detail" | "edit" | "delete", row: Row];
 }>();
 const groups = computed(() => [
@@ -75,13 +74,6 @@ const groups = computed(() => [
           @click="$emit('create')"
         >
           <ShellIcon name="plus" />新增{{ entityLabel }}
-        </button>
-        <button
-          type="button"
-          :disabled="loading || busy"
-          @click="$emit('refresh')"
-        >
-          <ShellIcon name="refresh" />刷新
         </button>
       </div>
     </div>

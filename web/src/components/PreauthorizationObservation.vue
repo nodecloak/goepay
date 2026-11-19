@@ -233,7 +233,7 @@ async function query(fresh: boolean) {
   } catch {
     if (current === epoch && !c.signal.aborted)
       error.value =
-        "本次查询结果未知或无法核对，未重发原请求。可刷新已有查询状态，或明确发起一次新的只读查询。";
+        "本次查询结果未知或无法核对，未重发原请求。可核对原查询结果，或明确发起一次新的只读查询。";
   } finally {
     if (current === epoch && !c.signal.aborted) busy.value = false;
   }
@@ -360,12 +360,12 @@ async function releaseRemaining() {
         {{ started ? "重新查询原冻结与余款" : "查询原冻结与余款" }}
       </button>
       <button
-        v-if="requestID"
+        v-if="requestID && observation?.status !== 'verified'"
         type="button"
         :disabled="busy || disabled"
         @click="query(false)"
       >
-        刷新原查询状态
+        核对原查询结果
       </button>
     </div>
     <div v-if="canReleaseRemaining" class="alert">

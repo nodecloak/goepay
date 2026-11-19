@@ -70,7 +70,7 @@ it("merchant key mode is explicit and secrets clear before a pending POST; one s
   expect(f.w.find('[name="api_key"]').exists()).toBe(false);
   f.w.unmount();
 });
-it("a malformed or lost success forbids blind resubmit and offers a read-only session check", async () => {
+it("a malformed or lost success forbids blind resubmit and checks the session on page reload", async () => {
   const f = await setup(async () =>
     ok({
       user: { id: "2", name: "Other", role: "merchant" },
@@ -80,7 +80,7 @@ it("a malformed or lost success forbids blind resubmit and offers a read-only se
   await fill(f.w);
   await f.w.get("form").trigger("submit");
   await flushPromises();
-  expect(f.w.text()).toContain("重新检查登录状态");
+  expect(f.w.text()).toContain("请刷新页面");
   expect(
     f.w.get('form button[type="submit"]').attributes("disabled"),
   ).toBeDefined();
@@ -88,12 +88,16 @@ it("a malformed or lost success forbids blind resubmit and offers a read-only se
   expect(
     f.fetcher.mock.calls.filter((x) => x[0].endsWith("/key-login")),
   ).toHaveLength(1);
-  await f.w.get('[data-action="check-login"]').trigger("click");
+  const path = f.router.currentRoute.value.fullPath;
+  f.w.unmount();
+  await f.router.push(path);
+  const next = mount(App, { global: { plugins: [f.router] } });
   await flushPromises();
   expect(
     f.fetcher.mock.calls.filter((x) => x[0].endsWith("/session")),
   ).toHaveLength(2);
-  f.w.unmount();
+  expect(f.fetcher.mock.calls.filter(([url]) => url.endsWith("/key-login"))).toHaveLength(1);
+  next.unmount();
 });
 it("late merchant login cannot enter a different area and leaving key mode erases the draft", async () => {
   let resolve!: (r: Response) => void;

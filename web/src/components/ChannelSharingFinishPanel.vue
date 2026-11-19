@@ -329,7 +329,6 @@ async function prepareRetry(row: Finish) {
     <section aria-label="独立完结记录">
       <header>
         <h3>独立完结记录</h3>
-        <button :disabled="busy" @click="load">刷新原完结记录</button>
       </header>
       <p v-if="!rows.length">暂无独立完结记录</p>
       <article v-for="row in rows" :key="row.id">

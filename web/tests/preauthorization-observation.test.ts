@@ -73,6 +73,7 @@ describe("durable preauthorization read-only observations", () => {
     await button(w, "查询原冻结与余款").trigger("click");
     await flushPromises();
     expect(send).not.toHaveBeenCalled();
+    expect(button(w, "核对原查询结果")).toBeUndefined();
     await button(w, "解除剩余冻结").trigger("click");
     expect(send).not.toHaveBeenCalled();
     expect(w.text()).toContain("本次剩余解除额（元）4.50");
@@ -147,7 +148,7 @@ describe("durable preauthorization read-only observations", () => {
     });
     expect(w.text()).toContain("余款未知");
     expect(w.text()).not.toContain("余款（元）0.00");
-    await button(w, "刷新原查询状态").trigger("click");
+    await button(w, "核对原查询结果").trigger("click");
     await flushPromises();
     expect(request.mock.calls[1][0]).toBe(
       `/orders/AUTH-77/authorization-observations/${requestID}`,
@@ -246,7 +247,7 @@ describe("durable preauthorization read-only observations", () => {
     await flushPromises();
     expect(request).toHaveBeenCalledTimes(1);
     expect(w.text()).toContain("结果未知");
-    expect(button(w, "刷新原查询状态")).toBeUndefined();
+    expect(button(w, "核对原查询结果")).toBeUndefined();
     const nonce = (
       request.mock.calls[0][1]?.body as { client_request_no: string }
     ).client_request_no;
@@ -318,7 +319,7 @@ describe("durable preauthorization read-only observations", () => {
     await button(w, "查询原冻结与余款").trigger("click");
     await flushPromises();
     expect(w.text()).toContain("BUYER-77");
-    await button(w, "刷新原查询状态").trigger("click");
+    await button(w, "核对原查询结果").trigger("click");
     await flushPromises();
     expect(w.find('[role="alert"]').exists()).toBe(true);
     expect(w.text()).not.toContain("BUYER-77");

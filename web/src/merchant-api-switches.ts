@@ -85,7 +85,7 @@ export function merchantAPISwitchBody(
   };
 }
 export function parseMerchantKeySession(value: unknown, mid: string): Session {
-  const bad = () => new Error("密钥登录结果无法确认，请重新检查登录状态");
+  const bad = () => new Error("密钥登录结果尚未确认，请刷新页面查看登录状态。");
   if (
     !isPersonalMerchantID(mid) ||
     !value ||

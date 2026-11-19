@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 for (const width of [1280, 375])
-  test(`original buyer statistics uses paid sources, explicit money reads and original blacklist dialogue at ${width}`, async ({
+  test(`original buyer statistics uses paid sources, exact inline amounts and original blacklist dialogue at ${width}`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 1000 });
@@ -80,12 +80,8 @@ for (const width of [1280, 375])
       "href",
       "/admin/trade/order?column=trade_no&value=BUYER-131",
     );
-    await expect(page.getByRole("table")).not.toContainText("123.45");
-    await page
-      .getByRole("button", { name: "刷新付款金额 same-account", exact: true })
-      .click();
-    await expect(page.getByRole("table")).toContainText("123.45");
-    expect(queries.at(-1)?.searchParams.get("user")).toBe("same-account");
+    await expect(page.getByRole("cell", { name: "123.45", exact: true })).toBeVisible();
+    expect(queries).toHaveLength(1);
     await page
       .getByRole("button", { name: "拉黑 same-account", exact: true })
       .click();
@@ -114,7 +110,7 @@ for (const width of [1280, 375])
     ).toBe(false);
   });
 
-test("late original account money cannot fill the next IP result and failures clear old rows", async ({
+test("late account statistics cannot fill the next IP result and failures clear old rows", async ({
   page,
 }) => {
   let release: (() => void) | undefined;
@@ -133,7 +129,7 @@ test("late original account money cannot fill the next IP result and failures cl
         csrf_token: "buyer-late131",
       };
     else if (p.endsWith("/reports/buyers")) {
-      if (u.searchParams.has("user")) {
+      if (u.searchParams.get("method") === "0") {
         refreshed = true;
         await gate;
       }
@@ -153,7 +149,7 @@ test("late original account money cannot fill the next IP result and failures cl
                 ? "192.0.2.10"
                 : "old-account",
             order_count: "2",
-            pay_money: u.searchParams.has("user") ? "999.99" : "1.23",
+            pay_money: u.searchParams.get("method") === "0" ? "999.99" : "1.23",
             trade_no: "BUYER-LATE131",
             is_black: false,
           },
@@ -166,9 +162,6 @@ test("late original account money cannot fill the next IP result and failures cl
     });
   });
   await page.goto("/admin/trade/stat/buyer");
-  await page
-    .getByRole("button", { name: "刷新付款金额 old-account", exact: true })
-    .click();
   await expect.poll(() => refreshed).toBe(true);
   await page.getByRole("button", { name: "统计方式", exact: true }).click();
   await page.getByRole("option", { name: "支付IP统计", exact: true }).click();

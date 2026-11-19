@@ -177,7 +177,7 @@ for (const width of [375, 1440])
       await expect(dialog.getByRole("alert")).toContainText("提交结果未知");
       expect(writes).toHaveLength(1);
       const refresh = dialog.getByRole("button", {
-        name: "重新读取状态",
+        name: "核对原退款结果",
         exact: true,
       });
       await refresh.click();

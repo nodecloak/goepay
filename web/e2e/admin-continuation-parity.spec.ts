@@ -74,7 +74,7 @@ for (const width of [375, 1280]) {
       "操作",
     ]);
     populated = true;
-    await page.getByRole("button", { name: "刷新", exact: true }).click();
+    await page.reload();
     await expect(page.locator("tbody")).toContainText("90,071,992,547,409.93");
     await expect(page.locator("tbody")).toContainText("申请释放保证金");
     await page.getByRole("button", { name: "核准释放", exact: true }).click();
@@ -175,9 +175,9 @@ for (const width of [375, 1280]) {
     await expect(panel.locator("summary")).toBeVisible();
     expect(extensionReads).toBe(0);
     await expect(panel).not.toHaveAttribute("open");
-    await page
-      .getByRole("button", { name: "刷新本地插件列表", exact: true })
-      .click();
+    await expect(
+      page.getByRole("button", { name: "刷新本地插件列表", exact: true }),
+    ).toHaveCount(0);
     expect(extensionReads).toBe(0);
     await panel.locator("summary").click();
     await expect(panel).toHaveAttribute("open", "");

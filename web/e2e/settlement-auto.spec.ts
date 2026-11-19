@@ -84,9 +84,9 @@ for (const width of [375, 1440])
       exact: true,
     });
     // A named section is a region; no provider access occurs merely by opening it.
-    await panel
-      .getByRole("button", { name: "读取自动付款授权", exact: true })
-      .click();
+    await expect(
+      panel.getByRole("button", { name: "读取自动付款授权", exact: true }),
+    ).toHaveCount(0);
     await expect(panel.getByText(/没有可撤销/)).toHaveCount(0);
     await panel
       .getByLabel("自动出款开始 RFC3339", { exact: true })

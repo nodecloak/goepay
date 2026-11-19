@@ -87,7 +87,7 @@ test("preauthorization observation is explicit, unknown refresh is local GET and
   await expect(panel).toContainText("查询结果未知，余款未知");
   await expect(panel).not.toContainText("余款（元）0.00");
   await panel
-    .getByRole("button", { name: "刷新原查询状态", exact: true })
+    .getByRole("button", { name: "核对原查询结果", exact: true })
     .click();
   await expect.poll(() => gets.length).toBe(1);
   expect(gets[0]).toBe(

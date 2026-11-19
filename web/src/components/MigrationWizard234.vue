@@ -148,7 +148,7 @@ function showRefusal(e: unknown, kind: "prepare" | "apply") {
   ) {
     error.value =
       e.status === 429
-        ? "迁移繁忙或暂存次数、空间达到上限，请先读取迁移记录；持续出现请联系管理员处理暂存。"
+        ? "迁移繁忙或暂存次数、空间达到上限，请刷新页面查看迁移记录；持续出现请联系管理员处理暂存。"
         : kind === "prepare"
           ? "预检查未被接受，请检查会话、备份格式和大小后重新选择。"
           : "导入未被接受，请读取当前任务状态并核对目标库；不要重复提交。";
@@ -308,7 +308,12 @@ onBeforeUnmount(() => {
   >
     <div class="migration234-heading">
       <h2>易支付迁移</h2>
-      <button type="button" :disabled="!allowed || busy" @click="load">
+      <button
+        v-if="uncertain === 'prepare'"
+        type="button"
+        :disabled="!allowed || busy"
+        @click="load"
+      >
         读取迁移记录
       </button>
     </div>
@@ -437,7 +442,12 @@ onBeforeUnmount(() => {
           <KitStatusTag
             :status="task.status"
             :text="labels[task.status]"
-          /><button type="button" :disabled="busy" @click="readTask(task.id)">
+          /><button
+            v-if="uncertain === 'apply' || task.status === 'applying'"
+            type="button"
+            :disabled="busy"
+            @click="readTask(task.id)"
+          >
             读取当前任务状态
           </button>
         </div>

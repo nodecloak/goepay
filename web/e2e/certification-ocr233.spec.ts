@@ -433,7 +433,7 @@ test("merchant explicitly submits, initializes and queries certification with no
   ]);
 });
 
-test("unknown initialization cannot be repeated and is recovered by explicit status read", async ({
+test("unknown initialization cannot be repeated and a page reload recovers the original attempt", async ({
   page,
 }) => {
   const { writes } = await fixture(page, "merchant", { unknownInit: true });
@@ -444,9 +444,10 @@ test("unknown initialization cannot be repeated and is recovered by explicit sta
     page.getByRole("button", { name: "开始身份核验", exact: true }),
   ).toBeDisabled();
   expect(writes).toHaveLength(2);
-  await page
-    .getByRole("button", { name: "读取最新认证状态", exact: true })
-    .click();
+  await expect(
+    page.getByRole("button", { name: "读取最新认证状态", exact: true }),
+  ).toHaveCount(0);
+  await page.reload();
   await expect(
     page.getByRole("link", { name: "打开认证页面", exact: true }),
   ).toBeVisible();
@@ -637,9 +638,7 @@ test("provider-verified certification resumes fee completion without asking for 
       configuration_changed: true,
     }),
   );
-  await page
-    .getByRole("button", { name: "读取最新认证状态", exact: true })
-    .click();
+  await page.reload();
   await expect(page.getByText(/已通过服务商核验/)).toBeVisible();
   await expect(page.getByLabel("真实姓名", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "完成认证", exact: true }).click();

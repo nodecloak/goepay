@@ -235,7 +235,11 @@ onBeforeUnmount(() => clear());
       <p v-if="platform?.user_refund === 0" class="muted">
         平台已关闭商户自助退款，保留您的个人选择；原退款仍可查询和恢复。
       </p>
-      <form class="console-config-form" v-if="state" @submit.prevent="prepareSave">
+      <form
+        class="console-config-form"
+        v-if="state"
+        @submit.prevent="prepareSave"
+      >
         <fieldset :disabled="busy || confirming">
           <legend class="sr-only">个人功能开关</legend>
           <label v-if="platform?.close_keylogin === 0" class="switch-row"
@@ -372,7 +376,7 @@ onBeforeUnmount(() => clear());
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--bg-card);
+  background: var(--on-primary);
 }
 .switch-row input:checked {
   border-color: var(--primary-text);
@@ -380,6 +384,9 @@ onBeforeUnmount(() => clear());
 }
 .switch-row input:checked::after {
   left: 20px;
+  /* The thumb shares this pseudo-element with the generic checkbox tick. */
+  border: 0;
+  transform: none;
 }
 .switch-row input:focus-visible {
   outline: 2px solid var(--primary-text);

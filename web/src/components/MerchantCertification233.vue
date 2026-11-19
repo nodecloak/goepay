@@ -99,7 +99,7 @@ const oauthQueryBlocked = computed(
 const statusText: Record<string, string> = {
   none: "尚未提交认证",
   ready: "资料已提交，尚未开始核验",
-  initializing: "正在建立认证，请读取最新状态",
+  initializing: "正在建立认证，请稍后刷新页面查看进度",
   pending: "等待完成认证",
   unknown: "结果待核实，请查询结果",
   rejected: "认证未通过，可重新填写",
@@ -190,7 +190,8 @@ async function load() {
   } catch {
     if (current(run, c)) {
       info.value = undefined;
-      error.value = "读取认证信息失败，请确认本人会话后重试。";
+      error.value =
+        "读取认证信息失败，请确认已使用商户本人账号登录，再刷新页面。";
     }
   } finally {
     if (current(run, c)) loading.value = false;
@@ -271,7 +272,7 @@ async function mutate(action: "submit" | "geturl" | "query" | "reset") {
           : action === "reset"
             ? "本次认证已取消，请重新填写。"
             : action === "query"
-              ? "已读取最新认证结果。"
+              ? "已查询本次认证结果。"
               : action === "submit"
                 ? "资料已提交，请继续开始核验。"
                 : "认证已建立，请按提示完成核验。";
@@ -284,7 +285,7 @@ async function mutate(action: "submit" | "geturl" | "query" | "reset") {
         [400, 422].includes(e.status)
       );
       error.value = uncertain.value
-        ? "本次操作未取得可核实结果，不会自动重试。请先读取最新状态；已有认证可手动查询结果。"
+        ? "本次操作结果尚未确认，不会自动重试。请刷新页面核对进度。"
         : "请求未被接受，请核对认证资料、可用余额和服务配置后处理。";
     }
   } finally {
@@ -384,16 +385,12 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="panel certification233" aria-label="实名认证">
-    <div class="certification-header">
-      <h2>认证状态</h2>
-      <button v-if="allowed" type="button" :disabled="locked" @click="load">
-        {{ loading ? "正在读取…" : "读取最新认证状态" }}
-      </button>
-    </div>
+    <h2>认证状态</h2>
     <p v-if="!allowed" class="alert">
       此功能需要商户本人登录，请使用商户账号登录后操作。
     </p>
     <template v-else>
+      <p v-if="loading" class="muted" role="status">正在读取认证状态…</p>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
       <template v-if="info">
@@ -625,7 +622,7 @@ onBeforeUnmount(() => {
           aria-label="本次认证状态"
         >
           <p role="status">
-            {{ statusText[info.status] || "请读取最新认证状态" }}
+            {{ statusText[info.status] || "认证状态暂不可用" }}
           </p>
           <p v-if="info.expires_at" class="muted">
             有效期至 {{ new Date(info.expires_at).toLocaleString() }}
@@ -693,7 +690,7 @@ onBeforeUnmount(() => {
             "
             class="muted"
           >
-            本次授权已使用。若结果尚未确认，请读取最新状态；不要重复授权。需要重新开始时请先取消本次认证。
+            本次授权已使用。可刷新页面查看结果。如需重新开始，请先取消本次认证。
           </p>
           <button
             v-if="active"
@@ -750,19 +747,9 @@ onBeforeUnmount(() => {
   </section>
 </template>
 <style scoped>
-.certification-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-.certification-header h2 {
+.certification233 > h2 {
   margin: 0;
   font-size: 1rem;
-}
-.certification233 .certification-header button {
-  margin: 0;
 }
 .certification-entry {
   display: grid;

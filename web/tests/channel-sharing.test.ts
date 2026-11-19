@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import ChannelSharingPage from "../src/components/ChannelSharingPage.vue";
-import { ApiClient } from "../src/api";
+import { ApiClient, ApiError } from "../src/api";
 
 const caps = {
   merchant_id: "1000",
@@ -120,16 +120,71 @@ it("shows honest simulation status and never submits unavailable sharing", async
   expect(request.mock.calls.every((c) => !c[1]?.method)).toBe(true);
   w.unmount();
 });
+it("automatically loads a selected sharing rule and blocks publication if the next rule cannot be verified", async () => {
+  const request = vi.fn(async (path: string) => {
+    if (path.endsWith("/channels"))
+      return {
+        ...caps,
+        channels: [caps.channels[0], { ...caps.channels[0], channel_id: "8" }],
+      };
+    if (path.includes("/receivers"))
+      return {
+        items: [
+          { ...receiver, state: "bound" },
+          { ...receiver, id: "10", channel_id: "8", state: "bound" },
+        ],
+        next_cursor: "0",
+      };
+    if (path.endsWith("/rules/7"))
+      return {
+        id: "27",
+        revision: "3",
+        enabled: true,
+        minimum_amount: "100",
+        methods: ["native"],
+        items: [
+          {
+            receiver_id: "9",
+            mode: "rate",
+            rate_bps: "100",
+            fixed_amount: "0",
+          },
+        ],
+      };
+    throw new Error("分账规则暂不可读");
+  });
+  const w = render(request, "receiver", "merchant");
+  await flushPromises();
+  const choose = w.get('[aria-label="分账通道"]');
+  const action = (label: string) =>
+    w.findAll("button").find((button) => button.text() === label)!;
+  expect(action("读取当前规则")).toBeUndefined();
+  await choose.setValue("7");
+  await flushPromises();
+  expect(w.text()).toContain("当前版本 3");
+  expect(action("发布新版本").attributes("disabled")).toBeUndefined();
+  await choose.setValue("8");
+  await flushPromises();
+  expect(w.text()).toContain("分账规则暂不可读");
+  expect(w.text()).not.toContain("当前版本 3");
+  await action("添加已绑定接收方").trigger("click");
+  expect(action("发布新版本").attributes("disabled")).toBeDefined();
+  w.unmount();
+});
+
 it("clears plaintext inputs immediately and retains only the masked creation response", async () => {
   let resolve: ((v: unknown) => void) | undefined;
   const request = vi.fn(async (path: string, options?: any) => {
     if (path.includes("channels")) return caps;
+    if (path.includes("/rules/")) throw new ApiError("no rule", 404, -1);
     if (options?.method === "POST") return new Promise((r) => (resolve = r));
     return { items: [], next_cursor: "0" };
   });
   const w = render(request);
   await open(w);
   await w.get('[aria-label="分账通道"]').setValue("7");
+  await flushPromises();
+  expect(w.text()).toContain("该通道尚未配置规则");
   await w
     .get('[aria-label="接收账号"]')
     .setValue("synthetic-sensitive-account");

@@ -83,7 +83,7 @@ for (const width of [375, 1280]) {
     ).toBeDisabled();
     await expect(
       panel.getByRole("button", { name: "刷新收款版本", exact: true }),
-    ).toBeEnabled();
+    ).toHaveCount(0);
     await expect(panel).toContainText("当前仅可查看收款资料");
     await mid.fill("202");
     await expect(panel).toContainText("版本 52");

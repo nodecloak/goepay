@@ -20,7 +20,6 @@ import KitSwitch from "./KitSwitch.vue";
 import KitStatusTag from "./KitStatusTag.vue";
 import KitPagination from "./KitPagination.vue";
 import KitHelpPopover from "./KitHelpPopover.vue";
-import ShellIcon from "./ShellIcon.vue";
 import {
   freshSubchannelFilters,
   readSubchannelPage,
@@ -402,7 +401,7 @@ async function open(mode: Mode, row: SubchannelRow | null = null) {
   if (!interact()) return;
   if (!allowed.value || loading.value || modal.value?.busy) return;
   if (requiresRefresh.value && mode !== "link") {
-    notice.value = "请先刷新列表核对上次设置结果，再重新操作";
+    notice.value = "请先查询列表核对上次设置结果，再重新操作";
     return;
   }
   const ctx = context(),
@@ -510,7 +509,7 @@ async function close() {
   const d = modal.value;
   if (!d || !interact(d.context) || d.busy) return;
   if (d.uncertain && requiresRefresh.value)
-    notice.value = "上次设置结果尚未核对，请先刷新列表核对，再重新操作";
+    notice.value = "上次设置结果尚未核对，请先查询列表核对，再重新操作";
   d.controller.abort();
   controllers.delete(d.controller);
   d.values = Object.create(null);
@@ -519,7 +518,7 @@ async function close() {
   if (valid(d.context)) {
     if (d.opener?.isConnected) d.opener.focus();
     else
-      document.querySelector<HTMLElement>("[data-subchannel-refresh]")?.focus();
+      document.querySelector<HTMLElement>("[data-subchannel-search]")?.focus();
   }
 }
 function trap(e: KeyboardEvent) {
@@ -793,7 +792,7 @@ async function submit() {
         d.uncertain = true;
         d.ready = false;
         requiresRefresh.value = true;
-        d.notice = "本次设置提交结果未确认，请先读取最新列表核对，不要重复提交";
+        d.notice = "本次设置提交结果未确认，请核对上次修改结果，不要重复提交";
       }
     }
   } finally {
@@ -947,7 +946,12 @@ onBeforeUnmount(() => {
       <div class="subchannel-filter-actions">
         <button type="button" @click="reset" :disabled="loading">
           {{ admin ? "重置" : "清空筛选" }}</button
-        ><button type="submit" class="primary" :disabled="!allowed || loading">
+        ><button
+          data-subchannel-search
+          type="submit"
+          class="primary"
+          :disabled="!allowed || loading"
+        >
           查询
         </button>
       </div>
@@ -978,15 +982,6 @@ onBeforeUnmount(() => {
               : ""
         }}</span>
         <div class="table-tools-end">
-          <button
-            data-subchannel-refresh
-            type="button"
-            class="pa-btn"
-            :disabled="!allowed || loading"
-            @click="load"
-          >
-            <ShellIcon name="refresh" />刷新
-          </button>
           <KitHelpPopover label="说明">
             <p>
               收款账户由管理员配置。轮询方式适用于本人子通道；单笔订单金额须同时满足父通道与子通道限额。
@@ -1344,7 +1339,7 @@ onBeforeUnmount(() => {
                 :disabled="modal.busy"
                 @click="reconcileChange"
               >
-                读取最新列表核对</button
+                核对上次修改结果</button
               ><button type="button" :disabled="modal.busy" @click="close">
                 {{
                   modal.mode === "test" && modal.executed

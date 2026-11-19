@@ -58,15 +58,13 @@ for (const width of [1280, 375]) {
     await expect(amount).toHaveValue("");
     await dialog.getByRole("button", { name: "取消", exact: true }).click();
     failBalance = true;
-    await balance
-      .getByRole("button", { name: "刷新余额", exact: true })
-      .click();
+    await expect(balance.getByRole("button")).toHaveCount(0);
+    await page.reload();
     await expect(balance.locator("dd")).toHaveText("暂不可用");
     await expect(balance.getByRole("alert")).toContainText("余额读取失败");
     failBalance = false;
-    await balance
-      .getByRole("button", { name: "重新读取余额", exact: true })
-      .click();
+    await expect(balance.getByRole("button")).toHaveCount(0);
+    await page.reload();
     await expect(balance.locator("dd")).toHaveText("90071992547409.93");
     expect(writes).toEqual([]);
     expect(

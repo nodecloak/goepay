@@ -25,7 +25,6 @@ import KitPayMethod from "./KitPayMethod.vue";
 import KitEmpty from "./KitEmpty.vue";
 import KitPagination from "./KitPagination.vue";
 import KitModal from "./KitModal.vue";
-import ShellIcon from "./ShellIcon.vue";
 import { sharingPageTotal } from "../sharing-overview";
 import {
   sharingRequestContext,
@@ -169,13 +168,13 @@ type BatchReview = {
 };
 const batchReview = shallowRef<BatchReview>();
 const batchTrigger = ref<HTMLButtonElement>();
-const refreshTrigger = ref<HTMLButtonElement>();
+const statsTrigger = ref<HTMLButtonElement>();
 
 function restoreBatchFocus() {
   void nextTick(() => {
     if (!alive) return;
     const target = batchTrigger.value?.disabled
-      ? refreshTrigger.value
+      ? statsTrigger.value
       : batchTrigger.value;
     if (target && !target.disabled) target.focus();
   });
@@ -1173,6 +1172,7 @@ onBeforeUnmount(() => {
           type="button"
           class="pa-btn"
           data-action="stats"
+          ref="statsTrigger"
           :disabled="!loaded || loading || busy"
           @click="toggleStats"
         >
@@ -1200,19 +1200,6 @@ onBeforeUnmount(() => {
         >
           导出
         </button>
-        <div class="table-tools-end">
-          <button
-            type="button"
-            class="pa-btn"
-            data-action="refresh"
-            ref="refreshTrigger"
-            :disabled="loading || busy"
-            title="刷新"
-            @click="load"
-          >
-            <ShellIcon name="refresh" />刷新
-          </button>
-        </div>
       </div>
       <p v-if="selected.size" class="muted selection-summary" role="status">
         已选择 {{ selected.size }} 条；单次最多核对 20 条

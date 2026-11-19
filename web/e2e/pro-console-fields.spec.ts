@@ -240,7 +240,7 @@ test("merchant list is compact and permission driven without copying secret fiel
   await expect(dialog).not.toContainText("legacy-plaintext-account");
   await page.getByRole("button", { name: "关闭", exact: true }).click();
   merchant.settlement_recipient.state = "unavailable";
-  await page.getByRole("button", { name: "刷新", exact: true }).click();
+  await page.reload();
   await expect(
     page.getByRole("cell", { name: "资料不可用", exact: true }),
   ).toBeVisible();

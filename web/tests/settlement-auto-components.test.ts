@@ -33,7 +33,7 @@ it("reads the exact parent plan fields when the real page also supplies a reacti
   const w = mount(SettlementAutoAuthorization, {
     props: { client, plan: pagePlan, ownSession: true, adminClass: "super" },
   });
-  await button(w, "读取自动付款授权").trigger("click");
+  expect(button(w, "读取自动付款授权")).toBeUndefined();
   await flushPromises();
   expect(request).toHaveBeenCalledTimes(1);
   expect(w.text()).toContain("原自动授权 0");
@@ -65,7 +65,7 @@ it("submits one immutable independent scope and does not retry an uncertain auth
   const w = mount(SettlementAutoAuthorization, {
     props: { client, plan, ownSession: true, adminClass: "super" },
   });
-  await button(w, "读取自动付款授权").trigger("click");
+  expect(button(w, "读取自动付款授权")).toBeUndefined();
   await flushPromises();
   const inputs = w.findAll('input:not([type="checkbox"])');
   for (const [i, value] of [
@@ -111,30 +111,32 @@ for (const change of [
   "unmount",
 ] as const)
   it(`discards a late original auto policy after ${change} changes`, async () => {
-    let finish: (value: unknown) => void = () => {};
+    const finishes: ((value: unknown) => void)[] = [];
     const request = vi.fn(
       () =>
         new Promise((resolve) => {
-          finish = resolve;
+          finishes.push(resolve);
         }),
     );
     const client = reactive(Object.assign(new ApiClient("admin"), { request }));
     const w = mount(SettlementAutoAuthorization, {
       props: { client, plan, ownSession: true, adminClass: "super" },
     });
-    await button(w, "读取自动付款授权").trigger("click");
+    expect(button(w, "读取自动付款授权")).toBeUndefined();
     if (change === "area") client.area = "merchant";
     if (change === "csrf") client.csrfToken = "new-session";
     if (change === "role") await w.setProps({ adminClass: "operator" });
     if (change === "delegated") await w.setProps({ ownSession: false });
     if (change === "plan") await w.setProps({ plan: { ...plan, id: "5" } });
     if (change === "unmount") w.unmount();
-    finish(view);
+    finishes[0]!(view);
     await flushPromises();
     if (change !== "unmount") {
       expect(w.text()).not.toContain("原自动授权 0");
       expect(w.find("fieldset").exists()).toBe(false);
       w.unmount();
     }
-    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledTimes(
+      change === "csrf" || change === "plan" ? 2 : 1,
+    );
   });

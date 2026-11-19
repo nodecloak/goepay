@@ -101,7 +101,7 @@ test("empty allowed settlement list keeps original masked recipient readable and
   ).toBeDisabled();
   await expect(
     f.panel.getByRole("button", { name: "刷新收款版本", exact: true }),
-  ).toBeEnabled();
+  ).toHaveCount(0);
   expect(f.posts()).toBe(0);
   expect(f.pageErrors).toEqual([]);
 });
@@ -130,7 +130,7 @@ test("unknown recipient save clears private fields and needs successful explicit
   expect(f.posts()).toBe(1);
   const before = f.reads();
   await f.panel
-    .getByRole("button", { name: "刷新收款版本", exact: true })
+    .getByRole("button", { name: "核对收款版本", exact: true })
     .click();
   await expect(f.panel).toContainText("Synthetic readback unavailable");
   await expect(f.panel).toContainText("保存结果尚未确认");
@@ -138,7 +138,7 @@ test("unknown recipient save clears private fields and needs successful explicit
   expect(f.posts()).toBe(1);
   f.allowReadback();
   await f.panel
-    .getByRole("button", { name: "刷新收款版本", exact: true })
+    .getByRole("button", { name: "核对收款版本", exact: true })
     .click();
   await expect(
     f.panel.getByTestId("settlement-recipient-current"),

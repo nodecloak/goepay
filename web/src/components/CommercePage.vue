@@ -324,7 +324,7 @@ function renew() {
 async function submit() {
   if (busy.value) return;
   if (!newUseAvailable.value) {
-    error.value = availabilityNote.value || "请先重新读取当前业务状态";
+    error.value = availabilityNote.value || "请刷新页面核实当前业务状态";
     return;
   }
   if (
@@ -463,7 +463,7 @@ onBeforeUnmount(() => controller?.abort());
         >前往收银台</a
       >
       <p v-else class="muted">
-        支付链接尚未就绪，请刷新记录核实订单，或联系管理员。
+        支付链接尚未就绪，请刷新页面核实订单，或联系管理员。
       </p>
     </section>
     <section
@@ -536,14 +536,6 @@ onBeforeUnmount(() => controller?.abort());
         <h2 v-if="area === 'merchant'" class="commerce-record-title">
           {{ recordTitle }}
         </h2>
-        <div
-          class="table-tools-end commerce-record-actions"
-          v-if="area === 'merchant'"
-        >
-          <button type="button" :disabled="loading" @click="load">
-            <ShellIcon name="refresh" />刷新
-          </button>
-        </div>
         <button
           type="button"
           class="primary"
@@ -556,11 +548,6 @@ onBeforeUnmount(() => controller?.abort());
         >
           <ShellIcon name="plus" />{{ title }}
         </button>
-        <div v-if="area === 'admin'" class="table-tools-end">
-          <button type="button" :disabled="loading" @click="load">
-            <ShellIcon name="refresh" />刷新
-          </button>
-        </div>
       </div>
       <p class="table-note">
         {{
@@ -774,9 +761,6 @@ onBeforeUnmount(() => controller?.abort());
 .commerce-record-title {
   margin: 0;
   font-size: 1rem;
-}
-.commerce-record-actions {
-  gap: 0;
 }
 .membership-offers {
   display: grid;

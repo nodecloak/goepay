@@ -726,24 +726,11 @@ function restoreFormFocus() {
       items.value.some((row) => String(row.id) === pendingPayRollRowFocus)
     )
       return;
-    target ??=
-      resourcePanel.value?.querySelector<HTMLElement>(
-        "[data-resource-create]",
-      ) ||
-      resourcePanel.value?.querySelector<HTMLElement>(
-        "[data-resource-refresh]",
-      ) ||
-      undefined;
   }
-  if (!target && pendingFormFocus) {
+  if (!target && (pendingFormFocus || pendingPayRollRowFocus)) {
     target =
-      resourcePanel.value?.querySelector<HTMLElement>(
-        "[data-resource-create]",
-      ) ||
-      resourcePanel.value?.querySelector<HTMLElement>(
-        "[data-resource-refresh]",
-      ) ||
-      undefined;
+      resourcePanel.value?.querySelector<HTMLElement>("[data-resource-create]") ??
+      resourcePanel.value;
   }
   if (target?.matches(":disabled")) return;
   target?.focus();
@@ -1736,7 +1723,6 @@ onBeforeUnmount(resetContext);
         :loading="loading"
         :note="schema?.description"
         @create="open('create')"
-        @refresh="load"
         @open="(action, row) => open(action, row)"
       />
       <KitPagination
@@ -1751,6 +1737,7 @@ onBeforeUnmount(resetContext);
     <section
       v-else-if="!entry || schema?.description || showBusinessNotices"
       ref="resourcePanel"
+      tabindex="-1"
       class="panel records"
       :class="{ 'merchant-resource-records': client.area === 'merchant' }"
     >
@@ -1835,14 +1822,6 @@ onBeforeUnmount(resetContext);
             :filename="`${resource}.csv`"
             :disabled="loading || busy"
           />
-          <button
-            type="button"
-            data-resource-refresh
-            :disabled="loading || busy"
-            @click="load"
-          >
-            <ShellIcon name="refresh" />刷新
-          </button>
           <KitHelpPopover
             v-if="schema?.description"
             :text="schema.description"

@@ -99,7 +99,7 @@ function decode(raw: unknown, source: ReturnType<typeof context>): AliasView {
     "can_update",
   ];
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
-    throw new Error("别名记录无法核对，请重新读取。");
+    throw new Error("别名记录无法核对，请重新打开编辑窗口。");
   const value = raw as Record<string, unknown>;
   if (
     Object.keys(value).length !== fields.length ||
@@ -114,7 +114,7 @@ function decode(raw: unknown, source: ReturnType<typeof context>): AliasView {
     !/^[a-f0-9]{64}$/.test(value.fingerprint) ||
     typeof value.can_update !== "boolean"
   )
-    throw new Error("别名记录无法核对，请重新读取。");
+    throw new Error("别名记录无法核对，请重新打开编辑窗口。");
   return value as AliasView;
 }
 function abort() {
@@ -174,7 +174,7 @@ async function read() {
       error.value =
         failure instanceof Error
           ? failure.message
-          : "别名读取失败，请重新读取。";
+          : "别名读取失败，请重新打开编辑窗口。";
   } finally {
     if (current(source, run, c)) {
       controller = undefined;
@@ -220,7 +220,7 @@ async function save() {
     if (result.status !== 200) throw new Error("别名保存结果尚未确认。");
     const next = decode(result.data, source);
     if (next.api_trade_no_alias !== value)
-      throw new Error("别名保存结果不一致，请重新读取。");
+      throw new Error("别名保存结果不一致，请重新打开编辑窗口。");
     state.value = next;
     savedAlias.value = next.api_trade_no_alias;
     needsRead.value = false;
@@ -233,10 +233,10 @@ async function save() {
     if (failure instanceof ApiError && failure.responseDecoded) {
       error.value =
         failure.status === 409
-          ? "别名已由其他管理员更新，请重新读取后核对并确认。"
-          : `${failure.message}，请重新读取后再编辑。`;
+          ? "别名已由其他管理员更新，请重新打开编辑窗口，核对后再保存。"
+          : `${failure.message}，请重新打开编辑窗口。`;
     } else {
-      error.value = "别名保存结果尚未确认，请重新读取核对；不会自动重复提交。";
+      error.value = "别名保存结果尚未确认，请重新打开编辑窗口核对；不会自动重复提交。";
     }
   } finally {
     if (current(source, run, c)) {
@@ -367,14 +367,6 @@ onBeforeUnmount(() => {
           <div class="modal-actions">
             <button type="button" :disabled="writing" @click="dismiss">
               取消
-            </button>
-            <button
-              v-if="needsRead && !loading"
-              type="button"
-              :disabled="writing || disabled"
-              @click="read"
-            >
-              重新读取
             </button>
             <button
               type="submit"

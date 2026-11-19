@@ -20,6 +20,7 @@ it("shows original parent ordername fields and recovers unknown writes by GET on
   });
   await flushPromises();
   expect(w.text()).toContain("自定义订单名称");
+  expect(w.find("[data-subject-read]").exists()).toBe(false);
   expect(w.get('input[name="ordername"]').element).toHaveProperty(
     "value",
     "原[name]",

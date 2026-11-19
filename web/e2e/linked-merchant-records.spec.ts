@@ -76,12 +76,9 @@ for (const width of [1280, 375])
         .toBe("2");
       expect(reads.at(-1)?.searchParams.get("page")).toBe("2");
       expect(reads.at(-1)?.searchParams.get("limit")).toBe("1");
-      await page
-        .getByRole("button", {
-          name: api === "/transfers" ? "查询" : "刷新",
-          exact: true,
-        })
-        .click();
+      if (api === "/transfers")
+        await page.getByRole("button", { name: "查询", exact: true }).click();
+      else await page.reload();
       await expect
         .poll(() => reads.at(-1)?.searchParams.get("merchant_id"))
         .toBe("2");

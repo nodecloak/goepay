@@ -367,14 +367,6 @@ onBeforeUnmount(() => {
         >个支付方式</span
       >
       <div class="table-tools-end">
-        <button
-          type="button"
-          class="pa-btn"
-          :disabled="loading || busy"
-          @click="load"
-        >
-          <ShellIcon name="refresh" />刷新
-        </button>
         <KitHelpPopover
           v-if="schema?.description"
           label="说明"

@@ -200,6 +200,8 @@ it("paginates only the original exact decimal order cursor and never submits a w
   });
   await flushPromises();
   c.request.mockResolvedValue({ items: [], next_cursor: "" });
+  expect(w.get(".table-tools").find("button").exists()).toBe(false);
+  expect(c.request).toHaveBeenCalledTimes(1);
   await w
     .findAll("button")
     .find((b) => b.text() === "下一页待发奖励")!

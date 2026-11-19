@@ -106,16 +106,6 @@ onBeforeUnmount(() => {
   >
     <div class="table-tools">
       <h3 class="referral-daily-title">每日待发奖励</h3>
-      <div class="table-tools-end">
-        <button
-          type="button"
-          class="pa-btn"
-          :disabled="loading"
-          @click="load()"
-        >
-          刷新待发奖励首页
-        </button>
-      </div>
     </div>
     <div class="referral-daily-notes">
       <p>

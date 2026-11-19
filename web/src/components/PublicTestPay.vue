@@ -765,15 +765,6 @@ onBeforeUnmount(() => {
             >
               核对原测试订单
             </button>
-            <button
-              v-else-if="!state && !loading"
-              type="button"
-              class="testpay-secondary"
-              :disabled="busy"
-              @click="load"
-            >
-              重新读取测试
-            </button>
           </template>
         </div>
         <footer class="testpay-foot">

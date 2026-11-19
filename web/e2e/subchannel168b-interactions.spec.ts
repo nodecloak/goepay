@@ -342,10 +342,10 @@ test("subchannel168b admin committed create response loss needs explicit read be
     d.getByRole("button", { name: "确认保存", exact: true }),
   ).toBeDisabled();
   await expect(
-    d.getByRole("button", { name: "读取最新列表核对", exact: true }),
+    d.getByRole("button", { name: "核对上次修改结果", exact: true }),
   ).toBeVisible();
   await d
-    .getByRole("button", { name: "读取最新列表核对", exact: true })
+    .getByRole("button", { name: "核对上次修改结果", exact: true })
     .click();
   await expect(d).toHaveCount(0);
   await expect(

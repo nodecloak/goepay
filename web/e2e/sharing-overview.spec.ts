@@ -104,7 +104,9 @@ for (const width of [375, 1280])
     await page
       .getByRole("textbox", { name: "商户ID", exact: true })
       .fill("751");
-    await page.getByRole("button", { name: "刷新", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "刷新", exact: true }),
+    ).toHaveCount(0);
     await expect.poll(() => reads.at(-1)).toContain("merchant_id=752");
     await page.getByRole("button", { name: "重置", exact: true }).click();
     await expect(page.locator("tbody tr")).toHaveCount(2);

@@ -50,7 +50,7 @@ it("original lookup page exposes a separate lazy profile tab while retaining leg
   w.unmount();
 });
 
-it("explicit capability reload after selecting a profile does not cancel its own read", async () => {
+it("loads merchant profiles on entry and restores them when the owner session returns", async () => {
   const p = {
     id: "11",
     revision: "1",
@@ -77,11 +77,13 @@ it("explicit capability reload after selecting a profile does not cancel its own
   await flushPromises();
   await w.get("select").setValue("11");
   await flushPromises();
-  await w
-    .findAll("button")
-    .find((b) => b.text() === "读取独立应用")!
-    .trigger("click");
+  expect(w.text()).not.toContain("读取独立应用");
+  expect(request).toHaveBeenCalledTimes(1);
+  await w.setProps({ ownSession: false });
+  expect(w.find("select").exists()).toBe(false);
+  await w.setProps({ ownSession: true });
   await flushPromises();
+  expect(request).toHaveBeenCalledTimes(2);
   expect(w.get("select").findAll("option").length).toBe(2);
   w.unmount();
 });

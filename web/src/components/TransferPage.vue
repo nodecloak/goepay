@@ -742,16 +742,6 @@ onBeforeUnmount(() => {
           filename="transfers-filtered.csv"
           :disabled="loading || !!routeContext.error || !!draftError"
         />
-        <button
-          type="button"
-          class="pa-icon-btn"
-          aria-label="刷新"
-          title="刷新"
-          :disabled="loading || busy"
-          @click="load"
-        >
-          <ShellIcon name="refresh" />
-        </button>
       </div>
     </div>
     <section

@@ -480,7 +480,7 @@ test("merchant 操作台 uses original declaration then queries unknown result w
   const panel = page.getByRole("region", { name: "渠道分账记录" });
   await expect(
     panel.getByRole("button", { name: "读取分账数据" }),
-  ).toBeEnabled();
+  ).toHaveCount(0);
   await panel.getByLabel("平台订单号", { exact: true }).fill("LOCAL_TRADE");
   await panel.getByRole("button", { name: "核对原支付声明" }).click();
   await panel.getByLabel("业务请求号", { exact: true }).fill("stable-local-ps");

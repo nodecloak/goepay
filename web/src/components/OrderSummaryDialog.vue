@@ -46,7 +46,7 @@ function overview(value: unknown): Record<string, string> {
   result.successRate = rate;
   const n = (k: string) => BigInt(result[k]!);
   if (n("paidCount") + n("unpaidCount") < n("totalCount"))
-    throw Error("订单统计总计与状态明细不一致，请重试读取");
+    throw Error("订单统计总计与状态明细不一致");
   return result;
 }
 async function load() {
@@ -68,7 +68,7 @@ async function load() {
     data.value = overview(value);
   } catch (e) {
     if (serial === epoch && !c.signal.aborted)
-      error.value = e instanceof Error ? e.message : "订单统计读取失败，请重试";
+      error.value = e instanceof Error ? e.message : "订单统计读取失败";
   } finally {
     if (serial === epoch) loading.value = false;
   }
@@ -136,7 +136,9 @@ onBeforeUnmount(() => {
               统计当前筛选条件下的全部订单，不受列表分页限制。
             </p>
             <p v-if="loading" role="status">正在读取订单统计…</p>
-            <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+            <p v-if="error" role="alert" class="alert error">
+              {{ error }}<br />可关闭后重新打开统计。
+            </p>
             <template v-if="data">
               <section class="order-summary-section">
                 <h3 class="order-summary-sub">金额统计</h3>
@@ -166,15 +168,6 @@ onBeforeUnmount(() => {
             </p>
           </div>
           <footer class="pa-modal-foot">
-            <button
-              v-if="error"
-              type="button"
-              class="pa-btn"
-              :disabled="loading"
-              @click="load"
-            >
-              重试读取
-            </button>
             <button
               type="button"
               class="pa-btn pa-btn--primary"

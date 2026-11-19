@@ -113,7 +113,7 @@ for (const width of [1280, 375])
     ).toBe(false);
   });
 
-test("late subject logs cannot replace the next UID and failed refresh clears previous rows", async ({
+test("late subject logs cannot replace the next UID and a failed search clears previous rows", async ({
   page,
 }) => {
   let release: (() => void) | undefined,
@@ -162,7 +162,7 @@ test("late subject logs cannot replace the next UID and failed refresh clears pr
     0,
   );
   fail = true;
-  await page.getByRole("button", { name: "刷新", exact: true }).click();
+  await page.getByRole("button", { name: "查询", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("本地日志读取失败");
   await expect(page.getByRole("link", { name: "2", exact: true })).toHaveCount(
     0,

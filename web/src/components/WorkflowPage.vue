@@ -224,10 +224,7 @@ function restoreDialogFocus() {
     ? pendingDialogFocus
     : (workflowList.value?.querySelector<HTMLElement>(
         "[data-workflow-create]",
-      ) ??
-      workflowList.value?.querySelector<HTMLElement>(
-        "[data-workflow-refresh]",
-      ));
+      ) ?? workflowList.value);
   if (target?.matches(":disabled")) return;
   target?.focus();
   pendingDialogFocus = undefined;
@@ -1043,6 +1040,7 @@ onBeforeUnmount(() => {
   <template v-if="!application || !dialog">
     <div
       ref="workflowList"
+      tabindex="-1"
       class="list-page"
       :class="{ 'merchant-workflow-list': area === 'merchant' }"
     >
@@ -1240,14 +1238,6 @@ onBeforeUnmount(() => {
               :disabled="!checked.length || busy || loading"
               @action="pickBatch"
             />
-            <button
-              v-if="!application"
-              data-workflow-refresh
-              :disabled="loading"
-              @click="load"
-            >
-              <ShellIcon name="refresh" />刷新
-            </button>
             <KitHelpPopover v-if="!application" :text="listNote" />
           </div>
         </div>
@@ -1508,11 +1498,11 @@ onBeforeUnmount(() => {
             inputmode="numeric" /></label
         ><button
           type="button"
-          :class="{ 'workflow-refresh-funds': area === 'merchant' }"
+          v-if="area === 'admin'"
           :disabled="fundsLoading || busy"
           @click="loadFunds"
         >
-          {{ area === "admin" ? "查询可出账金额" : "刷新可出账金额" }}
+          查询可出账金额
         </button>
         <p v-if="fundsLoading" role="status" class="muted">
           正在查询资金政策与可出账金额…
@@ -1725,10 +1715,6 @@ onBeforeUnmount(() => {
 .merchant-workflow-form > .alert,
 .merchant-workflow-form > .modal-actions {
   margin: 0;
-}
-.merchant-workflow-form .workflow-refresh-funds {
-  justify-self: start;
-  grid-row: auto;
 }
 .merchant-workflow-form :deep(.funds-availability) {
   background: var(--bg-raised);

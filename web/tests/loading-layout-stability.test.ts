@@ -93,16 +93,12 @@ describe("ResourcePage first load", () => {
         .map((b) => b.text());
     const loaded = labels();
     expect(loaded).toContain("添加");
-    expect(loaded.some((t) => t.includes("刷新"))).toBe(true);
+    expect(loaded).not.toContain("刷新");
     expect(w.find(".csv-export").exists()).toBe(true);
     expect(w.find(filter).exists()).toBe(true);
 
     list = deferred<unknown>();
-    await w
-      .get(".table-tools")
-      .findAll("button")
-      .find((b) => b.text().includes("刷新"))!
-      .trigger("click");
+    await w.get("form.resource-filter").trigger("submit");
     expect(w.find(".loading-row").exists()).toBe(true);
     expect(labels()).toEqual(loaded);
     expect(w.find(filter).exists()).toBe(true);
@@ -111,14 +107,15 @@ describe("ResourcePage first load", () => {
     w.unmount();
   });
 
-  it("still offers 刷新 after the first read fails", async () => {
+  it("shows an initial read failure without an extra refresh button", async () => {
     const client = new ApiClient("admin");
     vi.spyOn(client, "request").mockRejectedValue(new Error("读取失败"));
     const w = mount(ResourcePage, {
       props: { client, resource: "blacklist" },
     });
     await flushPromises();
-    expect(w.get(".table-tools").text()).toContain("刷新");
+    expect(w.get('[role="alert"]').text()).toContain("读取失败");
+    expect(w.find("[data-resource-refresh]").exists()).toBe(false);
     w.unmount();
   });
 });
@@ -146,12 +143,12 @@ it("PayTypePage shows its toolbar with the rows, not half-built while they load"
   await flushPromises();
   const tools = w.get(".table-tools").text();
   expect(tools).toContain("新增");
-  expect(tools).toContain("刷新");
+  expect(tools).not.toContain("刷新");
   expect(tools).toContain("说明");
   w.unmount();
 });
 
-it("AnnouncementsPage keeps its refresh label and shows the loading line where the list goes", async () => {
+it("AnnouncementsPage opens without an extra refresh action and shows the loading line where the list goes", async () => {
   const list = deferred<unknown>();
   const client = {
     csrfToken: "t",
@@ -171,11 +168,11 @@ it("AnnouncementsPage keeps its refresh label and shows the loading line where t
   await flushPromises();
   const refresh = () =>
     w.findAll("button").find((b) => b.text() === "刷新核对公告");
-  expect(refresh()?.attributes("disabled")).toBeDefined();
+  expect(refresh()).toBeUndefined();
   expect(w.get(".announcement-list .empty").text()).toBe("正在加载公告…");
   list.resolve({ items: [], total: 0 });
   await flushPromises();
-  expect(refresh()?.attributes("disabled")).toBeUndefined();
+  expect(refresh()).toBeUndefined();
   expect(w.get(".announcement-list .empty").text()).toBe("暂无公告");
   w.unmount();
 });

@@ -380,9 +380,6 @@ onBeforeUnmount(() => {
       >
         清空已使用
       </button>
-      <div class="table-tools-end">
-        <button :disabled="loading || busy" @click="load">刷新</button>
-      </div>
     </div>
     <p v-if="!canWrite" class="table-note">
       当前会话只读，请使用本人管理员会话管理邀请码。

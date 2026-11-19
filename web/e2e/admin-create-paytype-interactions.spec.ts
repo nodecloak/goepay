@@ -336,7 +336,7 @@ test("pay-type operations remain usable across two toggles, create, edit and del
   await expect(create).toBeEnabled();
   await expect(
     page.getByRole("button", { name: "刷新", exact: true }),
-  ).toBeEnabled();
+  ).toHaveCount(0);
   expect(f.writes.map((w) => w.method)).toEqual([
     "PATCH",
     "PATCH",

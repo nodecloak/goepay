@@ -183,7 +183,6 @@ onBeforeUnmount(() => controller?.abort());
       </p>
       <DataTable :columns="columns" :items="rows" />
       <div class="toolbar-actions">
-        <button :disabled="loading || busy" @click="load">刷新原批次</button>
         <button :disabled="loading || busy" @click="action('query')">
           查询已发送项目
         </button>

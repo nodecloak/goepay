@@ -183,18 +183,6 @@ onBeforeUnmount(() => {
       >
         <ShellIcon name="plus" />创建红包
       </button>
-      <div class="table-tools-end">
-        <button
-          type="button"
-          class="pa-icon-btn"
-          aria-label="刷新"
-          title="刷新"
-          :disabled="loading || !!querying"
-          @click="load"
-        >
-          <ShellIcon name="refresh" />
-        </button>
-      </div>
     </div>
     <p v-if="qrError" class="alert error" role="alert">{{ qrError }}</p>
     <p v-if="qrLoading" class="loading-row" role="status">

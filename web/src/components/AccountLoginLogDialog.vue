@@ -178,9 +178,6 @@ onBeforeUnmount(() => {
         }}的成功登录。未记录的登录方式、归属地保留为“未记录”。时间为北京时间。
       </p>
       <p v-if="error" role="alert" class="alert error">{{ error }}</p>
-      <button type="button" :disabled="loading || !allowed" @click="load">
-        刷新登录日志
-      </button>
       <p v-if="loading" role="status">正在读取登录日志…</p>
       <div v-else class="table-scroll">
         <table>
@@ -201,7 +198,7 @@ onBeforeUnmount(() => {
             </tr>
             <tr v-if="!rows.length">
               <td colspan="4">
-                {{ error ? "读取失败，请刷新核对" : "暂无已核实的登录记录" }}
+                {{ error ? "读取失败，请重新打开登录日志" : "暂无已核实的登录记录" }}
               </td>
             </tr>
           </tbody>

@@ -73,7 +73,7 @@ it.each([
     const { w, request } = await fixture(base, types);
     expect(w.text()).toContain("***1234");
     expect(w.emitted("change")?.at(-1)?.[0]).toEqual(view());
-    expect(button(w, "刷新收款版本").attributes("disabled")).toBeUndefined();
+    expect(button(w, "刷新收款版本")).toBeUndefined();
     expect(button(w, "修改收款资料").attributes("disabled")).toBeDefined();
     await button(w, "修改收款资料").trigger("click");
     expect(w.find('input[aria-label="收款账号"]').exists()).toBe(false);
@@ -83,7 +83,7 @@ it.each([
   },
 );
 it("preserves verified GET grants over two pure-view POSTs, then revokes on refresh", async () => {
-  const { w, request, revoke } = await fixture(true, true);
+  const { w, client, request, revoke } = await fixture(true, true);
   for (const id of ["43", "44"]) {
     await edit(w);
     await button(w, "保存收款版本").trigger("click");
@@ -100,7 +100,7 @@ it("preserves verified GET grants over two pure-view POSTs, then revokes on refr
     ),
   ).toEqual(["42", "43"]);
   revoke();
-  await button(w, "刷新收款版本").trigger("click");
+  client.csrfToken = "new-page-session";
   await flushPromises();
   expect(w.emitted("change")?.at(-1)?.[0]).toEqual(view("44"));
   expect(button(w, "修改收款资料").attributes("disabled")).toBeDefined();

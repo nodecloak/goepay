@@ -38,7 +38,7 @@ function summary(value: unknown): Record<string, string> {
   // 总计 must equal 增加 − 减少 to the cent; a mismatch means a partial read.
   const cents = (key: string) => BigInt(result[key]!.replace(".", ""));
   if (cents("increaseMoney") - cents("decreaseMoney") !== cents("netMoney"))
-    throw Error("资金明细统计总计与增减明细不一致，请重试读取");
+    throw Error("资金明细统计总计与增减明细不一致");
   return result;
 }
 async function load() {
@@ -60,8 +60,7 @@ async function load() {
     data.value = summary(value);
   } catch (e) {
     if (serial === epoch && !c.signal.aborted)
-      error.value =
-        e instanceof Error ? e.message : "资金明细统计读取失败，请重试";
+      error.value = e instanceof Error ? e.message : "资金明细统计读取失败";
   } finally {
     if (serial === epoch) loading.value = false;
   }
@@ -127,7 +126,9 @@ onBeforeUnmount(() => {
       </div>
       <p class="muted">统计当前筛选条件下的全部资金明细，不受列表分页限制。</p>
       <p v-if="loading" role="status">正在读取资金明细统计…</p>
-      <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+      <p v-if="error" role="alert" class="alert error">
+        {{ error }}<br />可关闭后重新打开统计。
+      </p>
       <dl v-if="data" class="ledger-summary-grid">
         <div v-for="f in fields" :key="f.key">
           <dt>{{ f.label }}</dt>
@@ -138,9 +139,7 @@ onBeforeUnmount(() => {
         增加金额为全部入账金额合计，减少金额为全部出账金额合计，总计金额为净变动（增加减去减少）。
       </p>
       <div class="modal-actions">
-        <button v-if="error" type="button" :disabled="loading" @click="load">
-          重试读取资金明细统计</button
-        ><button type="button" class="primary" @click="emit('close')">
+        <button type="button" class="primary" @click="emit('close')">
           关闭
         </button>
       </div>

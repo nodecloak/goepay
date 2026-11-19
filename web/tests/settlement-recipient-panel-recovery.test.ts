@@ -93,7 +93,7 @@ it.each([
     ).toBeDefined();
     await button(wrapper, "修改收款资料").trigger("click");
     expect(wrapper.find('input[aria-label="收款账号"]').exists()).toBe(false);
-    expect(button(wrapper, "刷新收款版本")).toBeTruthy();
+    expect(button(wrapper, "刷新收款版本")).toBeUndefined();
     expect(
       request.mock.calls.filter(([, init]) => init?.method === "POST"),
     ).toHaveLength(0);
@@ -162,7 +162,7 @@ it.each([
       button(wrapper, "修改收款资料").attributes("disabled"),
     ).toBeDefined();
     expect(reads).toBe(0);
-    await button(wrapper, "刷新收款版本").trigger("click");
+    await button(wrapper, "核对收款版本").trigger("click");
     await flushPromises();
     expect(wrapper.text()).toContain("版本 43");
     expect(
@@ -209,13 +209,13 @@ it("keeps unknown-write recovery locked when explicit readback fails", async () 
   await button(wrapper, "保存收款版本").trigger("click");
   await flushPromises();
   request.mockRejectedValue(new ApiError("read unavailable", 503, -1));
-  await button(wrapper, "刷新收款版本").trigger("click");
+  await button(wrapper, "核对收款版本").trigger("click");
   await flushPromises();
   expect(wrapper.text()).toContain("***1234");
   expect(wrapper.text()).toContain("保存结果尚未确认");
   expect(button(wrapper, "修改收款资料").attributes("disabled")).toBeDefined();
   expect(
-    button(wrapper, "刷新收款版本").attributes("disabled"),
+    button(wrapper, "核对收款版本").attributes("disabled"),
   ).toBeUndefined();
 });
 

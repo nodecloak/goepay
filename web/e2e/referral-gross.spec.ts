@@ -248,7 +248,9 @@ test("group basis overrides explicitly and an uncertain save never retries witho
     "用户组",
   );
   await page.getByLabel("用户组 ID", { exact: true }).fill("9");
-  await page.getByRole("button", { name: "读取政策版本", exact: true }).click();
+  await page
+    .getByRole("button", { name: "查询用户组政策", exact: true })
+    .click();
   await expect(
     page.getByRole("button", { name: "奖励基数", exact: true }),
   ).toContainText("原订单金额（原手续费封顶）");
@@ -270,11 +272,20 @@ test("group basis overrides explicitly and an uncertain save never retries witho
   ).toBeDisabled();
   expect(writes).toBe(1);
   expect(reads).toBe(2);
-  await page.getByRole("button", { name: "读取政策版本", exact: true }).click();
+  await page.reload();
+  await chooseKitOption(
+    page,
+    page.getByRole("button", { name: "政策范围", exact: true }),
+    "用户组",
+  );
+  await page.getByLabel("用户组 ID", { exact: true }).fill("9");
+  await page
+    .getByRole("button", { name: "查询用户组政策", exact: true })
+    .click();
   await expect(
     page.getByRole("button", { name: "核对政策变更", exact: true }),
   ).toBeEnabled();
   expect(writes).toBe(1);
-  expect(reads).toBe(3);
+  expect(reads).toBe(4);
   expect(foreign).toEqual([]);
 });

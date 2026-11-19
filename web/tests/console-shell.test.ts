@@ -193,16 +193,12 @@ it("opens the avatar menu with 账户安全 and 退出登录", async () => {
   expect(menu.text()).toContain("账户安全");
   expect(menu.text()).toContain("退出登录");
 });
-it("gives refresh a home at the right end of the list table tools", async () => {
+it("loads the orders list on navigation without a manual refresh button", async () => {
   const { w, router, fetcher } = await setup();
   await router.push("/admin/trade/order");
   await flushPromises();
-  const refresh = w.get(".table-tools .table-refresh");
-  expect(refresh.attributes("aria-label")).toContain("刷新");
-  const before = fetcher.mock.calls.length;
-  await refresh.trigger("click");
-  await flushPromises();
-  expect(fetcher.mock.calls.length).toBeGreaterThan(before);
+  expect(w.find("button[aria-label='刷新数据']").exists()).toBe(false);
+  expect(fetcher.mock.calls.some(([url]) => String(url).includes("/orders?"))).toBe(true);
 });
 
 it("redirects a logged-in admin off /admin/login to the dashboard (or the requested return)", async () => {

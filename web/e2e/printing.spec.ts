@@ -212,7 +212,7 @@ test("paid order receipt keeps escaped text and original unknown printing blocks
   });
   await page.goto("/merchant/trade/order");
   await openMerchantOrderDetails(page);
-  await page.getByRole("button", { name: "查看或刷新打印收据" }).click();
+  await page.getByRole("button", { name: "查看打印收据" }).click();
   await expect(page.getByText("<cut/> item", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "创建手工打印请求" }),

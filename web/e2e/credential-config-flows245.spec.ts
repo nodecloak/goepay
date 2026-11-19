@@ -645,7 +645,7 @@ for (const area of ["admin", "merchant"] as const) {
     if (area === "admin") {
       await page.getByLabel("商户 ID", { exact: true }).fill("1");
       await page
-        .getByRole("button", { name: "读取商户设置", exact: true })
+        .getByRole("button", { name: "查询商户设置", exact: true })
         .click();
     }
     const target = page.locator('[data-target-action="qqbot_appsecret"]'),
@@ -688,7 +688,7 @@ for (const area of ["admin", "merchant"] as const) {
     if (area === "admin") {
       await page.getByLabel("商户 ID", { exact: true }).fill("1");
       await page
-        .getByRole("button", { name: "读取商户设置", exact: true })
+        .getByRole("button", { name: "查询商户设置", exact: true })
         .click();
     }
     await expect(

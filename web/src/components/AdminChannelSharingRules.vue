@@ -449,16 +449,6 @@ onBeforeUnmount(() => {
         >
           <ShellIcon name="plus" />新增
         </button>
-        <div class="table-tools-end">
-          <button
-            type="button"
-            class="pa-btn"
-            :disabled="loading"
-            @click="load"
-          >
-            <ShellIcon name="refresh" />刷新
-          </button>
-        </div>
       </div>
       <p v-if="loading" role="status" class="table-note">正在读取分账规则…</p>
       <div class="table-scroll">

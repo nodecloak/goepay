@@ -66,7 +66,7 @@ async function load(more = false) {
     items.value = more ? [...items.value, ...page.items] : page.items;
     cursor.value = page.next_cursor;
   } catch {
-    if (current === epoch) error.value = "通知记录读取失败，请刷新后重试";
+    if (current === epoch) error.value = "通知记录读取失败，请刷新页面重试";
   } finally {
     if (current === epoch) busy.value = false;
   }
@@ -85,7 +85,6 @@ onBeforeUnmount(() => {
     <p class="muted">
       “已受理”表示发送服务已接受请求；“待核实”表示尚未确认结果。
     </p>
-    <button :disabled="busy" @click="load()">刷新通知记录</button>
     <p v-if="error" role="alert" class="alert error">{{ error }}</p>
     <p v-if="busy" role="status">正在读取通知记录…</p>
     <p v-else-if="!error && !items.length">暂无通知记录</p>

@@ -277,7 +277,7 @@ for (const width of [1280, 375]) {
     expect(f.writes).toHaveLength(0);
     expect(f.errors).toHaveLength(0);
   });
-  test(`a refused own log refresh clears previous rows at ${width}px`, async ({
+  test(`a refused own log page change clears previous rows at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 1000 });
@@ -286,9 +286,8 @@ for (const width of [1280, 375]) {
     const dialog = page.getByRole("dialog", { name: "登录日志", exact: true });
     await expect(dialog.getByText("192.0.2.1", { exact: true })).toBeVisible();
     f.fail();
-    await dialog
-      .getByRole("button", { name: "刷新登录日志", exact: true })
-      .click();
+    await expect(dialog.getByRole("button", { name: "刷新登录日志" })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "下一页", exact: true }).click();
     await expect(dialog.getByRole("alert")).toContainText(
       "local login log unavailable",
     );

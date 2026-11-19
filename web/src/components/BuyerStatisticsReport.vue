@@ -7,7 +7,6 @@ import CsvExportButton from "./CsvExportButton.vue";
 import OrderBlacklistDialog from "./OrderBlacklistDialog.vue";
 import KitPagination from "./KitPagination.vue";
 import KitHelpPopover from "./KitHelpPopover.vue";
-import ShellIcon from "./ShellIcon.vue";
 import KitField from "./KitField.vue";
 import KitSelect from "./KitSelect.vue";
 
@@ -28,9 +27,6 @@ type BuyerRow = {
   pay_money: string;
   trade_no: string;
   is_black: boolean;
-  shownMoney?: string;
-  moneyError?: string;
-  moneyBusy?: boolean;
 };
 const today = reportDateRange("today")!;
 const from = ref(today.from),
@@ -144,17 +140,15 @@ async function load() {
     }
     // Keep counts and money as exact strings. Never round a JSON number into a
     // plausible-looking account count or amount.
-    items.value = data.items
-      .filter(
-        (row) =>
-          typeof row.user === "string" &&
-          row.user.length > 0 &&
-          typeof row.order_count === "string" &&
-          /^(0|[1-9]\d*)$/.test(row.order_count) &&
-          typeof row.pay_money === "string" &&
-          /^(0|[1-9]\d*)\.\d{2}$/.test(row.pay_money),
-      )
-      .map((row) => ({ ...row, shownMoney: undefined }));
+    items.value = data.items.filter(
+      (row) =>
+        typeof row.user === "string" &&
+        row.user.length > 0 &&
+        typeof row.order_count === "string" &&
+        /^(0|[1-9]\d*)$/.test(row.order_count) &&
+        typeof row.pay_money === "string" &&
+        /^(0|[1-9]\d*)\.\d{2}$/.test(row.pay_money),
+    );
     if (items.value.length !== data.items.length) {
       items.value = [];
       error.value = "统计响应缺少精确来源，请重新查询";
@@ -167,50 +161,6 @@ async function load() {
       error.value = e instanceof Error ? e.message : "统计读取失败";
   } finally {
     if (alive && localEpoch === epoch) loading.value = false;
-  }
-}
-async function readMoney(row: BuyerRow) {
-  if (!applied || row.moneyBusy) return;
-  const localEpoch = epoch,
-    binding = applied,
-    client = props.client,
-    csrf = client.csrfToken,
-    q = new URLSearchParams(applied);
-  q.set("user", row.user);
-  q.set("page", "1");
-  row.moneyBusy = true;
-  row.moneyError = "";
-  try {
-    const data = await client.request<{ items: BuyerRow[] }>(
-      "/reports/buyers?" + q,
-      { signal: controller?.signal },
-    );
-    if (
-      !alive ||
-      localEpoch !== epoch ||
-      applied !== binding ||
-      client !== props.client ||
-      csrf !== client.csrfToken
-    )
-      return;
-    const exact = data.items.find((item) => item.user === row.user);
-    if (
-      !exact ||
-      typeof exact.pay_money !== "string" ||
-      !/^(0|[1-9]\d*)\.\d{2}$/.test(exact.pay_money)
-    ) {
-      row.shownMoney = undefined;
-      row.moneyError = "未读取到原用户金额，请重新查询";
-      return;
-    }
-    row.shownMoney = exact.pay_money;
-  } catch (e) {
-    if (alive && localEpoch === epoch) {
-      row.shownMoney = undefined;
-      row.moneyError = e instanceof Error ? e.message : "金额读取失败";
-    }
-  } finally {
-    if (alive && localEpoch === epoch) row.moneyBusy = false;
   }
 }
 function changeSort(key: string) {
@@ -302,18 +252,8 @@ onBeforeUnmount(() => {
           >共 <strong>{{ total }}</strong> 条记录</span
         >
         <div class="table-tools-end">
-          <button
-            type="button"
-            class="icon-button table-refresh"
-            :aria-label="loading ? '正在更新…' : '刷新数据'"
-            :title="loading ? '正在更新…' : '刷新数据'"
-            :disabled="loading"
-            @click="load"
-          >
-            <ShellIcon name="refresh" />
-          </button>
           <KitHelpPopover
-            text="只统计查询日期内已付款订单，日期按北京时间。未记录的账号或IP不合并为虚构用户；付款金额可按行刷新。"
+            text="只统计查询日期内已付款订单，日期按北京时间。未记录的账号或IP不合并为虚构用户。"
           />
         </div>
       </div>
@@ -369,20 +309,7 @@ onBeforeUnmount(() => {
                   >{{ row.order_count }}</RouterLink
                 >
               </td>
-              <td>
-                <button
-                  class="link-button numeric"
-                  :aria-label="'刷新付款金额 ' + row.user"
-                  :disabled="row.moneyBusy || !applied"
-                  @click="readMoney(row)"
-                >
-                  {{
-                    row.moneyBusy ? "正在读取…" : (row.shownMoney ?? "[刷新]")
-                  }}</button
-                ><small v-if="row.moneyError" class="cell error" role="alert">{{
-                  row.moneyError
-                }}</small>
-              </td>
+              <td class="numeric">{{ row.pay_money }}</td>
               <td>
                 <RouterLink
                   v-if="validTrade(row.trade_no)"

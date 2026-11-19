@@ -1297,7 +1297,7 @@ async function login() {
       loginUncertain.value = !knownRejection;
     }
     error.value = loginUncertain.value
-      ? "登录结果无法确认，请重新检查登录状态后再操作"
+      ? "登录结果尚未确认，请刷新页面查看登录状态。"
       : message(e);
   } finally {
     if (currentContext()) {
@@ -2140,7 +2140,6 @@ onBeforeUnmount(() => {
             active
             :username="username"
             :context-key="client"
-            :disabled="busy || loginUncertain"
           /><button
             type="submit"
             class="primary full"
@@ -2211,15 +2210,6 @@ onBeforeUnmount(() => {
             </button>
           </div>
         </div>
-        <button
-          v-if="loginUncertain"
-          type="button"
-          data-action="check-login"
-          class="full"
-          @click="initialize"
-        >
-          重新检查登录状态
-        </button>
         <div v-if="area === 'merchant'" class="toolbar-actions">
           <button
             :disabled="busy || loginUncertain"
@@ -2953,16 +2943,6 @@ onBeforeUnmount(() => {
                   !!listRouteError
                 "
               />
-              <button
-                type="button"
-                class="icon-button table-refresh"
-                :aria-label="loading ? '正在更新…' : '刷新数据'"
-                :title="loading ? '正在更新…' : '刷新数据'"
-                :disabled="loading"
-                @click="load"
-              >
-                <ShellIcon name="refresh" />
-              </button>
             </div>
           </div>
           <div v-if="loading" class="loading-row" role="status">

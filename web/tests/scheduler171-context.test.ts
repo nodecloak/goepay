@@ -244,7 +244,7 @@ it("busy request cannot be dismissed and uncertain result requires fresh GET, ne
   expect(
     request.mock.calls.filter((c) => c[1]?.method === "PATCH"),
   ).toHaveLength(1);
-  await button(w, "刷新核对").trigger("click");
+  await button(w, "核对原任务结果").trigger("click");
   await flushPromises();
   expect(w.text()).not.toContain("结果尚未确认");
   expect(

@@ -243,11 +243,13 @@ for (const width of [1280, 375]) {
     await expect(dialog.getByRole("row").last()).toContainText("0.00%");
     expect(reads).toBe(1);
     failed = true;
-    await dialog.getByRole("button", { name: "刷新统计" }).click();
+    await page.keyboard.press("Escape");
+    await opener.click();
     await expect(dialog.getByRole("alert")).toContainText("本地统计暂不可用");
     await expect(dialog.getByRole("table")).toHaveCount(0);
     failed = false;
-    await dialog.getByRole("button", { name: "刷新统计" }).click();
+    await page.keyboard.press("Escape");
+    await opener.click();
     await expect(dialog.getByRole("table")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);

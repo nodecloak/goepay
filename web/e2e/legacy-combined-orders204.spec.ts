@@ -173,7 +173,7 @@ for (const width of [375, 1440])
     expect(f.errors).toHaveLength(0);
   });
 
-test("historical combined read failure can be retried from the same modal without mutations", async ({
+test("historical combined read failure can be retried by reopening the modal without mutations", async ({
   page,
 }) => {
   const f = await legacyCombined204(page, true);
@@ -184,9 +184,8 @@ test("historical combined read failure can be retried from the same modal withou
   });
   await expect(modal.getByRole("alert")).toBeVisible();
   await expect(modal.locator("tbody tr")).toHaveCount(0);
-  await modal
-    .getByRole("button", { name: "重新读取子订单", exact: true })
-    .click();
+  await modal.getByRole("button", { name: "关闭子订单列表", exact: true }).click();
+  await page.getByRole("button", { name: "查看子订单", exact: true }).click();
   await expect(modal.locator("tbody tr")).toHaveCount(3);
   expect(f.reads).toHaveLength(2);
   expect(f.writes).toHaveLength(0);

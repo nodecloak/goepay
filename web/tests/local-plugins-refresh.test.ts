@@ -7,24 +7,22 @@ vi.mock("../src/plugin-catalog", async (importOriginal) => ({
   loadPluginCatalog: vi.fn(),
 }));
 afterEach(() => vi.resetAllMocks());
-it("recovers a failed catalog read from the page and prevents duplicate refreshes", async () => {
+it("reads the catalog again when the page is reopened after a failure", async () => {
   let resolve!: (v: CatalogEntry[]) => void;
   const retry = new Promise<CatalogEntry[]>((r) => (resolve = r));
   vi.mocked(loadPluginCatalog)
     .mockRejectedValueOnce(new Error("read failed"))
     .mockReturnValueOnce(retry);
-  const view = mount(LocalPluginsPage);
+  let view = mount(LocalPluginsPage);
   try {
     await flushPromises();
     expect(view.get('[role="alert"]').text()).toContain("读取失败");
-    const refresh = view
-      .findAll("button")
-      .find((b) => b.text() === "刷新本地插件列表");
-    expect(refresh).toBeDefined();
-    await refresh!.trigger("click");
-    await refresh!.trigger("click");
+    expect(
+      view.findAll("button").some((b) => b.text() === "刷新本地插件列表"),
+    ).toBe(false);
+    view.unmount();
+    view = mount(LocalPluginsPage);
     expect(loadPluginCatalog).toHaveBeenCalledTimes(2);
-    expect(refresh!.attributes("disabled")).toBeDefined();
     resolve([
       {
         name: "alipay",
@@ -41,7 +39,6 @@ it("recovers a failed catalog read from the page and prevents duplicate refreshe
     await flushPromises();
     expect(view.find("tbody").text()).toContain("支付宝");
     expect(view.find('[role="alert"]').exists()).toBe(false);
-    expect(refresh!.attributes("disabled")).toBeUndefined();
   } finally {
     view.unmount();
   }

@@ -63,7 +63,7 @@ test("local real API migrates a SQL backup once and preserves a safe activation 
   });
   await page.getByRole("button", { name: "上传并预检查", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "读取当前任务状态", exact: true }),
+    page.getByRole("region", { name: "迁移任务结果", exact: true }),
   ).toBeVisible();
   const runs = await (
     await page.request.get(base + "/console/v1/admin/migration/epay")

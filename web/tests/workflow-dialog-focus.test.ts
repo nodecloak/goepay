@@ -141,9 +141,7 @@ it("returns to refresh after a mocked sharing decision removes its original row 
     .trigger("click");
   await flushPromises();
   expect(opener.element.isConnected).toBe(false);
-  expect(document.activeElement).toBe(
-    view.findAll("button").find((b) => b.text() === "刷新")!.element,
-  );
+  expect(document.activeElement).toBe(view.get(".list-page").element);
   expect(
     request.mock.calls.filter(([, options]) => options?.method === "POST"),
   ).toHaveLength(1);

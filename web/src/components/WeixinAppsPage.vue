@@ -36,7 +36,7 @@ const mode = ref<"create" | "edit" | "archive" | null>(null),
   draft = ref<WeixinDraft>(emptyWeixinDraft()),
   dialog = ref<HTMLElement>(),
   secretInput = ref<HTMLInputElement>(),
-  refreshButton = ref<HTMLButtonElement>(),
+  section = ref<HTMLElement>(),
   unknown = ref(false),
   rotationPending = ref(false);
 type Pending = {
@@ -313,7 +313,7 @@ async function close() {
     c = context();
   clearForm();
   await nextTick();
-  if (current(c)) (target?.isConnected ? target : refreshButton.value)?.focus();
+  if (current(c)) (target?.isConnected ? target : section.value)?.focus();
 }
 function changedSource() {
   draft.value.merchant_ids = [];
@@ -360,7 +360,7 @@ async function confirmed(row: WeixinApplication, c: Context) {
   notice.value = "应用资料已保存，请核对当前列表。";
   await load();
   await nextTick();
-  if (current(c)) (target?.isConnected ? target : refreshButton.value)?.focus();
+  if (current(c)) (target?.isConnected ? target : section.value)?.focus();
 }
 async function mutate() {
   if (
@@ -526,7 +526,7 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="panel weixin-apps-page">
+  <section ref="section" tabindex="-1" class="panel weixin-apps-page">
     <div class="weixin-toolbar">
       <button
         v-if="canWrite"
@@ -536,15 +536,7 @@ onBeforeUnmount(() => {
         @click="create()"
       >
         <ShellIcon name="plus" />新增应用</button
-      ><span>共 {{ items.length }} 个应用</span
-      ><button
-        ref="refreshButton"
-        type="button"
-        :disabled="loading || busy || !!mode"
-        @click="load"
-      >
-        刷新
-      </button>
+      ><span>共 {{ items.length }} 个应用</span>
     </div>
     <p v-if="!loading && !canWrite" class="muted">
       当前资料只读。修改权限以当前管理员会话及服务端授权范围为准。

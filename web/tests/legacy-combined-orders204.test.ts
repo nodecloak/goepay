@@ -389,12 +389,9 @@ it("a failed historical read can be retried without a mutation or stale child li
   let modal = await open204(f.wrapper);
   expect(modal.find('[role="alert"]').exists()).toBe(true);
   expect(modal.findAll("tbody tr")).toHaveLength(0);
-  await modal
-    .findAll("button")
-    .find((button) => button.text() === "重新读取子订单")!
-    .trigger("click");
+  await modal.findAll("button").find((b) => b.text() === "关闭子订单列表")!.trigger("click");
   await flushPromises();
-  modal = f.wrapper.find('[role="dialog"][aria-label="合单支付 - 子订单列表"]');
+  modal = await open204(f.wrapper);
   expect(modal.findAll("tbody tr")).toHaveLength(8);
   expect(attempts).toBe(2);
   expect(f.calls.every((call) => call.method === "GET")).toBe(true);

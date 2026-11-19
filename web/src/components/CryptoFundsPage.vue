@@ -536,10 +536,6 @@ function clearReadData() {
   revokeID.value = "";
   notice.value = "";
 }
-function refresh() {
-  monitoringRefresh.value++;
-  return load();
-}
 async function load() {
   controller?.abort();
   controller = new AbortController();
@@ -913,9 +909,6 @@ onBeforeUnmount(() => {
           {{ headings[section].description }}
         </p>
       </div>
-      <button type="button" :disabled="loading || busy" @click="refresh">
-        {{ loading ? "正在刷新…" : "刷新记录" }}
-      </button>
     </header>
     <p
       v-if="readReady && (admin || (enabled && section === 'invoices'))"
@@ -977,7 +970,7 @@ onBeforeUnmount(() => {
       class="card crypto-service-state"
     >
       <h3>USDT 记录暂时无法读取</h3>
-      <p class="muted">当前已暂停资金操作，请刷新记录后再核对。</p>
+      <p class="muted">当前已暂停资金操作，请刷新页面后再核对。</p>
     </section>
     <p
       v-if="readReady && !enabled"
@@ -2042,7 +2035,6 @@ pre {
   .crypto-funds.crypto-merchant {
     padding: 0;
   }
-  .crypto-merchant .crypto-header button,
   .crypto-merchant .crypto-actions > button,
   .crypto-merchant .crypto-forms .card > button {
     width: 100%;

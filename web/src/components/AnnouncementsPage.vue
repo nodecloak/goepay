@@ -104,7 +104,7 @@ function invalidate() {
   loading.value = false;
   busy.value = false;
   uncertain.value = true;
-  error.value = "会话已变化，请刷新核对公告";
+  error.value = "会话已变化，请刷新页面核对公告";
 }
 function context() {
   return {
@@ -302,7 +302,7 @@ async function mutate(
       removing.value = undefined;
       error.value =
         (e instanceof Error ? e.message : "操作结果无法确认") +
-        "；请先刷新核对公告，再决定是否操作";
+        "；请先刷新页面核对公告，再决定是否操作";
     }
   } finally {
     if (current(c) && !ac.signal.aborted) busy.value = false;
@@ -432,13 +432,6 @@ onBeforeUnmount(() => {
         <div class="modal-actions">
           <button type="button" :disabled="busy" @click="closeForm">
             {{ selected ? "取消编辑" : "清空" }}</button
-          ><button
-            v-if="uncertain"
-            type="button"
-            :disabled="busy || loading"
-            @click="load"
-          >
-            刷新核对公告</button
           ><button type="submit" class="primary" :disabled="!canSave">
             {{ busy ? "处理中…" : selected ? "保存" : "添加" }}
           </button>
@@ -455,9 +448,7 @@ onBeforeUnmount(() => {
             :disabled="!writable"
             @click="openAdd"
           >
-            添加公告</button
-          ><button type="button" :disabled="busy || loading" @click="load">
-            刷新核对公告
+            添加公告
           </button>
         </div>
       </div>

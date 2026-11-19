@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch, onBeforeUnmount } from "vue";
 import QRCode from "qrcode";
 import type { ApiClient } from "../api";
 import type { Area } from "../menu";
@@ -114,9 +114,18 @@ function reset(clearProfiles = false) {
   }
 }
 watch(
-  () => [props.client, props.area, props.ownSession, merchant.value],
-  () => reset(true),
-  { flush: "sync" },
+  () => [
+    props.client,
+    props.client.csrfToken,
+    props.area,
+    props.ownSession,
+    merchant.value,
+  ],
+  () => {
+    if (props.ownSession && props.area === "merchant") void capabilities();
+    else reset(true);
+  },
+  { immediate: true, flush: "sync" },
 );
 watch(selected, () => reset(), { flush: "sync" });
 async function run(fn: (signal: AbortSignal, ticket: number) => Promise<void>) {
@@ -407,9 +416,6 @@ const timer = setInterval(() => {
     clearSecrets();
   }
 }, 1000);
-onMounted(() => {
-  if (props.ownSession && props.area === "merchant") void capabilities();
-});
 onBeforeUnmount(() => {
   active = false;
   clearInterval(timer);
@@ -432,7 +438,12 @@ onBeforeUnmount(() => {
             v-model.trim="merchant"
             inputmode="numeric"
             autocomplete="off" /></label
-        ><button class="pa-btn" :disabled="busy" @click="capabilities">
+        ><button
+          v-if="area === 'admin'"
+          class="pa-btn"
+          :disabled="busy"
+          @click="capabilities"
+        >
           读取独立应用</button
         ><label class="profile-field"
           ><span>授权应用档案</span

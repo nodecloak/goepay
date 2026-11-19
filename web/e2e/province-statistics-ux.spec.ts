@@ -189,7 +189,7 @@ for (const width of [1280, 375]) {
     await expect(
       page.getByText("90071992547414.93", { exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "刷新数据", exact: true }).click();
+    await page.getByRole("button", { name: "查询", exact: true }).click();
     await expect.poll(() => calls).toBe(2);
     await page.getByLabel("商户号", { exact: true }).fill("2");
     release();

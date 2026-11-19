@@ -270,18 +270,6 @@ function choose(name: string, click = false) {
             >（<span>{{ totalCount }}</span> 笔）</span
           >
         </div>
-        <div class="table-tools-end">
-          <button
-            type="button"
-            class="icon-button table-refresh"
-            :aria-label="loading ? '正在更新…' : '刷新数据'"
-            :title="loading ? '正在更新…' : '刷新数据'"
-            :disabled="loading"
-            @click="load"
-          >
-            <ShellIcon name="refresh" />
-          </button>
-        </div>
       </div>
       <p class="muted province-note">
         按北京时间订单创建日期统计已支付金额与笔数。地区来自已记录资料，未记录或未匹配的地区单独保留，不根据支付IP猜测。

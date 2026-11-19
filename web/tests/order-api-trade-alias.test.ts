@@ -435,7 +435,8 @@ describe("administrator original API trade number editor with an independent dis
       button(dialog(f.wrapper), "确定").attributes("disabled"),
     ).toBeDefined();
     expect(f.wrapper.text()).not.toMatch(/修改成功|保存成功/);
-    await button(dialog(f.wrapper), "重新读取").trigger("click");
+    await button(dialog(f.wrapper), "取消").trigger("click");
+    await open(f.wrapper);
     await flushPromises();
     modal = dialog(f.wrapper);
     expect((modal.get("input").element as HTMLInputElement).value).toBe(
@@ -478,7 +479,8 @@ describe("administrator original API trade number editor with an independent dis
     expect(f.wrapper.text()).not.toMatch(/修改成功|保存成功/);
     await button(dialog(f.wrapper), "确定").trigger("click");
     expect(f.writes()).toHaveLength(1);
-    await button(dialog(f.wrapper), "重新读取").trigger("click");
+    await button(dialog(f.wrapper), "取消").trigger("click");
+    await open(f.wrapper);
     await flushPromises();
     expect(
       (dialog(f.wrapper).get("input").element as HTMLInputElement).value,

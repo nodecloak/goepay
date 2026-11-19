@@ -250,9 +250,7 @@ it("clears a raw changed-session response and leaves a usable retry instead of a
   await flushPromises();
   expect(view.text()).not.toContain("same-number");
   expect(view.get('[role="alert"]').text()).toContain("会话");
-  expect(
-    view.get('[data-action="refresh"]').attributes("disabled"),
-  ).toBeUndefined();
+  expect(view.find('[data-action="refresh"]').exists()).toBe(false);
 });
 it("does not dispatch a row operation from data loaded under an old raw CSRF session", async () => {
   const { view, client, request } = await setup();

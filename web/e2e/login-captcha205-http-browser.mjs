@@ -663,11 +663,7 @@ try {
           ]),
     ].sort(),
   );
-  const check = page.getByRole("button", {
-    name: "重新检查登录状态",
-    exact: true,
-  });
-  await expect(check).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("请刷新页面");
   expect(await page.evaluate(() => window.__loginFault205.fired)).toBe(1);
   await expect(loginButton(page)).toBeDisabled();
   const postsAtUnknown = count("merchant", loginPath),
@@ -701,7 +697,7 @@ try {
   const sessionRead = page.waitForResponse(
     isResponse("/console/v1/merchant/session", "GET"),
   );
-  await check.click();
+  await page.reload();
   const restoredResponse = await sessionRead;
   expect(restoredResponse.status()).toBe(200);
   const restored = captured(restoredResponse).envelope.data;

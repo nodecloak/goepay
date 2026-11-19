@@ -388,18 +388,18 @@ onBeforeUnmount(() => {
       {{
         recipientWritePermission === false || typesWritePermission === false
           ? "当前仅可查看收款资料；修改需商户管理权限。"
-          : "收款资料修改权限尚未核实；当前仅可查看，请刷新收款版本重试。"
+          : "收款资料修改权限尚未核实；当前仅可查看，请刷新页面重试。"
       }}
     </p>
     <p v-if="unknownSave" class="alert error" role="alert">
-      保存结果尚未确认，已清除新收款资料；请刷新收款版本核对后再编辑。
+      保存结果尚未确认，已清除新收款资料；请核对收款版本后再编辑。
     </p>
     <p
       v-if="current && typesState === 'unavailable'"
       class="alert"
       role="status"
     >
-      暂无法核实该商户可用的收款方式；原收款资料仍可查看，暂不可编辑。请刷新收款版本重试。
+      暂无法核实该商户可用的收款方式；原收款资料仍可查看，暂不可编辑。请重试。
     </p>
     <p
       v-else-if="current && typesState === 'ready' && !typeOptions.length"
@@ -439,12 +439,13 @@ onBeforeUnmount(() => {
             current.state === "missing" ? "配置收款资料" : "修改收款资料"
           }}</button
         ><button
+          v-if="unknownSave || typesState === 'unavailable'"
           ref="refreshTrigger"
           type="button"
           :disabled="loading"
           @click="refresh"
         >
-          刷新收款版本
+          {{ unknownSave ? "核对收款版本" : "重试" }}
         </button>
       </div>
       <template v-else>

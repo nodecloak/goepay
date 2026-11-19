@@ -95,7 +95,7 @@ it("releases switch busy state after refreshing saved rows so a second type can 
   expect(
     request.mock.calls.filter(([, o]) => o?.method === "PATCH"),
   ).toHaveLength(2);
-  expect(button(w, "刷新").attributes("disabled")).toBeUndefined();
+  expect(w.findAll("button").some((b) => b.text() === "刷新")).toBe(false);
 });
 
 it.each(["create", "edit", "delete"] as const)(
@@ -113,7 +113,7 @@ it.each(["create", "edit", "delete"] as const)(
     await flushPromises();
     expect(w.find('[role="dialog"]').exists()).toBe(false);
     expect(button(w, "新增").attributes("disabled")).toBeUndefined();
-    expect(button(w, "刷新").attributes("disabled")).toBeUndefined();
+    expect(w.findAll("button").some((b) => b.text() === "刷新")).toBe(false);
     await button(w, "新增").trigger("click");
     expect(w.find('[role="dialog"]').exists()).toBe(true);
   },
@@ -174,7 +174,7 @@ it("a failed toggle refreshes once and releases the page without retrying the wr
   await f.w.findAll('input[role="switch"]')[0]!.setValue(true);
   await flushPromises();
   expect(f.w.text()).toContain("synthetic type update failed");
-  expect(button(f.w, "刷新").attributes("disabled")).toBeUndefined();
+  expect(button(f.w, "新增").attributes("disabled")).toBeUndefined();
   expect(f.request.mock.calls.filter(([, o]) => o?.method)).toHaveLength(1);
 });
 
@@ -194,6 +194,6 @@ it("drops an old operation after a raw same-client CSRF change and reads the rep
   pending.resolve({});
   await flushPromises();
   expect(f.w.text()).not.toContain("已开启");
-  expect(button(f.w, "刷新").attributes("disabled")).toBeUndefined();
+  expect(button(f.w, "新增").attributes("disabled")).toBeUndefined();
   expect(f.request.mock.calls.filter(([, o]) => o?.method)).toHaveLength(1);
 });

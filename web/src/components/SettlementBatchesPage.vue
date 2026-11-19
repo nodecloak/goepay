@@ -316,8 +316,7 @@ onBeforeUnmount(reset);
             placeholder="按原生成请求号查询"
         /></label>
         <div class="toolbar-actions">
-          <button :disabled="loading || busy">查询</button
-          ><button type="button" :disabled="busy" @click="load()">刷新</button>
+          <button :disabled="loading || busy">查询</button>
         </div>
       </form>
       <section class="panel records">

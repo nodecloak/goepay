@@ -421,7 +421,7 @@ it.each([
   await flushPromises();
   expect(request).not.toHaveBeenCalled();
   expect(w.find('[role="alert"]').exists()).toBe(true);
-  await w.get('[data-action="refresh"]').trigger("click");
+  expect(w.find('[data-action="refresh"]').exists()).toBe(false);
   await flushPromises();
   expect(request).not.toHaveBeenCalled();
   w.unmount();

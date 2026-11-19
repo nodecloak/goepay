@@ -8,7 +8,6 @@ import {
   systemLogMerchantHref,
   systemLogIPHref,
 } from "../system-log";
-import ShellIcon from "./ShellIcon.vue";
 import KitFilterBar from "./KitFilterBar.vue";
 import KitField from "./KitField.vue";
 import KitSelect from "./KitSelect.vue";
@@ -175,9 +174,6 @@ onBeforeUnmount(() => {
     <section class="panel records system-log-page">
       <div class="table-tools">
         <div class="table-tools-end">
-          <button type="button" :disabled="loading" @click="load">
-            <ShellIcon name="refresh" />刷新
-          </button>
           <KitHelpPopover
             text="本地已记录的登录和商户操作，时间为北京时间。失败登录不按尝试账号推断商户；未记录的操作IP与无法核实的归属保留未知。"
           />

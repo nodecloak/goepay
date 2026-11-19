@@ -27,7 +27,7 @@ function report(client: ApiClient, name = "transfer-channels") {
 const query = (path: unknown) =>
   new URLSearchParams(String(path).split("?")[1]);
 
-it("keeps paging, refresh and CSV on the submitted filters while edits remain drafts", async () => {
+it("keeps paging and CSV on the submitted filters while edits remain drafts", async () => {
   const client = new ApiClient("admin");
   const request = vi.spyOn(client, "request").mockResolvedValue(result);
   const wrapper = report(client);
@@ -49,16 +49,14 @@ it("keeps paging, refresh and CSV on the submitted filters while edits remain dr
   expect(csv.get("uid")).toBe("42");
   expect(csv.get("from")).toBe("2026-11-01");
 
-  await wrapper.get('button[aria-label="刷新数据"]').trigger("click");
-  await flushPromises();
-  expect(query(request.mock.calls.at(-1)![0]).get("uid")).toBe("42");
+  expect(wrapper.find('button[aria-label="刷新数据"]').exists()).toBe(false);
   await wrapper.get("form").trigger("submit");
   await flushPromises();
   expect(query(request.mock.calls.at(-1)![0]).get("uid")).toBe("99");
   expect(query(request.mock.calls.at(-1)![0]).get("page")).toBe("1");
 });
 
-it("clears counts and complaint summary after a failed refresh instead of displaying stale totals", async () => {
+it("clears counts and complaint summary after a failed page change instead of displaying stale totals", async () => {
   const client = new ApiClient("admin");
   const request = vi.spyOn(client, "request").mockResolvedValue({
     ...result,
@@ -68,7 +66,7 @@ it("clears counts and complaint summary after a failed refresh instead of displa
   await flushPromises();
   expect(wrapper.findAll(".stat").length).toBeGreaterThan(0);
   request.mockRejectedValueOnce(new Error("读取统计失败"));
-  await wrapper.get('button[aria-label="刷新数据"]').trigger("click");
+  await wrapper.get('button[aria-label="下一页"]').trigger("click");
   await flushPromises();
   expect(wrapper.get('[role="alert"]').text()).toBe("读取统计失败");
   expect(wrapper.findAll(".stat")).toHaveLength(0);

@@ -168,6 +168,7 @@ it("uses the server-selected merchant for a merchant session without an override
     expect.anything(),
   );
   expect(w.find('input[aria-label="商户 ID"]').exists()).toBe(false);
+  expect(w.find('[data-action="capabilities"]').exists()).toBe(false);
   await w.get("select").setValue("7");
   await w.get('[data-action="create"]').trigger("click");
   await flushPromises();
@@ -176,6 +177,33 @@ it("uses the server-selected merchant for a merchant session without an override
     expect.objectContaining({ body: { channel_id: "7" } }),
   );
   expect(w.find('[data-action="authorize"]').exists()).toBe(true);
+  w.unmount();
+});
+it("keeps the initial channel read when the merchant changes provider tabs before it completes", async () => {
+  let resolve!: (value: typeof caps) => void;
+  const request = vi.fn(
+    () =>
+      new Promise<typeof caps>((done) => {
+        resolve = done;
+      }),
+  );
+  const w = mount(Page, {
+    props: {
+      client: Object.assign(new ApiClient("merchant"), { request }),
+      area: "merchant",
+    },
+  });
+  await w
+    .findAll("button")
+    .find((button) => button.text() === "支付宝用户ID")!
+    .trigger("click");
+  resolve({
+    ...caps,
+    channels: [{ channel_id: "8", provider: "alipay", app_id: "merchant-app" }],
+  });
+  await flushPromises();
+  expect(w.get("select").find('option[value="8"]').exists()).toBe(true);
+  expect(request).toHaveBeenCalledTimes(1);
   w.unmount();
 });
 it("rejects authorization links carrying a query or a different route", async () => {

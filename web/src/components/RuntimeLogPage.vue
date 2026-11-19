@@ -138,9 +138,7 @@ onBeforeUnmount(clear);
     <section class="panel records runtime-log-page">
       <div class="table-tools">
         <div class="table-tools-end">
-          <button type="button" :disabled="loading" @click="load">
-            <ShellIcon name="refresh" />刷新</button
-          ><button
+          <button
             v-if="canWrite"
             type="button"
             class="danger-button"

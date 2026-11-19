@@ -60,7 +60,7 @@ test("live read audit visits every implemented original menu leaf without applic
         await expect(
           closed.getByRole("link", { name: "前往投诉设置" }),
         ).toHaveAttribute("href", "/admin/system/settings?tab=complaint");
-        await expect(closed.getByRole("button")).toHaveText("重新检查功能状态");
+        await expect(closed.getByRole("button")).toHaveCount(0);
         await expect(page.getByRole("alert")).toHaveCount(0);
         await expect(page.getByRole("table")).toHaveCount(0);
         test.info().annotations.push({

@@ -75,7 +75,7 @@ it("keeps an inline draft after an unknown save and blocks duplicate submission"
     expect(view.get("[contenteditable]").element.textContent).toContain(
       "Synthetic draft",
     );
-    expect(view.get('[role="alert"]').text()).toContain("刷新核对");
+    expect(view.get('[role="alert"]').text()).toContain("刷新页面核对");
     expect(
       view
         .get('.announcement-editor button[type="submit"]')
