@@ -18,7 +18,13 @@ afterEach(() => {
   else Reflect.deleteProperty(navigator, "clipboard");
 });
 
-async function fixture(pid: unknown = "1000") {
+async function fixture(
+  pid: unknown = "1000",
+  publicKeys: {
+    merchant_public_key?: string;
+    platform_public_key?: string;
+  } = {},
+) {
   vi.stubGlobal(
     "location",
     new URL("https://gateway.example.invalid:8443/merchant/account/api-info"),
@@ -36,6 +42,7 @@ async function fixture(pid: unknown = "1000") {
     api_key_masked: "abcd****wxyz",
     api_key: "should-never-render-raw-key",
     merchant_private_key: "should-never-render-private-key",
+    ...publicKeys,
   } as never);
   const w = mount(AccountPage, {
     props: { client, section: "api-info" },
@@ -98,3 +105,27 @@ it.each([9007199254740992, "9223372036854775808", -1, { id: 1000 }])(
     expect(copy).not.toHaveBeenCalled();
   },
 );
+
+it("groups connection details and credentials and only copies public RSA keys", async () => {
+  const publicKeys = {
+    merchant_public_key:
+      "-----BEGIN PUBLIC KEY-----\nmerchant\n-----END PUBLIC KEY-----\n",
+    platform_public_key:
+      "-----BEGIN PUBLIC KEY-----\nplatform\n-----END PUBLIC KEY-----\n",
+  };
+  const { w, copy } = await fixture("1000", publicKeys);
+  expect(w.get('section[aria-label="接入参数"]').text()).toContain("商户 ID");
+  const md5 = w.get('section[aria-label="MD5 API 密钥"]');
+  expect(md5.text()).toContain("abcd****wxyz");
+  expect(md5.find('[aria-label^="复制"]').exists()).toBe(false);
+  const rsa = w.get('section[aria-label="RSA 公钥"]');
+  for (const [label, value] of [
+    ["商户公钥", publicKeys.merchant_public_key],
+    ["平台公钥", publicKeys.platform_public_key],
+  ]) {
+    await rsa.get(`button[aria-label="复制${label}"]`).trigger("click");
+    await flushPromises();
+    expect(copy).toHaveBeenLastCalledWith(value);
+  }
+  expect(w.text()).not.toContain("should-never-render");
+});

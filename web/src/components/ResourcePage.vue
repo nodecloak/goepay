@@ -1133,8 +1133,7 @@ const contactAnchor = computed(
       : schema.value?.fields
     )?.find((f) => ["phone", "qq"].includes(f.name))?.name,
 );
-// 添加商户 asks for no key: the server generates an MD5 key, which is then
-// managed under 密钥信息 when editing.
+// The server sets the default signature policy and generates the MD5 key.
 const merchantCreateHidden = new Set([
   "api_key",
   "signature_algorithm",

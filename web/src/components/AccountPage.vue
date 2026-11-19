@@ -1,24 +1,28 @@
 <script setup lang="ts">
-import { nextTick, ref, watch, onBeforeUnmount } from "vue";
-import { ApiClient, ApiError, displayValue } from "../api";
+import { computed, nextTick, ref, watch, onBeforeUnmount } from "vue";
+import { ApiClient, ApiError } from "../api";
 import MerchantRSAKeyRotation from "./MerchantRSAKeyRotation.vue";
 import MerchantSignaturePolicy from "./MerchantSignaturePolicy.vue";
 import MerchantRefundEvents201 from "./MerchantRefundEvents201.vue";
 import MerchantEmailBinding197 from "./MerchantEmailBinding197.vue";
 import MerchantBindings134 from "./MerchantBindings134.vue";
 import MerchantConnectionInfo from "./MerchantConnectionInfo.vue";
+import CopyButton from "./CopyButton.vue";
 import KitField from "./KitField.vue";
 import KitInput from "./KitInput.vue";
 import KitModal from "./KitModal.vue";
 import { merchantFieldValue } from "../pro-console-fields";
 import { isPersonalMerchantID } from "../merchant-personal-settings";
-const props = defineProps<{
-  client: ApiClient;
-  section: "profile" | "api-info" | "security";
-  showLoginLog?: boolean;
-  ownSession?: boolean;
-  merchantId?: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    client: ApiClient;
+    section: "profile" | "api-info" | "security";
+    showLoginLog?: boolean;
+    ownSession?: boolean;
+    merchantId?: string;
+  }>(),
+  { ownSession: undefined },
+);
 const emit = defineEmits<{
   reauthenticate: [message?: string];
   "login-log": [];
@@ -50,6 +54,31 @@ const passwords = ref({
   rotationOpen = ref(false),
   rotationPassword = ref(""),
   newKey = ref("");
+const canRotateMD5 = computed(
+  () =>
+    props.client.area === "merchant" &&
+    Boolean(props.client.csrfToken) &&
+    props.ownSession !== false &&
+    info.value.algorithm === "MD5",
+);
+const publicKeys = computed(() =>
+  [
+    {
+      label: "商户公钥",
+      description: "供平台验证你的 RSA 请求签名。",
+      value: info.value.merchant_public_key,
+    },
+    {
+      label: "平台公钥",
+      description: "用于验证平台响应和回调签名。",
+      value: info.value.platform_public_key,
+    },
+  ].map(({ label, description, value }) => ({
+    label,
+    description,
+    value: typeof value === "string" && value.trim() ? value : "",
+  })),
+);
 let controller: AbortController | undefined;
 let loadEpoch = 0;
 let contextEpoch = 0,
@@ -150,14 +179,7 @@ function closePassword() {
   });
 }
 function showRotation() {
-  if (
-    busy.value ||
-    rotationUncertain.value ||
-    props.client.area !== "merchant" ||
-    !props.client.csrfToken ||
-    String(info.value.algorithm).toUpperCase() !== "MD5"
-  )
-    return;
+  if (busy.value || rotationUncertain.value || !canRotateMD5.value) return;
   rotationPassword.value = "";
   newKey.value = "";
   error.value = "";
@@ -225,7 +247,11 @@ async function load(): Promise<boolean> {
             ? data.registration_time_known
             : null,
       };
-    } else info.value = data;
+    } else {
+      if (!data || typeof data !== "object" || Array.isArray(data))
+        throw Error("接口接入信息响应无效");
+      info.value = data;
+    }
     return true;
   } catch (e) {
     if (!current()) return false;
@@ -309,9 +335,8 @@ async function rotate() {
     busy.value ||
     !rotationOpen.value ||
     rotationUncertain.value ||
-    props.client.area !== "merchant" ||
     !rotationPassword.value ||
-    String(info.value.algorithm).toUpperCase() !== "MD5"
+    !canRotateMD5.value
   )
     return;
   const source = startAction("rotation");
@@ -368,6 +393,10 @@ async function copyKey() {
 function closeKey() {
   newKey.value = "";
   notice.value = "";
+  const source = context();
+  void nextTick(() => {
+    if (sameContext(source)) rotationTrigger.value?.focus();
+  });
 }
 function refreshRSA() {
   ++policyReload.value;
@@ -381,6 +410,8 @@ watch(
     props.client.area,
     props.client.csrfToken,
     props.section,
+    props.ownSession,
+    props.merchantId,
   ],
   () => {
     ++contextEpoch;
@@ -423,11 +454,13 @@ onBeforeUnmount(() => {
 <template>
   <div
     class="account-pages"
+    :class="{ 'api-account': section === 'api-info' }"
     role="region"
     :aria-label="
       section === 'api-info' ? '商户 API 信息' : '账户资料与安全设置'
     "
   >
+    <h1 v-if="section === 'api-info'" class="api-account-title">API 接入</h1>
     <div
       v-if="error && !passwordOpen && !rotationOpen"
       class="alert error"
@@ -587,71 +620,103 @@ onBeforeUnmount(() => {
           </div>
         </form>
       </section></template
-    ><template v-else
-      ><section class="panel account-section">
-        <h2>商户接入信息</h2>
-        <MerchantConnectionInfo :merchant-id="info.pid" />
-        <dl class="record-detail">
-          <template
-            v-for="(label, key) in {
-              algorithm: '签名算法',
-              api_key_masked: 'API 密钥（已隐藏）',
-              merchant_public_key: '商户公钥',
-              platform_public_key: '平台公钥',
-            }"
-            :key="key"
-            ><dt>{{ label }}</dt>
-            <dd>{{ displayValue(info[key]) }}</dd></template
-          >
-        </dl>
-        <p class="muted">
-          已生成的签名私钥无法再次读取。重置密钥后，请同步更新您的接入系统。
-        </p>
-        <button
-          v-if="String(info.algorithm).toUpperCase() === 'MD5'"
-          ref="rotationTrigger"
-          :disabled="busy || rotationUncertain"
-          @click="showRotation"
+    >
+    <template v-else>
+      <div class="api-account-grid api-account-overview">
+        <section
+          class="panel account-section api-connection"
+          aria-label="接入参数"
         >
-          重置 API 密钥
-        </button>
-      </section>
-      <MerchantRSAKeyRotation
-        :client="client"
-        :allowed="info.can_rotate_rsa === true"
-        :algorithm="info.algorithm"
-        :fingerprint="info.rsa_fingerprint"
-        :has-key="
-          typeof info.merchant_public_key === 'string' &&
-          info.merchant_public_key.length > 0
-        "
-        @refresh="refreshRSA"
-      />
-      <MerchantSignaturePolicy :client="client" :reload="policyReload" />
+          <h2>接入参数</h2>
+          <MerchantConnectionInfo :merchant-id="info.pid" />
+        </section>
+        <MerchantSignaturePolicy :client="client" :reload="policyReload" />
+      </div>
+      <div class="api-account-grid api-account-credentials">
+        <section class="panel account-section" aria-label="MD5 API 密钥">
+          <h2>MD5 API 密钥</h2>
+          <p class="muted">用于支持 MD5 签名的接入。</p>
+          <div class="api-secret-mask">
+            <code
+              v-if="
+                typeof info.api_key_masked === 'string' && info.api_key_masked
+              "
+            >
+              {{ info.api_key_masked }}
+            </code>
+            <span v-else class="muted">暂未读取</span>
+          </div>
+          <button
+            v-if="canRotateMD5 && !newKey"
+            ref="rotationTrigger"
+            type="button"
+            :disabled="busy || rotationUncertain"
+            @click="showRotation"
+          >
+            重置 API 密钥
+          </button>
+          <div v-if="newKey" class="api-new-secret">
+            <p class="muted">新密钥仅展示一次，请保存到安全位置。</p>
+            <label>
+              新 API 密钥
+              <textarea
+                :value="newKey"
+                readonly
+                rows="2"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </label>
+            <div class="toolbar-actions">
+              <button type="button" class="primary" @click="copyKey">
+                复制新密钥
+              </button>
+              <button type="button" @click="closeKey">已保存，隐藏密钥</button>
+            </div>
+          </div>
+        </section>
+        <section class="panel account-section" aria-label="RSA 公钥">
+          <h2>RSA 公钥</h2>
+          <dl class="api-public-keys">
+            <div v-for="key in publicKeys" :key="key.label">
+              <dt>{{ key.label }}</dt>
+              <dd>
+                <div class="api-public-key-heading">
+                  <span class="muted">{{ key.description }}</span>
+                  <CopyButton
+                    v-if="key.value"
+                    :text="key.value"
+                    :label="key.label"
+                  />
+                  <span v-else class="api-key-status">
+                    {{
+                      Object.hasOwn(info, "algorithm") ? "未配置" : "暂未读取"
+                    }}
+                  </span>
+                </div>
+                <details v-if="key.value">
+                  <summary>查看{{ key.label }}</summary>
+                  <pre>{{ key.value }}</pre>
+                </details>
+              </dd>
+            </div>
+          </dl>
+          <MerchantRSAKeyRotation
+            :client="client"
+            :allowed="info.can_rotate_rsa === true && ownSession !== false"
+            :algorithm="info.algorithm"
+            :fingerprint="info.rsa_fingerprint"
+            :has-key="Boolean(publicKeys[0]?.value)"
+            @refresh="refreshRSA"
+          />
+        </section>
+      </div>
       <MerchantRefundEvents201
         :client="client"
         :own-session="ownSession === true"
         :merchant-id="merchantId || ''"
       />
-      <section v-if="newKey" class="panel account-section">
-        <h2>请保存新密钥</h2>
-        <p class="muted">
-          新密钥只在此次重置后展示。离开页面或关闭后将隐藏，请在安全位置保存。
-        </p>
-        <label
-          >新 API 密钥<textarea
-            :value="newKey"
-            readonly
-            rows="2"
-            autocomplete="off"
-          />
-        </label>
-        <div class="toolbar-actions">
-          <button class="primary" @click="copyKey">复制新密钥</button
-          ><button @click="closeKey">已保存，隐藏密钥</button>
-        </div>
-      </section></template
-    >
+    </template>
     <KitModal
       v-if="passwordOpen"
       title="修改登录密码"
@@ -716,6 +781,106 @@ onBeforeUnmount(() => {
 <style scoped>
 .account-section {
   min-width: 0;
+}
+.api-account {
+  max-width: 1200px;
+}
+.api-account-title {
+  margin: 0 0 var(--space-4);
+  font-size: 22px;
+  line-height: 1.4;
+}
+.api-account-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.api-account > :deep(.account-section),
+.api-account-grid > :deep(.account-section) {
+  max-width: none;
+  margin-bottom: 0;
+}
+.api-account-grid > :deep(.account-section > h2) {
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  border: 0;
+  font-size: 16px;
+}
+.api-account-grid .api-connection {
+  border-top: 2px solid var(--primary);
+}
+.api-secret-mask,
+.api-public-keys pre {
+  padding: var(--space-3);
+  margin: var(--space-3) 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  overflow-wrap: anywhere;
+}
+.api-secret-mask code,
+.api-public-keys pre {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.api-new-secret textarea {
+  display: block;
+  width: 100%;
+  margin: var(--space-2) 0;
+  resize: vertical;
+}
+.api-new-secret .toolbar-actions {
+  flex-wrap: wrap;
+}
+.api-public-keys {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+.api-public-keys > div + div {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-3);
+}
+.api-public-keys dt {
+  font-weight: 600;
+}
+.api-public-keys dd {
+  margin: var(--space-1) 0 0;
+  font-family: inherit;
+}
+.api-public-key-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+.api-public-key-heading :deep(.pa-copy-btn) {
+  width: var(--control-h);
+  height: var(--control-h);
+  margin: 0;
+  background: var(--bg-raised);
+}
+.api-key-status {
+  color: var(--muted);
+}
+.api-public-keys summary {
+  width: fit-content;
+  margin-block: var(--space-1);
+  color: var(--primary-text);
+  cursor: pointer;
+}
+.api-public-keys pre {
+  white-space: pre-wrap;
+}
+@media (min-width: 1024px) {
+  .api-account-overview {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+  .api-account-credentials {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
 }
 .account-kit-form {
   display: grid;

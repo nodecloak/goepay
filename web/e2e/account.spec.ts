@@ -63,6 +63,9 @@ test("API rotation requires explicit password confirmation and keeps new key out
   ).toBe(0);
   await page.getByRole("button", { name: "已保存，隐藏密钥" }).click();
   await expect(page.getByLabel("新 API 密钥", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "重置 API 密钥", exact: true }),
+  ).toBeFocused();
 });
 test("password confirmation blocks mismatched update then requires reauthentication on success", async ({
   page,

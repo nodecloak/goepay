@@ -51,6 +51,11 @@ func (s *Service) createMerchant(ctx context.Context, p Principal, d definition,
 		return Item{}, e
 	}
 	algorithm, _ := v["signature_algorithm"].(string)
+	if _, explicit := in["signature_algorithm"]; !explicit {
+		// The schema supplies MD5 for the legacy algorithm field. Leave an
+		// omitted choice unset here so Store applies the new dual policy.
+		algorithm = ""
+	}
 	public, _ := v["rsa_public_key"].(string)
 	if algorithm == "RSA" {
 		if _, e = compat.ParsePublicKey(public); e != nil {

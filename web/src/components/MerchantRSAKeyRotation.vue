@@ -20,6 +20,7 @@ const dialog = ref<HTMLElement>(),
   trigger = ref<HTMLButtonElement>();
 let epoch = 0,
   controller: AbortController | undefined;
+const action = computed(() => (props.hasKey ? "重置" : "生成"));
 const available = computed(
   () =>
     props.allowed === true &&
@@ -162,28 +163,16 @@ async function generate() {
 }
 </script>
 <template>
-  <section v-if="available" class="panel account-section">
-    <h2>商户 RSA 密钥对</h2>
-    <p v-if="algorithm === 'MD5'" class="muted">
-      当前仍使用 MD5 签名。此操作仅生成备用 RSA
-      公钥，不会改变签名算法，也不会重置 API 密钥。
-    </p>
-    <p v-else class="muted">
-      重置后旧 RSA 签名立即失效，请准备同步更新您的接入系统。此操作不会重置 MD5
-      API 密钥。
-    </p>
-    <p class="muted">
-      RSA 2048 位；公钥为 PKIX，私钥为
-      PKCS8。私钥仅成功生成后展示一次，关闭或离开页面即清空，平台不保存私钥。
-    </p>
+  <div v-if="available" class="rsa-key-actions">
     <div v-if="error" role="alert" class="alert error">{{ error }}</div>
     <button
       v-if="!privateKey && !uncertain"
       ref="trigger"
+      type="button"
       :disabled="busy"
       @click="show"
     >
-      {{ hasKey ? "重置" : "生成" }} RSA 密钥对
+      {{ action }} RSA 密钥对
     </button>
     <template v-if="privateKey">
       <label
@@ -216,18 +205,19 @@ async function generate() {
         ref="dialog"
         role="dialog"
         aria-modal="true"
-        aria-label="确认生成 RSA 密钥对"
+        :aria-label="`确认${action} RSA 密钥对`"
         class="modal panel"
         @keydown.esc="close"
         @keydown="trap"
       >
-        <h2>{{ hasKey ? "重置" : "生成" }} RSA 密钥对</h2>
+        <h2>{{ action }} RSA 密钥对</h2>
         <p>
           {{
-            algorithm === "RSA"
-              ? "旧 RSA 签名将立即失效。"
-              : "签名算法保持 MD5，此密钥仅作备用。"
-          }}私钥仅在本次成功响应展示。
+            hasKey
+              ? "新公钥将替换当前商户公钥，旧私钥的签名将立即失效。"
+              : "生成后请在接入系统中使用新的 RSA 私钥。"
+          }}
+          私钥仅展示一次，请保存到安全位置。
         </p>
         <form @submit.prevent="generate">
           <div class="form-rows">
@@ -245,11 +235,24 @@ async function generate() {
           <div class="modal-actions">
             <button type="button" @click="close">关闭</button
             ><button class="danger-button" :disabled="busy">
-              {{ busy ? "正在生成…" : "确认生成 RSA 密钥对" }}
+              {{ busy ? `正在${action}…` : `确认${action} RSA 密钥对` }}
             </button>
           </div>
         </form>
       </section>
     </div>
-  </section>
+  </div>
 </template>
+<style scoped>
+.rsa-key-actions > label {
+  display: block;
+  margin-bottom: var(--space-3);
+}
+.rsa-key-actions textarea {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  resize: vertical;
+}
+</style>

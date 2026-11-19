@@ -218,11 +218,14 @@ onBeforeUnmount(() => {
     <div v-if="notice" class="alert success" role="status">{{ notice }}</div>
     <p v-if="loading" role="status">正在读取签名方式…</p>
     <template v-else-if="state">
-      <p>当前方式：{{ signaturePolicyLabel(state) }}</p>
-      <p class="muted">
-        MD5+RSA允许两种签名方式；V2接口使用RSA。仅RSA将停止接受MD5及V1密钥查询。
+      <p class="signature-current">
+        当前方式：<strong>{{ signaturePolicyLabel(state) }}</strong>
       </p>
-      <div v-if="state.can_update">
+      <p class="muted">
+        兼容模式支持 MD5 和 RSA。V2 接入使用 RSA。切换到仅 RSA 后，MD5 请求和 V1
+        密钥查询将停用。
+      </p>
+      <div v-if="state.can_update" class="signature-choice">
         <label for="merchant-signature-policy">签名方式</label
         ><select
           id="merchant-signature-policy"
@@ -238,7 +241,7 @@ onBeforeUnmount(() => {
         </select>
       </div>
       <p v-if="!state.rsa_configured" class="muted">
-        请先生成商户RSA密钥对，再启用仅RSA。
+        使用 RSA 前，请先生成商户 RSA 密钥对。
       </p>
       <button
         v-if="state.can_update && !confirming"
@@ -292,6 +295,16 @@ onBeforeUnmount(() => {
 <style scoped>
 .signature-policy {
   overflow-wrap: anywhere;
+}
+.signature-current strong {
+  display: inline-block;
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+.signature-choice {
+  max-width: 16rem;
 }
 .signature-policy select {
   display: block;

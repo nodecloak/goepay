@@ -36,13 +36,19 @@ func (s *Store) CreateMerchantInTx(ctx context.Context, tx pgx.Tx, m Merchant) e
 	}
 	if m.SignatureAlgorithm == "" {
 		m.SignatureAlgorithm = "MD5"
+		if m.Keytype == nil {
+			// New accounts accept both supported signatures. RSA still requires
+			// a separately provisioned merchant public key before verification.
+			both := 0
+			m.Keytype = &both
+		}
 	}
 	nonce := make([]byte, s.aead.NonceSize())
 	if _, e := rand.Read(nonce); e != nil {
 		return e
 	}
 	secret := s.aead.Seal(nonce, nonce, []byte(m.APIKey), []byte(fmt.Sprint(m.ID)))
-	_, e := tx.Exec(ctx, "INSERT INTO merchants(id,name,api_key,rsa_public_key,signature_algorithm) VALUES($1,$2,$3,$4,$5)", m.ID, m.Name, secret, m.RSAPublicKey, m.SignatureAlgorithm)
+	_, e := tx.Exec(ctx, "INSERT INTO merchants(id,name,api_key,rsa_public_key,signature_algorithm,keytype) VALUES($1,$2,$3,$4,$5,$6)", m.ID, m.Name, secret, m.RSAPublicKey, m.SignatureAlgorithm, m.Keytype)
 	if e != nil {
 		return e
 	}
@@ -53,6 +59,9 @@ func (s *Store) CreateMerchantInTx(ctx context.Context, tx pgx.Tx, m Merchant) e
 	return nil
 }
 func (s *Store) validMerchantCreation(m Merchant) bool {
+	if m.Keytype != nil && (*m.Keytype != 0 && *m.Keytype != 1 || *m.Keytype == 1 && !usableMerchantRSAPublicKey(m.RSAPublicKey)) {
+		return false
+	}
 	return m.ID > 0 && m.Name != "" && len(m.APIKey) >= 8 && s.aead != nil &&
 		(m.SignatureAlgorithm == "" || m.SignatureAlgorithm == "MD5" || m.SignatureAlgorithm == "RSA" && m.RSAPublicKey != "")
 }

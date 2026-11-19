@@ -37,6 +37,7 @@ it("creates a merchant from reference contact/password fields without exposing i
     },
     { name: "qq", label: "QQ", type: "string" },
     { name: "url", label: "网站域名", type: "string" },
+    { name: "keytype", label: "签名方式", type: "string", default: "0" },
     { name: "group_id", label: "基础用户组 ID", type: "string" },
     {
       name: "confirm_group_assignment",
@@ -87,6 +88,8 @@ it("creates a merchant from reference contact/password fields without exposing i
   expect(dialog.attributes("aria-label")).toBe("添加商户");
   expect(dialog.text()).toContain("手机号(登录账号)");
   expect(dialog.text()).toContain("邮箱(登录账号)");
+  expect(dialog.text()).toContain("默认签名方式为 MD5 + RSA 兼容");
+  expect(dialog.find("#field-keytype").exists()).toBe(false);
   expect(dialog.find("#field-id").exists()).toBe(false);
   expect(dialog.find("#field-name").exists()).toBe(false);
   expect(dialog.find("#field-confirm_group_assignment").exists()).toBe(false);
@@ -110,6 +113,7 @@ it("creates a merchant from reference contact/password fields without exposing i
   expect(writes[0]).not.toHaveProperty("id");
   expect(writes[0]).not.toHaveProperty("name");
   expect(writes[0]).not.toHaveProperty("login_username");
+  expect(writes[0]).not.toHaveProperty("keytype");
   expect(draft.login_password).toBeUndefined();
   w.unmount();
 });

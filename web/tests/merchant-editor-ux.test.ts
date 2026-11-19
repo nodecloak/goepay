@@ -110,7 +110,7 @@ it("opens the original basic and key tabs without exposing existing secrets", as
   expect(writes[0]).not.toHaveProperty("api_key");
   w.unmount();
 });
-it("new merchant has no key tab and is saved without a key", async () => {
+it("explains the default signature policy without exposing creation credentials", async () => {
   const { w, writes } = await fixture();
   await w
     .findAll("button")
@@ -120,7 +120,7 @@ it("new merchant has no key tab and is saved without a key", async () => {
   expect(w.find('[role="tablist"]').exists()).toBe(false);
   expect(w.find("#field-api_key").exists()).toBe(false);
   expect(w.find("#field-signature_algorithm").exists()).toBe(false);
-  expect(w.text()).toContain("保存后系统自动生成 MD5 API");
+  expect(w.text()).toContain("默认签名方式为 MD5 + RSA 兼容");
   await w.find("#field-id").setValue("11902");
   await w.find("#field-name").setValue("本地新增商户");
   await w.find(".resource-modal form").trigger("submit");

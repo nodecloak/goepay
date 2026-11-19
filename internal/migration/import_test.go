@@ -65,6 +65,9 @@ func TestImportOpeningBalancesHistoryAndIdempotency(t *testing.T) {
 	if e != nil || merchant.Enabled || len(merchant.APIKey) < 24 {
 		t.Fatal("unsafe imported credentials")
 	}
+	if merchant.Keytype != nil || merchant.SignatureAlgorithm != "MD5" {
+		t.Fatal("import silently changed the legacy signature policy")
+	}
 	o, e := store.OrderByTradeNo(ctx, "legacy-t1")
 	if e != nil || o.Status != "paid" {
 		t.Fatal("history missing")

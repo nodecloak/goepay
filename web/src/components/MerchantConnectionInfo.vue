@@ -17,28 +17,34 @@ const merchantID = computed(() => {
 </script>
 <template>
   <div class="merchant-connection-info">
-    <dl class="record-detail">
-      <dt>接口地址</dt>
-      <dd class="connection-value">
-        <code>{{ rootAddress }}</code>
-        <CopyButton :text="rootAddress" label="接口地址" />
-      </dd>
-      <dt>支付提交地址</dt>
-      <dd class="connection-value">
-        <code>{{ submitAddress }}</code>
-        <CopyButton :text="submitAddress" label="支付提交地址" />
-      </dd>
-      <dt>商户 ID</dt>
-      <dd class="connection-value">
-        <code v-if="merchantID">{{ merchantID }}</code>
-        <span v-else>暂未读取</span>
-        <CopyButton
-          v-if="merchantID"
-          :key="merchantID"
-          :text="merchantID"
-          label="商户ID"
-        />
-      </dd>
+    <dl class="connection-fields">
+      <div>
+        <dt>商户 ID</dt>
+        <dd class="connection-value">
+          <code v-if="merchantID">{{ merchantID }}</code>
+          <span v-else>暂未读取</span>
+          <CopyButton
+            v-if="merchantID"
+            :key="merchantID"
+            :text="merchantID"
+            label="商户ID"
+          />
+        </dd>
+      </div>
+      <div>
+        <dt>接口地址</dt>
+        <dd class="connection-value">
+          <code>{{ rootAddress }}</code>
+          <CopyButton :text="rootAddress" label="接口地址" />
+        </dd>
+      </div>
+      <div>
+        <dt>支付提交地址</dt>
+        <dd class="connection-value">
+          <code>{{ submitAddress }}</code>
+          <CopyButton :text="submitAddress" label="支付提交地址" />
+        </dd>
+      </div>
     </dl>
     <nav class="connection-docs" aria-label="接口接入文档">
       <a href="/doc/" target="_blank" rel="noopener noreferrer">开发文档</a>
@@ -52,31 +58,44 @@ const merchantID = computed(() => {
 .merchant-connection-info {
   min-width: 0;
 }
+.connection-fields {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+.connection-fields dt {
+  margin-bottom: var(--space-1);
+  color: var(--muted);
+  font-size: 13px;
+}
 .connection-value {
   display: flex;
+  justify-content: space-between;
   align-items: center;
+  gap: var(--space-2);
   min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  padding: 3px var(--space-2) 3px var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
 }
 .connection-value code {
   overflow-wrap: anywhere;
+  font-family: var(--font-mono);
   user-select: all;
 }
 .connection-value :deep(.pa-copy-btn) {
   flex: none;
+  width: var(--control-h);
+  height: var(--control-h);
+  margin: 0;
 }
 .connection-docs {
   display: flex;
   gap: 12px 24px;
   flex-wrap: wrap;
-  margin: 12px 0 20px;
-}
-@media (max-width: 600px) {
-  .merchant-connection-info .record-detail {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-  }
-  .merchant-connection-info dt:not(:first-child) {
-    margin-top: 8px;
-  }
+  margin-top: var(--space-4);
 }
 </style>

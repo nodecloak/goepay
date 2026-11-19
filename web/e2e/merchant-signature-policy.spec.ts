@@ -3,6 +3,7 @@ const id = "9007199254740993";
 async function fixture(
   page: Page,
   options: {
+    keytype?: 0 | 1;
     rsa?: boolean;
     delegated?: boolean;
     failure?: "conflict" | "malformed";
@@ -11,7 +12,7 @@ async function fixture(
 ) {
   const writes: unknown[] = [];
   let fp = "a".repeat(64),
-    mode: number | null = null,
+    mode: number | null = options.keytype ?? null,
     release = () => {};
   const wait = new Promise<void>((r) => (release = r));
   await page.route("**/console/v1/**", async (route) => {
@@ -24,7 +25,7 @@ async function fixture(
         user: { id, role: "merchant", name: "本地合成商户" },
         csrf_token: "local-signature163",
         ...(options.delegated
-          ? { issuer: { username: "localadmin", role: "admin" } }
+          ? { delegated_by: { id: "1", name: "localadmin" } }
           : {}),
       };
     else if (p.endsWith("/security/payment-password"))
@@ -70,6 +71,15 @@ async function fixture(
             can_update: true,
           };
       }
+    } else if (p.endsWith("/event-subscription")) {
+      data = {
+        event_url: "",
+        event_types: [],
+        fingerprint: "c".repeat(64),
+        consecutive_failures: 0,
+        last_delivery_state: "none",
+        subscription_notice: "",
+      };
     } else if (p.endsWith("/api-info"))
       data = {
         pid: id,
@@ -77,7 +87,8 @@ async function fixture(
         api_key_masked: "********test",
         merchant_public_key: "",
         platform_public_key: "",
-        can_rotate_rsa: false,
+        rsa_fingerprint: fp,
+        can_rotate_rsa: true,
       };
     await route.fulfill({
       status,
@@ -95,6 +106,58 @@ async function fixture(
     panel: page.getByRole("region", { name: "签名方式设置", exact: true }),
   };
 }
+test("API access organizes compatible signing, credentials and local docs on desktop and mobile", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const f = await fixture(page, { keytype: 0, rsa: false });
+  const connection = page.getByRole("region", {
+    name: "接入参数",
+    exact: true,
+  });
+  const md5 = page.getByRole("region", { name: "MD5 API 密钥", exact: true });
+  const rsa = page.getByRole("region", { name: "RSA 公钥", exact: true });
+  await expect(
+    page.getByRole("heading", { name: "API 接入", exact: true }),
+  ).toBeVisible();
+  await expect(
+    connection.getByRole("link", { name: "开发文档" }),
+  ).toHaveAttribute("href", "/doc/");
+  await expect(
+    connection.getByRole("button", { name: "复制商户ID" }),
+  ).toBeVisible();
+  await expect(f.panel.getByLabel("签名方式", { exact: true })).toHaveValue(
+    "0",
+  );
+  await expect(
+    f.panel.getByRole("button", { name: "保存签名方式" }),
+  ).toBeDisabled();
+  await expect(md5).toContainText("********test");
+  await expect(rsa.getByText("未配置", { exact: true })).toHaveCount(2);
+  await expect(rsa.getByRole("button", { name: /^复制/ })).toHaveCount(0);
+  await expect(page.getByLabel("订阅URL")).toBeVisible();
+  const desktop = await connection.boundingBox();
+  const desktopPolicy = await f.panel.boundingBox();
+  expect(desktop!.x + desktop!.width).toBeLessThan(desktopPolicy!.x);
+  await page.screenshot({
+    path: test.info().outputPath("api-access-desktop.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 375, height: 812 });
+  const mobile = await connection.boundingBox();
+  const mobilePolicy = await f.panel.boundingBox();
+  expect(mobile!.y + mobile!.height).toBeLessThan(mobilePolicy!.y);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(375);
+  expect(f.writes).toHaveLength(0);
+  await page.screenshot({
+    path: test.info().outputPath("api-access-mobile.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+});
 for (const width of [1280, 375])
   test(
     "original signature modes require explicit confirmation and preserve full owner at " +
@@ -155,7 +218,7 @@ test("missing RSA key disables RSA-only mode and explains generation prerequisit
       .getByLabel("签名方式", { exact: true })
       .getByRole("option", { name: "仅RSA", exact: true }),
   ).toBeDisabled();
-  await expect(f.panel).toContainText("请先生成商户RSA密钥对");
+  await expect(f.panel).toContainText("请先生成商户 RSA 密钥对");
   expect(f.writes).toHaveLength(0);
 });
 test("delegated merchant session cannot select or save signature policy", async ({
@@ -164,6 +227,12 @@ test("delegated merchant session cannot select or save signature policy", async 
   const f = await fixture(page, { delegated: true });
   await expect(f.panel.getByRole("alert")).toBeVisible();
   await expect(f.panel.getByLabel("签名方式", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "重置 API 密钥", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "生成 RSA 密钥对", exact: true }),
+  ).toHaveCount(0);
   expect(f.writes).toHaveLength(0);
 });
 for (const failure of ["conflict", "malformed"] as const)

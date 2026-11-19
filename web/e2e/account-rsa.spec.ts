@@ -60,12 +60,9 @@ for (const algorithm of ["MD5", "RSA"]) {
       .getByRole("button", { name: "生成 RSA 密钥对", exact: true })
       .click();
     expect(calls).toBe(0);
-    if (algorithm === "MD5")
-      await expect(page.getByRole("dialog")).toContainText("签名算法保持 MD5");
-    else
-      await expect(page.getByRole("dialog")).toContainText(
-        "旧 RSA 签名将立即失效",
-      );
+    await expect(page.getByRole("dialog")).toContainText(
+      "生成后请在接入系统中使用新的 RSA 私钥",
+    );
     await page.getByLabel("确认当前登录密码").fill("synthetic-password-123");
     await page
       .getByRole("button", { name: "确认生成 RSA 密钥对", exact: true })
@@ -90,6 +87,12 @@ for (const algorithm of ["MD5", "RSA"]) {
     await page
       .getByRole("button", { name: "重置 RSA 密钥对", exact: true })
       .click();
+    await expect(page.getByRole("dialog")).toContainText(
+      "旧私钥的签名将立即失效",
+    );
+    await expect(
+      page.getByRole("button", { name: "确认重置 RSA 密钥对", exact: true }),
+    ).toBeVisible();
     await page.getByLabel("确认当前登录密码").fill("secret-transient");
     await page.goto("/merchant/account/settings");
     await expect(page.getByLabel("新 RSA 私钥", { exact: true })).toHaveCount(

@@ -240,8 +240,8 @@ function keydown(event: KeyboardEvent) {
         <p class="muted merchant-editor-hint">
           手机、邮箱和网站是联系资料。登录账号及已审核支付域名分别管理。<template
             v-if="!editing"
-            >保存后系统自动生成 MD5 API
-            密钥，之后可在编辑商户的“密钥信息”中修改或重置。</template
+            >默认签名方式为 MD5 + RSA 兼容。系统自动生成 MD5 密钥，使用 RSA
+            前需配置公钥。</template
           >
         </p>
 

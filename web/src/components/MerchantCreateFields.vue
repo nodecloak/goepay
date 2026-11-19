@@ -382,6 +382,10 @@ watch(
         :editing="false"
         @change="change"
       />
+      <p class="muted">
+        默认签名方式为 MD5 + RSA 兼容。系统自动生成 MD5 密钥，使用 RSA
+        前需配置公钥。
+      </p>
     </section>
     <details>
       <summary>高级选项</summary>
@@ -392,9 +396,7 @@ watch(
           @change="mode"
         />仅API（不创建后台登录账号）</label
       >
-      <p class="muted">
-        仅API模式使用明确的商户编号和名称，支付密钥由系统生成。
-      </p>
+      <p class="muted">仅API模式需填写商户编号和名称。</p>
     </details>
   </fieldset>
 </template>

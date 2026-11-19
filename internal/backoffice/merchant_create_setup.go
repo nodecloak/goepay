@@ -27,7 +27,8 @@ var merchantCreateSetupFields = map[string]bool{
 func init() {
 	d := definitions["merchants"]
 	for i := range d.fields {
-		// A merchant created without choosing an algorithm signs with MD5.
+		// Retain the legacy algorithm field's baseline. The creation handler
+		// distinguishes omission from an explicit strict algorithm selection.
 		if d.fields[i].Name == "signature_algorithm" {
 			d.fields[i].Default = "MD5"
 		}
