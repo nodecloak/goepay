@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MerchantRecords from "./MerchantRecords.vue";
 import {
   computed,
   nextTick,
@@ -908,7 +909,10 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <div class="list-page subchannel-page">
+  <div
+    class="list-page subchannel-page"
+    :class="{ 'subchannel-merchant': !admin }"
+  >
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
     <form
@@ -950,6 +954,7 @@ onBeforeUnmount(() => {
     </form>
     <section class="panel records subchannel-card" aria-label="子通道列表">
       <div class="table-tools">
+        <h2 v-if="!admin" class="subchannel-list-title">子通道列表</h2>
         <button
           v-if="admin"
           class="pa-btn pa-btn--primary"
@@ -993,10 +998,10 @@ onBeforeUnmount(() => {
           </KitHelpPopover>
         </div>
       </div>
-      <div class="subchannel-table-wrap">
-        <table class="subchannel-table">
-          <thead>
-            <tr>
+      <MerchantRecords class="subchannel-table-wrap" :stacked="!admin">
+        <table class="subchannel-table" role="table">
+          <thead role="rowgroup">
+            <tr role="row">
               <th>{{ admin ? "ID" : "编号" }}</th>
               <th>支付方式</th>
               <th>{{ admin ? "子通道备注" : "名称" }}</th>
@@ -1011,15 +1016,27 @@ onBeforeUnmount(() => {
               <th>操作</th>
             </tr>
           </thead>
-          <tbody>
-            <tr v-for="row in rows" :key="row.id" :data-subchannel-id="row.id">
-              <td class="subchannel-id">{{ row.id }}</td>
-              <td>
+          <tbody role="rowgroup">
+            <tr
+              v-for="row in rows"
+              :key="row.id"
+              :data-subchannel-id="row.id"
+              role="row"
+            >
+              <td class="subchannel-id" data-cell-label="编号" role="cell">
+                {{ row.id }}
+              </td>
+              <td data-cell-label="支付方式" role="cell">
                 <span class="subchannel-paytype" :class="row.payType">{{
                   row.payType === "wxpay" ? "微信支付" : "支付宝"
                 }}</span>
               </td>
-              <td class="subchannel-name">
+              <td
+                class="subchannel-name"
+                data-cell-label="名称"
+                data-cell-wide
+                role="cell"
+              >
                 <strong>{{ row.name }}</strong
                 ><small
                   >代收<span v-if="!admin">
@@ -1036,7 +1053,7 @@ onBeforeUnmount(() => {
               </td>
               <td v-if="admin" class="subchannel-id">{{ row.merchantId }}</td>
               <td v-if="admin" class="subchannel-id">{{ row.parentId }}</td>
-              <td>
+              <td data-cell-label="费率" role="cell">
                 <span>{{
                   row.feeRateBps === null
                     ? "未核对"
@@ -1044,28 +1061,28 @@ onBeforeUnmount(() => {
                 }}</span
                 ><small>{{ subchannelFeeSource(row.feeSource) }}</small>
               </td>
-              <td>
+              <td data-cell-label="今日收款（元）" role="cell">
                 {{
                   row.statistics
                     ? subchannelMoney(row.statistics.today)
                     : "未记录"
                 }}
               </td>
-              <td>
+              <td data-cell-label="昨日收款（元）" role="cell">
                 {{
                   row.statistics
                     ? subchannelMoney(row.statistics.yesterday)
                     : "未记录"
                 }}
               </td>
-              <td>
+              <td data-cell-label="今日成功率" role="cell">
                 {{
                   row.statistics?.successBps === null || !row.statistics
                     ? "—"
                     : subchannelMoney(String(row.statistics.successBps)) + "%"
                 }}
               </td>
-              <td>
+              <td data-cell-label="状态" role="cell">
                 <div class="subchannel-state-cell">
                   <KitStatusTag
                     :text="statusWord(row)"
@@ -1091,7 +1108,7 @@ onBeforeUnmount(() => {
                   >父通道风控：{{ row.parentCoreRisk.reason }}</small
                 >
               </td>
-              <td v-if="showWeight">
+              <td v-if="showWeight" data-cell-label="权重" role="cell">
                 <button
                   v-if="row.rollType === 2"
                   type="button"
@@ -1102,7 +1119,7 @@ onBeforeUnmount(() => {
                   {{ row.weight }}</button
                 ><span v-else>—</span>
               </td>
-              <td>
+              <td data-cell-actions role="cell">
                 <ActionDropdown
                   :label="`子通道 ${row.id} 操作`"
                   :disabled="!allowed || loading || !!modal || requiresRefresh"
@@ -1111,10 +1128,11 @@ onBeforeUnmount(() => {
                 />
               </td>
             </tr>
-            <tr v-if="!rows.length">
+            <tr v-if="!rows.length" role="row">
               <td
                 :colspan="(admin ? 11 : 9) + (showWeight ? 1 : 0)"
                 class="subchannel-empty"
+                role="cell"
               >
                 {{
                   loading
@@ -1127,7 +1145,7 @@ onBeforeUnmount(() => {
             </tr>
           </tbody>
         </table>
-      </div>
+      </MerchantRecords>
       <KitPagination
         v-model:page="pagerPage"
         v-model:page-size="pagerSize"
@@ -1366,6 +1384,22 @@ onBeforeUnmount(() => {
 <style scoped>
 .subchannel-page {
   min-width: 0;
+}
+.subchannel-list-title {
+  margin: 0;
+  margin-inline-end: var(--space-2);
+  font-size: 1rem;
+}
+.subchannel-merchant .subchannel-filter-fields {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  max-width: 54rem;
+}
+.subchannel-merchant .subchannel-table {
+  min-width: 910px;
+}
+.subchannel-merchant .subchannel-table .cell {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 /* Standard filter card: stacked labels above ~220px fields, actions at the
    right end. */

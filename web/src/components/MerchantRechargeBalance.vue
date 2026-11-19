@@ -67,21 +67,52 @@ onBeforeUnmount(() => {
     class="panel account-section recharge-account-balance"
     aria-label="充值账户余额"
   >
-    <dl class="record-detail">
-      <dt>当前余额（元）</dt>
-      <dd aria-live="polite">
-        {{ balance ?? (loading ? "读取中…" : "暂不可用") }}
-      </dd>
-    </dl>
+    <div class="recharge-balance-bar">
+      <dl>
+        <dt>当前余额（元）</dt>
+        <dd :class="{ 'balance-ready': balance !== null }" aria-live="polite">
+          {{ balance ?? (loading ? "读取中…" : "暂不可用") }}
+        </dd>
+      </dl>
+      <button
+        type="button"
+        class="soft-button"
+        :disabled="loading"
+        @click="load"
+      >
+        {{ error ? "重新读取余额" : "刷新余额" }}
+      </button>
+    </div>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
-    <button type="button" class="soft-button" :disabled="loading" @click="load">
-      {{ error ? "重新读取余额" : "刷新余额" }}
-    </button>
   </section>
 </template>
 <style scoped>
 .recharge-account-balance dd {
+  margin: var(--space-2) 0 0;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
+}
+.recharge-account-balance dt {
+  color: var(--muted);
+}
+.recharge-account-balance .balance-ready {
+  font-family: var(--font-mono);
+  font-size: clamp(1.375rem, 3.2vw, 2.25rem);
+  font-weight: 650;
+  line-height: 1.15;
+}
+.recharge-balance-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.recharge-balance-bar dl {
+  margin: 0;
+  min-width: 0;
+}
+.recharge-account-balance > .alert {
+  margin: var(--space-4) 0 0;
 }
 </style>

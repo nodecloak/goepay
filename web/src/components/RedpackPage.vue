@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 import QRCode from "qrcode";
 import ShellIcon from "./ShellIcon.vue";
 import KitModal from "./KitModal.vue";
@@ -9,6 +9,8 @@ import KitInput from "./KitInput.vue";
 import KitStatusTag from "./KitStatusTag.vue";
 import KitPayMethod from "./KitPayMethod.vue";
 import KitEmpty from "./KitEmpty.vue";
+import CopyButton from "./CopyButton.vue";
+import MerchantRecords from "./MerchantRecords.vue";
 import { beijingTimestamp } from "../console-datetime";
 import type { ApiClient } from "../api";
 import {
@@ -29,14 +31,19 @@ const form = ref({
   remark: "",
 });
 const items = ref<Redpack[]>([]),
-  open = ref(admin),
+  open = ref<boolean | null>(admin ? true : null),
   creating = ref(false),
+  querying = ref(""),
   busy = ref(false),
   loading = ref(false),
   error = ref(""),
   notice = ref(""),
   qr = ref(""),
-  qrLink = ref("");
+  qrLink = ref(""),
+  qrError = ref(""),
+  qrLoading = ref(false);
+let qrRequest = 0;
+let alive = true;
 // Red states: 待领取/领取处理中 pending, 已领取 ok, 领取失败 bad, 已过期 neutral.
 type KitTone = "success" | "warning" | "danger" | "info" | "neutral";
 const redTone = (s: string): KitTone =>
@@ -50,7 +57,7 @@ const redTone = (s: string): KitTone =>
 function openCreate() {
   error.value = "";
   notice.value = "";
-  qr.value = "";
+  closeQR();
   form.value.out_biz_no = defaultRedpackBizNo();
   form.value.amount = "";
   creating.value = true;
@@ -64,6 +71,7 @@ async function load() {
         ? "?merchant_id=" + form.value.merchant_id
         : "";
     const data = readRedpacks(await props.client.request("/redpacks" + q));
+    if (!alive) return;
     items.value = data.items;
     open.value = data.open;
   } catch {
@@ -72,9 +80,32 @@ async function load() {
     loading.value = false;
   }
 }
+function closeQR() {
+  qrRequest++;
+  qrLink.value = "";
+  qr.value = "";
+  qrError.value = "";
+  qrLoading.value = false;
+}
 async function show(r: Redpack) {
-  qrLink.value = r.claim_url;
-  qr.value = await QRCode.toDataURL(r.claim_url, { width: 240, margin: 2 });
+  if (!alive) return;
+  closeQR();
+  const request = qrRequest;
+  qrLoading.value = true;
+  try {
+    const image = await QRCode.toDataURL(r.claim_url, {
+      width: 240,
+      margin: 2,
+    });
+    if (request !== qrRequest) return;
+    qrLink.value = r.claim_url;
+    qr.value = image;
+  } catch {
+    if (request === qrRequest)
+      qrError.value = "二维码生成失败，请从红包记录再次打开二维码。";
+  } finally {
+    if (request === qrRequest) qrLoading.value = false;
+  }
 }
 async function create() {
   const problem = validRedpackForm(form.value, admin);
@@ -92,12 +123,13 @@ async function create() {
       method: "POST",
       body,
     })) as Redpack;
+    if (!alive) return;
     notice.value = "红包创建成功，请让收款人扫码领取（24小时内有效）。";
     creating.value = false;
-    await show(r);
     form.value.out_biz_no = defaultRedpackBizNo();
     form.value.amount = "";
     await load();
+    await show(r);
   } catch (e) {
     error.value =
       e instanceof Error && e.message ? e.message : "红包创建失败。";
@@ -106,20 +138,37 @@ async function create() {
   }
 }
 async function refresh(r: Redpack) {
+  if (querying.value) return;
+  querying.value = r.id;
+  let problem = "";
   try {
     await props.client.request("/redpacks/" + r.id + "/query", {
       method: "POST",
       body: {},
     });
+  } catch (e) {
+    problem = e instanceof Error ? e.message : "红包状态查询失败。";
   } finally {
-    await load();
+    if (alive) await load();
+    if (problem) error.value = problem;
+    querying.value = "";
   }
 }
 onMounted(load);
+onBeforeUnmount(() => {
+  alive = false;
+  closeQR();
+});
 </script>
 <template>
-  <section class="panel records redpack-records" aria-label="红包记录">
-    <p v-if="!open" class="alert error" role="alert">未开启创建红包功能。</p>
+  <section
+    class="panel records redpack-records"
+    :class="{ 'merchant-redpack-records': !admin }"
+    aria-label="红包记录"
+  >
+    <p v-if="open === false && !loading" class="alert error" role="alert">
+      未开启创建红包功能。
+    </p>
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
     <p class="table-note">
@@ -129,7 +178,7 @@ onMounted(load);
       <button
         type="button"
         class="pa-btn pa-btn--primary"
-        :disabled="!open || busy"
+        :disabled="!open || busy || loading"
         @click="openCreate"
       >
         <ShellIcon name="plus" />创建红包
@@ -140,21 +189,35 @@ onMounted(load);
           class="pa-icon-btn"
           aria-label="刷新"
           title="刷新"
-          :disabled="loading"
+          :disabled="loading || !!querying"
           @click="load"
         >
           <ShellIcon name="refresh" />
         </button>
       </div>
     </div>
-    <div v-if="qr" class="qr">
+    <p v-if="qrError" class="alert error" role="alert">{{ qrError }}</p>
+    <p v-if="qrLoading" class="loading-row" role="status">
+      正在生成领取二维码…
+    </p>
+    <section v-if="qr" class="redpack-qr" aria-label="红包领取二维码">
       <img :src="qr" alt="红包领取二维码" width="240" height="240" />
-      <p class="muted">{{ qrLink }}</p>
-    </div>
-    <div class="table-scroll">
-      <table class="pa-table">
-        <thead>
-          <tr>
+      <div>
+        <h2>扫码领取红包</h2>
+        <div class="redpack-qr-link">
+          <code>{{ qrLink }}</code>
+          <CopyButton :text="qrLink" label="领取链接" />
+        </div>
+        <button type="button" class="pa-btn" @click="closeQR">
+          关闭二维码
+        </button>
+      </div>
+    </section>
+    <p v-if="loading" class="loading-row" role="status">正在加载红包记录…</p>
+    <MerchantRecords :stacked="!admin" class="table-scroll">
+      <table class="pa-table" role="table">
+        <thead role="rowgroup">
+          <tr role="row">
             <th scope="col">交易号</th>
             <th v-if="admin" scope="col">商户</th>
             <th scope="col">类型</th>
@@ -165,21 +228,34 @@ onMounted(load);
             <th scope="col">操作</th>
           </tr>
         </thead>
-        <tbody>
-          <tr v-for="r in items" :key="r.id">
-            <td class="pa-c-mono">{{ r.out_biz_no }}</td>
-            <td v-if="admin">{{ r.merchant_id || "-" }}</td>
-            <td><KitPayMethod :type="r.type" /></td>
-            <td class="pa-c-num">¥{{ r.money }}</td>
-            <td>{{ r.remark || "-" }}</td>
-            <td>
+        <tbody role="rowgroup">
+          <tr v-for="r in items" :key="r.id" role="row">
+            <td
+              class="pa-c-mono"
+              data-cell-label="交易号"
+              data-cell-wide
+              role="cell"
+            >
+              {{ r.out_biz_no }}
+            </td>
+            <td v-if="admin" role="cell">{{ r.merchant_id || "-" }}</td>
+            <td data-cell-label="类型" role="cell">
+              <KitPayMethod :type="r.type" />
+            </td>
+            <td class="pa-c-num" data-cell-label="金额" role="cell">
+              ¥{{ r.money }}
+            </td>
+            <td data-cell-label="备注" role="cell">{{ r.remark || "-" }}</td>
+            <td data-cell-label="状态" role="cell">
               <KitStatusTag
                 :text="redpackStatusLabel(r.status)"
                 :tone="redTone(r.status)"
               />
             </td>
-            <td>{{ beijingTimestamp(r.expires_at) }}</td>
-            <td>
+            <td data-cell-label="过期时间" data-cell-wide role="cell">
+              {{ beijingTimestamp(r.expires_at) }}
+            </td>
+            <td data-cell-actions role="cell">
               <button
                 v-if="r.status === 'claimable'"
                 type="button"
@@ -192,9 +268,10 @@ onMounted(load);
                 v-if="r.status === 'claiming'"
                 type="button"
                 class="link-button"
+                :disabled="!!querying || loading"
                 @click="refresh(r)"
               >
-                查询
+                {{ querying === r.id ? "查询中…" : "查询" }}
               </button>
               <span
                 v-if="!['claimable', 'claiming'].includes(r.status)"
@@ -203,14 +280,14 @@ onMounted(load);
               >
             </td>
           </tr>
-          <tr v-if="!items.length && !loading">
-            <td class="empty" :colspan="admin ? 8 : 7">
+          <tr v-if="!items.length && !loading" role="row">
+            <td class="empty" :colspan="admin ? 8 : 7" role="cell">
               <KitEmpty text="暂无数据" />
             </td>
           </tr>
         </tbody>
       </table>
-    </div>
+    </MerchantRecords>
   </section>
   <KitModal
     v-if="creating"
@@ -295,11 +372,49 @@ onMounted(load);
 .redpack-records tbody tr:last-child > td {
   border-bottom: 0;
 }
-.qr {
-  margin: 0;
-  padding: 0 var(--space-5) var(--space-4);
+.redpack-qr {
+  display: grid;
+  align-items: center;
+  gap: var(--space-4);
+  margin: 0 var(--space-5) var(--space-4);
+  padding: var(--space-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  min-width: 0;
 }
-.qr p {
+.redpack-qr img {
+  width: min(100%, 240px);
+  height: auto;
+  border-radius: var(--radius-sm);
+  justify-self: center;
+}
+.redpack-qr h2 {
+  font-size: 16px;
+  margin: 0 0 var(--space-3);
+}
+.redpack-qr-link {
+  display: flex;
+  align-items: start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  min-width: 0;
+}
+.redpack-qr-link code {
   overflow-wrap: anywhere;
+}
+.redpack-qr-link :deep(button) {
+  flex: none;
+}
+@media (min-width: 900px) {
+  .redpack-qr {
+    grid-template-columns: minmax(120px, 240px) minmax(0, 1fr);
+    max-width: 720px;
+  }
+}
+@media (max-width: 520px) {
+  .merchant-redpack-records .table-tools button {
+    min-height: 42px;
+  }
 }
 </style>

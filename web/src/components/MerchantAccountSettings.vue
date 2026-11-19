@@ -8,6 +8,7 @@ import AccountLoginLogDialog from "./AccountLoginLogDialog.vue";
 import MerchantAPISwitches from "./MerchantAPISwitches.vue";
 import MerchantPersonalSettings from "./MerchantPersonalSettings.vue";
 import BuyerFeeSettings104 from "./BuyerFeeSettings104.vue";
+import ShellIcon from "./ShellIcon.vue";
 const props = defineProps<{
   client: ApiClient;
   ownSession: boolean;
@@ -98,8 +99,12 @@ watch(
       </p>
     </div>
     <nav class="panel merchant-account-shortcuts" aria-label="消息与打印设置">
-      <RouterLink to="/merchant/account/notice">消息提醒设置</RouterLink>
-      <RouterLink to="/merchant/account/printing">订单打印设置</RouterLink>
+      <RouterLink to="/merchant/account/notice">
+        <ShellIcon name="st-bell" />消息提醒设置<ShellIcon name="chevron" />
+      </RouterLink>
+      <RouterLink to="/merchant/account/printing">
+        <ShellIcon name="st-doc" />订单打印设置<ShellIcon name="chevron" />
+      </RouterLink>
     </nav>
     <AccountLoginLogDialog
       v-if="logsOpen"
@@ -118,14 +123,17 @@ watch(
   align-items: start;
 }
 .merchant-account-profile,
-.merchant-account-functions,
+.merchant-account-functions {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
 .merchant-account-security {
   min-width: 0;
 }
 .merchant-account-profile :deep(.panel),
 .merchant-account-security > :deep(.panel),
 .merchant-account-functions {
-  padding: 20px;
+  padding: var(--space-5);
 }
 .merchant-account-profile :deep(.account-pages),
 .merchant-account-profile :deep(.account-section),
@@ -142,42 +150,50 @@ watch(
 }
 .merchant-function-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px 32px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
   align-items: start;
 }
 .merchant-function-grid :deep(.panel) {
   min-width: 0;
   margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-.merchant-function-grid :deep(.merchant-account-api) {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-}
-.merchant-function-grid :deep(.merchant-account-fees) {
-  grid-column: 1;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
 }
 .merchant-account-shortcuts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px 24px;
-  padding: 20px;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  min-width: 0;
 }
 .merchant-account-shortcuts a {
-  padding-block: 4px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  min-height: 44px;
+  color: var(--ink);
+  text-decoration: none;
 }
-@media (max-width: 850px) {
-  .merchant-function-grid {
-    grid-template-columns: minmax(0, 1fr);
+.merchant-account-shortcuts a:hover {
+  background: var(--bg-hover);
+  color: var(--primary-text);
+}
+.merchant-account-shortcuts :deep(.shell-icon) {
+  color: var(--muted);
+}
+@media (min-width: 1024px) {
+  .merchant-account-settings {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   }
-  .merchant-function-grid :deep(.merchant-account-api),
-  .merchant-function-grid :deep(.merchant-account-fees) {
-    grid-column: auto;
-    grid-row: auto;
+  .merchant-function-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .merchant-function-grid :deep(.merchant-account-api) {
+    grid-column: 2;
+    grid-row: 1 / span 2;
   }
 }
 </style>

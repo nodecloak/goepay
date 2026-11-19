@@ -114,9 +114,9 @@ for (const width of [375, 768, 1440]) {
       for (const choice of choices) {
         expect(choice.width).toBeCloseTo(16, 0);
         expect(choice.height).toBeCloseTo(16, 0);
-        if (width <= 600) expect(choice.target).toBeGreaterThanOrEqual(44);
+        if (width <= 768) expect(choice.target).toBeGreaterThanOrEqual(44);
       }
-      if (width <= 600) {
+      if (width <= 768) {
         expect(
           await matrix.evaluate((e) => e.scrollWidth <= e.clientWidth + 1),
         ).toBe(true);

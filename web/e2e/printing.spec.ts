@@ -125,6 +125,15 @@ test("merchant printing is explicit owner configuration rather than a generic pl
     .click();
   await page.getByLabel("每单份数").fill("3");
   await page.getByRole("button", { name: "检查并保存打印设置" }).click();
+  const review = page.getByRole("group", { name: "核对打印设置", exact: true });
+  await expect(
+    review.getByRole("heading", { name: "核对打印设置" }),
+  ).toBeFocused();
+  await expect(review.locator("dd")).toHaveText([
+    "全部普通支付订单",
+    "3",
+    "关闭",
+  ]);
   expect(writes).toHaveLength(0);
   await page.getByRole("button", { name: "确认保存", exact: true }).click();
   await expect(

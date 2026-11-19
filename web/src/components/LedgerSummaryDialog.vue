@@ -109,6 +109,7 @@ onBeforeUnmount(() => {
       aria-modal="true"
       :aria-labelledby="id + '-title'"
       class="modal panel ledger-summary"
+      :data-summary-area="client.area"
       tabindex="-1"
       @keydown="keydown"
     >
@@ -179,5 +180,18 @@ onBeforeUnmount(() => {
 }
 .ledger-summary > p {
   line-height: 1.7;
+}
+.ledger-summary[data-summary-area="merchant"] .ledger-summary-grid {
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+.ledger-summary[data-summary-area="merchant"]
+  .ledger-summary-grid
+  > div:last-child {
+  background: var(--primary-soft);
+}
+.ledger-summary .modal-actions {
+  flex-wrap: wrap;
 }
 </style>

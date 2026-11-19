@@ -74,6 +74,9 @@ for (const width of [1280, 375])
       await expect(second).toContainText("预计");
       await expect(success).toContainText("已完成");
       await expect(success).toContainText("90071992547409.90");
+      expect(
+        await success.evaluate((row) => getComputedStyle(row).display),
+      ).toBe(role === "merchant" && width === 375 ? "grid" : "table-row");
       await expect(
         success.getByRole("cell").nth(role === "admin" ? 7 : 5),
       ).toHaveText("2026-10-25 23:35:00");

@@ -196,7 +196,10 @@ function choose(name: string, click = false) {
 }
 </script>
 <template>
-  <div class="list-page province-statistics">
+  <div
+    class="list-page province-statistics"
+    :class="{ 'merchant-province-statistics': !admin }"
+  >
     <form
       class="toolbar list-filter-card panel province-filter"
       @submit.prevent="load"
@@ -298,7 +301,7 @@ function choose(name: string, click = false) {
         </p>
         <div class="province-layout">
           <section class="province-map">
-            <div class="map-tools">
+            <div class="map-tools" role="group" aria-label="地图控制">
               <button
                 type="button"
                 aria-label="缩小地图"
@@ -402,7 +405,7 @@ function choose(name: string, click = false) {
               笔
             </p>
             <p v-else class="muted">
-              悬停或使用键盘选择地区查看明细；放大后可拖动地图。
+              选择地图中的地区查看明细。放大后可拖动地图。
             </p>
             <div class="map-scale" aria-label="交易金额色阶">
               <span>低</span
@@ -439,7 +442,12 @@ function choose(name: string, click = false) {
         </div>
         <details>
           <summary>地区数据明细</summary>
-          <div class="table-scroll">
+          <div
+            class="table-scroll"
+            :tabindex="admin ? undefined : 0"
+            :role="admin ? undefined : 'region'"
+            :aria-label="admin ? undefined : '地区交易明细表'"
+          >
             <table>
               <thead>
                 <tr>
@@ -459,6 +467,15 @@ function choose(name: string, click = false) {
                   <td>{{ region.name }}</td>
                   <td>{{ region.money }}</td>
                   <td>{{ region.count }}</td>
+                </tr>
+                <tr
+                  v-if="
+                    !admin &&
+                    !data.regions.some((r) => r.count !== '0') &&
+                    !data.unmapped.length
+                  "
+                >
+                  <td colspan="3" class="empty">暂无地区数据</td>
                 </tr>
               </tbody>
             </table>
@@ -661,12 +678,40 @@ function choose(name: string, click = false) {
 .province-statistics details .table-scroll {
   margin-inline: calc(-1 * var(--space-5));
 }
+.merchant-province-statistics .map-tools {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+.merchant-province-statistics .province-ranking {
+  background: var(--bg-raised);
+}
+.merchant-province-statistics .province-ranking ol li:last-child {
+  border-bottom: 0;
+}
+.merchant-province-statistics details > summary {
+  padding: var(--space-3) 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+.merchant-province-statistics details .table-scroll:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+@media (max-width: 1050px) {
+  .merchant-province-statistics .province-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 @media (max-width: 760px) {
   .province-layout {
     grid-template-columns: minmax(0, 1fr);
   }
   .province-total strong {
     font-size: 20px;
+  }
+  .merchant-province-statistics .map-tools button {
+    min-height: 42px;
   }
 }
 </style>

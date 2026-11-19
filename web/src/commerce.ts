@@ -20,8 +20,9 @@ export const commercePages: Record<Area, Record<string, CommerceKind>> = {
 export const commerceFor = (area: Area, path: string) =>
   commercePages[area][path];
 export function safePaymentUrl(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value.trim()) return undefined;
   try {
-    const url = new URL(String(value), location.origin);
+    const url = new URL(value, location.origin);
     return ["http:", "https:"].includes(url.protocol) ? url.href : undefined;
   } catch {
     return undefined;

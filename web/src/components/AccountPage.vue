@@ -479,101 +479,117 @@ onBeforeUnmount(() => {
         aria-label="账户资料"
       >
         <h2>账户资料</h2>
-        <dl class="account-profile-facts" aria-label="商户基本资料">
-          <div>
-            <dt>商户ID</dt>
-            <dd>{{ profileFacts.uid || "—" }}</dd>
+        <div class="account-profile-overview">
+          <div class="account-profile-summary">
+            <dl class="account-profile-facts" aria-label="商户基本资料">
+              <div>
+                <dt>商户ID</dt>
+                <dd>{{ profileFacts.uid || "—" }}</dd>
+              </div>
+              <div>
+                <dt>联系邮箱</dt>
+                <dd>{{ profile.email || "未填写" }}</dd>
+              </div>
+              <div>
+                <dt>注册时间</dt>
+                <dd>
+                  {{
+                    profileFacts.known === false
+                      ? "原注册时间未提供"
+                      : profileFacts.addtime || "—"
+                  }}
+                </dd>
+              </div>
+              <div role="group" aria-label="登录密码">
+                <dt>登录密码</dt>
+                <dd class="account-password-value">
+                  <span
+                    class="badge"
+                    :class="
+                      hasPassword === true
+                        ? 'success'
+                        : hasPassword === false
+                          ? 'danger'
+                          : 'info'
+                    "
+                    >{{
+                      hasPassword === true
+                        ? "已设置"
+                        : hasPassword === false
+                          ? "未设置"
+                          : "暂未读取"
+                    }}</span
+                  >
+                  <button
+                    ref="passwordTrigger"
+                    class="link-button"
+                    type="button"
+                    :disabled="
+                      busy || hasPassword !== true || passwordUncertain
+                    "
+                    @click="showPassword"
+                  >
+                    修改
+                  </button>
+                  <button
+                    v-if="showLoginLog"
+                    class="link-button"
+                    type="button"
+                    @click="emit('login-log')"
+                  >
+                    登录日志
+                  </button>
+                </dd>
+              </div>
+              <div>
+                <dt>收款状态</dt>
+                <dd>{{ merchantFieldValue("pay", payStatus) }}</dd>
+              </div>
+            </dl>
+            <p v-if="hasPassword === false" class="muted account-password-help">
+              此账号尚未设置登录密码，请使用已验证的找回密码流程，或联系管理员通过已有初始化流程处理。
+            </p>
           </div>
-          <div>
-            <dt>联系邮箱</dt>
-            <dd>{{ profile.email || "未填写" }}</dd>
-          </div>
-          <div>
-            <dt>注册时间</dt>
-            <dd>
-              {{
-                profileFacts.known === false
-                  ? "原注册时间未提供"
-                  : profileFacts.addtime || "—"
-              }}
-            </dd>
-          </div>
-          <div role="group" aria-label="登录密码">
-            <dt>登录密码</dt>
-            <dd class="account-password-value">
-              <span
-                class="badge"
-                :class="
-                  hasPassword === true
-                    ? 'success'
-                    : hasPassword === false
-                      ? 'danger'
-                      : 'info'
-                "
-                >{{
-                  hasPassword === true
-                    ? "已设置"
-                    : hasPassword === false
-                      ? "未设置"
-                      : "暂未读取"
-                }}</span
-              >
+          <form
+            class="account-kit-form account-profile-form"
+            aria-label="编辑商户资料"
+            @submit.prevent="saveProfile"
+          >
+            <h3>编辑商户资料</h3>
+            <KitField label="商户名称" required
+              ><KitInput
+                v-model="profile.name"
+                required
+                :maxlength="100"
+                autocomplete="organization"
+            /></KitField>
+            <KitField label="联系手机"
+              ><KitInput
+                v-model="profile.phone"
+                :maxlength="21"
+                inputmode="tel"
+                autocomplete="tel"
+                placeholder="选填，5 至 20 位数字，支持前缀 +"
+            /></KitField>
+            <div class="account-kit-actions">
               <button
-                ref="passwordTrigger"
-                class="link-button"
-                type="button"
-                :disabled="busy || hasPassword !== true || passwordUncertain"
-                @click="showPassword"
+                type="submit"
+                class="pa-btn pa-btn--primary"
+                :class="{ 'pa-btn--loading': busy }"
+                :disabled="busy"
               >
-                修改
+                {{ busy ? "正在保存…" : "保存账户资料" }}
               </button>
-              <button
-                v-if="showLoginLog"
-                class="link-button"
-                type="button"
-                @click="emit('login-log')"
-              >
-                登录日志
-              </button>
-            </dd>
-          </div>
-        </dl>
-        <p v-if="hasPassword === false" class="muted">
-          此账号尚未设置登录密码，请使用已验证的找回密码流程，或联系管理员通过已有初始化流程处理。
-        </p>
-        <p>收款状态：{{ merchantFieldValue("pay", payStatus) }}</p>
-        <MerchantEmailBinding197
-          :client="client"
-          @reauthenticate="emit('reauthenticate', '修改绑定成功，请重新登录')"
-        />
-        <MerchantBindings134 :client="client" />
-        <form class="account-kit-form" @submit.prevent="saveProfile">
-          <KitField label="商户名称" required
-            ><KitInput
-              v-model="profile.name"
-              required
-              :maxlength="100"
-              autocomplete="organization"
-          /></KitField>
-          <KitField label="联系手机"
-            ><KitInput
-              v-model="profile.phone"
-              :maxlength="21"
-              inputmode="tel"
-              autocomplete="tel"
-              placeholder="选填，5 至 20 位数字，支持前缀 +"
-          /></KitField>
-          <div class="account-kit-actions">
-            <button
-              type="submit"
-              class="pa-btn pa-btn--primary"
-              :class="{ 'pa-btn--loading': busy }"
-              :disabled="busy"
-            >
-              {{ busy ? "正在保存…" : "保存账户资料" }}
-            </button>
-          </div>
-        </form>
+            </div>
+          </form>
+        </div>
+        <div class="account-profile-bindings">
+          <MerchantEmailBinding197
+            :client="client"
+            @reauthenticate="emit('reauthenticate', '修改绑定成功，请重新登录')"
+          />
+          <MerchantBindings134 :client="client" />
+        </div>
       </section>
       <section v-if="section === 'security'" class="panel account-section">
         <h2>
@@ -905,25 +921,65 @@ onBeforeUnmount(() => {
 .account-profile-facts {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 10px 20px;
-  margin: 16px 0;
-  font-size: 14px;
+  gap: 0;
+  margin: 0;
 }
 .account-profile-facts > div {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 5.25rem) minmax(0, 1fr);
   min-width: 0;
   align-items: baseline;
   gap: 12px;
+  padding-block: var(--space-2);
+}
+.account-profile-facts > div + div {
+  border-top: 1px solid var(--line);
 }
 .account-profile-facts dt {
-  flex: 0 0 120px;
-  text-align: right;
   color: var(--muted, var(--ink-muted));
 }
 .account-profile-facts dd {
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.account-profile-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+.account-profile-summary {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  min-width: 0;
+}
+.account-password-help {
+  margin: var(--space-2) 0;
+}
+.account-profile-form {
+  margin-top: 0;
+}
+.account-profile-form h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.account-profile-form :deep(.pa-field) {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+.account-profile-bindings {
+  margin-top: var(--space-5);
+  min-width: 0;
+}
+@media (min-width: 1024px) {
+  .account-profile-overview {
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+    gap: clamp(1.25rem, 3vw, 2rem);
+  }
 }
 .account-password-value {
   display: flex;
@@ -972,15 +1028,6 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 8px;
   margin: 16px 0;
-}
-@media (max-width: 767px) {
-  .account-profile-facts {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .account-profile-facts dt {
-    flex-basis: 84px;
-    text-align: left;
-  }
 }
 @media (max-width: 480px) {
   .account-password-dialog .modal-actions button {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MerchantRecords from "./MerchantRecords.vue";
 import { computed, onMounted, onBeforeUnmount, ref, watch, toRaw } from "vue";
 import { useRouter } from "vue-router";
 import { ApiError, type ApiClient } from "../api";
@@ -750,7 +751,12 @@ function onReset() {
 
 <template>
   <div class="list-page">
-    <KitFilterBar :loading="loading" @query="load" @reset="onReset">
+    <KitFilterBar
+      label="筛选分账规则"
+      :loading="loading"
+      @query="load"
+      @reset="onReset"
+    >
       <KitField v-if="area === 'admin'" label="商户ID">
         <KitInput
           v-model="merchant"
@@ -784,6 +790,9 @@ function onReset() {
 
     <section class="panel records sharing-rules" aria-label="分账规则">
       <div class="table-tools">
+        <h2 v-if="area === 'merchant'" class="sharing-rule-list-title">
+          规则列表
+        </h2>
         <button
           type="button"
           class="pa-btn pa-btn--primary"
@@ -798,10 +807,10 @@ function onReset() {
         }}</span>
       </div>
 
-      <div class="table-scroll">
-        <table class="pa-table">
-          <thead>
-            <tr>
+      <MerchantRecords class="table-scroll" :stacked="area === 'merchant'">
+        <table class="pa-table" role="table">
+          <thead role="rowgroup">
+            <tr role="row">
               <th>ID</th>
               <th>支付通道</th>
               <th>分账接收方+分账比例</th>
@@ -809,14 +818,24 @@ function onReset() {
               <th>操作</th>
             </tr>
           </thead>
-          <tbody>
-            <tr v-for="row in filteredRows" :key="row.channel.channel_id">
-              <td class="pa-c-num">{{ row.rule ? row.rule.id : "-" }}</td>
-              <td>
+          <tbody role="rowgroup">
+            <tr
+              v-for="row in filteredRows"
+              :key="row.channel.channel_id"
+              role="row"
+            >
+              <td class="pa-c-num" data-cell-label="规则 ID" role="cell">
+                {{ row.rule ? row.rule.id : "-" }}
+              </td>
+              <td data-cell-label="支付通道" role="cell">
                 <KitPayMethod :type="row.channel.provider" />
                 <small class="muted">#{{ row.channel.channel_id }}</small>
               </td>
-              <td>
+              <td
+                data-cell-label="分账接收方与分配方式"
+                data-cell-wide
+                role="cell"
+              >
                 <template v-if="row.rule && row.rule.items.length">
                   <div
                     v-for="item in row.rule.items"
@@ -836,7 +855,7 @@ function onReset() {
                 </template>
                 <span v-else class="muted">-</span>
               </td>
-              <td>
+              <td data-cell-label="状态" role="cell">
                 <KitStatusTag
                   :text="
                     row.rule ? (row.enabled ? '已开启' : '已关闭') : '未配置'
@@ -846,7 +865,7 @@ function onReset() {
                   "
                 />
               </td>
-              <td>
+              <td data-cell-actions role="cell">
                 <div class="pa-row-actions">
                   <button
                     type="button"
@@ -882,19 +901,33 @@ function onReset() {
                 </div>
               </td>
             </tr>
-            <tr v-if="loaded && !filteredRows.length">
-              <td colspan="5"><KitEmpty text="暂无数据" /></td>
-            </tr>
-            <tr v-if="!loaded">
-              <td colspan="5">
+            <tr v-if="loaded && !filteredRows.length && !error" role="row">
+              <td colspan="5" role="cell">
                 <KitEmpty
-                  :text="area === 'admin' ? '请输入商户ID后查询' : '暂无数据'"
+                  :text="
+                    area === 'merchant'
+                      ? '未找到符合条件的分账通道或规则'
+                      : '暂无数据'
+                  "
+                />
+              </td>
+            </tr>
+            <tr v-if="!loaded && !error" role="row">
+              <td colspan="5" role="cell">
+                <KitEmpty
+                  :text="
+                    loading
+                      ? '正在读取分账规则…'
+                      : area === 'admin'
+                        ? '请输入商户ID后查询'
+                        : '暂无数据'
+                  "
                 />
               </td>
             </tr>
           </tbody>
         </table>
-      </div>
+      </MerchantRecords>
 
       <KitModal
         v-if="dialogOpen"
@@ -931,80 +964,89 @@ function onReset() {
             aria-label="分账模式"
           />
         </KitField>
-        <div class="sharing-recv-head">分账接收方列表</div>
-        <table class="pa-table pa-table--compact">
-          <thead>
-            <tr>
-              <th>接收方账号</th>
-              <th>接收方姓名</th>
-              <th>分账比例/金额</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(r, i) in form.receivers" :key="i">
-              <td>
-                <KitSelect
-                  :model-value="r.type || receiverTypeOptions[0]?.value || ''"
-                  :options="receiverTypeOptions"
-                  :disabled="saving || !!r.id"
-                  aria-label="接收方类型"
-                  @update:model-value="r.type = $event"
-                />
-                <KitInput
-                  v-model="r.account"
-                  placeholder="请输入"
-                  :disabled="saving || !!r.id"
-                  aria-label="接收方账号"
-                />
-              </td>
-              <td>
-                <KitInput
-                  v-model="r.name"
-                  placeholder="可留空"
-                  :disabled="saving || !!r.id"
-                  aria-label="接收方姓名"
-                />
-              </td>
-              <td>
-                <KitSelect
-                  :model-value="r.mode || 'rate'"
-                  :options="calculationModes"
-                  :disabled="saving"
-                  aria-label="计算方式"
-                  @update:model-value="r.mode = $event"
-                />
-                <KitInput
-                  v-if="r.mode === 'fixed'"
-                  :model-value="r.fixed_amount || ''"
-                  @update:model-value="r.fixed_amount = $event"
-                  inputmode="decimal"
-                  placeholder="元"
-                  aria-label="分账金额（元）"
-                  :disabled="saving"
-                />
-                <KitInput
-                  v-else
-                  v-model="r.rate"
-                  placeholder="1-100"
-                  inputmode="decimal"
-                  aria-label="分账比例"
-                  :disabled="saving"
-                />
-              </td>
-              <td>
-                <button
-                  type="button"
-                  class="pa-btn pa-btn--danger"
-                  :disabled="saving || form.receivers.length <= 1"
-                  @click="removeReceiverRow(i)"
+        <h3 class="sharing-recv-head">分账接收方列表</h3>
+        <MerchantRecords
+          :stacked="area === 'merchant'"
+          class="sharing-editor-records"
+        >
+          <table class="pa-table pa-table--compact" role="table">
+            <thead role="rowgroup">
+              <tr role="row">
+                <th>接收方账号</th>
+                <th>接收方姓名</th>
+                <th>分账比例/金额</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody role="rowgroup">
+              <tr v-for="(r, i) in form.receivers" :key="i" role="row">
+                <td data-cell-label="接收方账号" data-cell-wide role="cell">
+                  <KitSelect
+                    :model-value="r.type || receiverTypeOptions[0]?.value || ''"
+                    :options="receiverTypeOptions"
+                    :disabled="saving || !!r.id"
+                    aria-label="接收方类型"
+                    @update:model-value="r.type = $event"
+                  />
+                  <KitInput
+                    v-model="r.account"
+                    placeholder="请输入"
+                    :disabled="saving || !!r.id"
+                    aria-label="接收方账号"
+                  />
+                </td>
+                <td data-cell-label="接收方姓名" data-cell-wide role="cell">
+                  <KitInput
+                    v-model="r.name"
+                    placeholder="可留空"
+                    :disabled="saving || !!r.id"
+                    aria-label="接收方姓名"
+                  />
+                </td>
+                <td
+                  data-cell-label="分账比例 / 金额"
+                  data-cell-wide
+                  role="cell"
                 >
-                  删除
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                  <KitSelect
+                    :model-value="r.mode || 'rate'"
+                    :options="calculationModes"
+                    :disabled="saving"
+                    aria-label="计算方式"
+                    @update:model-value="r.mode = $event"
+                  />
+                  <KitInput
+                    v-if="r.mode === 'fixed'"
+                    :model-value="r.fixed_amount || ''"
+                    @update:model-value="r.fixed_amount = $event"
+                    inputmode="decimal"
+                    placeholder="元"
+                    aria-label="分账金额（元）"
+                    :disabled="saving"
+                  />
+                  <KitInput
+                    v-else
+                    v-model="r.rate"
+                    placeholder="1-100"
+                    inputmode="decimal"
+                    aria-label="分账比例"
+                    :disabled="saving"
+                  />
+                </td>
+                <td data-cell-actions role="cell">
+                  <button
+                    type="button"
+                    class="pa-btn pa-btn--danger"
+                    :disabled="saving || form.receivers.length <= 1"
+                    @click="removeReceiverRow(i)"
+                  >
+                    删除
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </MerchantRecords>
         <div class="sharing-add-recv">
           <button
             type="button"
@@ -1032,6 +1074,10 @@ function onReset() {
   color: var(--ink-muted);
   font-size: 12px;
 }
+.sharing-rule-list-title {
+  margin: 0 var(--space-2) 0 0;
+  font-size: 1rem;
+}
 /* No pager under this table: the card edge closes the last row. */
 .sharing-rules tbody tr:last-child td {
   border-bottom: 0;
@@ -1041,6 +1087,7 @@ function onReset() {
   justify-content: space-between;
   gap: 12px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 .sharing-recv .rate {
   color: var(--primary, #4f46e5);
@@ -1048,7 +1095,7 @@ function onReset() {
 }
 .sharing-recv-head {
   font-weight: 600;
-  text-align: center;
+  font-size: 0.875rem;
   margin: 8px 0 4px;
 }
 .sharing-add-recv {
@@ -1058,6 +1105,10 @@ function onReset() {
 .pa-row-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+}
+.sharing-editor-records td > :deep(.pa-select + .pa-input) {
+  margin-top: var(--space-2);
 }
 td small.muted {
   display: block;

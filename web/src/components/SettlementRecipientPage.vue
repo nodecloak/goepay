@@ -13,13 +13,19 @@ defineProps<{
 const merchantID = ref("");
 </script>
 <template>
-  <div class="settlement-settings-page">
+  <div
+    class="settlement-settings-page"
+    :class="{ 'merchant-settlement-settings': area === 'merchant' }"
+  >
     <section
       class="panel records recipient-settings-card"
       aria-label="收款账号设置"
     >
       <h2>收款账号设置</h2>
-      <p class="resource-description muted">
+      <p v-if="area === 'merchant'" class="resource-description muted">
+        提现申请会使用提交时的收款账号。请在申请前核对结算方式、账号和姓名。
+      </p>
+      <p v-else class="resource-description muted">
         收款资料用于后续结算申请的加密快照。修改配置不会更改旧申请，也不会执行外部付款。历史未记录的收款资料不会自动补成快照。
       </p>
       <label v-if="area === 'admin'"
@@ -59,5 +65,18 @@ const merchantID = ref("");
 .settlement-settings-page :deep(.settlement-reserve-card) {
   padding: 20px;
   min-width: 0;
+}
+.merchant-settlement-settings {
+  align-items: start;
+  max-width: 1120px;
+}
+.merchant-settlement-settings > * {
+  min-width: 0;
+  margin: 0;
+}
+@media (min-width: 1200px) {
+  .merchant-settlement-settings {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
 }
 </style>

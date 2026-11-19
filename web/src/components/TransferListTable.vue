@@ -7,6 +7,7 @@ import { originalTransferColumns, readTransferListRow } from "../transfer-list";
 import KitStatusTag from "./KitStatusTag.vue";
 import KitPayMethod from "./KitPayMethod.vue";
 import KitEmpty from "./KitEmpty.vue";
+import MerchantRecords from "./MerchantRecords.vue";
 const props = defineProps<{
   items: Record<string, unknown>[];
   area: Area;
@@ -74,10 +75,13 @@ const data = computed(() => {
 <template>
   <p v-if="data.error" class="alert error" role="alert">{{ data.error }}</p>
   <template v-else>
-    <div class="table-scroll original-transfer-list">
-      <table :class="area">
-        <thead>
-          <tr>
+    <MerchantRecords
+      :stacked="area === 'merchant'"
+      class="table-scroll original-transfer-list"
+    >
+      <table :class="area" role="table">
+        <thead role="rowgroup">
+          <tr role="row">
             <th v-for="column in columns" :key="column.key" scope="col">
               <span class="transfer-th-main">{{ column.label }}</span>
               <span v-if="column.sub" class="transfer-th-sub muted">{{
@@ -87,11 +91,19 @@ const data = computed(() => {
             <th scope="col" class="transfer-actions">操作</th>
           </tr>
         </thead>
-        <tbody>
-          <tr v-for="row in data.rows" :key="row.id" :data-transfer-id="row.id">
+        <tbody role="rowgroup">
+          <tr
+            v-for="row in data.rows"
+            :key="row.id"
+            :data-transfer-id="row.id"
+            role="row"
+          >
             <td
               v-for="column in columns"
               :key="column.key"
+              role="cell"
+              :data-cell-label="column.label"
+              :data-cell-wide="column.key === 'number' ? '' : undefined"
               :class="{
                 'transfer-number': column.key === 'number',
                 'transfer-method': column.key === 'method',
@@ -155,7 +167,7 @@ const data = computed(() => {
                 row[column.key as keyof typeof row]
               }}</template>
             </td>
-            <td class="transfer-actions">
+            <td class="transfer-actions" role="cell" data-cell-actions>
               <button
                 type="button"
                 class="link-button"
@@ -186,7 +198,7 @@ const data = computed(() => {
           </tr>
         </tbody>
       </table>
-    </div>
+    </MerchantRecords>
     <KitEmpty v-if="!data.rows.length" text="暂无数据" />
   </template>
   <div v-if="confirm" class="modal-backdrop" @click.self="confirm = null">
@@ -277,5 +289,15 @@ th.transfer-actions {
 .transfer-confirm-link {
   overflow-wrap: anywhere;
   font-size: 12px;
+}
+@container merchant-records (max-width: 760px) {
+  .original-transfer-list table.merchant {
+    min-width: 0;
+  }
+  .original-transfer-list table.merchant .transfer-actions {
+    position: static;
+    background: transparent;
+    box-shadow: none;
+  }
 }
 </style>

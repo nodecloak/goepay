@@ -52,8 +52,9 @@ async function cashier202(userAgent: string) {
     throw new Error("Unexpected native scan HTTP boundary: " + path);
   }) as typeof client.request;
   const wrapper = mount(MerchantScanPage192, {
+    attachTo: document.body,
     props: { client, ownSession: true, merchantID: "1" },
-    global: { stubs: { RouterLink: true } },
+    global: { stubs: { RouterLink: true, teleport: true } },
   });
   wrappers.push(wrapper);
   await flushPromises();

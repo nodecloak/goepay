@@ -75,3 +75,58 @@ it("prefills and saves the default aggregate-code name", async () => {
   expect(w.text()).toContain("默认收款名称已保存");
   w.unmount();
 });
+
+it("withholds result actions when the returned URL belongs to a different origin", async () => {
+  const request = vi.fn(async () => ({
+    recipient_name: "本地商户",
+    styles: [],
+    domains: [{ origin: "https://pay.example", label: "收款域名" }],
+    latest: {
+      code_id: "42",
+      recipient_name: "本地商户",
+      origin: "https://pay.example",
+      style_id: "0",
+      fixed_amount_cents: "0",
+      url: "https://unlinked.example.invalid/collect/42",
+      enabled: true,
+    },
+  }));
+  const w = mount(CollectionGeneratorPage, {
+    props: { client: client(request), ownSession: true },
+    global: { stubs: { MerchantScanShortcut192: true, ResourcePage: true } },
+  });
+  await flushPromises();
+
+  expect(w.get('[role="alert"]').text()).toContain("收款链接格式无效");
+  expect(w.find('a[href*="unlinked.example.invalid"]').exists()).toBe(false);
+  expect(w.text()).not.toContain("复制收款链接");
+  expect(w.text()).not.toContain("下载收款码");
+  w.unmount();
+});
+
+it("keeps the generator disabled when the setup response is incomplete", async () => {
+  const request = vi.fn(async () => ({
+    recipient_name: "未核对的默认名称",
+    domains: null,
+    latest: null,
+  }));
+  const renderError = vi.fn();
+  const w = mount(CollectionGeneratorPage, {
+    props: { client: client(request), ownSession: true },
+    global: {
+      config: { errorHandler: renderError },
+      stubs: { MerchantScanShortcut192: true, ResourcePage: true },
+    },
+  });
+  await flushPromises();
+
+  expect(renderError).not.toHaveBeenCalled();
+  expect(w.get('[role="alert"]').text()).toBe(
+    "收款码配置响应无效，请重新进入页面。",
+  );
+  expect(w.text()).not.toContain("未核对的默认名称");
+  expect(w.get('button[type="submit"]').attributes()).toHaveProperty(
+    "disabled",
+  );
+  w.unmount();
+});

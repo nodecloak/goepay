@@ -32,12 +32,20 @@ for (const area of ["admin", "merchant"] as const) {
     await page.goto(`/${area}/trade/order`);
     const row = page.getByRole("row").filter({ hasText: "external212" });
     const summary = row.locator(".order-mobile-summary");
-    await expect(summary).toBeVisible();
-    await expect(summary).toContainText("¥12.34");
-    await expect(summary).toContainText("待支付");
-    if (area === "admin")
+    if (area === "admin") {
+      await expect(summary).toBeVisible();
+      await expect(summary).toContainText("¥12.34");
+      await expect(summary).toContainText("待支付");
       await expect(summary).toContainText("后台标记：已支付");
-    const fit = await summary.evaluate((el) => {
+    } else {
+      await expect(summary).toBeHidden();
+      await expect(row.locator("td.col-name")).toContainText("¥12.34");
+      await expect(row.locator("td.col-status")).toContainText("待支付");
+      expect(await row.evaluate((el) => getComputedStyle(el).display)).toBe(
+        "grid",
+      );
+    }
+    const fit = await (area === "admin" ? summary : row).evaluate((el) => {
       const b = el.getBoundingClientRect();
       return b.left >= 0 && b.right <= innerWidth;
     });

@@ -73,6 +73,9 @@ for (const area of ["admin", "merchant"] as const)
       await expect(row).toContainText("花费金额：¥102.00");
       await expect(row).toContainText("付款时间：2026-10-25 23:31:02");
       await expect(row).toContainText("转账成功");
+      expect(await row.evaluate((item) => getComputedStyle(item).display)).toBe(
+        area === "merchant" && width === 375 ? "grid" : "table-row",
+      );
       const pending = table.locator('tr[data-transfer-id="9007199254740994"]');
       await expect(pending).toContainText("付款时间：未记录");
       await expect(pending).toContainText("结果待核对");

@@ -5,6 +5,7 @@ import MerchantOrderActionMenu from "./MerchantOrderActionMenu.vue";
 import KitPayMethod from "./KitPayMethod.vue";
 import KitEmpty from "./KitEmpty.vue";
 import KitStatusTag from "./KitStatusTag.vue";
+import MerchantRecords from "./MerchantRecords.vue";
 import type { MerchantOrderActionID } from "../order-actions";
 import type { AdminOrderMenuActionID } from "../order-actions";
 import { beijingTimestamp } from "../console-datetime";
@@ -27,6 +28,7 @@ const props = defineProps<{
   refundAttestation?: boolean;
   adminOrders?: boolean;
   merchantOrders?: boolean;
+  merchantList?: boolean;
   orderActionsDisabled?: boolean;
   selectable?: boolean;
   selectedTrades?: string[];
@@ -66,6 +68,11 @@ const allSelected = computed(
       props.selectedTrades?.includes(String(r.trade_no)),
     ),
 );
+function columnLabel(column: { key: string; label: string }): string {
+  return props.refunds && column.key === "trade_no"
+    ? "关联订单号"
+    : consoleColumnLabel(column.key, column.label);
+}
 function refundStatus(value: unknown): string {
   return (
     (
@@ -141,28 +148,46 @@ function refunded(row: Record<string, unknown>): boolean {
 }
 </script>
 <template>
-  <div
+  <MerchantRecords
     class="table-scroll"
-    :class="{ 'trade-table': orders || refunds, 'order-table': orders }"
+    :stacked="merchantList === true"
+    :class="{
+      'trade-table': orders || refunds,
+      'order-table': orders,
+      'merchant-record-table': merchantList,
+    }"
   >
-    <table>
+    <table
+      role="table"
+      :aria-label="
+        merchantList ? (orders ? '订单列表' : '退款列表') : undefined
+      "
+    >
       <thead>
-        <tr>
-          <th v-if="selectable" scope="col">
-            <input
-              type="checkbox"
-              aria-label="全选本页订单"
-              :checked="allSelected"
-              :disabled="orderActionsDisabled || !items.length"
-              @change="
-                emit(
-                  'selection-change',
-                  ($event.target as HTMLInputElement).checked
-                    ? items.map((r) => String(r.trade_no))
-                    : [],
-                )
-              "
-            />
+        <tr role="row">
+          <th v-if="selectable" scope="col" class="all-records">
+            <label>
+              <input
+                type="checkbox"
+                aria-label="全选本页订单"
+                :checked="allSelected"
+                :disabled="orderActionsDisabled || !items.length"
+                @change="
+                  emit(
+                    'selection-change',
+                    ($event.target as HTMLInputElement).checked
+                      ? items.map((r) => String(r.trade_no))
+                      : [],
+                  )
+                "
+              />
+              <span
+                v-if="merchantList"
+                class="select-page-label"
+                aria-hidden="true"
+                >全选本页</span
+              >
+            </label>
           </th>
           <th
             v-for="c in visibleColumns"
@@ -176,11 +201,7 @@ function refunded(row: Record<string, unknown>): boolean {
               },
             ]"
           >
-            {{
-              refunds && c.key === "trade_no"
-                ? "关联订单号"
-                : consoleColumnLabel(c.key, c.label)
-            }}
+            {{ columnLabel(c) }}
             <small v-if="refunds && c.key === 'refund_no'" class="cell"
               >商户退款单号</small
             >
@@ -222,8 +243,13 @@ function refunded(row: Record<string, unknown>): boolean {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(row, i) in items" :key="String(row.id ?? i)">
-          <td v-if="selectable">
+        <tr v-for="(row, i) in items" :key="String(row.id ?? i)" role="row">
+          <td
+            v-if="selectable"
+            class="record-selection"
+            role="cell"
+            data-cell-wide
+          >
             <input
               type="checkbox"
               :aria-label="'选择订单 ' + row.trade_no"
@@ -235,6 +261,13 @@ function refunded(row: Record<string, unknown>): boolean {
           <td
             v-for="c in visibleColumns"
             :key="c.key"
+            role="cell"
+            :data-cell-label="merchantList ? columnLabel(c) : undefined"
+            :data-cell-wide="
+              merchantList && ['trade_no', 'refund_no'].includes(c.key)
+                ? ''
+                : undefined
+            "
             :class="[
               'col-' + c.key,
               {
@@ -460,7 +493,12 @@ function refunded(row: Record<string, unknown>): boolean {
               >收入冻结中</small
             >
           </td>
-          <td v-if="orders || $slots.actions" class="operation-cell">
+          <td
+            v-if="orders || $slots.actions"
+            class="operation-cell"
+            role="cell"
+            data-cell-actions
+          >
             <slot name="actions" :row="row"
               ><MerchantOrderActionMenu
                 v-if="orders && merchantOrders"
@@ -507,12 +545,20 @@ function refunded(row: Record<string, unknown>): boolean {
             "
             class="empty"
           >
-            <KitEmpty text="暂无数据" />
+            <KitEmpty
+              :text="
+                merchantList
+                  ? orders
+                    ? '没有匹配的订单'
+                    : '没有匹配的退款记录'
+                  : '暂无数据'
+              "
+            />
           </td>
         </tr>
       </tbody>
     </table>
-  </div>
+  </MerchantRecords>
 </template>
 <style scoped>
 .order-mobile-summary {
@@ -634,5 +680,59 @@ small.cell {
 .refund-merchant-no {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.select-page-label {
+  display: none;
+}
+@container merchant-records (max-width: 760px) {
+  .merchant-record-table table > thead:has(.all-records) {
+    position: static;
+    display: block;
+    width: auto;
+    height: auto;
+    clip-path: none;
+  }
+  .merchant-record-table thead:has(.all-records) th:not(.all-records) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .merchant-record-table .all-records label {
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+    gap: var(--space-2);
+  }
+  .merchant-record-table .select-page-label {
+    display: inline;
+  }
+  .merchant-record-table .order-mobile-summary {
+    display: none;
+  }
+  .merchant-record-table .order-ellipsis {
+    max-width: none;
+    white-space: normal;
+  }
+  .merchant-record-table tbody :is(.identifier-cell, .operation-cell) {
+    width: auto;
+    min-width: 0;
+  }
+  .merchant-record-table .trade-link {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .merchant-record-table tbody .operation-cell {
+    position: static;
+    box-shadow: none;
+    background: transparent;
+  }
+  .merchant-record-table td.record-selection {
+    justify-self: end;
+    padding-block: 0;
+  }
 }
 </style>

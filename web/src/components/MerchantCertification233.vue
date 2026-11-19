@@ -384,35 +384,41 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="panel certification233" aria-label="实名认证">
-    <h2>实名认证</h2>
+    <div class="certification-header">
+      <h2>认证状态</h2>
+      <button v-if="allowed" type="button" :disabled="locked" @click="load">
+        {{ loading ? "正在读取…" : "读取最新认证状态" }}
+      </button>
+    </div>
     <p v-if="!allowed" class="alert">
       此功能需要商户本人登录，请使用商户账号登录后操作。
     </p>
     <template v-else>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
       <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
-      <button type="button" :disabled="locked" @click="load">
-        {{ loading ? "正在读取…" : "读取最新认证状态" }}
-      </button>
       <template v-if="info">
-        <ol class="certification-steps233" aria-label="认证进度">
+        <ol
+          v-if="info.cert_open || info.cert === 1 || active"
+          class="certification-steps233"
+          aria-label="认证进度"
+        >
           <li
             :aria-current="step === 0 ? 'step' : undefined"
             :class="{ current: step === 0 }"
           >
-            1 填写认证信息
+            填写认证信息
           </li>
           <li
             :aria-current="step === 1 ? 'step' : undefined"
             :class="{ current: step === 1 }"
           >
-            2 完成身份核验
+            完成身份核验
           </li>
           <li
             :aria-current="step === 2 ? 'step' : undefined"
             :class="{ current: step === 2 }"
           >
-            3 认证完成
+            认证完成
           </li>
         </ol>
         <p
@@ -474,131 +480,143 @@ onBeforeUnmount(() => {
         >
           升级企业认证
         </button>
-        <form
+        <div
           v-if="formVisible"
-          autocomplete="off"
-          @submit.prevent="prepareSubmit"
+          class="certification-entry"
+          :class="{ 'certification-entry--with-ocr': info.ocr_type }"
         >
-          <fieldset :disabled="locked || uncertain || !!confirming">
-            <label
-              v-if="info.cert_corpopen && !upgrading"
-              class="certification-row233"
-              ><span>认证类型</span
-              ><KitSelect
-                v-model="certtype"
-                aria-label="认证类型"
-                :options="[
-                  { value: '0', label: '个人认证' },
-                  { value: '1', label: '企业认证' },
-                ]"
-                :disabled="locked || uncertain"
-            /></label>
-            <template v-if="certtype === '1'"
-              ><label class="certification-row233"
-                ><span>企业名称</span
+          <OCRRecognition233
+            v-if="info.ocr_type"
+            :client="client"
+            :own-session="ownSession"
+            :provider="info.ocr_type"
+            :config-revision="info.ocr_config_revision"
+            :disabled="busy || loading || uncertain"
+            @busy="ocrBusy = $event"
+            @prefill="prefill"
+          />
+          <form
+            class="certification-form"
+            aria-label="认证资料"
+            autocomplete="off"
+            @submit.prevent="prepareSubmit"
+          >
+            <fieldset :disabled="locked || uncertain || !!confirming">
+              <legend>认证资料</legend>
+              <label
+                v-if="info.cert_corpopen && !upgrading"
+                class="certification-row233"
+                ><span>认证类型</span
+                ><KitSelect
+                  v-model="certtype"
+                  aria-label="认证类型"
+                  :options="[
+                    { value: '0', label: '个人认证' },
+                    { value: '1', label: '企业认证' },
+                  ]"
+                  :disabled="locked || uncertain"
+              /></label>
+              <template v-if="certtype === '1'"
+                ><label class="certification-row233"
+                  ><span>企业名称</span
+                  ><input
+                    v-model="companyName"
+                    aria-label="企业名称"
+                    maxlength="256"
+                    required
+                    autocomplete="off" /></label
+                ><label class="certification-row233"
+                  ><span>统一社会信用代码</span
+                  ><input
+                    v-model="companyNumber"
+                    aria-label="统一社会信用代码"
+                    maxlength="32"
+                    required
+                    autocomplete="off"
+                /></label>
+                <p class="muted">
+                  先校验企业信息，再由法定代表人完成身份核验。
+                </p></template
+              >
+              <label
+                v-if="info.cert_open === 1 && certtype === '0'"
+                class="certification-row233"
+                ><span>证件类型</span
+                ><KitSelect
+                  v-model="cardtype"
+                  aria-label="证件类型"
+                  :options="cardOptions"
+                  :disabled="locked || uncertain"
+              /></label>
+              <label class="certification-row233"
+                ><span>{{ certtype === "1" ? "法人姓名" : "真实姓名" }}</span
                 ><input
-                  v-model="companyName"
-                  aria-label="企业名称"
-                  maxlength="256"
-                  required
-                  autocomplete="off" /></label
-              ><label class="certification-row233"
-                ><span>统一社会信用代码</span
-                ><input
-                  v-model="companyNumber"
-                  aria-label="统一社会信用代码"
-                  maxlength="32"
+                  v-model="name"
+                  :aria-label="certtype === '1' ? '法人姓名' : '真实姓名'"
+                  maxlength="128"
                   required
                   autocomplete="off"
               /></label>
-              <p class="muted">
-                先校验企业信息，再由法定代表人完成身份核验。
-              </p></template
-            >
-            <label
-              v-if="info.cert_open === 1 && certtype === '0'"
-              class="certification-row233"
-              ><span>证件类型</span
-              ><KitSelect
-                v-model="cardtype"
-                aria-label="证件类型"
-                :options="cardOptions"
-                :disabled="locked || uncertain"
-            /></label>
-            <label class="certification-row233"
-              ><span>{{ certtype === "1" ? "法人姓名" : "真实姓名" }}</span
-              ><input
-                v-model="name"
-                :aria-label="certtype === '1' ? '法人姓名' : '真实姓名'"
-                maxlength="128"
-                required
-                autocomplete="off"
-            /></label>
-            <label class="certification-row233"
-              ><span>{{ cardtype === "0" ? "身份证号码" : "证件号码" }}</span
-              ><input
-                v-model="number"
-                :aria-label="cardtype === '0' ? '身份证号码' : '证件号码'"
-                maxlength="64"
-                required
-                autocomplete="off"
-            /></label>
-            <template v-if="info.cert_open === 2"
-              ><label class="certification-row233"
-                ><span>已绑定手机号</span
+              <label class="certification-row233"
+                ><span>{{ cardtype === "0" ? "身份证号码" : "证件号码" }}</span
                 ><input
-                  :value="info.phone_masked"
-                  aria-label="已绑定手机号"
-                  disabled
+                  v-model="number"
+                  :aria-label="cardtype === '0' ? '身份证号码' : '证件号码'"
+                  maxlength="64"
+                  required
+                  autocomplete="off"
               /></label>
-              <p class="muted">
-                使用商户已绑定的手机号核验，不可在此修改。<RouterLink
-                  to="/merchant/account/settings"
-                  >修改绑定</RouterLink
-                >
-              </p></template
-            >
-            <label class="certification-consent233"
-              ><input
-                v-model="consent"
-                type="checkbox"
-                aria-label="同意实名认证及成功扣费"
-                required
-              />本人已核对填写的信息，同意将其发送至{{
-                providerName
-              }}核验<template v-if="certtype === '1'"
-                >，并将企业资料提交至企业信息校验服务</template
-              >，并授权认证成功后从商户余额扣除 ¥{{
-                info.cert_money
-              }}
-              认证费用。</label
-            >
-            <button type="submit" :disabled="locked || uncertain || !consent">
-              提交认证资料
-            </button>
-            <button
-              v-if="upgrading"
-              type="button"
-              :disabled="locked || uncertain"
-              @click="
-                upgrading = false;
-                clearIdentity();
-              "
-            >
-              取消升级
-            </button>
-          </fieldset>
-        </form>
-        <OCRRecognition233
-          v-if="formVisible && info.ocr_type"
-          :client="client"
-          :own-session="ownSession"
-          :provider="info.ocr_type"
-          :config-revision="info.ocr_config_revision"
-          :disabled="busy || loading || uncertain"
-          @busy="ocrBusy = $event"
-          @prefill="prefill"
-        />
+              <template v-if="info.cert_open === 2"
+                ><label class="certification-row233"
+                  ><span>已绑定手机号</span
+                  ><input
+                    :value="info.phone_masked"
+                    aria-label="已绑定手机号"
+                    disabled
+                /></label>
+                <p class="muted">
+                  使用商户已绑定的手机号核验，不可在此修改。<RouterLink
+                    to="/merchant/account/settings"
+                    >修改绑定</RouterLink
+                  >
+                </p></template
+              >
+              <label class="certification-consent233"
+                ><input
+                  v-model="consent"
+                  type="checkbox"
+                  aria-label="同意实名认证及成功扣费"
+                  required
+                />本人已核对填写的信息，同意将其发送至{{
+                  providerName
+                }}核验<template v-if="certtype === '1'"
+                  >，并将企业资料提交至企业信息校验服务</template
+                >，并授权认证成功后从商户余额扣除 ¥{{
+                  info.cert_money
+                }}
+                认证费用。</label
+              >
+              <button
+                class="primary"
+                type="submit"
+                :disabled="locked || uncertain || !consent"
+              >
+                提交认证资料
+              </button>
+              <button
+                v-if="upgrading"
+                type="button"
+                :disabled="locked || uncertain"
+                @click="
+                  upgrading = false;
+                  clearIdentity();
+                "
+              >
+                取消升级
+              </button>
+            </fieldset>
+          </form>
+        </div>
         <section
           v-if="
             active || info.status === 'passed' || info.status === 'rejected'
@@ -732,6 +750,48 @@ onBeforeUnmount(() => {
   </section>
 </template>
 <style scoped>
+.certification-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.certification-header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+.certification233 .certification-header button {
+  margin: 0;
+}
+.certification-entry {
+  display: grid;
+  align-items: start;
+  gap: var(--space-4);
+  margin-block: var(--space-5);
+}
+.certification-entry > :deep(.ocr-recognition233),
+.certification-form {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+.certification-entry > :deep(.ocr-recognition233 h3),
+.certification-form legend {
+  margin: 0;
+  padding: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+.certification-entry > :deep(.ocr-row233) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+}
+.certification-form :deep(.pa-select) {
+  max-width: 20rem;
+}
 .certification233 fieldset {
   border: 0;
   margin: 0;
@@ -746,33 +806,36 @@ onBeforeUnmount(() => {
   margin: 8px 8px 8px 0;
 }
 .certification-steps233 {
-  list-style: none;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   padding: 0;
-  margin: 28px 0;
+  margin: var(--space-5) 0;
+  list-style: none;
 }
 .certification-steps233 li {
-  flex: 1;
-  border-top: 3px solid var(--border, #e2e8f0);
-  padding: 12px 0;
-  color: var(--muted, #64748b);
+  min-width: 0;
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--muted);
 }
 .certification-steps233 li.current {
-  border-color: var(--primary, #3b82f6);
-  color: var(--primary, #2563eb);
+  box-shadow: inset 0 0 0 1px var(--primary-text);
+  background: var(--primary-soft);
+  color: var(--primary-text);
   font-weight: 600;
 }
 .certification-row233 {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
-  align-items: center;
-  gap: 16px;
-  margin: 20px 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  margin: var(--space-4) 0;
 }
 .certification-row233 input {
   width: 100%;
-  max-width: 600px;
+  max-width: 32rem;
 }
 .certification-consent233 {
   display: flex;
@@ -796,7 +859,11 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 .certification-attempt233 {
-  padding: 20px 0;
+  padding: var(--space-4);
+  margin-block-start: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
 }
 .certification-qr233 {
   display: block;
@@ -804,11 +871,12 @@ onBeforeUnmount(() => {
   object-fit: contain;
   background: white;
 }
-@media (max-width: 760px) {
-  .certification-row233 {
-    grid-template-columns: 1fr;
-    gap: 8px;
+@media (min-width: 1100px) {
+  .certification-entry--with-ocr {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   }
+}
+@media (max-width: 760px) {
   .certification-steps233 {
     gap: 8px;
     font-size: 13px;

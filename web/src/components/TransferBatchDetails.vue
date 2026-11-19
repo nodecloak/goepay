@@ -131,13 +131,28 @@ onMounted(load);
 onBeforeUnmount(() => controller?.abort());
 </script>
 <template>
-  <section class="panel records" aria-label="批量付款详情">
-    <h2>批量付款详情</h2>
+  <section
+    class="panel records"
+    :class="{ 'merchant-batch-details': client.area === 'merchant' }"
+    aria-label="批量付款详情"
+  >
+    <header v-if="client.area === 'merchant'" class="batch-details-heading">
+      <h2>批量付款详情</h2>
+      <button
+        type="button"
+        class="pa-btn"
+        :disabled="busy"
+        @click="emit('close')"
+      >
+        返回批次列表
+      </button>
+    </header>
+    <h2 v-else>批量付款详情</h2>
     <div v-if="error" role="alert" class="alert error">{{ error }}</div>
     <p v-if="notice" role="status" class="alert">{{ notice }}</p>
     <p v-if="loading" role="status">正在核对原批次…</p>
     <template v-if="batch">
-      <dl class="record-detail">
+      <dl class="record-detail batch-facts">
         <template
           v-for="(label, key) in {
             id: '批次 ID',
@@ -187,7 +202,7 @@ onBeforeUnmount(() => controller?.abort());
           取消尚未发送项目
         </button>
       </div>
-      <div v-if="confirmation" class="alert">
+      <div v-if="confirmation" class="alert batch-detail-confirm">
         <h3>
           {{
             confirmation === "execute" ? "确认执行付款" : "确认取消未发送项目"
@@ -230,6 +245,52 @@ onBeforeUnmount(() => controller?.abort());
         </button>
       </div>
     </template>
-    <button :disabled="busy" @click="emit('close')">返回批次列表</button>
+    <button
+      v-if="client.area === 'admin'"
+      :disabled="busy"
+      @click="emit('close')"
+    >
+      返回批次列表
+    </button>
   </section>
 </template>
+<style scoped>
+.merchant-batch-details {
+  padding: var(--space-4);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.batch-details-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+.batch-details-heading h2 {
+  margin: 0;
+}
+.merchant-batch-details .batch-facts {
+  padding: var(--space-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  font-variant-numeric: tabular-nums;
+}
+.merchant-batch-details .toolbar-actions {
+  padding-top: var(--space-3);
+  flex-wrap: wrap;
+}
+.merchant-batch-details .batch-detail-confirm {
+  margin-top: var(--space-3);
+  border-inline-start: 3px solid var(--warning-text);
+}
+.merchant-batch-details .batch-detail-confirm h3 {
+  margin-top: 0;
+}
+@media (max-width: 520px) {
+  .merchant-batch-details .record-detail {
+    grid-template-columns: minmax(92px, 2fr) minmax(0, 3fr);
+  }
+}
+</style>

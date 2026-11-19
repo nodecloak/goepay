@@ -5,6 +5,7 @@ import { beijingTimestamp } from "../console-datetime";
 import { ledgerTerm, minorYuan } from "../pro-console-fields";
 import KitModal from "./KitModal.vue";
 import KitEmpty from "./KitEmpty.vue";
+import MerchantRecords from "./MerchantRecords.vue";
 
 const props = defineProps<{ area: Area; items: Record<string, unknown>[] }>();
 const selected = ref<Record<string, unknown> | null>(null);
@@ -69,10 +70,10 @@ watch([() => props.items, () => props.area], () => {
     <p class="ledger-note muted">
       金额单位：元。变更前后为对应账务账户的余额，不代表商户总资产；无关联订单号时保留完整业务请求号。
     </p>
-    <div class="ledger-scroll">
-      <table aria-label="资金明细列表">
-        <thead>
-          <tr>
+    <MerchantRecords :stacked="area === 'merchant'" class="ledger-scroll">
+      <table aria-label="资金明细列表" role="table">
+        <thead role="rowgroup">
+          <tr role="row">
             <th v-if="area === 'admin'" scope="col">商户号</th>
             <th scope="col">操作类型</th>
             <th scope="col">变更金额</th>
@@ -83,23 +84,42 @@ watch([() => props.items, () => props.area], () => {
             <th scope="col">操作</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody role="rowgroup">
           <tr
             v-for="(row, index) in items"
             :key="scalar(row.id) + ':' + scalar(row.account_id) + ':' + index"
+            role="row"
           >
-            <td v-if="area === 'admin'">{{ scalar(row.merchant_id) }}</td>
-            <td :title="scalar(row.ledger_type)">
+            <td v-if="area === 'admin'" role="cell">
+              {{ scalar(row.merchant_id) }}
+            </td>
+            <td
+              data-cell-label="操作类型"
+              :title="scalar(row.ledger_type)"
+              role="cell"
+            >
               {{ operation(row.ledger_type) }}
             </td>
-            <td class="ledger-money">{{ amount(row.amount) }}</td>
-            <td class="ledger-money">{{ minorYuan(row.balance_before) }}</td>
-            <td class="ledger-money">{{ minorYuan(row.balance_after) }}</td>
-            <td>{{ beijingTimestamp(scalar(row.created_at)) }}</td>
-            <td class="ledger-business-number">
+            <td class="ledger-money" data-cell-label="变更金额" role="cell">
+              {{ amount(row.amount) }}
+            </td>
+            <td class="ledger-money" data-cell-label="账户变更前" role="cell">
+              {{ minorYuan(row.balance_before) }}
+            </td>
+            <td class="ledger-money" data-cell-label="账户变更后" role="cell">
+              {{ minorYuan(row.balance_after) }}
+            </td>
+            <td data-cell-label="时间" role="cell">
+              {{ beijingTimestamp(scalar(row.created_at)) }}
+            </td>
+            <td
+              class="ledger-business-number"
+              data-cell-label="关联订单/业务号"
+              role="cell"
+            >
               <code>{{ businessNumber(row) }}</code>
             </td>
-            <td>
+            <td data-cell-actions role="cell">
               <button
                 type="button"
                 class="link-button"
@@ -115,14 +135,14 @@ watch([() => props.items, () => props.area], () => {
               </button>
             </td>
           </tr>
-          <tr v-if="!items.length">
-            <td :colspan="area === 'admin' ? 8 : 7">
+          <tr v-if="!items.length" role="row">
+            <td :colspan="area === 'admin' ? 8 : 7" role="cell">
               <KitEmpty text="暂无资金记录" />
             </td>
           </tr>
         </tbody>
       </table>
-    </div>
+    </MerchantRecords>
     <KitModal
       v-if="selected"
       title="资金明细详情"

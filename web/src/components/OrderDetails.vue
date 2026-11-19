@@ -510,6 +510,7 @@ onBeforeUnmount(() => controller?.abort());
     <section
       ref="drawer"
       class="pa-modal pa-drawer order-detail-modal"
+      :class="{ 'merchant-order-detail': client.area === 'merchant' }"
       role="dialog"
       aria-modal="true"
       aria-label="订单详情"
@@ -538,7 +539,7 @@ onBeforeUnmount(() => controller?.abort());
           正在读取订单…
         </div>
         <template v-if="order"
-          ><dl class="record-detail">
+          ><dl class="record-detail order-detail-facts">
             <template v-for="(label, key) in labels" :key="key"
               ><dt v-if="order[key] !== undefined">
                 {{ consoleColumnLabel(String(key), label) }}
@@ -943,6 +944,23 @@ onBeforeUnmount(() => controller?.abort());
 .order-detail-modal {
   --drawer-w: 500px;
 }
+.merchant-order-detail {
+  --drawer-w: 560px;
+}
+.merchant-order-detail .order-detail-facts {
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-4);
+  margin-block: 0 var(--space-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.merchant-order-detail .order-detail-facts dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .order-detail-body {
   /* No .pa-modal-content inside: the body itself is the scrolling part, so
      the foot never covers its last buttons. */
@@ -952,5 +970,12 @@ onBeforeUnmount(() => controller?.abort());
 }
 .order-detail-foot {
   flex-wrap: wrap;
+}
+@media (max-width: 520px) {
+  .merchant-order-detail .order-detail-facts {
+    grid-template-columns: minmax(96px, 2fr) minmax(0, 3fr);
+    padding: var(--space-3);
+    gap: var(--space-2);
+  }
 }
 </style>

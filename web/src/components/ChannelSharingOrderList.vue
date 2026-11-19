@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MerchantRecords from "./MerchantRecords.vue";
 import {
   computed,
   inject,
@@ -1064,8 +1065,16 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="list-page">
-    <KitFilterBar :loading="loading" @query="onQuery" @reset="onReset">
+  <div
+    class="list-page"
+    :class="{ 'sharing-order-merchant': area === 'merchant' }"
+  >
+    <KitFilterBar
+      label="筛选分账记录"
+      :loading="loading"
+      @query="onQuery"
+      @reset="onReset"
+    >
       <KitField v-if="area === 'admin'" label="商户ID">
         <KitInput
           v-model="merchant"
@@ -1147,6 +1156,19 @@ onBeforeUnmount(() => {
 
     <section class="panel records sharing-orders" aria-label="分账记录">
       <div class="table-tools">
+        <label
+          v-if="area === 'merchant' && rows.length"
+          class="sharing-select-page"
+        >
+          <input
+            type="checkbox"
+            aria-label="全选"
+            :checked="allOnPageSelected"
+            :disabled="loading || busy"
+            @change="toggleAll"
+          />
+          选择本页
+        </label>
         <button
           type="button"
           class="pa-btn"
@@ -1221,18 +1243,20 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="table-scroll">
-        <table class="pa-table">
-          <thead>
-            <tr>
+      <MerchantRecords class="table-scroll" :stacked="area === 'merchant'">
+        <table class="pa-table" role="table">
+          <thead role="rowgroup">
+            <tr role="row">
               <th class="pa-c-check">
                 <input
+                  v-if="area === 'admin'"
                   type="checkbox"
                   aria-label="全选"
                   :checked="allOnPageSelected"
                   :disabled="loading || busy"
                   @change="toggleAll"
                 />
+                <span v-else class="sr-only">选择记录</span>
               </th>
               <th v-if="area === 'admin'">用户ID</th>
               <th>系统订单号</th>
@@ -1246,9 +1270,9 @@ onBeforeUnmount(() => {
               <th>操作</th>
             </tr>
           </thead>
-          <tbody>
-            <tr v-for="o in rows" :key="o.id">
-              <td class="pa-c-check">
+          <tbody role="rowgroup">
+            <tr v-for="o in rows" :key="o.id" role="row">
+              <td class="pa-c-check" data-cell-label="选择记录" role="cell">
                 <input
                   type="checkbox"
                   :aria-label="'选择 ' + o.external_no"
@@ -1260,16 +1284,21 @@ onBeforeUnmount(() => {
               <td v-if="area === 'admin'" class="pa-c-num">
                 {{ o.merchant_id }}
               </td>
-              <td class="pa-c-num">
+              <td
+                class="pa-c-num"
+                data-cell-label="系统订单号"
+                data-cell-wide
+                role="cell"
+              >
                 <span class="mono pa-order-no">{{ o.external_no }}</span>
                 <small v-if="o.out_no" class="muted"
                   >接口号 {{ o.out_no }}</small
                 >
               </td>
-              <td class="pa-c-num">
+              <td class="pa-c-num" data-cell-label="分账规则" role="cell">
                 {{ o.rule_id !== "0" ? o.rule_id : "-" }}
               </td>
-              <td>
+              <td data-cell-label="支付方式（通道 ID）" role="cell">
                 <KitPayMethod v-if="o.provider" :type="o.provider" />
                 <span v-else class="muted">-</span>
                 <small
@@ -1290,16 +1319,22 @@ onBeforeUnmount(() => {
               >
                 {{ positive(o.subchannel_id) ? o.subchannel_id : "—" }}
               </td>
-              <td class="pa-c-num">¥{{ money(o.order_amount) }}</td>
-              <td class="pa-c-num">¥{{ money(o.share_amount) }}</td>
-              <td class="sharing-date">{{ beijingTimestamp(o.created_at) }}</td>
-              <td>
+              <td class="pa-c-num" data-cell-label="订单金额" role="cell">
+                ¥{{ money(o.order_amount) }}
+              </td>
+              <td class="pa-c-num" data-cell-label="分账金额" role="cell">
+                ¥{{ money(o.share_amount) }}
+              </td>
+              <td class="sharing-date" data-cell-label="时间" role="cell">
+                {{ beijingTimestamp(o.created_at) }}
+              </td>
+              <td data-cell-label="分账状态" role="cell">
                 <KitStatusTag
                   :text="stateWords[o.state] || o.state"
                   :tone="stateTone(o.state)"
                 />
               </td>
-              <td>
+              <td data-cell-actions role="cell">
                 <div class="pa-row-actions">
                   <button
                     type="button"
@@ -1347,13 +1382,19 @@ onBeforeUnmount(() => {
                 </div>
               </td>
             </tr>
-            <tr v-if="loaded && !rows.length">
-              <td :colspan="area === 'admin' ? 11 : 9">
-                <KitEmpty text="暂无数据" />
+            <tr v-if="loaded && !rows.length && !error" role="row">
+              <td :colspan="area === 'admin' ? 11 : 9" role="cell">
+                <KitEmpty
+                  :text="
+                    area === 'merchant'
+                      ? '未找到符合筛选条件的分账记录'
+                      : '暂无数据'
+                  "
+                />
               </td>
             </tr>
-            <tr v-if="!loaded">
-              <td :colspan="area === 'admin' ? 11 : 9">
+            <tr v-if="!loaded" role="row">
+              <td :colspan="area === 'admin' ? 11 : 9" role="cell">
                 <KitEmpty
                   :text="
                     loading
@@ -1367,7 +1408,7 @@ onBeforeUnmount(() => {
             </tr>
           </tbody>
         </table>
-      </div>
+      </MerchantRecords>
 
       <KitPagination
         v-if="loaded && total"
@@ -1514,6 +1555,20 @@ td small.muted {
 .pa-c-check {
   width: 36px;
   text-align: center;
+}
+.sharing-select-page {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding-block: var(--space-2);
+}
+.sharing-select-page input {
+  margin: 0;
+}
+.sharing-order-merchant .sharing-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 105px), 1fr));
 }
 .selection-summary {
   margin: 0 var(--space-5) var(--space-3);

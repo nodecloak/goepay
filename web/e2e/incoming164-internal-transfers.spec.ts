@@ -83,6 +83,9 @@ for (const width of [1440, 375])
       "完成时间",
     ]);
     const incoming = table.locator('tr[data-transfer-id="9007199254741001"]');
+    expect(
+      await incoming.evaluate((row) => getComputedStyle(row).display),
+    ).toBe(width === 375 ? "grid" : "table-row");
     await expect(incoming).toContainText("9007199254740993");
     await expect(incoming).toContainText("+1.23");
     await expect(incoming).toContainText("2026-10-25 10:00:00");
@@ -109,7 +112,7 @@ for (const width of [1440, 375])
       ),
     ).toBe(false);
     expect(await table.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(
-      width === 375,
+      false,
     );
     expect(writes).toBe(0);
     await page.screenshot({

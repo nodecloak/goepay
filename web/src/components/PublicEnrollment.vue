@@ -446,8 +446,8 @@ onBeforeUnmount(() => {
     <p class="muted">
       {{
         register
-          ? "仅注册商户账户，不提供管理员注册。"
-          : "仅支持已可信验证绑定的邮箱；资料页填写的历史邮箱不自动取得恢复权限。"
+          ? "填写商户资料并验证联系方式后，即可注册。"
+          : "请使用账户已验证绑定的邮箱或手机号找回密码。"
       }}
     </p>
     <RichContent
@@ -690,6 +690,9 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   background: var(--bg-raised);
 }
+.enrollment-form :deep(.pa-input input) {
+  min-inline-size: 0;
+}
 .enrollment-verify {
   display: grid;
   gap: 8px;
@@ -721,7 +724,7 @@ onBeforeUnmount(() => {
   background: var(--bg-raised);
 }
 .enrollment-channel-tab {
-  min-height: 32px;
+  min-height: 40px;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -741,5 +744,14 @@ onBeforeUnmount(() => {
 }
 .enrollment-back {
   margin-top: 12px;
+}
+@media (max-width: 360px) {
+  .enrollment-code {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .enrollment-send {
+    min-width: 0;
+    white-space: normal;
+  }
 }
 </style>

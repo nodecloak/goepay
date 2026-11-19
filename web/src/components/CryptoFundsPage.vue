@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MerchantRecords from "./MerchantRecords.vue";
 import {
   computed,
   inject,
@@ -900,19 +901,26 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="crypto-funds" :data-section="section">
+  <section
+    class="crypto-funds"
+    :class="{ 'crypto-merchant': !admin }"
+    :data-section="section"
+  >
     <header class="crypto-header">
       <div>
-        <h2>{{ headings[section].title }}</h2>
-        <p class="muted">
+        <h2 v-if="admin">{{ headings[section].title }}</h2>
+        <p class="muted crypto-description">
           {{ headings[section].description }}
         </p>
       </div>
       <button type="button" :disabled="loading || busy" @click="refresh">
-        刷新记录
+        {{ loading ? "正在刷新…" : "刷新记录" }}
       </button>
     </header>
-    <p v-if="readReady" class="alert">
+    <p
+      v-if="readReady && (admin || (enabled && section === 'invoices'))"
+      class="alert"
+    >
       仅向收银台显示的网络及地址付款。少付、超付及逾期到账均须核对；出账申请通过审批后才会执行。
     </p>
     <p v-if="readReady && simulation" class="alert">
@@ -952,7 +960,7 @@ onBeforeUnmount(() => {
       v-if="serviceState === 'disabled'"
       data-testid="crypto-service-disabled"
       role="status"
-      class="card"
+      class="card crypto-service-state"
     >
       <h3>USDT 收款与结算尚未启用</h3>
       <p class="muted">
@@ -966,7 +974,7 @@ onBeforeUnmount(() => {
       v-else-if="serviceState === 'error'"
       data-testid="crypto-service-error"
       role="status"
-      class="card"
+      class="card crypto-service-state"
     >
       <h3>USDT 记录暂时无法读取</h3>
       <p class="muted">当前已暂停资金操作，请刷新记录后再核对。</p>
@@ -1008,6 +1016,7 @@ onBeforeUnmount(() => {
       >
         <button
           v-if="section === 'invoices'"
+          class="crypto-primary"
           type="button"
           data-open-form="invoice"
           @click="openForm('invoice')"
@@ -1016,6 +1025,7 @@ onBeforeUnmount(() => {
         </button>
         <button
           v-if="section === 'settlements'"
+          class="crypto-primary"
           type="button"
           data-open-form="withdrawal"
           @click="openForm('withdrawal')"
@@ -1024,6 +1034,7 @@ onBeforeUnmount(() => {
         </button>
         <button
           v-if="section === 'refunds'"
+          class="crypto-primary"
           type="button"
           data-open-form="refund"
           @click="openForm('refund')"
@@ -1032,6 +1043,7 @@ onBeforeUnmount(() => {
         </button>
         <button
           v-if="section === 'recipients'"
+          class="crypto-primary"
           type="button"
           data-open-form="recipient"
           @click="openForm('recipient')"
@@ -1394,7 +1406,10 @@ onBeforeUnmount(() => {
           取消申请
         </button>
       </form>
-      <div v-if="section === 'overview'" class="crypto-balances">
+      <div
+        v-if="section === 'overview' && balances.length"
+        class="crypto-balances"
+      >
         <article v-for="b in balances" :key="b.network" class="card">
           <h3>{{ label(b.network) }}</h3>
           <p class="crypto-amount">
@@ -1408,7 +1423,9 @@ onBeforeUnmount(() => {
         <ul v-if="networkStatus.length" class="crypto-network-status">
           <li v-for="n in networkStatus" :key="n.network">
             <span>{{ label(n.network) }}</span
-            ><strong>{{ n.enabled ? "已启用" : "已暂停" }}</strong>
+            ><strong :class="{ 'network-online': n.enabled }">{{
+              n.enabled ? "已启用" : "已暂停"
+            }}</strong>
           </li>
         </ul>
         <p v-else class="muted">当前暂无可用网络。</p>
@@ -1424,10 +1441,14 @@ onBeforeUnmount(() => {
           小时冷静期。签名系统独立核对允许的地址；审批不能缩短冷静期。
         </p>
 
-        <div class="crypto-table">
-          <table>
-            <thead>
-              <tr>
+        <MerchantRecords
+          v-if="recipients.length"
+          class="crypto-table"
+          :stacked="!admin"
+        >
+          <table role="table">
+            <thead role="rowgroup">
+              <tr role="row">
                 <th v-if="admin">商户</th>
                 <th>网络</th>
                 <th>地址</th>
@@ -1436,14 +1457,27 @@ onBeforeUnmount(() => {
                 <th>操作</th>
               </tr>
             </thead>
-            <tbody>
-              <tr v-for="r in recipients" :key="r.id">
+            <tbody role="rowgroup">
+              <tr v-for="r in recipients" :key="r.id" role="row">
                 <td v-if="admin">{{ r.merchant_id }}</td>
-                <td>{{ label(r.network) }}</td>
-                <td class="crypto-address">{{ r.address }}</td>
-                <td>{{ states[r.state] || r.state }}</td>
-                <td>{{ new Date(r.usable_at).toLocaleString() }}</td>
-                <td>
+                <td data-cell-label="网络" role="cell">
+                  {{ label(r.network) }}
+                </td>
+                <td
+                  class="crypto-address"
+                  data-cell-label="地址"
+                  data-cell-wide
+                  role="cell"
+                >
+                  {{ r.address }}
+                </td>
+                <td data-cell-label="审批状态" role="cell">
+                  {{ states[r.state] || r.state }}
+                </td>
+                <td data-cell-label="最早可用时间" role="cell">
+                  {{ new Date(r.usable_at).toLocaleString() }}
+                </td>
+                <td data-cell-actions role="cell">
                   <button
                     v-if="showForms && admin && r.state === 'requested'"
                     type="button"
@@ -1463,7 +1497,7 @@ onBeforeUnmount(() => {
               </tr>
             </tbody>
           </table>
-        </div>
+        </MerchantRecords>
         <form
           v-if="showForms && admin && approveRecipientID"
           ref="actionPanel"
@@ -1499,10 +1533,14 @@ onBeforeUnmount(() => {
         <p v-if="initialChannelID" class="muted">
           当前查看通道 #{{ initialChannelID }} 的收款记录
         </p>
-        <div class="crypto-table">
-          <table>
-            <thead>
-              <tr>
+        <MerchantRecords
+          v-if="visibleInvoices.length"
+          class="crypto-table"
+          :stacked="!admin"
+        >
+          <table role="table">
+            <thead role="rowgroup">
+              <tr role="row">
                 <th>收款单 / 商户订单</th>
                 <th v-if="admin">商户</th>
                 <th>网络</th>
@@ -1513,31 +1551,41 @@ onBeforeUnmount(() => {
                 <th>有效期</th>
               </tr>
             </thead>
-            <tbody>
-              <tr v-for="i in visibleInvoices" :key="i.id">
-                <td>
+            <tbody role="rowgroup">
+              <tr v-for="i in visibleInvoices" :key="i.id" role="row">
+                <td
+                  data-cell-label="收款单 / 商户订单"
+                  data-cell-wide
+                  role="cell"
+                >
                   {{ i.id }}<br /><small>{{ i.out_trade_no }}</small>
                 </td>
                 <td v-if="admin">{{ i.merchant_id }}</td>
-                <td>{{ label(i.network) }}</td>
-                <td>
+                <td data-cell-label="网络" role="cell">
+                  {{ label(i.network) }}
+                </td>
+                <td data-cell-label="支付通道" role="cell">
                   {{
                     i.channel_id && i.channel_id !== "0"
                       ? "#" + i.channel_id + " · 版本 " + i.channel_revision
                       : "历史未绑定通道"
                   }}
                 </td>
-                <td>{{ i.amount }} / {{ i.received }}</td>
-                <td>{{ i.fee }}</td>
-                <td>{{ states[i.state] || i.state }}</td>
-                <td>{{ new Date(i.expires_at).toLocaleString() }}</td>
+                <td data-cell-label="应付 / 已收 USDT" role="cell">
+                  {{ i.amount }} / {{ i.received }}
+                </td>
+                <td data-cell-label="手续费 USDT" role="cell">{{ i.fee }}</td>
+                <td data-cell-label="状态" role="cell">
+                  {{ states[i.state] || i.state }}
+                </td>
+                <td data-cell-label="有效期" role="cell">
+                  {{ new Date(i.expires_at).toLocaleString() }}
+                </td>
               </tr>
             </tbody>
           </table>
-          <p v-if="!visibleInvoices.length && !loading" class="muted">
-            暂无收款记录
-          </p>
-        </div>
+        </MerchantRecords>
+        <p v-else-if="!loading" class="muted">暂无收款记录</p>
       </section>
       <section
         v-if="
@@ -1556,10 +1604,14 @@ onBeforeUnmount(() => {
                 : "归集记录"
           }}
         </h3>
-        <div class="crypto-table">
-          <table>
-            <thead>
-              <tr>
+        <MerchantRecords
+          v-if="filteredWithdrawals.length"
+          class="crypto-table"
+          :stacked="!admin"
+        >
+          <table role="table">
+            <thead role="rowgroup">
+              <tr role="row">
                 <th>请求号</th>
                 <th v-if="admin">商户</th>
                 <th>类型 / 网络</th>
@@ -1569,11 +1621,13 @@ onBeforeUnmount(() => {
                 <th>操作</th>
               </tr>
             </thead>
-            <tbody>
-              <tr v-for="w in filteredWithdrawals" :key="w.id">
-                <td>{{ w.request_id }}</td>
+            <tbody role="rowgroup">
+              <tr v-for="w in filteredWithdrawals" :key="w.id" role="row">
+                <td data-cell-label="请求号" data-cell-wide role="cell">
+                  {{ w.request_id }}
+                </td>
                 <td v-if="admin">{{ w.merchant_id }}</td>
-                <td>
+                <td data-cell-label="类型 / 网络" role="cell">
                   {{
                     w.kind === "refund" || w.kind === "exception_refund"
                       ? "退币"
@@ -1584,9 +1638,20 @@ onBeforeUnmount(() => {
                   /
                   {{ label(w.network) }}
                 </td>
-                <td>{{ w.amount }}</td>
-                <td class="crypto-address">{{ w.address }}</td>
-                <td>
+                <td data-cell-label="金额 USDT" role="cell">{{ w.amount }}</td>
+                <td
+                  class="crypto-address"
+                  data-cell-label="地址"
+                  data-cell-wide
+                  role="cell"
+                >
+                  {{ w.address }}
+                </td>
+                <td
+                  data-cell-label="状态 / 链上交易"
+                  data-cell-wide
+                  role="cell"
+                >
                   {{ states[w.state] || w.state }}<br /><small>{{
                     w.tx_id
                   }}</small>
@@ -1594,7 +1659,7 @@ onBeforeUnmount(() => {
                     已申请核对取消，确认前资金仍预占
                   </p>
                 </td>
-                <td>
+                <td data-cell-actions role="cell">
                   <button
                     v-if="
                       showForms &&
@@ -1631,16 +1696,16 @@ onBeforeUnmount(() => {
               </tr>
             </tbody>
           </table>
-          <p v-if="!filteredWithdrawals.length && !loading" class="muted">
-            暂无{{
-              section === "settlements"
-                ? "结算"
-                : section === "refunds"
-                  ? "退币"
-                  : "归集"
-            }}记录
-          </p>
-        </div>
+        </MerchantRecords>
+        <p v-else-if="!loading" class="muted">
+          暂无{{
+            section === "settlements"
+              ? "结算"
+              : section === "refunds"
+                ? "退币"
+                : "归集"
+          }}记录
+        </p>
       </section>
       <form
         v-if="
@@ -1748,6 +1813,38 @@ onBeforeUnmount(() => {
   padding: 20px;
   gap: 18px;
 }
+.crypto-merchant {
+  padding: 0;
+  gap: var(--space-4);
+}
+.crypto-merchant .crypto-header {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+.crypto-merchant .crypto-description {
+  margin: 0;
+}
+.crypto-merchant .crypto-service-state {
+  border-inline-start: 3px solid var(--warning, var(--line));
+}
+.crypto-merchant .crypto-primary,
+.crypto-merchant .crypto-forms button[type="submit"] {
+  border-color: var(--primary);
+  color: var(--on-primary);
+  background: var(--primary);
+}
+.crypto-merchant .crypto-primary:hover:not(:disabled),
+.crypto-merchant .crypto-forms button[type="submit"]:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+.crypto-merchant .crypto-forms .card h3 {
+  margin-bottom: 0;
+}
+.crypto-merchant .crypto-forms .card > button {
+  align-self: flex-start;
+}
 .crypto-header {
   display: flex;
   align-items: center;
@@ -1807,6 +1904,20 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 12px;
+}
+.crypto-merchant .crypto-network-status li {
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+.crypto-merchant .crypto-network-status li strong {
+  color: var(--warning-text);
+  font-size: 0.82rem;
+}
+.crypto-merchant .crypto-network-status .network-online {
+  color: var(--success-text);
 }
 .crypto-recipient-shortcuts {
   display: grid;
@@ -1930,6 +2041,15 @@ pre {
   .crypto-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+  .crypto-funds.crypto-merchant {
+    padding: 0;
+  }
+  .crypto-merchant .crypto-header button,
+  .crypto-merchant .crypto-actions > button,
+  .crypto-merchant .crypto-forms .card > button {
+    width: 100%;
+    min-height: 44px;
   }
   .card {
     padding: 16px;

@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import ComplaintsPage from "../src/components/ComplaintsPage.vue";
+import KitModal from "../src/components/KitModal.vue";
 import { ApiClient } from "../src/api";
 
 // Pro 交易投诉 parity across the four views (admin 投诉记录/投诉统计/同步任务,
@@ -108,6 +109,28 @@ it("opens the 处理投诉 dialog with Pro fields and reply/supplement/refund ac
   expect(w.get('[data-action="refund"]').text()).toBe("退款审批");
   // 处理结果 presets fill 回复用户.
   expect(w.findAll('[data-action="preset"]').length).toBeGreaterThan(0);
+  w.unmount();
+});
+
+it("does not reopen a complaint drawer when a closed detail read completes", async () => {
+  let resolveDetail = (_detail: typeof complaint) => {};
+  const pendingDetail = new Promise<typeof complaint>((resolve) => {
+    resolveDetail = resolve;
+  });
+  const request = listRequest((path) =>
+    path === "/complaints133/12" ? pendingDetail : undefined,
+  );
+  const w = render(request, "merchant", "/complain");
+  await flushPromises();
+  await w.get('[data-action="detail"]').trigger("click");
+  await flushPromises();
+  w.getComponent(KitModal).vm.$emit("close");
+  await flushPromises();
+  expect(w.findComponent(KitModal).exists()).toBe(false);
+
+  resolveDetail(complaint);
+  await flushPromises();
+  expect(w.findComponent(KitModal).exists()).toBe(false);
   w.unmount();
 });
 

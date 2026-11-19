@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onBeforeUnmount } from "vue";
+import { computed, nextTick, ref, watch, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import type { Area, MenuNode } from "../menu";
 import MenuTree from "./MenuTree.vue";
@@ -18,6 +18,7 @@ const collapsed = ref(false),
   navOpen = ref(false),
   width = ref(window.innerWidth);
 const mobileButton = ref<HTMLButtonElement | null>(null);
+const merchantClose = ref<HTMLButtonElement | null>(null);
 const mobile = computed(() => width.value <= 768);
 type Tab = { path: string; title: string; id: string };
 const tabs = ref<Tab[]>([]);
@@ -64,8 +65,10 @@ watch(
 watch(
   () => props.active,
   () => {
+    const fromMobileMenu = navOpen.value && props.area === "merchant";
     navOpen.value = false;
     recordTab();
+    if (fromMobileMenu) void nextTick(focusMerchantPage);
   },
 );
 watch(
@@ -109,10 +112,35 @@ function resize() {
   width.value = window.innerWidth;
   if (!mobile.value) navOpen.value = false;
 }
+function focusMerchantPage() {
+  const content = document.getElementById("merchant-content");
+  content?.focus({ preventScroll: true });
+  content?.scrollIntoView?.({ block: "start" });
+}
+function closeNavigation() {
+  navOpen.value = false;
+  if (props.area === "merchant")
+    void nextTick(() => mobileButton.value?.focus());
+}
+function toggleNavigation() {
+  if (navOpen.value) {
+    closeNavigation();
+    return;
+  }
+  navOpen.value = true;
+  if (props.area === "merchant")
+    void nextTick(() => merchantClose.value?.focus());
+}
+function selectMenu(path: string) {
+  if (props.area === "merchant" && navOpen.value && path === props.active) {
+    navOpen.value = false;
+    void nextTick(focusMerchantPage);
+  }
+}
 function keyboard(event: KeyboardEvent) {
   if (event.key === "Escape" && navOpen.value) {
-    navOpen.value = false;
-    mobileButton.value?.focus();
+    closeNavigation();
+    if (props.area === "admin") mobileButton.value?.focus();
   }
 }
 window.addEventListener("resize", resize);
@@ -127,8 +155,18 @@ onBeforeUnmount(() => {
   <div
     class="workspace"
     :data-area="area"
-    :class="{ 'sidebar-collapsed': collapsed && !mobile }"
+    :class="{
+      'sidebar-collapsed': collapsed && !mobile,
+      'merchant-nav-open': area === 'merchant' && navOpen,
+    }"
   >
+    <a
+      v-if="area === 'merchant' && !navOpen"
+      class="merchant-skip-link"
+      href="#merchant-content"
+      @click.prevent="focusMerchantPage"
+      >跳到主要内容</a
+    >
     <aside
       id="console-sidebar"
       class="console-sidebar"
@@ -146,6 +184,16 @@ onBeforeUnmount(() => {
       <div class="area-label">
         {{ area === "admin" ? "管理后台" : "商户后台" }}
       </div>
+      <button
+        v-if="area === 'merchant' && mobile"
+        ref="merchantClose"
+        type="button"
+        class="merchant-sidebar-close icon-button"
+        aria-label="关闭导航"
+        @click="closeNavigation"
+      >
+        <ShellIcon name="close" />
+      </button>
       <nav aria-label="后台菜单">
         <MenuTree
           :nodes="navigation"
@@ -153,20 +201,33 @@ onBeforeUnmount(() => {
           :active="active"
           :collapsed="collapsed && !mobile"
           @expand="collapsed = false"
+          @select="selectMenu"
         />
       </nav>
-      <div class="sidebar-foot">
+      <a
+        v-if="area === 'merchant'"
+        class="sidebar-foot merchant-docs-link"
+        href="/doc/"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="开发文档（新窗口打开）"
+        title="开发文档"
+      >
+        <ShellIcon name="st-doc" /><span>开发文档</span>
+      </a>
+      <div v-else class="sidebar-foot">
         <span class="sidebar-status" aria-hidden="true"></span
         ><span>支付运营工作台</span>
       </div>
     </aside>
     <button
       v-if="navOpen"
+      type="button"
       class="scrim"
       aria-label="关闭菜单"
-      @click="navOpen = false"
+      @click="closeNavigation"
     ></button>
-    <div class="main-content">
+    <div class="main-content" :inert="area === 'merchant' && mobile && navOpen">
       <header class="topbar">
         <div class="header-navigation">
           <button
@@ -175,7 +236,7 @@ onBeforeUnmount(() => {
             aria-label="展开菜单"
             aria-controls="console-sidebar"
             :aria-expanded="navOpen"
-            @click="navOpen = !navOpen"
+            @click="toggleNavigation"
           >
             <ShellIcon name="menu" />
           </button>

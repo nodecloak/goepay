@@ -232,6 +232,28 @@ const visibleRows = computed(() =>
         </button>
       </div>
     </form>
+    <dl
+      v-if="merchant && daily && summary && !loading && !error"
+      class="daily-summary"
+      aria-label="当前筛选统计汇总"
+    >
+      <div>
+        <dt>近7天订单金额</dt>
+        <dd>{{ cell(summary, "realmoney") }} 元</dd>
+      </div>
+      <div>
+        <dt>分成金额</dt>
+        <dd>{{ cell(summary, "getmoney") }} 元</dd>
+      </div>
+      <div>
+        <dt>退款金额</dt>
+        <dd>{{ cell(summary, "refundmoney") }} 元</dd>
+      </div>
+      <div>
+        <dt>支付成功率</dt>
+        <dd>{{ cell(summary, "successRate") }}</dd>
+      </div>
+    </dl>
     <section class="panel records">
       <div class="table-tools">
         <CsvExportButton
@@ -274,7 +296,7 @@ const visibleRows = computed(() =>
         </div>
       </div>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-      <p v-if="loading" role="status">正在读取统计…</p>
+      <p v-if="loading" class="loading-row" role="status">正在读取统计…</p>
       <template v-else-if="!error">
         <section v-if="daily && items.length" class="original-statistics-trend">
           <h2>近7天趋势</h2>
@@ -334,7 +356,12 @@ const visibleRows = computed(() =>
           </svg>
         </section>
         <p v-if="!daily" class="sr-only">共 {{ items.length }} 条记录</p>
-        <div class="table-scroll">
+        <div
+          class="table-scroll"
+          :tabindex="merchant ? 0 : undefined"
+          :role="merchant ? 'region' : undefined"
+          :aria-label="merchant ? '交易统计明细' : undefined"
+        >
           <table>
             <thead>
               <tr>
@@ -373,6 +400,37 @@ const visibleRows = computed(() =>
 <style scoped>
 .original-order-statistics {
   min-width: 0;
+}
+.daily-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+.daily-summary > div {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: var(--bg-card);
+  min-width: 0;
+}
+.daily-summary > div:first-child {
+  border-top: 2px solid var(--primary);
+}
+.daily-summary dt {
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+.daily-summary dd {
+  margin: var(--space-2) 0 0;
+  font-weight: 650;
+  font-size: clamp(16px, 2vw, 22px);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.original-order-statistics .table-scroll:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
 }
 .table-summary {
   margin-left: auto;

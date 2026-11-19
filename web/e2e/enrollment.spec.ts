@@ -10,6 +10,7 @@ const ok = (data: unknown, status = 200) => ({
 test("mail-disabled enrollment cannot send and leaving the form clears sensitive component state", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 320, height: 760 });
   let sends = 0;
   await page.route("**/console/v1/**", (route) => {
     const captcha205Reply = closedLoginCaptchaFixture205(route);
@@ -59,6 +60,9 @@ test("mail-disabled enrollment cannot send and leaving the form clears sensitive
   await expect(
     page.getByRole("button", { name: "发送验证码", exact: true }),
   ).toBeDisabled();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(320);
   expect(sends).toBe(0);
   await page.getByRole("button", { name: "返回登录", exact: true }).click();
   await page.getByRole("button", { name: "注册商户", exact: true }).click();

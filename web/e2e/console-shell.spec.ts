@@ -172,6 +172,9 @@ test("Pro merchant light shell has no default work tabs and supports mobile draw
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto("/merchant/dashboard");
   await expect(page.locator(".stat")).toHaveCount(4);
+  await expect(
+    page.getByRole("main").getByRole("heading", { level: 1, name: "仪表盘" }),
+  ).toBeVisible();
   await expect(page.locator(".workspace")).toHaveAttribute(
     "data-area",
     "merchant",
@@ -187,12 +190,27 @@ test("Pro merchant light shell has no default work tabs and supports mobile draw
   await expect(
     page.getByRole("navigation", { name: "后台菜单" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "关闭导航", exact: true }),
+  ).toBeFocused();
   await page
     .getByRole("button", { name: "关闭菜单", exact: true })
     .click({ position: { x: 350, y: 400 } });
   await expect(
     page.getByRole("button", { name: "展开菜单", exact: true }),
   ).toHaveAttribute("aria-expanded", "false");
+  await expect(
+    page.getByRole("button", { name: "展开菜单", exact: true }),
+  ).toBeFocused();
+  await page.getByRole("button", { name: "展开菜单", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "后台菜单", exact: true })
+    .getByRole("link", { name: "仪表盘", exact: true })
+    .click();
+  await expect(page.getByRole("main")).toBeFocused();
+  await expect(page.getByRole("navigation", { name: "后台菜单" })).toHaveCount(
+    0,
+  );
   await page.screenshot({
     path: "../.tools/pro-shell-merchant-375.png",
     fullPage: true,

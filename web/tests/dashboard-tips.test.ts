@@ -96,8 +96,8 @@ it("renders no banners and does not break when the tips call fails", async () =>
   await flushPromises();
   expect(request).toHaveBeenCalled();
   expect(w.findAll(".dashboard-tip").length).toBe(0);
-  // The dashboard overview itself still rendered (welcome panel present).
-  expect(w.find(".welcome").exists()).toBe(true);
+  expect(w.get('section[aria-label="商户概况"]').text()).toContain("测试商户");
+  expect(w.findAll(".stat")).toHaveLength(4);
 });
 
 it("does not fetch tips for the admin dashboard", async () => {

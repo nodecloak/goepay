@@ -2009,12 +2009,15 @@ onBeforeUnmount(() => {
         >
         {{ publicSite191?.sitename || "GOEPAY" }}
       </div>
-      <p class="eyebrow">PAYMENT OPERATIONS</p>
-      <h1>每一笔交易，<br />清晰可循。</h1>
-      <p>交易、退款与资金流转，在同一工作台中有序处理。</p>
-      <div class="login-rule">
-        <span>交易</span><span>账务</span><span>核对</span>
-      </div>
+      <template v-if="area === 'admin'">
+        <p class="eyebrow">PAYMENT OPERATIONS</p>
+        <h1>每一笔交易，<br />清晰可循。</h1>
+        <p>交易、退款与资金流转，在同一工作台中有序处理。</p>
+        <div class="login-rule">
+          <span>交易</span><span>账务</span><span>核对</span>
+        </div>
+      </template>
+      <p v-else class="merchant-login-brand-label">商户后台</p>
       <SiteContacts191 v-if="publicSite191" :site="publicSite191" />
     </section>
     <section class="login-panel">
@@ -2028,13 +2031,17 @@ onBeforeUnmount(() => {
         @close="closeEnrollment216"
       />
       <template v-else>
-        <h2>{{ area === "admin" ? "管理员登录" : "商户登录" }}</h2>
-        <p class="muted">
+        <h1 v-if="area === 'merchant'">商户登录</h1>
+        <h2 v-else>管理员登录</h2>
+        <p
+          v-if="area === 'admin' || publicSite191?.login_subtitle"
+          class="muted"
+        >
           {{ publicSite191?.login_subtitle || "使用您的账户继续" }}
         </p>
         <div
           v-if="area === 'merchant'"
-          class="toolbar-actions"
+          class="toolbar-actions merchant-login-modes"
           aria-label="商户登录方式"
         >
           <button
@@ -2270,7 +2277,24 @@ onBeforeUnmount(() => {
         @logout="logout"
       />
     </template>
-    <main class="content">
+    <main
+      class="content"
+      :class="{ 'merchant-content': area === 'merchant' }"
+      :id="area === 'merchant' ? 'merchant-content' : undefined"
+      :tabindex="area === 'merchant' ? -1 : undefined"
+      :data-merchant-page="area === 'merchant' ? path : undefined"
+    >
+      <header
+        v-if="
+          area === 'merchant' &&
+          page &&
+          authorized &&
+          path !== '/account/api-info'
+        "
+        class="merchant-page-header"
+      >
+        <h1>{{ page.title }}</h1>
+      </header>
       <nav
         v-if="path === '/trade/order' && authorized"
         class="order-asset-tabs"
@@ -2303,7 +2327,7 @@ onBeforeUnmount(() => {
         管理员 {{ session.delegated_by.name }} 正在代登录本商户。此会话最长 15
         分钟，管理员退出或权限撤销后失效。
       </p>
-      <div class="page-heading-spacer"></div>
+      <div v-if="area === 'admin'" class="page-heading-spacer"></div>
       <div v-if="error && !refundRow" class="alert error" role="alert">
         {{ error }}
       </div>
@@ -2766,6 +2790,8 @@ onBeforeUnmount(() => {
       <template v-else>
         <form
           class="toolbar list-filter-card panel"
+          :class="{ 'merchant-transaction-filters': area === 'merchant' }"
+          :aria-label="area === 'merchant' ? '筛选记录' : undefined"
           @submit.prevent="
             pageNumber = 1;
             load();
@@ -2835,6 +2861,11 @@ onBeforeUnmount(() => {
             v-if="['orders', 'refunds', 'ledger'].includes(kind)"
             class="table-tools"
           >
+            <span
+              v-if="area === 'merchant' && !loading && !error"
+              class="merchant-list-count"
+              >共 {{ total }} 条</span
+            >
             <button
               v-if="kind === 'orders'"
               type="button"
@@ -2958,6 +2989,7 @@ onBeforeUnmount(() => {
             @attest-refund="refundAttestationID = String($event.id)"
             :admin-orders="kind === 'orders' && area === 'admin'"
             :merchant-orders="kind === 'orders' && area === 'merchant'"
+            :merchant-list="area === 'merchant'"
             :selectable="kind === 'orders'"
             :selected-trades="selectedOrderTrades"
             @selection-change="selectedOrderTrades = $event"
@@ -2992,7 +3024,9 @@ onBeforeUnmount(() => {
         :own-session="!!session && !session.delegated_by"
       />
     </main>
-    <footer v-if="publicLayout === null || publicLayout.footer">
+    <footer
+      v-if="publicLayout?.footer || (area === 'admin' && publicLayout === null)"
+    >
       <RichContent
         v-if="publicLayout?.footer"
         :content="publicLayout.footer"

@@ -901,10 +901,19 @@ onMounted(async () => {
     ref="panel"
     tabindex="-1"
     class="panel sharing-page"
+    :class="{ 'sharing-page-merchant': area === 'merchant' }"
     :aria-label="page === 'receiver' ? '渠道分账规则' : '渠道分账记录'"
   >
     <header>
-      <h2>{{ page === "receiver" ? "渠道分账规则" : "渠道分账记录" }}</h2>
+      <h2>
+        {{
+          page === "receiver"
+            ? "渠道分账规则"
+            : area === "merchant"
+              ? "分账操作台"
+              : "渠道分账记录"
+        }}
+      </h2>
       <p class="muted">
         规则与接收方绑定到原收款通道。支付后保留原声明，所有金额单位为人民币元。
       </p>
@@ -1371,6 +1380,24 @@ onMounted(async () => {
 .sharing-page h3 {
   margin: 0;
 }
+.sharing-page-merchant,
+.sharing-page-merchant fieldset {
+  min-width: 0;
+}
+.sharing-page-merchant > header p,
+.sharing-page-merchant > p,
+.sharing-page-merchant .sharing-form p {
+  overflow-wrap: anywhere;
+}
+.sharing-page-merchant .sharing-form {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 215px), 1fr));
+  max-width: 880px;
+  background: var(--bg-raised);
+}
+.sharing-page-merchant .sharing-form label > :is(input, select) {
+  min-width: 0;
+  width: 100%;
+}
 .sharing-toolbar {
   display: flex;
   align-items: end;
@@ -1482,6 +1509,13 @@ small {
   }
   .sharing-order header {
     flex-direction: column;
+  }
+  .sharing-page-merchant {
+    padding: var(--space-3);
+  }
+  .sharing-page-merchant .sharing-toolbar > button,
+  .sharing-page-merchant .sharing-form > button {
+    min-height: 44px;
   }
 }
 </style>

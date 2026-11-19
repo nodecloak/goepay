@@ -15,6 +15,8 @@ import KitFilterBar from "./KitFilterBar.vue";
 import KitField from "./KitField.vue";
 import KitInput from "./KitInput.vue";
 import KitEmpty from "./KitEmpty.vue";
+import CopyButton from "./CopyButton.vue";
+import MerchantRecords from "./MerchantRecords.vue";
 const props = withDefaults(
   defineProps<{ client: ApiClient; newUseAllowed?: boolean }>(),
   { newUseAllowed: true },
@@ -189,7 +191,12 @@ onBeforeUnmount(() => {
       load();
     "
   />
-  <div v-else class="list-page" aria-label="持久批量付款">
+  <div
+    v-else
+    class="list-page"
+    :class="{ 'merchant-batch-list': client.area === 'merchant' }"
+    aria-label="持久批量付款"
+  >
     <KitFilterBar
       :loading="loading"
       @query="
@@ -246,10 +253,14 @@ onBeforeUnmount(() => {
         class="batch-editor"
         aria-label="新批次"
       >
-        <p>
-          本次原请求号：<code>{{ external }}</code
-          >。仅保存在当前页面，请记录用于恢复。
-        </p>
+        <div class="batch-request">
+          <div>
+            <p class="muted">本次原请求号</p>
+            <code>{{ external }}</code>
+          </div>
+          <CopyButton :text="external" label="批次请求号" />
+        </div>
+        <p class="muted">请记录请求号，用于查找提交结果未确认的批次。</p>
         <BatchRecipientEditor
           v-if="policy"
           :rows="rows"
@@ -268,23 +279,32 @@ onBeforeUnmount(() => {
         <button :disabled="busy || confirming || !canPrepare" @click="review">
           核对并预留整批资金
         </button>
-        <div v-if="confirming" class="alert">
+        <div v-if="confirming" class="alert batch-confirm">
           <p>
             确认商户 {{ client.area === "admin" ? merchant : "当前商户" }}，共
             {{ rows.length }}
             项。将一次性预留所有本金及服务费，任何一项无效则整批回滚；本步骤不发送付款。
           </p>
-          <button
-            :disabled="busy"
-            @click="
-              confirming = false;
-              frozen = undefined;
-            "
-          >
-            返回编辑</button
-          ><button :disabled="busy || !canPrepare" @click="prepare">
-            确认预留，不发送付款
-          </button>
+          <div class="toolbar-actions">
+            <button
+              type="button"
+              class="pa-btn"
+              :disabled="busy"
+              @click="
+                confirming = false;
+                frozen = undefined;
+              "
+            >
+              返回编辑</button
+            ><button
+              type="button"
+              class="pa-btn pa-btn--primary"
+              :disabled="busy || !canPrepare"
+              @click="prepare"
+            >
+              确认预留，不发送付款
+            </button>
+          </div>
         </div>
         <button :disabled="busy" @click="discard">
           取消编辑并清除收款资料
@@ -293,10 +313,14 @@ onBeforeUnmount(() => {
       <p v-if="uncertain" class="alert">
         原请求号已保留在上方「请求号」中，请先点「查询」查找已保存批次，再核对详情；收款资料已从当前表单清除。
       </p>
-      <div class="table-scroll">
-        <table class="pa-table">
-          <thead>
-            <tr>
+      <div v-if="loading" class="loading-row" role="status">正在读取批次…</div>
+      <MerchantRecords
+        :stacked="client.area === 'merchant'"
+        class="table-scroll"
+      >
+        <table class="pa-table" role="table">
+          <thead role="rowgroup">
+            <tr role="row">
               <th scope="col">批次 ID</th>
               <th scope="col">请求号</th>
               <th scope="col" class="pa-c-num">本金（分）</th>
@@ -305,14 +329,24 @@ onBeforeUnmount(() => {
               <th scope="col">操作</th>
             </tr>
           </thead>
-          <tbody>
-            <tr v-for="item in items" :key="item.id">
-              <td class="pa-c-mono">{{ item.id }}</td>
-              <td>{{ item.external_no }}</td>
-              <td class="pa-c-num">{{ item.amount }}</td>
-              <td class="pa-c-num">{{ item.cost_amount }}</td>
-              <td>{{ displayValue(item.summary) }}</td>
-              <td>
+          <tbody role="rowgroup">
+            <tr v-for="item in items" :key="item.id" role="row">
+              <td class="pa-c-mono" data-cell-label="批次 ID" role="cell">
+                {{ item.id }}
+              </td>
+              <td data-cell-label="请求号" data-cell-wide role="cell">
+                {{ item.external_no }}
+              </td>
+              <td class="pa-c-num" data-cell-label="本金（分）" role="cell">
+                {{ item.amount }}
+              </td>
+              <td class="pa-c-num" data-cell-label="预占（分）" role="cell">
+                {{ item.cost_amount }}
+              </td>
+              <td data-cell-label="状态" data-cell-wide role="cell">
+                {{ displayValue(item.summary) }}
+              </td>
+              <td data-cell-actions role="cell">
                 <button
                   type="button"
                   class="link-button"
@@ -327,12 +361,14 @@ onBeforeUnmount(() => {
                 </button>
               </td>
             </tr>
-            <tr v-if="!items.length && !loading">
-              <td class="empty" :colspan="6"><KitEmpty text="暂无数据" /></td>
+            <tr v-if="!items.length && !loading" role="row">
+              <td class="empty" :colspan="6" role="cell">
+                <KitEmpty text="暂无数据" />
+              </td>
             </tr>
           </tbody>
         </table>
-      </div>
+      </MerchantRecords>
       <div class="pa-pager pa-pager--keyset">
         <span class="pa-pager-total">共 {{ total }} 批</span>
         <button
@@ -381,5 +417,33 @@ onBeforeUnmount(() => {
 }
 .batch-editor {
   padding: 0 var(--space-5) var(--space-4);
+}
+.merchant-batch-list .batch-editor {
+  min-width: 0;
+  margin: var(--space-2) var(--space-5) var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.batch-request {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-raised);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+.batch-request p {
+  margin: 0;
+}
+.batch-confirm {
+  margin-block: var(--space-3);
+  border-inline-start: 3px solid var(--warning-text);
+}
+.batch-confirm p {
+  margin-top: 0;
 }
 </style>

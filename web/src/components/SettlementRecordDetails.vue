@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref, useId } from "vue";
 import type { SettlementListRow } from "../settlement-list";
-defineProps<{ row: SettlementListRow }>();
+import type { Area } from "../menu";
+defineProps<{ row: SettlementListRow; area?: Area }>();
 const emit = defineEmits<{ close: [] }>(),
   closeButton = ref<HTMLButtonElement>(),
   dialog = ref<HTMLElement>(),
@@ -40,6 +41,7 @@ onMounted(() => void nextTick(() => closeButton.value?.focus()));
         aria-modal="true"
         :aria-labelledby="id + '-title'"
         class="modal panel settlement-record-detail modal-drawer"
+        :data-settlement-area="area"
         @keydown="keydown"
       >
         <div class="toolbar">
@@ -114,5 +116,18 @@ onMounted(() => void nextTick(() => closeButton.value?.focus()));
 }
 .settlement-record-detail dd {
   white-space: pre-wrap;
+}
+.settlement-record-detail[data-settlement-area="merchant"] .record-detail {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 520px) {
+  .settlement-record-detail[data-settlement-area="merchant"] .record-detail {
+    grid-template-columns: minmax(92px, 2fr) minmax(0, 3fr);
+  }
 }
 </style>

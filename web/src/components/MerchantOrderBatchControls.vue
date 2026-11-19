@@ -153,7 +153,12 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <div v-if="canWrite" class="batch-controls">
-    <span>已选 {{ selected.length }} 条</span>
+    <span
+      :class="{ 'batch-some-selected': selected.length }"
+      aria-live="polite"
+    >
+      已选 {{ selected.length }} 条
+    </span>
     <ActionDropdown
       label="批量操作"
       trigger-text="批量操作"
@@ -163,7 +168,12 @@ onBeforeUnmount(() => {
     />
   </div>
   <Teleport to="body">
-    <div v-if="open" class="modal-backdrop" @keydown.esc="close">
+    <div
+      v-if="open"
+      class="modal-backdrop"
+      @keydown.esc="close"
+      @click.self="close"
+    >
       <section
         ref="dialog"
         class="modal panel batch-dialog"
@@ -235,6 +245,13 @@ onBeforeUnmount(() => {
   width: auto;
   max-width: 100%;
   margin: 0;
+}
+.batch-some-selected {
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  font-variant-numeric: tabular-nums;
 }
 .batch-dialog {
   max-width: 560px;

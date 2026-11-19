@@ -1041,7 +1041,11 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <template v-if="!application || !dialog">
-    <div ref="workflowList" class="list-page">
+    <div
+      ref="workflowList"
+      class="list-page"
+      :class="{ 'merchant-workflow-list': area === 'merchant' }"
+    >
       <form
         v-if="internalMerchantList && !application"
         class="toolbar list-filter-card panel internal-transfer-filters"
@@ -1380,7 +1384,11 @@ onBeforeUnmount(() => {
     @close="payoutRequestId = ''"
     @changed="load"
   />
-  <div v-if="application" class="toolbar">
+  <div
+    v-if="application"
+    class="toolbar"
+    :class="{ 'merchant-application-links': area === 'merchant' }"
+  >
     <a :href="settlementRecordsHref">提现记录</a>
     <p v-if="notice" class="muted">业务请求号：{{ form.external_no }}</p>
   </div>
@@ -1397,6 +1405,7 @@ onBeforeUnmount(() => {
   >
     <section
       ref="workflowDialog"
+      :data-workflow-area="area"
       :tabindex="application ? undefined : -1"
       @keydown="handleDialogKey"
       :class="
@@ -1444,7 +1453,11 @@ onBeforeUnmount(() => {
         </button>
       </div>
       <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-      <form v-if="dialog === 'create'" @submit.prevent="submit">
+      <form
+        v-if="dialog === 'create'"
+        :class="{ 'merchant-workflow-form': area === 'merchant' }"
+        @submit.prevent="submit"
+      >
         <p v-if="restoringIntent212" role="status">正在恢复本人原资金请求…</p>
         <p v-if="intentStorageError212" class="alert error" role="alert">
           {{ intentStorageError212 }}
@@ -1495,6 +1508,7 @@ onBeforeUnmount(() => {
             inputmode="numeric" /></label
         ><button
           type="button"
+          :class="{ 'workflow-refresh-funds': area === 'merchant' }"
           :disabled="fundsLoading || busy"
           @click="loadFunds"
         >
@@ -1587,7 +1601,7 @@ onBeforeUnmount(() => {
           v-if="
             workflow === 'settlements' && settlementPreview && !pendingIntent212
           "
-          class="alert"
+          class="alert workflow-fee-preview"
           role="status"
         >
           <p>预计手续费：{{ settlementPreview.fee_money }} 元</p>
@@ -1679,6 +1693,81 @@ onBeforeUnmount(() => {
   </div>
 </template>
 <style scoped>
+.merchant-workflow-list .table-tools {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.merchant-application-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 0;
+  overflow-wrap: anywhere;
+}
+.workflow-application-form[data-workflow-area="merchant"] {
+  max-width: 800px;
+  padding: clamp(var(--space-4), 3vw, var(--space-6));
+}
+.merchant-workflow-form {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.merchant-workflow-form > label {
+  margin: 0;
+  min-width: 0;
+}
+.merchant-workflow-form > label > input {
+  width: 100%;
+  min-width: 0;
+}
+.merchant-workflow-form > p,
+.merchant-workflow-form > .alert,
+.merchant-workflow-form > .modal-actions {
+  margin: 0;
+}
+.merchant-workflow-form .workflow-refresh-funds {
+  justify-self: start;
+  grid-row: auto;
+}
+.merchant-workflow-form :deep(.funds-availability) {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  margin: 0;
+  align-items: start;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.merchant-workflow-form .workflow-fee-preview {
+  border-inline-start: 3px solid var(--warning-text);
+}
+.merchant-workflow-form .workflow-fee-preview p:first-child {
+  margin-top: 0;
+}
+.merchant-workflow-form .settle-live {
+  flex-wrap: wrap;
+  margin: 0;
+}
+.merchant-workflow-form div.settle-live {
+  padding: var(--space-3);
+  background: var(--bg-raised);
+  border-radius: var(--radius-sm);
+  font-variant-numeric: tabular-nums;
+}
+.merchant-workflow-form .modal-actions {
+  flex-wrap: wrap;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+@media (max-width: 520px) {
+  .merchant-workflow-form :deep(.funds-availability) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+}
 .internal-transfer-filters > .filter-inline > select {
   min-width: 160px;
 }

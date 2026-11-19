@@ -35,6 +35,21 @@ interface GeneratedCode {
   enabled: boolean;
   replayed: boolean;
 }
+function isGeneratedCode(
+  g: GeneratedCode | null | undefined,
+): g is GeneratedCode {
+  return Boolean(
+    g &&
+    typeof g.code_id === "string" &&
+    typeof g.recipient_name === "string" &&
+    typeof g.style_id === "string" &&
+    typeof g.origin === "string" &&
+    typeof g.fixed_amount_cents === "string" &&
+    /^\d+$/.test(g.fixed_amount_cents) &&
+    typeof g.url === "string" &&
+    typeof g.enabled === "boolean",
+  );
+}
 const props = defineProps<{ client: ApiClient; ownSession: boolean }>();
 const name = ref(""),
   origin = ref(""),
@@ -47,6 +62,7 @@ const name = ref(""),
   error = ref(""),
   notice = ref(""),
   loading = ref(false),
+  setupReady = ref(false),
   busy = ref(false),
   history = ref(false),
   savingCodename = ref(false),
@@ -67,7 +83,12 @@ const canWrite = computed(
     props.client.csrfToken === initialCSRF,
 );
 const formDisabled = computed(
-  () => loading.value || busy.value || unknown.value || !canWrite.value,
+  () =>
+    loading.value ||
+    busy.value ||
+    unknown.value ||
+    !canWrite.value ||
+    !setupReady.value,
 );
 const domainOptions = computed(() =>
   domains.value.map((d) => ({ value: d.origin, label: d.label })),
@@ -81,6 +102,12 @@ const styleOptions = computed(() => [
     ),
   })),
 ]);
+const resultURL = computed(() => {
+  const g = result.value;
+  if (!g?.enabled || !g.url) return "";
+  const url = safePaymentUrl(g.url);
+  return url && new URL(url).origin === g.origin ? url : "";
+});
 let alive = true,
   epoch = 0,
   renderEpoch = 0,
@@ -111,11 +138,10 @@ async function render() {
   const c = new AbortController();
   renderController = c;
   const current = ++renderEpoch;
-  if (!g?.enabled || !g.url) return;
+  if (!g?.enabled) return;
   try {
-    const target = safePaymentUrl(g.url);
-    if (!target || new URL(target).origin !== g.origin)
-      throw Error("收款链接格式无效");
+    const target = resultURL.value;
+    if (!target) throw Error("收款链接格式无效");
     const selected = styles.value.find((s) => s.id === style.value);
     const rendered = selected?.style
       ? await renderCollectionPoster(
@@ -142,6 +168,7 @@ async function load() {
   controller = c;
   const current = ++epoch;
   loading.value = true;
+  setupReady.value = false;
   error.value = "";
   try {
     const data = await props.client.request<{
@@ -153,10 +180,36 @@ async function load() {
       latest: GeneratedCode | null;
     }>("/collection-generator", { signal: c.signal });
     if (!alive || current !== epoch || c.signal.aborted) return;
+    if (
+      !data ||
+      typeof data.recipient_name !== "string" ||
+      (data.default_codename !== undefined &&
+        typeof data.default_codename !== "string") ||
+      !Array.isArray(data.styles) ||
+      data.styles.some(
+        (option) =>
+          !option ||
+          typeof option.id !== "string" ||
+          !option.fields ||
+          typeof option.fields !== "object" ||
+          Array.isArray(option.fields),
+      ) ||
+      !Array.isArray(data.domains) ||
+      data.domains.some(
+        (option) =>
+          !option ||
+          typeof option.origin !== "string" ||
+          typeof option.label !== "string",
+      ) ||
+      (data.latest !== null && !isGeneratedCode(data.latest))
+    ) {
+      throw Error("收款码配置响应无效，请重新进入页面。");
+    }
     styles.value = data.styles;
     domains.value = data.domains;
     defaultCodename.value = data.default_codename ?? data.recipient_name;
     codenameCustomized.value = data.codename_customized === true;
+    setupReady.value = true;
     if (pending.value) {
       restore(pending.value);
       unknown.value = true;
@@ -178,14 +231,31 @@ async function load() {
       style.value = data.styles[0]?.id || "0";
     }
   } catch (e) {
-    if (alive && current === epoch && !c.signal.aborted)
+    if (alive && current === epoch && !c.signal.aborted) {
+      clearResult();
+      styles.value = [];
+      domains.value = [];
+      defaultCodename.value = "";
+      codenameCustomized.value = false;
+      setupReady.value = false;
+      if (pending.value) {
+        restore(pending.value);
+        unknown.value = true;
+      }
       error.value = e instanceof Error ? e.message : "收款码资料加载失败";
+    }
   } finally {
     if (alive && current === epoch) loading.value = false;
   }
 }
 async function generate() {
-  if (busy.value || loading.value || !canWrite.value) return;
+  if (
+    busy.value ||
+    loading.value ||
+    !canWrite.value ||
+    (!pending.value && !setupReady.value)
+  )
+    return;
   if (!pending.value) {
     const trimmed = name.value.trim();
     if (
@@ -230,11 +300,13 @@ async function generate() {
       { method: "POST", body: intent, signal: c.signal },
     );
     if (!alive || current !== epoch || c.signal.aborted) return;
+    if (!isGeneratedCode(g)) throw Error("收款码生成结果未确认");
     pending.value = null;
     remember();
     unknown.value = false;
     result.value = g;
     await render();
+    if (g.enabled && !resultURL.value) return;
     notice.value = g.enabled
       ? g.replayed
         ? "已找回上次生成的收款码"
@@ -263,9 +335,9 @@ async function generate() {
   }
 }
 async function copy() {
-  if (!result.value?.url) return;
+  if (!resultURL.value) return;
   try {
-    await navigator.clipboard.writeText(result.value.url);
+    await navigator.clipboard.writeText(resultURL.value);
     notice.value = "收款链接已复制";
   } catch {
     error.value = "无法访问剪贴板，请手动复制链接";
@@ -281,7 +353,7 @@ function download() {
 // F10 account/editCodename: persist the typed name as this account's default
 // aggregate-code name, prefilled on the next visit. Empty clears it.
 async function saveCodename() {
-  if (savingCodename.value || !canWrite.value) return;
+  if (savingCodename.value || !canWrite.value || !setupReady.value) return;
   savingCodename.value = true;
   error.value = "";
   try {
@@ -309,6 +381,7 @@ watch(
     clearResult();
     busy.value = false;
     loading.value = false;
+    setupReady.value = false;
     error.value = "会话已变化，请重新进入此页面";
   },
 );
@@ -322,9 +395,9 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="collection-generator">
-    <div class="toolbar">
+    <div class="generator-toolbar">
       <MerchantScanShortcut192 :client="client" :own-session="ownSession" />
-      <button :disabled="busy" @click="history = !history">
+      <button type="button" :disabled="busy" @click="history = !history">
         {{ history ? "返回生成收款码" : "历史收款码" }}
       </button>
     </div>
@@ -339,214 +412,211 @@ onBeforeUnmount(() => {
       resource="collection-codes"
       :own-session="ownSession"
     />
-    <template v-else>
-      <section class="generator-intro">
-        <h3>产品介绍</h3>
-        <p>聚合收款支持使用一个固定二维码，通过微信、支付宝完成收款。</p>
-        <p class="muted">收款方可以分享链接，付款人打开后选择支付方式付款。</p>
-      </section>
-      <form class="generator-form" @submit.prevent="generate">
-        <section class="generator-card">
-          <h3>聚合收款配置</h3>
-          <fieldset :disabled="formDisabled">
-            <KitField label="收款方名称" required>
-              <KitInput
-                v-model="name"
-                :maxlength="100"
-                aria-label="收款方名称"
-              />
-            </KitField>
-            <p class="codename-hint muted">
-              默认收款名称：{{ defaultCodename || "商户名称"
-              }}<span v-if="codenameCustomized">（已自定义）</span>
-              <button
-                type="button"
-                class="link-button"
-                :disabled="savingCodename || !canWrite"
-                @click="saveCodename"
-              >
-                保存为默认
-              </button>
-            </p>
-            <KitField label="选择域名" required>
-              <KitSelect
-                v-model="origin"
-                :options="domainOptions"
-                placeholder="请选择域名"
-                aria-label="选择域名"
-              />
-            </KitField>
-          </fieldset>
-          <p class="muted">
-            收款金额可留空。新生成的收款码长期有效，停用后失效；修改名称、金额或域名后请重新生成。
-          </p>
-          <button
-            type="submit"
-            class="primary"
-            :disabled="busy || loading || !canWrite"
-          >
-            {{
-              busy ? "正在核对…" : unknown ? "核对上次生成结果" : "生成收款码"
-            }}
-          </button>
-          <section class="generator-result" aria-label="生成结果">
-            <h3>你的聚合收款链接</h3>
-            <p v-if="result && !result.enabled" class="alert warning">
-              此收款码已停用
-            </p>
-            <template v-else-if="result"
-              ><label
-                >收款链接<input :value="result.url" readonly autocomplete="off"
-              /></label>
-              <div class="toolbar-actions">
-                <button type="button" @click="copy">复制收款链接</button
-                ><a :href="result.url" target="_blank" rel="noopener noreferrer"
-                  >打开收款页</a
-                >
-              </div></template
+    <div v-else class="generator-grid">
+      <form
+        class="panel generator-card generator-form"
+        @submit.prevent="generate"
+      >
+        <h2>收款码配置</h2>
+        <fieldset :disabled="formDisabled">
+          <KitField label="收款方名称" required>
+            <KitInput v-model="name" :maxlength="100" aria-label="收款方名称" />
+          </KitField>
+          <p class="codename-hint muted">
+            默认收款名称：{{ defaultCodename || "商户名称"
+            }}<span v-if="codenameCustomized">（已自定义）</span>
+            <button
+              type="button"
+              class="link-button"
+              :disabled="savingCodename || !canWrite"
+              @click="saveCodename"
             >
-            <p v-else class="muted">生成后可复制链接，发送给付款人。</p>
-          </section>
-        </section>
-        <section class="generator-card generator-poster">
-          <h3>你的聚合收款码</h3>
-          <fieldset :disabled="formDisabled">
-            <KitField label="选择收款码风格">
-              <KitSelect
-                v-model="style"
-                :options="styleOptions"
-                placeholder="请选择收款码风格"
-                aria-label="选择收款码风格"
-              />
-            </KitField>
-            <KitField label="自定义收款金额">
-              <KitInput
-                v-model="amount"
-                inputmode="decimal"
-                placeholder="留空由付款人填写"
-                aria-label="自定义收款金额"
-              />
-            </KitField>
-          </fieldset>
-          <img v-if="qr" :src="qr" alt="聚合收款二维码" width="280" />
-          <KitEmpty v-else text="填写收款配置并生成后，在这里预览收款码" />
-          <button
-            v-if="result?.enabled"
-            type="button"
-            :disabled="!qr"
-            @click="download"
-          >
-            下载收款码
-          </button>
-        </section>
+              保存为默认
+            </button>
+          </p>
+          <KitField label="选择域名" required>
+            <KitSelect
+              v-model="origin"
+              :options="domainOptions"
+              placeholder="请选择域名"
+              aria-label="选择域名"
+            />
+          </KitField>
+          <KitField label="自定义收款金额">
+            <KitInput
+              v-model="amount"
+              inputmode="decimal"
+              placeholder="留空由付款人填写"
+              aria-label="自定义收款金额"
+            />
+          </KitField>
+          <KitField label="选择收款码风格">
+            <KitSelect
+              v-model="style"
+              :options="styleOptions"
+              placeholder="请选择收款码风格"
+              aria-label="选择收款码风格"
+            />
+          </KitField>
+        </fieldset>
+        <p v-if="setupReady && !domainOptions.length" class="alert">
+          暂无可用收款域名，请联系平台管理员检查聚合收款配置。
+        </p>
+        <p class="muted">
+          收款金额可留空。新生成的收款码长期有效，停用后失效；修改名称、金额或域名后请重新生成。
+        </p>
+        <button
+          type="submit"
+          class="primary"
+          :disabled="
+            busy ||
+            loading ||
+            !canWrite ||
+            (!unknown && (!setupReady || !domainOptions.length))
+          "
+        >
+          {{ busy ? "正在核对…" : unknown ? "核对上次生成结果" : "生成收款码" }}
+        </button>
       </form>
-    </template>
+      <section
+        class="panel generator-card generator-result"
+        aria-label="生成结果"
+      >
+        <h2>收款码预览</h2>
+        <p v-if="result && !result.enabled" class="alert warning">
+          此收款码已停用
+        </p>
+        <div class="generator-preview" :aria-busy="loading || busy">
+          <img v-if="qr" :src="qr" alt="聚合收款二维码" width="280" />
+          <KitEmpty
+            v-else
+            :text="
+              loading || busy ? '正在准备收款码…' : '生成后可在此预览收款码'
+            "
+          />
+        </div>
+        <template v-if="resultURL">
+          <KitField label="收款链接">
+            <input :value="resultURL" readonly autocomplete="off" />
+          </KitField>
+          <div class="generator-result-actions">
+            <button type="button" :disabled="!qr" @click="download">
+              下载收款码
+            </button>
+            <button type="button" @click="copy">复制收款链接</button>
+            <a :href="resultURL" target="_blank" rel="noopener noreferrer"
+              >打开收款页</a
+            >
+          </div>
+        </template>
+      </section>
+    </div>
   </section>
 </template>
 <style scoped>
 .collection-generator {
-  padding: 20px;
-  min-width: 0;
-}
-.toolbar {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-  padding: 0;
-}
-.generator-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: start;
-  gap: 20px;
-}
-.generator-intro,
-.generator-card {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 20px;
+  gap: var(--space-4);
   min-width: 0;
-  background: var(--paper);
 }
-.generator-intro {
-  margin-bottom: 20px;
+.generator-toolbar {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: center;
 }
-.generator-card h3,
-.generator-intro h3 {
-  margin: 0 0 20px;
-  font-size: 16px;
-  font-weight: 600;
+.generator-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  align-items: start;
+  gap: var(--space-4);
+  max-width: 1040px;
 }
-.generator-poster {
-  text-align: center;
+.generator-card {
+  padding: var(--space-5);
+  min-width: 0;
 }
-.generator-poster label {
-  text-align: left;
+.generator-card h2 {
+  margin: 0 0 var(--space-4);
+  font-size: 1rem;
 }
-.generator-poster img {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  margin: 20px auto;
+.generator-card :deep(.pa-field) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2);
+  margin: 0;
 }
-.generator-poster > p {
-  margin-top: 24px;
+.generator-card :deep(.pa-label) {
+  white-space: normal;
 }
-.generator-form .toolbar-actions {
-  margin-top: 14px;
+.generator-card :deep(.pa-select) {
+  max-width: 23rem;
+}
+.generator-result input {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
 }
 .codename-hint {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  margin: -6px 0 0;
+  gap: var(--space-2);
+  margin: calc(-1 * var(--space-2)) 0 0;
   font-size: 12px;
 }
 .generator-form p {
-  line-height: 1.7;
+  line-height: 1.6;
 }
-@media (max-width: 1000px) {
-  .generator-form {
+@media (max-width: 980px) {
+  .generator-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 .generator-form fieldset {
+  min-width: 0;
   border: 0;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 18px;
+  gap: var(--space-4);
 }
-.generator-form label,
-.generator-result label {
+.generator-preview {
   display: grid;
-  gap: 8px;
-  min-width: 0;
-  margin: 0;
+  place-items: center;
+  min-height: 180px;
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
 }
-.generator-form input,
-.generator-form select,
-.generator-result input {
-  width: 100%;
-  min-width: 0;
+.generator-preview img {
+  display: block;
+  max-width: 100%;
+  height: auto;
 }
-.generator-result {
-  border-top: 1px solid var(--line);
-  margin-top: 24px;
-  padding-top: 20px;
-  max-width: 660px;
-}
-.toolbar-actions {
+.generator-result-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
   flex-wrap: wrap;
   align-items: center;
+  margin-top: var(--space-3);
 }
 @media (max-width: 600px) {
-  .collection-generator {
-    padding: 14px;
+  .generator-card {
+    padding: var(--space-4);
+  }
+  .generator-form > button[type="submit"] {
+    width: 100%;
+  }
+  .generator-card :deep(.pa-input),
+  .generator-card :deep(.pa-select),
+  .generator-result input,
+  .generator-form > button[type="submit"] {
+    min-height: 44px;
+    max-height: none;
   }
 }
 </style>

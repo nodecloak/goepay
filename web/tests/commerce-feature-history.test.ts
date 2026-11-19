@@ -4,6 +4,7 @@ import { mount, flushPromises } from "@vue/test-utils";
 import CommercePage from "../src/components/CommercePage.vue";
 import { ApiClient } from "../src/api";
 import { flattenMenu, navigationFor, pageAuthorizedFor } from "../src/menu";
+import { safePaymentUrl } from "../src/commerce";
 
 for (const [kind, path, flag, menu] of [
   ["deposits", "/account/deposit", "user_deposit", "Deposit"],
@@ -75,5 +76,62 @@ it("disables new deposit drafts when the effective policy cannot be read while k
       .find((b) => b.text() === "保证金操作")!
       .attributes("disabled"),
   ).toBeDefined();
+  w.unmount();
+});
+
+it.each([undefined, null, "", "   ", 123])(
+  "does not turn an absent or invalid payment URL %s into a checkout link",
+  (url) => expect(safePaymentUrl(url)).toBeUndefined(),
+);
+
+it("keeps purchase history readable and withdraws stale offers when the membership catalog fails to refresh", async () => {
+  const client = new ApiClient("merchant");
+  let failCatalog = false;
+  const request = vi
+    .spyOn(client, "request")
+    .mockImplementation(async (path) => {
+      if (path === "/membership-sales") {
+        if (failCatalog) throw Error("会员目录暂不可用");
+        return {
+          items: [
+            {
+              id: "5",
+              name: "上次报价",
+              price_cents: "10000",
+              duration_days: 30,
+            },
+          ],
+          current: { my_group: "黄金会员", my_gid: "5", can_renew: true },
+        } as never;
+      }
+      return {
+        items: [{ id: "123", group_name: "已购记录", price: "99.00" }],
+        total: 1,
+      } as never;
+    });
+  const w = mount(CommercePage, {
+    props: { client, kind: "memberships", area: "merchant" },
+  });
+  await flushPromises();
+  expect(w.text()).toContain("上次报价");
+  failCatalog = true;
+  await w
+    .findAll("button")
+    .find((b) => b.text() === "刷新")!
+    .trigger("click");
+  await flushPromises();
+  expect(w.text()).toContain("已购记录");
+  expect(w.text()).toContain("会员目录暂不可用");
+  expect(w.text()).not.toContain("上次报价");
+  expect(w.text()).not.toContain("黄金会员");
+  expect(
+    w
+      .findAll("button")
+      .find((b) => b.text() === "购买会员")!
+      .attributes("disabled"),
+  ).toBeDefined();
+  expect(request.mock.calls.every(([, options]) => !options?.method)).toBe(
+    true,
+  );
   w.unmount();
 });

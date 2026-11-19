@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { ApiClient, ApiError } from "../api";
 import type { PlatformPrinting, MerchantPrinting } from "../printing";
 import KitSelect from "./KitSelect.vue";
@@ -32,6 +32,13 @@ const mode = ref(0),
   voice = ref(false),
   deviceAction = ref("keep"),
   deviceID = ref("");
+const printingModeOptions = [
+  { value: "0", label: "不自动打印" },
+  { value: "1", label: "仅聚合收款订单" },
+  { value: "2", label: "全部普通支付订单" },
+];
+const confirmHeading = ref<HTMLHeadingElement>(),
+  reviewButton = ref<HTMLButtonElement>();
 const controller = new AbortController();
 let alive = true;
 const path = computed(() =>
@@ -143,7 +150,16 @@ function check() {
   if (!allowed.value || !loaded.value || busy.value || confirming.value) return;
   error.value = validationError();
   notice.value = "";
-  if (!error.value) confirming.value = true;
+  if (!error.value) {
+    confirming.value = true;
+    void nextTick(() => confirmHeading.value?.focus());
+  }
+}
+function cancelConfirmation() {
+  if (busy.value) return;
+  confirming.value = false;
+  clearPrivate();
+  void nextTick(() => reviewButton.value?.focus());
 }
 async function save() {
   if (!allowed.value || !loaded.value || busy.value || !confirming.value)
@@ -219,7 +235,8 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section
-    class="panel"
+    class="panel printing-settings"
+    :class="{ 'printing-settings--merchant': !admin }"
     :aria-label="title || (admin ? '平台打印配置' : '我的订单打印设置')"
   >
     <h2 v-if="title">{{ title }}</h2>
@@ -238,7 +255,10 @@ onBeforeUnmount(() => {
         }}
       </p>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
-      <p v-if="notice" role="status">{{ notice }}</p>
+      <p v-if="notice" :class="{ 'alert success': !admin }" role="status">
+        {{ notice }}
+      </p>
+      <p v-if="!admin && busy && !loaded" role="status">正在读取打印设置…</p>
 
       <form class="console-config-form" v-if="loaded" @submit.prevent="check">
         <fieldset :disabled="busy || confirming">
@@ -290,52 +310,91 @@ onBeforeUnmount(() => {
                   maxlength="512" /></label
             ></template>
           </template>
-          <template v-else>
-            <label
-              >自动打印范围<KitSelect
-                :model-value="String(mode)"
-                :options="[
-                  { value: '0', label: '不自动打印' },
-                  { value: '1', label: '仅聚合收款订单' },
-                  { value: '2', label: '全部普通支付订单' },
-                ]"
-                aria-label="自动打印范围"
-                @update:model-value="mode = Number($event)"
-            /></label>
-            <label
-              >每单份数<input
-                v-model.number="copies"
-                class="pa-input"
-                type="number"
-                min="1"
-                max="5"
-                required
-            /></label>
-            <label class="kit-row"
-              ><KitSwitch v-model="voice" label="语音播报"
-            /></label>
-            <p>已绑定设备：{{ merchant?.device_masked || "未配置" }}</p>
-            <CredentialActionControl
-              :model-value="deviceAction"
-              :configured="!!merchant?.device_present"
-              label="打印设备"
-              :disabled="busy || confirming"
-              :clear-disabled="mode !== 0"
-              clear-hint="请先将自动打印范围设为“不自动打印”，再清除设备。"
-              @update:model-value="setDeviceAction"
-            />
-            <label v-if="deviceAction === 'replace'"
-              >设备编号<input
-                v-model="deviceID"
-                autocomplete="off"
-                required
-                maxlength="128"
-            /></label>
-          </template>
-          <button type="submit">检查并保存打印设置</button>
+          <div v-else class="merchant-printing-fields">
+            <fieldset class="merchant-printing-card">
+              <legend>打印偏好</legend>
+              <label
+                >自动打印范围<KitSelect
+                  :model-value="String(mode)"
+                  :options="printingModeOptions"
+                  aria-label="自动打印范围"
+                  @update:model-value="mode = Number($event)"
+              /></label>
+              <label
+                >每单份数<input
+                  v-model.number="copies"
+                  class="pa-input"
+                  type="number"
+                  min="1"
+                  max="5"
+                  required
+              /></label>
+              <div class="kit-row">
+                <KitSwitch v-model="voice" label="语音播报" />
+              </div>
+            </fieldset>
+            <fieldset class="merchant-printing-card">
+              <legend>设备绑定</legend>
+              <p class="printing-device-state">
+                已绑定设备：{{ merchant?.device_masked || "未配置" }}
+              </p>
+              <CredentialActionControl
+                :model-value="deviceAction"
+                :configured="!!merchant?.device_present"
+                label="打印设备"
+                :disabled="busy || confirming"
+                :clear-disabled="mode !== 0"
+                clear-hint="请先将自动打印范围设为“不自动打印”，再清除设备。"
+                @update:model-value="setDeviceAction"
+              />
+              <label v-if="deviceAction === 'replace'"
+                >设备编号<input
+                  v-model="deviceID"
+                  autocomplete="off"
+                  required
+                  maxlength="128"
+              /></label>
+            </fieldset>
+          </div>
+          <button ref="reviewButton" type="submit" :class="{ primary: !admin }">
+            检查并保存打印设置
+          </button>
         </fieldset>
       </form>
-      <div v-if="confirming" class="alert">
+      <div
+        v-if="confirming"
+        class="alert"
+        :role="admin ? undefined : 'group'"
+        :aria-labelledby="admin ? undefined : 'merchant-printing-confirm-title'"
+      >
+        <h3
+          v-if="!admin"
+          id="merchant-printing-confirm-title"
+          ref="confirmHeading"
+          tabindex="-1"
+        >
+          核对打印设置
+        </h3>
+        <dl v-if="!admin" class="merchant-printing-preview">
+          <div>
+            <dt>自动打印范围</dt>
+            <dd>
+              {{
+                printingModeOptions.find(
+                  (option) => option.value === String(mode),
+                )?.label
+              }}
+            </dd>
+          </div>
+          <div>
+            <dt>每单份数</dt>
+            <dd>{{ copies }}</dd>
+          </div>
+          <div>
+            <dt>语音播报</dt>
+            <dd>{{ voice ? "开启" : "关闭" }}</dd>
+          </div>
+        </dl>
         <p>
           确认保存当前打印配置？{{
             admin
@@ -345,16 +404,75 @@ onBeforeUnmount(() => {
               : "仅影响配置生效后的新支付；不会补打历史订单。"
           }}
         </p>
-        <button
-          :disabled="busy"
-          @click="
-            confirming = false;
-            clearPrivate();
-          "
-        >
-          取消</button
-        ><button :disabled="busy" @click="save">确认保存</button>
+        <div class="printing-confirm-actions">
+          <button :disabled="busy" @click="cancelConfirmation">取消</button>
+          <button :disabled="busy" :class="{ primary: !admin }" @click="save">
+            确认保存
+          </button>
+        </div>
       </div>
     </template>
   </section>
 </template>
+<style scoped>
+.printing-settings--merchant form > fieldset {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.merchant-printing-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  gap: var(--space-4);
+  align-items: start;
+  margin-block: var(--space-5) var(--space-4);
+}
+.merchant-printing-card {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+.merchant-printing-card legend {
+  padding-inline: var(--space-2);
+  font-weight: 650;
+}
+.merchant-printing-card > label {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+.merchant-printing-card > label > input,
+.merchant-printing-card > label > :deep(.pa-select) {
+  margin: 0;
+  max-inline-size: min(100%, 16rem);
+  width: 100%;
+}
+.merchant-printing-card input[type="number"] {
+  max-inline-size: 7rem;
+}
+.printing-device-state {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.merchant-printing-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-5);
+}
+.merchant-printing-preview dt {
+  color: var(--muted);
+}
+.merchant-printing-preview dd {
+  margin: var(--space-1) 0 0;
+}
+.printing-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+</style>

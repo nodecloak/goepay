@@ -128,6 +128,21 @@ const title = computed(
       recharges: "余额充值",
     })[props.kind],
 );
+const recordTitle = computed(
+  () =>
+    ({
+      memberships: "会员购买记录",
+      deposits: "保证金记录",
+      recharges: "充值记录",
+    })[props.kind],
+);
+const checkout = computed(() => safePaymentUrl(receipt.value?.pay_url));
+const rechargeStatus = computed(() => {
+  const status = receipt.value?.status;
+  if (status === "pending") return "待支付";
+  if (status === "requires_query") return "支付状态待核对";
+  return displayValue(status);
+});
 const depositActionOptions = [
   { value: "hold", label: "转入保证金" },
   { value: "release", label: "申请释放保证金" },
@@ -260,8 +275,17 @@ async function load() {
       }
     }
   } catch (e) {
-    if (!c.signal.aborted)
-      error.value = e instanceof Error ? e.message : "业务记录读取失败";
+    if (c.signal.aborted) return;
+    if (props.area === "merchant") {
+      if (!recordsReady.value) {
+        items.value = [];
+        total.value = 0;
+        balances.value = {};
+      }
+      groups.value = [];
+      current.value = null;
+    }
+    error.value = e instanceof Error ? e.message : "业务记录读取失败";
   } finally {
     if (!c.signal.aborted) loading.value = false;
   }
@@ -364,7 +388,7 @@ onMounted(load);
 onBeforeUnmount(() => controller?.abort());
 </script>
 <template>
-  <div>
+  <div :class="{ 'merchant-commerce': area === 'merchant' }">
     <MerchantRechargeBalance
       v-if="area === 'merchant' && kind === 'recharges'"
       :client="client"
@@ -395,11 +419,15 @@ onBeforeUnmount(() => controller?.abort());
         <strong>{{ displayValue(balances.deposit_min_money) }}</strong>
         元，否则无法调用接口发起支付。
       </div>
-      <dl class="record-detail">
-        <dt>保证金余额（元）</dt>
-        <dd>{{ displayValue(balances.deposit_money) }}</dd>
-        <dt>释放申请中（元）</dt>
-        <dd>{{ displayValue(balances.pending_release_money) }}</dd>
+      <dl class="deposit-balances">
+        <div>
+          <dt>保证金余额（元）</dt>
+          <dd>{{ displayValue(balances.deposit_money) }}</dd>
+        </div>
+        <div>
+          <dt>释放申请中（元）</dt>
+          <dd>{{ displayValue(balances.pending_release_money) }}</dd>
+        </div>
       </dl>
       <div
         v-if="Number(balances.deposit_day) > 0"
@@ -413,18 +441,23 @@ onBeforeUnmount(() => controller?.abort());
     <section
       v-if="receipt && kind === 'recharges'"
       class="panel account-section"
+      aria-label="充值订单"
     >
       <h2>充值订单</h2>
-      <p>
-        订单号
-        <span class="pa-order-no">{{ displayValue(receipt.trade_no) }}</span> ·
-        状态
-        {{ displayValue(receipt.status) }}
-      </p>
+      <dl class="recharge-receipt">
+        <div>
+          <dt>订单号</dt>
+          <dd class="pa-order-no">{{ displayValue(receipt.trade_no) }}</dd>
+        </div>
+        <div>
+          <dt>状态</dt>
+          <dd>{{ rechargeStatus }}</dd>
+        </div>
+      </dl>
       <a
-        v-if="safePaymentUrl(receipt.pay_url)"
+        v-if="checkout"
         class="payment-link"
-        :href="safePaymentUrl(receipt.pay_url)"
+        :href="checkout"
         target="_blank"
         rel="noopener noreferrer"
         >前往收银台</a
@@ -495,8 +528,22 @@ onBeforeUnmount(() => controller?.abort());
         </article>
       </div>
     </section>
-    <section class="panel records">
+    <section
+      class="panel records"
+      :aria-label="area === 'merchant' ? recordTitle : undefined"
+    >
       <div class="table-tools">
+        <h2 v-if="area === 'merchant'" class="commerce-record-title">
+          {{ recordTitle }}
+        </h2>
+        <div
+          class="table-tools-end commerce-record-actions"
+          v-if="area === 'merchant'"
+        >
+          <button type="button" :disabled="loading" @click="load">
+            <ShellIcon name="refresh" />刷新
+          </button>
+        </div>
         <button
           type="button"
           class="primary"
@@ -509,7 +556,7 @@ onBeforeUnmount(() => controller?.abort());
         >
           <ShellIcon name="plus" />{{ title }}
         </button>
-        <div class="table-tools-end">
+        <div v-if="area === 'admin'" class="table-tools-end">
           <button type="button" :disabled="loading" @click="load">
             <ShellIcon name="refresh" />刷新
           </button>
@@ -525,7 +572,10 @@ onBeforeUnmount(() => controller?.abort());
         }}
       </p>
       <div v-if="loading" class="loading-row" role="status">正在读取记录…</div>
-      <DataTable v-else :columns="columns" :items="items"
+      <DataTable
+        v-else-if="recordsReady || area === 'admin'"
+        :columns="columns"
+        :items="items"
         ><template
           v-if="area === 'admin' && kind === 'deposits'"
           #actions="{ row }"
@@ -549,6 +599,7 @@ onBeforeUnmount(() => controller?.abort());
         ></DataTable
       >
       <KitPagination
+        v-if="recordsReady || area === 'admin'"
         v-model:page="page"
         v-model:page-size="limit"
         :total="total"
@@ -678,6 +729,55 @@ onBeforeUnmount(() => controller?.abort());
   </div>
 </template>
 <style scoped>
+.merchant-commerce {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.merchant-commerce > .panel {
+  max-width: none;
+  margin: 0;
+  min-width: 0;
+}
+.merchant-commerce > .alert,
+.deposit-balances + .alert {
+  margin: 0;
+}
+.deposit-balances,
+.recharge-receipt {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--space-4);
+  margin: 0 0 var(--space-4);
+}
+.deposit-balances > div,
+.recharge-receipt > div {
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+.deposit-balances dt,
+.recharge-receipt dt {
+  color: var(--muted);
+}
+.deposit-balances dd,
+.recharge-receipt dd {
+  margin: var(--space-2) 0 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.deposit-balances dd {
+  font-size: clamp(1.125rem, 2vw, 1.75rem);
+  font-weight: 650;
+}
+.commerce-record-title {
+  margin: 0;
+  font-size: 1rem;
+}
+.commerce-record-actions {
+  gap: 0;
+}
 .membership-offers {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
@@ -715,6 +815,7 @@ onBeforeUnmount(() => controller?.abort());
 .membership-current-value {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 6px;
 }
@@ -734,5 +835,19 @@ onBeforeUnmount(() => controller?.abort());
 }
 .membership-renew {
   margin-left: 8px;
+}
+@media (max-width: 600px) {
+  .merchant-commerce .table-tools > .primary {
+    flex-basis: 100%;
+  }
+  .membership-current-grid {
+    gap: var(--space-3);
+  }
+  .membership-current-divider {
+    display: none;
+  }
+  .membership-renew {
+    margin-left: 0;
+  }
 }
 </style>

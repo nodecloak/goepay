@@ -10,6 +10,7 @@ import {
 } from "../settlement-list";
 import SettlementRecordDetails from "./SettlementRecordDetails.vue";
 import KitStatusTag from "./KitStatusTag.vue";
+import MerchantRecords from "./MerchantRecords.vue";
 const props = defineProps<{
   items: Record<string, unknown>[];
   area: Area;
@@ -118,10 +119,14 @@ function checkAll(event: Event) {
 </script>
 <template>
   <p v-if="data.error" role="alert" class="alert error">{{ data.error }}</p>
-  <div v-else class="table-scroll original-settlement-list">
-    <table :class="area">
-      <thead>
-        <tr>
+  <MerchantRecords
+    v-else
+    :stacked="area === 'merchant'"
+    class="table-scroll original-settlement-list"
+  >
+    <table :class="area" role="table">
+      <thead role="rowgroup">
+        <tr role="row">
           <th v-if="area === 'admin'" scope="col">
             <span class="sr-only">选择</span
             ><input
@@ -143,9 +148,14 @@ function checkAll(event: Event) {
           </th>
         </tr>
       </thead>
-      <tbody>
-        <tr v-for="row in data.rows" :key="row.id" :data-settlement-id="row.id">
-          <td v-if="area === 'admin'">
+      <tbody role="rowgroup">
+        <tr
+          v-for="row in data.rows"
+          :key="row.id"
+          :data-settlement-id="row.id"
+          role="row"
+        >
+          <td v-if="area === 'admin'" role="cell">
             <input
               type="checkbox"
               :aria-label="'选择申请 ' + row.id"
@@ -160,7 +170,13 @@ function checkAll(event: Event) {
               "
             />
           </td>
-          <td v-for="column in columns" :key="column.key">
+          <td
+            v-for="column in columns"
+            :key="column.key"
+            role="cell"
+            :data-cell-label="column.label"
+            :data-cell-wide="column.key === 'status' ? '' : undefined"
+          >
             <button
               v-if="column.key === 'id'"
               type="button"
@@ -235,7 +251,7 @@ function checkAll(event: Event) {
               row[column.key as keyof SettlementListRow]
             }}</template>
           </td>
-          <td v-if="area === 'admin'" class="settlement-actions">
+          <td v-if="area === 'admin'" class="settlement-actions" role="cell">
             <div class="row-actions">
               <button
                 type="button"
@@ -280,9 +296,10 @@ function checkAll(event: Event) {
             </div>
           </td>
         </tr>
-        <tr v-if="!data.rows.length">
+        <tr v-if="!data.rows.length" role="row">
           <td
             class="empty"
+            role="cell"
             :colspan="columns.length + (area === 'admin' ? 2 : 0)"
           >
             暂无申请
@@ -290,8 +307,13 @@ function checkAll(event: Event) {
         </tr>
       </tbody>
     </table>
-  </div>
-  <SettlementRecordDetails v-if="detail" :row="detail" @close="closeDetail" />
+  </MerchantRecords>
+  <SettlementRecordDetails
+    v-if="detail"
+    :row="detail"
+    :area="area"
+    @close="closeDetail"
+  />
   <p v-if="confirmError" class="alert error" role="alert">
     {{ confirmError }}
   </p>
@@ -359,5 +381,14 @@ th.settlement-actions {
 .settlement-confirm-link {
   overflow-wrap: anywhere;
   font-size: 12px;
+}
+@container merchant-records (max-width: 760px) {
+  .original-settlement-list table.merchant {
+    min-width: 0;
+  }
+  .original-settlement-list table.merchant .link-button {
+    min-height: 42px;
+    white-space: normal;
+  }
 }
 </style>

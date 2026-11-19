@@ -151,9 +151,8 @@ test("recharge creates an unpaid order and never follows a non-HTTP payment URL"
     "仅在支付成功并核实回调后才会入账",
   );
   await expect(page.getByRole("link", { name: "前往收银台" })).toHaveCount(0);
-  await expect(
-    page.getByText("订单号 RECHARGE-1 · 状态 pending"),
-  ).toBeVisible();
+  const receipt = page.getByRole("region", { name: "充值订单", exact: true });
+  await expect(receipt.locator("dd")).toHaveText(["RECHARGE-1", "待支付"]);
 });
 test("browser recharge exposes supported browser scenes and rejects injected SDK or unknown scenes", async ({
   page,

@@ -3,6 +3,7 @@ import { computed, ref, onMounted } from "vue";
 import ShellIcon from "./ShellIcon.vue";
 import RichContent from "./RichContent.vue";
 import DailyWelcome from "./DailyWelcome.vue";
+import KitStatusTag from "./KitStatusTag.vue";
 import type { Area } from "../menu";
 import { displayValue, type ApiClient } from "../api";
 import { beijingTimestamp as consoleDateTime } from "../console-datetime";
@@ -95,6 +96,16 @@ const summary = computed(() => record(props.data.summary)),
   settlements = computed(() => list(props.data.recent_settlements));
 const feeSchedule = computed(() => record(props.data.fee_schedule)),
   channels = computed(() => list(props.data.payment_channels));
+const merchantState = computed(() => {
+  if (merchant.value.enabled === false)
+    return { label: "已停用", tone: "danger" } as const;
+  const pay = String(merchant.value.pay);
+  if (!merchant.value.id || !["0", "1", "2"].includes(pay))
+    return { label: "待确认", tone: "neutral" } as const;
+  if (pay === "2") return { label: "待审核", tone: "warning" } as const;
+  if (pay === "0") return { label: "支付受限", tone: "warning" } as const;
+  return { label: "正常", tone: "success" } as const;
+});
 function feePercent(value: unknown) {
   const s = String(value ?? "");
   if (!/^(0|[1-9][0-9]{0,4})$/.test(s) || BigInt(s) > 10000n)
@@ -141,6 +152,7 @@ const cards = computed(() =>
         {
           title: "商户当前余额",
           value: text(props.data.available_money),
+          unit: "元",
           sub: "已结算余额",
           extra: amount("settled_money"),
           icon: "wallet",
@@ -148,6 +160,7 @@ const cards = computed(() =>
         {
           title: "今日订单数",
           value: amount("today_orders"),
+          unit: "笔",
           sub: "成功订单数",
           extra: amount("today_paid_orders"),
           icon: "trade",
@@ -155,6 +168,7 @@ const cards = computed(() =>
         {
           title: "今日交易额",
           value: amount("today_money"),
+          unit: "元",
           sub: "昨日交易额",
           extra: amount("yesterday_money"),
           icon: "wallet",
@@ -162,6 +176,7 @@ const cards = computed(() =>
         {
           title: "今日转账支出",
           value: amount("today_transfer_money"),
+          unit: "元",
           sub: "昨日转账支出",
           extra: amount("yesterday_transfer_money"),
           icon: "wallet",
@@ -257,30 +272,34 @@ const taskLinks = computed(() => [
   { label: "待处理结算", count: todos.value.settlements, path: "/settle/list" },
   { label: "待处理付款", count: todos.value.transfers, path: "/transfer/list" },
 ]);
-const quickLinks = computed(() =>
-  props.area === "admin"
-    ? [
-        { label: "订单管理", path: "/trade/order" },
-        { label: "商户管理", path: "/merchant/merchant-list" },
-        ...(props.adminClass === "super"
-          ? [
-              { label: "系统设置", path: "/system/settings" },
-              { label: "清理缓存", path: "/system/clean" },
-            ]
-          : []),
-        { label: "返回首页", path: "/" },
-        { label: "修改密码", path: "/system/change-password" },
-      ]
-    : [
-        { label: "订单管理", path: "/trade/order" },
-        { label: "结算管理", path: "/settle/list" },
-        { label: "账户设置", path: "/account/settings" },
-        { label: "API 信息", path: "/account/api-info" },
-      ],
+const quickLinks = computed<{ label: string; path: string; icon?: string }[]>(
+  () =>
+    props.area === "admin"
+      ? [
+          { label: "订单管理", path: "/trade/order" },
+          { label: "商户管理", path: "/merchant/merchant-list" },
+          ...(props.adminClass === "super"
+            ? [
+                { label: "系统设置", path: "/system/settings" },
+                { label: "清理缓存", path: "/system/clean" },
+              ]
+            : []),
+          { label: "返回首页", path: "/" },
+          { label: "修改密码", path: "/system/change-password" },
+        ]
+      : [
+          { label: "订单管理", path: "/trade/order", icon: "trade" },
+          { label: "结算管理", path: "/settle/list", icon: "wallet" },
+          { label: "账户设置", path: "/account/settings", icon: "people" },
+          { label: "API 信息", path: "/account/api-info", icon: "st-doc" },
+        ],
 );
 </script>
 <template>
-  <div class="dashboard-overview">
+  <div
+    class="dashboard-overview"
+    :class="{ 'merchant-dashboard': area === 'merchant' }"
+  >
     <DailyWelcome
       v-if="area === 'merchant'"
       :content="String(data.welcome_notice ?? '')"
@@ -289,24 +308,16 @@ const quickLinks = computed(() =>
       :data-merchant-id="String(merchant.id ?? '')"
       :own-session="ownSession === true"
     />
-    <section v-if="area === 'merchant'" class="panel welcome">
-      <h2>欢迎回来，{{ text(merchant.name) }}</h2>
-      <p>
-        商户号：{{ text(merchant.id) }}
-        <span
-          >商户状态：{{
-            merchant.enabled === false
-              ? "已停用"
-              : !merchant.id || !["0", "1", "2"].includes(merchant.pay)
-                ? "待确认"
-                : merchant.pay === "2"
-                  ? "待审核"
-                  : merchant.pay === "0"
-                    ? "支付受限"
-                    : "正常"
-          }}</span
-        >
-      </p>
+    <section
+      v-if="area === 'merchant' && merchant.id"
+      class="merchant-dashboard-owner"
+      aria-label="商户概况"
+    >
+      <h2>{{ text(merchant.name) }}</h2>
+      <span class="muted"
+        >商户号 <code>{{ text(merchant.id) }}</code></span
+      >
+      <KitStatusTag :tone="merchantState.tone" :text="merchantState.label" />
     </section>
     <div
       v-if="area === 'merchant' && visibleTips.length"
@@ -335,15 +346,50 @@ const quickLinks = computed(() =>
       </div>
     </div>
     <div class="stat-grid">
-      <section v-for="card in cards" :key="card.title" class="panel stat">
+      <section
+        v-for="(card, index) in cards"
+        :key="card.title"
+        class="panel stat"
+        :class="{ 'merchant-balance-card': area === 'merchant' && index === 0 }"
+      >
         <span class="stat-icon"><ShellIcon :name="card.icon" /></span>
         <p>{{ card.title }}</p>
-        <strong>{{ card.value }}</strong>
+        <strong
+          >{{ card.value
+          }}<small v-if="'unit' in card && card.value !== '—'">{{
+            card.unit
+          }}</small></strong
+        >
         <p class="card-sub">
           {{ card.sub }} <b>{{ card.extra }}</b>
         </p>
+        <p
+          v-if="
+            area === 'merchant' &&
+            index === 0 &&
+            data.frozen_money !== undefined
+          "
+          class="merchant-balance-frozen"
+        >
+          冻结金额 <b>{{ text(data.frozen_money) }}</b>
+        </p>
       </section>
     </div>
+    <nav
+      v-if="area === 'merchant'"
+      class="merchant-dashboard-shortcuts"
+      aria-label="快捷操作"
+    >
+      <RouterLink
+        v-for="link in quickLinks"
+        :key="link.path"
+        :to="'/merchant' + link.path"
+      >
+        <ShellIcon :name="link.icon" />
+        <span>{{ link.label }}</span>
+        <ShellIcon class="shortcut-arrow" name="chevronRight" />
+      </RouterLink>
+    </nav>
     <div class="dashboard-columns">
       <section class="panel dashboard-trend">
         <div class="chart-header">
@@ -418,8 +464,11 @@ const quickLinks = computed(() =>
             </text>
           </g>
         </svg>
-        <p v-else class="empty">暂无数据</p>
+        <p v-else class="empty">
+          {{ area === "merchant" ? "近 7 日暂无交易记录" : "暂无数据" }}
+        </p>
         <button
+          v-if="area === 'admin' || trend.length"
           type="button"
           class="link-button"
           :aria-expanded="details"
@@ -515,7 +564,9 @@ const quickLinks = computed(() =>
             </p>
           </div>
         </div>
-        <p v-else class="empty">暂无数据</p>
+        <p v-else class="empty">
+          {{ area === "merchant" ? "今日暂无已支付订单" : "暂无数据" }}
+        </p>
       </section>
     </div>
     <div v-if="area === 'admin'" class="dashboard-columns">
@@ -566,8 +617,12 @@ const quickLinks = computed(() =>
         </div>
       </section>
     </div>
-    <div class="dashboard-columns">
-      <section class="panel dashboard-shortcuts">
+    <div
+      :class="
+        area === 'admin' ? 'dashboard-columns' : 'merchant-dashboard-notices'
+      "
+    >
+      <section v-if="area === 'admin'" class="panel dashboard-shortcuts">
         <h2>快捷操作</h2>
         <div>
           <template v-for="link in quickLinks" :key="link.path"
@@ -863,11 +918,106 @@ const quickLinks = computed(() =>
   margin: 0;
   overflow-wrap: anywhere;
 }
-.welcome h2 {
+.merchant-dashboard-owner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.merchant-dashboard-owner h2 {
+  margin: 0;
   overflow-wrap: anywhere;
 }
-.welcome span {
-  margin-left: 20px;
+.merchant-dashboard-owner code {
+  font-family: var(--font-mono);
+}
+.merchant-dashboard .stat {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+}
+.merchant-dashboard .stat strong {
+  font-size: clamp(20px, 2.15vw, 29px);
+  line-height: 1.35;
+}
+.merchant-dashboard .stat strong small {
+  margin-inline-start: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.merchant-dashboard .merchant-balance-card {
+  background: #173d70;
+  border-color: #365b91;
+  color: #eff6ff;
+}
+.merchant-dashboard .merchant-balance-card :is(p, strong, b, .stat-icon) {
+  color: #eff6ff;
+}
+.merchant-dashboard .stat.merchant-balance-card .card-sub b {
+  color: #eff6ff;
+}
+.merchant-dashboard .merchant-balance-card .stat-icon {
+  background: #34578a;
+}
+.merchant-balance-frozen {
+  margin: var(--space-1) 0 0;
+  font-size: 12px;
+}
+.merchant-dashboard-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.merchant-dashboard-shortcuts a {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 44px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  background: var(--bg-card);
+}
+.merchant-dashboard-shortcuts a:hover {
+  border-color: var(--primary);
+  background: var(--bg-hover);
+}
+.merchant-dashboard-shortcuts .shortcut-arrow {
+  margin-inline-start: auto;
+}
+.merchant-dashboard .dashboard-columns {
+  align-items: stretch;
+}
+.merchant-dashboard .payment-mix .mix-ring {
+  width: 144px;
+}
+@media (min-width: 1200px) {
+  .merchant-dashboard .stat-grid {
+    grid-template-columns: minmax(0, 1.35fr) repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 768px) {
+  .merchant-dashboard .stat-grid,
+  .merchant-dashboard-shortcuts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .merchant-dashboard .merchant-balance-card,
+  .merchant-dashboard .stat:last-child {
+    grid-column: 1 / -1;
+  }
+  .merchant-dashboard .panel {
+    padding: var(--space-4);
+  }
+  .merchant-dashboard .stat:not(.merchant-balance-card) p,
+  .merchant-dashboard .stat:not(.merchant-balance-card) strong {
+    padding-inline-end: 0;
+  }
+  .merchant-dashboard .stat:not(.merchant-balance-card) .stat-icon {
+    position: static;
+    margin-block: 0 var(--space-2);
+  }
 }
 .dashboard-tips {
   display: grid;
@@ -943,10 +1093,6 @@ const quickLinks = computed(() =>
   }
   .runtime-grid {
     gap: 10px;
-  }
-  .welcome span {
-    display: block;
-    margin-left: 0;
   }
   .dashboard-overview {
     gap: 14px;

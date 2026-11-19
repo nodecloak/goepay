@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { beijingTimestamp } from "../console-datetime";
 import KitStatusTag from "./KitStatusTag.vue";
+import MerchantRecords from "./MerchantRecords.vue";
 const props = defineProps<{ items: Record<string, unknown>[] }>();
 const states: Record<string, string> = {
   pending: "待审核",
@@ -78,14 +79,14 @@ const data = computed(() => {
 </script>
 <template>
   <p v-if="data.error" class="alert error" role="alert">{{ data.error }}</p>
-  <div
+  <MerchantRecords
     v-else
     class="table-scroll internal-transfer-table"
     aria-label="站内转账记录"
   >
-    <table>
-      <thead>
-        <tr>
+    <table role="table">
+      <thead role="rowgroup">
+        <tr role="row">
           <th
             v-for="label in [
               'ID',
@@ -104,30 +105,43 @@ const data = computed(() => {
           </th>
         </tr>
       </thead>
-      <tbody>
-        <tr v-for="row in data.rows" :key="row.id" :data-transfer-id="row.id">
-          <td>{{ row.id }}</td>
-          <td>{{ row.direction === "in" ? "转入" : "转出" }}</td>
-          <td>{{ row.peer }}</td>
-          <td :class="row.direction === 'in' ? 'incoming' : 'outgoing'">
+      <tbody role="rowgroup">
+        <tr
+          v-for="row in data.rows"
+          :key="row.id"
+          :data-transfer-id="row.id"
+          role="row"
+        >
+          <td data-cell-label="ID" role="cell">{{ row.id }}</td>
+          <td data-cell-label="方向" role="cell">
+            {{ row.direction === "in" ? "转入" : "转出" }}
+          </td>
+          <td data-cell-label="对方商户" role="cell">{{ row.peer }}</td>
+          <td
+            data-cell-label="金额"
+            :class="row.direction === 'in' ? 'incoming' : 'outgoing'"
+            role="cell"
+          >
             {{ row.direction === "in" ? "+" : "-" }}{{ row.amount }}
           </td>
-          <td>
+          <td data-cell-label="状态" role="cell">
             <KitStatusTag
               :text="row.status"
               :tone="stateTones[row.state] || 'neutral'"
             />
           </td>
-          <td class="transfer-remark">{{ row.remark }}</td>
-          <td>{{ row.created }}</td>
-          <td>{{ row.completed }}</td>
+          <td class="transfer-remark" data-cell-label="备注" role="cell">
+            {{ row.remark }}
+          </td>
+          <td data-cell-label="提交时间" role="cell">{{ row.created }}</td>
+          <td data-cell-label="完成时间" role="cell">{{ row.completed }}</td>
         </tr>
-        <tr v-if="!data.rows.length">
-          <td class="empty" colspan="8">暂无站内转账记录</td>
+        <tr v-if="!data.rows.length" role="row">
+          <td class="empty" colspan="8" role="cell">暂无站内转账记录</td>
         </tr>
       </tbody>
     </table>
-  </div>
+  </MerchantRecords>
 </template>
 <style scoped>
 .internal-transfer-table {

@@ -709,7 +709,11 @@ onBeforeUnmount(() => {
     @query="applyFilters"
     @reset="resetFilters"
   />
-  <section ref="recordsPanel" class="panel records">
+  <section
+    ref="recordsPanel"
+    class="panel records"
+    :class="{ 'merchant-transfer-records': area === 'merchant' }"
+  >
     <div class="table-tools">
       <button
         type="button"
@@ -833,7 +837,10 @@ onBeforeUnmount(() => {
     @submit="submit"
   >
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-    <dl class="record-detail">
+    <dl
+      class="record-detail"
+      :class="{ 'merchant-transfer-review': area === 'merchant' }"
+    >
       <dt>付款方式</dt>
       <dd>{{ transferTypeLabel[form.type] || form.type }}</dd>
       <dt>付款通道</dt>
@@ -905,6 +912,7 @@ onBeforeUnmount(() => {
     <div v-if="error" class="alert error" role="alert">{{ error }}</div>
     <div
       class="transfer-tabs"
+      :class="{ 'merchant-transfer-tabs': area === 'merchant' }"
       role="tablist"
       aria-label="付款方式"
       @keydown="tabKeydown"
@@ -944,6 +952,7 @@ onBeforeUnmount(() => {
     <div
       id="transfer-form"
       class="transfer-form"
+      :class="{ 'merchant-transfer-form': area === 'merchant' }"
       role="tabpanel"
       :aria-labelledby="'transfer-tab-' + form.type"
     >
@@ -1210,6 +1219,38 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   overflow-wrap: anywhere;
 }
+.merchant-transfer-records .table-tools {
+  flex-wrap: wrap;
+}
+.merchant-transfer-review {
+  padding: var(--space-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow-wrap: anywhere;
+}
+.transfer-tabs.merchant-transfer-tabs {
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding: var(--space-2);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.transfer-tabs.merchant-transfer-tabs [role="tab"] {
+  min-height: 38px;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+.transfer-tabs.merchant-transfer-tabs [role="tab"][aria-selected="true"] {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+.merchant-transfer-form :deep(.pa-field) {
+  min-width: 0;
+}
 .transfer-statistics .stat-grid > div {
   min-width: 0;
 }
@@ -1299,6 +1340,13 @@ onBeforeUnmount(() => {
 @media (max-width: 520px) {
   .transfer-note {
     margin-left: 0;
+  }
+  .transfer-tabs.merchant-transfer-tabs [role="tab"] {
+    min-height: 42px;
+    flex: 1 1 auto;
+  }
+  .merchant-transfer-review {
+    padding: var(--space-3);
   }
 }
 </style>

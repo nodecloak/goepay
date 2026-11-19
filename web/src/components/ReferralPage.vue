@@ -4,6 +4,8 @@ import { ApiClient } from "../api";
 import { validPromotionToken, referralAmount, referralID } from "../referral";
 import ReferralDailyQueue from "./ReferralDailyQueue.vue";
 import ReferralCurrentPolicyCard from "./ReferralCurrentPolicyCard.vue";
+import MerchantRecords from "./MerchantRecords.vue";
+import KitStatusTag from "./KitStatusTag.vue";
 const props = defineProps<{ client: ApiClient }>();
 interface Token {
   id: string;
@@ -239,19 +241,10 @@ onBeforeUnmount(() => {
       <span
         >奖励来自原付款订单的已固定条款，奖励不超过原订单手续费；即时与按日奖励分别核对，任意成功退款将撤销整笔原奖励。历史发放、撤销和退款暂存流水不代表当前可提现余额。</span
       >
-      <span class="referral-note-actions">
-        <span v-if="loading" role="status" class="muted"
-          >正在核对邀请资料…</span
-        >
-      </span>
     </div>
+    <p v-if="loading" role="status" class="muted">正在核对邀请资料…</p>
     <p v-if="error" role="alert" class="alert error">{{ error }}</p>
     <p v-if="notice" role="status" class="alert success">{{ notice }}</p>
-    <ReferralCurrentPolicyCard
-      v-if="token && referralID(token.merchant_id)"
-      :client="client"
-      :merchant-i-d="token.merchant_id"
-    />
     <dl v-if="summary" class="stat-grid referral-stats">
       <div v-for="(label, key) in summaryLabels" :key="key" class="panel stat">
         <dt>{{ label }}</dt>
@@ -264,68 +257,101 @@ onBeforeUnmount(() => {
         </dd>
       </div>
     </dl>
-    <section
-      v-if="token"
-      class="panel referral-token"
-      aria-label="推广令牌管理"
-    >
-      <h3>推广链接</h3>
-      <p>
-        推广令牌用于新注册邀请关系，与注册准入邀请码独立。仅本人可发行、轮换或撤销；不能代他人绑定关系。
-      </p>
-      <p>
-        当前版本 {{ token.version }}；{{
-          token.enabled ? (tokenLive ? "有效" : "已过期") : "未启用"
-        }}
-        <code>{{ token.masked }}</code
-        ><span v-if="token.expires_at"
-          >，有效至 {{ new Date(token.expires_at).toLocaleString() }}</span
-        >。
-      </p>
-      <button
-        :disabled="busy || loading || uncertain"
-        @click="
-          action = 'rotate';
-          issuedURL = '';
-        "
-      >
-        发行或轮换推广令牌</button
-      ><button
-        v-if="token.enabled"
-        :disabled="busy || loading || uncertain"
-        @click="
-          action = 'revoke';
-          issuedURL = '';
-        "
-      >
-        撤销推广令牌
-      </button>
-      <div v-if="action" class="alert">
+    <div v-if="token" class="referral-settings">
+      <section class="panel referral-token" aria-label="推广令牌管理">
+        <header>
+          <h2>推广链接</h2>
+          <KitStatusTag
+            :text="token.enabled ? (tokenLive ? '有效' : '已过期') : '未启用'"
+            :tone="tokenLive ? 'success' : 'neutral'"
+          />
+        </header>
         <p>
-          {{
-            action === "rotate"
-              ? "新链接将作废所有旧链接。完整令牌仅本次返回，请确认后自行保管。"
-              : "撤销后旧链接立即停止建立新关系，已绑定关系不变。"
-          }}
+          推广令牌用于新注册邀请关系，与注册准入邀请码独立。仅本人可发行、轮换或撤销；不能代他人绑定关系。
         </p>
-        <button :disabled="busy" @click="action = ''">取消</button
-        ><button :disabled="busy" @click="changeToken">
-          {{
-            action === "rotate" ? "确认轮换并作废旧链接" : "确认撤销推广令牌"
-          }}
-        </button>
-      </div>
-      <div v-if="issuedURL">
-        <label
-          >本次推广链接<input
-            type="password"
-            readonly
-            :value="issuedURL"
-            autocomplete="off" /></label
-        ><button @click="copy">复制本次推广链接</button
-        ><button @click="issuedURL = ''">清除本次链接</button>
-      </div>
-    </section>
+        <dl class="referral-token-facts">
+          <div>
+            <dt>当前版本</dt>
+            <dd>{{ token.version }}</dd>
+          </div>
+          <div v-if="token.masked">
+            <dt>令牌</dt>
+            <dd>
+              <code>{{ token.masked }}</code>
+            </dd>
+          </div>
+          <div v-if="token.expires_at">
+            <dt>有效期至</dt>
+            <dd>{{ new Date(token.expires_at).toLocaleString() }}</dd>
+          </div>
+        </dl>
+        <div class="referral-actions">
+          <button
+            type="button"
+            :disabled="busy || loading || uncertain"
+            @click="
+              action = 'rotate';
+              issuedURL = '';
+            "
+          >
+            发行或轮换推广令牌</button
+          ><button
+            v-if="token.enabled"
+            type="button"
+            :disabled="busy || loading || uncertain"
+            @click="
+              action = 'revoke';
+              issuedURL = '';
+            "
+          >
+            撤销推广令牌
+          </button>
+        </div>
+        <div v-if="action" class="alert referral-confirm">
+          <p>
+            {{
+              action === "rotate"
+                ? "新链接将作废所有旧链接。完整令牌仅本次返回，请确认后自行保管。"
+                : "撤销后旧链接立即停止建立新关系，已绑定关系不变。"
+            }}
+          </p>
+          <div class="referral-actions">
+            <button type="button" :disabled="busy" @click="action = ''">
+              取消</button
+            ><button
+              type="button"
+              class="primary"
+              :disabled="busy"
+              @click="changeToken"
+            >
+              {{
+                action === "rotate"
+                  ? "确认轮换并作废旧链接"
+                  : "确认撤销推广令牌"
+              }}
+            </button>
+          </div>
+        </div>
+        <div v-if="issuedURL" class="referral-secret">
+          <label
+            >本次推广链接<input
+              type="password"
+              readonly
+              :value="issuedURL"
+              autocomplete="off"
+          /></label>
+          <div class="referral-actions">
+            <button type="button" @click="copy">复制本次推广链接</button>
+            <button type="button" @click="issuedURL = ''">清除本次链接</button>
+          </div>
+        </div>
+      </section>
+      <ReferralCurrentPolicyCard
+        v-if="referralID(token.merchant_id)"
+        :client="client"
+        :merchant-i-d="token.merchant_id"
+      />
+    </div>
     <ReferralDailyQueue
       v-if="dailyAvailable && token"
       :client="client"
@@ -336,31 +362,35 @@ onBeforeUnmount(() => {
       <div class="table-tools">
         <h3 class="referral-sublist-title">已邀请商户</h3>
       </div>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
+      <MerchantRecords v-if="invitees.length" class="table-scroll">
+        <table role="table">
+          <thead role="rowgroup">
+            <tr role="row">
               <th>关系ID</th>
               <th>商户ID</th>
               <th>注册时间</th>
               <th>令牌版本</th>
             </tr>
           </thead>
-          <tbody>
-            <tr v-for="row in invitees" :key="row.id">
-              <td>{{ row.id }}</td>
-              <td>{{ row.invited_id }}</td>
-              <td>{{ row.created_at }}</td>
-              <td>{{ row.token_version }}</td>
+          <tbody role="rowgroup">
+            <tr v-for="row in invitees" :key="row.id" role="row">
+              <td data-cell-label="关系 ID" role="cell">{{ row.id }}</td>
+              <td data-cell-label="商户 ID" role="cell">
+                {{ row.invited_id }}
+              </td>
+              <td data-cell-label="注册时间" role="cell">
+                {{ row.created_at }}
+              </td>
+              <td data-cell-label="令牌版本" role="cell">
+                {{ row.token_version }}
+              </td>
             </tr>
           </tbody>
         </table>
-      </div>
-      <p v-if="!loading && !invitees.length" class="referral-empty">
-        暂无邀请关系
-      </p>
-      <div class="pa-pager">
-        <span class="pa-pager-total">共 {{ invitees.length }} 条</span>
+      </MerchantRecords>
+      <p v-else-if="!loading && !error" class="referral-empty">暂无邀请关系</p>
+      <div v-if="invitees.length || inviteCursor !== '0'" class="pa-pager">
+        <span class="pa-pager-total">本页 {{ invitees.length }} 条</span>
         <div>
           <button
             :disabled="loading || busy || inviteCursor === '0'"
@@ -386,10 +416,10 @@ onBeforeUnmount(() => {
       <div class="table-tools">
         <h3 class="referral-sublist-title">邀请奖励流水</h3>
       </div>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
+      <MerchantRecords v-if="rewards.length" class="table-scroll">
+        <table role="table">
+          <thead role="rowgroup">
+            <tr role="row">
               <th>奖励ID</th>
               <th>原订单号</th>
               <th>受邀商户</th>
@@ -398,23 +428,43 @@ onBeforeUnmount(() => {
               <th>时间</th>
             </tr>
           </thead>
-          <tbody>
-            <tr v-for="row in rewards" :key="row.id">
-              <td>{{ row.id }}</td>
-              <td class="pa-order-no">{{ row.trade_no }}</td>
-              <td>{{ row.invited_id }}</td>
-              <td>{{ referralAmount(row.amount) }}</td>
-              <td>{{ states[row.state] }}</td>
-              <td>{{ row.created_at }}</td>
+          <tbody role="rowgroup">
+            <tr v-for="row in rewards" :key="row.id" role="row">
+              <td data-cell-label="奖励 ID" role="cell">{{ row.id }}</td>
+              <td
+                class="pa-order-no"
+                data-cell-label="原订单号"
+                data-cell-wide
+                role="cell"
+              >
+                {{ row.trade_no }}
+              </td>
+              <td data-cell-label="受邀商户" role="cell">
+                {{ row.invited_id }}
+              </td>
+              <td data-cell-label="原发放金额（元）" role="cell">
+                {{ referralAmount(row.amount) }}
+              </td>
+              <td data-cell-label="状态" role="cell">
+                <KitStatusTag
+                  :text="states[row.state]"
+                  :tone="
+                    row.state === 'active'
+                      ? 'success'
+                      : row.state === 'recovery_pending'
+                        ? 'warning'
+                        : 'neutral'
+                  "
+                />
+              </td>
+              <td data-cell-label="时间" role="cell">{{ row.created_at }}</td>
             </tr>
           </tbody>
         </table>
-      </div>
-      <p v-if="!loading && !rewards.length" class="referral-empty">
-        暂无奖励流水
-      </p>
-      <div class="pa-pager">
-        <span class="pa-pager-total">共 {{ rewards.length }} 条</span>
+      </MerchantRecords>
+      <p v-else-if="!loading && !error" class="referral-empty">暂无奖励流水</p>
+      <div v-if="rewards.length || rewardCursor !== '0'" class="pa-pager">
+        <span class="pa-pager-total">本页 {{ rewards.length }} 条</span>
         <div>
           <button
             :disabled="loading || busy || rewardCursor === '0'"
@@ -442,44 +492,66 @@ onBeforeUnmount(() => {
 .referral {
   min-width: 0;
 }
-/* The note on the left, the page's reload action at its right end. */
-.referral-note {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-4);
+.referral-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  align-items: start;
+  gap: var(--space-4);
 }
-.referral-note-actions {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-3);
-}
-.referral-note-actions .pa-btn {
-  min-height: var(--control-h);
-}
-/* Cards in the column are spaced by the 16px gap only: the policy card's own
-   1rem margin and the totals list's default margins doubled it. */
-.referral > .current-policy,
+.referral-settings > .current-policy,
 .referral > .referral-stats {
   margin: 0;
 }
 .referral-token {
   min-width: 0;
 }
-.referral-token button {
-  min-height: var(--control-h);
-  margin: 0.3rem 0.5rem 0.3rem 0;
+.referral-actions,
+.referral-token > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
 }
-.referral-token input {
+.referral-token > header {
+  justify-content: space-between;
+}
+.referral-token h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+.referral-token-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 115px), 1fr));
+  gap: var(--space-3);
+  margin-block: var(--space-4);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+.referral-token-facts dt {
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+}
+.referral-token-facts dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+.referral-secret {
+  margin-top: var(--space-4);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-3);
+}
+.referral-secret input {
   display: block;
-  max-width: 100%;
   width: 100%;
-  min-height: var(--control-h);
+  min-width: 0;
+  margin-bottom: var(--space-2);
 }
-.referral-token > h3 {
-  margin: 0 0 var(--space-3);
+.referral-confirm {
+  margin-top: var(--space-3);
+}
+.referral-confirm p {
+  margin-top: 0;
 }
 .referral-token p {
   overflow-wrap: anywhere;
@@ -516,8 +588,10 @@ onBeforeUnmount(() => {
   padding: var(--space-3) var(--space-5);
   color: var(--ink-muted);
 }
-.referral table {
-  min-width: 580px;
+@media (max-width: 600px) {
+  .referral-actions > button {
+    min-height: 44px;
+  }
 }
 .table-scroll {
   overflow: auto;

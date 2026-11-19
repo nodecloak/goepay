@@ -193,6 +193,7 @@ onBeforeUnmount(() => {
 <template>
   <section
     class="panel notice-settings"
+    :class="{ 'notice-settings--merchant': !admin }"
     :aria-label="title || (admin ? '商户消息提醒设置' : '消息提醒设置')"
   >
     <h2 v-if="title">{{ title }}</h2>
@@ -209,7 +210,7 @@ onBeforeUnmount(() => {
         ><button :disabled="busy" @click="selectMerchant">读取商户设置</button>
       </div>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
-      <p v-if="notice" role="status">{{ notice }}</p>
+      <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
 
       <p v-if="busy" role="status">正在处理…</p>
       <form
@@ -311,16 +312,25 @@ onBeforeUnmount(() => {
         </fieldset>
         <fieldset :disabled="busy">
           <legend>接收设置</legend>
-          <p>
+          <p v-if="admin">
             接收邮箱：{{ state.email_masked || "未设置，请先完善账户资料" }}
           </p>
-          <p class="muted">
-            业务短信手机：{{
-              state.target_masks.bind_mobile || "未验证绑定"
-            }}。<a v-if="!admin" href="/merchant/account/settings"
-              >验证绑定手机</a
-            >
+          <p v-if="admin" class="muted">
+            业务短信手机：{{ state.target_masks.bind_mobile || "未验证绑定" }}。
           </p>
+          <div v-else class="notice-recipients">
+            <dl>
+              <div>
+                <dt>接收邮箱</dt>
+                <dd>{{ state.email_masked || "未设置" }}</dd>
+              </div>
+              <div>
+                <dt>业务短信手机</dt>
+                <dd>{{ state.target_masks.bind_mobile || "未验证绑定" }}</dd>
+              </div>
+            </dl>
+            <a href="/merchant/account/settings">前往账户设置管理绑定</a>
+          </div>
           <div class="notice-grid">
             <div
               v-for="[key, title] in noticeTargets"
@@ -352,7 +362,9 @@ onBeforeUnmount(() => {
             AppID。保存设置后按平台可用通道发送；保存操作不会立即发送消息。
           </p>
         </fieldset>
-        <button type="submit" :disabled="busy">保存设置</button>
+        <button type="submit" :class="{ primary: !admin }" :disabled="busy">
+          保存设置
+        </button>
       </form>
       <MerchantNoticeEvents v-if="path" :client="client" :path="path" />
     </template>
@@ -363,6 +375,7 @@ onBeforeUnmount(() => {
   margin: 0.5rem 0 1rem;
 }
 .notice-matrix-scroll {
+  container: notice-matrix / inline-size;
   overflow-x: auto;
 }
 .notice-matrix {
@@ -409,6 +422,10 @@ onBeforeUnmount(() => {
 .notice-matrix-cell--off label {
   cursor: not-allowed;
 }
+.notice-settings--merchant .notice-matrix-cell:has(input:checked) {
+  box-shadow: inset 0 0 0 1px var(--primary-text);
+  background: var(--primary-soft);
+}
 .notice-matrix-reason {
   font-size: 11px;
   line-height: 1.3;
@@ -436,7 +453,7 @@ onBeforeUnmount(() => {
   width: 100%;
   min-width: 0;
 }
-@media (max-width: 600px) {
+@container notice-matrix (max-width: 800px) {
   .notice-matrix,
   .notice-matrix tbody {
     display: block;
@@ -488,6 +505,41 @@ onBeforeUnmount(() => {
     overflow-wrap: anywhere;
     line-height: 1.5;
   }
+}
+.notice-settings--merchant .console-config-form {
+  max-inline-size: none;
+}
+.notice-settings--merchant fieldset {
+  border-radius: var(--radius-lg);
+}
+.notice-settings--merchant legend {
+  padding-inline: var(--space-2);
+  font-weight: 650;
+}
+.notice-recipients {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4);
+  background: var(--bg-raised);
+  border-radius: var(--radius-md);
+}
+.notice-recipients dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+  min-width: 0;
+}
+.notice-recipients dt {
+  color: var(--muted);
+}
+.notice-recipients dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
 }
 .notice-checkbox {
   display: flex;

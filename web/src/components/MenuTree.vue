@@ -12,7 +12,7 @@ const props = withDefaults(
   }>(),
   { collapsed: false, level: 0 },
 );
-const emit = defineEmits<{ expand: [] }>();
+const emit = defineEmits<{ expand: []; select: [path: string] }>();
 const opened = ref("");
 function contains(node: MenuNode): boolean {
   return node.path === props.active || node.children.some(contains);
@@ -55,12 +55,14 @@ function toggle(id: string) {
           :active="active"
           :level="level + 1"
           @expand="emit('expand')"
+          @select="emit('select', $event)"
         />
       </details>
       <RouterLink
         v-else
         :to="'/' + area + node.path"
         :aria-current="active === node.path ? 'page' : undefined"
+        @click="emit('select', node.path)"
         :title="collapsed ? node.title : undefined"
         ><ShellIcon v-if="level === 0" :name="node.id" /><span
           v-else

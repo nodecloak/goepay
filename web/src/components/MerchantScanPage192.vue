@@ -9,6 +9,7 @@ import {
 } from "vue";
 import { ApiClient, validAmount } from "../api";
 import { nativeClient202, nativeScan202 } from "../native-scan202";
+import KitModal from "./KitModal.vue";
 
 interface CashierResult {
   request_id: string;
@@ -41,7 +42,7 @@ const busy = ref(false),
   pending = ref(""),
   result = ref<CashierResult | null>(null);
 const video = ref<HTMLVideoElement | null>(null),
-  remarkInput = ref<HTMLInputElement | null>(null);
+  cameraActive = ref(false);
 const initialCSRF = props.client.csrfToken,
   storageKey = "goepay.scan192." + props.merchantID;
 const terminal = computed(
@@ -80,6 +81,7 @@ function stopCamera() {
   cancelAnimationFrame(frame);
   stream?.getTracks().forEach((t) => t.stop());
   stream = undefined;
+  cameraActive.value = false;
   if (video.value) video.value.srcObject = null;
 }
 function cancelScan() {
@@ -277,7 +279,11 @@ function editRemark() {
   if (!canStart.value) return;
   draft.value = remark.value;
   editing.value = true;
-  void nextTick(() => remarkInput.value?.focus());
+}
+function saveRemark() {
+  if (!canStart.value) return;
+  remark.value = draft.value;
+  editing.value = false;
 }
 async function camera() {
   if (!canStart.value || !scanning.value) return;
@@ -313,6 +319,7 @@ async function camera() {
       return;
     }
     stream = acquired;
+    cameraActive.value = true;
     await nextTick();
     if (!video.value) {
       stopCamera();
@@ -432,7 +439,13 @@ onBeforeUnmount(() => {
       <p v-if="!ownSession" class="alert warning">
         请使用商户本人会话收款，代登录不可发起扣款。
       </p>
-      <p v-if="error" role="alert" class="alert error">{{ error }}</p>
+      <p
+        v-if="error && (!scanning || pending)"
+        role="alert"
+        class="alert error"
+      >
+        {{ error }}
+      </p>
       <template v-if="!pending">
         <label class="scan-amount192"
           >收款金额<span
@@ -528,54 +541,35 @@ onBeforeUnmount(() => {
         </p>
       </template>
     </section>
-    <div v-if="editing" class="scan-overlay192" @keydown.esc="editing = false">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label="添加收款备注"
-        class="scan-dialog192"
-      >
-        <h2>添加备注</h2>
-        <label
-          >收款备注<input
-            ref="remarkInput"
-            v-model="draft"
-            maxlength="80"
-            @keydown.enter="
-              remark = draft;
-              editing = false;
-            "
-        /></label>
-        <div class="scan-dialog-actions192">
-          <button @click="editing = false">取消备注</button
-          ><button
-            class="primary"
-            @click="
-              remark = draft;
-              editing = false;
-            "
-          >
-            确认备注
-          </button>
-        </div>
-      </section>
-    </div>
-    <div
-      v-if="scanning && !pending"
-      class="scan-overlay192"
-      @keydown.esc="cancelScan"
+    <KitModal
+      v-if="editing"
+      title="添加收款备注"
+      cancel-text="取消备注"
+      submit-text="确认备注"
+      width="28rem"
+      @close="editing = false"
+      @submit="saveRemark"
     >
-      <form
-        class="scan-dialog192"
-        role="dialog"
-        aria-modal="true"
-        aria-label="扫描付款码"
-        @submit.prevent="prepare"
-      >
-        <h2>扫描付款码</h2>
-        <p>请顾客出示微信或支付宝付款码</p>
+      <label class="scan-dialog-field"
+        >收款备注<input v-model="draft" maxlength="80"
+      /></label>
+    </KitModal>
+    <KitModal
+      v-if="scanning && !pending"
+      title="扫描付款码"
+      cancel-text="取消扫码"
+      submit-text="核对收款"
+      width="28rem"
+      :loading="busy"
+      :submit-disabled="nativeBusy || !code"
+      @close="cancelScan"
+      @submit="prepare"
+    >
+      <div class="scan-dialog-body">
+        <p>请顾客出示微信或支付宝付款码。</p>
         <p v-if="nativeBusy" role="status">正在等待原生扫码结果…</p>
-        <video ref="video" muted playsinline /><label
+        <video v-show="cameraActive" ref="video" muted playsinline />
+        <label class="scan-dialog-field"
           >付款码<input
             v-model="code"
             inputmode="numeric"
@@ -587,22 +581,15 @@ onBeforeUnmount(() => {
         <button type="button" :disabled="busy || nativeBusy" @click="camera">
           使用摄像头
         </button>
-        <div class="scan-dialog-actions192">
-          <button type="button" :disabled="busy" @click="cancelScan">
-            取消扫码</button
-          ><button class="primary" :disabled="busy || nativeBusy || !code">
-            核对收款
-          </button>
-        </div>
-      </form>
-    </div>
+      </div>
+    </KitModal>
   </main>
 </template>
 <style scoped>
 .scan-cashier192 {
   min-height: 100dvh;
   background: var(--bg-raised);
-  padding: 20px 16px;
+  padding: clamp(1rem, 4vw, 2rem) var(--space-4);
   color: var(--ink);
   box-sizing: border-box;
 }
@@ -613,10 +600,11 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
 .scan-cashier192 h1 {
   font-size: 18px;
-  font-weight: 500;
+  font-weight: 650;
   margin: 0;
 }
 .scan-cashier192 a {
@@ -628,7 +616,8 @@ onBeforeUnmount(() => {
   max-width: 460px;
   margin: auto;
   background: var(--bg-card);
-  border-radius: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
   padding: 24px;
   box-sizing: border-box;
 }
@@ -652,8 +641,9 @@ onBeforeUnmount(() => {
   padding: 0;
   width: 100%;
   min-width: 0;
-  font-size: 42px;
+  font-size: clamp(1.75rem, 6vw, 2.625rem);
   font-weight: 500;
+  font-family: var(--font-mono);
   color: var(--ink);
 }
 .remark192 {
@@ -666,16 +656,16 @@ onBeforeUnmount(() => {
 .scan-keypad192 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  background: var(--line);
-  margin: 12px -8px 20px;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-4);
 }
 .scan-keypad192 button {
-  border: 0;
-  border-radius: 0;
-  font-size: 26px;
-  height: 65px;
-  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 1.375rem;
+  height: clamp(3rem, 9dvh, 4rem);
+  background: var(--bg-raised);
   box-shadow: none;
 }
 .scan-main192 {
@@ -698,49 +688,26 @@ onBeforeUnmount(() => {
 .scan-card192 > button:not(.remark192) {
   margin: 6px 0;
 }
-.scan-overlay192 {
-  position: fixed;
-  inset: 0;
-  z-index: 1300;
-  background: var(--scrim);
+.scan-dialog-body,
+.scan-dialog-field {
   display: grid;
-  place-items: center;
-  padding: 16px;
+  gap: var(--space-3);
+  align-items: start;
 }
-.scan-dialog192 {
-  width: min(100%, 380px);
-  box-sizing: border-box;
-  background: var(--bg-card);
-  padding: 22px;
-  border-radius: 8px;
-}
-.scan-dialog192 h2 {
-  font-size: 18px;
-  font-weight: 500;
-  margin: 0 0 18px;
-}
-.scan-dialog192 label {
-  display: block;
-}
-.scan-dialog192 input {
-  display: block;
+.scan-dialog-field input {
   width: 100%;
-  box-sizing: border-box;
-  margin: 10px 0;
+  min-width: 0;
 }
-.scan-dialog-actions192 {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 16px;
-}
-.scan-dialog192 video {
+.scan-dialog-body video {
   max-width: 100%;
   max-height: 200px;
-  display: block;
+  border-radius: var(--radius-md);
 }
-.scan-dialog192 video:not([src]) {
-  height: auto;
+.scan-dialog-body > p {
+  margin: 0;
+}
+.scan-dialog-body > button {
+  justify-self: start;
 }
 .scan-card192 .muted {
   font-size: 13px;
@@ -752,9 +719,6 @@ onBeforeUnmount(() => {
   }
   .scan-card192 {
     padding: 20px;
-  }
-  .scan-keypad192 button {
-    height: 68px;
   }
 }
 </style>

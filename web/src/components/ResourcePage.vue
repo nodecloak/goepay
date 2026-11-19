@@ -14,6 +14,7 @@ import { isOrderNumberKey } from "../order-number";
 import { beijingTimestamp } from "../console-datetime";
 import { effectiveRiskDescription } from "../core-risk-status";
 import { RouterLink } from "vue-router";
+import MerchantRecords from "./MerchantRecords.vue";
 import { groupDirectoryRates, groupUsersHref } from "../group-directory";
 import {
   groupPaymentRatesError,
@@ -1651,6 +1652,7 @@ onBeforeUnmount(resetContext);
     <form
       v-if="!entry && showListFilter"
       class="toolbar list-filter-card panel resource-filter"
+      :aria-label="client.area === 'merchant' ? '筛选记录' : undefined"
       @submit.prevent="
         page = 1;
         load();
@@ -1750,6 +1752,7 @@ onBeforeUnmount(resetContext);
       v-else-if="!entry || schema?.description || showBusinessNotices"
       ref="resourcePanel"
       class="panel records"
+      :class="{ 'merchant-resource-records': client.area === 'merchant' }"
     >
       <div v-if="!entry && (schema || !loading)" class="table-tools">
         <a
@@ -1781,7 +1784,12 @@ onBeforeUnmount(resetContext);
                 : "新增" + entityLabel
           }}
         </button>
-        <span v-if="summaryNoun" class="table-summary"
+        <span
+          v-if="client.area === 'merchant' && !loading && !error"
+          class="merchant-list-count"
+          >共 {{ total }} 条</span
+        >
+        <span v-else-if="summaryNoun" class="table-summary"
           >系统共有<strong>{{ total }}</strong
           >个{{ summaryNoun }}</span
         >
@@ -1841,11 +1849,30 @@ onBeforeUnmount(resetContext);
           />
         </div>
       </div>
+      <p
+        v-if="!entry && resource === 'domains' && client.area === 'merchant'"
+        class="merchant-resource-hint muted"
+      >
+        提交域名后，平台审核通过方可使用。
+      </p>
       <div v-if="loading" class="loading-row" role="status">正在加载记录…</div>
-      <div v-else-if="schema && !entry" class="table-scroll">
-        <table>
+      <MerchantRecords
+        v-else-if="schema && !entry"
+        class="table-scroll"
+        :stacked="client.area === 'merchant' && !canBatchDelete"
+        :role="
+          client.area === 'merchant' && items.length ? 'region' : undefined
+        "
+        :aria-label="
+          client.area === 'merchant' && items.length
+            ? schema.title + '列表'
+            : undefined
+        "
+        :tabindex="client.area === 'merchant' && items.length ? 0 : undefined"
+      >
+        <table role="table">
           <thead>
-            <tr>
+            <tr role="row">
               <th v-if="canBatchDelete" scope="col" class="select-col">
                 <input
                   type="checkbox"
@@ -1904,7 +1931,7 @@ onBeforeUnmount(resetContext);
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in items" :key="String(row.id)">
+            <tr v-for="row in items" :key="String(row.id)" role="row">
               <td v-if="canBatchDelete" class="select-col">
                 <input
                   type="checkbox"
@@ -1919,7 +1946,7 @@ onBeforeUnmount(resetContext);
                   "
                 />
               </td>
-              <td class="resource-record-id">
+              <td class="resource-record-id" role="cell" data-cell-label="编号">
                 {{ row.id }}
                 <small
                   v-if="isOriginalMerchantList && typeof row.name === 'string'"
@@ -1952,6 +1979,10 @@ onBeforeUnmount(resetContext);
               <td
                 v-for="field in listFields"
                 :key="field.name"
+                role="cell"
+                :data-cell-label="
+                  client.area === 'merchant' ? field.label : undefined
+                "
                 :class="{ 'pa-order-no': isOrderNumberKey(field.name) }"
               >
                 <template v-if="isOriginalMerchantList && field.name === 'pay'">
@@ -2109,7 +2140,7 @@ onBeforeUnmount(resetContext);
                   >
                 </template>
               </td>
-              <td>
+              <td role="cell" data-cell-actions>
                 <div class="row-actions">
                   <RouterLink
                     v-if="
@@ -2234,12 +2265,22 @@ onBeforeUnmount(resetContext);
                 "
                 class="empty"
               >
-                <KitEmpty text="暂无记录，可通过上方操作添加" />
+                <KitEmpty
+                  :text="
+                    client.area === 'merchant'
+                      ? resource === 'domains'
+                        ? '暂无匹配的授权域名'
+                        : resource === 'onboarding-applications'
+                          ? '暂无匹配的进件记录'
+                          : '暂无匹配的记录'
+                      : '暂无记录，可通过上方操作添加'
+                  "
+                />
               </td>
             </tr>
           </tbody>
         </table>
-      </div>
+      </MerchantRecords>
       <KitPagination
         v-if="!entry"
         v-model:page="page"
@@ -2339,8 +2380,19 @@ onBeforeUnmount(resetContext);
     @close="delegation = null"
     @configure-login="configureDelegatedMerchantLogin"
   />
-  <div v-if="entry" class="toolbar">
-    <a :href="entry.returnPath">返回进件资料列表</a>
+  <div
+    v-if="entry"
+    class="toolbar"
+    :class="{ 'merchant-entry-toolbar': client.area === 'merchant' }"
+  >
+    <RouterLink
+      v-if="client.area === 'merchant'"
+      class="merchant-entry-back"
+      :to="entry.returnPath"
+    >
+      <ShellIcon name="chevronLeft" />返回进件资料列表
+    </RouterLink>
+    <a v-else :href="entry.returnPath">返回进件资料列表</a>
   </div>
   <div
     v-if="mode && schema"

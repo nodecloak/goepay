@@ -2,6 +2,7 @@ import { createApp } from "vue";
 import { createRouter, createWebHistory } from "vue-router";
 import App from "./App.vue";
 import "./style.css";
+import "./merchant-workspace.css";
 import { applyTheme, storedTheme } from "./theme";
 import { capturePromotionPrefill } from "./referral";
 import { installDocumentBoundary202 } from "./document-boundary202";

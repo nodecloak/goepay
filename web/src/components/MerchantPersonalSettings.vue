@@ -204,7 +204,11 @@ watch(
 onBeforeUnmount(() => clear());
 </script>
 <template>
-  <section class="panel personal-settings" :aria-label="title">
+  <section
+    class="panel personal-settings"
+    :class="{ 'personal-settings--contact': section === 'contact' }"
+    :aria-label="title"
+  >
     <div class="personal-heading">
       <h2>{{ title }}</h2>
     </div>
@@ -318,6 +322,12 @@ onBeforeUnmount(() => clear());
   flex-direction: column;
   gap: 8px;
   min-width: 0;
+}
+.personal-settings--contact .personal-fields label:first-child {
+  grid-column: 1 / -1;
+}
+.personal-settings--contact input[name="qq"] {
+  max-width: 20rem;
 }
 .money-field {
   display: flex;

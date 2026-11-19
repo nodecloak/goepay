@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ApiError, type ApiClient } from "../api";
 import type { Area } from "../menu";
 import { money, datetime } from "../pro-console-fields";
@@ -30,6 +30,7 @@ import {
 } from "../complaints";
 import KitFilterBar from "./KitFilterBar.vue";
 import KitField from "./KitField.vue";
+import MerchantRecords from "./MerchantRecords.vue";
 import KitInput from "./KitInput.vue";
 import KitSelect from "./KitSelect.vue";
 import KitStatusTag from "./KitStatusTag.vue";
@@ -193,18 +194,45 @@ const amountCell = (a: string) => (/^\d+$/.test(a) ? "¥" + money(a) : "-");
 // ---- detail + reply + complete dialog ----
 const detail = ref<ComplaintDetailRow | null>(null);
 const detailBusy = ref(false);
+const detailLoading = ref(false);
 const replyText = ref("");
 const nextStatus = ref("processing");
+let detailRead: AbortController | undefined;
+function closeDetail() {
+  detailRead?.abort();
+  detailRead = undefined;
+  detailLoading.value = false;
+  detail.value = null;
+}
 async function openDetail(row: ComplaintRow) {
+  detailRead?.abort();
+  const read = new AbortController();
+  detailRead = read;
+  detailLoading.value = true;
   detail.value = { ...row, images: [], negotiation: [] };
   replyText.value = "";
+  refundAmount.value = "";
   nextStatus.value = row.status === "open" ? "processing" : "resolved";
   error.value = "";
+  notice.value = "";
   try {
-    detail.value = await fetchComplaint(props.client, row.id);
+    const result = await fetchComplaint(props.client, row.id, read.signal);
+    if (detailRead !== read) return;
+    if (result.id !== row.id) {
+      closeDetail();
+      error.value = "投诉详情与所选记录不匹配，请重新查询。";
+      return;
+    }
+    detail.value = result;
   } catch (e) {
+    if (detailRead !== read) return;
     if (!(e instanceof ApiError && e.status === 404))
       error.value = e instanceof Error ? e.message : "读取投诉详情失败";
+  } finally {
+    if (detailRead === read) {
+      detailRead = undefined;
+      detailLoading.value = false;
+    }
   }
 }
 // ---- Pro 处理投诉 dialog: provider actions + refund-with-password ----
@@ -219,7 +247,7 @@ const refundAmount = ref("");
 
 // 回复用户 through the channel (provider) API.
 async function submitProviderReply() {
-  if (!detail.value || detailBusy.value) return;
+  if (!detail.value || detailBusy.value || detailLoading.value) return;
   const text = replyText.value.trim();
   if (!text) {
     error.value = "请输入回复内容";
@@ -240,7 +268,7 @@ async function submitProviderReply() {
 }
 // 补充凭证 (Alipay only).
 async function submitSupplement() {
-  if (!detail.value || detailBusy.value) return;
+  if (!detail.value || detailBusy.value || detailLoading.value) return;
   const text = replyText.value.trim();
   if (!text) {
     error.value = "请输入补充说明";
@@ -259,7 +287,7 @@ async function submitSupplement() {
 }
 // 处理 through the provider (微信反馈完成 / 支付宝处理) then advance local state.
 async function submitProviderComplete() {
-  if (!detail.value || detailBusy.value) return;
+  if (!detail.value || detailBusy.value || detailLoading.value) return;
   detailBusy.value = true;
   error.value = "";
   try {
@@ -283,7 +311,7 @@ async function submitProviderComplete() {
 // 退款审批: refund-on-complaint goes through GOEPAY's EXISTING order refund flow,
 // which prompts for the admin funds password (funds authorization) itself.
 async function submitRefund() {
-  if (!detail.value || detailBusy.value) return;
+  if (!detail.value || detailBusy.value || detailLoading.value) return;
   const trade = detail.value.trade_no;
   if (!trade) {
     error.value = "该投诉未关联订单，无法退款";
@@ -565,6 +593,7 @@ function reload() {
 
 watch(view, reload);
 onMounted(reload);
+onBeforeUnmount(closeDetail);
 </script>
 
 <template>
@@ -573,10 +602,18 @@ onMounted(reload);
     class="list-page complain-page"
     aria-label="交易投诉"
   >
-    <section class="panel records" aria-label="交易投诉未启用">
+    <section
+      class="panel records"
+      :class="{ 'complain-feature-state': area === 'merchant' }"
+      aria-label="交易投诉未启用"
+    >
       <h2>交易投诉尚未启用</h2>
       <p class="muted">
-        平台已关闭交易投诉功能，当前不能获取、处理投诉或维护同步任务。
+        {{
+          area === "merchant"
+            ? "平台当前关闭了投诉查询和处理。"
+            : "平台已关闭交易投诉功能，当前不能获取、处理投诉或维护同步任务。"
+        }}
       </p>
       <p v-if="!canConfigure || area !== 'admin'" class="muted">
         如需使用，请联系平台管理员。
@@ -599,9 +636,16 @@ onMounted(reload);
       </div>
     </section>
   </div>
-  <div v-else class="list-page complain-page" aria-label="交易投诉">
-    <p v-if="error" class="alert error" role="alert">{{ error }}</p>
-    <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
+  <div
+    v-else
+    class="list-page complain-page"
+    :class="{ 'complain-merchant': area === 'merchant' }"
+    aria-label="交易投诉"
+  >
+    <p v-if="error && !detail" class="alert error" role="alert">{{ error }}</p>
+    <p v-if="notice && !detail" class="alert success" role="status">
+      {{ notice }}
+    </p>
 
     <!-- 投诉记录 -->
     <template v-if="view === 'list'">
@@ -682,6 +726,9 @@ onMounted(reload);
 
       <section class="panel records" aria-label="投诉记录">
         <div class="table-tools">
+          <h2 v-if="area === 'merchant'" class="complain-table-title">
+            投诉记录
+          </h2>
           <button
             type="button"
             class="pa-btn"
@@ -726,10 +773,10 @@ onMounted(reload);
           </template>
         </div>
 
-        <div class="table-scroll">
-          <table class="pa-table">
-            <thead>
-              <tr>
+        <MerchantRecords class="table-scroll" :stacked="area === 'merchant'">
+          <table class="pa-table" role="table">
+            <thead role="rowgroup">
+              <tr role="row">
                 <th>ID</th>
                 <th>商户号</th>
                 <th>关联订单号</th>
@@ -742,29 +789,48 @@ onMounted(reload);
                 <th>操作</th>
               </tr>
             </thead>
-            <tbody>
-              <tr v-for="row in rows" :key="row.id">
-                <td class="pa-c-num">{{ row.id }}</td>
-                <td>{{ row.merchant_id || "-" }}</td>
-                <td>
+            <tbody role="rowgroup">
+              <tr v-for="row in rows" :key="row.id" role="row">
+                <td class="pa-c-num" data-cell-label="投诉 ID" role="cell">
+                  {{ row.id }}
+                </td>
+                <td data-cell-label="商户号" role="cell">
+                  {{ row.merchant_id || "-" }}
+                </td>
+                <td data-cell-label="关联订单号" data-cell-wide role="cell">
                   <span class="pa-c-mono">{{ row.trade_no || "-" }}</span>
                 </td>
-                <td>
+                <td data-cell-label="问题类型" role="cell">
                   <KitPayMethod v-if="row.pay_type" :type="row.pay_type" />
                   <span v-else>-</span>
                   <small class="muted">{{ row.subject || "-" }}</small>
                 </td>
-                <td class="pa-c-num">{{ amountCell(row.amount) }}</td>
-                <td class="complain-detail">{{ row.content || "-" }}</td>
-                <td>{{ row.created_at ? datetime(row.created_at) : "-" }}</td>
-                <td>
+                <td class="pa-c-num" data-cell-label="订单金额" role="cell">
+                  {{ amountCell(row.amount) }}
+                </td>
+                <td
+                  class="complain-detail"
+                  data-cell-label="投诉详情"
+                  data-cell-wide
+                  role="cell"
+                >
+                  <span class="complain-detail-preview">{{
+                    row.content || "-"
+                  }}</span>
+                </td>
+                <td data-cell-label="创建时间" role="cell">
+                  {{ row.created_at ? datetime(row.created_at) : "-" }}
+                </td>
+                <td data-cell-label="状态" role="cell">
                   <KitStatusTag
                     :text="complaintStatusWords[row.status] || row.status"
                     :tone="complaintStatusTone[row.status] || 'neutral'"
                   />
                 </td>
-                <td class="pa-c-num">{{ row.times || "1" }}</td>
-                <td>
+                <td class="pa-c-num" data-cell-label="投诉次数" role="cell">
+                  {{ row.times || "1" }}
+                </td>
+                <td data-cell-actions role="cell">
                   <button
                     type="button"
                     class="pa-btn"
@@ -775,15 +841,23 @@ onMounted(reload);
                   </button>
                 </td>
               </tr>
-              <tr v-if="loaded && !rows.length">
-                <td colspan="10"><KitEmpty text="暂无数据" /></td>
+              <tr v-if="loaded && !rows.length && !error" role="row">
+                <td colspan="10" role="cell">
+                  <KitEmpty
+                    :text="
+                      area === 'merchant'
+                        ? '未找到符合筛选条件的投诉'
+                        : '暂无数据'
+                    "
+                  />
+                </td>
               </tr>
-              <tr v-if="!loaded && !error">
-                <td colspan="10"><KitEmpty text="正在加载…" /></td>
+              <tr v-if="!loaded && !error" role="row">
+                <td colspan="10" role="cell"><KitEmpty text="正在加载…" /></td>
               </tr>
             </tbody>
           </table>
-        </div>
+        </MerchantRecords>
 
         <KitPagination
           v-model:page="page"
@@ -1027,12 +1101,18 @@ onMounted(reload);
       v-if="detail"
       title="处理投诉"
       :loading="detailBusy"
+      :submit-disabled="detailLoading"
       submit-text="渠道处理并完成"
       drawer
       width="600px"
-      @close="detail = null"
+      @close="closeDetail"
       @submit="submitProviderComplete"
     >
+      <p v-if="detailLoading" role="status" class="muted">
+        正在读取最新投诉详情…
+      </p>
+      <p v-if="error" class="alert error" role="alert">{{ error }}</p>
+      <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
       <KitField label="投诉单号">
         <div class="pa-c-mono">{{ detail.id }}</div>
       </KitField>
@@ -1151,7 +1231,7 @@ onMounted(reload);
           type="button"
           class="pa-btn pa-btn--success"
           data-action="reply"
-          :disabled="detailBusy"
+          :disabled="detailBusy || detailLoading"
           @click="submitProviderReply"
         >
           回复用户
@@ -1161,7 +1241,7 @@ onMounted(reload);
           type="button"
           class="pa-btn"
           data-action="supplement"
-          :disabled="detailBusy"
+          :disabled="detailBusy || detailLoading"
           @click="submitSupplement"
         >
           补充凭证
@@ -1170,7 +1250,7 @@ onMounted(reload);
           type="button"
           class="pa-btn pa-btn--danger"
           data-action="refund"
-          :disabled="detailBusy || !detail.trade_no"
+          :disabled="detailBusy || detailLoading || !detail.trade_no"
           @click="submitRefund"
         >
           退款审批
@@ -1229,6 +1309,30 @@ onMounted(reload);
 /* Today / yesterday (and 7-day rate) as the dashboard's stat cards, one row. */
 .complain-stat-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.complain-merchant .complain-stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+}
+.complain-merchant .complain-table-title {
+  margin-inline-end: var(--space-2);
+  font-size: 1rem;
+}
+.complain-feature-state {
+  max-width: 46rem;
+  margin-inline-end: auto;
+  border-inline-start: 3px solid var(--warning);
+}
+.complain-feature-state h2 {
+  margin-top: 0;
+  font-size: 1rem;
+}
+@container merchant-records (max-width: 760px) {
+  .complain-merchant .complain-detail-preview {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
 }
 .complain-presets {
   display: flex;

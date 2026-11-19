@@ -108,6 +108,7 @@ onBeforeUnmount(() => {
       aria-modal="true"
       :aria-labelledby="id + '-title'"
       class="modal panel refund-summary"
+      :data-summary-area="client.area"
       tabindex="-1"
       @keydown="keydown"
     >
@@ -178,5 +179,18 @@ onBeforeUnmount(() => {
 }
 .refund-summary > p {
   line-height: 1.7;
+}
+.refund-summary[data-summary-area="merchant"] .refund-summary-grid {
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+.refund-summary[data-summary-area="merchant"]
+  .refund-summary-grid
+  > div:first-child {
+  background: var(--primary-soft);
+}
+.refund-summary .modal-actions {
+  flex-wrap: wrap;
 }
 </style>

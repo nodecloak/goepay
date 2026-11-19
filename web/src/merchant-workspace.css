@@ -1,0 +1,288 @@
+body:has(.workspace[data-area="merchant"]) {
+  --bg-page: #101827;
+  --bg-sidebar: #142033;
+  --bg-card: #19263b;
+  --bg-raised: #1e2e46;
+  --bg-hover: #22344e;
+  --line: #2c3d57;
+  --line-control: #5b6d88;
+  --ink: #eff4fc;
+  --ink-muted: #afbdd2;
+  --primary-soft: #233962;
+  --primary-text: #adc6ff;
+  --chart-grid: var(--line);
+  --chart-axis: var(--line-control);
+  --paper: var(--bg-card);
+  --nav: var(--bg-sidebar);
+  --muted: var(--ink-muted);
+  --accent: var(--primary-text);
+}
+
+[data-theme="light"] body:has(.workspace[data-area="merchant"]) {
+  --bg-page: #f2f5fa;
+  --bg-sidebar: #fcfdff;
+  --bg-card: #ffffff;
+  --bg-raised: #edf2f9;
+  --bg-hover: #edf3fc;
+  --line: #dce5f1;
+  --line-control: #788aa4;
+  --ink: #17263d;
+  --ink-muted: #54667e;
+  --primary-soft: #e5edff;
+  --primary-text: #244eaa;
+}
+
+.workspace[data-area="merchant"] {
+  --sidebar-width: 228px;
+  --topbar-h: 56px;
+  background: var(--bg-page);
+  color: var(--ink);
+}
+
+.workspace[data-area="merchant"].sidebar-collapsed {
+  --sidebar-width: 64px;
+}
+
+.workspace[data-area="merchant"] :is(.menu a, .menu summary) {
+  border-radius: var(--radius-md);
+}
+
+.workspace[data-area="merchant"] .menu a[aria-current="page"] {
+  box-shadow: inset 3px 0 var(--primary);
+  font-weight: 600;
+}
+
+.workspace[data-area="merchant"] .merchant-docs-link {
+  font-size: 13px;
+  min-height: 48px;
+}
+
+.merchant-docs-link:hover {
+  background: var(--bg-hover);
+}
+
+.merchant-skip-link {
+  position: fixed;
+  inset: var(--space-3) auto auto var(--space-3);
+  z-index: 50;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--primary-text);
+  transform: translateY(calc(-100% - var(--space-3)));
+}
+
+.merchant-skip-link:focus {
+  transform: translateY(0);
+}
+
+.merchant-content {
+  width: 100%;
+  max-width: 1520px;
+  margin-inline: auto;
+  padding: clamp(16px, 2.3vw, 32px);
+  scroll-margin-top: var(--topbar-h);
+}
+
+.merchant-content:focus {
+  outline: none;
+}
+
+.merchant-page-header {
+  margin-block: 0 var(--space-5);
+}
+
+.merchant-page-header h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(20px, 2.4vw, 26px);
+  line-height: 1.35;
+  font-weight: 670;
+  overflow-wrap: anywhere;
+}
+
+.merchant-content .merchant-list-count {
+  color: var(--ink-muted);
+  font-size: 13px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.merchant-content .merchant-resource-hint {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-block: 1px solid var(--line);
+}
+
+.merchant-content .merchant-entry-toolbar {
+  padding: 0;
+  margin-block-end: var(--space-4);
+}
+
+.merchant-entry-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  gap: var(--space-2);
+  color: var(--primary-text);
+}
+
+.merchant-content .merchant-resource-records .table-scroll:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.login-layout[data-area="merchant"] {
+  grid-template-columns: minmax(230px, 0.73fr) minmax(0, 1fr);
+  max-width: 920px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+}
+
+.login-layout[data-area="merchant"] .login-intro {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: var(--space-3);
+  background: #172b49;
+  text-align: start;
+}
+
+.login-layout[data-area="merchant"] .login-intro .brand {
+  position: relative;
+  inset: auto;
+  color: #fff;
+}
+
+.login-layout[data-area="merchant"] .login-intro::before,
+.login-layout[data-area="merchant"] .login-intro::after {
+  display: none;
+}
+
+.login-layout[data-area="merchant"] .merchant-login-brand-label {
+  display: block;
+  margin: 0;
+  color: #c8d9f5;
+}
+
+.login-layout[data-area="merchant"] .login-panel h1 {
+  margin: 0 0 var(--space-3);
+  font-size: clamp(24px, 3vw, 28px);
+}
+
+.login-layout[data-area="merchant"] .merchant-login-modes {
+  width: fit-content;
+  max-width: 100%;
+  gap: 4px;
+  padding: 4px;
+  margin-block: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+}
+
+.login-layout[data-area="merchant"] .merchant-login-modes > button {
+  padding-inline: var(--space-3);
+}
+
+.login-layout[data-area="merchant"]
+  .merchant-login-modes
+  > [aria-pressed="true"] {
+  background: var(--bg-card);
+  color: var(--primary-text);
+}
+
+@media (max-width: 768px) {
+  .workspace[data-area="merchant"] .console-sidebar {
+    width: min(272px, calc(100vw - 64px));
+  }
+
+  .workspace[data-area="merchant"] .merchant-sidebar-close {
+    position: absolute;
+    inset: var(--space-3) var(--space-2) auto auto;
+    width: 44px;
+    min-height: 44px;
+  }
+
+  .workspace[data-area="merchant"] :is(.menu a, .menu summary) {
+    min-height: 44px;
+  }
+
+  .workspace[data-area="merchant"] .topbar {
+    min-height: var(--topbar-h);
+    gap: 6px;
+  }
+
+  .workspace[data-area="merchant"] .mobile-nav {
+    width: 44px;
+    min-height: 44px;
+  }
+
+  .merchant-content {
+    padding: var(--space-4) var(--space-3);
+  }
+
+  .merchant-page-header {
+    margin-block-end: var(--space-4);
+  }
+
+  .merchant-content .table-tools {
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .merchant-content .merchant-transaction-filters {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: var(--space-3);
+  }
+
+  .merchant-transaction-filters > .search-group > .pa-field,
+  .merchant-transaction-filters .list-filters-grid > .pa-field {
+    min-width: 0;
+  }
+
+  .merchant-transaction-filters .pa-filter-actions {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+
+  .login-layout[data-area="merchant"] {
+    border: 0;
+  }
+
+  .login-layout[data-area="merchant"] .login-intro {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    min-height: 0;
+    padding: var(--space-4) var(--space-5);
+  }
+
+  .login-layout[data-area="merchant"] .login-intro .brand {
+    font-size: 19px;
+  }
+
+  .login-layout[data-area="merchant"] .login-panel {
+    padding: var(--space-6) var(--space-5);
+  }
+
+  .login-layout[data-area="merchant"]
+    :is(input, .merchant-login-modes > button) {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 359px) {
+  .merchant-content .merchant-transaction-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace[data-area="merchant"]
+    :is(.console-sidebar, .main-content, .menu-chevron) {
+    transition: none;
+  }
+}

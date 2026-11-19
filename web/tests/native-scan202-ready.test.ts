@@ -99,8 +99,9 @@ async function readyCashier202(failSecondConfiguration = false) {
   }) as typeof client.request;
 
   const wrapper = mount(MerchantScanPage192, {
+    attachTo: document.body,
     props: { client, ownSession: true, merchantID: "1" },
-    global: { stubs: { RouterLink: true } },
+    global: { stubs: { RouterLink: true, teleport: true } },
   });
   wrappers.push(wrapper);
   await flushPromises();

@@ -16,6 +16,7 @@ interface ThirdParty {
   bound: boolean;
 }
 const loading = ref(false),
+  bindingLoaded = ref(false),
   busy = ref(false),
   error = ref(""),
   notice = ref(""),
@@ -32,12 +33,14 @@ function title(p: string) {
   return providerTitles[p] ?? p;
 }
 async function load() {
-  if (busy.value) return;
+  ac?.abort();
   loading.value = true;
+  bindingLoaded.value = false;
   error.value = "";
   const client = toRaw(props.client),
     control = new AbortController();
   ac = control;
+  const current = () => alive && ac === control && !control.signal.aborted;
   try {
     const v = await client.request<{
       mobile: string;
@@ -45,19 +48,20 @@ async function load() {
       sms_ready: boolean;
       third_party: ThirdParty[];
     }>("/account/bindings", { signal: control.signal });
-    if (!alive) return;
+    if (!current()) return;
     mobile.value = String(v.mobile ?? "");
     mobileBound.value = v.mobile_bound === true;
     smsReady.value = v.sms_ready === true;
     thirdParty.value = Array.isArray(v.third_party) ? v.third_party : [];
+    bindingLoaded.value = true;
   } catch {
-    if (alive) error.value = "无法读取绑定状态";
+    if (current()) error.value = "无法读取绑定状态";
   } finally {
-    if (alive) loading.value = false;
+    if (current()) loading.value = false;
   }
 }
 function openBind() {
-  if (!smsReady.value) return;
+  if (!bindingLoaded.value || !smsReady.value) return;
   form.value = { phone: "", code: "" };
   error.value = "";
   notice.value = "";
@@ -169,7 +173,11 @@ onBeforeUnmount(() => {
     <p v-if="error" class="alert error" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert success" role="status">{{ notice }}</p>
     <p v-if="loading" role="status">正在读取绑定状态…</p>
-    <dl class="account-profile-facts" aria-label="密保手机">
+    <dl
+      v-if="bindingLoaded"
+      class="account-profile-facts"
+      aria-label="密保手机"
+    >
       <div>
         <dt>密保手机</dt>
         <dd>
@@ -187,8 +195,8 @@ onBeforeUnmount(() => {
         </dd>
       </div>
     </dl>
-    <h3>第三方账号</h3>
-    <ul class="bindings-list">
+    <h3 v-if="bindingLoaded && thirdParty.length">第三方账号</h3>
+    <ul v-if="bindingLoaded && thirdParty.length" class="bindings-list">
       <li v-for="p in thirdParty" :key="p.provider">
         <span>{{ title(p.provider) }}快捷登录</span>
         <span v-if="p.bound" class="bindings-actions">
@@ -261,17 +269,20 @@ onBeforeUnmount(() => {
 }
 .bindings-list li {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
 }
 .bindings-actions {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
 }
 .bindings-code {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }

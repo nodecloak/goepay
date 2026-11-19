@@ -73,6 +73,11 @@ it("shows mobile + third-party bind state and unbinds a bound provider", async (
       (c) => c.method === "DELETE" && c.path === "/account/bindings/connect/qq",
     ),
   ).toBe(true);
+  expect(w.findAll("button").some((b) => b.text() === "解绑")).toBe(false);
+  expect(calls.at(-1)).toMatchObject({
+    method: "GET",
+    path: "/account/bindings",
+  });
   w.unmount();
 });
 
@@ -106,6 +111,7 @@ it("sends a code and binds the mobile through the authenticated routes", async (
   const bind = calls.find((c) => c.path === "/account/bindings/mobile");
   expect(bind.method).toBe("POST");
   expect(bind.body).toEqual({ phone: "13800138000", code: "654321" });
+  expect(w.text()).toContain("138****8000");
   w.unmount();
 });
 

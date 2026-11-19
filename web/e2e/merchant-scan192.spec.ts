@@ -106,6 +106,14 @@ for (const width of [375, 1280])
     await page.getByLabel("收款备注", { exact: true }).fill("本地收款");
     await page.getByRole("button", { name: "确认备注", exact: true }).click();
     await page.getByRole("button", { name: "扫一扫收款", exact: true }).click();
+    const scanDialog = page.getByRole("dialog", {
+      name: "扫描付款码",
+      exact: true,
+    });
+    await expect(scanDialog.locator("video")).toBeHidden();
+    await expect(
+      scanDialog.getByLabel("付款码", { exact: true }),
+    ).toBeFocused();
     await page.getByLabel("付款码", { exact: true }).fill("134567890123456789");
     await page.getByRole("button", { name: "核对收款", exact: true }).click();
     await expect(

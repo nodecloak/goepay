@@ -119,7 +119,25 @@ for (const area of ["admin", "merchant"] as const) {
       expect((await addressField.boundingBox())!.height).toBeLessThan(100);
       const recipientRow = page.locator(".crypto-table tbody tr").first();
       await expect(recipientRow).toBeVisible();
-      expect((await recipientRow.boundingBox())!.height).toBeLessThan(120);
+      if (area === "merchant" && width === 375) {
+        const address = recipientRow.locator(".crypto-address");
+        await expect(address).toHaveAttribute("data-cell-label", "地址");
+        expect(
+          await page.locator(".crypto-table").evaluate((table) => {
+            const row = table.querySelector("tbody > tr")!;
+            return {
+              layout: getComputedStyle(row).display,
+              fullyVisible: table.scrollWidth <= table.clientWidth,
+            };
+          }),
+        ).toEqual({ layout: "grid", fullyVisible: true });
+        await expect(
+          recipientRow.getByRole("button", { name: "撤销绑定", exact: true }),
+        ).toBeVisible();
+        expect((await address.boundingBox())!.height).toBeLessThan(100);
+      } else {
+        expect((await recipientRow.boundingBox())!.height).toBeLessThan(120);
+      }
       expect(writes).toEqual([]);
     });
   }

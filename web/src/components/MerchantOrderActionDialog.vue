@@ -199,7 +199,7 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <div class="modal-backdrop" @keydown.esc="close">
+  <div class="modal-backdrop" @keydown.esc="close" @click.self="close">
     <section
       ref="dialog"
       class="modal panel merchant-order-dialog"
@@ -221,7 +221,8 @@ onBeforeUnmount(() => {
         </button>
       </div>
       <p class="original-order-number">
-        原订单：<span class="pa-order-no">{{ tradeNo }}</span>
+        <span class="muted">原订单</span>
+        <span class="pa-order-no">{{ tradeNo }}</span>
       </p>
       <p v-if="loading" role="status">正在核对原订单权限与状态…</p>
       <p v-if="error" class="alert error" role="alert">{{ error }}</p>
@@ -267,12 +268,25 @@ onBeforeUnmount(() => {
 </template>
 <style scoped>
 .merchant-order-dialog {
-  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   overflow-y: auto;
-  max-width: 680px;
+  width: min(100%, 680px);
 }
 .original-order-number {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
+}
+.original-order-number .pa-order-no {
+  white-space: normal;
+}
+.merchant-order-dialog .modal-actions {
+  flex-wrap: wrap;
 }
 </style>
